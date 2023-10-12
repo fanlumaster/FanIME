@@ -11,7 +11,7 @@ class CSampleIME;
 
 class CTfTextLayoutSink : public ITfTextLayoutSink
 {
-public:
+  public:
     CTfTextLayoutSink(_In_ CSampleIME *pTextService);
     virtual ~CTfTextLayoutSink();
 
@@ -27,20 +27,23 @@ public:
     VOID _EndLayout();
 
     HRESULT _GetTextExt(_Out_ RECT *lpRect);
-    ITfContext* _GetContextDocument() { return _pContextDocument; };
+    ITfContext *_GetContextDocument()
+    {
+        return _pContextDocument;
+    };
 
     virtual VOID _LayoutChangeNotification(_In_ RECT *lpRect) = 0;
     virtual VOID _LayoutDestroyNotification() = 0;
 
-private:
+  private:
     HRESULT _AdviseTextLayoutSink();
     HRESULT _UnadviseTextLayoutSink();
 
-private:
-    ITfRange* _pRangeComposition;
-    ITfContext* _pContextDocument;
+  private:
+    ITfRange *_pRangeComposition;
+    ITfContext *_pContextDocument;
     TfEditCookie _tfEditCookie;
-    CSampleIME* _pTextService;
+    CSampleIME *_pTextService;
     DWORD _dwCookieTextLayoutSink;
     LONG _refCount;
 };

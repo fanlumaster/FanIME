@@ -5,14 +5,13 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-
 #pragma once
 
 #include "BaseWindow.h"
 
 class CButtonWindow : public CBaseWindow
 {
-public:
+  public:
     CButtonWindow();
     virtual ~CButtonWindow();
 
@@ -22,6 +21,6 @@ public:
     virtual void _OnLButtonDown(POINT pt);
     virtual void _OnLButtonUp(POINT pt);
 
-protected:
-    UINT typeOfControl;    // DFCS_PUSHED, DFCS_INACTIVE or others for DrawFrameControl
+  protected:
+    UINT typeOfControl; // DFCS_PUSHED, DFCS_INACTIVE or others for DrawFrameControl
 };

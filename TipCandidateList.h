@@ -15,11 +15,11 @@
 
 class CTipCandidateList : public ITfCandidateList
 {
-protected:
+  protected:
     CTipCandidateList(size_t candStrReserveSize);
     virtual ~CTipCandidateList();
 
-public:
+  public:
     static HRESULT CreateInstance(_Outptr_ ITfCandidateList **ppobj, size_t candStrReserveSize = 0);
     static HRESULT CreateInstance(REFIID riid, _Outptr_ void **ppvObj, size_t candStrReserveSize = 0);
 
@@ -36,8 +36,7 @@ public:
 
     virtual STDMETHODIMP SetCandidate(_In_ ITfCandidateString **ppCandStr);
 
-protected:
+  protected:
     long _refCount;
-    CSampleImeArray<ITfCandidateString*> _tfCandStrList;
+    CSampleImeArray<ITfCandidateString *> _tfCandStrList;
 };
-

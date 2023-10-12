@@ -56,15 +56,15 @@ BOOL CBaseWindow::_InitWindowClass(_In_ LPCWSTR lpwszClassName, _Out_ ATOM *pato
 {
     WNDCLASS wc;
 
-    wc.style         = CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW | CS_IME;
-    wc.lpfnWndProc   = CBaseWindow::_WindowProc;
-    wc.cbClsExtra    = 0;
-    wc.cbWndExtra    = 0;
-    wc.hInstance     = Global::dllInstanceHandle;
-    wc.hIcon         = nullptr;
-    wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
+    wc.style = CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW | CS_IME;
+    wc.lpfnWndProc = CBaseWindow::_WindowProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = Global::dllInstanceHandle;
+    wc.hIcon = nullptr;
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
-    wc.lpszMenuName  = nullptr;
+    wc.lpszMenuName = nullptr;
     wc.lpszClassName = lpwszClassName;
 
     *patom = RegisterClass(&wc);
@@ -93,7 +93,8 @@ void CBaseWindow::_UninitWindowClass(ATOM atom)
 //
 //----------------------------------------------------------------------------
 
-BOOL CBaseWindow::_Create(ATOM atom, DWORD dwExStyle, DWORD dwStyle, _In_opt_ CBaseWindow *pParentWnd, int wndWidth, int wndHeight, _In_opt_ HWND parentWndHandle)
+BOOL CBaseWindow::_Create(ATOM atom, DWORD dwExStyle, DWORD dwStyle, _In_opt_ CBaseWindow *pParentWnd, int wndWidth,
+                          int wndHeight, _In_opt_ HWND parentWndHandle)
 {
     _pParentWnd = pParentWnd;
 
@@ -101,16 +102,10 @@ BOOL CBaseWindow::_Create(ATOM atom, DWORD dwExStyle, DWORD dwStyle, _In_opt_ CB
     {
         // create real window
 
-        _wndHandle = CreateWindowEx(dwExStyle,
-            (LPCTSTR)atom,
-            NULL,
-            dwStyle,
-            0, 0,
-            wndWidth, wndHeight,
-            _pParentWnd ? _pParentWnd->_GetWnd() : parentWndHandle,    // parentWndHandle
-            NULL,
-            Global::dllInstanceHandle,
-            this);   // lpParam
+        _wndHandle = CreateWindowEx(dwExStyle, (LPCTSTR)atom, NULL, dwStyle, 0, 0, wndWidth, wndHeight,
+                                    _pParentWnd ? _pParentWnd->_GetWnd() : parentWndHandle, // parentWndHandle
+                                    NULL, Global::dllInstanceHandle,
+                                    this); // lpParam
 
         if (!_wndHandle)
         {
@@ -331,7 +326,8 @@ BOOL CBaseWindow::_GetClientRect(_Inout_ LPRECT lpRect)
 //
 //----------------------------------------------------------------------------
 
-HRESULT CBaseWindow::_GetWindowExtent(_In_ const RECT *prcTextExtent, _In_opt_ RECT *prcCandidateExtent, _Inout_ POINT *pptCandidate)
+HRESULT CBaseWindow::_GetWindowExtent(_In_ const RECT *prcTextExtent, _In_opt_ RECT *prcCandidateExtent,
+                                      _Inout_ POINT *pptCandidate)
 {
     RECT rcWorkArea = {0, 0, 0, 0};
 
@@ -353,7 +349,8 @@ HRESULT CBaseWindow::_GetWindowExtent(_In_ const RECT *prcTextExtent, _In_opt_ R
 //
 //----------------------------------------------------------------------------
 
-void CBaseWindow::CalcFitPointAroundTextExtent(_In_ const RECT *prcTextExtent, _In_ const RECT *prcWorkArea, _In_ const RECT *prcWindow, _Out_ POINT *ppt)
+void CBaseWindow::CalcFitPointAroundTextExtent(_In_ const RECT *prcTextExtent, _In_ const RECT *prcWorkArea,
+                                               _In_ const RECT *prcWindow, _Out_ POINT *ppt)
 {
     RECT rcTargetWindow[2];
     DWORD dwFlags[2];
@@ -383,7 +380,7 @@ void CBaseWindow::CalcFitPointAroundTextExtent(_In_ const RECT *prcTextExtent, _
 
         if (dwFlags[i] == RECT_INSIDE)
         {
-            *ppt = *(POINT*)&rcTargetWindow[i].left;
+            *ppt = *(POINT *)&rcTargetWindow[i].left;
             return;
         }
         else if ((dwFlags[i] & RECT_OVER_LEFT) != 0)
@@ -406,7 +403,7 @@ void CBaseWindow::CalcFitPointAroundTextExtent(_In_ const RECT *prcTextExtent, _
     {
         ppt->y = 0;
     }
-    else 
+    else
     {
         ppt->y = prcWorkArea->bottom - (prcWindow->bottom - prcWindow->top);
     }
@@ -439,8 +436,8 @@ DWORD CBaseWindow::RectInRect(_In_ const RECT *prcLimit, _In_ const RECT *prcTar
 {
     DWORD dwFlags = 0;
     // Check if prcTarget is entirely inside prcLimit
-    if (prcLimit->left <= prcTarget->left && prcTarget->right  <= prcLimit->right &&
-        prcLimit->top  <= prcTarget->top  && prcTarget->bottom <= prcLimit->bottom)
+    if (prcLimit->left <= prcTarget->left && prcTarget->right <= prcLimit->right && prcLimit->top <= prcTarget->top &&
+        prcTarget->bottom <= prcLimit->bottom)
     {
         return RECT_INSIDE;
     }
@@ -454,7 +451,7 @@ DWORD CBaseWindow::RectInRect(_In_ const RECT *prcLimit, _In_ const RECT *prcTar
         assert(FALSE);
         dwFlags |= RECT_TOO_WIDE;
     }
-    else if (prcTarget->left < prcLimit->left) 
+    else if (prcTarget->left < prcLimit->left)
     {
         dwFlags |= RECT_OVER_LEFT;
     }
@@ -492,7 +489,7 @@ DWORD CBaseWindow::RectInRect(_In_ const RECT *prcLimit, _In_ const RECT *prcTar
 
 LRESULT CBaseWindow::_NotifyCommand(UINT uMsg, DWORD dwSB, int nPos)
 {
-    CBaseWindow* pUIWnd = _GetUIWnd();
+    CBaseWindow *pUIWnd = _GetUIWnd();
     if (pUIWnd && pUIWnd->_GetWnd())
     {
         WPARAM wParam = MAKEWPARAM(dwSB, nPos);
@@ -512,7 +509,7 @@ LRESULT CBaseWindow::_NotifyCommand(UINT uMsg, DWORD dwSB, int nPos)
 
 void CBaseWindow::_SetCaptureObject(_In_opt_ CBaseWindow *pUIObj)
 {
-    CBaseWindow* pUIWnd = _GetTopmostUIWnd();
+    CBaseWindow *pUIWnd = _GetTopmostUIWnd();
     if (nullptr == pUIWnd)
     {
         return;
@@ -520,7 +517,7 @@ void CBaseWindow::_SetCaptureObject(_In_opt_ CBaseWindow *pUIObj)
 
     pUIWnd->_pUIObjCapture = pUIObj;
     if (pUIObj != nullptr)
-    { 
+    {
         SetCapture(pUIWnd->_GetWnd());
     }
     else
@@ -537,7 +534,7 @@ void CBaseWindow::_SetCaptureObject(_In_opt_ CBaseWindow *pUIObj)
 
 void CBaseWindow::_SetTimerObject(_In_opt_ CBaseWindow *pUIObj, UINT uElapse)
 {
-    CBaseWindow* pUIWnd = _GetTopmostUIWnd();
+    CBaseWindow *pUIWnd = _GetTopmostUIWnd();
     if (nullptr == pUIWnd)
     {
         return;
@@ -546,7 +543,7 @@ void CBaseWindow::_SetTimerObject(_In_opt_ CBaseWindow *pUIObj, UINT uElapse)
     pUIWnd->_pTimerUIObj = pUIObj;
     if (pUIObj != nullptr)
     {
-        SetTimer(pUIWnd->_GetWnd(), idTimer_UIObject, uElapse,  NULL);
+        SetTimer(pUIWnd->_GetWnd(), idTimer_UIObject, uElapse, NULL);
     }
     else
     {
@@ -566,10 +563,10 @@ LRESULT CALLBACK CBaseWindow::_WindowProc(_In_ HWND wndHandle, UINT uMsg, _In_ W
 {
     if (uMsg == WM_CREATE)
     {
-        _SetThis(wndHandle, ((CREATESTRUCT*)lParam)->lpCreateParams);
+        _SetThis(wndHandle, ((CREATESTRUCT *)lParam)->lpCreateParams);
     }
 
-    CBaseWindow* pv = _GetThis(wndHandle);
+    CBaseWindow *pv = _GetThis(wndHandle);
     if (!pv)
     {
         return DefWindowProc(wndHandle, uMsg, wParam, lParam);
@@ -600,7 +597,7 @@ LRESULT CALLBACK CBaseWindow::_WindowProc(_In_ HWND wndHandle, UINT uMsg, _In_ W
 //
 //----------------------------------------------------------------------------
 
-void CBaseWindow::GetWorkAreaFromPoint(_In_ const POINT& ptPoint, _Out_ LPRECT lprcWorkArea)
+void CBaseWindow::GetWorkAreaFromPoint(_In_ const POINT &ptPoint, _Out_ LPRECT lprcWorkArea)
 {
     if (lprcWorkArea == nullptr)
     {
@@ -631,7 +628,7 @@ void CBaseWindow::GetWorkAreaFromPoint(_In_ const POINT& ptPoint, _Out_ LPRECT l
 
 BOOL CBaseWindow::_IsTimer()
 {
-    CBaseWindow* pobj = _GetTopmostUIWnd();
+    CBaseWindow *pobj = _GetTopmostUIWnd();
     if (pobj != nullptr)
     {
         return (pobj->_pTimerUIObj != nullptr);
@@ -641,7 +638,7 @@ BOOL CBaseWindow::_IsTimer()
 
 BOOL CBaseWindow::_IsCapture()
 {
-    CBaseWindow* pobj = _GetTopmostUIWnd();
+    CBaseWindow *pobj = _GetTopmostUIWnd();
     if (pobj != nullptr)
     {
         return (pobj->_pUIObjCapture != nullptr);
@@ -649,9 +646,9 @@ BOOL CBaseWindow::_IsCapture()
     return FALSE;
 }
 
-CBaseWindow* CBaseWindow::_GetTopmostUIWnd()
+CBaseWindow *CBaseWindow::_GetTopmostUIWnd()
 {
-    CBaseWindow* pobj = this;
+    CBaseWindow *pobj = this;
 
     while (pobj->_pParentWnd != nullptr)
     {

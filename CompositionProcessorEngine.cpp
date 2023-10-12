@@ -76,7 +76,8 @@ BOOL CSampleIME::_AddTextProcessorEngine()
     }
 
     // setup composition processor engine
-    if (FALSE == _pCompositionProcessorEngine->SetupLanguageProfile(langid, guidProfile, _GetThreadMgr(), _GetClientId(), _IsSecureMode(), _IsComLess()))
+    if (FALSE == _pCompositionProcessorEngine->SetupLanguageProfile(langid, guidProfile, _GetThreadMgr(),
+                                                                    _GetClientId(), _IsSecureMode(), _IsComLess()))
     {
         return FALSE;
     }
@@ -206,16 +207,17 @@ CCompositionProcessorEngine::~CCompositionProcessorEngine()
 // Setup language profile for Composition Processor Engine.
 // param
 //     [in] LANGID langid = Specify language ID
-//     [in] GUID guidLanguageProfile - Specify GUID language profile which GUID is as same as Text Service Framework language profile.
-//     [in] ITfThreadMgr - pointer ITfThreadMgr.
-//     [in] tfClientId - TfClientId value.
-//     [in] isSecureMode - secure mode
+//     [in] GUID guidLanguageProfile - Specify GUID language profile which GUID is as same as Text Service Framework
+//     language profile. [in] ITfThreadMgr - pointer ITfThreadMgr. [in] tfClientId - TfClientId value. [in] isSecureMode
+//     - secure mode
 // returns
 //     If setup succeeded, returns true. Otherwise returns false.
 // N.B. For reverse conversion, ITfThreadMgr is NULL, TfClientId is 0 and isSecureMode is ignored.
 //+---------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::SetupLanguageProfile(LANGID langid, REFGUID guidLanguageProfile, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isSecureMode, BOOL isComLessMode)
+BOOL CCompositionProcessorEngine::SetupLanguageProfile(LANGID langid, REFGUID guidLanguageProfile,
+                                                       _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                                                       BOOL isSecureMode, BOOL isComLessMode)
 {
     BOOL ret = TRUE;
     if ((tfClientId == 0) && (pThreadMgr == nullptr))
@@ -229,8 +231,8 @@ BOOL CCompositionProcessorEngine::SetupLanguageProfile(LANGID langid, REFGUID gu
     _guidProfile = guidLanguageProfile;
     _tfClientId = tfClientId;
 
-    SetupPreserved(pThreadMgr, tfClientId);	
-	InitializeSampleIMECompartment(pThreadMgr, tfClientId);
+    SetupPreserved(pThreadMgr, tfClientId);
+    InitializeSampleIMECompartment(pThreadMgr, tfClientId);
     SetupPunctuationPair();
     SetupLanguageBar(pThreadMgr, tfClientId, isSecureMode);
     SetupKeystroke();
@@ -262,18 +264,18 @@ BOOL CCompositionProcessorEngine::AddVirtualKey(WCHAR wch)
     // append one keystroke in buffer.
     //
     DWORD_PTR srgKeystrokeBufLen = _keystrokeBuffer.GetLength();
-    PWCHAR pwch = new (std::nothrow) WCHAR[ srgKeystrokeBufLen + 1 ];
+    PWCHAR pwch = new (std::nothrow) WCHAR[srgKeystrokeBufLen + 1];
     if (!pwch)
     {
         return FALSE;
     }
 
     memcpy(pwch, _keystrokeBuffer.Get(), srgKeystrokeBufLen * sizeof(WCHAR));
-    pwch[ srgKeystrokeBufLen ] = wch;
+    pwch[srgKeystrokeBufLen] = wch;
 
     if (_keystrokeBuffer.Get())
     {
-        delete [] _keystrokeBuffer.Get();
+        delete[] _keystrokeBuffer.Get();
     }
 
     _keystrokeBuffer.Set(pwch, srgKeystrokeBufLen + 1);
@@ -298,9 +300,9 @@ void CCompositionProcessorEngine::RemoveVirtualKey(DWORD_PTR dwIndex)
     if (dwIndex + 1 < srgKeystrokeBufLen)
     {
         // shift following eles left
-        memmove((BYTE*)_keystrokeBuffer.Get() + (dwIndex * sizeof(WCHAR)),
-            (BYTE*)_keystrokeBuffer.Get() + ((dwIndex + 1) * sizeof(WCHAR)),
-            (srgKeystrokeBufLen - dwIndex - 1) * sizeof(WCHAR));
+        memmove((BYTE *)_keystrokeBuffer.Get() + (dwIndex * sizeof(WCHAR)),
+                (BYTE *)_keystrokeBuffer.Get() + ((dwIndex + 1) * sizeof(WCHAR)),
+                (srgKeystrokeBufLen - dwIndex - 1) * sizeof(WCHAR));
     }
 
     _keystrokeBuffer.Set(_keystrokeBuffer.Get(), srgKeystrokeBufLen - 1);
@@ -320,13 +322,13 @@ void CCompositionProcessorEngine::PurgeVirtualKey()
 {
     if (_keystrokeBuffer.Get())
     {
-        delete [] _keystrokeBuffer.Get();
+        delete[] _keystrokeBuffer.Get();
         _keystrokeBuffer.Set(NULL, 0);
     }
 }
 
-WCHAR CCompositionProcessorEngine::GetVirtualKey(DWORD_PTR dwIndex) 
-{ 
+WCHAR CCompositionProcessorEngine::GetVirtualKey(DWORD_PTR dwIndex)
+{
     if (dwIndex < _keystrokeBuffer.GetLength())
     {
         return *(_keystrokeBuffer.Get() + dwIndex);
@@ -344,7 +346,8 @@ WCHAR CCompositionProcessorEngine::GetVirtualKey(DWORD_PTR dwIndex)
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::GetReadingStrings(_Inout_ CSampleImeArray<CStringRange> *pReadingStrings, _Out_ BOOL *pIsWildcardIncluded)
+void CCompositionProcessorEngine::GetReadingStrings(_Inout_ CSampleImeArray<CStringRange> *pReadingStrings,
+                                                    _Out_ BOOL *pIsWildcardIncluded)
 {
     CStringRange oneKeystroke;
 
@@ -352,7 +355,7 @@ void CCompositionProcessorEngine::GetReadingStrings(_Inout_ CSampleImeArray<CStr
 
     if (pReadingStrings->Count() == 0 && _keystrokeBuffer.GetLength())
     {
-        CStringRange* pNewString = nullptr;
+        CStringRange *pNewString = nullptr;
 
         pNewString = pReadingStrings->Append();
         if (pNewString)
@@ -380,7 +383,8 @@ void CCompositionProcessorEngine::GetReadingStrings(_Inout_ CSampleImeArray<CStr
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::GetCandidateList(_Inout_ CSampleImeArray<CCandidateListItem> *pCandidateList, BOOL isIncrementalWordSearch, BOOL isWildcardSearch)
+void CCompositionProcessorEngine::GetCandidateList(_Inout_ CSampleImeArray<CCandidateListItem> *pCandidateList,
+                                                   BOOL isIncrementalWordSearch, BOOL isWildcardSearch)
 {
     if (!IsDictionaryAvailable())
     {
@@ -391,7 +395,7 @@ void CCompositionProcessorEngine::GetCandidateList(_Inout_ CSampleImeArray<CCand
     {
         CStringRange wildcardSearch;
         DWORD_PTR keystrokeBufLen = _keystrokeBuffer.GetLength() + 2;
-        PWCHAR pwch = new (std::nothrow) WCHAR[ keystrokeBufLen ];
+        PWCHAR pwch = new (std::nothrow) WCHAR[keystrokeBufLen];
         if (!pwch)
         {
             return;
@@ -460,11 +464,12 @@ void CCompositionProcessorEngine::GetCandidateList(_Inout_ CSampleImeArray<CCand
             }
 
             CStringRange newFindKeyCode;
-            newFindKeyCode.Set(pLI->_FindKeyCode.Get() + keystrokeBufferLen, pLI->_FindKeyCode.GetLength() - keystrokeBufferLen);
+            newFindKeyCode.Set(pLI->_FindKeyCode.Get() + keystrokeBufferLen,
+                               pLI->_FindKeyCode.GetLength() - keystrokeBufferLen);
             pLI->_FindKeyCode.Set(newFindKeyCode);
         }
 
-        delete [] pwch;
+        delete[] pwch;
     }
     else if (isWildcardSearch)
     {
@@ -494,7 +499,8 @@ void CCompositionProcessorEngine::GetCandidateList(_Inout_ CSampleImeArray<CCand
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::GetCandidateStringInConverted(CStringRange &searchString, _In_ CSampleImeArray<CCandidateListItem> *pCandidateList)
+void CCompositionProcessorEngine::GetCandidateStringInConverted(
+    CStringRange &searchString, _In_ CSampleImeArray<CCandidateListItem> *pCandidateList)
 {
     if (!IsDictionaryAvailable())
     {
@@ -504,7 +510,7 @@ void CCompositionProcessorEngine::GetCandidateStringInConverted(CStringRange &se
     // Search phrase from SECTION_TEXT's converted string list
     CStringRange wildcardSearch;
     DWORD_PTR srgKeystrokeBufLen = searchString.GetLength() + 2;
-    PWCHAR pwch = new (std::nothrow) WCHAR[ srgKeystrokeBufLen ];
+    PWCHAR pwch = new (std::nothrow) WCHAR[srgKeystrokeBufLen];
     if (!pwch)
     {
         return;
@@ -514,8 +520,8 @@ void CCompositionProcessorEngine::GetCandidateStringInConverted(CStringRange &se
     StringCchCat(pwch, srgKeystrokeBufLen, L"*");
 
     // add wildcard char
-	size_t len = 0;
-	if (StringCchLength(pwch, STRSAFE_MAX_CCH, &len) != S_OK)
+    size_t len = 0;
+    if (StringCchLength(pwch, STRSAFE_MAX_CCH, &len) != S_OK)
     {
         return;
     }
@@ -529,7 +535,7 @@ void CCompositionProcessorEngine::GetCandidateStringInConverted(CStringRange &se
     }
 
     wildcardSearch.Clear();
-    delete [] pwch;
+    delete[] pwch;
 }
 
 //+---------------------------------------------------------------------------
@@ -550,7 +556,7 @@ BOOL CCompositionProcessorEngine::IsPunctuation(WCHAR wch)
 
     for (UINT j = 0; j < _PunctuationPair.Count(); j++)
     {
-        CPunctuationPair* pPuncPair = _PunctuationPair.GetAt(j);
+        CPunctuationPair *pPuncPair = _PunctuationPair.GetAt(j);
 
         if (pPuncPair->_punctuation._Code == wch)
         {
@@ -560,7 +566,7 @@ BOOL CCompositionProcessorEngine::IsPunctuation(WCHAR wch)
 
     for (UINT k = 0; k < _PunctuationNestPair.Count(); k++)
     {
-        CPunctuationNestPair* pPuncNestPair = _PunctuationNestPair.GetAt(k);
+        CPunctuationNestPair *pPuncNestPair = _PunctuationNestPair.GetAt(k);
 
         if (pPuncNestPair->_punctuation_begin._Code == wch)
         {
@@ -592,11 +598,11 @@ WCHAR CCompositionProcessorEngine::GetPunctuation(WCHAR wch)
 
     for (UINT j = 0; j < _PunctuationPair.Count(); j++)
     {
-        CPunctuationPair* pPuncPair = _PunctuationPair.GetAt(j);
+        CPunctuationPair *pPuncPair = _PunctuationPair.GetAt(j);
 
         if (pPuncPair->_punctuation._Code == wch)
         {
-            if (! pPuncPair->_isPairToggle)
+            if (!pPuncPair->_isPairToggle)
             {
                 pPuncPair->_isPairToggle = TRUE;
                 return pPuncPair->_punctuation._Punctuation;
@@ -611,7 +617,7 @@ WCHAR CCompositionProcessorEngine::GetPunctuation(WCHAR wch)
 
     for (UINT k = 0; k < _PunctuationNestPair.Count(); k++)
     {
-        CPunctuationNestPair* pPuncNestPair = _PunctuationNestPair.GetAt(k);
+        CPunctuationNestPair *pPuncNestPair = _PunctuationNestPair.GetAt(k);
 
         if (pPuncNestPair->_punctuation_begin._Code == wch)
         {
@@ -676,7 +682,7 @@ void CCompositionProcessorEngine::SetKeystrokeTable(_Inout_ CSampleImeArray<_KEY
 {
     for (int i = 0; i < 26; i++)
     {
-        _KEYSTROKE* pKS = nullptr;
+        _KEYSTROKE *pKS = nullptr;
 
         pKS = pKeystroke->Append();
         if (!pKS)
@@ -698,17 +704,20 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
     TF_PRESERVEDKEY preservedKeyImeMode;
     preservedKeyImeMode.uVKey = VK_SHIFT;
     preservedKeyImeMode.uModifiers = _TF_MOD_ON_KEYUP_SHIFT_ONLY;
-    SetPreservedKey(Global::SampleIMEGuidImeModePreserveKey, preservedKeyImeMode, Global::ImeModeDescription, &_PreservedKey_IMEMode);
+    SetPreservedKey(Global::SampleIMEGuidImeModePreserveKey, preservedKeyImeMode, Global::ImeModeDescription,
+                    &_PreservedKey_IMEMode);
 
     TF_PRESERVEDKEY preservedKeyDoubleSingleByte;
     preservedKeyDoubleSingleByte.uVKey = VK_SPACE;
     preservedKeyDoubleSingleByte.uModifiers = TF_MOD_SHIFT;
-    SetPreservedKey(Global::SampleIMEGuidDoubleSingleBytePreserveKey, preservedKeyDoubleSingleByte, Global::DoubleSingleByteDescription, &_PreservedKey_DoubleSingleByte);
+    SetPreservedKey(Global::SampleIMEGuidDoubleSingleBytePreserveKey, preservedKeyDoubleSingleByte,
+                    Global::DoubleSingleByteDescription, &_PreservedKey_DoubleSingleByte);
 
     TF_PRESERVEDKEY preservedKeyPunctuation;
     preservedKeyPunctuation.uVKey = VK_OEM_PERIOD;
     preservedKeyPunctuation.uModifiers = TF_MOD_CONTROL;
-    SetPreservedKey(Global::SampleIMEGuidPunctuationPreserveKey, preservedKeyPunctuation, Global::PunctuationDescription, &_PreservedKey_Punctuation);
+    SetPreservedKey(Global::SampleIMEGuidPunctuationPreserveKey, preservedKeyPunctuation,
+                    Global::PunctuationDescription, &_PreservedKey_Punctuation);
 
     InitPreservedKey(&_PreservedKey_IMEMode, pThreadMgr, tfClientId);
     InitPreservedKey(&_PreservedKey_DoubleSingleByte, pThreadMgr, tfClientId);
@@ -723,7 +732,8 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::SetPreservedKey(const CLSID clsid, TF_PRESERVEDKEY & tfPreservedKey, _In_z_ LPCWSTR pwszDescription, _Out_ XPreservedKey *pXPreservedKey)
+void CCompositionProcessorEngine::SetPreservedKey(const CLSID clsid, TF_PRESERVEDKEY &tfPreservedKey,
+                                                  _In_z_ LPCWSTR pwszDescription, _Out_ XPreservedKey *pXPreservedKey)
 {
     pXPreservedKey->Guid = clsid;
 
@@ -734,8 +744,8 @@ void CCompositionProcessorEngine::SetPreservedKey(const CLSID clsid, TF_PRESERVE
     }
     *ptfPsvKey1 = tfPreservedKey;
 
-	size_t srgKeystrokeBufLen = 0;
-	if (StringCchLength(pwszDescription, STRSAFE_MAX_CCH, &srgKeystrokeBufLen) != S_OK)
+    size_t srgKeystrokeBufLen = 0;
+    if (StringCchLength(pwszDescription, STRSAFE_MAX_CCH, &srgKeystrokeBufLen) != S_OK)
     {
         return;
     }
@@ -757,7 +767,8 @@ void CCompositionProcessorEngine::SetPreservedKey(const CLSID clsid, TF_PRESERVE
 //
 //----------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::InitPreservedKey(_In_ XPreservedKey *pXPreservedKey, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
+BOOL CCompositionProcessorEngine::InitPreservedKey(_In_ XPreservedKey *pXPreservedKey, _In_ ITfThreadMgr *pThreadMgr,
+                                                   TfClientId tfClientId)
 {
     ITfKeystrokeMgr *pKeystrokeMgr = nullptr;
 
@@ -776,12 +787,13 @@ BOOL CCompositionProcessorEngine::InitPreservedKey(_In_ XPreservedKey *pXPreserv
         TF_PRESERVEDKEY preservedKey = *pXPreservedKey->TSFPreservedKeyTable.GetAt(i);
         preservedKey.uModifiers &= 0xffff;
 
-		size_t lenOfDesc = 0;
-		if (StringCchLength(pXPreservedKey->Description, STRSAFE_MAX_CCH, &lenOfDesc) != S_OK)
+        size_t lenOfDesc = 0;
+        if (StringCchLength(pXPreservedKey->Description, STRSAFE_MAX_CCH, &lenOfDesc) != S_OK)
         {
             return FALSE;
         }
-        pKeystrokeMgr->PreserveKey(tfClientId, pXPreservedKey->Guid, &preservedKey, pXPreservedKey->Description, static_cast<ULONG>(lenOfDesc));
+        pKeystrokeMgr->PreserveKey(tfClientId, pXPreservedKey->Guid, &preservedKey, pXPreservedKey->Description,
+                                   static_cast<ULONG>(lenOfDesc));
     }
 
     pKeystrokeMgr->Release();
@@ -803,7 +815,7 @@ BOOL CCompositionProcessorEngine::CheckShiftKeyOnly(_In_ CSampleImeArray<TF_PRES
 
         if (((ptfPsvKey->uModifiers & (_TF_MOD_ON_KEYUP_SHIFT_ONLY & 0xffff0000)) && !Global::IsShiftKeyDownOnly) ||
             ((ptfPsvKey->uModifiers & (_TF_MOD_ON_KEYUP_CONTROL_ONLY & 0xffff0000)) && !Global::IsControlKeyDownOnly) ||
-            ((ptfPsvKey->uModifiers & (_TF_MOD_ON_KEYUP_ALT_ONLY & 0xffff0000)) && !Global::IsAltKeyDownOnly)         )
+            ((ptfPsvKey->uModifiers & (_TF_MOD_ON_KEYUP_ALT_ONLY & 0xffff0000)) && !Global::IsAltKeyDownOnly))
         {
             return FALSE;
         }
@@ -818,7 +830,8 @@ BOOL CCompositionProcessorEngine::CheckShiftKeyOnly(_In_ CSampleImeArray<TF_PRES
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::OnPreservedKey(REFGUID rguid, _Out_ BOOL *pIsEaten, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
+void CCompositionProcessorEngine::OnPreservedKey(REFGUID rguid, _Out_ BOOL *pIsEaten, _In_ ITfThreadMgr *pThreadMgr,
+                                                 TfClientId tfClientId)
 {
     if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid))
     {
@@ -842,7 +855,8 @@ void CCompositionProcessorEngine::OnPreservedKey(REFGUID rguid, _Out_ BOOL *pIsE
             return;
         }
         BOOL isDouble = FALSE;
-        CCompartment CompartmentDoubleSingleByte(pThreadMgr, tfClientId, Global::SampleIMEGuidCompartmentDoubleSingleByte);
+        CCompartment CompartmentDoubleSingleByte(pThreadMgr, tfClientId,
+                                                 Global::SampleIMEGuidCompartmentDoubleSingleByte);
         CompartmentDoubleSingleByte._GetCompartmentBOOL(isDouble);
         CompartmentDoubleSingleByte._SetCompartmentBOOL(isDouble ? FALSE : TRUE);
         *pIsEaten = TRUE;
@@ -894,18 +908,28 @@ void CCompositionProcessorEngine::SetupConfiguration()
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::SetupLanguageBar(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isSecureMode)
+void CCompositionProcessorEngine::SetupLanguageBar(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                                                   BOOL isSecureMode)
 {
     DWORD dwEnable = 1;
-    CreateLanguageBarButton(dwEnable, GUID_LBI_INPUTMODE, Global::LangbarImeModeDescription, Global::ImeModeDescription, Global::ImeModeOnIcoIndex, Global::ImeModeOffIcoIndex, &_pLanguageBar_IMEMode, isSecureMode);
-    CreateLanguageBarButton(dwEnable, Global::SampleIMEGuidLangBarDoubleSingleByte, Global::LangbarDoubleSingleByteDescription, Global::DoubleSingleByteDescription, Global::DoubleSingleByteOnIcoIndex, Global::DoubleSingleByteOffIcoIndex, &_pLanguageBar_DoubleSingleByte, isSecureMode);
-    CreateLanguageBarButton(dwEnable, Global::SampleIMEGuidLangBarPunctuation, Global::LangbarPunctuationDescription, Global::PunctuationDescription, Global::PunctuationOnIcoIndex, Global::PunctuationOffIcoIndex, &_pLanguageBar_Punctuation, isSecureMode);
+    CreateLanguageBarButton(dwEnable, GUID_LBI_INPUTMODE, Global::LangbarImeModeDescription, Global::ImeModeDescription,
+                            Global::ImeModeOnIcoIndex, Global::ImeModeOffIcoIndex, &_pLanguageBar_IMEMode,
+                            isSecureMode);
+    CreateLanguageBarButton(dwEnable, Global::SampleIMEGuidLangBarDoubleSingleByte,
+                            Global::LangbarDoubleSingleByteDescription, Global::DoubleSingleByteDescription,
+                            Global::DoubleSingleByteOnIcoIndex, Global::DoubleSingleByteOffIcoIndex,
+                            &_pLanguageBar_DoubleSingleByte, isSecureMode);
+    CreateLanguageBarButton(dwEnable, Global::SampleIMEGuidLangBarPunctuation, Global::LangbarPunctuationDescription,
+                            Global::PunctuationDescription, Global::PunctuationOnIcoIndex,
+                            Global::PunctuationOffIcoIndex, &_pLanguageBar_Punctuation, isSecureMode);
 
     InitLanguageBar(_pLanguageBar_IMEMode, pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
-    InitLanguageBar(_pLanguageBar_DoubleSingleByte, pThreadMgr, tfClientId, Global::SampleIMEGuidCompartmentDoubleSingleByte);
+    InitLanguageBar(_pLanguageBar_DoubleSingleByte, pThreadMgr, tfClientId,
+                    Global::SampleIMEGuidCompartmentDoubleSingleByte);
     InitLanguageBar(_pLanguageBar_Punctuation, pThreadMgr, tfClientId, Global::SampleIMEGuidCompartmentPunctuation);
 
-    _pCompartmentConversion = new (std::nothrow) CCompartment(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION);
+    _pCompartmentConversion =
+        new (std::nothrow) CCompartment(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION);
     _pCompartmentKeyboardOpenEventSink = new (std::nothrow) CCompartmentEventSink(CompartmentCallback, this);
     _pCompartmentConversionEventSink = new (std::nothrow) CCompartmentEventSink(CompartmentCallback, this);
     _pCompartmentDoubleSingleByteEventSink = new (std::nothrow) CCompartmentEventSink(CompartmentCallback, this);
@@ -937,13 +961,17 @@ void CCompositionProcessorEngine::SetupLanguageBar(_In_ ITfThreadMgr *pThreadMgr
 //
 //----------------------------------------------------------------------------
 
-void CCompositionProcessorEngine::CreateLanguageBarButton(DWORD dwEnable, GUID guidLangBar, _In_z_ LPCWSTR pwszDescriptionValue, _In_z_ LPCWSTR pwszTooltipValue, DWORD dwOnIconIndex, DWORD dwOffIconIndex, _Outptr_result_maybenull_ CLangBarItemButton **ppLangBarItemButton, BOOL isSecureMode)
+void CCompositionProcessorEngine::CreateLanguageBarButton(
+    DWORD dwEnable, GUID guidLangBar, _In_z_ LPCWSTR pwszDescriptionValue, _In_z_ LPCWSTR pwszTooltipValue,
+    DWORD dwOnIconIndex, DWORD dwOffIconIndex, _Outptr_result_maybenull_ CLangBarItemButton **ppLangBarItemButton,
+    BOOL isSecureMode)
 {
-	dwEnable;
+    dwEnable;
 
     if (ppLangBarItemButton)
     {
-        *ppLangBarItemButton = new (std::nothrow) CLangBarItemButton(guidLangBar, pwszDescriptionValue, pwszTooltipValue, dwOnIconIndex, dwOffIconIndex, isSecureMode);
+        *ppLangBarItemButton = new (std::nothrow) CLangBarItemButton(
+            guidLangBar, pwszDescriptionValue, pwszTooltipValue, dwOnIconIndex, dwOffIconIndex, isSecureMode);
     }
 
     return;
@@ -955,7 +983,9 @@ void CCompositionProcessorEngine::CreateLanguageBarButton(DWORD dwEnable, GUID g
 //
 //----------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::InitLanguageBar(_In_ CLangBarItemButton *pLangBarItemButton, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, REFGUID guidCompartment)
+BOOL CCompositionProcessorEngine::InitLanguageBar(_In_ CLangBarItemButton *pLangBarItemButton,
+                                                  _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                                                  REFGUID guidCompartment)
 {
     if (pLangBarItemButton)
     {
@@ -977,7 +1007,7 @@ BOOL CCompositionProcessorEngine::InitLanguageBar(_In_ CLangBarItemButton *pLang
 //----------------------------------------------------------------------------
 
 BOOL CCompositionProcessorEngine::SetupDictionaryFile()
-{	
+{
     // Not yet registered
     // Register CFileMapping
     WCHAR wszFileName[MAX_PATH] = {'\0'};
@@ -1022,12 +1052,12 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
         goto ErrorExit;
     }
 
-    delete []pwszFileName;
+    delete[] pwszFileName;
     return TRUE;
 ErrorExit:
     if (pwszFileName)
     {
-        delete []pwszFileName;
+        delete[] pwszFileName;
     }
     return FALSE;
 }
@@ -1038,7 +1068,7 @@ ErrorExit:
 //
 //----------------------------------------------------------------------------
 
-CFile* CCompositionProcessorEngine::GetDictionaryFile()
+CFile *CCompositionProcessorEngine::GetDictionaryFile()
 {
     return _pDictionaryFile;
 }
@@ -1070,13 +1100,13 @@ void CCompositionProcessorEngine::SetupPunctuationPair()
     // Punctuation nest pair
     CPunctuationNestPair punc_angle_bracket(L'<', 0x300A, 0x3008, L'>', 0x300B, 0x3009);
 
-    CPunctuationNestPair* pPuncNestPair = _PunctuationNestPair.Append();
+    CPunctuationNestPair *pPuncNestPair = _PunctuationNestPair.Append();
     *pPuncNestPair = punc_angle_bracket;
 }
 
 void CCompositionProcessorEngine::InitializeSampleIMECompartment(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
 {
-	// set initial mode
+    // set initial mode
     CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
     CompartmentKeyboardOpen._SetCompartmentBOOL(TRUE);
 
@@ -1097,14 +1127,15 @@ void CCompositionProcessorEngine::InitializeSampleIMECompartment(_In_ ITfThreadM
 // static
 HRESULT CCompositionProcessorEngine::CompartmentCallback(_In_ void *pv, REFGUID guidCompartment)
 {
-    CCompositionProcessorEngine* fakeThis = (CCompositionProcessorEngine*)pv;
+    CCompositionProcessorEngine *fakeThis = (CCompositionProcessorEngine *)pv;
     if (nullptr == fakeThis)
     {
         return E_INVALIDARG;
     }
 
-    ITfThreadMgr* pThreadMgr = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr, (void**)&pThreadMgr);
+    ITfThreadMgr *pThreadMgr = nullptr;
+    HRESULT hr =
+        CoCreateInstance(CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr, (void **)&pThreadMgr);
     if (FAILED(hr))
     {
         return E_FAIL;
@@ -1116,7 +1147,7 @@ HRESULT CCompositionProcessorEngine::CompartmentCallback(_In_ void *pv, REFGUID 
         fakeThis->PrivateCompartmentsUpdated(pThreadMgr);
     }
     else if (IsEqualGUID(guidCompartment, GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION) ||
-        IsEqualGUID(guidCompartment, GUID_COMPARTMENT_KEYBOARD_INPUTMODE_SENTENCE))
+             IsEqualGUID(guidCompartment, GUID_COMPARTMENT_KEYBOARD_INPUTMODE_SENTENCE))
     {
         fakeThis->ConversionModeCompartmentUpdated(pThreadMgr);
     }
@@ -1290,7 +1321,6 @@ void CCompositionProcessorEngine::KeyboardOpenCompartmentUpdated(_In_ ITfThreadM
     }
 }
 
-
 //////////////////////////////////////////////////////////////////////
 //
 // XPreservedKey implementation.
@@ -1305,7 +1335,7 @@ void CCompositionProcessorEngine::KeyboardOpenCompartmentUpdated(_In_ ITfThreadM
 
 BOOL CCompositionProcessorEngine::XPreservedKey::UninitPreservedKey(_In_ ITfThreadMgr *pThreadMgr)
 {
-    ITfKeystrokeMgr* pKeystrokeMgr = nullptr;
+    ITfKeystrokeMgr *pKeystrokeMgr = nullptr;
 
     if (IsEqualGUID(Guid, GUID_NULL))
     {
@@ -1338,9 +1368,10 @@ CCompositionProcessorEngine::XPreservedKey::XPreservedKey()
 
 CCompositionProcessorEngine::XPreservedKey::~XPreservedKey()
 {
-    ITfThreadMgr* pThreadMgr = nullptr;
+    ITfThreadMgr *pThreadMgr = nullptr;
 
-    HRESULT hr = CoCreateInstance(CLSID_TF_ThreadMgr, NULL, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr, (void**)&pThreadMgr);
+    HRESULT hr =
+        CoCreateInstance(CLSID_TF_ThreadMgr, NULL, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr, (void **)&pThreadMgr);
     if (SUCCEEDED(hr))
     {
         UninitPreservedKey(pThreadMgr);
@@ -1350,16 +1381,17 @@ CCompositionProcessorEngine::XPreservedKey::~XPreservedKey()
 
     if (Description)
     {
-        delete [] Description;
+        delete[] Description;
     }
 }
 //+---------------------------------------------------------------------------
 //
-// CSampleIME::CreateInstance 
+// CSampleIME::CreateInstance
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::CreateInstance(REFCLSID rclsid, REFIID riid, _Outptr_result_maybenull_ LPVOID* ppv, _Out_opt_ HINSTANCE* phInst, BOOL isComLessMode)
+HRESULT CSampleIME::CreateInstance(REFCLSID rclsid, REFIID riid, _Outptr_result_maybenull_ LPVOID *ppv,
+                                   _Out_opt_ HINSTANCE *phInst, BOOL isComLessMode)
 {
     HRESULT hr = S_OK;
     if (phInst == nullptr)
@@ -1371,11 +1403,7 @@ HRESULT CSampleIME::CreateInstance(REFCLSID rclsid, REFIID riid, _Outptr_result_
 
     if (!isComLessMode)
     {
-        hr = ::CoCreateInstance(rclsid, 
-            NULL, 
-            CLSCTX_INPROC_SERVER,
-            riid,
-            ppv);
+        hr = ::CoCreateInstance(rclsid, NULL, CLSCTX_INPROC_SERVER, riid, ppv);
     }
     else
     {
@@ -1391,7 +1419,8 @@ HRESULT CSampleIME::CreateInstance(REFCLSID rclsid, REFIID riid, _Outptr_result_
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::ComLessCreateInstance(REFGUID rclsid, REFIID riid, _Outptr_result_maybenull_ void **ppv, _Out_opt_ HINSTANCE *phInst)
+HRESULT CSampleIME::ComLessCreateInstance(REFGUID rclsid, REFIID riid, _Outptr_result_maybenull_ void **ppv,
+                                          _Out_opt_ HINSTANCE *phInst)
 {
     HRESULT hr = S_OK;
     HINSTANCE sampleIMEDllHandle = nullptr;
@@ -1421,7 +1450,8 @@ HRESULT CSampleIME::ComLessCreateInstance(REFGUID rclsid, REFIID riid, _Outptr_r
                     if (SUCCEEDED(hr))
                     {
                         IClassFactory *pClassFactory = nullptr;
-                        hr = ((HRESULT (STDAPICALLTYPE *)(REFCLSID rclsid, REFIID riid, LPVOID *ppv))(pfn))(rclsid, IID_IClassFactory, (void **)&pClassFactory);
+                        hr = ((HRESULT(STDAPICALLTYPE *)(REFCLSID rclsid, REFIID riid, LPVOID * ppv))(pfn))(
+                            rclsid, IID_IClassFactory, (void **)&pClassFactory);
                         if (SUCCEEDED(hr) && pClassFactory)
                         {
                             hr = pClassFactory->CreateInstance(NULL, riid, ppv);
@@ -1447,7 +1477,7 @@ HRESULT CSampleIME::ComLessCreateInstance(REFGUID rclsid, REFIID riid, _Outptr_r
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::GetComModuleName(REFGUID rclsid, _Out_writes_(cchPath)WCHAR* wchPath, DWORD cchPath)
+HRESULT CSampleIME::GetComModuleName(REFGUID rclsid, _Out_writes_(cchPath) WCHAR *wchPath, DWORD cchPath)
 {
     HRESULT hr = S_OK;
 
@@ -1468,11 +1498,7 @@ HRESULT CSampleIME::GetComModuleName(REFGUID rclsid, _Out_writes_(cchPath)WCHAR*
                 hr = (key.QueryStringValue(L"ThreadingModel", wszModel, &cch) == ERROR_SUCCESS) ? S_OK : E_FAIL;
                 if (SUCCEEDED(hr))
                 {
-                    if (CompareStringOrdinal(wszModel, 
-                        -1, 
-                        L"Apartment", 
-                        -1,
-                        TRUE) == CSTR_EQUAL)
+                    if (CompareStringOrdinal(wszModel, -1, L"Apartment", -1, TRUE) == CSTR_EQUAL)
                     {
                         hr = (key.QueryStringValue(NULL, wchPath, &cchPath) == ERROR_SUCCESS) ? S_OK : E_FAIL;
                     }
@@ -1512,7 +1538,7 @@ void CCompositionProcessorEngine::SetInitialCandidateListRange()
 {
     for (DWORD i = 1; i <= 10; i++)
     {
-        DWORD* pNewIndexRange = nullptr;
+        DWORD *pNewIndexRange = nullptr;
 
         pNewIndexRange = _candidateListIndexRange.Append();
         if (pNewIndexRange != nullptr)
@@ -1534,15 +1560,17 @@ void CCompositionProcessorEngine::SetDefaultCandidateTextFont()
     // Candidate Text Font
     if (Global::defaultlFontHandle == nullptr)
     {
-		WCHAR fontName[50] = {'\0'}; 
-		LoadString(Global::dllInstanceHandle, IDS_DEFAULT_FONT, fontName, 50);
-        Global::defaultlFontHandle = CreateFont(-MulDiv(10, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72), 0, 0, 0, FW_MEDIUM, 0, 0, 0, 0, 0, 0, 0, 0, fontName);
+        WCHAR fontName[50] = {'\0'};
+        LoadString(Global::dllInstanceHandle, IDS_DEFAULT_FONT, fontName, 50);
+        Global::defaultlFontHandle = CreateFont(-MulDiv(10, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72), 0, 0, 0,
+                                                FW_MEDIUM, 0, 0, 0, 0, 0, 0, 0, 0, fontName);
         if (!Global::defaultlFontHandle)
         {
-			LOGFONT lf;
-			SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &lf, 0);
+            LOGFONT lf;
+            SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &lf, 0);
             // Fall back to the default GUI font on failure.
-            Global::defaultlFontHandle = CreateFont(-MulDiv(10, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72), 0, 0, 0, FW_MEDIUM, 0, 0, 0, 0, 0, 0, 0, 0, lf.lfFaceName);
+            Global::defaultlFontHandle = CreateFont(-MulDiv(10, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72), 0, 0, 0,
+                                                    FW_MEDIUM, 0, 0, 0, 0, 0, 0, 0, 0, lf.lfFaceName);
         }
     }
 }
@@ -1568,7 +1596,9 @@ void CCompositionProcessorEngine::SetDefaultCandidateTextFont()
 //     If engine need this virtual key code, returns true. Otherwise returns false.
 //----------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCHAR *pwch, BOOL fComposing, CANDIDATE_MODE candidateMode, BOOL hasCandidateWithWildcard, _Out_opt_ _KEYSTROKE_STATE *pKeyState)
+BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCHAR *pwch, BOOL fComposing,
+                                                   CANDIDATE_MODE candidateMode, BOOL hasCandidateWithWildcard,
+                                                   _Out_opt_ _KEYSTROKE_STATE *pKeyState)
 {
     if (pKeyState)
     {
@@ -1576,7 +1606,8 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
         pKeyState->Function = FUNCTION_NONE;
     }
 
-    if (candidateMode == CANDIDATE_ORIGINAL || candidateMode == CANDIDATE_PHRASE || candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
+    if (candidateMode == CANDIDATE_ORIGINAL || candidateMode == CANDIDATE_PHRASE ||
+        candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
     {
         fComposing = FALSE;
     }
@@ -1588,7 +1619,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
             return TRUE;
         }
         else if ((IsWildcard() && IsWildcardChar(*pwch) && !IsDisableWildcardAtFirst()) ||
-            (IsWildcard() && IsWildcardChar(*pwch) &&  IsDisableWildcardAtFirst() && _keystrokeBuffer.GetLength()))
+                 (IsWildcard() && IsWildcardChar(*pwch) && IsDisableWildcardAtFirst() && _keystrokeBuffer.GetLength()))
         {
             if (pKeyState)
             {
@@ -1599,11 +1630,17 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
         }
         else if (_hasWildcardIncludedInKeystrokeBuffer && uCode == VK_SPACE)
         {
-            if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_CONVERT_WILDCARD; } return TRUE;
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_COMPOSING;
+                pKeyState->Function = FUNCTION_CONVERT_WILDCARD;
+            }
+            return TRUE;
         }
     }
 
-    if (candidateMode == CANDIDATE_ORIGINAL || candidateMode == CANDIDATE_PHRASE || candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
+    if (candidateMode == CANDIDATE_ORIGINAL || candidateMode == CANDIDATE_PHRASE ||
+        candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
     {
         BOOL isRetCode = TRUE;
         if (IsVirtualKeyKeystrokeCandidate(uCode, pKeyState, candidateMode, &isRetCode, &_KeystrokeCandidate))
@@ -1613,7 +1650,8 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
 
         if (hasCandidateWithWildcard)
         {
-            if (IsVirtualKeyKeystrokeCandidate(uCode, pKeyState, candidateMode, &isRetCode, &_KeystrokeCandidateWildcard))
+            if (IsVirtualKeyKeystrokeCandidate(uCode, pKeyState, candidateMode, &isRetCode,
+                                               &_KeystrokeCandidateWildcard))
             {
                 return isRetCode;
             }
@@ -1628,11 +1666,15 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
             }
             else
             {
-                if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST_AND_INPUT; } 
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST_AND_INPUT;
+                }
                 return TRUE;
             }
         }
-    } 
+    }
 
     // CANDIDATE_INCREMENTAL should process Keystroke.Candidate virtual keys.
     else if (candidateMode == CANDIDATE_INCREMENTAL)
@@ -1644,7 +1686,8 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
         }
     }
 
-    if (!fComposing && candidateMode != CANDIDATE_ORIGINAL && candidateMode != CANDIDATE_PHRASE && candidateMode != CANDIDATE_WITH_NEXT_COMPOSITION) 
+    if (!fComposing && candidateMode != CANDIDATE_ORIGINAL && candidateMode != CANDIDATE_PHRASE &&
+        candidateMode != CANDIDATE_WITH_NEXT_COMPOSITION)
     {
         if (IsVirtualKeyKeystrokeComposition(uCode, pKeyState, FUNCTION_INPUT))
         {
@@ -1659,21 +1702,93 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
         {
             switch (uCode)
             {
-            case VK_LEFT:   if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_LEFT; } return TRUE;
-            case VK_RIGHT:  if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_RIGHT; } return TRUE;
-            case VK_RETURN: if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST; } return TRUE;
-            case VK_ESCAPE: if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_CANCEL; } return TRUE;
-            case VK_BACK:   if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_BACKSPACE; } return TRUE;
+            case VK_LEFT:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_LEFT;
+                }
+                return TRUE;
+            case VK_RIGHT:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_RIGHT;
+                }
+                return TRUE;
+            case VK_RETURN:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST;
+                }
+                return TRUE;
+            case VK_ESCAPE:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_CANCEL;
+                }
+                return TRUE;
+            case VK_BACK:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_BACKSPACE;
+                }
+                return TRUE;
 
-            case VK_UP:     if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_UP; } return TRUE;
-            case VK_DOWN:   if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_DOWN; } return TRUE;
-            case VK_PRIOR:  if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_PAGE_UP; } return TRUE;
-            case VK_NEXT:   if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN; } return TRUE;
+            case VK_UP:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_UP;
+                }
+                return TRUE;
+            case VK_DOWN:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_DOWN;
+                }
+                return TRUE;
+            case VK_PRIOR:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_UP;
+                }
+                return TRUE;
+            case VK_NEXT:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN;
+                }
+                return TRUE;
 
-            case VK_HOME:   if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_PAGE_TOP; } return TRUE;
-            case VK_END:    if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM; } return TRUE;
+            case VK_HOME:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_TOP;
+                }
+                return TRUE;
+            case VK_END:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM;
+                }
+                return TRUE;
 
-            case VK_SPACE:  if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_CONVERT; } return TRUE;
+            case VK_SPACE:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_CONVERT;
+                }
+                return TRUE;
             }
         }
         else if ((candidateMode == CANDIDATE_INCREMENTAL))
@@ -1681,43 +1796,106 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
             switch (uCode)
             {
                 // VK_LEFT, VK_RIGHT - set *pIsEaten = FALSE for application could move caret left or right.
-                // and for CUAS, invoke _HandleCompositionCancel() edit session due to ignore CUAS default key handler for send out terminate composition
+                // and for CUAS, invoke _HandleCompositionCancel() edit session due to ignore CUAS default key handler
+                // for send out terminate composition
             case VK_LEFT:
-            case VK_RIGHT:
+            case VK_RIGHT: {
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION;
+                    pKeyState->Function = FUNCTION_CANCEL;
+                }
+            }
+                return FALSE;
+
+            case VK_RETURN:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST;
+                }
+                return TRUE;
+            case VK_ESCAPE:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_CANCEL;
+                }
+                return TRUE;
+
+                // VK_BACK - remove one char from reading string.
+            case VK_BACK:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_BACKSPACE;
+                }
+                return TRUE;
+
+            case VK_UP:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_MOVE_UP;
+                }
+                return TRUE;
+            case VK_DOWN:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_MOVE_DOWN;
+                }
+                return TRUE;
+            case VK_PRIOR:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_UP;
+                }
+                return TRUE;
+            case VK_NEXT:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN;
+                }
+                return TRUE;
+
+            case VK_HOME:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_TOP;
+                }
+                return TRUE;
+            case VK_END:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM;
+                }
+                return TRUE;
+
+            case VK_SPACE: {
+                if (candidateMode == CANDIDATE_INCREMENTAL)
                 {
                     if (pKeyState)
                     {
-                        pKeyState->Category = CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION;
-                        pKeyState->Function = FUNCTION_CANCEL;
+                        pKeyState->Category = CATEGORY_CANDIDATE;
+                        pKeyState->Function = FUNCTION_CONVERT;
                     }
+                    return TRUE;
                 }
-                return FALSE;
-
-            case VK_RETURN: if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST; } return TRUE;
-            case VK_ESCAPE: if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_CANCEL; } return TRUE;
-
-                // VK_BACK - remove one char from reading string.
-            case VK_BACK:   if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_BACKSPACE; } return TRUE;
-
-            case VK_UP:     if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_UP; } return TRUE;
-            case VK_DOWN:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_DOWN; } return TRUE;
-            case VK_PRIOR:  if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_UP; } return TRUE;
-            case VK_NEXT:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN; } return TRUE;
-
-            case VK_HOME:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_TOP; } return TRUE;
-            case VK_END:    if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM; } return TRUE;
-
-            case VK_SPACE:
+                else
                 {
-                    if (candidateMode == CANDIDATE_INCREMENTAL)
+                    if (pKeyState)
                     {
-                        if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_CONVERT; } return TRUE;
+                        pKeyState->Category = CATEGORY_COMPOSING;
+                        pKeyState->Function = FUNCTION_CONVERT;
                     }
-                    else
-                    {
-                        if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_CONVERT; } return TRUE;
-                    }
+                    return TRUE;
                 }
+            }
             }
         }
     }
@@ -1726,44 +1904,102 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
     {
         switch (uCode)
         {
-        case VK_UP:     if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_UP; } return TRUE;
-        case VK_DOWN:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_DOWN; } return TRUE;
-        case VK_PRIOR:  if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_UP; } return TRUE;
-        case VK_NEXT:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN; } return TRUE;
-        case VK_HOME:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_TOP; } return TRUE;
-        case VK_END:    if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM; } return TRUE;
-        case VK_RETURN: if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST; } return TRUE;
-        case VK_SPACE:  if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_CONVERT; } return TRUE;
-        case VK_BACK:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_CANCEL; } return TRUE;
-
-        case VK_ESCAPE:
+        case VK_UP:
+            if (pKeyState)
             {
-                if (candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
-                {
-                    if (pKeyState)
-                    {
-                        pKeyState->Category = CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION;
-                        pKeyState->Function = FUNCTION_FINALIZE_TEXTSTORE;
-                    }
-                    return TRUE;
-                }
-                else
-                {
-                    if (pKeyState)
-                    {
-                        pKeyState->Category = CATEGORY_CANDIDATE;
-                        pKeyState->Function = FUNCTION_CANCEL;
-                    }
-                    return TRUE;
-                }
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_MOVE_UP;
             }
+            return TRUE;
+        case VK_DOWN:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_MOVE_DOWN;
+            }
+            return TRUE;
+        case VK_PRIOR:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_UP;
+            }
+            return TRUE;
+        case VK_NEXT:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN;
+            }
+            return TRUE;
+        case VK_HOME:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_TOP;
+            }
+            return TRUE;
+        case VK_END:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM;
+            }
+            return TRUE;
+        case VK_RETURN:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST;
+            }
+            return TRUE;
+        case VK_SPACE:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_CONVERT;
+            }
+            return TRUE;
+        case VK_BACK:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_CANCEL;
+            }
+            return TRUE;
+
+        case VK_ESCAPE: {
+            if (candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
+            {
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION;
+                    pKeyState->Function = FUNCTION_FINALIZE_TEXTSTORE;
+                }
+                return TRUE;
+            }
+            else
+            {
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_CANDIDATE;
+                    pKeyState->Function = FUNCTION_CANCEL;
+                }
+                return TRUE;
+            }
+        }
         }
 
         if (candidateMode == CANDIDATE_WITH_NEXT_COMPOSITION)
         {
             if (IsVirtualKeyKeystrokeComposition(uCode, NULL, FUNCTION_NONE))
             {
-                if (pKeyState) { pKeyState->Category = CATEGORY_COMPOSING; pKeyState->Function = FUNCTION_FINALIZE_TEXTSTORE_AND_INPUT; } return TRUE;
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_FINALIZE_TEXTSTORE_AND_INPUT;
+                }
+                return TRUE;
             }
         }
     }
@@ -1772,16 +2008,76 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
     {
         switch (uCode)
         {
-        case VK_UP:     if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_MOVE_UP; } return TRUE;
-        case VK_DOWN:   if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_MOVE_DOWN; } return TRUE;
-        case VK_PRIOR:  if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_MOVE_PAGE_UP; } return TRUE;
-        case VK_NEXT:   if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN; } return TRUE;
-        case VK_HOME:   if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_MOVE_PAGE_TOP; } return TRUE;
-        case VK_END:    if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM; } return TRUE;
-        case VK_RETURN: if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST; } return TRUE;
-        case VK_SPACE:  if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_CONVERT; } return TRUE;
-        case VK_ESCAPE: if (pKeyState) { pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_CANCEL; } return TRUE;
-        case VK_BACK:   if (pKeyState) { pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_CANCEL; } return TRUE;
+        case VK_UP:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_MOVE_UP;
+            }
+            return TRUE;
+        case VK_DOWN:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_MOVE_DOWN;
+            }
+            return TRUE;
+        case VK_PRIOR:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_UP;
+            }
+            return TRUE;
+        case VK_NEXT:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_DOWN;
+            }
+            return TRUE;
+        case VK_HOME:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_TOP;
+            }
+            return TRUE;
+        case VK_END:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_MOVE_PAGE_BOTTOM;
+            }
+            return TRUE;
+        case VK_RETURN:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_FINALIZE_CANDIDATELIST;
+            }
+            return TRUE;
+        case VK_SPACE:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_CONVERT;
+            }
+            return TRUE;
+        case VK_ESCAPE:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_CANCEL;
+            }
+            return TRUE;
+        case VK_BACK:
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_CANCEL;
+            }
+            return TRUE;
         }
     }
 
@@ -1813,7 +2109,8 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
 //
 //----------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeComposition(UINT uCode, _Out_opt_ _KEYSTROKE_STATE *pKeyState, KEYSTROKE_FUNCTION function)
+BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeComposition(UINT uCode, _Out_opt_ _KEYSTROKE_STATE *pKeyState,
+                                                                   KEYSTROKE_FUNCTION function)
 {
     if (pKeyState == nullptr)
     {
@@ -1855,7 +2152,9 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeComposition(UINT uCode, _
 //
 //----------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeCandidate(UINT uCode, _In_ _KEYSTROKE_STATE *pKeyState, CANDIDATE_MODE candidateMode, _Out_ BOOL *pfRetCode, _In_ CSampleImeArray<_KEYSTROKE> *pKeystrokeMetric)
+BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeCandidate(UINT uCode, _In_ _KEYSTROKE_STATE *pKeyState,
+                                                                 CANDIDATE_MODE candidateMode, _Out_ BOOL *pfRetCode,
+                                                                 _In_ CSampleImeArray<_KEYSTROKE> *pKeystrokeMetric)
 {
     if (pfRetCode == nullptr)
     {
@@ -1874,8 +2173,9 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeCandidate(UINT uCode, _In
             *pfRetCode = TRUE;
             if (pKeyState)
             {
-                pKeyState->Category = (candidateMode == CANDIDATE_ORIGINAL ? CATEGORY_CANDIDATE :
-                    candidateMode == CANDIDATE_PHRASE ? CATEGORY_PHRASE : CATEGORY_CANDIDATE);
+                pKeyState->Category = (candidateMode == CANDIDATE_ORIGINAL ? CATEGORY_CANDIDATE
+                                       : candidateMode == CANDIDATE_PHRASE ? CATEGORY_PHRASE
+                                                                           : CATEGORY_CANDIDATE);
 
                 pKeyState->Function = pKeystroke->Function;
             }
@@ -1892,7 +2192,8 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyKeystrokeCandidate(UINT uCode, _In
 //
 //----------------------------------------------------------------------------
 
-BOOL CCompositionProcessorEngine::IsKeystrokeRange(UINT uCode, _Out_ _KEYSTROKE_STATE *pKeyState, CANDIDATE_MODE candidateMode)
+BOOL CCompositionProcessorEngine::IsKeystrokeRange(UINT uCode, _Out_ _KEYSTROKE_STATE *pKeyState,
+                                                   CANDIDATE_MODE candidateMode)
 {
     if (pKeyState == nullptr)
     {
@@ -1908,14 +2209,17 @@ BOOL CCompositionProcessorEngine::IsKeystrokeRange(UINT uCode, _Out_ _KEYSTROKE_
         {
             // Candidate phrase could specify modifier
             if ((GetCandidateListPhraseModifier() == 0 && Global::ModifiersValue == 0) ||
-                (GetCandidateListPhraseModifier() != 0 && Global::CheckModifiers(Global::ModifiersValue, GetCandidateListPhraseModifier())))
+                (GetCandidateListPhraseModifier() != 0 &&
+                 Global::CheckModifiers(Global::ModifiersValue, GetCandidateListPhraseModifier())))
             {
-                pKeyState->Category = CATEGORY_PHRASE; pKeyState->Function = FUNCTION_SELECT_BY_NUMBER;
+                pKeyState->Category = CATEGORY_PHRASE;
+                pKeyState->Function = FUNCTION_SELECT_BY_NUMBER;
                 return TRUE;
             }
             else
             {
-                pKeyState->Category = CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION; pKeyState->Function = FUNCTION_FINALIZE_TEXTSTORE_AND_INPUT;
+                pKeyState->Category = CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION;
+                pKeyState->Function = FUNCTION_FINALIZE_TEXTSTORE_AND_INPUT;
                 return FALSE;
             }
         }
@@ -1923,16 +2227,19 @@ BOOL CCompositionProcessorEngine::IsKeystrokeRange(UINT uCode, _Out_ _KEYSTROKE_
         {
             // Candidate phrase could specify modifier
             if ((GetCandidateListPhraseModifier() == 0 && Global::ModifiersValue == 0) ||
-                (GetCandidateListPhraseModifier() != 0 && Global::CheckModifiers(Global::ModifiersValue, GetCandidateListPhraseModifier())))
+                (GetCandidateListPhraseModifier() != 0 &&
+                 Global::CheckModifiers(Global::ModifiersValue, GetCandidateListPhraseModifier())))
             {
-                pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_SELECT_BY_NUMBER;
+                pKeyState->Category = CATEGORY_CANDIDATE;
+                pKeyState->Function = FUNCTION_SELECT_BY_NUMBER;
                 return TRUE;
             }
             // else next composition
         }
         else if (candidateMode != CANDIDATE_NONE)
         {
-            pKeyState->Category = CATEGORY_CANDIDATE; pKeyState->Function = FUNCTION_SELECT_BY_NUMBER;
+            pKeyState->Category = CATEGORY_CANDIDATE;
+            pKeyState->Function = FUNCTION_SELECT_BY_NUMBER;
             return TRUE;
         }
     }

@@ -7,14 +7,20 @@
 
 #pragma once
 
+#include "Private.h"
+#include "SampleIME.h"
+#include "CompositionProcessorEngine.h"
+#include "Globals.h"
+#include "Compartment.h"
+
 class CCompartment;
 class CCompartmentEventSink;
 
-class CLangBarItemButton : public ITfLangBarItemButton,
-    public ITfSource
+class CLangBarItemButton : public ITfLangBarItemButton, public ITfSource
 {
-public:
-    CLangBarItemButton(REFGUID guidLangBar, LPCWSTR description, LPCWSTR tooltip, DWORD onIconIndex, DWORD offIconIndex, BOOL isSecureMode);
+  public:
+    CLangBarItemButton(REFGUID guidLangBar, LPCWSTR description, LPCWSTR tooltip, DWORD onIconIndex, DWORD offIconIndex,
+                       BOOL isSecureMode);
     ~CLangBarItemButton();
 
     // IUnknown
@@ -51,8 +57,8 @@ public:
 
     void SetStatus(DWORD dwStatus, BOOL fSet);
 
-private:
-    ITfLangBarItemSink* _pLangBarItemSink;
+  private:
+    ITfLangBarItemSink *_pLangBarItemSink;
 
     TF_LANGBARITEMINFO _tfLangBarItemInfo;
     LPCWSTR _pTooltipText;
@@ -63,8 +69,8 @@ private:
     BOOL _isSecureMode;
     DWORD _status;
 
-    CCompartment* _pCompartment;
-    CCompartmentEventSink* _pCompartmentEventSink;
+    CCompartment *_pCompartment;
+    CCompartmentEventSink *_pCompartmentEventSink;
     static HRESULT _CompartmentCallback(_In_ void *pv, REFGUID guidCompartment);
 
     // The cookie for the sink to CLangBarItemButton.

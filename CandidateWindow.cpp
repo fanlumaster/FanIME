@@ -16,12 +16,13 @@
 //
 //----------------------------------------------------------------------------
 
-CCandidateWindow::CCandidateWindow(_In_ CANDWNDCALLBACK pfnCallback, _In_ void *pv, _In_ CCandidateRange *pIndexRange, _In_ BOOL isStoreAppMode)
+CCandidateWindow::CCandidateWindow(_In_ CANDWNDCALLBACK pfnCallback, _In_ void *pv, _In_ CCandidateRange *pIndexRange,
+                                   _In_ BOOL isStoreAppMode)
 {
     _currentSelection = 0;
 
-    _SetTextColor(CANDWND_ITEM_COLOR, GetSysColor(COLOR_WINDOW));    // text color is black
-    _SetFillColor((HBRUSH)(COLOR_WINDOW+1));
+    _SetTextColor(CANDWND_ITEM_COLOR, GetSysColor(COLOR_WINDOW)); // text color is black
+    _SetFillColor((HBRUSH)(COLOR_WINDOW + 1));
 
     _pIndexRange = pIndexRange;
 
@@ -95,10 +96,8 @@ BOOL CCandidateWindow::_CreateMainWindow(ATOM atom, _In_opt_ HWND parentWndHandl
 {
     _SetUIWnd(this);
 
-    if (!CBaseWindow::_Create(atom,
-        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
-        WS_BORDER | WS_POPUP,
-        NULL, 0, 0, parentWndHandle))
+    if (!CBaseWindow::_Create(atom, WS_EX_TOPMOST | WS_EX_TOOLWINDOW, WS_BORDER | WS_POPUP, NULL, 0, 0,
+                              parentWndHandle))
     {
         return FALSE;
     }
@@ -114,9 +113,8 @@ BOOL CCandidateWindow::_CreateBackGroundShadowWindow()
         return FALSE;
     }
 
-    if (!_pShadowWnd->_Create(Global::AtomShadowWindow,
-        WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
-        WS_DISABLED | WS_POPUP, this))
+    if (!_pShadowWnd->_Create(Global::AtomShadowWindow, WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+                              WS_DISABLED | WS_POPUP, this))
     {
         _DeleteShadowWnd();
         return FALSE;
@@ -130,7 +128,7 @@ BOOL CCandidateWindow::_CreateVScrollWindow()
     BOOL ret = FALSE;
 
     SHELL_MODE shellMode = _isStoreAppMode ? STOREAPP : DESKTOP;
-    CScrollBarWindowFactory* pFactory = CScrollBarWindowFactory::Instance();
+    CScrollBarWindowFactory *pFactory = CScrollBarWindowFactory::Instance();
     _pVScrollBarWnd = pFactory->MakeScrollBarWindow(shellMode);
 
     if (_pVScrollBarWnd == nullptr)
@@ -147,7 +145,7 @@ BOOL CCandidateWindow::_CreateVScrollWindow()
         _DeleteShadowWnd();
         goto Exit;
     }
-    
+
     ret = TRUE;
 
 Exit:
@@ -229,84 +227,82 @@ VOID CCandidateWindow::_SetFillColor(_In_ HBRUSH hBrush)
 const int PageCountPosition = 1;
 const int StringPosition = 4;
 
-LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam)
+LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT uMsg, _In_ WPARAM wParam,
+                                                       _In_ LPARAM lParam)
 {
     switch (uMsg)
     {
-    case WM_CREATE:
+    case WM_CREATE: {
+        HDC dcHandle = nullptr;
+
+        dcHandle = GetDC(wndHandle);
+        if (dcHandle)
         {
-            HDC dcHandle = nullptr;
+            HFONT hFontOld = (HFONT)SelectObject(dcHandle, Global::defaultlFontHandle);
+            GetTextMetrics(dcHandle, &_TextMetric);
 
-            dcHandle = GetDC(wndHandle);
-            if (dcHandle)
-            {
-                HFONT hFontOld = (HFONT)SelectObject(dcHandle, Global::defaultlFontHandle);
-                GetTextMetrics(dcHandle, &_TextMetric);
-
-                _cxTitle = _TextMetric.tmMaxCharWidth * _wndWidth;
-                SelectObject(dcHandle, hFontOld);
-                ReleaseDC(wndHandle, dcHandle);
-            }
+            _cxTitle = _TextMetric.tmMaxCharWidth * _wndWidth;
+            SelectObject(dcHandle, hFontOld);
+            ReleaseDC(wndHandle, dcHandle);
         }
+    }
         return 0;
 
     case WM_DESTROY:
         _DeleteShadowWnd();
         return 0;
 
-    case WM_WINDOWPOSCHANGED:
+    case WM_WINDOWPOSCHANGED: {
+        WINDOWPOS *pWndPos = (WINDOWPOS *)lParam;
+
+        // move shadow
+        if (_pShadowWnd)
         {
-            WINDOWPOS* pWndPos = (WINDOWPOS*)lParam;
-
-            // move shadow
-            if (_pShadowWnd)
-            {
-                _pShadowWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
-            }
-
-            // move v-scroll
-            if (_pVScrollBarWnd)
-            {
-                _pVScrollBarWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
-            }
-
-            _FireMessageToLightDismiss(wndHandle, pWndPos);
+            _pShadowWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
         }
-        break;
 
-    case WM_WINDOWPOSCHANGING:
+        // move v-scroll
+        if (_pVScrollBarWnd)
         {
-            WINDOWPOS* pWndPos = (WINDOWPOS*)lParam;
-
-            // show/hide shadow
-            if (_pShadowWnd)
-            {
-                if ((pWndPos->flags & SWP_HIDEWINDOW) != 0)
-                {
-                    _pShadowWnd->_Show(FALSE);
-                }
-
-                // don't go behaind of shadow
-                if (((pWndPos->flags & SWP_NOZORDER) == 0) && (pWndPos->hwndInsertAfter == _pShadowWnd->_GetWnd()))
-                {
-                    pWndPos->flags |= SWP_NOZORDER;
-                }
-
-                _pShadowWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
-            }
-
-            // show/hide v-scroll
-            if (_pVScrollBarWnd)
-            {
-                if ((pWndPos->flags & SWP_HIDEWINDOW) != 0)
-                {
-                    _pVScrollBarWnd->_Show(FALSE);
-                }
-
-                _pVScrollBarWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
-            }
+            _pVScrollBarWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
         }
-        break;
+
+        _FireMessageToLightDismiss(wndHandle, pWndPos);
+    }
+    break;
+
+    case WM_WINDOWPOSCHANGING: {
+        WINDOWPOS *pWndPos = (WINDOWPOS *)lParam;
+
+        // show/hide shadow
+        if (_pShadowWnd)
+        {
+            if ((pWndPos->flags & SWP_HIDEWINDOW) != 0)
+            {
+                _pShadowWnd->_Show(FALSE);
+            }
+
+            // don't go behaind of shadow
+            if (((pWndPos->flags & SWP_NOZORDER) == 0) && (pWndPos->hwndInsertAfter == _pShadowWnd->_GetWnd()))
+            {
+                pWndPos->flags |= SWP_NOZORDER;
+            }
+
+            _pShadowWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
+        }
+
+        // show/hide v-scroll
+        if (_pVScrollBarWnd)
+        {
+            if ((pWndPos->flags & SWP_HIDEWINDOW) != 0)
+            {
+                _pVScrollBarWnd->_Show(FALSE);
+            }
+
+            _pVScrollBarWnd->_OnOwnerWndMoved((pWndPos->flags & SWP_NOSIZE) == 0);
+        }
+    }
+    break;
 
     case WM_SHOWWINDOW:
         // show/hide shadow
@@ -322,28 +318,26 @@ LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT
         }
         break;
 
-    case WM_PAINT:
-        {
-            HDC dcHandle = nullptr;
-            PAINTSTRUCT ps;
+    case WM_PAINT: {
+        HDC dcHandle = nullptr;
+        PAINTSTRUCT ps;
 
-            dcHandle = BeginPaint(wndHandle, &ps);
-            _OnPaint(dcHandle, &ps);
-            _DrawBorder(wndHandle, CANDWND_BORDER_WIDTH*2);
-            EndPaint(wndHandle, &ps);
-        }
+        dcHandle = BeginPaint(wndHandle, &ps);
+        _OnPaint(dcHandle, &ps);
+        _DrawBorder(wndHandle, CANDWND_BORDER_WIDTH * 2);
+        EndPaint(wndHandle, &ps);
+    }
         return 0;
 
-    case WM_SETCURSOR:
-        {
-            POINT cursorPoint;
+    case WM_SETCURSOR: {
+        POINT cursorPoint;
 
-            GetCursorPos(&cursorPoint);
-            MapWindowPoints(NULL, wndHandle, &cursorPoint, 1);
+        GetCursorPos(&cursorPoint);
+        MapWindowPoints(NULL, wndHandle, &cursorPoint, 1);
 
-            // handle mouse message
-            _HandleMouseMsg(HIWORD(lParam), cursorPoint);
-        }
+        // handle mouse message
+        _HandleMouseMsg(HIWORD(lParam), cursorPoint);
+    }
         return 1;
 
     case WM_MOUSEMOVE:
@@ -352,29 +346,25 @@ LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT
     case WM_RBUTTONDOWN:
     case WM_LBUTTONUP:
     case WM_MBUTTONUP:
-    case WM_RBUTTONUP:
-        {
-            POINT point;
+    case WM_RBUTTONUP: {
+        POINT point;
 
-            POINTSTOPOINT(point, MAKEPOINTS(lParam));
+        POINTSTOPOINT(point, MAKEPOINTS(lParam));
 
-            // handle mouse message
-            _HandleMouseMsg(uMsg, point);
-        }
-		// we processes this message, it should return zero. 
+        // handle mouse message
+        _HandleMouseMsg(uMsg, point);
+    }
+        // we processes this message, it should return zero.
         return 0;
 
-    case WM_MOUSEACTIVATE:
+    case WM_MOUSEACTIVATE: {
+        WORD mouseEvent = HIWORD(lParam);
+        if (mouseEvent == WM_LBUTTONDOWN || mouseEvent == WM_RBUTTONDOWN || mouseEvent == WM_MBUTTONDOWN)
         {
-            WORD mouseEvent = HIWORD(lParam);
-            if (mouseEvent == WM_LBUTTONDOWN || 
-                mouseEvent == WM_RBUTTONDOWN || 
-                mouseEvent == WM_MBUTTONDOWN) 
-            {
-                return MA_NOACTIVATE;
-            }
+            return MA_NOACTIVATE;
         }
-        break;
+    }
+    break;
 
     case WM_POINTERACTIVATE:
         return PA_NOACTIVATE;
@@ -430,7 +420,7 @@ void CCandidateWindow::_OnPaint(_In_ HDC dcHandle, _In_ PAINTSTRUCT *pPaintStruc
     {
         goto cleanup;
     }
-    
+
     _AdjustPageIndex(currentPage, currentPageIndex);
 
     _DrawList(dcHandle, currentPageIndex, &pPaintStruct->rcPaint);
@@ -447,11 +437,12 @@ cleanup:
 
 void CCandidateWindow::_OnLButtonDown(POINT pt)
 {
-    RECT rcWindow = {0, 0, 0, 0};;
+    RECT rcWindow = {0, 0, 0, 0};
+    ;
     _GetClientRect(&rcWindow);
 
     int cyLine = _cyRow;
-    
+
     UINT candidateListPageCnt = _pIndexRange->Count();
     UINT index = 0;
     int currentPage = 0;
@@ -464,7 +455,8 @@ void CCandidateWindow::_OnLButtonDown(POINT pt)
     // Hit test on list items
     index = *_PageIndex.GetAt(currentPage);
 
-    for (UINT pageCount = 0; (index < _candidateList.Count()) && (pageCount < candidateListPageCnt); index++, pageCount++)
+    for (UINT pageCount = 0; (index < _candidateList.Count()) && (pageCount < candidateListPageCnt);
+         index++, pageCount++)
     {
         RECT rc = {0, 0, 0, 0};
 
@@ -539,10 +531,10 @@ void CCandidateWindow::_OnMouseMove(POINT pt)
 
     RECT rc = {0, 0, 0, 0};
 
-    rc.left   = rcWindow.left;
-    rc.right  = rcWindow.right - GetSystemMetrics(SM_CXVSCROLL) * 2;
+    rc.left = rcWindow.left;
+    rc.right = rcWindow.right - GetSystemMetrics(SM_CXVSCROLL) * 2;
 
-    rc.top    = rcWindow.top;
+    rc.top = rcWindow.top;
     rc.bottom = rcWindow.bottom;
 
     if (PtInRect(&rc, pt))
@@ -611,17 +603,15 @@ void CCandidateWindow::_DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT 
 
     int cxLine = _TextMetric.tmAveCharWidth;
     int cyLine = max(_cyRow, _TextMetric.tmHeight);
-    int cyOffset = (cyLine == _cyRow ? (cyLine-_TextMetric.tmHeight)/2 : 0);
+    int cyOffset = (cyLine == _cyRow ? (cyLine - _TextMetric.tmHeight) / 2 : 0);
 
     RECT rc;
 
-	const size_t lenOfPageCount = 16;
-    for (;
-        (iIndex < _candidateList.Count()) && (pageCount < candidateListPageCnt);
-        iIndex++, pageCount++)
+    const size_t lenOfPageCount = 16;
+    for (; (iIndex < _candidateList.Count()) && (pageCount < candidateListPageCnt); iIndex++, pageCount++)
     {
         WCHAR pageCountString[lenOfPageCount] = {'\0'};
-        CCandidateListItem* pItemList = nullptr;
+        CCandidateListItem *pItemList = nullptr;
 
         rc.top = prc->top + pageCount * cyLine;
         rc.bottom = rc.top + cyLine;
@@ -634,7 +624,8 @@ void CCandidateWindow::_DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT 
         SetBkColor(dcHandle, GetSysColor(COLOR_3DHIGHLIGHT));
 
         StringCchPrintf(pageCountString, ARRAYSIZE(pageCountString), L"%d", (LONG)*_pIndexRange->GetAt(pageCount));
-        ExtTextOut(dcHandle, PageCountPosition * cxLine, pageCount * cyLine + cyOffset, ETO_OPAQUE, &rc, pageCountString, lenOfPageCount, NULL);
+        ExtTextOut(dcHandle, PageCountPosition * cxLine, pageCount * cyLine + cyOffset, ETO_OPAQUE, &rc,
+                   pageCountString, lenOfPageCount, NULL);
 
         rc.left = prc->left + StringPosition * cxLine;
         rc.right = prc->right;
@@ -652,17 +643,18 @@ void CCandidateWindow::_DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT 
         }
 
         pItemList = _candidateList.GetAt(iIndex);
-        ExtTextOut(dcHandle, StringPosition * cxLine, pageCount * cyLine + cyOffset, ETO_OPAQUE, &rc, pItemList->_ItemString.Get(), (DWORD)pItemList->_ItemString.GetLength(), NULL);
+        ExtTextOut(dcHandle, StringPosition * cxLine, pageCount * cyLine + cyOffset, ETO_OPAQUE, &rc,
+                   pItemList->_ItemString.Get(), (DWORD)pItemList->_ItemString.GetLength(), NULL);
     }
     for (; (pageCount < candidateListPageCnt); pageCount++)
     {
-        rc.top    = prc->top + pageCount * cyLine;
+        rc.top = prc->top + pageCount * cyLine;
         rc.bottom = rc.top + cyLine;
 
-        rc.left   = prc->left + PageCountPosition * cxLine;
-        rc.right  = prc->left + StringPosition * cxLine;
+        rc.left = prc->left + PageCountPosition * cxLine;
+        rc.right = prc->left + StringPosition * cxLine;
 
-        FillRect(dcHandle, &rc, (HBRUSH)(COLOR_3DHIGHLIGHT+1));
+        FillRect(dcHandle, &rc, (HBRUSH)(COLOR_3DHIGHLIGHT + 1));
     }
 }
 
@@ -679,7 +671,7 @@ void CCandidateWindow::_DrawBorder(_In_ HWND wndHandle, _In_ int cx)
 
     GetWindowRect(wndHandle, &rcWnd);
     // zero based
-    OffsetRect(&rcWnd, -rcWnd.left, -rcWnd.top); 
+    OffsetRect(&rcWnd, -rcWnd.left, -rcWnd.top);
 
     HPEN hPen = CreatePen(PS_DOT, cx, CANDWND_BORDER_COLOR);
     HPEN hPenOld = (HPEN)SelectObject(dcHandle, hPen);
@@ -693,7 +685,6 @@ void CCandidateWindow::_DrawBorder(_In_ HWND wndHandle, _In_ int cx)
     DeleteObject(hPen);
     DeleteObject(hBorderBrush);
     ReleaseDC(wndHandle, dcHandle);
-
 }
 
 //+---------------------------------------------------------------------------
@@ -705,45 +696,45 @@ void CCandidateWindow::_DrawBorder(_In_ HWND wndHandle, _In_ int cx)
 void CCandidateWindow::_AddString(_Inout_ CCandidateListItem *pCandidateItem, _In_ BOOL isAddFindKeyCode)
 {
     DWORD_PTR dwItemString = pCandidateItem->_ItemString.GetLength();
-    const WCHAR* pwchString = nullptr;
+    const WCHAR *pwchString = nullptr;
     if (dwItemString)
     {
-        pwchString = new (std::nothrow) WCHAR[ dwItemString ];
+        pwchString = new (std::nothrow) WCHAR[dwItemString];
         if (!pwchString)
         {
             return;
         }
-        memcpy((void*)pwchString, pCandidateItem->_ItemString.Get(), dwItemString * sizeof(WCHAR));
+        memcpy((void *)pwchString, pCandidateItem->_ItemString.Get(), dwItemString * sizeof(WCHAR));
     }
 
     DWORD_PTR itemWildcard = pCandidateItem->_FindKeyCode.GetLength();
-    const WCHAR* pwchWildcard = nullptr;
+    const WCHAR *pwchWildcard = nullptr;
     if (itemWildcard && isAddFindKeyCode)
     {
-        pwchWildcard = new (std::nothrow) WCHAR[ itemWildcard ];
+        pwchWildcard = new (std::nothrow) WCHAR[itemWildcard];
         if (!pwchWildcard)
         {
             if (pwchString)
             {
-                delete [] pwchString;
+                delete[] pwchString;
             }
             return;
         }
-        memcpy((void*)pwchWildcard, pCandidateItem->_FindKeyCode.Get(), itemWildcard * sizeof(WCHAR));
+        memcpy((void *)pwchWildcard, pCandidateItem->_FindKeyCode.Get(), itemWildcard * sizeof(WCHAR));
     }
 
-    CCandidateListItem* pLI = nullptr;
+    CCandidateListItem *pLI = nullptr;
     pLI = _candidateList.Append();
     if (!pLI)
     {
         if (pwchString)
         {
-            delete [] pwchString;
+            delete[] pwchString;
             pwchString = nullptr;
         }
         if (pwchWildcard)
         {
-            delete [] pwchWildcard;
+            delete[] pwchWildcard;
             pwchWildcard = nullptr;
         }
         return;
@@ -771,10 +762,10 @@ void CCandidateWindow::_ClearList()
 {
     for (UINT index = 0; index < _candidateList.Count(); index++)
     {
-        CCandidateListItem* pItemList = nullptr;
+        CCandidateListItem *pItemList = nullptr;
         pItemList = _candidateList.GetAt(index);
-        delete [] pItemList->_ItemString.Get();
-        delete [] pItemList->_FindKeyCode.Get();
+        delete[] pItemList->_ItemString.Get();
+        delete[] pItemList->_FindKeyCode.Get();
     }
     _currentSelection = 0;
     _candidateList.Clear();
@@ -806,19 +797,20 @@ void CCandidateWindow::_SetScrollInfo(_In_ int nMax, _In_ int nPage)
 //
 //----------------------------------------------------------------------------
 
-DWORD CCandidateWindow::_GetCandidateString(_In_ int iIndex, _Outptr_result_maybenull_z_ const WCHAR **ppwchCandidateString)
+DWORD CCandidateWindow::_GetCandidateString(_In_ int iIndex,
+                                            _Outptr_result_maybenull_z_ const WCHAR **ppwchCandidateString)
 {
-    CCandidateListItem* pItemList = nullptr;
+    CCandidateListItem *pItemList = nullptr;
 
-    if (iIndex < 0 )
+    if (iIndex < 0)
     {
         *ppwchCandidateString = nullptr;
         return 0;
     }
 
     UINT index = static_cast<UINT>(iIndex);
-	
-	if (index >= _candidateList.Count())
+
+    if (index >= _candidateList.Count())
     {
         *ppwchCandidateString = nullptr;
         return 0;
@@ -840,7 +832,7 @@ DWORD CCandidateWindow::_GetCandidateString(_In_ int iIndex, _Outptr_result_mayb
 
 DWORD CCandidateWindow::_GetSelectedCandidateString(_Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
 {
-    CCandidateListItem* pItemList = nullptr;
+    CCandidateListItem *pItemList = nullptr;
 
     if (_currentSelection >= _candidateList.Count())
     {
@@ -863,7 +855,7 @@ DWORD CCandidateWindow::_GetSelectedCandidateString(_Outptr_result_maybenull_ co
 //----------------------------------------------------------------------------
 
 BOOL CCandidateWindow::_SetSelectionInPage(int nPos)
-{	
+{
     if (nPos < 0)
     {
         return FALSE;
@@ -986,13 +978,12 @@ BOOL CCandidateWindow::_MovePage(_In_ int offSet, _In_ BOOL isNotify)
         return FALSE;
     }
 
-    // If current selection is at the top of the page AND 
+    // If current selection is at the top of the page AND
     // we are on the "default" page border, then we don't
     // want adjustment to eliminate empty entries.
     //
     // We do this for keeping behavior inline with downlevel.
-    if (_currentSelection % _pIndexRange->Count() == 0 && 
-        _currentSelection == *_PageIndex.GetAt(currentPage)) 
+    if (_currentSelection % _pIndexRange->Count() == 0 && _currentSelection == *_PageIndex.GetAt(currentPage))
     {
         _dontAdjustOnEmptyItemPage = TRUE;
     }
@@ -1018,7 +1009,7 @@ BOOL CCandidateWindow::_MovePage(_In_ int offSet, _In_ BOOL isNotify)
 
 BOOL CCandidateWindow::_SetSelectionOffset(_In_ int offSet)
 {
-	if (_currentSelection + offSet >= _candidateList.Count())
+    if (_currentSelection + offSet >= _candidateList.Count())
     {
         return FALSE;
     }
@@ -1032,8 +1023,7 @@ BOOL CCandidateWindow::_SetSelectionOffset(_In_ int offSet)
 
     // For SB_LINEUP and SB_LINEDOWN, we need to special case if CurrentPageHasEmptyItems.
     // CurrentPageHasEmptyItems if we are on the last page.
-    if ((offSet == 1 || offSet == -1) &&
-        fCurrentPageHasEmptyItems && _PageIndex.Count() > 1)
+    if ((offSet == 1 || offSet == -1) && fCurrentPageHasEmptyItems && _PageIndex.Count() > 1)
     {
         int iPageIndex = *_PageIndex.GetAt(_PageIndex.Count() - 1);
         // Moving on the last page and last page has empty items.
@@ -1145,7 +1135,7 @@ HRESULT CCandidateWindow::_GetCurrentPage(_Inout_ UINT *pCurrentPage)
     if (_PageIndex.Count() == 1)
     {
         *pCurrentPage = 0;
-         goto Exit;
+        goto Exit;
     }
 
     UINT i = 0;
@@ -1175,7 +1165,7 @@ HRESULT CCandidateWindow::_GetCurrentPage(_Inout_ int *pCurrentPage)
 {
     HRESULT hr = E_FAIL;
     UINT needCastCurrentPage = 0;
-    
+
     if (nullptr == pCurrentPage)
     {
         goto Exit;
@@ -1186,7 +1176,7 @@ HRESULT CCandidateWindow::_GetCurrentPage(_Inout_ int *pCurrentPage)
     hr = _GetCurrentPage(&needCastCurrentPage);
     if (FAILED(hr))
     {
-       goto Exit;
+        goto Exit;
     }
 
     hr = UIntToInt(needCastCurrentPage, pCurrentPage);
@@ -1208,7 +1198,7 @@ Exit:
 BOOL CCandidateWindow::_AdjustPageIndexForSelection()
 {
     UINT candidateListPageCnt = _pIndexRange->Count();
-    UINT* pNewPageIndex = nullptr;
+    UINT *pNewPageIndex = nullptr;
     UINT newPageCnt = 0;
 
     if (_candidateList.Count() < candidateListPageCnt)
@@ -1220,7 +1210,7 @@ BOOL CCandidateWindow::_AdjustPageIndexForSelection()
     // B is number of pages before the current page
     // A is number of pages after the current page
     // uNewPageCount is A + B + 1;
-    // A is (uItemsAfter - 1) / candidateListPageCnt + 1 -> 
+    // A is (uItemsAfter - 1) / candidateListPageCnt + 1 ->
     //      (_CandidateListCount - _currentSelection - CandidateListPageCount - 1) / candidateListPageCnt + 1->
     //      (_CandidateListCount - _currentSelection - 1) / candidateListPageCnt
     // B is (uItemsBefore - 1) / candidateListPageCnt + 1 ->
@@ -1231,7 +1221,7 @@ BOOL CCandidateWindow::_AdjustPageIndexForSelection()
     BOOL isAfter = _candidateList.Count() > _currentSelection + candidateListPageCnt;
 
     // only have current page
-    if (!isBefore && !isAfter) 
+    if (!isBefore && !isAfter)
     {
         newPageCnt = 1;
     }
@@ -1250,14 +1240,14 @@ BOOL CCandidateWindow::_AdjustPageIndexForSelection()
         newPageCnt = (_candidateList.Count() - 2) / candidateListPageCnt + 2;
     }
 
-    pNewPageIndex = new (std::nothrow) UINT[ newPageCnt ];
+    pNewPageIndex = new (std::nothrow) UINT[newPageCnt];
     if (pNewPageIndex == nullptr)
     {
         return FALSE;
     }
     pNewPageIndex[0] = 0;
     UINT firstPage = _currentSelection % candidateListPageCnt;
-    if (firstPage && newPageCnt > 1) 
+    if (firstPage && newPageCnt > 1)
     {
         pNewPageIndex[1] = firstPage;
     }
@@ -1269,7 +1259,7 @@ BOOL CCandidateWindow::_AdjustPageIndexForSelection()
 
     _SetPageIndex(pNewPageIndex, newPageCnt);
 
-    delete [] pNewPageIndex;
+    delete[] pNewPageIndex;
 
     return TRUE;
 }
@@ -1308,13 +1298,12 @@ HRESULT CCandidateWindow::_CurrentPageHasEmptyItems(_Inout_ BOOL *hasEmptyItems)
         return S_FALSE;
     }
 
-    if ((currentPage == 0 || currentPage == _PageIndex.Count()-1) &&
-        (_PageIndex.Count() > 0) &&
+    if ((currentPage == 0 || currentPage == _PageIndex.Count() - 1) && (_PageIndex.Count() > 0) &&
         (*_PageIndex.GetAt(currentPage) > (UINT)(_candidateList.Count() - candidateListPageCnt)))
     {
         *hasEmptyItems = TRUE;
     }
-    else 
+    else
     {
         *hasEmptyItems = FALSE;
     }
@@ -1356,10 +1345,9 @@ void CCandidateWindow::_FireMessageToLightDismiss(_In_ HWND wndHandle, _In_ WIND
             NotifyWinEvent(EVENT_OBJECT_IME_CHANGE, wndHandle, OBJID_CLIENT, CHILDID_SELF);
         }
     }
-
 }
 
-HRESULT CCandidateWindow::_AdjustPageIndex(_Inout_ UINT & currentPage, _Inout_ UINT & currentPageIndex)
+HRESULT CCandidateWindow::_AdjustPageIndex(_Inout_ UINT &currentPage, _Inout_ UINT &currentPageIndex)
 {
     HRESULT hr = E_FAIL;
     UINT candidateListPageCnt = _pIndexRange->Count();
@@ -1369,7 +1357,7 @@ HRESULT CCandidateWindow::_AdjustPageIndex(_Inout_ UINT & currentPage, _Inout_ U
     BOOL hasEmptyItems = FALSE;
     if (FAILED(_CurrentPageHasEmptyItems(&hasEmptyItems)))
     {
-        goto Exit; 
+        goto Exit;
     }
 
     if (FALSE == hasEmptyItems)

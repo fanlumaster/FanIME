@@ -5,7 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-
 #pragma once
 
 #include "private.h"
@@ -23,8 +22,9 @@ typedef HRESULT (*CANDWNDCALLBACK)(void *pv, enum CANDWND_ACTION action);
 
 class CCandidateWindow : public CBaseWindow
 {
-public:
-    CCandidateWindow(_In_ CANDWNDCALLBACK pfnCallback, _In_ void *pv, _In_ CCandidateRange *pIndexRange, _In_ BOOL isStoreAppMode);
+  public:
+    CCandidateWindow(_In_ CANDWNDCALLBACK pfnCallback, _In_ void *pv, _In_ CCandidateRange *pIndexRange,
+                     _In_ BOOL isStoreAppMode);
     virtual ~CCandidateWindow();
 
     BOOL _Create(ATOM atom, _In_ UINT wndWidth, _In_opt_ HWND parentWndHandle);
@@ -68,7 +68,7 @@ public:
     HRESULT _GetCurrentPage(_Inout_ UINT *pCurrentPage);
     HRESULT _GetCurrentPage(_Inout_ int *pCurrentPage);
 
-private:
+  private:
     void _HandleMouseMsg(_In_ UINT mouseMsg, _In_ POINT point);
     void _DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT *prc);
     void _DrawBorder(_In_ HWND wndHandle, _In_ int cx);
@@ -76,14 +76,14 @@ private:
     BOOL _AdjustPageIndexForSelection();
     HRESULT _CurrentPageHasEmptyItems(_Inout_ BOOL *pfHasEmptyItems);
 
-	// LightDismiss feature support, it will fire messages lightdismiss-related to the light dismiss layout.
+    // LightDismiss feature support, it will fire messages lightdismiss-related to the light dismiss layout.
     void _FireMessageToLightDismiss(_In_ HWND wndHandle, _In_ WINDOWPOS *pWndPos);
 
     BOOL _CreateMainWindow(ATOM atom, _In_opt_ HWND parentWndHandle);
     BOOL _CreateBackGroundShadowWindow();
     BOOL _CreateVScrollWindow();
 
-    HRESULT _AdjustPageIndex(_Inout_ UINT & currentPage, _Inout_ UINT & currentPageIndex);
+    HRESULT _AdjustPageIndex(_Inout_ UINT &currentPage, _Inout_ UINT &currentPageIndex);
 
     void _ResizeWindow();
     void _DeleteShadowWnd();
@@ -91,7 +91,7 @@ private:
 
     friend COLORREF _AdjustTextColor(_In_ COLORREF crColor, _In_ COLORREF crBkColor);
 
-private:
+  private:
     UINT _currentSelection;
     CSampleImeArray<CCandidateListItem> _candidateList;
     CSampleImeArray<UINT> _PageIndex;
@@ -105,13 +105,13 @@ private:
     int _cxTitle;
     UINT _wndWidth;
 
-    CCandidateRange* _pIndexRange;
+    CCandidateRange *_pIndexRange;
 
     CANDWNDCALLBACK _pfnCallback;
-    void* _pObj;
+    void *_pObj;
 
-    CShadowWindow* _pShadowWnd;
-    CScrollBarWindow* _pVScrollBarWnd;
+    CShadowWindow *_pShadowWnd;
+    CScrollBarWindow *_pVScrollBarWnd;
 
     BOOL _dontAdjustOnEmptyItemPage;
     BOOL _isStoreAppMode;

@@ -15,7 +15,8 @@ CTfInputProcessorProfile::CTfInputProcessorProfile()
 
 CTfInputProcessorProfile::~CTfInputProcessorProfile()
 {
-    if (_pInputProcessorProfile) {
+    if (_pInputProcessorProfile)
+    {
         _pInputProcessorProfile->Release();
         _pInputProcessorProfile = nullptr;
     }
@@ -23,8 +24,8 @@ CTfInputProcessorProfile::~CTfInputProcessorProfile()
 
 HRESULT CTfInputProcessorProfile::CreateInstance()
 {
-    HRESULT	hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
-        IID_ITfInputProcessorProfiles, (void**)&_pInputProcessorProfile);
+    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_ITfInputProcessorProfiles, (void **)&_pInputProcessorProfile);
 
     return hr;
 }
@@ -41,7 +42,8 @@ HRESULT CTfInputProcessorProfile::GetCurrentLanguage(_Out_ LANGID *plangid)
     }
 }
 
-HRESULT CTfInputProcessorProfile::GetDefaultLanguageProfile(LANGID langid, REFGUID catid, _Out_ CLSID *pclsid, _Out_ GUID *pguidProfile)
+HRESULT CTfInputProcessorProfile::GetDefaultLanguageProfile(LANGID langid, REFGUID catid, _Out_ CLSID *pclsid,
+                                                            _Out_ GUID *pguidProfile)
 {
     if (_pInputProcessorProfile)
     {

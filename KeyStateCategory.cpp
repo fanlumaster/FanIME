@@ -7,14 +7,14 @@
 
 #include "KeyStateCategory.h"
 
-CKeyStateCategoryFactory* CKeyStateCategoryFactory::_instance;
+CKeyStateCategoryFactory *CKeyStateCategoryFactory::_instance;
 
 CKeyStateCategoryFactory::CKeyStateCategoryFactory()
 {
     _instance = nullptr;
 }
 
-CKeyStateCategoryFactory* CKeyStateCategoryFactory::Instance()
+CKeyStateCategoryFactory *CKeyStateCategoryFactory::Instance()
 {
     if (nullptr == _instance)
     {
@@ -24,9 +24,10 @@ CKeyStateCategoryFactory* CKeyStateCategoryFactory::Instance()
     return _instance;
 }
 
-CKeyStateCategory* CKeyStateCategoryFactory::MakeKeyStateCategory(KEYSTROKE_CATEGORY keyCategory, _In_ CSampleIME *pTextService)
+CKeyStateCategory *CKeyStateCategoryFactory::MakeKeyStateCategory(KEYSTROKE_CATEGORY keyCategory,
+                                                                  _In_ CSampleIME *pTextService)
 {
-    CKeyStateCategory* pKeyState = nullptr;
+    CKeyStateCategory *pKeyState = nullptr;
 
     switch (keyCategory)
     {
@@ -76,7 +77,7 @@ CKeyStateCategory::~CKeyStateCategory(void)
 
 HRESULT CKeyStateCategory::KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandlerEditSessionDTO dto)
 {
-    switch(function)
+    switch (function)
     {
     case FUNCTION_INPUT:
         return HandleKeyInput(dto);
@@ -125,7 +126,6 @@ HRESULT CKeyStateCategory::KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandl
 
     case FUNCTION_SELECT_BY_NUMBER:
         return HandleKeySelectByNumber(dto);
-
     }
     return E_INVALIDARG;
 }
@@ -138,89 +138,89 @@ void CKeyStateCategory::Release()
 // _HandleCompositionInput
 HRESULT CKeyStateCategory::HandleKeyInput(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 // HandleKeyFinalizeTextStore
 HRESULT CKeyStateCategory::HandleKeyFinalizeTextStore(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 // HandleKeyCompositionFinalizeTextStoreAndInput
 HRESULT CKeyStateCategory::HandleKeyFinalizeTextStoreAndInput(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 // HandleKeyCompositionFinalizeCandidatelistAndInput
 HRESULT CKeyStateCategory::HandleKeyFinalizeCandidatelistAndInput(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 // HandleKeyCompositionFinalizeCandidatelist
 HRESULT CKeyStateCategory::HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 // HandleKeyConvert
 HRESULT CKeyStateCategory::HandleKeyConvert(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 // HandleKeyConvertWildCard
 HRESULT CKeyStateCategory::HandleKeyConvertWildCard(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 //_HandleCancel
 HRESULT CKeyStateCategory::HandleKeyCancel(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 //_HandleCompositionBackspace
 HRESULT CKeyStateCategory::HandleKeyBackspace(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 //_HandleCompositionArrowKey
 HRESULT CKeyStateCategory::HandleKeyArrow(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 //_HandleCompositionDoubleSingleByte
 HRESULT CKeyStateCategory::HandleKeyDoubleSingleByte(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 //_HandleCompositionPunctuation
 HRESULT CKeyStateCategory::HandleKeyPunctuation(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
 HRESULT CKeyStateCategory::HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto)
 {
-	dto;
+    dto;
     return E_NOTIMPL;
 }
 
@@ -320,7 +320,7 @@ HRESULT CKeyStateCandidate::HandleKeyConvert(KeyHandlerEditSessionDTO dto)
 }
 
 //_HandleCancel
-HRESULT CKeyStateCandidate::HandleKeyCancel(KeyHandlerEditSessionDTO dto)    
+HRESULT CKeyStateCandidate::HandleKeyCancel(KeyHandlerEditSessionDTO dto)
 {
     return _pTextService->_HandleCancel(dto.ec, dto.pContext);
 }
@@ -345,25 +345,25 @@ CKeyStatePhrase::CKeyStatePhrase(_In_ CSampleIME *pTextService) : CKeyStateCateg
 {
 }
 
-//HandleKeyFinalizeCandidatelist
+// HandleKeyFinalizeCandidatelist
 HRESULT CKeyStatePhrase::HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto)
 {
     return _pTextService->_HandlePhraseFinalize(dto.ec, dto.pContext);
 }
 
-//HandleKeyCancel
+// HandleKeyCancel
 HRESULT CKeyStatePhrase::HandleKeyCancel(KeyHandlerEditSessionDTO dto)
 {
     return _pTextService->_HandleCancel(dto.ec, dto.pContext);
 }
 
-//HandleKeyArrow
+// HandleKeyArrow
 HRESULT CKeyStatePhrase::HandleKeyArrow(KeyHandlerEditSessionDTO dto)
 {
     return _pTextService->_HandlePhraseArrowKey(dto.ec, dto.pContext, dto.arrowKey);
 }
 
-//HandleKeySelectByNumber
+// HandleKeySelectByNumber
 HRESULT CKeyStatePhrase::HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto)
 {
     return _pTextService->_HandlePhraseSelectByNumber(dto.ec, dto.pContext, dto.code);

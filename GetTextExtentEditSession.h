@@ -28,14 +28,16 @@ class CTfTextLayoutSink;
 
 class CGetTextExtentEditSession : public CEditSessionBase
 {
-public:
-    CGetTextExtentEditSession(_In_ CSampleIME *pTextService, _In_ ITfContext *pContext, _In_ ITfContextView *pContextView, _In_ ITfRange *pRangeComposition, _In_ CTfTextLayoutSink *pTextLayoutSink);
+  public:
+    CGetTextExtentEditSession(_In_ CSampleIME *pTextService, _In_ ITfContext *pContext,
+                              _In_ ITfContextView *pContextView, _In_ ITfRange *pRangeComposition,
+                              _In_ CTfTextLayoutSink *pTextLayoutSink);
 
     // ITfEditSession
     STDMETHODIMP DoEditSession(TfEditCookie ec);
 
-private:
-    ITfContextView* _pContextView;
-    ITfRange* _pRangeComposition;
-    CTfTextLayoutSink* _pTfTextLayoutSink;
+  private:
+    ITfContextView *_pContextView;
+    ITfRange *_pRangeComposition;
+    CTfTextLayoutSink *_pTfTextLayoutSink;
 };

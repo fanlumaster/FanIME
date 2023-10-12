@@ -11,9 +11,13 @@
 
 class CTableDictionaryEngine : public CBaseDictionaryEngine
 {
-public:
-    CTableDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile) : CBaseDictionaryEngine(locale, pDictionaryFile) { }
-    virtual ~CTableDictionaryEngine() { }
+  public:
+    CTableDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile) : CBaseDictionaryEngine(locale, pDictionaryFile)
+    {
+    }
+    virtual ~CTableDictionaryEngine()
+    {
+    }
 
     // Collect word from phrase string.
     // param
@@ -26,5 +30,6 @@ public:
 
     VOID CollectWordForWildcard(_In_ CStringRange *psrgKeyCode, _Inout_ CSampleImeArray<CCandidateListItem> *pItemList);
 
-    VOID CollectWordFromConvertedStringForWildcard(_In_ CStringRange *pString, _Inout_ CSampleImeArray<CCandidateListItem> *pItemList);
+    VOID CollectWordFromConvertedStringForWildcard(_In_ CStringRange *pString,
+                                                   _Inout_ CSampleImeArray<CCandidateListItem> *pItemList);
 };

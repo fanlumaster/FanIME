@@ -63,10 +63,10 @@ BOOL CFileMapping::SetupReadBuffer()
             {
                 if (IsTextUnicode(_pMapBuffer, (int)_fileSize, NULL))
                 {
-                    _pReadBuffer = (WCHAR*)_pMapBuffer;
+                    _pReadBuffer = (WCHAR *)_pMapBuffer;
 
                     // skip Unicode byte order mark
-                    if (*((WCHAR*)_pMapBuffer) == Global::UnicodeByteOrderMark)
+                    if (*((WCHAR *)_pMapBuffer) == Global::UnicodeByteOrderMark)
                     {
                         _pReadBuffer++;
                         _fileSize--;

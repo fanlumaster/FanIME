@@ -11,16 +11,18 @@
 
 class CEnumTfCandidates : public IEnumTfCandidates
 {
-protected:
+  protected:
     // constructor/destructor
-    CEnumTfCandidates(_In_ const CSampleImeArray<ITfCandidateString*> &rgelm, UINT currentNum);
+    CEnumTfCandidates(_In_ const CSampleImeArray<ITfCandidateString *> &rgelm, UINT currentNum);
 
     virtual ~CEnumTfCandidates(void);
 
-public:
+  public:
     // create instance
-    static HRESULT CreateInstance(_Out_ CEnumTfCandidates **ppobj, _In_ const CSampleImeArray<ITfCandidateString*> &rgelm, UINT currentNum = 0);
-    static HRESULT CreateInstance(REFIID riid, _Out_ void **ppvObj, _In_ const CSampleImeArray<ITfCandidateString*> &rgelm, UINT currentNum = 0);
+    static HRESULT CreateInstance(_Out_ CEnumTfCandidates **ppobj,
+                                  _In_ const CSampleImeArray<ITfCandidateString *> &rgelm, UINT currentNum = 0);
+    static HRESULT CreateInstance(REFIID riid, _Out_ void **ppvObj,
+                                  _In_ const CSampleImeArray<ITfCandidateString *> &rgelm, UINT currentNum = 0);
 
     // IUnknown methods
     virtual STDMETHODIMP QueryInterface(REFIID riid, _Outptr_ void **ppvObj);
@@ -33,8 +35,8 @@ public:
     virtual STDMETHODIMP Reset();
     virtual STDMETHODIMP Clone(_Out_ IEnumTfCandidates **ppEnum);
 
-protected:
+  protected:
     LONG _refCount;
-    CSampleImeArray<ITfCandidateString*> _rgelm;
+    CSampleImeArray<ITfCandidateString *> _rgelm;
     UINT _currentCandidateStrIndex;
 };

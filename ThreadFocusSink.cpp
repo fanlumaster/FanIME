@@ -19,8 +19,8 @@ STDAPI CSampleIME::OnSetThreadFocus()
 {
     if (_pCandidateListUIPresenter)
     {
-        ITfDocumentMgr* pCandidateListDocumentMgr = nullptr;
-        ITfContext* pTfContext = _pCandidateListUIPresenter->_GetContextDocument();
+        ITfDocumentMgr *pCandidateListDocumentMgr = nullptr;
+        ITfContext *pTfContext = _pCandidateListUIPresenter->_GetContextDocument();
 
         if ((nullptr != pTfContext) && SUCCEEDED(pTfContext->GetDocumentMgr(&pCandidateListDocumentMgr)))
         {
@@ -46,15 +46,15 @@ STDAPI CSampleIME::OnKillThreadFocus()
 {
     if (_pCandidateListUIPresenter)
     {
-        ITfDocumentMgr* pCandidateListDocumentMgr = nullptr;
-        ITfContext* pTfContext = _pCandidateListUIPresenter->_GetContextDocument();
+        ITfDocumentMgr *pCandidateListDocumentMgr = nullptr;
+        ITfContext *pTfContext = _pCandidateListUIPresenter->_GetContextDocument();
 
         if ((nullptr != pTfContext) && SUCCEEDED(pTfContext->GetDocumentMgr(&pCandidateListDocumentMgr)))
         {
             if (_pDocMgrLastFocused)
             {
                 _pDocMgrLastFocused->Release();
-				_pDocMgrLastFocused = nullptr;
+                _pDocMgrLastFocused = nullptr;
             }
             _pDocMgrLastFocused = pCandidateListDocumentMgr;
             if (_pDocMgrLastFocused)
@@ -69,7 +69,7 @@ STDAPI CSampleIME::OnKillThreadFocus()
 
 BOOL CSampleIME::_InitThreadFocusSink()
 {
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
 
     if (FAILED(_pThreadMgr->QueryInterface(IID_ITfSource, (void **)&pSource)))
     {
@@ -89,7 +89,7 @@ BOOL CSampleIME::_InitThreadFocusSink()
 
 void CSampleIME::_UninitThreadFocusSink()
 {
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
 
     if (FAILED(_pThreadMgr->QueryInterface(IID_ITfSource, (void **)&pSource)))
     {

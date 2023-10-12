@@ -21,7 +21,7 @@
 /* static */
 HRESULT CSampleIME::CreateInstance(_In_ IUnknown *pUnkOuter, REFIID riid, _Outptr_ void **ppvObj)
 {
-    CSampleIME* pSampleIME = nullptr;
+    CSampleIME *pSampleIME = nullptr;
     HRESULT hr = S_OK;
 
     if (ppvObj == nullptr)
@@ -120,8 +120,7 @@ STDAPI CSampleIME::QueryInterface(REFIID riid, _Outptr_ void **ppvObj)
 
     *ppvObj = nullptr;
 
-    if (IsEqualIID(riid, IID_IUnknown) ||
-        IsEqualIID(riid, IID_ITfTextInputProcessor))
+    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfTextInputProcessor))
     {
         *ppvObj = (ITfTextInputProcessor *)this;
     }
@@ -179,7 +178,6 @@ STDAPI CSampleIME::QueryInterface(REFIID riid, _Outptr_ void **ppvObj)
     return E_NOINTERFACE;
 }
 
-
 //+---------------------------------------------------------------------------
 //
 // AddRef
@@ -230,7 +228,7 @@ STDAPI CSampleIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClientId, D
         goto ExitError;
     }
 
-    ITfDocumentMgr* pDocMgrFocus = nullptr;
+    ITfDocumentMgr *pDocMgrFocus = nullptr;
     if (SUCCEEDED(_pThreadMgr->GetFocus(&pDocMgrFocus)) && (pDocMgrFocus != nullptr))
     {
         _InitTextEditSink(pDocMgrFocus);
@@ -288,9 +286,9 @@ STDAPI CSampleIME::Deactivate()
         _pCompositionProcessorEngine = nullptr;
     }
 
-    ITfContext* pContext = _pContext;
+    ITfContext *pContext = _pContext;
     if (_pContext)
-    {   
+    {
         pContext->AddRef();
         _EndComposition(_pContext);
     }
@@ -322,7 +320,8 @@ STDAPI CSampleIME::Deactivate()
     CCompartment CompartmentKeyboardOpen(_pThreadMgr, _tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
     CompartmentKeyboardOpen._ClearCompartment();
 
-    CCompartment CompartmentDoubleSingleByte(_pThreadMgr, _tfClientId, Global::SampleIMEGuidCompartmentDoubleSingleByte);
+    CCompartment CompartmentDoubleSingleByte(_pThreadMgr, _tfClientId,
+                                             Global::SampleIMEGuidCompartmentDoubleSingleByte);
     CompartmentDoubleSingleByte._ClearCompartment();
 
     CCompartment CompartmentPunctuation(_pThreadMgr, _tfClientId, Global::SampleIMEGuidCompartmentPunctuation);
@@ -338,7 +337,7 @@ STDAPI CSampleIME::Deactivate()
     if (_pDocMgrLastFocused)
     {
         _pDocMgrLastFocused->Release();
-		_pDocMgrLastFocused = nullptr;
+        _pDocMgrLastFocused = nullptr;
     }
 
     return S_OK;
@@ -385,10 +384,9 @@ HRESULT CSampleIME::GetFunction(__RPC__in REFGUID rguid, __RPC__in REFIID riid, 
 {
     HRESULT hr = E_NOINTERFACE;
 
-    if ((IsEqualGUID(rguid, GUID_NULL)) 
-        && (IsEqualGUID(riid, __uuidof(ITfFnSearchCandidateProvider))))
+    if ((IsEqualGUID(rguid, GUID_NULL)) && (IsEqualGUID(riid, __uuidof(ITfFnSearchCandidateProvider))))
     {
-        hr = _pITfFnSearchCandidateProvider->QueryInterface(riid, (void**)ppunk);
+        hr = _pITfFnSearchCandidateProvider->QueryInterface(riid, (void **)ppunk);
     }
     else if (IsEqualGUID(rguid, GUID_NULL))
     {

@@ -38,13 +38,15 @@ CDictionaryParser::~CDictionaryParser()
 //
 //---------------------------------------------------------------------
 
-BOOL CDictionaryParser::ParseLine(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWORD_PTR dwBufLen, _Out_ CParserStringRange *psrgKeyword, _Inout_opt_ CSampleImeArray<CParserStringRange> *pValue)
+BOOL CDictionaryParser::ParseLine(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWORD_PTR dwBufLen,
+                                  _Out_ CParserStringRange *psrgKeyword,
+                                  _Inout_opt_ CSampleImeArray<CParserStringRange> *pValue)
 {
     LPCWSTR pwszKeyWordDelimiter = nullptr;
     pwszKeyWordDelimiter = GetToken(pwszBuffer, dwBufLen, Global::KeywordDelimiter, psrgKeyword);
     if (!(pwszKeyWordDelimiter))
     {
-        return FALSE;    // End of file
+        return FALSE; // End of file
     }
 
     dwBufLen -= (pwszKeyWordDelimiter - pwszBuffer);
@@ -56,7 +58,7 @@ BOOL CDictionaryParser::ParseLine(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWORD
     {
         if (dwBufLen)
         {
-            CParserStringRange* psrgValue = pValue->Append();
+            CParserStringRange *psrgValue = pValue->Append();
             if (!psrgValue)
             {
                 return FALSE;
@@ -80,8 +82,8 @@ BOOL CDictionaryParser::ParseLine(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWORD
 // return   - pointer of delimiter which specified chDelimiter
 //
 //---------------------------------------------------------------------
-_Ret_maybenull_
-LPCWSTR CDictionaryParser::GetToken(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWORD_PTR dwBufLen, _In_ const WCHAR chDelimiter, _Out_ CParserStringRange *psrgValue)
+_Ret_maybenull_ LPCWSTR CDictionaryParser::GetToken(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWORD_PTR dwBufLen,
+                                                    _In_ const WCHAR chDelimiter, _Out_ CParserStringRange *psrgValue)
 {
     WCHAR ch = '\0';
 
@@ -143,7 +145,7 @@ LPCWSTR CDictionaryParser::GetToken(_In_reads_(dwBufLen) LPCWSTR pwszBuffer, DWO
 
 BOOL CDictionaryParser::RemoveWhiteSpaceFromBegin(_Inout_opt_ CStringRange *pString)
 {
-    DWORD_PTR dwIndexTrace = 0;  // in char
+    DWORD_PTR dwIndexTrace = 0; // in char
 
     if (pString == nullptr)
     {
@@ -188,9 +190,10 @@ BOOL CDictionaryParser::RemoveStringDelimiter(_Inout_opt_ CStringRange *pString)
 
     if (pString->GetLength() >= 2)
     {
-        if ((*pString->Get() == Global::StringDelimiter) && (*(pString->Get()+pString->GetLength()-1) == Global::StringDelimiter))
+        if ((*pString->Get() == Global::StringDelimiter) &&
+            (*(pString->Get() + pString->GetLength() - 1) == Global::StringDelimiter))
         {
-            pString->Set(pString->Get()+1, pString->GetLength()-2);
+            pString->Set(pString->Get() + 1, pString->GetLength() - 2);
             return TRUE;
         }
     }
@@ -208,7 +211,7 @@ BOOL CDictionaryParser::RemoveStringDelimiter(_Inout_opt_ CStringRange *pString)
 
 DWORD_PTR CDictionaryParser::GetOneLine(_In_z_ LPCWSTR pwszBuffer, DWORD_PTR dwBufLen)
 {
-    DWORD_PTR dwIndexTrace = 0;     // in char
+    DWORD_PTR dwIndexTrace = 0; // in char
 
     if (FAILED(FindChar(L'\r', pwszBuffer, dwBufLen, &dwIndexTrace)))
     {

@@ -16,7 +16,11 @@
 //
 //----------------------------------------------------------------------------
 
-CGetTextExtentEditSession::CGetTextExtentEditSession(_In_ CSampleIME *pTextService, _In_ ITfContext *pContext, _In_ ITfContextView *pContextView, _In_ ITfRange *pRangeComposition, _In_ CTfTextLayoutSink *pTfTextLayoutSink) : CEditSessionBase(pTextService, pContext)
+CGetTextExtentEditSession::CGetTextExtentEditSession(_In_ CSampleIME *pTextService, _In_ ITfContext *pContext,
+                                                     _In_ ITfContextView *pContextView,
+                                                     _In_ ITfRange *pRangeComposition,
+                                                     _In_ CTfTextLayoutSink *pTfTextLayoutSink)
+    : CEditSessionBase(pTextService, pContext)
 {
     _pContextView = pContextView;
     _pRangeComposition = pRangeComposition;

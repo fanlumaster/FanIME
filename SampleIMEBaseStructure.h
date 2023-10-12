@@ -18,8 +18,7 @@ using std::endl;
 //---------------------------------------------------------------------
 // defined keyword
 //---------------------------------------------------------------------
-template<class VALUE>
-struct _DEFINED_KEYWORD
+template <class VALUE> struct _DEFINED_KEYWORD
 {
     LPCWSTR _pwszKeyword;
     VALUE _value;
@@ -95,25 +94,24 @@ struct _PUNCTUATION
     WCHAR _Punctuation;
 };
 
-BOOL CLSIDToString(REFGUID refGUID, _Out_writes_ (39) WCHAR *pCLSIDString);
+BOOL CLSIDToString(REFGUID refGUID, _Out_writes_(39) WCHAR *pCLSIDString);
 
 HRESULT SkipWhiteSpace(LCID locale, _In_ LPCWSTR pwszBuffer, DWORD_PTR dwBufLen, _Out_ DWORD_PTR *pdwIndex);
 HRESULT FindChar(WCHAR wch, _In_ LPCWSTR pwszBuffer, DWORD_PTR dwBufLen, _Out_ DWORD_PTR *pdwIndex);
 
 BOOL IsSpace(LCID locale, WCHAR wch);
 
-template<class T>
-class CSampleImeArray
+template <class T> class CSampleImeArray
 {
     typedef typename std::vector<T> CSampleImeInnerArray;
     typedef typename std::vector<T>::iterator CSampleImeInnerIter;
 
-public:
-    CSampleImeArray(): _innerVect()
+  public:
+    CSampleImeArray() : _innerVect()
     {
     }
 
-    explicit CSampleImeArray(size_t count): _innerVect(count)
+    explicit CSampleImeArray(size_t count) : _innerVect(count)
     {
     }
 
@@ -121,22 +119,22 @@ public:
     {
     }
 
-    inline T* GetAt(size_t index)
+    inline T *GetAt(size_t index)
     {
         assert(index >= 0);
         assert(index < _innerVect.size());
 
-        T& curT = _innerVect.at(index);
+        T &curT = _innerVect.at(index);
 
         return &(curT);
     }
 
-    inline const T* GetAt(size_t index) const
+    inline const T *GetAt(size_t index) const
     {
         assert(index >= 0);
         assert(index < _innerVect.size());
 
-        T& curT = _innerVect.at(index);
+        T &curT = _innerVect.at(index);
 
         return &(curT);
     }
@@ -150,16 +148,16 @@ public:
         _innerVect.erase(iter + index);
     }
 
-    UINT Count() const 
-    { 
+    UINT Count() const
+    {
         return static_cast<UINT>(_innerVect.size());
     }
 
-    T* Append()
+    T *Append()
     {
         T newT;
         _innerVect.push_back(newT);
-        T& backT = _innerVect.back();
+        T &backT = _innerVect.back();
 
         return &(backT);
     }
@@ -174,39 +172,39 @@ public:
         _innerVect.clear();
     }
 
-private:
+  private:
     CSampleImeInnerArray _innerVect;
 };
 
 class CCandidateRange
 {
-public:
+  public:
     CCandidateRange(void);
     ~CCandidateRange(void);
 
     BOOL IsRange(UINT vKey);
     int GetIndex(UINT vKey);
 
-    inline int Count() const 
-    { 
-        return _CandidateListIndexRange.Count(); 
+    inline int Count() const
+    {
+        return _CandidateListIndexRange.Count();
     }
-    inline DWORD *GetAt(int index) 
-    { 
-        return _CandidateListIndexRange.GetAt(index); 
+    inline DWORD *GetAt(int index)
+    {
+        return _CandidateListIndexRange.GetAt(index);
     }
-    inline DWORD *Append() 
-    { 
-        return _CandidateListIndexRange.Append(); 
+    inline DWORD *Append()
+    {
+        return _CandidateListIndexRange.Append();
     }
 
-private:
+  private:
     CSampleImeArray<DWORD> _CandidateListIndexRange;
 };
 
 class CStringRange
 {
-public:
+  public:
     CStringRange();
     ~CStringRange();
 
@@ -215,14 +213,14 @@ public:
     void Clear();
     void Set(const WCHAR *pwch, DWORD_PTR dwLength);
     void Set(CStringRange &sr);
-    CStringRange& operator=(const CStringRange& sr);
-    void CharNext(_Inout_ CStringRange* pCharNext);
-    static int Compare(LCID locale, _In_ CStringRange* pString1, _In_ CStringRange* pString2);
-    static BOOL WildcardCompare(LCID locale, _In_ CStringRange* stringWithWildcard, _In_ CStringRange* targetString);
+    CStringRange &operator=(const CStringRange &sr);
+    void CharNext(_Inout_ CStringRange *pCharNext);
+    static int Compare(LCID locale, _In_ CStringRange *pString1, _In_ CStringRange *pString2);
+    static BOOL WildcardCompare(LCID locale, _In_ CStringRange *stringWithWildcard, _In_ CStringRange *targetString);
 
-protected:
-    DWORD_PTR _stringBufLen;         // Length is in character count.
-    const WCHAR *_pStringBuf;    // Buffer which is not add zero terminate.
+  protected:
+    DWORD_PTR _stringBufLen;  // Length is in character count.
+    const WCHAR *_pStringBuf; // Buffer which is not add zero terminate.
 };
 
 //---------------------------------------------------------------------
@@ -235,17 +233,17 @@ struct CCandidateListItem
     CStringRange _ItemString;
     CStringRange _FindKeyCode;
 
-	CCandidateListItem& CCandidateListItem::operator =( const CCandidateListItem& rhs)
-	{
-		_ItemString = rhs._ItemString;
-		_FindKeyCode = rhs._FindKeyCode;
-		return *this;
-	}
+    CCandidateListItem &CCandidateListItem::operator=(const CCandidateListItem &rhs)
+    {
+        _ItemString = rhs._ItemString;
+        _FindKeyCode = rhs._FindKeyCode;
+        return *this;
+    }
 };
 
 class CPunctuationPair
 {
-public:
+  public:
     CPunctuationPair();
     CPunctuationPair(WCHAR code, WCHAR punctuation, WCHAR pair);
 
@@ -256,10 +254,10 @@ public:
 
 class CPunctuationNestPair
 {
-public:
+  public:
     CPunctuationNestPair();
-    CPunctuationNestPair(WCHAR wchCode_begin, WCHAR wch_begin, WCHAR wchPair_begin,
-        WCHAR wchCode_end,   WCHAR wch_end,   WCHAR wchPair_end);
+    CPunctuationNestPair(WCHAR wchCode_begin, WCHAR wch_begin, WCHAR wchPair_begin, WCHAR wchCode_end, WCHAR wch_end,
+                         WCHAR wchPair_end);
 
     struct _PUNCTUATION _punctuation_begin;
     WCHAR _pairPunctuation_begin;

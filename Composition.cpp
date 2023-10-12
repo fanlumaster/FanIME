@@ -24,7 +24,7 @@ STDAPI CSampleIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfComposi
     _RemoveDummyCompositionForComposing(ecWrite, pComposition);
 
     // Clear display attribute and end composition, _EndComposition will release composition for us
-    ITfContext* pContext = _pContext;
+    ITfContext *pContext = _pContext;
     if (pContext)
     {
         pContext->AddRef();
@@ -84,14 +84,14 @@ HRESULT CSampleIME::_AddComposingAndChar(TfEditCookie ec, _In_ ITfContext *pCont
     //
     // make range start to selection
     //
-    ITfRange* pAheadSelection = nullptr;
+    ITfRange *pAheadSelection = nullptr;
     hr = pContext->GetStart(ec, &pAheadSelection);
     if (SUCCEEDED(hr))
     {
         hr = pAheadSelection->ShiftEndToRange(ec, tfSelection.range, TF_ANCHOR_START);
         if (SUCCEEDED(hr))
         {
-            ITfRange* pRange = nullptr;
+            ITfRange *pRange = nullptr;
             BOOL exist_composing = _FindComposingRange(ec, pContext, pAheadSelection, &pRange);
 
             _SetInputString(ec, pContext, pRange, pstrAddString, exist_composing);
@@ -151,7 +151,8 @@ HRESULT CSampleIME::_AddCharAndFinalize(TfEditCookie ec, _In_ ITfContext *pConte
 //
 //----------------------------------------------------------------------------
 
-BOOL CSampleIME::_FindComposingRange(TfEditCookie ec, _In_ ITfContext *pContext, _In_ ITfRange *pSelection, _Outptr_result_maybenull_ ITfRange **ppRange)
+BOOL CSampleIME::_FindComposingRange(TfEditCookie ec, _In_ ITfContext *pContext, _In_ ITfRange *pSelection,
+                                     _Outptr_result_maybenull_ ITfRange **ppRange)
 {
     if (ppRange == nullptr)
     {
@@ -161,8 +162,8 @@ BOOL CSampleIME::_FindComposingRange(TfEditCookie ec, _In_ ITfContext *pContext,
     *ppRange = nullptr;
 
     // find GUID_PROP_COMPOSING
-    ITfProperty* pPropComp = nullptr;
-    IEnumTfRanges* enumComp = nullptr;
+    ITfProperty *pPropComp = nullptr;
+    IEnumTfRanges *enumComp = nullptr;
 
     HRESULT hr = pContext->GetProperty(GUID_PROP_COMPOSING, &pPropComp);
     if (FAILED(hr) || pPropComp == nullptr)
@@ -179,7 +180,7 @@ BOOL CSampleIME::_FindComposingRange(TfEditCookie ec, _In_ ITfContext *pContext,
 
     BOOL isCompExist = FALSE;
     VARIANT var;
-    ULONG  fetched = 0;
+    ULONG fetched = 0;
 
     while (enumComp->Next(1, ppRange, &fetched) == S_OK && fetched == 1)
     {
@@ -208,9 +209,10 @@ BOOL CSampleIME::_FindComposingRange(TfEditCookie ec, _In_ ITfContext *pContext,
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_SetInputString(TfEditCookie ec, _In_ ITfContext *pContext, _Out_opt_ ITfRange *pRange, _In_ CStringRange *pstrAddString, BOOL exist_composing)
+HRESULT CSampleIME::_SetInputString(TfEditCookie ec, _In_ ITfContext *pContext, _Out_opt_ ITfRange *pRange,
+                                    _In_ CStringRange *pstrAddString, BOOL exist_composing)
 {
-    ITfRange* pRangeInsert = nullptr;
+    ITfRange *pRangeInsert = nullptr;
     if (!exist_composing)
     {
         _InsertAtSelection(ec, pContext, pstrAddString, &pRangeInsert);
@@ -231,7 +233,7 @@ HRESULT CSampleIME::_SetInputString(TfEditCookie ec, _In_ ITfContext *pContext, 
 
     // update the selection, we'll make it an insertion point just past
     // the inserted text.
-    ITfRange* pSelection = nullptr;
+    ITfRange *pSelection = nullptr;
     TF_SELECTION sel;
 
     if ((pRange != nullptr) && (pRange->Clone(&pSelection) == S_OK))
@@ -250,7 +252,6 @@ HRESULT CSampleIME::_SetInputString(TfEditCookie ec, _In_ ITfContext *pContext, 
         pRangeInsert->Release();
     }
 
-
     return S_OK;
 }
 
@@ -260,10 +261,11 @@ HRESULT CSampleIME::_SetInputString(TfEditCookie ec, _In_ ITfContext *pContext, 
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_InsertAtSelection(TfEditCookie ec, _In_ ITfContext *pContext, _In_ CStringRange *pstrAddString, _Outptr_ ITfRange **ppCompRange)
+HRESULT CSampleIME::_InsertAtSelection(TfEditCookie ec, _In_ ITfContext *pContext, _In_ CStringRange *pstrAddString,
+                                       _Outptr_ ITfRange **ppCompRange)
 {
-    ITfRange* rangeInsert = nullptr;
-    ITfInsertAtSelection* pias = nullptr;
+    ITfRange *rangeInsert = nullptr;
+    ITfInsertAtSelection *pias = nullptr;
     HRESULT hr = S_OK;
 
     if (ppCompRange == nullptr)
@@ -280,9 +282,10 @@ HRESULT CSampleIME::_InsertAtSelection(TfEditCookie ec, _In_ ITfContext *pContex
         goto Exit;
     }
 
-    hr = pias->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, pstrAddString->Get(), (LONG)pstrAddString->GetLength(), &rangeInsert);
+    hr = pias->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, pstrAddString->Get(), (LONG)pstrAddString->GetLength(),
+                                     &rangeInsert);
 
-    if ( FAILED(hr) || rangeInsert == nullptr)
+    if (FAILED(hr) || rangeInsert == nullptr)
     {
         rangeInsert = nullptr;
         pias->Release();
@@ -307,8 +310,8 @@ HRESULT CSampleIME::_RemoveDummyCompositionForComposing(TfEditCookie ec, _In_ IT
 {
     HRESULT hr = S_OK;
 
-    ITfRange* pRange = nullptr;
-    
+    ITfRange *pRange = nullptr;
+
     if (pComposition)
     {
         hr = pComposition->GetRange(&pRange);
@@ -333,14 +336,14 @@ BOOL CSampleIME::_SetCompositionLanguage(TfEditCookie ec, _In_ ITfContext *pCont
     HRESULT hr = S_OK;
     BOOL ret = TRUE;
 
-    CCompositionProcessorEngine* pCompositionProcessorEngine = nullptr;
+    CCompositionProcessorEngine *pCompositionProcessorEngine = nullptr;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
 
     LANGID langidProfile = 0;
     pCompositionProcessorEngine->GetLanguageProfile(&langidProfile);
 
-    ITfRange* pRangeComposition = nullptr;
-    ITfProperty* pLanguageProperty = nullptr;
+    ITfRange *pRangeComposition = nullptr;
+    ITfProperty *pLanguageProperty = nullptr;
 
     // we need a range and the context it lives in
     hr = _pComposition->GetRange(&pRangeComposition);
@@ -359,8 +362,8 @@ BOOL CSampleIME::_SetCompositionLanguage(TfEditCookie ec, _In_ ITfContext *pCont
     }
 
     VARIANT var;
-    var.vt = VT_I4;   // we're going to set DWORD
-    var.lVal = langidProfile; 
+    var.vt = VT_I4; // we're going to set DWORD
+    var.lVal = langidProfile;
 
     hr = pLanguageProperty->SetValue(ec, pRangeComposition, &var);
     if (FAILED(hr))

@@ -14,8 +14,8 @@
 void DllAddRef();
 void DllRelease();
 
-
-namespace Global {
+namespace Global
+{
 //---------------------------------------------------------------------
 // inline
 //---------------------------------------------------------------------
@@ -35,7 +35,7 @@ inline void QuickVariantInit(_Inout_ VARIANT *pvar)
 
 inline void QuickVariantClear(_Inout_ VARIANT *pvar)
 {
-    switch (pvar->vt) 
+    switch (pvar->vt)
     {
     // some ovbious VTs that don't need to call VariantClear.
     case VT_EMPTY:
@@ -82,7 +82,7 @@ inline void QuickVariantClear(_Inout_ VARIANT *pvar)
 
 inline BOOL IsTooSimilar(COLORREF cr1, COLORREF cr2)
 {
-    if ((cr1 | cr2) & 0xFF000000)        // One color and/or the other isn't RGB, so algorithm doesn't apply
+    if ((cr1 | cr2) & 0xFF000000) // One color and/or the other isn't RGB, so algorithm doesn't apply
     {
         return FALSE;
     }
@@ -108,7 +108,7 @@ BOOL RegisterWindowClass();
 extern LONG dllRefCount;
 
 extern CRITICAL_SECTION CS;
-extern HFONT defaultlFontHandle;  // Global font object we use everywhere
+extern HFONT defaultlFontHandle; // Global font object we use everywhere
 
 extern const CLSID SampleIMECLSID;
 extern const CLSID SampleIMEGuidProfile;
@@ -159,4 +159,4 @@ extern const int PunctuationOffIcoIndex;
 extern const WCHAR LangbarImeModeDescription[];
 extern const WCHAR LangbarDoubleSingleByteDescription[];
 extern const WCHAR LangbarPunctuationDescription[];
-}
+} // namespace Global

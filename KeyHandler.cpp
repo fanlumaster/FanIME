@@ -28,16 +28,15 @@
 
 BOOL CSampleIME::_IsRangeCovered(TfEditCookie ec, _In_ ITfRange *pRangeTest, _In_ ITfRange *pRangeCover)
 {
-    LONG lResult = 0;;
+    LONG lResult = 0;
+    ;
 
-    if (FAILED(pRangeCover->CompareStart(ec, pRangeTest, TF_ANCHOR_START, &lResult)) 
-        || (lResult > 0))
+    if (FAILED(pRangeCover->CompareStart(ec, pRangeTest, TF_ANCHOR_START, &lResult)) || (lResult > 0))
     {
         return FALSE;
     }
 
-    if (FAILED(pRangeCover->CompareEnd(ec, pRangeTest, TF_ANCHOR_END, &lResult)) 
-        || (lResult < 0))
+    if (FAILED(pRangeCover->CompareEnd(ec, pRangeTest, TF_ANCHOR_END, &lResult)) || (lResult < 0))
     {
         return FALSE;
     }
@@ -53,9 +52,10 @@ BOOL CSampleIME::_IsRangeCovered(TfEditCookie ec, _In_ ITfRange *pRangeTest, _In
 
 VOID CSampleIME::_DeleteCandidateList(BOOL isForce, _In_opt_ ITfContext *pContext)
 {
-    isForce;pContext;
+    isForce;
+    pContext;
 
-    CCompositionProcessorEngine* pCompositionProcessorEngine = nullptr;
+    CCompositionProcessorEngine *pCompositionProcessorEngine = nullptr;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
     pCompositionProcessorEngine->PurgeVirtualKey();
 
@@ -111,12 +111,12 @@ HRESULT CSampleIME::_HandleCancel(TfEditCookie ec, _In_ ITfContext *pContext)
 
 HRESULT CSampleIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch)
 {
-    ITfRange* pRangeComposition = nullptr;
+    ITfRange *pRangeComposition = nullptr;
     TF_SELECTION tfSelection;
     ULONG fetched = 0;
     BOOL isCovered = TRUE;
 
-    CCompositionProcessorEngine* pCompositionProcessorEngine = nullptr;
+    CCompositionProcessorEngine *pCompositionProcessorEngine = nullptr;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
 
     if ((_pCandidateListUIPresenter != nullptr) && (_candidateMode != CANDIDATE_INCREMENTAL))
@@ -167,7 +167,8 @@ Exit:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_HandleCompositionInputWorker(_In_ CCompositionProcessorEngine *pCompositionProcessorEngine, TfEditCookie ec, _In_ ITfContext *pContext)
+HRESULT CSampleIME::_HandleCompositionInputWorker(_In_ CCompositionProcessorEngine *pCompositionProcessorEngine,
+                                                  TfEditCookie ec, _In_ ITfContext *pContext)
 {
     HRESULT hr = S_OK;
     CSampleImeArray<CStringRange> readingStrings;
@@ -223,12 +224,13 @@ HRESULT CSampleIME::_HandleCompositionInputWorker(_In_ CCompositionProcessorEngi
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_CreateAndStartCandidate(_In_ CCompositionProcessorEngine *pCompositionProcessorEngine, TfEditCookie ec, _In_ ITfContext *pContext)
+HRESULT CSampleIME::_CreateAndStartCandidate(_In_ CCompositionProcessorEngine *pCompositionProcessorEngine,
+                                             TfEditCookie ec, _In_ ITfContext *pContext)
 {
     HRESULT hr = S_OK;
 
-    if (((_candidateMode == CANDIDATE_PHRASE) && (_pCandidateListUIPresenter))
-        || ((_candidateMode == CANDIDATE_NONE) && (_pCandidateListUIPresenter)))
+    if (((_candidateMode == CANDIDATE_PHRASE) && (_pCandidateListUIPresenter)) ||
+        ((_candidateMode == CANDIDATE_NONE) && (_pCandidateListUIPresenter)))
     {
         // Recreate candidate list
         _pCandidateListUIPresenter->_EndCandidateList();
@@ -241,10 +243,9 @@ HRESULT CSampleIME::_CreateAndStartCandidate(_In_ CCompositionProcessorEngine *p
 
     if (_pCandidateListUIPresenter == nullptr)
     {
-        _pCandidateListUIPresenter = new (std::nothrow) CCandidateListUIPresenter(this, Global::AtomCandidateWindow,
-            CATEGORY_CANDIDATE,
-            pCompositionProcessorEngine->GetCandidateListIndexRange(),
-            FALSE);
+        _pCandidateListUIPresenter = new (std::nothrow)
+            CCandidateListUIPresenter(this, Global::AtomCandidateWindow, CATEGORY_CANDIDATE,
+                                      pCompositionProcessorEngine->GetCandidateListIndexRange(), FALSE);
         if (!_pCandidateListUIPresenter)
         {
             return E_OUTOFMEMORY;
@@ -254,14 +255,16 @@ HRESULT CSampleIME::_CreateAndStartCandidate(_In_ CCompositionProcessorEngine *p
         _isCandidateWithWildcard = FALSE;
 
         // we don't cache the document manager object. So get it from pContext.
-        ITfDocumentMgr* pDocumentMgr = nullptr;
+        ITfDocumentMgr *pDocumentMgr = nullptr;
         if (SUCCEEDED(pContext->GetDocumentMgr(&pDocumentMgr)))
         {
             // get the composition range.
-            ITfRange* pRange = nullptr;
+            ITfRange *pRange = nullptr;
             if (SUCCEEDED(_pComposition->GetRange(&pRange)))
             {
-                hr = _pCandidateListUIPresenter->_StartCandidateList(_tfClientId, pDocumentMgr, pContext, ec, pRange, pCompositionProcessorEngine->GetCandidateWindowWidth());
+                hr = _pCandidateListUIPresenter->_StartCandidateList(
+                    _tfClientId, pDocumentMgr, pContext, ec, pRange,
+                    pCompositionProcessorEngine->GetCandidateWindowWidth());
                 pRange->Release();
             }
             pDocumentMgr->Release();
@@ -315,7 +318,7 @@ HRESULT CSampleIME::_HandleCompositionFinalize(TfEditCookie ec, _In_ ITfContext 
                 return S_FALSE;
             }
 
-            ITfRange* pRangeComposition = nullptr;
+            ITfRange *pRangeComposition = nullptr;
             if (SUCCEEDED(_pComposition->GetRange(&pRangeComposition)))
             {
                 if (_IsRangeCovered(ec, tfSelection.range, pRangeComposition))
@@ -350,7 +353,7 @@ HRESULT CSampleIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfContext *
     //
     // Get candidate string from composition processor engine
     //
-    CCompositionProcessorEngine* pCompositionProcessorEngine = nullptr;
+    CCompositionProcessorEngine *pCompositionProcessorEngine = nullptr;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
     pCompositionProcessorEngine->GetCandidateList(&candidateList, FALSE, isWildcardSearch);
 
@@ -369,15 +372,14 @@ HRESULT CSampleIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfContext *
             _isCandidateWithWildcard = FALSE;
         }
 
-        // 
+        //
         // create an instance of the candidate list class.
-        // 
+        //
         if (_pCandidateListUIPresenter == nullptr)
         {
-            _pCandidateListUIPresenter = new (std::nothrow) CCandidateListUIPresenter(this, Global::AtomCandidateWindow,
-                CATEGORY_CANDIDATE,
-                pCompositionProcessorEngine->GetCandidateListIndexRange(),
-                FALSE);
+            _pCandidateListUIPresenter = new (std::nothrow)
+                CCandidateListUIPresenter(this, Global::AtomCandidateWindow, CATEGORY_CANDIDATE,
+                                          pCompositionProcessorEngine->GetCandidateListIndexRange(), FALSE);
             if (!_pCandidateListUIPresenter)
             {
                 return E_OUTOFMEMORY;
@@ -389,14 +391,16 @@ HRESULT CSampleIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfContext *
         _isCandidateWithWildcard = isWildcardSearch;
 
         // we don't cache the document manager object. So get it from pContext.
-        ITfDocumentMgr* pDocumentMgr = nullptr;
+        ITfDocumentMgr *pDocumentMgr = nullptr;
         if (SUCCEEDED(pContext->GetDocumentMgr(&pDocumentMgr)))
         {
             // get the composition range.
-            ITfRange* pRange = nullptr;
+            ITfRange *pRange = nullptr;
             if (SUCCEEDED(_pComposition->GetRange(&pRange)))
             {
-                hr = _pCandidateListUIPresenter->_StartCandidateList(_tfClientId, pDocumentMgr, pContext, ec, pRange, pCompositionProcessorEngine->GetCandidateWindowWidth());
+                hr = _pCandidateListUIPresenter->_StartCandidateList(
+                    _tfClientId, pDocumentMgr, pContext, ec, pRange,
+                    pCompositionProcessorEngine->GetCandidateWindowWidth());
                 pRange->Release();
             }
             pDocumentMgr->Release();
@@ -418,7 +422,7 @@ HRESULT CSampleIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfContext *
 
 HRESULT CSampleIME::_HandleCompositionBackspace(TfEditCookie ec, _In_ ITfContext *pContext)
 {
-    ITfRange* pRangeComposition = nullptr;
+    ITfRange *pRangeComposition = nullptr;
     TF_SELECTION tfSelection;
     ULONG fetched = 0;
     BOOL isCovered = TRUE;
@@ -451,7 +455,7 @@ HRESULT CSampleIME::_HandleCompositionBackspace(TfEditCookie ec, _In_ ITfContext
     //
     // Add virtual key to composition processor engine
     //
-    CCompositionProcessorEngine* pCompositionProcessorEngine = nullptr;
+    CCompositionProcessorEngine *pCompositionProcessorEngine = nullptr;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
 
     DWORD_PTR vKeyLen = pCompositionProcessorEngine->GetVirtualKeyLength();
@@ -483,15 +487,15 @@ Exit:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfContext *pContext, KEYSTROKE_FUNCTION keyFunction)
+HRESULT CSampleIME::_HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfContext *pContext,
+                                               KEYSTROKE_FUNCTION keyFunction)
 {
-    ITfRange* pRangeComposition = nullptr;
+    ITfRange *pRangeComposition = nullptr;
     TF_SELECTION tfSelection;
     ULONG fetched = 0;
 
     // get the selection
-    if (FAILED(pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched))
-        || fetched != 1)
+    if (FAILED(pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched)) || fetched != 1)
     {
         // no selection, eat the keystroke
         return S_OK;
@@ -531,7 +535,7 @@ HRESULT CSampleIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfConte
     if (_candidateMode != CANDIDATE_NONE && _pCandidateListUIPresenter)
     {
         DWORD_PTR candidateLen = 0;
-        const WCHAR* pCandidateString = nullptr;
+        const WCHAR *pCandidateString = nullptr;
 
         candidateLen = _pCandidateListUIPresenter->_GetSelectedCandidateString(&pCandidateString);
 
@@ -546,7 +550,7 @@ HRESULT CSampleIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfConte
     //
     // Get punctuation char from composition processor engine
     //
-    CCompositionProcessorEngine* pCompositionProcessorEngine = nullptr;
+    CCompositionProcessorEngine *pCompositionProcessorEngine = nullptr;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
 
     WCHAR punctuation = pCompositionProcessorEngine->GetPunctuation(wch);
@@ -607,11 +611,12 @@ HRESULT CSampleIME::_HandleCompositionDoubleSingleByte(TfEditCookie ec, _In_ ITf
 //    [in] dwKeyFunction - Function regarding virtual key
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_InvokeKeyHandler(_In_ ITfContext *pContext, UINT code, WCHAR wch, DWORD flags, _KEYSTROKE_STATE keyState)
+HRESULT CSampleIME::_InvokeKeyHandler(_In_ ITfContext *pContext, UINT code, WCHAR wch, DWORD flags,
+                                      _KEYSTROKE_STATE keyState)
 {
     flags;
 
-    CKeyHandlerEditSession* pEditSession = nullptr;
+    CKeyHandlerEditSession *pEditSession = nullptr;
     HRESULT hr = E_FAIL;
 
     // we'll insert a char ourselves in place of this keystroke

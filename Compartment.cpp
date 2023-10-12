@@ -19,7 +19,7 @@
 // ctor
 //----------------------------------------------------------------------------
 
-CCompartment::CCompartment(_In_ IUnknown* punk, TfClientId tfClientId, _In_ REFGUID guidCompartment)
+CCompartment::CCompartment(_In_ IUnknown *punk, TfClientId tfClientId, _In_ REFGUID guidCompartment)
 {
     _guidCompartment = guidCompartment;
 
@@ -45,7 +45,7 @@ CCompartment::~CCompartment()
 HRESULT CCompartment::_GetCompartment(_Outptr_ ITfCompartment **ppCompartment)
 {
     HRESULT hr = S_OK;
-    ITfCompartmentMgr* pCompartmentMgr = nullptr;
+    ITfCompartmentMgr *pCompartmentMgr = nullptr;
 
     hr = _punk->QueryInterface(IID_ITfCompartmentMgr, (void **)&pCompartmentMgr);
     if (SUCCEEDED(hr))
@@ -64,7 +64,7 @@ HRESULT CCompartment::_GetCompartment(_Outptr_ ITfCompartment **ppCompartment)
 HRESULT CCompartment::_GetCompartmentBOOL(_Out_ BOOL &flag)
 {
     HRESULT hr = S_OK;
-    ITfCompartment* pCompartment = nullptr;
+    ITfCompartment *pCompartment = nullptr;
     flag = FALSE;
 
     if ((hr = _GetCompartment(&pCompartment)) == S_OK)
@@ -94,7 +94,7 @@ HRESULT CCompartment::_GetCompartmentBOOL(_Out_ BOOL &flag)
 HRESULT CCompartment::_SetCompartmentBOOL(_In_ BOOL flag)
 {
     HRESULT hr = S_OK;
-    ITfCompartment* pCompartment = nullptr;
+    ITfCompartment *pCompartment = nullptr;
 
     hr = _GetCompartment(&pCompartment);
     if (SUCCEEDED(hr))
@@ -116,7 +116,7 @@ HRESULT CCompartment::_SetCompartmentBOOL(_In_ BOOL flag)
 HRESULT CCompartment::_GetCompartmentDWORD(_Out_ DWORD &dw)
 {
     HRESULT hr = S_OK;
-    ITfCompartment* pCompartment = nullptr;
+    ITfCompartment *pCompartment = nullptr;
     dw = 0;
 
     hr = _GetCompartment(&pCompartment);
@@ -147,7 +147,7 @@ HRESULT CCompartment::_GetCompartmentDWORD(_Out_ DWORD &dw)
 HRESULT CCompartment::_SetCompartmentDWORD(_In_ DWORD dw)
 {
     HRESULT hr = S_OK;
-    ITfCompartment* pCompartment = nullptr;
+    ITfCompartment *pCompartment = nullptr;
 
     hr = _GetCompartment(&pCompartment);
     if (SUCCEEDED(hr))
@@ -176,7 +176,7 @@ HRESULT CCompartment::_ClearCompartment()
     }
 
     HRESULT hr = S_OK;
-    ITfCompartmentMgr* pCompartmentMgr = nullptr;
+    ITfCompartmentMgr *pCompartmentMgr = nullptr;
 
     if ((hr = _punk->QueryInterface(IID_ITfCompartmentMgr, (void **)&pCompartmentMgr)) == S_OK)
     {
@@ -225,8 +225,7 @@ STDAPI CCompartmentEventSink::QueryInterface(REFIID riid, _Outptr_ void **ppvObj
 
     *ppvObj = nullptr;
 
-    if (IsEqualIID(riid, IID_IUnknown) ||
-        IsEqualIID(riid, IID_ITfCompartmentEventSink))
+    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfCompartmentEventSink))
     {
         *ppvObj = (CCompartmentEventSink *)this;
     }
@@ -239,7 +238,6 @@ STDAPI CCompartmentEventSink::QueryInterface(REFIID riid, _Outptr_ void **ppvObj
 
     return E_NOINTERFACE;
 }
-
 
 //+---------------------------------------------------------------------------
 //
@@ -292,8 +290,8 @@ STDAPI CCompartmentEventSink::OnChange(_In_ REFGUID guidCompartment)
 HRESULT CCompartmentEventSink::_Advise(_In_ IUnknown *punk, _In_ REFGUID guidCompartment)
 {
     HRESULT hr = S_OK;
-    ITfCompartmentMgr* pCompartmentMgr = nullptr;
-    ITfSource* pSource = nullptr;
+    ITfCompartmentMgr *pCompartmentMgr = nullptr;
+    ITfSource *pSource = nullptr;
 
     hr = punk->QueryInterface(IID_ITfCompartmentMgr, (void **)&pCompartmentMgr);
     if (FAILED(hr))
@@ -326,7 +324,7 @@ HRESULT CCompartmentEventSink::_Advise(_In_ IUnknown *punk, _In_ REFGUID guidCom
 HRESULT CCompartmentEventSink::_Unadvise()
 {
     HRESULT hr = S_OK;
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
 
     hr = _pCompartment->QueryInterface(IID_ITfSource, (void **)&pSource);
     if (SUCCEEDED(hr))

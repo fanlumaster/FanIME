@@ -9,7 +9,7 @@
 #include "TipCandidateString.h"
 
 HRESULT CTipCandidateString::CreateInstance(_Outptr_ CTipCandidateString **ppobj)
-{  
+{
     if (ppobj == nullptr)
     {
         return E_INVALIDARG;
@@ -17,7 +17,7 @@ HRESULT CTipCandidateString::CreateInstance(_Outptr_ CTipCandidateString **ppobj
     *ppobj = nullptr;
 
     *ppobj = new (std::nothrow) CTipCandidateString();
-    if (*ppobj == nullptr) 
+    if (*ppobj == nullptr)
     {
         return E_OUTOFMEMORY;
     }
@@ -26,7 +26,7 @@ HRESULT CTipCandidateString::CreateInstance(_Outptr_ CTipCandidateString **ppobj
 }
 
 HRESULT CTipCandidateString::CreateInstance(REFIID riid, _Outptr_ void **ppvObj)
-{ 
+{
     if (ppvObj == nullptr)
     {
         return E_INVALIDARG;
@@ -34,12 +34,12 @@ HRESULT CTipCandidateString::CreateInstance(REFIID riid, _Outptr_ void **ppvObj)
     *ppvObj = nullptr;
 
     *ppvObj = new (std::nothrow) CTipCandidateString();
-    if (*ppvObj == nullptr) 
+    if (*ppvObj == nullptr)
     {
         return E_OUTOFMEMORY;
     }
 
-    return ((CTipCandidateString*)(*ppvObj))->QueryInterface(riid, ppvObj);
+    return ((CTipCandidateString *)(*ppvObj))->QueryInterface(riid, ppvObj);
 }
 
 CTipCandidateString::CTipCandidateString(void)
@@ -63,11 +63,11 @@ STDMETHODIMP CTipCandidateString::QueryInterface(REFIID riid, _Outptr_ void **pp
 
     if (IsEqualIID(riid, IID_IUnknown))
     {
-        *ppvObj = (CTipCandidateString*)this;
+        *ppvObj = (CTipCandidateString *)this;
     }
     else if (IsEqualIID(riid, IID_ITfCandidateString))
     {
-        *ppvObj = (CTipCandidateString*)this;
+        *ppvObj = (CTipCandidateString *)this;
     }
 
     if (*ppvObj == nullptr)
@@ -81,12 +81,12 @@ STDMETHODIMP CTipCandidateString::QueryInterface(REFIID riid, _Outptr_ void **pp
 
 STDMETHODIMP_(ULONG) CTipCandidateString::AddRef(void)
 {
-    return (ULONG)InterlockedIncrement((LONG*)&_refCount);
+    return (ULONG)InterlockedIncrement((LONG *)&_refCount);
 }
 
 STDMETHODIMP_(ULONG) CTipCandidateString::Release(void)
 {
-    ULONG refT = (ULONG)InterlockedDecrement((LONG*)&_refCount);
+    ULONG refT = (ULONG)InterlockedDecrement((LONG *)&_refCount);
     if (0 < refT)
     {
         return refT;

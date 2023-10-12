@@ -11,18 +11,18 @@
 // CSearchCandidateProvider
 //
 // TfFnSearchCandidateProvider is used for search integration feature, CSearchCandidateProvider
-// implements this interface that can be called by search integration, and offer the candidate list 
+// implements this interface that can be called by search integration, and offer the candidate list
 // as search integration suggestion.
 //
 #define FAKECANDIDATENUMBER (16)
 class CSearchCandidateProvider : public ITfFnSearchCandidateProvider
 {
-protected:
+  protected:
     // constructor/destructor
     CSearchCandidateProvider(_In_ ITfTextInputProcessorEx *ptip);
     virtual ~CSearchCandidateProvider();
 
-public:
+  public:
     // create instance
     static HRESULT CreateInstance(_Outptr_ ITfFnSearchCandidateProvider **ppobj, _In_ ITfTextInputProcessorEx *ptip);
     static HRESULT CreateInstance(REFIID riid, _Outptr_ void **ppvObj, _In_ ITfTextInputProcessorEx *ptip);
@@ -36,15 +36,15 @@ public:
     STDMETHODIMP GetDisplayName(_Out_ BSTR *pbstrName);
 
     // ITfFnSearchCandidateProvider methods
-	//
-	// GetSearchCandidates is responsible for supporting the candidates to caller, search integration
-	// SetResult is not used
-	//
-    STDMETHODIMP GetSearchCandidates(BSTR bstrQuery, BSTR bstrApplicationID, _Outptr_result_maybenull_ ITfCandidateList **pplist); 
+    //
+    // GetSearchCandidates is responsible for supporting the candidates to caller, search integration
+    // SetResult is not used
+    //
+    STDMETHODIMP GetSearchCandidates(BSTR bstrQuery, BSTR bstrApplicationID,
+                                     _Outptr_result_maybenull_ ITfCandidateList **pplist);
     STDMETHODIMP SetResult(BSTR bstrQuery, BSTR bstrApplicationID, BSTR bstrResult);
 
-private:
+  private:
     LONG _refCount;
-    ITfTextInputProcessorEx* _pTip;
+    ITfTextInputProcessorEx *_pTip;
 };
-

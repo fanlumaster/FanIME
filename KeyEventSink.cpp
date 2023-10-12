@@ -14,8 +14,8 @@
 #include "Compartment.h"
 
 // 0xF003, 0xF004 are the keys that the touch keyboard sends for next/previous
-#define THIRDPARTY_NEXTPAGE  static_cast<WORD>(0xF003)
-#define THIRDPARTY_PREVPAGE  static_cast<WORD>(0xF004)
+#define THIRDPARTY_NEXTPAGE static_cast<WORD>(0xF003)
+#define THIRDPARTY_PREVPAGE static_cast<WORD>(0xF004)
 
 // Because the code mostly works with VKeys, here map a WCHAR back to a VKKey for certain
 // vkeys that the IME handles specially
@@ -58,7 +58,8 @@ __inline UINT VKeyFromVKPacketAndWchar(UINT vk, WCHAR wch)
 //
 //----------------------------------------------------------------------------
 
-BOOL CSampleIME::_IsKeyEaten(_In_ ITfContext *pContext, UINT codeIn, _Out_ UINT *pCodeOut, _Out_writes_(1) WCHAR *pwch, _Out_opt_ _KEYSTROKE_STATE *pKeyState)
+BOOL CSampleIME::_IsKeyEaten(_In_ ITfContext *pContext, UINT codeIn, _Out_ UINT *pCodeOut, _Out_writes_(1) WCHAR *pwch,
+                             _Out_opt_ _KEYSTROKE_STATE *pKeyState)
 {
     pContext;
 
@@ -69,7 +70,8 @@ BOOL CSampleIME::_IsKeyEaten(_In_ ITfContext *pContext, UINT codeIn, _Out_ UINT 
     CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
 
     BOOL isDoubleSingleByte = FALSE;
-    CCompartment CompartmentDoubleSingleByte(_pThreadMgr, _tfClientId, Global::SampleIMEGuidCompartmentDoubleSingleByte);
+    CCompartment CompartmentDoubleSingleByte(_pThreadMgr, _tfClientId,
+                                             Global::SampleIMEGuidCompartmentDoubleSingleByte);
     CompartmentDoubleSingleByte._GetCompartmentBOOL(isDoubleSingleByte);
 
     BOOL isPunctuation = FALSE;
@@ -132,7 +134,8 @@ BOOL CSampleIME::_IsKeyEaten(_In_ ITfContext *pContext, UINT codeIn, _Out_ UINT 
         //
         // eat only keys that CKeyHandlerEditSession can handles.
         //
-        if (pCompositionProcessorEngine->IsVirtualKeyNeed(*pCodeOut, pwch, _IsComposing(), _candidateMode, _isCandidateWithWildcard, pKeyState))
+        if (pCompositionProcessorEngine->IsVirtualKeyNeed(*pCodeOut, pwch, _IsComposing(), _candidateMode,
+                                                          _isCandidateWithWildcard, pKeyState))
         {
             return TRUE;
         }
@@ -216,19 +219,17 @@ WCHAR CSampleIME::ConvertVKey(UINT code)
 
 BOOL CSampleIME::_IsKeyboardDisabled()
 {
-    ITfDocumentMgr* pDocMgrFocus = nullptr;
-    ITfContext* pContext = nullptr;
+    ITfDocumentMgr *pDocMgrFocus = nullptr;
+    ITfContext *pContext = nullptr;
     BOOL isDisabled = FALSE;
 
-    if ((_pThreadMgr->GetFocus(&pDocMgrFocus) != S_OK) ||
-        (pDocMgrFocus == nullptr))
+    if ((_pThreadMgr->GetFocus(&pDocMgrFocus) != S_OK) || (pDocMgrFocus == nullptr))
     {
-        // if there is no focus document manager object, the keyboard 
+        // if there is no focus document manager object, the keyboard
         // is disabled.
         isDisabled = TRUE;
     }
-    else if ((pDocMgrFocus->GetTop(&pContext) != S_OK) ||
-        (pContext == nullptr))
+    else if ((pDocMgrFocus->GetTop(&pContext) != S_OK) || (pContext == nullptr))
     {
         // if there is no context object, the keyboard is disabled.
         isDisabled = TRUE;
@@ -264,7 +265,7 @@ BOOL CSampleIME::_IsKeyboardDisabled()
 
 STDAPI CSampleIME::OnSetFocus(BOOL fForeground)
 {
-	fForeground;
+    fForeground;
 
     return S_OK;
 }
@@ -330,7 +331,8 @@ STDAPI CSampleIME::OnKeyDown(ITfContext *pContext, WPARAM wParam, LPARAM lParam,
         // Always eat THIRDPARTY_NEXTPAGE and THIRDPARTY_PREVPAGE keys, but don't always process them.
         if ((wch == THIRDPARTY_NEXTPAGE) || (wch == THIRDPARTY_PREVPAGE))
         {
-            needInvokeKeyHandler = !((KeystrokeState.Category == CATEGORY_NONE) && (KeystrokeState.Function == FUNCTION_NONE));
+            needInvokeKeyHandler =
+                !((KeystrokeState.Category == CATEGORY_NONE) && (KeystrokeState.Function == FUNCTION_NONE));
         }
 
         if (needInvokeKeyHandler)
@@ -401,7 +403,7 @@ STDAPI CSampleIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lParam, B
 
 STDAPI CSampleIME::OnPreservedKey(ITfContext *pContext, REFGUID rguid, BOOL *pIsEaten)
 {
-	pContext;
+    pContext;
 
     CCompositionProcessorEngine *pCompositionProcessorEngine;
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
@@ -420,7 +422,7 @@ STDAPI CSampleIME::OnPreservedKey(ITfContext *pContext, REFGUID rguid, BOOL *pIs
 
 BOOL CSampleIME::_InitKeyEventSink()
 {
-    ITfKeystrokeMgr* pKeystrokeMgr = nullptr;
+    ITfKeystrokeMgr *pKeystrokeMgr = nullptr;
     HRESULT hr = S_OK;
 
     if (FAILED(_pThreadMgr->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pKeystrokeMgr)))
@@ -444,7 +446,7 @@ BOOL CSampleIME::_InitKeyEventSink()
 
 void CSampleIME::_UninitKeyEventSink()
 {
-    ITfKeystrokeMgr* pKeystrokeMgr = nullptr;
+    ITfKeystrokeMgr *pKeystrokeMgr = nullptr;
 
     if (FAILED(_pThreadMgr->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pKeystrokeMgr)))
     {

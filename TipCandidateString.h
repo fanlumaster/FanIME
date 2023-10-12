@@ -12,11 +12,11 @@
 
 class CTipCandidateString : public ITfCandidateString
 {
-protected:
+  protected:
     CTipCandidateString();
     virtual ~CTipCandidateString();
 
-public:
+  public:
     static HRESULT CreateInstance(_Outptr_ CTipCandidateString **ppobj);
     static HRESULT CreateInstance(REFIID riid, _Outptr_ void **ppvObj);
 
@@ -32,7 +32,7 @@ public:
     virtual STDMETHODIMP SetIndex(ULONG uIndex);
     virtual STDMETHODIMP SetString(_In_ const WCHAR *pch, DWORD_PTR length);
 
-protected:
+  protected:
     long _refCount;
     int _index;
     std::wstring _candidateStr;

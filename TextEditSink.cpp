@@ -16,13 +16,14 @@
 // Called by the system whenever anyone releases a write-access document lock.
 //----------------------------------------------------------------------------
 
-STDAPI CSampleIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCookie ecReadOnly, __RPC__in_opt ITfEditRecord *pEditRecord)
+STDAPI CSampleIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCookie ecReadOnly,
+                             __RPC__in_opt ITfEditRecord *pEditRecord)
 {
     BOOL isSelectionChanged;
 
     //
     // did the selection change?
-    // The selection change includes the movement of caret as well. 
+    // The selection change includes the movement of caret as well.
     // The caret position is represent as the empty selection range when
     // there is no selection.
     //
@@ -30,8 +31,7 @@ STDAPI CSampleIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCookie ec
     {
         return E_INVALIDARG;
     }
-    if (SUCCEEDED(pEditRecord->GetSelectionStatus(&isSelectionChanged)) &&
-        isSelectionChanged)
+    if (SUCCEEDED(pEditRecord->GetSelectionStatus(&isSelectionChanged)) && isSelectionChanged)
     {
         // If the selection is moved to out side of the current composition,
         // we terminate the composition. This TextService supports only one
@@ -45,12 +45,13 @@ STDAPI CSampleIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCookie ec
             {
                 return E_INVALIDARG;
             }
-            if (FAILED(pContext->GetSelection(ecReadOnly, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched)) || fetched != 1)
+            if (FAILED(pContext->GetSelection(ecReadOnly, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched)) ||
+                fetched != 1)
             {
                 return S_FALSE;
             }
 
-            ITfRange* pRangeComposition = nullptr;
+            ITfRange *pRangeComposition = nullptr;
             if (SUCCEEDED(_pComposition->GetRange(&pRangeComposition)))
             {
                 if (!_IsRangeCovered(ecReadOnly, tfSelection.range, pRangeComposition))
@@ -78,7 +79,7 @@ STDAPI CSampleIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCookie ec
 
 BOOL CSampleIME::_InitTextEditSink(_In_ ITfDocumentMgr *pDocMgr)
 {
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
     BOOL ret = TRUE;
 
     // clear out any previous sink first

@@ -61,14 +61,15 @@ void CButtonWindow::_OnLButtonDown(POINT pt)
 // _WindowProcCallback
 //
 //----------------------------------------------------------------------------
-LRESULT CALLBACK CButtonWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam) 
-{ 
+LRESULT CALLBACK CButtonWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT uMsg, _In_ WPARAM wParam,
+                                                    _In_ LPARAM lParam)
+{
     wndHandle;
     uMsg;
     wParam;
     lParam;
 
-    return 0; 
+    return 0;
 }
 
 //+---------------------------------------------------------------------------

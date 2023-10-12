@@ -45,8 +45,7 @@ STDAPI CTfTextLayoutSink::QueryInterface(REFIID riid, _Outptr_ void **ppvObj)
 
     *ppvObj = nullptr;
 
-    if (IsEqualIID(riid, IID_IUnknown) ||
-        IsEqualIID(riid, IID_ITfTextLayoutSink))
+    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfTextLayoutSink))
     {
         *ppvObj = (ITfTextLayoutSink *)this;
     }
@@ -85,7 +84,8 @@ STDAPI_(ULONG) CTfTextLayoutSink::Release()
 //
 //----------------------------------------------------------------------------
 
-STDAPI CTfTextLayoutSink::OnLayoutChange(_In_ ITfContext *pContext, TfLayoutCode lcode, _In_ ITfContextView *pContextView)
+STDAPI CTfTextLayoutSink::OnLayoutChange(_In_ ITfContext *pContext, TfLayoutCode lcode,
+                                         _In_ ITfContextView *pContextView)
 {
     // we're interested in only document context.
     if (pContext != _pContextDocument)
@@ -95,29 +95,29 @@ STDAPI CTfTextLayoutSink::OnLayoutChange(_In_ ITfContext *pContext, TfLayoutCode
 
     switch (lcode)
     {
-    case TF_LC_CHANGE:
+    case TF_LC_CHANGE: {
+        CGetTextExtentEditSession *pEditSession = nullptr;
+        pEditSession = new (std::nothrow)
+            CGetTextExtentEditSession(_pTextService, pContext, pContextView, _pRangeComposition, this);
+        if (nullptr != (pEditSession))
         {
-            CGetTextExtentEditSession* pEditSession = nullptr;
-            pEditSession = new (std::nothrow) CGetTextExtentEditSession(_pTextService, pContext, pContextView, _pRangeComposition, this);
-            if (nullptr != (pEditSession))
-            {
-                HRESULT hr = S_OK;
-                pContext->RequestEditSession(_pTextService->_GetClientId(), pEditSession, TF_ES_SYNC | TF_ES_READ, &hr);
+            HRESULT hr = S_OK;
+            pContext->RequestEditSession(_pTextService->_GetClientId(), pEditSession, TF_ES_SYNC | TF_ES_READ, &hr);
 
-                pEditSession->Release();
-            }
+            pEditSession->Release();
         }
-        break;
+    }
+    break;
 
     case TF_LC_DESTROY:
         _LayoutDestroyNotification();
         break;
-
     }
     return S_OK;
 }
 
-HRESULT CTfTextLayoutSink::_StartLayout(_In_ ITfContext *pContextDocument, TfEditCookie ec, _In_ ITfRange *pRangeComposition)
+HRESULT CTfTextLayoutSink::_StartLayout(_In_ ITfContext *pContextDocument, TfEditCookie ec,
+                                        _In_ ITfRange *pRangeComposition)
 {
     _pContextDocument = pContextDocument;
     _pContextDocument->AddRef();
@@ -149,7 +149,7 @@ VOID CTfTextLayoutSink::_EndLayout()
 HRESULT CTfTextLayoutSink::_AdviseTextLayoutSink()
 {
     HRESULT hr = S_OK;
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
 
     hr = _pContextDocument->QueryInterface(IID_ITfSource, (void **)&pSource);
     if (FAILED(hr))
@@ -172,7 +172,7 @@ HRESULT CTfTextLayoutSink::_AdviseTextLayoutSink()
 HRESULT CTfTextLayoutSink::_UnadviseTextLayoutSink()
 {
     HRESULT hr = S_OK;
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
 
     if (nullptr == _pContextDocument)
     {
@@ -201,7 +201,7 @@ HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect)
 {
     HRESULT hr = S_OK;
     BOOL isClipped = TRUE;
-    ITfContextView* pContextView = nullptr;
+    ITfContextView *pContextView = nullptr;
 
     hr = _pContextDocument->GetActiveView(&pContextView);
     if (FAILED(hr))

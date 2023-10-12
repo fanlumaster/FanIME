@@ -1,2 +1,2 @@
 CompileFlags:
-  Add: [-Wno-microsoft-goto, -Wno-unused-value] # 忽略某些警告
+  Add: [-Wno-microsoft-goto, -Wno-unused-value, -Wno-nonportable-include-path, -Wno-microsoft-extra-qualification] # 忽略某些警告

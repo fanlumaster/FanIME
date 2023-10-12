@@ -20,7 +20,7 @@ void UnregisterServer();
 void FreeGlobalObjects(void);
 
 class CClassFactory;
-static CClassFactory* classFactoryObjects[1] = { nullptr };
+static CClassFactory *classFactoryObjects[1] = {nullptr};
 
 //+---------------------------------------------------------------------------
 //
@@ -63,7 +63,7 @@ void DllRelease(void)
 
 class CClassFactory : public IClassFactory
 {
-public:
+  public:
     // IUnknown methods
     STDMETHODIMP QueryInterface(REFIID riid, _Outptr_ void **ppvObj);
     STDMETHODIMP_(ULONG) AddRef(void);
@@ -80,11 +80,15 @@ public:
         _pfnCreateInstance = pfnCreateInstance;
     }
 
-public:
+  public:
     REFCLSID _rclsid;
     HRESULT (*_pfnCreateInstance)(IUnknown *pUnkOuter, REFIID riid, _COM_Outptr_ void **ppvObj);
-private:
-	CClassFactory& operator=(const CClassFactory& rhn) {rhn;};
+
+  private:
+    CClassFactory &operator=(const CClassFactory &rhn)
+    {
+        rhn;
+    };
 };
 
 //+---------------------------------------------------------------------------
@@ -197,11 +201,7 @@ void FreeGlobalObjects(void)
 //  DllGetClassObject
 //
 //----------------------------------------------------------------------------
-_Check_return_
-STDAPI  DllGetClassObject(
-	_In_ REFCLSID rclsid, 
-	_In_ REFIID riid, 
-	_Outptr_ void** ppv)
+_Check_return_ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ void **ppv)
 {
     if (classFactoryObjects[0] == nullptr)
     {
@@ -216,16 +216,14 @@ STDAPI  DllGetClassObject(
         LeaveCriticalSection(&Global::CS);
     }
 
-    if (IsEqualIID(riid, IID_IClassFactory) ||
-        IsEqualIID(riid, IID_IUnknown))
+    if (IsEqualIID(riid, IID_IClassFactory) || IsEqualIID(riid, IID_IUnknown))
     {
         for (int i = 0; i < ARRAYSIZE(classFactoryObjects); i++)
         {
-            if (nullptr != classFactoryObjects[i] &&
-                IsEqualGUID(rclsid, classFactoryObjects[i]->_rclsid))
+            if (nullptr != classFactoryObjects[i] && IsEqualGUID(rclsid, classFactoryObjects[i]->_rclsid))
             {
                 *ppv = (void *)classFactoryObjects[i];
-                DllAddRef();    // class factory holds DLL ref count
+                DllAddRef(); // class factory holds DLL ref count
                 return NOERROR;
             }
         }
@@ -282,4 +280,3 @@ STDAPI DllRegisterServer(void)
     }
     return S_OK;
 }
-

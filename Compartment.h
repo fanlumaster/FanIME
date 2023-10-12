@@ -7,9 +7,11 @@
 
 #pragma once
 
+#include "Private.h"
+
 class CCompartment
 {
-public:
+  public:
     CCompartment(_In_ IUnknown *punk, TfClientId tfClientId, _In_ REFGUID guidCompartment);
     ~CCompartment();
 
@@ -25,9 +27,9 @@ public:
         *pguid = _guidCompartment;
     }
 
-private:
+  private:
     GUID _guidCompartment;
-    IUnknown* _punk;
+    IUnknown *_punk;
     TfClientId _tfClientId;
 };
 
@@ -35,7 +37,7 @@ typedef HRESULT (*CESCALLBACK)(void *pv, REFGUID guidCompartment);
 
 class CCompartmentEventSink : public ITfCompartmentEventSink
 {
-public:
+  public:
     CCompartmentEventSink(_In_ CESCALLBACK pfnCallback, _In_ void *pv);
     ~CCompartmentEventSink();
 
@@ -51,7 +53,7 @@ public:
     HRESULT _Advise(_In_ IUnknown *punk, _In_ REFGUID guidCompartment);
     HRESULT _Unadvise();
 
-private:
+  private:
     ITfCompartment *_pCompartment;
     DWORD _dwCookie;
     CESCALLBACK _pfnCallback;

@@ -32,7 +32,7 @@ HRESULT CSampleIME::_HandleCandidateFinalize(TfEditCookie ec, _In_ ITfContext *p
 {
     HRESULT hr = S_OK;
     DWORD_PTR candidateLen = 0;
-    const WCHAR* pCandidateString = nullptr;
+    const WCHAR *pCandidateString = nullptr;
     CStringRange candidateString;
 
     if (nullptr == _pCandidateListUIPresenter)
@@ -82,7 +82,7 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
 {
     HRESULT hrReturn = E_FAIL;
     DWORD_PTR candidateLen = 0;
-    const WCHAR* pCandidateString = nullptr;
+    const WCHAR *pCandidateString = nullptr;
     BSTR pbstr = nullptr;
     CStringRange candidateString;
     CSampleImeArray<CCandidateListItem> candidatePhraseList;
@@ -114,15 +114,14 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
     // We have a candidate list if candidatePhraseList.Cnt is not 0
     // If we are showing reverse conversion, use CCandidateListUIPresenter
     CANDIDATE_MODE tempCandMode = CANDIDATE_NONE;
-    CCandidateListUIPresenter* pTempCandListUIPresenter = nullptr;
+    CCandidateListUIPresenter *pTempCandListUIPresenter = nullptr;
     if (candidatePhraseList.Count())
     {
         tempCandMode = CANDIDATE_WITH_NEXT_COMPOSITION;
 
-        pTempCandListUIPresenter = new (std::nothrow) CCandidateListUIPresenter(this, Global::AtomCandidateWindow,
-            CATEGORY_CANDIDATE,
-            _pCompositionProcessorEngine->GetCandidateListIndexRange(),
-            FALSE);
+        pTempCandListUIPresenter = new (std::nothrow)
+            CCandidateListUIPresenter(this, Global::AtomCandidateWindow, CATEGORY_CANDIDATE,
+                                      _pCompositionProcessorEngine->GetCandidateListIndexRange(), FALSE);
         if (nullptr == pTempCandListUIPresenter)
         {
             hrReturn = E_OUTOFMEMORY;
@@ -132,17 +131,19 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
 
     // call _Start*Line for CCandidateListUIPresenter or CReadingLine
     // we don't cache the document manager object so get it from pContext.
-    ITfDocumentMgr* pDocumentMgr = nullptr;
+    ITfDocumentMgr *pDocumentMgr = nullptr;
     HRESULT hrStartCandidateList = E_FAIL;
     if (pContext->GetDocumentMgr(&pDocumentMgr) == S_OK)
     {
-        ITfRange* pRange = nullptr;
+        ITfRange *pRange = nullptr;
         if (_pComposition->GetRange(&pRange) == S_OK)
         {
             if (pTempCandListUIPresenter)
             {
-                hrStartCandidateList = pTempCandListUIPresenter->_StartCandidateList(_tfClientId, pDocumentMgr, pContext, ec, pRange, _pCompositionProcessorEngine->GetCandidateWindowWidth());
-            } 
+                hrStartCandidateList = pTempCandListUIPresenter->_StartCandidateList(
+                    _tfClientId, pDocumentMgr, pContext, ec, pRange,
+                    _pCompositionProcessorEngine->GetCandidateWindowWidth());
+            }
 
             pRange->Release();
         }
@@ -152,8 +153,8 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
     // set up candidate list if it is being shown
     if (SUCCEEDED(hrStartCandidateList))
     {
-        pTempCandListUIPresenter->_SetTextColor(RGB(0, 0x80, 0), GetSysColor(COLOR_WINDOW));    // Text color is green
-        pTempCandListUIPresenter->_SetFillColor((HBRUSH)(COLOR_WINDOW+1));    // Background color is window
+        pTempCandListUIPresenter->_SetTextColor(RGB(0, 0x80, 0), GetSysColor(COLOR_WINDOW)); // Text color is green
+        pTempCandListUIPresenter->_SetFillColor((HBRUSH)(COLOR_WINDOW + 1)); // Background color is window
         pTempCandListUIPresenter->_SetText(&candidatePhraseList, FALSE);
 
         // Add composing character
@@ -199,7 +200,8 @@ Exit:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_HandleCandidateArrowKey(TfEditCookie ec, _In_ ITfContext *pContext, _In_ KEYSTROKE_FUNCTION keyFunction)
+HRESULT CSampleIME::_HandleCandidateArrowKey(TfEditCookie ec, _In_ ITfContext *pContext,
+                                             _In_ KEYSTROKE_FUNCTION keyFunction)
 {
     ec;
     pContext;
@@ -245,7 +247,7 @@ HRESULT CSampleIME::_HandlePhraseFinalize(TfEditCookie ec, _In_ ITfContext *pCon
     HRESULT hr = S_OK;
 
     DWORD phraseLen = 0;
-    const WCHAR* pPhraseString = nullptr;
+    const WCHAR *pPhraseString = nullptr;
 
     phraseLen = (DWORD)_pCandidateListUIPresenter->_GetSelectedCandidateString(&pPhraseString);
 
@@ -271,7 +273,8 @@ HRESULT CSampleIME::_HandlePhraseFinalize(TfEditCookie ec, _In_ ITfContext *pCon
 //
 //----------------------------------------------------------------------------
 
-HRESULT CSampleIME::_HandlePhraseArrowKey(TfEditCookie ec, _In_ ITfContext *pContext, _In_ KEYSTROKE_FUNCTION keyFunction)
+HRESULT CSampleIME::_HandlePhraseArrowKey(TfEditCookie ec, _In_ ITfContext *pContext,
+                                          _In_ KEYSTROKE_FUNCTION keyFunction)
 {
     ec;
     pContext;
@@ -318,7 +321,10 @@ HRESULT CSampleIME::_HandlePhraseSelectByNumber(TfEditCookie ec, _In_ ITfContext
 //
 //----------------------------------------------------------------------------
 
-CCandidateListUIPresenter::CCandidateListUIPresenter(_In_ CSampleIME *pTextService, ATOM atom, KEYSTROKE_CATEGORY Category, _In_ CCandidateRange *pIndexRange, BOOL hideWindow) : CTfTextLayoutSink(pTextService)
+CCandidateListUIPresenter::CCandidateListUIPresenter(_In_ CSampleIME *pTextService, ATOM atom,
+                                                     KEYSTROKE_CATEGORY Category, _In_ CCandidateRange *pIndexRange,
+                                                     BOOL hideWindow)
+    : CTfTextLayoutSink(pTextService)
 {
     _atom = atom;
 
@@ -332,8 +338,8 @@ CCandidateListUIPresenter::CCandidateListUIPresenter(_In_ CSampleIME *pTextServi
     _updatedFlags = 0;
 
     _uiElementId = (DWORD)-1;
-    _isShowMode = TRUE;   // store return value from BeginUIElement
-    _hideWindow = hideWindow;     // Hide window flag from [Configuration] CandidateList.Phrase.HideWindow
+    _isShowMode = TRUE;       // store return value from BeginUIElement
+    _hideWindow = hideWindow; // Hide window flag from [Configuration] CandidateList.Phrase.HideWindow
 
     _pTextService = pTextService;
     _pTextService->AddRef();
@@ -373,19 +379,17 @@ STDAPI CCandidateListUIPresenter::QueryInterface(REFIID riid, _Outptr_ void **pp
 
     *ppvObj = nullptr;
 
-    if (IsEqualIID(riid, IID_ITfUIElement) ||
-        IsEqualIID(riid, IID_ITfCandidateListUIElement))
+    if (IsEqualIID(riid, IID_ITfUIElement) || IsEqualIID(riid, IID_ITfCandidateListUIElement))
     {
-        *ppvObj = (ITfCandidateListUIElement*)this;
+        *ppvObj = (ITfCandidateListUIElement *)this;
     }
-    else if (IsEqualIID(riid, IID_IUnknown) || 
-        IsEqualIID(riid, IID_ITfCandidateListUIElementBehavior)) 
+    else if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfCandidateListUIElementBehavior))
     {
-        *ppvObj = (ITfCandidateListUIElementBehavior*)this;
+        *ppvObj = (ITfCandidateListUIElementBehavior *)this;
     }
-    else if (IsEqualIID(riid, __uuidof(ITfIntegratableCandidateListUIElement))) 
+    else if (IsEqualIID(riid, __uuidof(ITfIntegratableCandidateListUIElement)))
     {
-        *ppvObj = (ITfIntegratableCandidateListUIElement*)this;
+        *ppvObj = (ITfIntegratableCandidateListUIElement *)this;
     }
 
     if (*ppvObj)
@@ -495,10 +499,10 @@ HRESULT CCandidateListUIPresenter::ToShowCandidateWindow()
 
 HRESULT CCandidateListUIPresenter::ToHideCandidateWindow()
 {
-	if (_pCandidateWnd)
-	{
-		_pCandidateWnd->_Show(FALSE);
-	}
+    if (_pCandidateWnd)
+    {
+        _pCandidateWnd->_Show(FALSE);
+    }
 
     _updatedFlags = TF_CLUIE_SELECTION | TF_CLUIE_CURRENTPAGE;
     _UpdateUIElement();
@@ -595,7 +599,7 @@ STDAPI CCandidateListUIPresenter::GetString(UINT uIndex, BSTR *pbstr)
     }
 
     DWORD candidateLen = 0;
-    const WCHAR* pCandidateString = nullptr;
+    const WCHAR *pCandidateString = nullptr;
 
     candidateLen = _pCandidateWnd->_GetCandidateString(uIndex, &pCandidateString);
 
@@ -755,16 +759,18 @@ STDAPI CCandidateListUIPresenter::FinalizeExactCompositionString()
     return E_NOTIMPL;
 }
 
-
 //+---------------------------------------------------------------------------
 //
 // _StartCandidateList
 //
 //----------------------------------------------------------------------------
 
-HRESULT CCandidateListUIPresenter::_StartCandidateList(TfClientId tfClientId, _In_ ITfDocumentMgr *pDocumentMgr, _In_ ITfContext *pContextDocument, TfEditCookie ec, _In_ ITfRange *pRangeComposition, UINT wndWidth)
+HRESULT CCandidateListUIPresenter::_StartCandidateList(TfClientId tfClientId, _In_ ITfDocumentMgr *pDocumentMgr,
+                                                       _In_ ITfContext *pContextDocument, TfEditCookie ec,
+                                                       _In_ ITfRange *pRangeComposition, UINT wndWidth)
 {
-	pDocumentMgr;tfClientId;
+    pDocumentMgr;
+    tfClientId;
 
     HRESULT hr = E_FAIL;
 
@@ -818,7 +824,8 @@ void CCandidateListUIPresenter::_EndCandidateList()
 //
 //----------------------------------------------------------------------------
 
-void CCandidateListUIPresenter::_SetText(_In_ CSampleImeArray<CCandidateListItem> *pCandidateList, BOOL isAddFindKeyCode)
+void CCandidateListUIPresenter::_SetText(_In_ CSampleImeArray<CCandidateListItem> *pCandidateList,
+                                         BOOL isAddFindKeyCode)
 {
     AddCandidateToCandidateListUI(pCandidateList, isAddFindKeyCode);
 
@@ -830,16 +837,14 @@ void CCandidateListUIPresenter::_SetText(_In_ CSampleImeArray<CCandidateListItem
     }
     else
     {
-        _updatedFlags = TF_CLUIE_COUNT       |
-            TF_CLUIE_SELECTION   |
-            TF_CLUIE_STRING      |
-            TF_CLUIE_PAGEINDEX   |
-            TF_CLUIE_CURRENTPAGE;
+        _updatedFlags =
+            TF_CLUIE_COUNT | TF_CLUIE_SELECTION | TF_CLUIE_STRING | TF_CLUIE_PAGEINDEX | TF_CLUIE_CURRENTPAGE;
         _UpdateUIElement();
     }
 }
 
-void CCandidateListUIPresenter::AddCandidateToCandidateListUI(_In_ CSampleImeArray<CCandidateListItem> *pCandidateList, BOOL isAddFindKeyCode)
+void CCandidateListUIPresenter::AddCandidateToCandidateListUI(_In_ CSampleImeArray<CCandidateListItem> *pCandidateList,
+                                                              BOOL isAddFindKeyCode)
 {
     for (UINT index = 0; index < pCandidateList->Count(); index++)
     {
@@ -851,7 +856,7 @@ void CCandidateListUIPresenter::SetPageIndexWithScrollInfo(_In_ CSampleImeArray<
 {
     UINT candCntInPage = _pIndexRange->Count();
     UINT bufferSize = pCandidateList->Count() / candCntInPage + 1;
-    UINT* puPageIndex = new (std::nothrow) UINT[ bufferSize ];
+    UINT *puPageIndex = new (std::nothrow) UINT[bufferSize];
     if (puPageIndex != nullptr)
     {
         for (UINT i = 0; i < bufferSize; i++)
@@ -860,10 +865,10 @@ void CCandidateListUIPresenter::SetPageIndexWithScrollInfo(_In_ CSampleImeArray<
         }
 
         _pCandidateWnd->_SetPageIndex(puPageIndex, bufferSize);
-        delete [] puPageIndex;
+        delete[] puPageIndex;
     }
-    _pCandidateWnd->_SetScrollInfo(pCandidateList->Count(), candCntInPage);  // nMax:range of max, nPage:number of items in page
-
+    _pCandidateWnd->_SetScrollInfo(pCandidateList->Count(),
+                                   candCntInPage); // nMax:range of max, nPage:number of items in page
 }
 //+---------------------------------------------------------------------------
 //
@@ -900,7 +905,8 @@ void CCandidateListUIPresenter::_SetFillColor(HBRUSH hBrush)
 //
 //----------------------------------------------------------------------------
 
-DWORD_PTR CCandidateListUIPresenter::_GetSelectedCandidateString(_Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
+DWORD_PTR CCandidateListUIPresenter::_GetSelectedCandidateString(
+    _Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
 {
     return _pCandidateWnd->_GetSelectedCandidateString(ppwchCandidateString);
 }
@@ -946,8 +952,7 @@ BOOL CCandidateListUIPresenter::_SetSelection(_In_ int selectedIndex)
         }
         else
         {
-            _updatedFlags = TF_CLUIE_SELECTION |
-                TF_CLUIE_CURRENTPAGE;
+            _updatedFlags = TF_CLUIE_SELECTION | TF_CLUIE_CURRENTPAGE;
             _UpdateUIElement();
         }
     }
@@ -971,8 +976,7 @@ BOOL CCandidateListUIPresenter::_MovePage(_In_ int offSet)
         }
         else
         {
-            _updatedFlags = TF_CLUIE_SELECTION |
-                TF_CLUIE_CURRENTPAGE;
+            _updatedFlags = TF_CLUIE_SELECTION | TF_CLUIE_CURRENTPAGE;
             _UpdateUIElement();
         }
     }
@@ -1034,9 +1038,9 @@ HRESULT CCandidateListUIPresenter::_CandidateChangeNotification(_In_ enum CANDWN
     HRESULT hr = E_FAIL;
 
     TfClientId tfClientId = _pTextService->_GetClientId();
-    ITfThreadMgr* pThreadMgr = nullptr;
-    ITfDocumentMgr* pDocumentMgr = nullptr;
-    ITfContext* pContext = nullptr;
+    ITfThreadMgr *pThreadMgr = nullptr;
+    ITfDocumentMgr *pDocumentMgr = nullptr;
+    ITfContext *pContext = nullptr;
 
     _KEYSTROKE_STATE KeyState;
     KeyState.Category = _Category;
@@ -1066,7 +1070,8 @@ HRESULT CCandidateListUIPresenter::_CandidateChangeNotification(_In_ enum CANDWN
         goto Exit;
     }
 
-    CKeyHandlerEditSession *pEditSession = new (std::nothrow) CKeyHandlerEditSession(_pTextService, pContext, 0, 0, KeyState);
+    CKeyHandlerEditSession *pEditSession =
+        new (std::nothrow) CKeyHandlerEditSession(_pTextService, pContext, 0, 0, KeyState);
     if (nullptr != pEditSession)
     {
         HRESULT hrSession = S_OK;
@@ -1094,7 +1099,7 @@ Exit:
 // static
 HRESULT CCandidateListUIPresenter::_CandWndCallback(_In_ void *pv, _In_ enum CANDWND_ACTION action)
 {
-    CCandidateListUIPresenter* fakeThis = (CCandidateListUIPresenter*)pv;
+    CCandidateListUIPresenter *fakeThis = (CCandidateListUIPresenter *)pv;
 
     return fakeThis->_CandidateChangeNotification(action);
 }
@@ -1109,13 +1114,13 @@ HRESULT CCandidateListUIPresenter::_UpdateUIElement()
 {
     HRESULT hr = S_OK;
 
-    ITfThreadMgr* pThreadMgr = _pTextService->_GetThreadMgr();
+    ITfThreadMgr *pThreadMgr = _pTextService->_GetThreadMgr();
     if (nullptr == pThreadMgr)
     {
         return S_OK;
     }
 
-    ITfUIElementMgr* pUIElementMgr = nullptr;
+    ITfUIElementMgr *pUIElementMgr = nullptr;
 
     hr = pThreadMgr->QueryInterface(IID_ITfUIElementMgr, (void **)&pUIElementMgr);
     if (hr == S_OK)
@@ -1157,11 +1162,12 @@ HRESULT CCandidateListUIPresenter::OnKillThreadFocus()
     return S_OK;
 }
 
-void CCandidateListUIPresenter::RemoveSpecificCandidateFromList(_In_ LCID Locale, _Inout_ CSampleImeArray<CCandidateListItem> &candidateList, _In_ CStringRange &candidateString)
+void CCandidateListUIPresenter::RemoveSpecificCandidateFromList(
+    _In_ LCID Locale, _Inout_ CSampleImeArray<CCandidateListItem> &candidateList, _In_ CStringRange &candidateString)
 {
     for (UINT index = 0; index < candidateList.Count();)
     {
-        CCandidateListItem* pLI = candidateList.GetAt(index);
+        CCandidateListItem *pLI = candidateList.GetAt(index);
 
         if (CStringRange::Compare(Locale, &candidateString, &pLI->_ItemString) == CSTR_EQUAL)
         {
@@ -1177,36 +1183,30 @@ void CCandidateListUIPresenter::AdviseUIChangedByArrowKey(_In_ KEYSTROKE_FUNCTIO
 {
     switch (arrowKey)
     {
-    case FUNCTION_MOVE_UP:
-        {
-            _MoveSelection(MOVEUP_ONE);
-            break;
-        }
-    case FUNCTION_MOVE_DOWN:
-        {
-            _MoveSelection(MOVEDOWN_ONE);
-            break;
-        }
-    case FUNCTION_MOVE_PAGE_UP:
-        {
-            _MovePage(MOVEUP_ONE);
-            break;
-        }
-    case FUNCTION_MOVE_PAGE_DOWN:
-        {
-            _MovePage(MOVEDOWN_ONE);
-            break;
-        }
-    case FUNCTION_MOVE_PAGE_TOP:
-        {
-            _SetSelection(MOVETO_TOP);
-            break;
-        }
-    case FUNCTION_MOVE_PAGE_BOTTOM:
-        {
-            _SetSelection(MOVETO_BOTTOM);
-            break;
-        }
+    case FUNCTION_MOVE_UP: {
+        _MoveSelection(MOVEUP_ONE);
+        break;
+    }
+    case FUNCTION_MOVE_DOWN: {
+        _MoveSelection(MOVEDOWN_ONE);
+        break;
+    }
+    case FUNCTION_MOVE_PAGE_UP: {
+        _MovePage(MOVEUP_ONE);
+        break;
+    }
+    case FUNCTION_MOVE_PAGE_DOWN: {
+        _MovePage(MOVEDOWN_ONE);
+        break;
+    }
+    case FUNCTION_MOVE_PAGE_TOP: {
+        _SetSelection(MOVETO_TOP);
+        break;
+    }
+    case FUNCTION_MOVE_PAGE_BOTTOM: {
+        _SetSelection(MOVETO_BOTTOM);
+        break;
+    }
     default:
         break;
     }
@@ -1216,14 +1216,14 @@ HRESULT CCandidateListUIPresenter::BeginUIElement()
 {
     HRESULT hr = S_OK;
 
-    ITfThreadMgr* pThreadMgr = _pTextService->_GetThreadMgr();
-    if (nullptr ==pThreadMgr)
+    ITfThreadMgr *pThreadMgr = _pTextService->_GetThreadMgr();
+    if (nullptr == pThreadMgr)
     {
         hr = E_FAIL;
         goto Exit;
     }
 
-    ITfUIElementMgr* pUIElementMgr = nullptr;
+    ITfUIElementMgr *pUIElementMgr = nullptr;
     hr = pThreadMgr->QueryInterface(IID_ITfUIElementMgr, (void **)&pUIElementMgr);
     if (hr == S_OK)
     {
@@ -1239,14 +1239,14 @@ HRESULT CCandidateListUIPresenter::EndUIElement()
 {
     HRESULT hr = S_OK;
 
-    ITfThreadMgr* pThreadMgr = _pTextService->_GetThreadMgr();
+    ITfThreadMgr *pThreadMgr = _pTextService->_GetThreadMgr();
     if ((nullptr == pThreadMgr) || (-1 == _uiElementId))
     {
         hr = E_FAIL;
         goto Exit;
     }
 
-    ITfUIElementMgr* pUIElementMgr = nullptr;
+    ITfUIElementMgr *pUIElementMgr = nullptr;
     hr = pThreadMgr->QueryInterface(IID_ITfUIElementMgr, (void **)&pUIElementMgr);
     if (hr == S_OK)
     {
@@ -1267,7 +1267,8 @@ HRESULT CCandidateListUIPresenter::MakeCandidateWindow(_In_ ITfContext *pContext
         return hr;
     }
 
-    _pCandidateWnd = new (std::nothrow) CCandidateWindow(_CandWndCallback, this, _pIndexRange, _pTextService->_IsStoreAppMode());
+    _pCandidateWnd =
+        new (std::nothrow) CCandidateWindow(_CandWndCallback, this, _pIndexRange, _pTextService->_IsStoreAppMode());
     if (_pCandidateWnd == nullptr)
     {
         hr = E_OUTOFMEMORY;
@@ -1275,7 +1276,7 @@ HRESULT CCandidateListUIPresenter::MakeCandidateWindow(_In_ ITfContext *pContext
     }
 
     HWND parentWndHandle = nullptr;
-    ITfContextView* pView = nullptr;
+    ITfContextView *pView = nullptr;
     if (SUCCEEDED(pContextDocument->GetActiveView(&pView)))
     {
         pView->GetWnd(&parentWndHandle);

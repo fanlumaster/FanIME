@@ -18,8 +18,9 @@
 
 class CStartCompositionEditSession : public CEditSessionBase
 {
-public:
-    CStartCompositionEditSession(_In_ CSampleIME *pTextService, _In_ ITfContext *pContext) : CEditSessionBase(pTextService, pContext)
+  public:
+    CStartCompositionEditSession(_In_ CSampleIME *pTextService, _In_ ITfContext *pContext)
+        : CEditSessionBase(pTextService, pContext)
     {
     }
 
@@ -35,10 +36,10 @@ public:
 
 STDAPI CStartCompositionEditSession::DoEditSession(TfEditCookie ec)
 {
-    ITfInsertAtSelection* pInsertAtSelection = nullptr;
-    ITfRange* pRangeInsert = nullptr;
-    ITfContextComposition* pContextComposition = nullptr;
-    ITfComposition* pComposition = nullptr;
+    ITfInsertAtSelection *pInsertAtSelection = nullptr;
+    ITfRange *pRangeInsert = nullptr;
+    ITfContextComposition *pContextComposition = nullptr;
+    ITfComposition *pComposition = nullptr;
 
     if (FAILED(_pContext->QueryInterface(IID_ITfInsertAtSelection, (void **)&pInsertAtSelection)))
     {
@@ -55,7 +56,8 @@ STDAPI CStartCompositionEditSession::DoEditSession(TfEditCookie ec)
         goto Exit;
     }
 
-    if (SUCCEEDED(pContextComposition->StartComposition(ec, pRangeInsert, _pTextService, &pComposition)) && (nullptr != pComposition))
+    if (SUCCEEDED(pContextComposition->StartComposition(ec, pRangeInsert, _pTextService, &pComposition)) &&
+        (nullptr != pComposition))
     {
         _pTextService->_SetComposition(pComposition);
 
@@ -98,13 +100,14 @@ Exit:
 //
 // _StartComposition
 //
-// this starts the new (std::nothrow) composition at the selection of the current 
+// this starts the new (std::nothrow) composition at the selection of the current
 // focus context.
 //----------------------------------------------------------------------------
 
 void CSampleIME::_StartComposition(_In_ ITfContext *pContext)
 {
-    CStartCompositionEditSession* pStartCompositionEditSession = new (std::nothrow) CStartCompositionEditSession(this, pContext);
+    CStartCompositionEditSession *pStartCompositionEditSession =
+        new (std::nothrow) CStartCompositionEditSession(this, pContext);
 
     if (nullptr != pStartCompositionEditSession)
     {
@@ -120,7 +123,7 @@ void CSampleIME::_StartComposition(_In_ ITfContext *pContext)
 // _SaveCompositionContext
 //
 // this saves the context _pComposition belongs to; we need this to clear
-// text attribute in case composition has not been terminated on 
+// text attribute in case composition has not been terminated on
 // deactivation
 //----------------------------------------------------------------------------
 
@@ -130,4 +133,4 @@ void CSampleIME::_SaveCompositionContext(_In_ ITfContext *pContext)
 
     pContext->AddRef();
     _pContext = pContext;
-} 
+}

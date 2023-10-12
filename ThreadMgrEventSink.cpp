@@ -56,20 +56,20 @@ STDAPI CSampleIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDocumen
     _UpdateLanguageBarOnSetFocus(pDocMgrFocus);
 
     //
-    // We have to hide/unhide candidate list depending on whether they are 
+    // We have to hide/unhide candidate list depending on whether they are
     // associated with pDocMgrFocus.
     //
     if (_pCandidateListUIPresenter)
     {
-        ITfDocumentMgr* pCandidateListDocumentMgr = nullptr;
-        ITfContext* pTfContext = _pCandidateListUIPresenter->_GetContextDocument();
+        ITfDocumentMgr *pCandidateListDocumentMgr = nullptr;
+        ITfContext *pTfContext = _pCandidateListUIPresenter->_GetContextDocument();
         if ((nullptr != pTfContext) && SUCCEEDED(pTfContext->GetDocumentMgr(&pCandidateListDocumentMgr)))
         {
             if (pCandidateListDocumentMgr != pDocMgrFocus)
             {
                 _pCandidateListUIPresenter->OnKillThreadFocus();
             }
-            else 
+            else
             {
                 _pCandidateListUIPresenter->OnSetThreadFocus();
             }
@@ -81,7 +81,7 @@ STDAPI CSampleIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDocumen
     if (_pDocMgrLastFocused)
     {
         _pDocMgrLastFocused->Release();
-		_pDocMgrLastFocused = nullptr;
+        _pDocMgrLastFocused = nullptr;
     }
 
     _pDocMgrLastFocused = pDocMgrFocus;
@@ -131,7 +131,7 @@ STDAPI CSampleIME::OnPopContext(_In_ ITfContext *pContext)
 
 BOOL CSampleIME::_InitThreadMgrEventSink()
 {
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
     BOOL ret = FALSE;
 
     if (FAILED(_pThreadMgr->QueryInterface(IID_ITfSource, (void **)&pSource)))
@@ -139,7 +139,8 @@ BOOL CSampleIME::_InitThreadMgrEventSink()
         return ret;
     }
 
-    if (FAILED(pSource->AdviseSink(IID_ITfThreadMgrEventSink, (ITfThreadMgrEventSink *)this, &_threadMgrEventSinkCookie)))
+    if (FAILED(
+            pSource->AdviseSink(IID_ITfThreadMgrEventSink, (ITfThreadMgrEventSink *)this, &_threadMgrEventSinkCookie)))
     {
         _threadMgrEventSinkCookie = TF_INVALID_COOKIE;
         goto Exit;
@@ -161,11 +162,11 @@ Exit:
 
 void CSampleIME::_UninitThreadMgrEventSink()
 {
-    ITfSource* pSource = nullptr;
+    ITfSource *pSource = nullptr;
 
     if (_threadMgrEventSinkCookie == TF_INVALID_COOKIE)
     {
-        return; 
+        return;
     }
 
     if (SUCCEEDED(_pThreadMgr->QueryInterface(IID_ITfSource, (void **)&pSource)))

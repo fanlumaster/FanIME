@@ -5,7 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-
 #pragma once
 
 #include "sal.h"
@@ -18,11 +17,12 @@
 
 class CCompositionProcessorEngine
 {
-public:
+  public:
     CCompositionProcessorEngine(void);
     ~CCompositionProcessorEngine(void);
 
-    BOOL SetupLanguageProfile(LANGID langid, REFGUID guidLanguageProfile, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isSecureMode, BOOL isComLessMode);
+    BOOL SetupLanguageProfile(LANGID langid, REFGUID guidLanguageProfile, _In_ ITfThreadMgr *pThreadMgr,
+                              TfClientId tfClientId, BOOL isSecureMode, BOOL isComLessMode);
 
     // Get language profile.
     GUID GetLanguageProfile(LANGID *plangid)
@@ -36,18 +36,24 @@ public:
         return MAKELCID(_langid, SORT_DEFAULT);
     }
 
-    BOOL IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCHAR *pwch, BOOL fComposing, CANDIDATE_MODE candidateMode, BOOL hasCandidateWithWildcard, _Out_opt_ _KEYSTROKE_STATE *pKeyState);
+    BOOL IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCHAR *pwch, BOOL fComposing, CANDIDATE_MODE candidateMode,
+                          BOOL hasCandidateWithWildcard, _Out_opt_ _KEYSTROKE_STATE *pKeyState);
 
     BOOL AddVirtualKey(WCHAR wch);
     void RemoveVirtualKey(DWORD_PTR dwIndex);
     void PurgeVirtualKey();
 
-    DWORD_PTR GetVirtualKeyLength() { return _keystrokeBuffer.GetLength(); }
+    DWORD_PTR GetVirtualKeyLength()
+    {
+        return _keystrokeBuffer.GetLength();
+    }
     WCHAR GetVirtualKey(DWORD_PTR dwIndex);
 
     void GetReadingStrings(_Inout_ CSampleImeArray<CStringRange> *pReadingStrings, _Out_ BOOL *pIsWildcardIncluded);
-    void GetCandidateList(_Inout_ CSampleImeArray<CCandidateListItem> *pCandidateList, BOOL isIncrementalWordSearch, BOOL isWildcardSearch);
-    void GetCandidateStringInConverted(CStringRange &searchString, _In_ CSampleImeArray<CCandidateListItem> *pCandidateList);
+    void GetCandidateList(_Inout_ CSampleImeArray<CCandidateListItem> *pCandidateList, BOOL isIncrementalWordSearch,
+                          BOOL isWildcardSearch);
+    void GetCandidateStringInConverted(CStringRange &searchString,
+                                       _In_ CSampleImeArray<CCandidateListItem> *pCandidateList);
 
     // Preserved key handler
     void OnPreservedKey(REFGUID rguid, _Out_ BOOL *pIsEaten, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
@@ -57,16 +63,40 @@ public:
     WCHAR GetPunctuation(WCHAR wch);
 
     BOOL IsDoubleSingleByte(WCHAR wch);
-    BOOL IsWildcard() { return _isWildcard; }
-    BOOL IsDisableWildcardAtFirst() { return _isDisableWildcardAtFirst; }
-    BOOL IsWildcardChar(WCHAR wch) { return ((IsWildcardOneChar(wch) || IsWildcardAllChar(wch)) ? TRUE : FALSE); }
-    BOOL IsWildcardOneChar(WCHAR wch) { return (wch==L'?' ? TRUE : FALSE); }
-    BOOL IsWildcardAllChar(WCHAR wch) { return (wch==L'*' ? TRUE : FALSE); }
-    BOOL IsMakePhraseFromText() { return _hasMakePhraseFromText; }
-    BOOL IsKeystrokeSort() { return _isKeystrokeSort; }
+    BOOL IsWildcard()
+    {
+        return _isWildcard;
+    }
+    BOOL IsDisableWildcardAtFirst()
+    {
+        return _isDisableWildcardAtFirst;
+    }
+    BOOL IsWildcardChar(WCHAR wch)
+    {
+        return ((IsWildcardOneChar(wch) || IsWildcardAllChar(wch)) ? TRUE : FALSE);
+    }
+    BOOL IsWildcardOneChar(WCHAR wch)
+    {
+        return (wch == L'?' ? TRUE : FALSE);
+    }
+    BOOL IsWildcardAllChar(WCHAR wch)
+    {
+        return (wch == L'*' ? TRUE : FALSE);
+    }
+    BOOL IsMakePhraseFromText()
+    {
+        return _hasMakePhraseFromText;
+    }
+    BOOL IsKeystrokeSort()
+    {
+        return _isKeystrokeSort;
+    }
 
     // Dictionary engine
-    BOOL IsDictionaryAvailable() { return (_pTableDictionaryEngine ? TRUE : FALSE); }
+    BOOL IsDictionaryAvailable()
+    {
+        return (_pTableDictionaryEngine ? TRUE : FALSE);
+    }
 
     // Language bar control
     void SetLanguageBarStatus(DWORD status, BOOL isSet);
@@ -76,17 +106,29 @@ public:
     void ShowAllLanguageBarIcons();
     void HideAllLanguageBarIcons();
 
-    inline CCandidateRange *GetCandidateListIndexRange() { return &_candidateListIndexRange; }
-    inline UINT GetCandidateListPhraseModifier() { return _candidateListPhraseModifier; }
-    inline UINT GetCandidateWindowWidth() { return _candidateWndWidth; }
+    inline CCandidateRange *GetCandidateListIndexRange()
+    {
+        return &_candidateListIndexRange;
+    }
+    inline UINT GetCandidateListPhraseModifier()
+    {
+        return _candidateListPhraseModifier;
+    }
+    inline UINT GetCandidateWindowWidth()
+    {
+        return _candidateWndWidth;
+    }
 
-private:
+  private:
     void InitKeyStrokeTable();
-    BOOL InitLanguageBar(_In_ CLangBarItemButton *pLanguageBar, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, REFGUID guidCompartment);
+    BOOL InitLanguageBar(_In_ CLangBarItemButton *pLanguageBar, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                         REFGUID guidCompartment);
 
     struct _KEYSTROKE;
-    BOOL IsVirtualKeyKeystrokeComposition(UINT uCode, _Out_opt_ _KEYSTROKE_STATE *pKeyState, KEYSTROKE_FUNCTION function);
-    BOOL IsVirtualKeyKeystrokeCandidate(UINT uCode, _In_ _KEYSTROKE_STATE *pKeyState, CANDIDATE_MODE candidateMode, _Out_ BOOL *pfRetCode, _In_ CSampleImeArray<_KEYSTROKE> *pKeystrokeMetric);
+    BOOL IsVirtualKeyKeystrokeComposition(UINT uCode, _Out_opt_ _KEYSTROKE_STATE *pKeyState,
+                                          KEYSTROKE_FUNCTION function);
+    BOOL IsVirtualKeyKeystrokeCandidate(UINT uCode, _In_ _KEYSTROKE_STATE *pKeyState, CANDIDATE_MODE candidateMode,
+                                        _Out_ BOOL *pfRetCode, _In_ CSampleImeArray<_KEYSTROKE> *pKeystrokeMetric);
     BOOL IsKeystrokeRange(UINT uCode, _Out_ _KEYSTROKE_STATE *pKeyState, CANDIDATE_MODE candidateMode);
 
     void SetupKeystroke();
@@ -95,13 +137,16 @@ private:
     void SetupLanguageBar(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isSecureMode);
     void SetKeystrokeTable(_Inout_ CSampleImeArray<_KEYSTROKE> *pKeystroke);
     void SetupPunctuationPair();
-    void CreateLanguageBarButton(DWORD dwEnable, GUID guidLangBar, _In_z_ LPCWSTR pwszDescriptionValue, _In_z_ LPCWSTR pwszTooltipValue, DWORD dwOnIconIndex, DWORD dwOffIconIndex, _Outptr_result_maybenull_ CLangBarItemButton **ppLangBarItemButton, BOOL isSecureMode);
+    void CreateLanguageBarButton(DWORD dwEnable, GUID guidLangBar, _In_z_ LPCWSTR pwszDescriptionValue,
+                                 _In_z_ LPCWSTR pwszTooltipValue, DWORD dwOnIconIndex, DWORD dwOffIconIndex,
+                                 _Outptr_result_maybenull_ CLangBarItemButton **ppLangBarItemButton, BOOL isSecureMode);
     void SetInitialCandidateListRange();
     void SetDefaultCandidateTextFont();
-	void InitializeSampleIMECompartment(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
+    void InitializeSampleIMECompartment(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
 
     class XPreservedKey;
-    void SetPreservedKey(const CLSID clsid, TF_PRESERVEDKEY & tfPreservedKey, _In_z_ LPCWSTR pwszDescription, _Out_ XPreservedKey *pXPreservedKey);
+    void SetPreservedKey(const CLSID clsid, TF_PRESERVEDKEY &tfPreservedKey, _In_z_ LPCWSTR pwszDescription,
+                         _Out_ XPreservedKey *pXPreservedKey);
     BOOL InitPreservedKey(_In_ XPreservedKey *pXPreservedKey, _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
     BOOL CheckShiftKeyOnly(_In_ CSampleImeArray<TF_PRESERVEDKEY> *pTSFPreservedKeyTable);
 
@@ -109,11 +154,10 @@ private:
     void PrivateCompartmentsUpdated(_In_ ITfThreadMgr *pThreadMgr);
     void KeyboardOpenCompartmentUpdated(_In_ ITfThreadMgr *pThreadMgr);
 
-    
     BOOL SetupDictionaryFile();
-    CFile* GetDictionaryFile();
+    CFile *GetDictionaryFile();
 
-private:
+  private:
     struct _KEYSTROKE
     {
         UINT VirtualKey;
@@ -129,14 +173,14 @@ private:
     };
     _KEYSTROKE _keystrokeTable[26];
 
-    CTableDictionaryEngine* _pTableDictionaryEngine;
+    CTableDictionaryEngine *_pTableDictionaryEngine;
     CStringRange _keystrokeBuffer;
 
     BOOL _hasWildcardIncludedInKeystrokeBuffer;
 
     LANGID _langid;
     GUID _guidProfile;
-    TfClientId  _tfClientId;
+    TfClientId _tfClientId;
 
     CSampleImeArray<_KEYSTROKE> _KeystrokeComposition;
     CSampleImeArray<_KEYSTROKE> _KeystrokeCandidate;
@@ -147,12 +191,12 @@ private:
     // Preserved key data
     class XPreservedKey
     {
-    public:
+      public:
         XPreservedKey();
         ~XPreservedKey();
         BOOL UninitPreservedKey(_In_ ITfThreadMgr *pThreadMgr);
 
-    public:
+      public:
         CSampleImeArray<TF_PRESERVEDKEY> TSFPreservedKeyTable;
         GUID Guid;
         LPCWSTR Description;
@@ -167,16 +211,16 @@ private:
     CSampleImeArray<CPunctuationNestPair> _PunctuationNestPair;
 
     // Language bar data
-    CLangBarItemButton* _pLanguageBar_IMEMode;
-    CLangBarItemButton* _pLanguageBar_DoubleSingleByte;
-    CLangBarItemButton* _pLanguageBar_Punctuation;
+    CLangBarItemButton *_pLanguageBar_IMEMode;
+    CLangBarItemButton *_pLanguageBar_DoubleSingleByte;
+    CLangBarItemButton *_pLanguageBar_Punctuation;
 
     // Compartment
-    CCompartment* _pCompartmentConversion;
-    CCompartmentEventSink* _pCompartmentConversionEventSink;
-    CCompartmentEventSink* _pCompartmentKeyboardOpenEventSink;
-    CCompartmentEventSink* _pCompartmentDoubleSingleByteEventSink;
-    CCompartmentEventSink* _pCompartmentPunctuationEventSink;
+    CCompartment *_pCompartmentConversion;
+    CCompartmentEventSink *_pCompartmentConversionEventSink;
+    CCompartmentEventSink *_pCompartmentKeyboardOpenEventSink;
+    CCompartmentEventSink *_pCompartmentDoubleSingleByteEventSink;
+    CCompartmentEventSink *_pCompartmentPunctuationEventSink;
 
     // Configuration data
     BOOL _isWildcard : 1;
@@ -188,8 +232,7 @@ private:
     UINT _candidateListPhraseModifier;
     UINT _candidateWndWidth;
 
-    CFileMapping* _pDictionaryFile;
+    CFileMapping *_pDictionaryFile;
 
     static const int OUT_OF_FILE_INDEX = -1;
 };
-

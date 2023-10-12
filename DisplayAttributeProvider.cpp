@@ -19,7 +19,7 @@
 
 STDAPI CSampleIME::EnumDisplayAttributeInfo(__RPC__deref_out_opt IEnumTfDisplayAttributeInfo **ppEnum)
 {
-    CEnumDisplayAttributeInfo* pAttributeEnum = nullptr;
+    CEnumDisplayAttributeInfo *pAttributeEnum = nullptr;
 
     if (ppEnum == nullptr)
     {
@@ -45,7 +45,8 @@ STDAPI CSampleIME::EnumDisplayAttributeInfo(__RPC__deref_out_opt IEnumTfDisplayA
 //
 //----------------------------------------------------------------------------
 
-STDAPI CSampleIME::GetDisplayAttributeInfo(__RPC__in REFGUID guidInfo, __RPC__deref_out_opt ITfDisplayAttributeInfo **ppInfo)
+STDAPI CSampleIME::GetDisplayAttributeInfo(__RPC__in REFGUID guidInfo,
+                                           __RPC__deref_out_opt ITfDisplayAttributeInfo **ppInfo)
 {
     if (ppInfo == nullptr)
     {
@@ -75,7 +76,6 @@ STDAPI CSampleIME::GetDisplayAttributeInfo(__RPC__in REFGUID guidInfo, __RPC__de
     {
         return E_INVALIDARG;
     }
-
 
     return S_OK;
 }

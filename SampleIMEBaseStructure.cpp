@@ -13,16 +13,14 @@
 //
 //---------------------------------------------------------------------
 
-const BYTE GuidSymbols[] = {
-    3, 2, 1, 0, '-', 5, 4, '-', 7, 6, '-', 8, 9, '-', 10, 11, 12, 13, 14, 15
-};
+const BYTE GuidSymbols[] = {3, 2, 1, 0, '-', 5, 4, '-', 7, 6, '-', 8, 9, '-', 10, 11, 12, 13, 14, 15};
 
 const WCHAR HexDigits[] = L"0123456789ABCDEF";
 
 BOOL CLSIDToString(REFGUID refGUID, _Out_writes_(39) WCHAR *pCLSIDString)
 {
-    WCHAR* pTemp = pCLSIDString;
-    const BYTE* pBytes = (const BYTE *) &refGUID;
+    WCHAR *pTemp = pCLSIDString;
+    const BYTE *pBytes = (const BYTE *)&refGUID;
 
     DWORD j = 0;
     pTemp[j++] = L'{';
@@ -34,8 +32,8 @@ BOOL CLSIDToString(REFGUID refGUID, _Out_writes_(39) WCHAR *pCLSIDString)
         }
         else
         {
-            pTemp[j++] = HexDigits[ (pBytes[GuidSymbols[i]] & 0xF0) >> 4 ];
-            pTemp[j++] = HexDigits[ (pBytes[GuidSymbols[i]] & 0x0F) ];
+            pTemp[j++] = HexDigits[(pBytes[GuidSymbols[i]] & 0xF0) >> 4];
+            pTemp[j++] = HexDigits[(pBytes[GuidSymbols[i]] & 0x0F)];
         }
     }
 
@@ -123,8 +121,8 @@ CStringRange::CStringRange()
     _pStringBuf = nullptr;
 }
 
-CStringRange::~CStringRange() 
-{ 
+CStringRange::~CStringRange()
+{
 }
 
 const WCHAR *CStringRange::Get() const
@@ -154,14 +152,14 @@ void CStringRange::Set(CStringRange &sr)
     *this = sr;
 }
 
-CStringRange& CStringRange::operator =(const CStringRange& sr)
+CStringRange &CStringRange::operator=(const CStringRange &sr)
 {
     _stringBufLen = sr._stringBufLen;
     _pStringBuf = sr._pStringBuf;
     return *this;
 }
 
-void CStringRange::CharNext(_Inout_ CStringRange* pCharNext)
+void CStringRange::CharNext(_Inout_ CStringRange *pCharNext)
 {
     if (!_stringBufLen)
     {
@@ -175,7 +173,8 @@ void CStringRange::CharNext(_Inout_ CStringRange* pCharNext)
 
         while (pCharNext->_stringBufLen)
         {
-            BOOL isSurrogate = (IS_HIGH_SURROGATE(*pCharNext->_pStringBuf) || IS_LOW_SURROGATE(*pCharNext->_pStringBuf));
+            BOOL isSurrogate =
+                (IS_HIGH_SURROGATE(*pCharNext->_pStringBuf) || IS_LOW_SURROGATE(*pCharNext->_pStringBuf));
             pCharNext->_stringBufLen--;
             pCharNext->_pStringBuf++;
             if (!isSurrogate)
@@ -186,17 +185,13 @@ void CStringRange::CharNext(_Inout_ CStringRange* pCharNext)
     }
 }
 
-int CStringRange::Compare(LCID locale, _In_ CStringRange* pString1, _In_ CStringRange* pString2)
+int CStringRange::Compare(LCID locale, _In_ CStringRange *pString1, _In_ CStringRange *pString2)
 {
-    return CompareString(locale, 
-        NORM_IGNORECASE, 
-        pString1->Get(), 
-        (DWORD)pString1->GetLength(), 
-        pString2->Get(), 
-        (DWORD)pString2->GetLength());
+    return CompareString(locale, NORM_IGNORECASE, pString1->Get(), (DWORD)pString1->GetLength(), pString2->Get(),
+                         (DWORD)pString2->GetLength());
 }
 
-BOOL CStringRange::WildcardCompare(LCID locale, _In_ CStringRange* stringWithWildcard, _In_ CStringRange* targetString)
+BOOL CStringRange::WildcardCompare(LCID locale, _In_ CStringRange *stringWithWildcard, _In_ CStringRange *targetString)
 {
     if (stringWithWildcard->GetLength() == 0)
     {
@@ -210,33 +205,30 @@ BOOL CStringRange::WildcardCompare(LCID locale, _In_ CStringRange* stringWithWil
 
     if (*stringWithWildcard->Get() == L'*')
     {
-        return WildcardCompare(locale, &stringWithWildcard_next, targetString) || ((targetString->GetLength() != 0) && WildcardCompare(locale, stringWithWildcard, &targetString_next));
+        return WildcardCompare(locale, &stringWithWildcard_next, targetString) ||
+               ((targetString->GetLength() != 0) && WildcardCompare(locale, stringWithWildcard, &targetString_next));
     }
     if (*stringWithWildcard->Get() == L'?')
     {
-        return ((targetString->GetLength() != 0) && WildcardCompare(locale, &stringWithWildcard_next, &targetString_next));
+        return ((targetString->GetLength() != 0) &&
+                WildcardCompare(locale, &stringWithWildcard_next, &targetString_next));
     }
 
     BOOL isSurrogate1 = (IS_HIGH_SURROGATE(*stringWithWildcard->Get()) || IS_LOW_SURROGATE(*stringWithWildcard->Get()));
     BOOL isSurrogate2 = (IS_HIGH_SURROGATE(*targetString->Get()) || IS_LOW_SURROGATE(*targetString->Get()));
 
-    return ((CompareString(locale,
-        NORM_IGNORECASE,
-        stringWithWildcard->Get(),
-        (isSurrogate1 ? 2 : 1),
-        targetString->Get(),
-        (isSurrogate2 ? 2 : 1)) == CSTR_EQUAL) && WildcardCompare(locale, &stringWithWildcard_next, &targetString_next));
+    return ((CompareString(locale, NORM_IGNORECASE, stringWithWildcard->Get(), (isSurrogate1 ? 2 : 1),
+                           targetString->Get(), (isSurrogate2 ? 2 : 1)) == CSTR_EQUAL) &&
+            WildcardCompare(locale, &stringWithWildcard_next, &targetString_next));
 }
 
 CCandidateRange::CCandidateRange(void)
 {
 }
 
-
 CCandidateRange::~CCandidateRange(void)
 {
 }
-
 
 BOOL CCandidateRange::IsRange(UINT vKey)
 {
@@ -250,7 +242,7 @@ BOOL CCandidateRange::IsRange(UINT vKey)
         }
         else if ((VK_NUMPAD0 <= vKey) && (vKey <= VK_NUMPAD9))
         {
-            if ((vKey-VK_NUMPAD0) == *_CandidateListIndexRange.GetAt(i))
+            if ((vKey - VK_NUMPAD0) == *_CandidateListIndexRange.GetAt(i))
             {
                 return TRUE;
             }
@@ -271,7 +263,7 @@ int CCandidateRange::GetIndex(UINT vKey)
         }
         else if ((VK_NUMPAD0 <= vKey) && (vKey <= VK_NUMPAD9))
         {
-            if ((vKey-VK_NUMPAD0) == *_CandidateListIndexRange.GetAt(i))
+            if ((vKey - VK_NUMPAD0) == *_CandidateListIndexRange.GetAt(i))
             {
                 return i;
             }
@@ -309,10 +301,11 @@ CPunctuationNestPair::CPunctuationNestPair()
     _nestCount = 0;
 }
 
-CPunctuationNestPair::CPunctuationNestPair(WCHAR codeBegin, WCHAR punctuationBegin, WCHAR pairBegin,
-    WCHAR codeEnd,   WCHAR punctuationEnd,   WCHAR pairEnd)
+CPunctuationNestPair::CPunctuationNestPair(WCHAR codeBegin, WCHAR punctuationBegin, WCHAR pairBegin, WCHAR codeEnd,
+                                           WCHAR punctuationEnd, WCHAR pairEnd)
 {
-	pairEnd;punctuationEnd;
+    pairEnd;
+    punctuationEnd;
     _punctuation_begin._Code = codeBegin;
     _punctuation_begin._Punctuation = punctuationBegin;
     _pairPunctuation_begin = pairBegin;
@@ -321,5 +314,5 @@ CPunctuationNestPair::CPunctuationNestPair(WCHAR codeBegin, WCHAR punctuationBeg
     _punctuation_end._Punctuation = punctuationBegin;
     _pairPunctuation_end = pairBegin;
 
-    _nestCount  = 0;
+    _nestCount = 0;
 }

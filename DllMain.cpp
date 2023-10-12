@@ -16,7 +16,7 @@
 
 BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID pvReserved)
 {
-	pvReserved;
+    pvReserved;
 
     switch (dwReason)
     {
@@ -29,7 +29,8 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID pvReserved)
             return FALSE;
         }
 
-        if (!Global::RegisterWindowClass()) {
+        if (!Global::RegisterWindowClass())
+        {
             return FALSE;
         }
 

@@ -14,22 +14,22 @@ class CKeyStateCategory;
 
 class CKeyStateCategoryFactory
 {
-public:
-    static CKeyStateCategoryFactory* Instance();
-    CKeyStateCategory* MakeKeyStateCategory(KEYSTROKE_CATEGORY keyCategory, _In_ CSampleIME *pTextService);
+  public:
+    static CKeyStateCategoryFactory *Instance();
+    CKeyStateCategory *MakeKeyStateCategory(KEYSTROKE_CATEGORY keyCategory, _In_ CSampleIME *pTextService);
     void Release();
 
-protected:
+  protected:
     CKeyStateCategoryFactory();
 
-private:
-    static CKeyStateCategoryFactory* _instance;
-
+  private:
+    static CKeyStateCategoryFactory *_instance;
 };
 
 typedef struct KeyHandlerEditSessionDTO
 {
-    KeyHandlerEditSessionDTO::KeyHandlerEditSessionDTO(TfEditCookie tFEC, _In_ ITfContext *pTfContext, UINT virualCode, WCHAR inputChar, KEYSTROKE_FUNCTION arrowKeyFunction)
+    KeyHandlerEditSessionDTO::KeyHandlerEditSessionDTO(TfEditCookie tFEC, _In_ ITfContext *pTfContext, UINT virualCode,
+                                                       WCHAR inputChar, KEYSTROKE_FUNCTION arrowKeyFunction)
     {
         ec = tFEC;
         pContext = pTfContext;
@@ -39,25 +39,25 @@ typedef struct KeyHandlerEditSessionDTO
     }
 
     TfEditCookie ec;
-    ITfContext* pContext;
+    ITfContext *pContext;
     UINT code;
     WCHAR wch;
     KEYSTROKE_FUNCTION arrowKey;
-}KeyHandlerEditSessionDTO;
+} KeyHandlerEditSessionDTO;
 
 class CKeyStateCategory
 {
-public:
+  public:
     CKeyStateCategory(_In_ CSampleIME *pTextService);
 
-protected:
+  protected:
     ~CKeyStateCategory(void);
 
-public:
+  public:
     HRESULT KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandlerEditSessionDTO dto);
     void Release(void);
 
-protected:
+  protected:
     // HandleKeyInput
     virtual HRESULT HandleKeyInput(KeyHandlerEditSessionDTO dto);
 
@@ -97,16 +97,16 @@ protected:
     // HandleKeySelectByNumber
     virtual HRESULT HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto);
 
-protected:
-    CSampleIME* _pTextService;
+  protected:
+    CSampleIME *_pTextService;
 };
 
 class CKeyStateComposing : public CKeyStateCategory
 {
-public:
+  public:
     CKeyStateComposing(_In_ CSampleIME *pTextService);
 
-protected:
+  protected:
     // _HandleCompositionInput
     HRESULT HandleKeyInput(KeyHandlerEditSessionDTO dto);
 
@@ -146,10 +146,10 @@ protected:
 
 class CKeyStateCandidate : public CKeyStateCategory
 {
-public:
+  public:
     CKeyStateCandidate(_In_ CSampleIME *pTextService);
 
-protected:
+  protected:
     // HandleKeyFinalizeCandidatelist
     HRESULT HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto);
 
@@ -171,10 +171,10 @@ protected:
 
 class CKeyStatePhrase : public CKeyStateCategory
 {
-public:
+  public:
     CKeyStatePhrase(_In_ CSampleIME *pTextService);
 
-protected:
+  protected:
     //_HandleCancel
     HRESULT HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto);
 
@@ -188,49 +188,88 @@ protected:
     HRESULT HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto);
 };
 
-//degeneration class
+// degeneration class
 class CKeyStateNull : public CKeyStateCategory
 {
-public:
-    CKeyStateNull(_In_ CSampleIME *pTextService) : CKeyStateCategory(pTextService) {};
+  public:
+    CKeyStateNull(_In_ CSampleIME *pTextService) : CKeyStateCategory(pTextService){};
 
-protected:
+  protected:
     // _HandleNullInput
-    HRESULT HandleKeyInput(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyInput(dto); };
+    HRESULT HandleKeyInput(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyInput(dto);
+    };
 
     // HandleKeyNullFinalizeTextStoreAndInput
-    HRESULT HandleKeyFinalizeTextStoreAndInput(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyFinalizeTextStoreAndInput(dto); };
+    HRESULT HandleKeyFinalizeTextStoreAndInput(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyFinalizeTextStoreAndInput(dto);
+    };
 
     // HandleKeyFinalizeTextStore
-    HRESULT HandleKeyFinalizeTextStore(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyFinalizeTextStore(dto); };
+    HRESULT HandleKeyFinalizeTextStore(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyFinalizeTextStore(dto);
+    };
 
     // HandleKeyNullFinalizeCandidatelistAndInput
-    HRESULT HandleKeyFinalizeCandidatelistAndInput(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyFinalizeCandidatelistAndInput(dto); };
+    HRESULT HandleKeyFinalizeCandidatelistAndInput(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyFinalizeCandidatelistAndInput(dto);
+    };
 
     // HandleKeyNullFinalizeCandidatelist
-    HRESULT HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyFinalizeCandidatelist(dto); };
+    HRESULT HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyFinalizeCandidatelist(dto);
+    };
 
     //_HandleNullConvert
-    HRESULT HandleKeyConvert(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyConvert(dto); };
+    HRESULT HandleKeyConvert(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyConvert(dto);
+    };
 
     //_HandleNullCancel
-    HRESULT HandleKeyCancel(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyCancel(dto); };
+    HRESULT HandleKeyCancel(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyCancel(dto);
+    };
 
     // HandleKeyNullConvertWild
-    HRESULT HandleKeyConvertWildCard(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyConvertWildCard(dto); };
+    HRESULT HandleKeyConvertWildCard(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyConvertWildCard(dto);
+    };
 
     //_HandleNullBackspace
-    HRESULT HandleKeyBackspace(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyBackspace(dto); };
+    HRESULT HandleKeyBackspace(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyBackspace(dto);
+    };
 
     //_HandleNullArrowKey
-    HRESULT HandleKeyArrow(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyArrow(dto); };
+    HRESULT HandleKeyArrow(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyArrow(dto);
+    };
 
     // HandleKeyDoubleSingleByte
-    HRESULT HandleKeyDoubleSingleByte(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyDoubleSingleByte(dto); };
+    HRESULT HandleKeyDoubleSingleByte(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyDoubleSingleByte(dto);
+    };
 
     // HandleKeyPunctuation
-    HRESULT HandleKeyPunctuation(KeyHandlerEditSessionDTO dto) { return __super::HandleKeyPunctuation(dto); };
+    HRESULT HandleKeyPunctuation(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeyPunctuation(dto);
+    };
 
     //_HandleNullCandidateSelectByNumber
-    HRESULT HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto) { return __super::HandleKeySelectByNumber(dto); };
+    HRESULT HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto)
+    {
+        return __super::HandleKeySelectByNumber(dto);
+    };
 };

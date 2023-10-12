@@ -30,12 +30,13 @@ STDAPI CKeyHandlerEditSession::DoEditSession(TfEditCookie ec)
 {
     HRESULT hResult = S_OK;
 
-    CKeyStateCategoryFactory* pKeyStateCategoryFactory = CKeyStateCategoryFactory::Instance();
-    CKeyStateCategory* pKeyStateCategory = pKeyStateCategoryFactory->MakeKeyStateCategory(_KeyState.Category, _pTextService);
+    CKeyStateCategoryFactory *pKeyStateCategoryFactory = CKeyStateCategoryFactory::Instance();
+    CKeyStateCategory *pKeyStateCategory =
+        pKeyStateCategoryFactory->MakeKeyStateCategory(_KeyState.Category, _pTextService);
 
     if (pKeyStateCategory)
     {
-        KeyHandlerEditSessionDTO keyHandlerEditSessioDTO(ec, _pContext, _uCode,_wch, _KeyState.Function);
+        KeyHandlerEditSessionDTO keyHandlerEditSessioDTO(ec, _pContext, _uCode, _wch, _KeyState.Function);
         hResult = pKeyStateCategory->KeyStateHandler(_KeyState.Function, keyHandlerEditSessioDTO);
 
         pKeyStateCategory->Release();

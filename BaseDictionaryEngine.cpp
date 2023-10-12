@@ -43,7 +43,8 @@ VOID CBaseDictionaryEngine::SortListItemByFindKeyCode(_Inout_ CSampleImeArray<CC
 //
 //----------------------------------------------------------------------------
 
-VOID CBaseDictionaryEngine::MergeSortByFindKeyCode(_Inout_ CSampleImeArray<CCandidateListItem> *pItemList, int leftRange, int rightRange)
+VOID CBaseDictionaryEngine::MergeSortByFindKeyCode(_Inout_ CSampleImeArray<CCandidateListItem> *pItemList,
+                                                   int leftRange, int rightRange)
 {
     int candidateCount = CalculateCandidateCount(leftRange, rightRange);
 
@@ -60,13 +61,13 @@ VOID CBaseDictionaryEngine::MergeSortByFindKeyCode(_Inout_ CSampleImeArray<CCand
         int midTemp = 0;
         for (leftRangeTemp = leftRange, midTemp = mid; leftRangeTemp != mid || midTemp != rightRange;)
         {
-            CStringRange* psrgLeftTemp = nullptr;
-            CStringRange* psrgMidTemp = nullptr;
+            CStringRange *psrgLeftTemp = nullptr;
+            CStringRange *psrgMidTemp = nullptr;
 
             psrgLeftTemp = &pItemList->GetAt(leftRangeTemp)->_FindKeyCode;
             psrgMidTemp = &pItemList->GetAt(midTemp)->_FindKeyCode;
 
-            CCandidateListItem* pLI = nullptr;
+            CCandidateListItem *pLI = nullptr;
             pLI = ListItemTemp.Append();
             if (pLI)
             {
@@ -74,7 +75,8 @@ VOID CBaseDictionaryEngine::MergeSortByFindKeyCode(_Inout_ CSampleImeArray<CCand
                 {
                     *pLI = *pItemList->GetAt(midTemp++);
                 }
-                else if (midTemp == rightRange || CStringRange::Compare(_locale, psrgLeftTemp, psrgMidTemp) != CSTR_GREATER_THAN)
+                else if (midTemp == rightRange ||
+                         CStringRange::Compare(_locale, psrgLeftTemp, psrgMidTemp) != CSTR_GREATER_THAN)
                 {
                     *pLI = *pItemList->GetAt(leftRangeTemp++);
                 }
@@ -96,20 +98,20 @@ VOID CBaseDictionaryEngine::MergeSortByFindKeyCode(_Inout_ CSampleImeArray<CCand
         CStringRange *psrgLeft = nullptr;
         CStringRange *psrgLeftNext = nullptr;
 
-        psrgLeft = &pItemList->GetAt(leftRange )->_FindKeyCode;
-        psrgLeftNext = &pItemList->GetAt(leftRange+1)->_FindKeyCode;
+        psrgLeft = &pItemList->GetAt(leftRange)->_FindKeyCode;
+        psrgLeftNext = &pItemList->GetAt(leftRange + 1)->_FindKeyCode;
 
         if (CStringRange::Compare(_locale, psrgLeft, psrgLeftNext) == CSTR_GREATER_THAN)
         {
             CCandidateListItem ListItem;
             ListItem = *pItemList->GetAt(leftRange);
-            *pItemList->GetAt(leftRange ) = *pItemList->GetAt(leftRange+1);
-            *pItemList->GetAt(leftRange+1) = ListItem;
+            *pItemList->GetAt(leftRange) = *pItemList->GetAt(leftRange + 1);
+            *pItemList->GetAt(leftRange + 1) = ListItem;
         }
     }
 }
 
-int CBaseDictionaryEngine::CalculateCandidateCount(int leftRange,  int rightRange)
+int CBaseDictionaryEngine::CalculateCandidateCount(int leftRange, int rightRange)
 {
     assert(leftRange >= 0);
     assert(rightRange >= 0);

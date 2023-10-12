@@ -5,7 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-
 #pragma once
 
 #include "File.h"
@@ -13,29 +12,29 @@
 
 class CBaseDictionaryEngine
 {
-public:
+  public:
     CBaseDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile);
     virtual ~CBaseDictionaryEngine();
 
     virtual VOID CollectWord(_In_ CStringRange *psrgKeyCode, _Out_ CSampleImeArray<CStringRange> *pasrgWordString)
-    { 
-        psrgKeyCode; 
+    {
+        psrgKeyCode;
         pasrgWordString = nullptr;
     }
 
     virtual VOID CollectWord(_In_ CStringRange *psrgKeyCode, _Out_ CSampleImeArray<CCandidateListItem> *pItemList)
-    { 
+    {
         psrgKeyCode;
         pItemList = nullptr;
     }
 
     virtual VOID SortListItemByFindKeyCode(_Inout_ CSampleImeArray<CCandidateListItem> *pItemList);
 
-protected:
-    CFile* _pDictionaryFile;
+  protected:
+    CFile *_pDictionaryFile;
     LCID _locale;
 
-private:
+  private:
     VOID MergeSortByFindKeyCode(_Inout_ CSampleImeArray<CCandidateListItem> *pItemList, int leftRange, int rightRange);
-    int CalculateCandidateCount(int leftRange,  int rightRange);
+    int CalculateCandidateCount(int leftRange, int rightRange);
 };
