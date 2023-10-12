@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "private.h"
 #include "SampleIMEBaseStructure.h"
 
 //

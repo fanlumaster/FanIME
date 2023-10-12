@@ -5,6 +5,14 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
+#ifndef UNICODE
+#define UNICODE
+#endif // !UNICODE
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif // !UNICODE
+
 #include "Private.h"
 #include "Globals.h"
 #include "RegKey.h"
@@ -124,7 +132,8 @@ BOOL RegisterCategories()
         return FALSE;
     }
 
-    for each (GUID guid in SupportCategories)
+    // for each (GUID guid in SupportCategories)
+    for (const auto &guid : SupportCategories)
     {
         hr = pCategoryMgr->RegisterCategory(Global::SampleIMECLSID, guid, Global::SampleIMECLSID);
     }
@@ -151,7 +160,8 @@ void UnregisterCategories()
         return;
     }
 
-    for each (GUID guid in SupportCategories)
+    // for each (GUID guid in SupportCategories)
+    for (const auto &guid : SupportCategories)
     {
         pCategoryMgr->UnregisterCategory(Global::SampleIMECLSID, guid, Global::SampleIMECLSID);
     }

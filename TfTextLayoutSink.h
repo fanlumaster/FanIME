@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "Private.h"
+
 class CSampleIME;
 
 class CTfTextLayoutSink : public ITfTextLayoutSink

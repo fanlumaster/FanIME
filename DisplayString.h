@@ -15,8 +15,8 @@
 #include "SampleIME.h"
 #include "EnumDisplayAttributeInfo.h"
 
-#include "StringRange.h"
-#include "PointerArray.h"
+// #include "StringRange.h"
+// #include "PointerArray.h"
 
 class CDisplayString
 {
