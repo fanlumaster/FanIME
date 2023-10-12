@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-Wno-microsoft-goto, -Wno-unused-value] # 忽略某些警告
