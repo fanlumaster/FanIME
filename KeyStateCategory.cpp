@@ -126,6 +126,9 @@ HRESULT CKeyStateCategory::KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandl
 
     case FUNCTION_SELECT_BY_NUMBER:
         return HandleKeySelectByNumber(dto);
+
+    case FUNCTION_NONE:
+        break;
     }
     return E_INVALIDARG;
 }

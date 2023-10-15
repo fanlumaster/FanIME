@@ -16,19 +16,21 @@
 
 BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID pvReserved)
 {
-    pvReserved;
+    pvReserved; // 空操作，用于消除某些编译器的警告
 
     switch (dwReason)
     {
-    case DLL_PROCESS_ATTACH:
+    case DLL_PROCESS_ATTACH: // dll 被加载时执行
 
-        Global::dllInstanceHandle = hInstance;
+        Global::dllInstanceHandle = hInstance; // 将 dll 实例句柄存储在全局变量中
 
+        // 初始化一个临界区，用于多线程同步
         if (!InitializeCriticalSectionAndSpinCount(&Global::CS, 0))
         {
             return FALSE;
         }
 
+        // 注册一个窗口类
         if (!Global::RegisterWindowClass())
         {
             return FALSE;
@@ -36,20 +38,20 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID pvReserved)
 
         break;
 
-    case DLL_PROCESS_DETACH:
+    case DLL_PROCESS_DETACH: // dll 被卸载时执行，这里主要就是 dll 附着的窗口被关闭时需要执行这里的操作
 
-        DeleteCriticalSection(&Global::CS);
-
-        break;
-
-    case DLL_THREAD_ATTACH:
+        DeleteCriticalSection(&Global::CS); // 删除之前的临界区
 
         break;
 
-    case DLL_THREAD_DETACH:
+    case DLL_THREAD_ATTACH: // 新线程被创建时执行
+
+        break;
+
+    case DLL_THREAD_DETACH: // 线程退出时执行
 
         break;
     }
 
-    return TRUE;
+    return TRUE; // dll 加载成功
 }
