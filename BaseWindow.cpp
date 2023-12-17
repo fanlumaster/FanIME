@@ -13,7 +13,6 @@
 #define _UNICODE
 #endif // !UNICODE
 
-#include "Private.h"
 #include "Globals.h"
 #include "BaseWindow.h"
 
@@ -91,7 +90,9 @@ void CBaseWindow::_UninitWindowClass(ATOM atom)
 {
     if (atom != 0)
     {
-        UnregisterClass((LPCTSTR)atom, Global::dllInstanceHandle);
+        LPCTSTR className = MAKEINTRESOURCEW(atom);
+        /* UnregisterClass((LPCTSTR)atom, Global::dllInstanceHandle); */
+        UnregisterClass(className, Global::dllInstanceHandle);
     }
 }
 
@@ -109,8 +110,8 @@ BOOL CBaseWindow::_Create(ATOM atom, DWORD dwExStyle, DWORD dwStyle, _In_opt_ CB
     if (atom != 0)
     {
         // create real window
-
-        _wndHandle = CreateWindowEx(dwExStyle, (LPCTSTR)atom, NULL, dwStyle, 0, 0, wndWidth, wndHeight,
+        LPCTSTR className = MAKEINTRESOURCEW(atom);
+        _wndHandle = CreateWindowEx(dwExStyle, className, NULL, dwStyle, 0, 0, wndWidth, wndHeight,
                                     _pParentWnd ? _pParentWnd->_GetWnd() : parentWndHandle, // parentWndHandle
                                     NULL, Global::dllInstanceHandle,
                                     this); // lpParam

@@ -159,4 +159,5 @@ extern const int PunctuationOffIcoIndex;
 extern const WCHAR LangbarImeModeDescription[];
 extern const WCHAR LangbarDoubleSingleByteDescription[];
 extern const WCHAR LangbarPunctuationDescription[];
+
 } // namespace Global

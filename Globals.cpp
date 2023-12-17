@@ -159,26 +159,25 @@ BOOL RegisterWindowClass()
 //---------------------------------------------------------------------
 // defined full width characters for Double/Single byte conversion
 //---------------------------------------------------------------------
-extern const WCHAR FullWidthCharTable[] =
-    {
-        //         !       "       #       $       %       &       '       (    )       *       +       ,       - . /
-        0x3000, 0xFF01, 0xFF02, 0xFF03, 0xFF04, 0xFF05, 0xFF06, 0xFF07, 0xFF08, 0xFF09, 0xFF0A, 0xFF0B, 0xFF0C, 0xFF0D,
-        0xFF0E, 0xFF0F,
-        // 0       1       2       3       4       5       6       7       8       9       :       ;       <       = > ?
-        0xFF10, 0xFF11, 0xFF12, 0xFF13, 0xFF14, 0xFF15, 0xFF16, 0xFF17, 0xFF18, 0xFF19, 0xFF1A, 0xFF1B, 0xFF1C, 0xFF1D,
-        0xFF1E, 0xFF1F,
-        // @       A       B       C       D       E       F       G       H       I       J       K       L       M N 0
-        0xFF20, 0xFF21, 0xFF22, 0xFF23, 0xFF24, 0xFF25, 0xFF26, 0xFF27, 0xFF28, 0xFF29, 0xFF2A, 0xFF2B, 0xFF2C, 0xFF2D,
-        0xFF2E, 0xFF2F,
-        // P       Q       R       S       T       U       V       W       X       Y       Z       [       \       ] ^ _
-        0xFF30, 0xFF31, 0xFF32, 0xFF33, 0xFF34, 0xFF35, 0xFF36, 0xFF37, 0xFF38, 0xFF39, 0xFF3A, 0xFF3B, 0xFF3C, 0xFF3D,
-        0xFF3E, 0xFF3F,
-        // '       a       b       c       d       e       f       g       h       i       j       k       l       m n o
-        0xFF40, 0xFF41, 0xFF42, 0xFF43, 0xFF44, 0xFF45, 0xFF46, 0xFF47, 0xFF48, 0xFF49, 0xFF4A, 0xFF4B, 0xFF4C, 0xFF4D,
-        0xFF4E, 0xFF4F,
-        // p       q       r       s       t       u       v       w       x       y       z       {       |       } ~
-        0xFF50, 0xFF51, 0xFF52, 0xFF53, 0xFF54, 0xFF55, 0xFF56, 0xFF57, 0xFF58, 0xFF59, 0xFF5A, 0xFF5B, 0xFF5C, 0xFF5D,
-        0xFF5E};
+extern const WCHAR FullWidthCharTable[] = {
+    //         !       "       #       $       %       &       '       (    )       *       +       ,       - . /
+    0x3000, 0xFF01, 0xFF02, 0xFF03, 0xFF04, 0xFF05, 0xFF06, 0xFF07, 0xFF08, 0xFF09, 0xFF0A, 0xFF0B, 0xFF0C, 0xFF0D,
+    0xFF0E, 0xFF0F,
+    // 0       1       2       3       4       5       6       7       8       9       :       ;       <       = > ?
+    0xFF10, 0xFF11, 0xFF12, 0xFF13, 0xFF14, 0xFF15, 0xFF16, 0xFF17, 0xFF18, 0xFF19, 0xFF1A, 0xFF1B, 0xFF1C, 0xFF1D,
+    0xFF1E, 0xFF1F,
+    // @       A       B       C       D       E       F       G       H       I       J       K       L       M N 0
+    0xFF20, 0xFF21, 0xFF22, 0xFF23, 0xFF24, 0xFF25, 0xFF26, 0xFF27, 0xFF28, 0xFF29, 0xFF2A, 0xFF2B, 0xFF2C, 0xFF2D,
+    0xFF2E, 0xFF2F,
+    // P       Q       R       S       T       U       V       W       X       Y       Z       [       \       ] ^ _
+    0xFF30, 0xFF31, 0xFF32, 0xFF33, 0xFF34, 0xFF35, 0xFF36, 0xFF37, 0xFF38, 0xFF39, 0xFF3A, 0xFF3B, 0xFF3C, 0xFF3D,
+    0xFF3E, 0xFF3F,
+    // '       a       b       c       d       e       f       g       h       i       j       k       l       m n o
+    0xFF40, 0xFF41, 0xFF42, 0xFF43, 0xFF44, 0xFF45, 0xFF46, 0xFF47, 0xFF48, 0xFF49, 0xFF4A, 0xFF4B, 0xFF4C, 0xFF4D,
+    0xFF4E, 0xFF4F,
+    // p       q       r       s       t       u       v       w       x       y       z       {       |       } ~
+    0xFF50, 0xFF51, 0xFF52, 0xFF53, 0xFF54, 0xFF55, 0xFF56, 0xFF57, 0xFF58, 0xFF59, 0xFF5A, 0xFF5B, 0xFF5C, 0xFF5D,
+    0xFF5E};
 
 //---------------------------------------------------------------------
 // defined punctuation characters
@@ -201,16 +200,16 @@ extern const struct _PUNCTUATION PunctuationTable[14] = {
 #define TF_MOD_RLSHIFT (TF_MOD_RSHIFT | TF_MOD_LSHIFT)
 
 #define CheckMod(m0, m1, mod)                                                                                          \
-    if (m1 & TF_MOD_##mod)                                                                                           \
+    if (m1 & TF_MOD_##mod)                                                                                             \
     {                                                                                                                  \
-        if (!(m0 & TF_MOD_##mod))                                                                                    \
+        if (!(m0 & TF_MOD_##mod))                                                                                      \
         {                                                                                                              \
             return FALSE;                                                                                              \
         }                                                                                                              \
     }                                                                                                                  \
     else                                                                                                               \
     {                                                                                                                  \
-        if ((m1 ^ m0) & TF_MOD_RL##mod)                                                                              \
+        if ((m1 ^ m0) & TF_MOD_RL##mod)                                                                                \
         {                                                                                                              \
             return FALSE;                                                                                              \
         }                                                                                                              \

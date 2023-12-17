@@ -13,7 +13,6 @@
 #define _UNICODE
 #endif // !UNICODE
 
-#include "Private.h"
 #include "Globals.h"
 #include "BaseWindow.h"
 #include "CandidateWindow.h"
@@ -205,6 +204,25 @@ void CCandidateWindow::_Show(BOOL isShowWnd)
         _pShadowWnd->_Show(isShowWnd);
     }
     CBaseWindow::_Show(isShowWnd);
+}
+
+
+//+---------------------------------------------------------------------------
+//
+// _AdjustTextColor
+//
+//----------------------------------------------------------------------------
+
+COLORREF _AdjustTextColor(_In_ COLORREF crColor, _In_ COLORREF crBkColor)
+{
+    if (!Global::IsTooSimilar(crColor, crBkColor))
+    {
+        return crColor;
+    }
+    else
+    {
+        return crColor ^ RGB(255, 255, 255);
+    }
 }
 
 //+---------------------------------------------------------------------------
@@ -1270,24 +1288,6 @@ BOOL CCandidateWindow::_AdjustPageIndexForSelection()
     delete[] pNewPageIndex;
 
     return TRUE;
-}
-
-//+---------------------------------------------------------------------------
-//
-// _AdjustTextColor
-//
-//----------------------------------------------------------------------------
-
-COLORREF _AdjustTextColor(_In_ COLORREF crColor, _In_ COLORREF crBkColor)
-{
-    if (!Global::IsTooSimilar(crColor, crBkColor))
-    {
-        return crColor;
-    }
-    else
-    {
-        return crColor ^ RGB(255, 255, 255);
-    }
 }
 
 //+---------------------------------------------------------------------------

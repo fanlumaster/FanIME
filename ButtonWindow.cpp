@@ -5,8 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
-#include "BaseWindow.h"
 #include "ButtonWindow.h"
 
 //+---------------------------------------------------------------------------
