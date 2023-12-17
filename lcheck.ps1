@@ -1,0 +1,1 @@
+Get-ChildItem "C:\Program Files\SampleIME\"

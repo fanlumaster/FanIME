@@ -1,0 +1,1 @@
+regsvr32 /u "C:\Program Files\SampleIME\SampleIME.dll"

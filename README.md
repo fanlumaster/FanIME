@@ -18,6 +18,13 @@ regsvr32 /u "C:\Program Files\SampleIME\SampleIME.dll"
 regsvr32 /u "C:\Program Files (x86)\SampleIME\SampleIME.dll"
 ```
 
+另外，我也写了一些脚本来注册和注销输入法，
+
+- lcopy.ps1: 将编译好的 dll 放入相应的位置
+- linstall.ps1: 注册输入法
+- luninstall.ps1: 注销输入法
+- ldelete.ps1: 将旧的 dll 文件删除
+
 ## Roadmap
 
 ### 中文
