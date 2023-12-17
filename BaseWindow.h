@@ -5,17 +5,27 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
+// 防止头文件多次引用
 #pragma once
 
 #include "Private.h"
 
+/* 这里仅仅是一些数字，代表了不同的情况 */
+// 被检测的矩形在给定矩形的内部
 #define RECT_INSIDE (0x0001)
+// 被检测的矩形超出了左边界
 #define RECT_OVER_LEFT (0x0002)
+// 被检测的矩形超出了上边界
 #define RECT_OVER_TOP (0x0004)
+// 被检测的矩形超出了右边界
 #define RECT_OVER_RIGHT (0x0008)
+// 被检测的矩形超出了底部边界
 #define RECT_OVER_BOTTOM (0x0010)
+// 被检测的矩形太宽了
 #define RECT_TOO_WIDE (0x0020)
+// 被检测的矩形太高了(上下都超出了边界)
 #define RECT_TOO_TALL (0x0040)
+// 错误的矩形，本项目中目前并没有用到
 #define RECT_ERROR (0x0080)
 
 class CStringRange;

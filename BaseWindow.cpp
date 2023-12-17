@@ -441,10 +441,16 @@ void CBaseWindow::CalcFitPointAroundTextExtent(_In_ const RECT *prcTextExtent, _
 //
 //----------------------------------------------------------------------------
 
+/*
+    _In_ 表示函数使用这个参数的值，但是不会去修改它
+    检查 prcTarget 是否完全在 prcLimit 矩形内部
+    注意：这里的坐标是向右是 x 轴方向，向下是 y 轴方向
+*/
 DWORD CBaseWindow::RectInRect(_In_ const RECT *prcLimit, _In_ const RECT *prcTarget)
 {
     DWORD dwFlags = 0;
     // Check if prcTarget is entirely inside prcLimit
+    // 检查 prcTarget 是否完全在 prcLimit 矩形内部
     if (prcLimit->left <= prcTarget->left && prcTarget->right <= prcLimit->right && prcLimit->top <= prcTarget->top &&
         prcTarget->bottom <= prcLimit->bottom)
     {
@@ -455,9 +461,13 @@ DWORD CBaseWindow::RectInRect(_In_ const RECT *prcLimit, _In_ const RECT *prcTar
     // - wider than the limit (assert here since it should never happen)
     // - entirely outside the limit (RECT_OVERLEFT or RECT_OVERRIGHT)
     // - partially inside the limit (RECT_OVERLEFT or RECT_OVERRIGHT)
+    // 检查水平的矩形的范围，被检测的矩形可能有：
+    // - 左右都超过了限制
+    // - 整体跑右边去了，或者整体跑左边去了，这个其实包括在了下面的情况中
+    // - 左边超过了限制或者右边超过了限制
     if (prcTarget->left < prcLimit->left && prcTarget->right > prcLimit->right)
     {
-        assert(FALSE);
+        assert(FALSE); // 如果出现这种情况，直接自杀吧
         dwFlags |= RECT_TOO_WIDE;
     }
     else if (prcTarget->left < prcLimit->left)

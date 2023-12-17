@@ -25,6 +25,8 @@ regsvr32 /u "C:\Program Files (x86)\SampleIME\SampleIME.dll"
 - luninstall.ps1: 注销输入法
 - ldelete.ps1: 将旧的 dll 文件删除
 
+注意：这个脚本需要在管理员模式下执行。
+
 ## Roadmap
 
 ### 中文
