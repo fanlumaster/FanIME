@@ -30,6 +30,7 @@ class CDisplayString
 
     int Count()
     {
+        return 0;
     }
     // VOID SetDisplayString(int iIndex, WCHAR* pchText, USHORT cchMax, TF_DISPLAYATTRIBUTE tfDisplayAttribute) { }
     // VOID GetDisplayString(int iIndex, WCHAR* pchText, USHORT cchMax, USHORT* pch, TF_DISPLAYATTRIBUTE

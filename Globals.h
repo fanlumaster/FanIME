@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "private.h"
-#include "define.h"
+#include "Private.h"
+#include "Define.h"
 #include "SampleIMEBaseStructure.h"
 
 void DllAddRef();
@@ -129,6 +129,14 @@ extern const GUID SampleIMEGuidCompartmentDoubleSingleByte;
 extern const GUID SampleIMEGuidCompartmentPunctuation;
 
 extern const WCHAR FullWidthCharTable[];
+
+// 可以在这里重复定义，不知道为什么 SampleIMEBaseStructure.h 引入不生效
+struct _PUNCTUATION
+{
+    WCHAR _Code;
+    WCHAR _Punctuation;
+};
+
 extern const struct _PUNCTUATION PunctuationTable[14];
 
 extern const GUID SampleIMEGuidLangBarIMEMode;

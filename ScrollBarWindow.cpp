@@ -5,8 +5,7 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
-#include "Globals.h"
+#include <new>
 #include "BaseWindow.h"
 #include "ScrollBarWindow.h"
 

@@ -5,11 +5,8 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
 #include "globals.h"
 #include "SampleIME.h"
-#include "CandidateListUIPresenter.h"
-#include "CompositionProcessorEngine.h"
 #include "Compartment.h"
 
 //+---------------------------------------------------------------------------

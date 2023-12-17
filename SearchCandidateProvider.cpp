@@ -5,9 +5,8 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "private.h"
-#include "SearchCandidateProvider.h"
 #include <new>
+#include "SearchCandidateProvider.h"
 #include "SampleIME.h"
 #include "CompositionProcessorEngine.h"
 #include "TipCandidateList.h"

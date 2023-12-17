@@ -13,7 +13,8 @@
 #include "SampleIMEBaseStructure.h"
 #include "FileMapping.h"
 #include "Compartment.h"
-#include "define.h"
+#include "Define.h"
+#include "LanguageBar.h"
 
 class CCompositionProcessorEngine
 {

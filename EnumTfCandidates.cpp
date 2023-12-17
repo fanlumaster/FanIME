@@ -5,7 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "private.h"
 #include "EnumTfCandidates.h"
 
 HRESULT CEnumTfCandidates::CreateInstance(_Out_ CEnumTfCandidates **ppobj,

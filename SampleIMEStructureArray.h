@@ -16,7 +16,7 @@ template <class T> class CSampleIMEStructureArray
 {
     typedef typename std::vector<T> value_type;
     typedef const T &CONST_REF;
-    typedef typename value_type CSampleIMEArray;
+    typedef value_type CSampleIMEArray;
     typedef typename value_type::iterator CSampleIMEIter;
 
   public:

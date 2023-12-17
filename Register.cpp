@@ -13,9 +13,7 @@
 #define _UNICODE
 #endif // !UNICODE
 
-#include "Private.h"
 #include "Globals.h"
-#include "RegKey.h"
 
 static const WCHAR RegInfo_Prefix_CLSID[] = L"CLSID\\";
 static const WCHAR RegInfo_Key_InProSvr32[] = L"InProcServer32";

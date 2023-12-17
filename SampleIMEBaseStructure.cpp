@@ -13,7 +13,7 @@
 #define _UNICODE
 #endif // !UNICODE
 
-#include "Globals.h"
+#include "SampleIMEBaseStructure.h"
 
 //---------------------------------------------------------------------
 //

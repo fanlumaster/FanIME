@@ -5,8 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
-#include "Globals.h"
 #include "BaseWindow.h"
 #include "ShadowWindow.h"
 

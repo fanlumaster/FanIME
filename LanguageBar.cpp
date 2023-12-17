@@ -13,7 +13,6 @@
 #define _UNICODE
 #endif // !UNICODE
 
-#include "Private.h"
 #include "SampleIME.h"
 #include "CompositionProcessorEngine.h"
 #include "LanguageBar.h"

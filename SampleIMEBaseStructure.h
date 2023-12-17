@@ -12,6 +12,8 @@
 #include "assert.h"
 #include <iostream>
 
+#include "Globals.h"
+
 using std::cout;
 using std::endl;
 

@@ -5,11 +5,17 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
+#ifndef UNICODE
+#define UNICODE
+#endif // !UNICODE
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif // !UNICODE
+
 #include "SampleIME.h"
 #include "CompositionProcessorEngine.h"
 #include "TableDictionaryEngine.h"
-#include "DictionarySearch.h"
 #include "TfInputProcessorProfile.h"
 #include "Globals.h"
 #include "Compartment.h"
@@ -889,10 +895,10 @@ void CCompositionProcessorEngine::OnPreservedKey(REFGUID rguid, _Out_ BOOL *pIsE
 
 void CCompositionProcessorEngine::SetupConfiguration()
 {
-    _isWildcard = TRUE;
-    _isDisableWildcardAtFirst = TRUE;
-    _hasMakePhraseFromText = TRUE;
-    _isKeystrokeSort = TRUE;
+    _isWildcard = (bool)TRUE;
+    _isDisableWildcardAtFirst = (bool)TRUE;
+    _hasMakePhraseFromText = (bool)TRUE;
+    _isKeystrokeSort = (bool)TRUE;
     _candidateWndWidth = CAND_WIDTH;
 
     SetInitialCandidateListRange();
@@ -1791,7 +1797,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
                 return TRUE;
             }
         }
-        else if ((candidateMode == CANDIDATE_INCREMENTAL))
+        else if (candidateMode == CANDIDATE_INCREMENTAL)
         {
             switch (uCode)
             {
