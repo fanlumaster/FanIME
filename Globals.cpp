@@ -5,7 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
 #include "resource.h"
 #include "BaseWindow.h"
 #include "define.h"
@@ -18,6 +17,7 @@ HINSTANCE dllInstanceHandle;
 LONG dllRefCount = -1;
 
 CRITICAL_SECTION CS;
+// 全局字体
 HFONT defaultlFontHandle; // Global font object we use everywhere
 
 //---------------------------------------------------------------------
@@ -135,16 +135,20 @@ ATOM AtomShadowWindow;
 extern const WCHAR ScrollBarClassName[] = L"SampleIME.ScrollBarWindow";
 ATOM AtomScrollBarWindow;
 
+// 注册一些窗口
 BOOL RegisterWindowClass()
 {
+    // 候选框窗口
     if (!CBaseWindow::_InitWindowClass(CandidateClassName, &AtomCandidateWindow))
     {
         return FALSE;
     }
+    // 阴影窗口
     if (!CBaseWindow::_InitWindowClass(ShadowClassName, &AtomShadowWindow))
     {
         return FALSE;
     }
+    // 滚动条窗口
     if (!CBaseWindow::_InitWindowClass(ScrollBarClassName, &AtomScrollBarWindow))
     {
         return FALSE;
@@ -197,16 +201,16 @@ extern const struct _PUNCTUATION PunctuationTable[14] = {
 #define TF_MOD_RLSHIFT (TF_MOD_RSHIFT | TF_MOD_LSHIFT)
 
 #define CheckMod(m0, m1, mod)                                                                                          \
-    if (m1 & TF_MOD_##mod##)                                                                                           \
+    if (m1 & TF_MOD_##mod)                                                                                           \
     {                                                                                                                  \
-        if (!(m0 & TF_MOD_##mod##))                                                                                    \
+        if (!(m0 & TF_MOD_##mod))                                                                                    \
         {                                                                                                              \
             return FALSE;                                                                                              \
         }                                                                                                              \
     }                                                                                                                  \
     else                                                                                                               \
     {                                                                                                                  \
-        if ((m1 ^ m0) & TF_MOD_RL##mod##)                                                                              \
+        if ((m1 ^ m0) & TF_MOD_RL##mod)                                                                              \
         {                                                                                                              \
             return FALSE;                                                                                              \
         }                                                                                                              \
@@ -394,4 +398,5 @@ BOOL CompareElements(LCID locale, const CStringRange *pElement1, const CStringRa
     return (CStringRange::Compare(locale, (CStringRange *)pElement1, (CStringRange *)pElement2) == CSTR_EQUAL) ? TRUE
                                                                                                                : FALSE;
 }
+
 } // namespace Global

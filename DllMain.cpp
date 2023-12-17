@@ -5,7 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
 #include "Globals.h"
 
 //+---------------------------------------------------------------------------
@@ -25,6 +24,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID pvReserved)
         Global::dllInstanceHandle = hInstance; // 将 dll 实例句柄存储在全局变量中
 
         // 初始化一个临界区，用于多线程同步
+        // 第二个参数是自旋的时间
         if (!InitializeCriticalSectionAndSpinCount(&Global::CS, 0))
         {
             return FALSE;

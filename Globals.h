@@ -107,7 +107,7 @@ BOOL RegisterWindowClass();
 
 extern LONG dllRefCount;
 
-extern CRITICAL_SECTION CS;
+extern CRITICAL_SECTION CS;      // 一种轻量级的同步原语
 extern HFONT defaultlFontHandle; // Global font object we use everywhere
 
 extern const CLSID SampleIMECLSID;
