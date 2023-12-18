@@ -181,7 +181,9 @@ template <class T> class CSampleImeArray
 class CCandidateRange
 {
   public:
+    // 构造函数
     CCandidateRange(void);
+    // 析构方法
     ~CCandidateRange(void);
 
     BOOL IsRange(UINT vKey);
@@ -207,16 +209,24 @@ class CCandidateRange
 class CStringRange
 {
   public:
+    // 构造方法
     CStringRange();
+    // 析构方法
     ~CStringRange();
 
+    // getters
     const WCHAR *Get() const;
     const DWORD_PTR GetLength() const;
+    // 清理，恢复初始状态
     void Clear();
+    // setters
     void Set(const WCHAR *pwch, DWORD_PTR dwLength);
     void Set(CStringRange &sr);
+    // 重写 =
     CStringRange &operator=(const CStringRange &sr);
+    // 取出下一个 char
     void CharNext(_Inout_ CStringRange *pCharNext);
+    // 比较
     static int Compare(LCID locale, _In_ CStringRange *pString1, _In_ CStringRange *pString2);
     static BOOL WildcardCompare(LCID locale, _In_ CStringRange *stringWithWildcard, _In_ CStringRange *targetString);
 

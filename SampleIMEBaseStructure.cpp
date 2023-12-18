@@ -11,7 +11,7 @@
 
 #ifndef _UNICODE
 #define _UNICODE
-#endif // !UNICODE
+#endif // !_UNICODE
 
 #include "SampleIMEBaseStructure.h"
 
@@ -123,21 +123,25 @@ BOOL IsSpace(LCID locale, WCHAR wch)
     return (wCharType & C1_SPACE);
 }
 
+// 构造方法
 CStringRange::CStringRange()
 {
     _stringBufLen = 0;
     _pStringBuf = nullptr;
 }
 
+// 析构方法
 CStringRange::~CStringRange()
 {
 }
 
+// get 方法
 const WCHAR *CStringRange::Get() const
 {
     return _pStringBuf;
 }
 
+// get length 方法
 const DWORD_PTR CStringRange::GetLength() const
 {
     return _stringBufLen;
@@ -149,17 +153,20 @@ void CStringRange::Clear()
     _pStringBuf = nullptr;
 }
 
+// 设置对象属性的值
 void CStringRange::Set(const WCHAR *pwch, DWORD_PTR dwLength)
 {
     _stringBufLen = dwLength;
     _pStringBuf = pwch;
 }
 
+// 设置 CStringRange 对象的值
 void CStringRange::Set(CStringRange &sr)
 {
     *this = sr;
 }
 
+// 重写 =
 CStringRange &CStringRange::operator=(const CStringRange &sr)
 {
     _stringBufLen = sr._stringBufLen;
@@ -167,6 +174,7 @@ CStringRange &CStringRange::operator=(const CStringRange &sr)
     return *this;
 }
 
+// 跳到下一个字符，这里使用的字符是 wchart_t，编码为 UTF-16LE
 void CStringRange::CharNext(_Inout_ CStringRange *pCharNext)
 {
     if (!_stringBufLen)
@@ -181,11 +189,13 @@ void CStringRange::CharNext(_Inout_ CStringRange *pCharNext)
 
         while (pCharNext->_stringBufLen)
         {
+            // 是否是高代理项，这里要确保跳完之后，指针所在的位置是一个字符的起始位置，
+            // 而不是代理项对(一对代理项就是一个 utf-16 宽字符)的一部分
             BOOL isSurrogate =
                 (IS_HIGH_SURROGATE(*pCharNext->_pStringBuf) || IS_LOW_SURROGATE(*pCharNext->_pStringBuf));
             pCharNext->_stringBufLen--;
             pCharNext->_pStringBuf++;
-            if (!isSurrogate)
+            if (!isSurrogate) // 如果是低代理项，那么，当前肯定是已经越过一个完整的字符了
             {
                 break;
             }
