@@ -21,10 +21,12 @@
 //
 //---------------------------------------------------------------------
 
+// 应该是 Windows 的一种特殊的规定
 const BYTE GuidSymbols[] = {3, 2, 1, 0, '-', 5, 4, '-', 7, 6, '-', 8, 9, '-', 10, 11, 12, 13, 14, 15};
 
 const WCHAR HexDigits[] = L"0123456789ABCDEF";
 
+// 将 GUID 这个 128 位数据转化成一个特定格式的字符串，字符串的 size 一共是 39 位
 BOOL CLSIDToString(REFGUID refGUID, _Out_writes_(39) WCHAR *pCLSIDString)
 {
     WCHAR *pTemp = pCLSIDString;
@@ -40,8 +42,8 @@ BOOL CLSIDToString(REFGUID refGUID, _Out_writes_(39) WCHAR *pCLSIDString)
         }
         else
         {
-            pTemp[j++] = HexDigits[(pBytes[GuidSymbols[i]] & 0xF0) >> 4];
-            pTemp[j++] = HexDigits[(pBytes[GuidSymbols[i]] & 0x0F)];
+            pTemp[j++] = HexDigits[(pBytes[GuidSymbols[i]] & 0xF0) >> 4]; // 高 4 位
+            pTemp[j++] = HexDigits[(pBytes[GuidSymbols[i]] & 0x0F)];      // 低 4 位
         }
     }
 
