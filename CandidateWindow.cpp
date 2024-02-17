@@ -494,6 +494,7 @@ void CCandidateWindow::_OnLButtonDown(POINT pt)
         if (PtInRect(&rc, pt) && _pfnCallback)
         {
             SetCursor(LoadCursor(NULL, IDC_HAND));
+            // 当前选中的索引
             _currentSelection = index;
             _pfnCallback(_pObj, CAND_ITEM_SELECT);
             return;
@@ -855,22 +856,26 @@ DWORD CCandidateWindow::_GetCandidateString(_In_ int iIndex,
 // _GetSelectedCandidateString
 //
 //----------------------------------------------------------------------------
-
+// 把当前的候选项的值取出来，放进 ppwchCandidateString 中
 DWORD CCandidateWindow::_GetSelectedCandidateString(_Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
 {
     CCandidateListItem *pItemList = nullptr;
 
+    // 越界了
     if (_currentSelection >= _candidateList.Count())
     {
         *ppwchCandidateString = nullptr;
         return 0;
     }
 
+    // 取出当前所在的候选项
     pItemList = _candidateList.GetAt(_currentSelection);
     if (ppwchCandidateString)
     {
+        // 给字符串数组的第一个字符串赋值
         *ppwchCandidateString = pItemList->_ItemString.Get();
     }
+    // 返回对应的候选项的字符串的长度
     return (DWORD)pItemList->_ItemString.GetLength();
 }
 
@@ -879,7 +884,7 @@ DWORD CCandidateWindow::_GetSelectedCandidateString(_Outptr_result_maybenull_ co
 // _SetSelectionInPage
 //
 //----------------------------------------------------------------------------
-
+// 设置分页
 BOOL CCandidateWindow::_SetSelectionInPage(int nPos)
 {
     if (nPos < 0)
@@ -910,7 +915,7 @@ BOOL CCandidateWindow::_SetSelectionInPage(int nPos)
 // _MoveSelection
 //
 //----------------------------------------------------------------------------
-
+// 移动候选项
 BOOL CCandidateWindow::_MoveSelection(_In_ int offSet, _In_ BOOL isNotify)
 {
     if (_currentSelection + offSet >= _candidateList.Count())
@@ -935,7 +940,7 @@ BOOL CCandidateWindow::_MoveSelection(_In_ int offSet, _In_ BOOL isNotify)
 // _SetSelection
 //
 //----------------------------------------------------------------------------
-
+// 设置选项
 BOOL CCandidateWindow::_SetSelection(_In_ int selectedIndex, _In_ BOOL isNotify)
 {
     if (selectedIndex == -1)
@@ -971,6 +976,7 @@ BOOL CCandidateWindow::_SetSelection(_In_ int selectedIndex, _In_ BOOL isNotify)
 // _SetSelection
 //
 //----------------------------------------------------------------------------
+// 设置当前的选择的索引
 void CCandidateWindow::_SetSelection(_In_ int nIndex)
 {
     _currentSelection = nIndex;
@@ -981,7 +987,7 @@ void CCandidateWindow::_SetSelection(_In_ int nIndex)
 // _MovePage
 //
 //----------------------------------------------------------------------------
-
+// 翻页
 BOOL CCandidateWindow::_MovePage(_In_ int offSet, _In_ BOOL isNotify)
 {
     if (offSet == 0)
@@ -1032,7 +1038,7 @@ BOOL CCandidateWindow::_MovePage(_In_ int offSet, _In_ BOOL isNotify)
 // _SetSelectionOffset
 //
 //----------------------------------------------------------------------------
-
+// 设置偏移量
 BOOL CCandidateWindow::_SetSelectionOffset(_In_ int offSet)
 {
     if (_currentSelection + offSet >= _candidateList.Count())
@@ -1081,7 +1087,7 @@ BOOL CCandidateWindow::_SetSelectionOffset(_In_ int offSet)
 // _GetPageIndex
 //
 //----------------------------------------------------------------------------
-
+// 获取当前的页码索引
 HRESULT CCandidateWindow::_GetPageIndex(UINT *pIndex, _In_ UINT uSize, _Inout_ UINT *puPageCnt)
 {
     HRESULT hr = S_OK;
@@ -1114,7 +1120,7 @@ HRESULT CCandidateWindow::_GetPageIndex(UINT *pIndex, _In_ UINT uSize, _Inout_ U
 // _SetPageIndex
 //
 //----------------------------------------------------------------------------
-
+// 设置页码索引
 HRESULT CCandidateWindow::_SetPageIndex(UINT *pIndex, _In_ UINT uPageCnt)
 {
     uPageCnt;
@@ -1139,7 +1145,7 @@ HRESULT CCandidateWindow::_SetPageIndex(UINT *pIndex, _In_ UINT uPageCnt)
 // _GetCurrentPage
 //
 //----------------------------------------------------------------------------
-
+// 获取当前的页码
 HRESULT CCandidateWindow::_GetCurrentPage(_Inout_ UINT *pCurrentPage)
 {
     HRESULT hr = S_OK;
@@ -1186,7 +1192,7 @@ Exit:
 // _GetCurrentPage
 //
 //----------------------------------------------------------------------------
-
+// 获取当前的页码
 HRESULT CCandidateWindow::_GetCurrentPage(_Inout_ int *pCurrentPage)
 {
     HRESULT hr = E_FAIL;
@@ -1220,7 +1226,7 @@ Exit:
 // _AdjustPageIndexForSelection
 //
 //----------------------------------------------------------------------------
-
+// 调整页码
 BOOL CCandidateWindow::_AdjustPageIndexForSelection()
 {
     UINT candidateListPageCnt = _pIndexRange->Count();

@@ -5,8 +5,6 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "Private.h"
-#include "Globals.h"
 #include "SampleIME.h"
 #include "CompositionProcessorEngine.h"
 
@@ -48,7 +46,7 @@ STDAPI CSampleIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfComposi
 // _IsComposing
 //
 //----------------------------------------------------------------------------
-
+// 是否是在 composition 状态，也就是 屏幕上有一串带有下划线的字符串的状态
 BOOL CSampleIME::_IsComposing()
 {
     return _pComposition != nullptr;
@@ -59,7 +57,7 @@ BOOL CSampleIME::_IsComposing()
 // _SetComposition
 //
 //----------------------------------------------------------------------------
-
+// setters
 void CSampleIME::_SetComposition(_In_ ITfComposition *pComposition)
 {
     _pComposition = pComposition;

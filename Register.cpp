@@ -19,6 +19,7 @@ static const WCHAR RegInfo_Prefix_CLSID[] = L"CLSID\\";
 static const WCHAR RegInfo_Key_InProSvr32[] = L"InProcServer32";
 static const WCHAR RegInfo_Key_ThreadModel[] = L"ThreadingModel";
 
+// 输入法的名称
 static const WCHAR TEXTSERVICE_DESC[] = L"Sample IME";
 
 static const GUID SupportCategories[] = {

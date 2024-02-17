@@ -1722,7 +1722,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
                     pKeyState->Function = FUNCTION_MOVE_RIGHT;
                 }
                 return TRUE;
-            case VK_RETURN:
+            case VK_RETURN: // 回车键，Sample 的实现是上屏第一个候选项，实际上，按照正常的逻辑，这个应该是空格(Space)做的事情
                 if (pKeyState)
                 {
                     pKeyState->Category = CATEGORY_COMPOSING;
@@ -1788,10 +1788,10 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCH
                 }
                 return TRUE;
 
-            case VK_SPACE:
+            case VK_SPACE: // 处理空格键
                 if (pKeyState)
                 {
-                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Category = CATEGORY_COMPOSING; // 
                     pKeyState->Function = FUNCTION_CONVERT;
                 }
                 return TRUE;

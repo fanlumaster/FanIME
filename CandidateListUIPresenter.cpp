@@ -86,12 +86,14 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
     CStringRange candidateString;
     CSampleImeArray<CCandidateListItem> candidatePhraseList;
 
+    // 空就返回
     if (nullptr == _pCandidateListUIPresenter)
     {
         hrReturn = S_OK;
         goto Exit;
     }
 
+    // 取出当前候选项的值，放入 pCandidateString 中
     candidateLen = _pCandidateListUIPresenter->_GetSelectedCandidateString(&pCandidateString);
     if (0 == candidateLen)
     {
@@ -99,8 +101,10 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
         goto Exit;
     }
 
+    // 赋值
     candidateString.Set(pCandidateString, candidateLen);
 
+    // 是否造句
     BOOL fMakePhraseFromText = _pCompositionProcessorEngine->IsMakePhraseFromText();
     if (fMakePhraseFromText)
     {
@@ -903,7 +907,7 @@ void CCandidateListUIPresenter::_SetFillColor(HBRUSH hBrush)
 // _GetSelectedCandidateString
 //
 //----------------------------------------------------------------------------
-
+// 向一个字符串数组赋值
 DWORD_PTR CCandidateListUIPresenter::_GetSelectedCandidateString(
     _Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
 {
@@ -1077,6 +1081,8 @@ HRESULT CCandidateListUIPresenter::_CandidateChangeNotification(_In_ enum CANDWN
         hr = pContext->RequestEditSession(tfClientId, pEditSession, TF_ES_SYNC | TF_ES_READWRITE, &hrSession);
         if (hrSession == TF_E_SYNCHRONOUS || hrSession == TS_E_READONLY)
         {
+            // ec(TfEditCookie)在 RequestEditSession 中实现，开发者不用操心，这里其实也是使用了策略者模式
+            // 我们自己需要继承 EditSession 然后实现 doEditSession 来供 RequestEditSession 使用
             hr = pContext->RequestEditSession(tfClientId, pEditSession, TF_ES_ASYNC | TF_ES_READWRITE, &hrSession);
         }
         pEditSession->Release();
