@@ -1,0 +1,1 @@
+sudo regsvr32 /u "./build64/DEBUG/SampleIME.dll"

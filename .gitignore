@@ -1,2 +1,4 @@
 build/
 Release/
+build64/
+build32/
