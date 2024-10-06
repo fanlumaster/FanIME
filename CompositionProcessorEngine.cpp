@@ -1014,29 +1014,21 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
 {
     // Not yet registered
     // Register CFileMapping
-    WCHAR wszFileName[MAX_PATH] = {'\0'};
-    DWORD cchA = GetModuleFileName(Global::dllInstanceHandle, wszFileName, ARRAYSIZE(wszFileName));
-    size_t iDicFileNameLen = cchA + wcslen(TEXTSERVICE_DIC);
+    WCHAR localAppDataPath[MAX_PATH]= {'\0'};
+    DWORD cchA = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppDataPath, MAX_PATH);
+    WCHAR profileFolder[] = L"\\DeerWritingBrush\\";
+    size_t iDicFileNameLen = cchA + wcslen(profileFolder) + wcslen(TEXTSERVICE_DIC);
     WCHAR *pwszFileName = new (std::nothrow) WCHAR[iDicFileNameLen + 1];
     if (!pwszFileName)
     {
         goto ErrorExit;
     }
     *pwszFileName = L'\0';
-
-    // find the last '/'
-    while (cchA--)
-    {
-        WCHAR wszChar = wszFileName[cchA];
-        if (wszChar == '\\' || wszChar == '/')
-        {
-            StringCchCopyN(pwszFileName, iDicFileNameLen + 1, wszFileName, cchA + 1);
-            StringCchCatN(pwszFileName, iDicFileNameLen + 1, TEXTSERVICE_DIC, wcslen(TEXTSERVICE_DIC));
-            Global::LogMessageW(L"nihc~~~");
-            Global::LogMessageW(pwszFileName);
-            break;
-        }
-    }
+    StringCchCopyN(pwszFileName, iDicFileNameLen + 1, localAppDataPath, cchA + 1);
+    StringCchCatN(pwszFileName, iDicFileNameLen + 1, profileFolder, wcslen(profileFolder));
+    StringCchCatN(pwszFileName, iDicFileNameLen + 1, TEXTSERVICE_DIC, wcslen(TEXTSERVICE_DIC));
+    Global::LogMessageW(L"fanyfull");
+    Global::LogMessageW(pwszFileName);
 
     // create CFileMapping object
     if (_pDictionaryFile == nullptr)

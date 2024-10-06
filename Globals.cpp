@@ -409,7 +409,7 @@ void LogMessage(const char* message) {
     std::strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", localTime);
 
     // 打开日志文件
-    std::ofstream logFile("C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/fanydebug.log", std::ios_base::app); // 以追加模式打开
+    std::ofstream logFile("C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/log/fanydebug.log", std::ios_base::app); // 以追加模式打开
     if (logFile.is_open()) {
         logFile << "[" << timeBuffer << "] " << message << std::endl; // 写入日志
         logFile.close(); // 关闭文件
@@ -426,7 +426,7 @@ void LogMessageW(const wchar_t* message) {
     wcsftime(timeBuffer, sizeof(timeBuffer) / sizeof(wchar_t), L"%Y-%m-%d %H:%M:%S", localTime);
 
     // 打开日志文件
-    std::wofstream logFile(L"C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/fanydebug_w.log", std::ios_base::app); // 以追加模式打开
+    std::wofstream logFile(L"C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/log/fanydebug_w.log", std::ios_base::app); // 以追加模式打开
     if (logFile.is_open()) {
         logFile << L"[" << timeBuffer << L"] " << message << std::endl; // 写入日志
         logFile.close(); // 关闭文件
