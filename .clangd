@@ -1,2 +1,9 @@
 CompileFlags:
-  Add: [-Wno-microsoft-goto, -Wno-unused-value, -Wno-nonportable-include-path, -Wno-microsoft-extra-qualification] # 忽略某些警告
+  Add: [
+    "-std=c++17", # needed when using MSVC   
+    "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\IMECodes\\DeerWritingBrush",
+    -Wno-microsoft-goto,
+    -Wno-unused-value,
+    -Wno-nonportable-include-path,
+    -Wno-microsoft-extra-qualification
+  ] # ignore some specific warnings
