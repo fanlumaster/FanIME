@@ -10,6 +10,10 @@
 #include "BaseWindow.h"
 #include "define.h"
 #include "SampleIMEBaseStructure.h"
+#include <windows.h>
+#include <fstream>
+#include <string>
+#include <ctime>
 
 namespace Global
 {
@@ -394,4 +398,39 @@ BOOL CompareElements(LCID locale, const CStringRange *pElement1, const CStringRa
     return (CStringRange::Compare(locale, (CStringRange *)pElement1, (CStringRange *)pElement2) == CSTR_EQUAL) ? TRUE
                                                                                                                : FALSE;
 }
+
+void LogMessage(const char* message) {
+    // 获取当前时间
+    std::time_t now = std::time(nullptr);
+    std::tm* localTime = std::localtime(&now);
+
+    // 格式化时间
+    char timeBuffer[80];
+    std::strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", localTime);
+
+    // 打开日志文件
+    std::ofstream logFile("C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/fanydebug.log", std::ios_base::app); // 以追加模式打开
+    if (logFile.is_open()) {
+        logFile << "[" << timeBuffer << "] " << message << std::endl; // 写入日志
+        logFile.close(); // 关闭文件
+    }
+}
+
+void LogMessageW(const wchar_t* message) {
+    // 获取当前时间
+    std::time_t now = std::time(nullptr);
+    std::tm* localTime = std::localtime(&now);
+
+    // 格式化时间
+    wchar_t timeBuffer[80];
+    wcsftime(timeBuffer, sizeof(timeBuffer) / sizeof(wchar_t), L"%Y-%m-%d %H:%M:%S", localTime);
+
+    // 打开日志文件
+    std::wofstream logFile(L"C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/fanydebug_w.log", std::ios_base::app); // 以追加模式打开
+    if (logFile.is_open()) {
+        logFile << L"[" << timeBuffer << L"] " << message << std::endl; // 写入日志
+        logFile.close(); // 关闭文件
+    }
+}
+
 } // namespace Global

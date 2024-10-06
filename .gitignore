@@ -2,3 +2,5 @@ build/
 Release/
 build64/
 build32/
+draft/
+*.log

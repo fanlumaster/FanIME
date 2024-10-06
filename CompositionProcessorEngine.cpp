@@ -5,6 +5,10 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
+#ifndef UNICODE
+#define UNICODE
+#endif
+
 #include "Private.h"
 #include "SampleIME.h"
 #include "CompositionProcessorEngine.h"
@@ -1028,6 +1032,8 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
         {
             StringCchCopyN(pwszFileName, iDicFileNameLen + 1, wszFileName, cchA + 1);
             StringCchCatN(pwszFileName, iDicFileNameLen + 1, TEXTSERVICE_DIC, wcslen(TEXTSERVICE_DIC));
+            Global::LogMessageW(L"nihc~~~");
+            Global::LogMessageW(pwszFileName);
             break;
         }
     }

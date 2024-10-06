@@ -7,6 +7,10 @@
 
 #pragma once
 
+#ifndef UNICODE
+#define UNICODE
+#endif
+
 #include "private.h"
 #include "define.h"
 #include "SampleIMEBaseStructure.h"
@@ -119,6 +123,8 @@ extern const CLSID SampleIMEGuidPunctuationPreserveKey;
 LRESULT CALLBACK ThreadKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 BOOL CheckModifiers(UINT uModCurrent, UINT uMod);
 BOOL UpdateModifiers(WPARAM wParam, LPARAM lParam);
+void LogMessage(const char* message);
+void LogMessageW(const wchar_t* message);
 
 extern USHORT ModifiersValue;
 extern BOOL IsShiftKeyDownOnly;

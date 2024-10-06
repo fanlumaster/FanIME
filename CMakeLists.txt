@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-project(fanytsfime)
+project(DeerWritingBrush)
 
 # http://www.utf8everywhere.org/
 add_definitions(
@@ -8,7 +8,7 @@ add_definitions(
     /DUNICODE=1
 )
 
-add_library(SampleIME SHARED
+add_library(DeerWritingBrush SHARED
     "./ActiveLanguageProfileNotifySink.cpp"
     "./BaseDictionaryEngine.cpp"
     "./BaseDictionaryEngine.h"

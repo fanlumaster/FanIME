@@ -1,4 +1,4 @@
-LIBRARY SampleIME.dll
+LIBRARY DeerWritingBrush.dll
 
 EXPORTS
         DllGetClassObject    PRIVATE
