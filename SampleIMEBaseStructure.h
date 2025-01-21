@@ -235,8 +235,8 @@ struct CCandidateListItem
 
     CCandidateListItem &CCandidateListItem::operator=(const CCandidateListItem &rhs)
     {
-        _ItemString = rhs._ItemString;
-        _FindKeyCode = rhs._FindKeyCode;
+        _ItemString = rhs._ItemString;   // e.g. 你好
+        _FindKeyCode = rhs._FindKeyCode; // e.g. nihao
         return *this;
     }
 };

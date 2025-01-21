@@ -85,7 +85,8 @@ class CCompositionProcessorEngine
     }
     BOOL IsMakePhraseFromText()
     {
-        return _hasMakePhraseFromText;
+        // return _hasMakePhraseFromText;
+        return 0;
     }
     BOOL IsKeystrokeSort()
     {

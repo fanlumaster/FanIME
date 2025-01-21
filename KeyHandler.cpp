@@ -193,6 +193,7 @@ HRESULT CSampleIME::_HandleCompositionInputWorker(_In_ CCompositionProcessorEngi
     //
     CSampleImeArray<CCandidateListItem> candidateList;
 
+    // 重点：生成候选列表
     pCompositionProcessorEngine->GetCandidateList(&candidateList, TRUE, FALSE);
 
     if ((candidateList.Count()))

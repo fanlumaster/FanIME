@@ -2,8 +2,13 @@ CompileFlags:
   Add: [
     "-std=c++17", # needed when using MSVC   
     "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\IMECodes\\DeerWritingBrush",
+    -DUNICODE,
+    -D_UNICODE,
     -Wno-microsoft-goto,
     -Wno-unused-value,
     -Wno-nonportable-include-path,
-    -Wno-microsoft-extra-qualification
+    -Wno-microsoft-extra-qualification,
+    -Wno-invalid-token-paste
   ] # ignore some specific warnings
+Diagnostics:
+  UnusedIncludes: None

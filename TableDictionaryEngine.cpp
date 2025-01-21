@@ -60,6 +60,17 @@ VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
         delete pdret;
         pdret = nullptr;
     }
+
+    if (!pItemList->Count())
+    {
+        CCandidateListItem *pLI = nullptr;
+        pLI = pItemList->Append();
+        // 使用用户输入的关键字作为默认值
+        const WCHAR *userInput = pKeyCode->Get();          // 获取用户输入的关键字
+        DWORD_PTR userInputLength = pKeyCode->GetLength(); // 获取用户输入的长度
+        pLI->_ItemString.Set(userInput, userInputLength);  // 设置用户输入为默认值
+        pLI->_FindKeyCode.Set(userInput, userInputLength);
+    }
 }
 
 //+---------------------------------------------------------------------------
@@ -90,6 +101,17 @@ VOID CTableDictionaryEngine::CollectWordForWildcard(_In_ CStringRange *pKeyCode,
         delete pdret;
         pdret = nullptr;
     }
+
+    if (!pItemList->Count())
+    {
+        CCandidateListItem *pLI = nullptr;
+        pLI = pItemList->Append();
+        // 使用用户输入的关键字作为默认值
+        const WCHAR *userInput = pKeyCode->Get();          // 获取用户输入的关键字
+        DWORD_PTR userInputLength = pKeyCode->GetLength(); // 获取用户输入的长度
+        pLI->_ItemString.Set(userInput, userInputLength);  // 设置用户输入为默认值
+        pLI->_FindKeyCode.Set(userInput, userInputLength);
+    }
 }
 
 //+---------------------------------------------------------------------------
@@ -119,5 +141,16 @@ VOID CTableDictionaryEngine::CollectWordFromConvertedStringForWildcard(
 
         delete pdret;
         pdret = nullptr;
+    }
+
+    if (!pItemList->Count())
+    {
+        CCandidateListItem *pLI = nullptr;
+        pLI = pItemList->Append();
+        // 使用用户输入的关键字作为默认值
+        const WCHAR *userInput = pString->Get();          // 获取用户输入的关键字
+        DWORD_PTR userInputLength = pString->GetLength(); // 获取用户输入的长度
+        pLI->_ItemString.Set(userInput, userInputLength); // 设置用户输入为默认值
+        pLI->_FindKeyCode.Set(userInput, userInputLength);
     }
 }
