@@ -598,6 +598,11 @@ void CCandidateWindow::_OnVScroll(DWORD dwSB, _In_ DWORD nPos)
 
 void CCandidateWindow::_DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT *prc)
 {
+    // 创建并选择字体
+    HFONT hFont = CreateFont(-22, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+                             CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, SAMPLEIME_FONT_DEFAULT);
+    HFONT hOldFont = (HFONT)SelectObject(dcHandle, hFont);
+
     int pageCount = 0;
     int candidateListPageCnt = _pIndexRange->Count();
 
@@ -656,6 +661,9 @@ void CCandidateWindow::_DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT 
 
         FillRect(dcHandle, &rc, (HBRUSH)(COLOR_3DHIGHLIGHT + 1));
     }
+    // 恢复原来的字体
+    SelectObject(dcHandle, hOldFont);
+    DeleteObject(hFont);
 }
 
 //+---------------------------------------------------------------------------
