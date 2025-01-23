@@ -160,7 +160,7 @@ void CCandidateWindow::_ResizeWindow()
     _cxTitle = max(_cxTitle, size.cx + 2 * GetSystemMetrics(SM_CXFRAME));
 
     int candidateListPageCnt = _pIndexRange->Count();
-    CBaseWindow::_Resize(0, 0, _cxTitle, _cyRow * candidateListPageCnt);
+    CBaseWindow::_Resize(0, 0, _cxTitle - 222, _cyRow * candidateListPageCnt + 10);
 
     RECT rcCandRect = {0, 0, 0, 0};
     _GetClientRect(&rcCandRect);
@@ -168,9 +168,10 @@ void CCandidateWindow::_ResizeWindow()
     int letf = rcCandRect.right - GetSystemMetrics(SM_CXVSCROLL) * 2 - CANDWND_BORDER_WIDTH;
     int top = rcCandRect.top + CANDWND_BORDER_WIDTH;
     int width = GetSystemMetrics(SM_CXVSCROLL) * 2;
-    int height = rcCandRect.bottom - rcCandRect.top - CANDWND_BORDER_WIDTH * 2;
+    int height = rcCandRect.bottom - rcCandRect.top - CANDWND_BORDER_WIDTH * 2 + 10;
 
-    _pVScrollBarWnd->_Resize(letf, top, width, height);
+    // _pVScrollBarWnd->_Resize(letf, top, width, height);
+    _pVScrollBarWnd->_Resize(letf, top, 0, 0);
 }
 
 //+---------------------------------------------------------------------------

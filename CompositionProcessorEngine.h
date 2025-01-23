@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "SampleIME.h"
 #include "sal.h"
 #include "TableDictionaryEngine.h"
 #include "KeyHandlerEditSession.h"
