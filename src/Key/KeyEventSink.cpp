@@ -12,6 +12,7 @@
 #include "CompositionProcessorEngine.h"
 #include "KeyHandlerEditSession.h"
 #include "Compartment.h"
+#include <string>
 
 // 0xF003, 0xF004 are the keys that the touch keyboard sends for next/previous
 #define THIRDPARTY_NEXTPAGE static_cast<WORD>(0xF003)
@@ -21,6 +22,7 @@
 // vkeys that the IME handles specially
 __inline UINT VKeyFromVKPacketAndWchar(UINT vk, WCHAR wch)
 {
+    Global::LogMessageW(L"fany VKeyFromVKPacketAndWchar begin...");
     UINT vkRet = vk;
     if (LOWORD(vk) == VK_PACKET)
     {
@@ -49,6 +51,8 @@ __inline UINT VKeyFromVKPacketAndWchar(UINT vk, WCHAR wch)
             vkRet = VK_PRIOR;
         }
     }
+    std::wstring msg_to = std::wstring(1, wch) + L"fany VKeyFromVKPacketAndWchar end...";
+    Global::LogMessageW(msg_to.c_str());
     return vkRet;
 }
 

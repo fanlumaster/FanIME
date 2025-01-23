@@ -200,20 +200,20 @@ extern const struct _PUNCTUATION PunctuationTable[14] = {
 #define TF_MOD_RLCONTROL (TF_MOD_RCONTROL | TF_MOD_LCONTROL)
 #define TF_MOD_RLSHIFT (TF_MOD_RSHIFT | TF_MOD_LSHIFT)
 
-#define CheckMod(m0, m1, mod)                                                                                          \
-    if (m1 & TF_MOD_##mod##)                                                                                           \
-    {                                                                                                                  \
-        if (!(m0 & TF_MOD_##mod##))                                                                                    \
-        {                                                                                                              \
-            return FALSE;                                                                                              \
-        }                                                                                                              \
-    }                                                                                                                  \
-    else                                                                                                               \
-    {                                                                                                                  \
-        if ((m1 ^ m0) & TF_MOD_RL##mod##)                                                                              \
-        {                                                                                                              \
-            return FALSE;                                                                                              \
-        }                                                                                                              \
+#define CheckMod(m0, m1, mod)                   \
+    if (m1 & TF_MOD_##mod##)                    \
+    {                                           \
+        if (!(m0 & TF_MOD_##mod##))             \
+        {                                       \
+            return FALSE;                       \
+        }                                       \
+    }                                           \
+    else                                        \
+    {                                           \
+        if ((m1 ^ m0) & TF_MOD_RL##mod##)       \
+        {                                       \
+            return FALSE;                       \
+        }                                       \
     }
 
 BOOL CheckModifiers(UINT modCurrent, UINT mod)
