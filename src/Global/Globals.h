@@ -125,6 +125,7 @@ BOOL CheckModifiers(UINT uModCurrent, UINT uMod);
 BOOL UpdateModifiers(WPARAM wParam, LPARAM lParam);
 void LogMessage(const char* message);
 void LogMessageW(const wchar_t* message);
+void LogWideString(const WCHAR* pwch, DWORD_PTR dwLength);
 
 extern USHORT ModifiersValue;
 extern BOOL IsShiftKeyDownOnly;
