@@ -479,7 +479,7 @@ void CCompositionProcessorEngine::GetCandidateList(_Inout_ CSampleImeArray<CCand
     {
         _pTableDictionaryEngine->CollectWordForWildcard(&_keystrokeBuffer, pCandidateList);
     }
-    else
+    else // Here we only need to care about this, cause we have already use sqlite to substitute txt dictionary engine
     {
         _pTableDictionaryEngine->CollectWord(&_keystrokeBuffer, pCandidateList);
     }
@@ -1014,7 +1014,7 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
 {
     // Not yet registered
     // Register CFileMapping
-    WCHAR localAppDataPath[MAX_PATH]= {'\0'};
+    WCHAR localAppDataPath[MAX_PATH] = {'\0'};
     DWORD cchA = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppDataPath, MAX_PATH);
     WCHAR profileFolder[] = L"\\DeerWritingBrush\\";
     size_t iDicFileNameLen = cchA + wcslen(profileFolder) + wcslen(TEXTSERVICE_DIC);
@@ -1023,12 +1023,10 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
     {
         goto ErrorExit;
     }
-    *pwszFileName = L'\0';
+    *pwszFileName = L'\0'; // dictionary file path
     StringCchCopyN(pwszFileName, iDicFileNameLen + 1, localAppDataPath, cchA + 1);
     StringCchCatN(pwszFileName, iDicFileNameLen + 1, profileFolder, wcslen(profileFolder));
     StringCchCatN(pwszFileName, iDicFileNameLen + 1, TEXTSERVICE_DIC, wcslen(TEXTSERVICE_DIC));
-    Global::LogMessageW(L"fanyfull");
-    Global::LogMessageW(pwszFileName);
 
     // create CFileMapping object
     if (_pDictionaryFile == nullptr)

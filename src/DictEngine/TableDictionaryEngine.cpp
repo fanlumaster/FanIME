@@ -8,6 +8,7 @@
 #include "Private.h"
 #include "TableDictionaryEngine.h"
 #include "DictionarySearch.h"
+#include "Globals.h"
 
 //+---------------------------------------------------------------------------
 //
@@ -44,6 +45,10 @@ VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
     CDictionaryResult *pdret = nullptr;
     CDictionarySearch dshSearch(_locale, _pDictionaryFile, pKeyCode);
 
+    Global::LogMessageW(L"fany pKeyCode starts...");
+    Global::LogWideString(pKeyCode->Get(), pKeyCode->GetLength());
+    Global::LogMessageW(L"fany pKeyCode ends...");
+
     while (dshSearch.FindPhrase(&pdret))
     {
         for (UINT iIndex = 0; iIndex < pdret->_FindPhraseList.Count(); iIndex++)
@@ -54,6 +59,11 @@ VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
             {
                 pLI->_ItemString.Set(*pdret->_FindPhraseList.GetAt(iIndex));
                 pLI->_FindKeyCode.Set(pdret->_FindKeyCode.Get(), pdret->_FindKeyCode.GetLength());
+                Global::LogMessageW(L"fany itemPair starts...");
+                Global::LogWideString(pLI->_ItemString.Get(), pLI->_ItemString.GetLength());
+                Global::LogWideString(pLI->_FindKeyCode.Get(), pLI->_FindKeyCode.GetLength());
+                Global::LogMessageW(L"fany itemPair ends.");
+                Global::LogMessageW(L"============================");
             }
         }
 
