@@ -193,8 +193,11 @@ HRESULT CSampleIME::_HandleCompositionInputWorker(_In_ CCompositionProcessorEngi
     //
     CSampleImeArray<CCandidateListItem> candidateList;
 
-    // 重点：生成候选列表
-    pCompositionProcessorEngine->GetCandidateList(&candidateList, TRUE, FALSE);
+    //
+    // Important: Generate candidate list here
+    //
+    // There is no need to use neither IncrementalWordSearch nor WildcardSearch, so we set them both FALSE
+    pCompositionProcessorEngine->GetCandidateList(&candidateList, FALSE, FALSE);
 
     if ((candidateList.Count()))
     {

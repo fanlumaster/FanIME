@@ -22,7 +22,6 @@
 // vkeys that the IME handles specially
 __inline UINT VKeyFromVKPacketAndWchar(UINT vk, WCHAR wch)
 {
-    Global::LogMessageW(L"fany VKeyFromVKPacketAndWchar begin...");
     UINT vkRet = vk;
     if (LOWORD(vk) == VK_PACKET)
     {
@@ -51,8 +50,6 @@ __inline UINT VKeyFromVKPacketAndWchar(UINT vk, WCHAR wch)
             vkRet = VK_PRIOR;
         }
     }
-    std::wstring msg_to = std::wstring(1, wch) + L"fany VKeyFromVKPacketAndWchar end...";
-    Global::LogMessageW(msg_to.c_str());
     return vkRet;
 }
 
