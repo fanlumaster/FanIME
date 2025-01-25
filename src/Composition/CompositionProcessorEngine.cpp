@@ -57,6 +57,7 @@ BOOL CSampleIME::_AddTextProcessorEngine()
     }
 
     // Is this already added?
+    // Here is Idempotent Operation for this _AddTextProcessorEngine function.
     if (_pCompositionProcessorEngine != nullptr)
     {
         LANGID langidProfile = 0;
