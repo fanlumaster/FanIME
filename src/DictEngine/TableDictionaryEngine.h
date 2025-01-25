@@ -12,7 +12,8 @@
 class CTableDictionaryEngine : public CBaseDictionaryEngine
 {
   public:
-    CTableDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile) : CBaseDictionaryEngine(locale, pDictionaryFile)
+    CTableDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile, sqlite3 *pDictionaryDb)
+        : CBaseDictionaryEngine(locale, pDictionaryFile, pDictionaryDb)
     {
     }
     virtual ~CTableDictionaryEngine()

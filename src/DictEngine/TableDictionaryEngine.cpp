@@ -9,6 +9,7 @@
 #include "TableDictionaryEngine.h"
 #include "DictionarySearch.h"
 #include "Globals.h"
+#include <string>
 
 //+---------------------------------------------------------------------------
 //
@@ -42,33 +43,65 @@ VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
 VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
                                          _Inout_ CSampleImeArray<CCandidateListItem> *pItemList)
 {
-    CDictionaryResult *pdret = nullptr;
     CDictionarySearch dshSearch(_locale, _pDictionaryFile, pKeyCode);
 
     Global::LogMessageW(L"fany pKeyCode starts...");
     Global::LogWideString(pKeyCode->Get(), pKeyCode->GetLength());
     Global::LogMessageW(L"fany pKeyCode ends...");
 
-    while (dshSearch.FindPhrase(&pdret))
-    {
-        for (UINT iIndex = 0; iIndex < pdret->_FindPhraseList.Count(); iIndex++)
-        {
-            CCandidateListItem *pLI = nullptr;
-            pLI = pItemList->Append();
-            if (pLI)
-            {
-                pLI->_ItemString.Set(*pdret->_FindPhraseList.GetAt(iIndex));
-                pLI->_FindKeyCode.Set(pdret->_FindKeyCode.Get(), pdret->_FindKeyCode.GetLength());
-                Global::LogMessageW(L"fany itemPair starts...");
-                Global::LogWideString(pLI->_ItemString.Get(), pLI->_ItemString.GetLength());
-                Global::LogWideString(pLI->_FindKeyCode.Get(), pLI->_FindKeyCode.GetLength());
-                Global::LogMessageW(L"fany itemPair ends.");
-                Global::LogMessageW(L"============================");
-            }
-        }
+    const WCHAR *hardcodedData[] = {L"梁子", L"量子", L"两字", L"毛笔"};
 
-        delete pdret;
-        pdret = nullptr;
+    // 获取硬编码数据的数量
+    UINT hardcodedDataCount = 4;
+
+    // 将硬编码数据添加到 candidateList 中
+    for (UINT i = 0; i < hardcodedDataCount; i++)
+    {
+        CCandidateListItem *pLI = nullptr;
+        pLI = pItemList->Append();
+        if (pLI)
+        {
+            // 设置硬编码数据到 _ItemString 和 _FindKeyCode
+            pLI->_ItemString.Set(hardcodedData[i], wcslen(hardcodedData[i]));
+            pLI->_FindKeyCode.Set(hardcodedData[i], wcslen(hardcodedData[i]));
+        }
+    }
+
+    if (pItemList->Count())
+    {
+        std::string sql_str = "select * from tbl_1_j where key = 'jx';";
+        sqlite3_stmt *stmt;
+        int exit = sqlite3_prepare_v2(_pDictionaryDb, sql_str.c_str(), -1, &stmt, 0);
+        if (exit != SQLITE_OK)
+        {
+            // logger->error("sqlite3_prepare_v2 error.");
+        }
+        std::string key;
+        std::string value;
+        int weight;
+        std::wstring temp;
+        while (sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            key = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+            temp = Global::string_to_wstring(key);
+            Global::LogMessageW(temp.c_str());
+            value = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
+            temp = Global::string_to_wstring(value);
+            Global::LogMessageW(temp.c_str());
+            weight = sqlite3_column_int(stmt, 3);
+            temp = Global::string_to_wstring(std::to_string(weight));
+            Global::LogMessageW(temp.c_str());
+        }
+        sqlite3_finalize(stmt);
+
+        std::string str = "你好世界！";
+        std::wstring wstr = Global::string_to_wstring(str);
+        Global::LogMessageW(L"fany itemPair starts...");
+        Global::LogMessageW(wstr.c_str());
+        Global::LogWideString(pItemList->GetAt(0)->_ItemString.Get(), pItemList->GetAt(0)->_ItemString.GetLength());
+        Global::LogWideString(pItemList->GetAt(0)->_FindKeyCode.Get(), pItemList->GetAt(0)->_FindKeyCode.GetLength());
+        Global::LogMessageW(L"fany itemPair ends.");
+        Global::LogMessageW(L"============================");
     }
 
     if (!pItemList->Count())

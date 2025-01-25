@@ -14,6 +14,9 @@
 #include "private.h"
 #include "define.h"
 #include "SampleIMEBaseStructure.h"
+#include <iostream>
+#include <string>
+#include "boost/locale.hpp"
 
 void DllAddRef();
 void DllRelease();
@@ -123,9 +126,9 @@ extern const CLSID SampleIMEGuidPunctuationPreserveKey;
 LRESULT CALLBACK ThreadKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 BOOL CheckModifiers(UINT uModCurrent, UINT uMod);
 BOOL UpdateModifiers(WPARAM wParam, LPARAM lParam);
-void LogMessage(const char* message);
-void LogMessageW(const wchar_t* message);
-void LogWideString(const WCHAR* pwch, DWORD_PTR dwLength);
+void LogMessage(const char *message);
+void LogMessageW(const wchar_t *message);
+void LogWideString(const WCHAR *pwch, DWORD_PTR dwLength);
 
 extern USHORT ModifiersValue;
 extern BOOL IsShiftKeyDownOnly;
@@ -166,4 +169,7 @@ extern const int PunctuationOffIcoIndex;
 extern const WCHAR LangbarImeModeDescription[];
 extern const WCHAR LangbarDoubleSingleByteDescription[];
 extern const WCHAR LangbarPunctuationDescription[];
+
+std::wstring string_to_wstring(const std::string &str);
+std::string wstring_to_string(const std::wstring &wstr);
 } // namespace Global

@@ -13,10 +13,11 @@
 // ctor
 //----------------------------------------------------------------------------
 
-CBaseDictionaryEngine::CBaseDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile)
+CBaseDictionaryEngine::CBaseDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile, sqlite3 *pDictionaryDb)
 {
     _locale = locale;
     _pDictionaryFile = pDictionaryFile;
+    _pDictionaryDb = pDictionaryDb;
 }
 
 //+---------------------------------------------------------------------------

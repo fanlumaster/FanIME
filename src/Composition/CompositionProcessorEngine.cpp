@@ -19,6 +19,8 @@
 #include "Compartment.h"
 #include "LanguageBar.h"
 #include "RegKey.h"
+#include "define.h"
+#include <string>
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -106,6 +108,7 @@ CCompositionProcessorEngine::CCompositionProcessorEngine()
 {
     _pTableDictionaryEngine = nullptr;
     _pDictionaryFile = nullptr;
+    _pDictionaryDb = nullptr;
 
     _langid = 0xffff;
     _guidProfile = GUID_NULL;
@@ -202,6 +205,11 @@ CCompositionProcessorEngine::~CCompositionProcessorEngine()
     {
         delete _pDictionaryFile;
         _pDictionaryFile = nullptr;
+    }
+
+    if (_pDictionaryDb)
+    {
+        sqlite3_close(_pDictionaryDb);
     }
 }
 
@@ -1019,8 +1027,16 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
     DWORD cchA = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppDataPath, MAX_PATH);
     WCHAR profileFolder[] = L"\\DeerWritingBrush\\";
     size_t iDicFileNameLen = cchA + wcslen(profileFolder) + wcslen(TEXTSERVICE_DIC);
+    size_t iDicDBFileNameLen = cchA + wcslen(profileFolder) + wcslen(TEXTSERVICE_DIC_DB);
     WCHAR *pwszFileName = new (std::nothrow) WCHAR[iDicFileNameLen + 1];
+    WCHAR *pwszDBFileName = new (std::nothrow) WCHAR[iDicFileNameLen + 1];
+    std::wstring dictionaryDbPathW;
+    std::string dictionaryDbPath;
     if (!pwszFileName)
+    {
+        goto ErrorExit;
+    }
+    if (!pwszDBFileName)
     {
         goto ErrorExit;
     }
@@ -1028,6 +1044,25 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
     StringCchCopyN(pwszFileName, iDicFileNameLen + 1, localAppDataPath, cchA + 1);
     StringCchCatN(pwszFileName, iDicFileNameLen + 1, profileFolder, wcslen(profileFolder));
     StringCchCatN(pwszFileName, iDicFileNameLen + 1, TEXTSERVICE_DIC, wcslen(TEXTSERVICE_DIC));
+    *pwszDBFileName = L'\0'; // dictionary DB file path
+    StringCchCopyN(pwszDBFileName, iDicDBFileNameLen + 1, localAppDataPath, cchA + 1);
+    StringCchCatN(pwszDBFileName, iDicDBFileNameLen + 1, profileFolder, wcslen(profileFolder));
+    StringCchCatN(pwszDBFileName, iDicDBFileNameLen + 1, TEXTSERVICE_DIC_DB, wcslen(TEXTSERVICE_DIC_DB));
+
+    dictionaryDbPathW = pwszDBFileName;
+    dictionaryDbPath = Global::wstring_to_string(dictionaryDbPathW);
+
+    Global::LogMessageW(pwszDBFileName);
+
+    // open dictonary db
+    if (_pDictionaryDb == nullptr)
+    {
+        int exit = sqlite3_open(dictionaryDbPath.c_str(), &_pDictionaryDb);
+        if (!_pDictionaryDb)
+        {
+            goto ErrorExit;
+        }
+    }
 
     // create CFileMapping object
     if (_pDictionaryFile == nullptr)
@@ -1043,18 +1078,23 @@ BOOL CCompositionProcessorEngine::SetupDictionaryFile()
         goto ErrorExit;
     }
 
-    _pTableDictionaryEngine = new (std::nothrow) CTableDictionaryEngine(GetLocale(), _pDictionaryFile);
+    _pTableDictionaryEngine = new (std::nothrow) CTableDictionaryEngine(GetLocale(), _pDictionaryFile, _pDictionaryDb);
     if (!_pTableDictionaryEngine)
     {
         goto ErrorExit;
     }
 
     delete[] pwszFileName;
+    delete[] pwszDBFileName;
     return TRUE;
 ErrorExit:
     if (pwszFileName)
     {
         delete[] pwszFileName;
+    }
+    if (pwszDBFileName)
+    {
+        delete[] pwszDBFileName;
     }
     return FALSE;
 }

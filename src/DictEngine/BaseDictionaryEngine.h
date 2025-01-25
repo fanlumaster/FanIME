@@ -9,11 +9,12 @@
 
 #include "File.h"
 #include "SampleIMEBaseStructure.h"
+#include "sqlite3.h"
 
 class CBaseDictionaryEngine
 {
   public:
-    CBaseDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile);
+    CBaseDictionaryEngine(LCID locale, _In_ CFile *pDictionaryFile, sqlite3 *pDictionaryDb);
     virtual ~CBaseDictionaryEngine();
 
     virtual VOID CollectWord(_In_ CStringRange *psrgKeyCode, _Out_ CSampleImeArray<CStringRange> *pasrgWordString)
@@ -32,6 +33,7 @@ class CBaseDictionaryEngine
 
   protected:
     CFile *_pDictionaryFile;
+    sqlite3 *_pDictionaryDb;
     LCID _locale;
 
   private:

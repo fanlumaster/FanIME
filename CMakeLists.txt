@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-project(DeerWritingBrush)
+project(DeerWritingBrush LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# http://www.utf8everywhere.org/
 add_definitions(
     /D_UNICODE=1
     /DUNICODE=1
 )
+
+set(SQLITE_INCLUDE_DIR "./sqlite")
+set(BOOST_INCLUDE_DIR "C:\\Users\\SonnyCalcr\\scoop\\apps\\boost\\1.87.0")
 
 include_directories("./src")
 include_directories("./src/Candidate")
@@ -28,6 +30,8 @@ include_directories("./src/Register")
 include_directories("./src/Tf")
 include_directories("./src/Thread")
 include_directories("./src/Window")
+include_directories(${SQLITE_INCLUDE_DIR})
+include_directories(${BOOST_INCLUDE_DIR})
 
 add_library(DeerWritingBrush SHARED
     # Candidate
@@ -135,3 +139,10 @@ add_library(DeerWritingBrush SHARED
     "./src/Server.cpp"
 )
 
+target_link_libraries(DeerWritingBrush "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.lib" "C:\\Users\\SonnyCalcr\\scoop\\apps\\boost\\1.87.0\\lib\\libboost_locale-vc143-mt-gd-x64-1_87.lib")
+
+add_custom_command(TARGET DeerWritingBrush POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.dll"
+    $<TARGET_FILE_DIR:DeerWritingBrush>
+)
