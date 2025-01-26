@@ -16,6 +16,7 @@
 #include "SampleIMEBaseStructure.h"
 #include <iostream>
 #include <string>
+#include "FanDictionaryDbUtils.h"
 
 void DllAddRef();
 void DllRelease();
@@ -171,4 +172,8 @@ extern const WCHAR LangbarPunctuationDescription[];
 
 std::wstring string_to_wstring(const std::string &str);
 std::string wstring_to_string(const std::wstring &wstr);
+
+inline std::vector<FanDictionaryDb::DbWordItem> CandidateList;
+inline std::vector<std::wstring> WStringCandidateList;
+inline std::wstring FindKeyCode;
 } // namespace Global

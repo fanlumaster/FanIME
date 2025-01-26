@@ -16,6 +16,7 @@
 #include "Compartment.h"
 #include "define.h"
 #include "sqlite3.h"
+#include "FanDictionaryDbUtils.h"
 
 class CCompositionProcessorEngine
 {

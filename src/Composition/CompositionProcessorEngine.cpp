@@ -7,6 +7,7 @@
 
 #ifndef UNICODE
 #define UNICODE
+#include "FanDictionaryDbUtils.h"
 #endif
 
 #include "Private.h"

@@ -10,6 +10,8 @@
 #include "DictionarySearch.h"
 #include "Globals.h"
 #include <string>
+#include <vector>
+#include "FanDictionaryDbUtils.h"
 
 //+---------------------------------------------------------------------------
 //
@@ -44,75 +46,53 @@ VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
                                          _Inout_ CSampleImeArray<CCandidateListItem> *pItemList)
 {
     CDictionarySearch dshSearch(_locale, _pDictionaryFile, pKeyCode);
+    FanDictionaryDb fanDictionaryDb(_pDictionaryDb);
 
+    std::wstring keyCodeWString = L"";
+    keyCodeWString.append(pKeyCode->Get(), pKeyCode->GetLength()); // 添加 pwch 的内容
+    std::string keyCodeString = Global::wstring_to_string(keyCodeWString);
+
+#ifdef FAN_DEBUG
     Global::LogMessageW(L"fany pKeyCode starts...");
     Global::LogWideString(pKeyCode->Get(), pKeyCode->GetLength());
+    Global::LogMessageW(keyCodeWString.c_str());
     Global::LogMessageW(L"fany pKeyCode ends...");
-
-    const WCHAR *hardcodedData[] = {L"梁子", L"量子", L"两字", L"毛笔"};
+#endif
 
     // 获取硬编码数据的数量
     UINT hardcodedDataCount = 4;
 
-    // 将硬编码数据添加到 candidateList 中
-    for (UINT i = 0; i < hardcodedDataCount; i++)
+    Global::CandidateList = fanDictionaryDb.Generate(keyCodeString);
+    Global::WStringCandidateList.clear();
+    Global::FindKeyCode = keyCodeWString;
+    for (UINT i = 0; i < Global::CandidateList.size(); i++)
     {
+        FanDictionaryDb::DbWordItem curItem = Global::CandidateList[i];
+        std::string itemString = std::get<1>(curItem);
+        std::wstring itemWString = Global::string_to_wstring(itemString);
+        Global::WStringCandidateList.push_back(itemWString);
+    }
+
+    // 将硬编码数据添加到 candidateList 中
+    for (UINT i = 0; i < Global::WStringCandidateList.size(); i++)
+    {
+        const std::wstring &wstr = Global::WStringCandidateList[i];
+
         CCandidateListItem *pLI = nullptr;
         pLI = pItemList->Append();
         if (pLI)
         {
-            // 设置硬编码数据到 _ItemString 和 _FindKeyCode
-            pLI->_ItemString.Set(hardcodedData[i], wcslen(hardcodedData[i]));
-            pLI->_FindKeyCode.Set(hardcodedData[i], wcslen(hardcodedData[i]));
+            pLI->_ItemString.Set(wstr.c_str(), wstr.size());
+            pLI->_FindKeyCode.Set(Global::FindKeyCode.c_str(), Global::FindKeyCode.size());
         }
-    }
-
-    if (pItemList->Count())
-    {
-        std::string sql_str = "select * from tbl_1_j where key = 'jx';";
-        sqlite3_stmt *stmt;
-        int exit = sqlite3_prepare_v2(_pDictionaryDb, sql_str.c_str(), -1, &stmt, 0);
-        if (exit != SQLITE_OK)
-        {
-            // logger->error("sqlite3_prepare_v2 error.");
-        }
-        std::string key;
-        std::string value;
-        int weight;
-        std::wstring temp;
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            key = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
-            temp = Global::string_to_wstring(key);
-            Global::LogMessageW(temp.c_str());
-            value = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
-            temp = Global::string_to_wstring(value);
-            Global::LogMessageW(temp.c_str());
-            weight = sqlite3_column_int(stmt, 3);
-            temp = Global::string_to_wstring(std::to_string(weight));
-            Global::LogMessageW(temp.c_str());
-        }
-        sqlite3_finalize(stmt);
-
-        std::string str = "你好世界！";
-        std::wstring wstr = Global::string_to_wstring(str);
-        Global::LogMessageW(L"fany itemPair starts...");
-        Global::LogMessageW(wstr.c_str());
-        Global::LogWideString(pItemList->GetAt(0)->_ItemString.Get(), pItemList->GetAt(0)->_ItemString.GetLength());
-        Global::LogWideString(pItemList->GetAt(0)->_FindKeyCode.Get(), pItemList->GetAt(0)->_FindKeyCode.GetLength());
-        Global::LogMessageW(L"fany itemPair ends.");
-        Global::LogMessageW(L"============================");
     }
 
     if (!pItemList->Count())
     {
         CCandidateListItem *pLI = nullptr;
         pLI = pItemList->Append();
-        // 使用用户输入的关键字作为默认值
-        const WCHAR *userInput = pKeyCode->Get();          // 获取用户输入的关键字
-        DWORD_PTR userInputLength = pKeyCode->GetLength(); // 获取用户输入的长度
-        pLI->_ItemString.Set(userInput, userInputLength);  // 设置用户输入为默认值
-        pLI->_FindKeyCode.Set(userInput, userInputLength);
+        pLI->_ItemString.Set(Global::FindKeyCode.c_str(), Global::FindKeyCode.size());
+        pLI->_FindKeyCode.Set(Global::FindKeyCode.c_str(), Global::FindKeyCode.size());
     }
 }
 
