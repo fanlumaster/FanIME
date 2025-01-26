@@ -16,7 +16,6 @@
 #include "SampleIMEBaseStructure.h"
 #include <iostream>
 #include <string>
-#include "boost/locale.hpp"
 
 void DllAddRef();
 void DllRelease();

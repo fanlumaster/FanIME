@@ -11,7 +11,6 @@ add_definitions(
 )
 
 set(SQLITE_INCLUDE_DIR "./sqlite")
-set(BOOST_INCLUDE_DIR "C:\\Users\\SonnyCalcr\\scoop\\apps\\boost\\1.87.0")
 
 include_directories("./src")
 include_directories("./src/Candidate")
@@ -31,7 +30,6 @@ include_directories("./src/Tf")
 include_directories("./src/Thread")
 include_directories("./src/Window")
 include_directories(${SQLITE_INCLUDE_DIR})
-include_directories(${BOOST_INCLUDE_DIR})
 
 add_library(DeerWritingBrush SHARED
     # Candidate
@@ -137,12 +135,16 @@ add_library(DeerWritingBrush SHARED
     # Main
     "./src/DllMain.cpp"
     "./src/Server.cpp"
+    # Sqlite
+    "./sqlite/sqlite3.c"
+    "./sqlite/sqlite3.h"
 )
 
-target_link_libraries(DeerWritingBrush "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.lib" "C:\\Users\\SonnyCalcr\\scoop\\apps\\boost\\1.87.0\\lib\\libboost_locale-vc143-mt-gd-x64-1_87.lib")
+# target_link_libraries(DeerWritingBrush "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.lib")
+# target_link_libraries(DeerWritingBrush "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.lib")
 
-add_custom_command(TARGET DeerWritingBrush POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.dll"
-    $<TARGET_FILE_DIR:DeerWritingBrush>
-)
+# add_custom_command(TARGET DeerWritingBrush POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#     "${CMAKE_SOURCE_DIR}/sqlite/sqlite3.dll"
+#     $<TARGET_FILE_DIR:DeerWritingBrush>
+# )

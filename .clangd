@@ -19,7 +19,6 @@ CompileFlags:
     "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\IMECodes\\DeerWritingBrush\\src\\Thread",
     "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\IMECodes\\DeerWritingBrush\\src\\Window",
     "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\IMECodes\\DeerWritingBrush\\sqlite",
-    "-IC:\\Users\\SonnyCalcr\\scoop\\apps\\boost\\1.87.0",
     -DUNICODE,
     -D_UNICODE,
     -Wno-microsoft-goto,
