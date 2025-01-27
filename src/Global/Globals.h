@@ -17,6 +17,7 @@
 #include <iostream>
 #include <string>
 #include "FanDictionaryDbUtils.h"
+#include "D2DSource.h"
 
 void DllAddRef();
 void DllRelease();
@@ -176,4 +177,7 @@ std::string wstring_to_string(const std::wstring &wstr);
 inline std::vector<FanDictionaryDb::DbWordItem> CandidateList;
 inline std::vector<std::wstring> WStringCandidateList;
 inline std::wstring FindKeyCode;
+
+// Direct2D
+inline Direct2DSource D2DSource;
 } // namespace Global

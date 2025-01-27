@@ -82,6 +82,11 @@ class CBaseWindow
         return _wndHandle;
     }
 
+    void _SetWnd(_In_ HWND wndHandle)
+    {
+        _wndHandle = wndHandle;
+    }
+
     CBaseWindow *_GetParent()
     {
         return _pParentWnd;

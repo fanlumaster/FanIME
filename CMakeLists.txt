@@ -19,6 +19,7 @@ include_directories("./src/Compartment")
 include_directories("./src/Composition")
 include_directories("./src/DictEngine")
 include_directories("./src/DisplayAttribute")
+include_directories("./src/Drawing")
 include_directories("./src/Edit")
 include_directories("./src/File")
 include_directories("./src/Global")
@@ -72,6 +73,9 @@ add_library(DeerWritingBrush SHARED
     "./src/DisplayAttribute/DisplayString.h"
     "./src/DisplayAttribute/EnumDisplayAttributeInfo.cpp"
     "./src/DisplayAttribute/EnumDisplayAttributeInfo.h"
+    # Drawing
+    "./src/Drawing/D2DSource.cpp"
+    "./src/Drawing/D2DSource.h"
     # Edit
     "./src/Edit/EditSession.cpp"
     "./src/Edit/EditSession.h"

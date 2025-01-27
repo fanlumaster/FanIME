@@ -79,16 +79,29 @@ BOOL CCandidateWindow::_Create(ATOM atom, _In_ UINT wndWidth, _In_opt_ HWND pare
         goto Exit;
     }
 
-    // ret = _CreateVScrollWindow();
-    // if (FALSE == ret)
-    // {
-    //     goto Exit;
-    // }
+    //
+    // Create D2D target
+    //
+    Global::D2DSource.CreateWindowD2DResources(this->_GetWnd());
 
     _ResizeWindow();
 
 Exit:
     return TRUE;
+}
+
+void CCandidateWindow::_Destroy()
+{
+    if (this->_GetWnd() != nullptr)
+    {
+        DestroyWindow(this->_GetWnd());
+        this->_SetWnd(nullptr);
+    }
+
+    //
+    // Release D2D target
+    //
+    Global::D2DSource.ReleaseWindowD2DResources();
 }
 
 BOOL CCandidateWindow::_CreateMainWindow(ATOM atom, _In_opt_ HWND parentWndHandle)
@@ -266,11 +279,25 @@ LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT
     case WM_PAINT: {
         HDC dcHandle = nullptr;
         PAINTSTRUCT ps;
+        if (Global::D2DSource.pRenderTarget)
+        {
+            // 释放旧的渲染目标
+            Global::D2DSource.pRenderTarget->Release();
+            Global::D2DSource.pRenderTarget = nullptr;
+        }
 
-        dcHandle = BeginPaint(wndHandle, &ps);
-        _OnPaint(dcHandle, &ps);
-        _DrawBorder(wndHandle, CANDWND_BORDER_WIDTH * 2);
-        EndPaint(wndHandle, &ps);
+        // 创建新的渲染目标
+        RECT rc;
+        GetClientRect(this->_GetWnd(), &rc);
+        Global::D2DSource.pD2DFactory->CreateHwndRenderTarget(
+            D2D1::RenderTargetProperties(),
+            D2D1::HwndRenderTargetProperties(this->_GetWnd(), D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
+            &Global::D2DSource.pRenderTarget);
+        Global::D2DSource.DrawWithDirect2D(this->_GetWnd());
+        // dcHandle = BeginPaint(wndHandle, &ps);
+        // _OnPaint(dcHandle, &ps);
+        // _DrawBorder(wndHandle, CANDWND_BORDER_WIDTH * 2);
+        // EndPaint(wndHandle, &ps);
     }
         return 0;
 

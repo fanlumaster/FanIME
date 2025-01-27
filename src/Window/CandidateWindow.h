@@ -28,6 +28,7 @@ class CCandidateWindow : public CBaseWindow
     virtual ~CCandidateWindow();
 
     BOOL _Create(ATOM atom, _In_ UINT wndWidth, _In_opt_ HWND parentWndHandle);
+    void _Destroy();
 
     void _Move(int x, int y);
     void _Show(BOOL isShowWnd);

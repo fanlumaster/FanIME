@@ -11,6 +11,7 @@
 #include "CandidateListUIPresenter.h"
 #include "CompositionProcessorEngine.h"
 #include "Compartment.h"
+#include "D2DSource.h"
 
 //+---------------------------------------------------------------------------
 //
@@ -265,6 +266,8 @@ STDAPI CSampleIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClientId, D
         goto ExitError;
     }
 
+    Global::D2DSource.CreateGlobalD2DResources();
+
     return S_OK;
 
 ExitError:
@@ -339,6 +342,9 @@ STDAPI CSampleIME::Deactivate()
         _pDocMgrLastFocused->Release();
         _pDocMgrLastFocused = nullptr;
     }
+
+    Global::D2DSource.ReleaseGlobalD2DResources();
+    Global::D2DSource.ReleaseWindowD2DResources();
 
     return S_OK;
 }

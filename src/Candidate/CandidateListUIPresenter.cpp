@@ -103,7 +103,7 @@ HRESULT CSampleIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pCo
     candidateString.Set(pCandidateString, candidateLen);
 
     BOOL fMakePhraseFromText = _pCompositionProcessorEngine->IsMakePhraseFromText();
-    if (fMakePhraseFromText)
+    if (fMakePhraseFromText) // NOTICE: always no
     {
         _pCompositionProcessorEngine->GetCandidateStringInConverted(candidateString, &candidatePhraseList);
         LCID locale = _pCompositionProcessorEngine->GetLocale();
