@@ -73,7 +73,6 @@ VOID CTableDictionaryEngine::CollectWord(_In_ CStringRange *pKeyCode,
         Global::WStringCandidateList.push_back(itemWString);
     }
 
-    // 将硬编码数据添加到 candidateList 中
     for (UINT i = 0; i < Global::WStringCandidateList.size(); i++)
     {
         const std::wstring &wstr = Global::WStringCandidateList[i];

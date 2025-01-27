@@ -38,9 +38,7 @@ class CCandidateWindow : public CBaseWindow
     LRESULT CALLBACK _WindowProcCallback(_In_ HWND wndHandle, UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam);
     void _OnPaint(_In_ HDC dcHandle, _In_ PAINTSTRUCT *pps);
     void _OnLButtonDown(POINT pt);
-    void _OnLButtonUp(POINT pt);
     void _OnMouseMove(POINT pt);
-    void _OnVScroll(DWORD dwSB, _In_ DWORD nPos);
 
     void _AddString(_Inout_ CCandidateListItem *pCandidateItem, _In_ BOOL isAddFindKeyCode);
     void _ClearList();
@@ -81,13 +79,11 @@ class CCandidateWindow : public CBaseWindow
 
     BOOL _CreateMainWindow(ATOM atom, _In_opt_ HWND parentWndHandle);
     BOOL _CreateBackGroundShadowWindow();
-    BOOL _CreateVScrollWindow();
 
     HRESULT _AdjustPageIndex(_Inout_ UINT &currentPage, _Inout_ UINT &currentPageIndex);
 
     void _ResizeWindow();
     void _DeleteShadowWnd();
-    void _DeleteVScrollBarWnd();
 
     friend COLORREF _AdjustTextColor(_In_ COLORREF crColor, _In_ COLORREF crBkColor);
 
@@ -111,7 +107,7 @@ class CCandidateWindow : public CBaseWindow
     void *_pObj;
 
     CShadowWindow *_pShadowWnd;
-    CScrollBarWindow *_pVScrollBarWnd;
+    // CScrollBarWindow *_pVScrollBarWnd;
 
     BOOL _dontAdjustOnEmptyItemPage;
     BOOL _isStoreAppMode;
