@@ -8,6 +8,8 @@
 #include "Private.h"
 #include "Globals.h"
 #include "BaseWindow.h"
+#include "globals.h"
+#include <d2d1helper.h>
 #include "CandidateWindow.h"
 
 COLORREF _AdjustTextColor(_In_ COLORREF crColor, _In_ COLORREF crBkColor);
@@ -149,7 +151,7 @@ void CCandidateWindow::_ResizeWindow()
     _cxTitle = 500;
 
     int candidateListPageCnt = _pIndexRange->Count();
-    CBaseWindow::_Resize(0, 0, _cxTitle - 222, _cyRow * candidateListPageCnt + 10);
+    CBaseWindow::_Resize(0, 0, _cxTitle - 222, _cyRow * candidateListPageCnt + 38);
 
     RECT rcCandRect = {0, 0, 0, 0};
     _GetClientRect(&rcCandRect);
@@ -276,7 +278,8 @@ LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT
         break;
 
     case WM_PAINT: {
-        Global::D2DSource.DrawWithDirect2D(this->_GetWnd());
+        // Global::D2DSource.DrawWithDirect2D(this->_GetWnd());
+        _OnPaintWithD2D();
     }
         return 0;
 
@@ -374,6 +377,20 @@ void CCandidateWindow::_OnPaint(_In_ HDC dcHandle, _In_ PAINTSTRUCT *pPaintStruc
 
 cleanup:
     SelectObject(dcHandle, hFontOld);
+}
+
+void CCandidateWindow::_OnPaintWithD2D()
+{
+    UINT currentPageIndex = 0;
+    UINT currentPage = 0;
+
+    if (FAILED(_GetCurrentPage(&currentPage)))
+    {
+        return;
+    }
+
+    _AdjustPageIndex(currentPage, currentPageIndex);
+    _DrawListWithD2D(currentPageIndex);
 }
 
 //+---------------------------------------------------------------------------
@@ -527,6 +544,51 @@ void CCandidateWindow::_DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT 
     // 恢复原来的字体
     SelectObject(dcHandle, hOldFont);
     DeleteObject(hFont);
+}
+
+void CCandidateWindow::_DrawListWithD2D(_In_ UINT iIndex)
+{
+    ID2D1Factory *pD2DFactory = Global::D2DSource.pD2DFactory;
+    ID2D1HwndRenderTarget *pRenderTarget = Global::D2DSource.pRenderTarget;
+    ID2D1SolidColorBrush *pBrush = Global::D2DSource.pBrush;
+    IDWriteFactory *pDWriteFactory = Global::D2DSource.pDWriteFactory;
+    IDWriteTextFormat *pTextFormat = Global::D2DSource.pTextFormat;
+
+    int pageCount = 0;
+    int candidateListPageCnt = _pIndexRange->Count();
+
+    const size_t lenOfPageCount = 16;
+    const int LineHeight = 22;
+    const int LeftPadding = 5;
+
+    pRenderTarget->BeginDraw();
+    // RGB(25, 25, 25)
+    pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+
+    // Draw background rectangle
+    pBrush->SetColor(D2D1::ColorF(25.0f / 255.0f, 25.0f / 255.0f, 25.0f / 255.0f, 1.0f));
+    D2D1_RECT_F rect = D2D1::RectF(0.0f, 0.0f, 100.0f, 223.0f);
+    D2D1_ROUNDED_RECT rounded_rect = D2D1::RoundedRect(rect, 8, 8);
+    pRenderTarget->FillRoundedRectangle(rounded_rect, pBrush);
+    // Set brush color for text
+    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 1.0f));
+    for (; (iIndex < _candidateList.Count()) && (pageCount < candidateListPageCnt); iIndex++, pageCount++)
+    {
+        WCHAR pageCountString[lenOfPageCount] = {'\0'};
+        CCandidateListItem *pItemList = nullptr;
+
+        StringCchPrintf(pageCountString, ARRAYSIZE(pageCountString), L"%d.", (LONG)*_pIndexRange->GetAt(pageCount));
+        pRenderTarget->DrawText(
+            pageCountString, lenOfPageCount, pTextFormat,
+            D2D1::RectF(LeftPadding, 2 + LineHeight * pageCount, 30 + LeftPadding, 10 + LineHeight * pageCount),
+            pBrush);
+        pItemList = _candidateList.GetAt(iIndex);
+        pRenderTarget->DrawText(
+            pItemList->_ItemString.Get(), (DWORD)pItemList->_ItemString.GetLength(), pTextFormat,
+            D2D1::RectF(22 + LeftPadding, 2 + LineHeight * pageCount, 270 + LeftPadding, 10 + LineHeight * pageCount),
+            pBrush);
+    }
+    HRESULT hr = pRenderTarget->EndDraw();
 }
 
 //+---------------------------------------------------------------------------

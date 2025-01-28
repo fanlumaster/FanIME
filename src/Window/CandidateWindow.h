@@ -38,6 +38,7 @@ class CCandidateWindow : public CBaseWindow
 
     LRESULT CALLBACK _WindowProcCallback(_In_ HWND wndHandle, UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam);
     void _OnPaint(_In_ HDC dcHandle, _In_ PAINTSTRUCT *pps);
+    void _OnPaintWithD2D();
     void _OnLButtonDown(POINT pt);
     void _OnMouseMove(POINT pt);
 
@@ -70,6 +71,7 @@ class CCandidateWindow : public CBaseWindow
   private:
     void _HandleMouseMsg(_In_ UINT mouseMsg, _In_ POINT point);
     void _DrawList(_In_ HDC dcHandle, _In_ UINT iIndex, _In_ RECT *prc);
+    void _DrawListWithD2D(_In_ UINT iIndex);
     void _DrawBorder(_In_ HWND wndHandle, _In_ int cx);
     BOOL _SetSelectionOffset(_In_ int offSet);
     BOOL _AdjustPageIndexForSelection();

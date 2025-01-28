@@ -67,6 +67,8 @@ void Direct2DSource::ReleaseWindowD2DResources()
 
 void Direct2DSource::ClearWithDirect2D(HWND hwnd)
 {
+    if (!pRenderTarget)
+        return;
     pRenderTarget->BeginDraw();
     pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
     HRESULT hr = pRenderTarget->EndDraw();

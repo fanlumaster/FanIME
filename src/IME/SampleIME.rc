@@ -15,7 +15,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDIS_SAMPLEIME          ICON                    "..\\..\\image\\SampleIme.ico"
+IDIS_SAMPLEIME          ICON                    "..\\..\\image\\FeatherIME.ico"
 IDI_IME_MODE_ON         ICON                    "..\\..\\image\\ImeModeOn.ico"
 IDI_IME_MODE_OFF        ICON                    "..\\..\\image\\ImeModeOff.ico"
 IDI_DOUBLE_SINGLE_BYTE_ON ICON                    "..\\..\\image\\DoubleSingleByteOn.ico"

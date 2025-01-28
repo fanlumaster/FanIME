@@ -21,7 +21,7 @@ static const WCHAR RegInfo_Prefix_CLSID[] = L"CLSID\\";
 static const WCHAR RegInfo_Key_InProSvr32[] = L"InProcServer32";
 static const WCHAR RegInfo_Key_ThreadModel[] = L"ThreadingModel";
 
-static const WCHAR TEXTSERVICE_DESC[] = L"Sample IME";
+static const WCHAR TEXTSERVICE_DESC[] = L"Fan IME";
 
 static const GUID SupportCategories[] = {
     GUID_TFCAT_TIP_KEYBOARD,
