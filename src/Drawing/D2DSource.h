@@ -2,9 +2,11 @@
 
 #include <d2d1.h>
 #include <dwrite.h>
+#include <dwmapi.h>
 
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 struct Direct2DSource
 {
@@ -26,5 +28,6 @@ struct Direct2DSource
     void CreateWindowD2DResources(HWND hwnd);
     void ReleaseWindowD2DResources();
 
+    void ClearWithDirect2D(HWND hwnd);
     void DrawWithDirect2D(HWND hwnd);
 };

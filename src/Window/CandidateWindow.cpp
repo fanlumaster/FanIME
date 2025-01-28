@@ -79,12 +79,12 @@ BOOL CCandidateWindow::_Create(ATOM atom, _In_ UINT wndWidth, _In_opt_ HWND pare
         goto Exit;
     }
 
+    _ResizeWindow();
+
     //
     // Create D2D target
     //
     Global::D2DSource.CreateWindowD2DResources(this->_GetWnd());
-
-    _ResizeWindow();
 
 Exit:
     return TRUE;
@@ -108,10 +108,16 @@ BOOL CCandidateWindow::_CreateMainWindow(ATOM atom, _In_opt_ HWND parentWndHandl
 {
     _SetUIWnd(this);
 
-    if (!CBaseWindow::_Create(atom, WS_EX_TOPMOST | WS_EX_TOOLWINDOW, WS_BORDER | WS_POPUP, NULL, 0, 0,
+    if (!CBaseWindow::_Create(atom, WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED, WS_POPUP, NULL, 0, 0,
                               parentWndHandle))
     {
         return FALSE;
+    }
+    else
+    {
+        SetLayeredWindowAttributes(this->_GetWnd(), RGB(0, 0, 0), 255, LWA_ALPHA);
+        MARGINS margins = {-1}; // -1 表示整个窗口
+        DwmExtendFrameIntoClientArea(this->_GetWnd(), &margins);
     }
 
     return TRUE;
@@ -139,7 +145,8 @@ void CCandidateWindow::_ResizeWindow()
 {
     SIZE size = {0, 0};
 
-    _cxTitle = max(_cxTitle, size.cx + 2 * GetSystemMetrics(SM_CXFRAME));
+    // _cxTitle = max(_cxTitle, size.cx + 2 * GetSystemMetrics(SM_CXFRAME));
+    _cxTitle = 500;
 
     int candidateListPageCnt = _pIndexRange->Count();
     CBaseWindow::_Resize(0, 0, _cxTitle - 222, _cyRow * candidateListPageCnt + 10);
@@ -174,7 +181,10 @@ void CCandidateWindow::_Show(BOOL isShowWnd)
 {
     if (_pShadowWnd)
     {
-        _pShadowWnd->_Show(isShowWnd);
+        //
+        // We do not need shadow window during current development time
+        //
+        _pShadowWnd->_Show(FALSE);
     }
     CBaseWindow::_Show(isShowWnd);
 }
@@ -212,22 +222,11 @@ LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT
 {
     switch (uMsg)
     {
+    case WM_ERASEBKGND:
+        return 0;
     case WM_CREATE: {
-        HDC dcHandle = nullptr;
-
-        dcHandle = GetDC(wndHandle);
-        if (dcHandle)
-        {
-            HFONT hFontOld = (HFONT)SelectObject(dcHandle, Global::defaultlFontHandle);
-            GetTextMetrics(dcHandle, &_TextMetric);
-
-            _cxTitle = _TextMetric.tmMaxCharWidth * _wndWidth;
-            SelectObject(dcHandle, hFontOld);
-            ReleaseDC(wndHandle, dcHandle);
-        }
     }
         return 0;
-
     case WM_DESTROY:
         _DeleteShadowWnd();
         return 0;
@@ -277,27 +276,7 @@ LRESULT CALLBACK CCandidateWindow::_WindowProcCallback(_In_ HWND wndHandle, UINT
         break;
 
     case WM_PAINT: {
-        HDC dcHandle = nullptr;
-        PAINTSTRUCT ps;
-        if (Global::D2DSource.pRenderTarget)
-        {
-            // 释放旧的渲染目标
-            Global::D2DSource.pRenderTarget->Release();
-            Global::D2DSource.pRenderTarget = nullptr;
-        }
-
-        // 创建新的渲染目标
-        RECT rc;
-        GetClientRect(this->_GetWnd(), &rc);
-        Global::D2DSource.pD2DFactory->CreateHwndRenderTarget(
-            D2D1::RenderTargetProperties(),
-            D2D1::HwndRenderTargetProperties(this->_GetWnd(), D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
-            &Global::D2DSource.pRenderTarget);
         Global::D2DSource.DrawWithDirect2D(this->_GetWnd());
-        // dcHandle = BeginPaint(wndHandle, &ps);
-        // _OnPaint(dcHandle, &ps);
-        // _DrawBorder(wndHandle, CANDWND_BORDER_WIDTH * 2);
-        // EndPaint(wndHandle, &ps);
     }
         return 0;
 

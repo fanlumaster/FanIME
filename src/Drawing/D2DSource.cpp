@@ -44,9 +44,11 @@ void Direct2DSource::CreateWindowD2DResources(HWND hwnd)
     {
         RECT rc;
         GetClientRect(hwnd, &rc);
+        D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+            D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
+        // props = D2D1::RenderTargetProperties();
         pD2DFactory->CreateHwndRenderTarget(
-            D2D1::RenderTargetProperties(),
-            D2D1::HwndRenderTargetProperties(hwnd, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
+            props, D2D1::HwndRenderTargetProperties(hwnd, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)),
             &pRenderTarget);
         pRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &pBrush);
     }
@@ -63,6 +65,20 @@ void Direct2DSource::ReleaseWindowD2DResources()
     pBrush = nullptr;
 }
 
+void Direct2DSource::ClearWithDirect2D(HWND hwnd)
+{
+    pRenderTarget->BeginDraw();
+    pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+    HRESULT hr = pRenderTarget->EndDraw();
+    if (hr == D2DERR_RECREATE_TARGET)
+    {
+        ReleaseGlobalD2DResources();
+        ReleaseWindowD2DResources();
+        CreateGlobalD2DResources();
+        CreateWindowD2DResources(hwnd);
+    }
+}
+
 void Direct2DSource::DrawWithDirect2D(HWND hwnd)
 {
     if (!pRenderTarget || !pTextFormat)
@@ -70,7 +86,7 @@ void Direct2DSource::DrawWithDirect2D(HWND hwnd)
 
     pRenderTarget->BeginDraw();
     // RGB(25, 25, 25)
-    pRenderTarget->Clear(D2D1::ColorF(25.0f / 255.0f, 25.0f / 255.0f, 25.0f / 255.0f));
+    pRenderTarget->Clear(D2D1::ColorF(25.0 / 255, 25.0 / 255, 25.0 / 255, 0));
 
     // set brush color
     pRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &pBrush);

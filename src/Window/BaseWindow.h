@@ -170,10 +170,11 @@ class CBaseWindow
         SetWindowLongPtr(wndHandle, GWLP_USERDATA, (LONG_PTR)lpv);
     }
 
-  private:
+  protected:
     HWND _wndHandle;
-
     CBaseWindow *_pParentWnd;
+
+  private:
     CBaseWindow *_pUIWnd;
 
     CBaseWindow *_pTimerUIObj;

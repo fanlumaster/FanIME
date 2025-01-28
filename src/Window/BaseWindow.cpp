@@ -63,7 +63,7 @@ BOOL CBaseWindow::_InitWindowClass(_In_ LPCWSTR lpwszClassName, _Out_ ATOM *pato
     wc.hInstance = Global::dllInstanceHandle;
     wc.hIcon = nullptr;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
+    wc.hbrBackground = NULL;
     wc.lpszMenuName = nullptr;
     wc.lpszClassName = lpwszClassName;
 

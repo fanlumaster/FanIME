@@ -266,6 +266,7 @@ STDAPI CSampleIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClientId, D
         goto ExitError;
     }
 
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     Global::D2DSource.CreateGlobalD2DResources();
 
     return S_OK;
