@@ -16,6 +16,30 @@ Run the following command,
 ./lcompile.ps1
 ```
 
+we also need to build one 32-bit version,
+
+```powershell
+./lcompile.ps1 32
+```
+
+Besides, we also need to build dictionary for our IME using this repositoy below,
+
+<https://github.com/fanlumaster/FanyDictForIME.git>
+
+You need to build this this repo to generate IME Dictionary first, what you need to do is running the commands besides using pwsh7,
+
+```powershell
+cd $env:LOCALAPPDATA
+mkdir DeerWritingBrush
+cd DeerWritingBrush
+git clone https://github.com/fanlumaster/FanyDictForIME.git
+cd ./FanyDictForIME/makecikudb/xnheulpb/makedb/separated_jp_version
+python ./create_db_and_table.py
+python ./insert_data.py
+python ./create_index_for_db.py
+Copy-Item -Path ./out/cutted_flyciku_with_jp.db -Destination $env:LOCALAPPDATA/DeerWritingBrush
+```
+
 ### How to Install
 
 Run the following command as administrator,
