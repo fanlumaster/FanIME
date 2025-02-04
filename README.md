@@ -46,6 +46,12 @@ Moreover, we also need to copy another Dictionary file contained in our main pro
 Copy-Item -Path ./Dictionary/SampleIMESimplifiedQuanPin.txt -Destination $env:LOCALAPPDATA/DeerWritingBrush
 ```
 
+Last, copy following files to `$env:LOCALAPPDATA/DeerWritingBrush`,
+
+```powersehll
+Copy-Item -Path ./assets/* -Destination $env:LOCALAPPDATA/DeerWritingBrush
+```
+
 ### How to Install
 
 Run the following command as administrator,
