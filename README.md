@@ -40,6 +40,12 @@ python ./create_index_for_db.py
 Copy-Item -Path ./out/cutted_flyciku_with_jp.db -Destination $env:LOCALAPPDATA/DeerWritingBrush
 ```
 
+Moreover, we also need to copy another Dictionary file contained in our main project repo(FanIME) to `$env:LOCALAPPDATA/DeerWritingBrush`，run the command below,
+
+```powersehll
+Copy-Item -Path ./Dictionary/SampleIMESimplifiedQuanPin.txt -Destination $env:LOCALAPPDATA/DeerWritingBrush
+```
+
 ### How to Install
 
 Run the following command as administrator,
