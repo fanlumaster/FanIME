@@ -1,6 +1,6 @@
 ## What is FanIME
 
-Based on Microsoft [TSF IME Demo](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/IME/cpp/SampleIME) 。
+Based on Microsoft [TSF IME Demo](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/IME/cpp/SampleIME)。
 
 Mainly to develop a Chinese Input Method Editor without ads and likely some other disturbing things we users hate really.
 
@@ -10,13 +10,21 @@ The roadmap is as follows.
 
 ### How to build
 
-Run the following command,
+Before we start, make sure you have already installed boost,
+
+```powershell
+scoop install boost
+```
+
+Then, replace boost version in `./CMakeLists.txt`,
+
+And thne, run the following command,
 
 ```powershell
 ./lcompile.ps1
 ```
 
-we also need to build one 32-bit version,
+We also need to build one 32-bit version,
 
 ```powershell
 ./lcompile.ps1 32

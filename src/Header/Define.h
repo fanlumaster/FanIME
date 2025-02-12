@@ -8,11 +8,15 @@
 #pragma once
 #include "resource.h"
 
+#define IME_NAME L"DeerWritingBrush"
+
 #define TEXTSERVICE_MODEL L"Apartment"
 #define TEXTSERVICE_LANGID MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED)
 #define TEXTSERVICE_ICON_INDEX -IDIS_SAMPLEIME
 #define TEXTSERVICE_DIC L"SampleIMESimplifiedQuanPin.txt"
 #define TEXTSERVICE_DIC_DB L"cutted_flyciku_with_jp.db"
+#define FANYLOGFILE_ "fanydebug.log"
+#define FANYLOGFILE L"fanydebug_w.log"
 
 #define IME_MODE_ON_ICON_INDEX IDI_IME_MODE_ON
 #define IME_MODE_OFF_ICON_INDEX IDI_IME_MODE_OFF

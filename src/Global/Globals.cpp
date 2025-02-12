@@ -1,10 +1,3 @@
-// THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
-// PARTICULAR PURPOSE.
-//
-// Copyright (c) Microsoft Corporation. All rights reserved
-
 #include "Globals.h"
 #include "Private.h"
 #include "resource.h"
@@ -15,6 +8,7 @@
 #include <fstream>
 #include <string>
 #include <ctime>
+#include "FanyUtils.h"
 
 namespace Global
 {
@@ -401,56 +395,48 @@ BOOL CompareElements(LCID locale, const CStringRange *pElement1, const CStringRa
 
 void LogMessage(const char *message)
 {
-    // 获取当前时间
+    // Get local time
     std::time_t now = std::time(nullptr);
     std::tm *localTime = std::localtime(&now);
 
-    // 格式化时间
+    // format time
     char timeBuffer[80];
     std::strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", localTime);
 
-    // 打开日志文件
-    std::ofstream logFile("C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/log/fanydebug.log",
-                          std::ios_base::app); // 以追加模式打开
+    std::ofstream logFile(FanyUtuils::GetLogFilePath(), std::ios_base::app); // Append mode
+
     if (logFile.is_open())
     {
-        logFile << "[" << timeBuffer << "] " << message << std::endl; // 写入日志
-        logFile.close();                                              // 关闭文件
+        logFile << "[" << timeBuffer << "] " << message << std::endl; // Write to log
+        logFile.close();
     }
 }
-
 void LogMessageW(const wchar_t *message)
 {
-    // 获取当前时间
     std::time_t now = std::time(nullptr);
     std::tm *localTime = std::localtime(&now);
 
-    // 格式化时间
     wchar_t timeBuffer[80];
     wcsftime(timeBuffer, sizeof(timeBuffer) / sizeof(wchar_t), L"%Y-%m-%d %H:%M:%S", localTime);
 
-    // 打开日志文件
-    std::wofstream logFile(L"C:/Users/SonnyCalcr/AppData/Local/DeerWritingBrush/log/fanydebug_w.log",
-                           std::ios_base::app); // 以追加模式打开
+    std::wofstream logFile(FanyUtuils::GetLogFilePathW(), std::ios_base::app);
     if (logFile.is_open())
     {
         logFile.imbue(std::locale("Chinese_China.65001"));
         logFile << L"[" << timeBuffer << L"] " << message;
-        logFile << std::endl; // 写入日志
-        logFile.close();      // 关闭文件
+        logFile << std::endl;
+        logFile.close();
     }
 }
 
-// 写入 pwch 和 dwLength 到日志文件
+// Write wide string and its length to log
 void LogWideString(const WCHAR *pwch, DWORD_PTR dwLength)
 {
-    // 将 pwch 和 dwLength 格式化为日志消息
     std::wstring logMessage = L"pwch: ";
-    logMessage.append(pwch, dwLength); // 添加 pwch 的内容
+    logMessage.append(pwch, dwLength);
     logMessage += L", dwLength: ";
-    logMessage += std::to_wstring(dwLength); // 添加 dwLength 的值
+    logMessage += std::to_wstring(dwLength);
 
-    // 调用日志函数写入文件
     LogMessageW(logMessage.c_str());
 }
 
@@ -459,17 +445,17 @@ std::wstring string_to_wstring(const std::string &str)
     if (str.empty())
         return L"";
 
-    // 获取所需缓冲区大小
+    // Get buffer size needed
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
     if (size_needed <= 0)
     {
         throw std::runtime_error("MultiByteToWideChar failed");
     }
 
-    // 分配缓冲区
+    // allocate size for buffer
     std::wstring wstr(size_needed, 0);
 
-    // 执行转换
+    // Do convert here
     int result = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &wstr[0], size_needed);
     if (result <= 0)
     {
@@ -484,17 +470,14 @@ std::string wstring_to_string(const std::wstring &wstr)
     if (wstr.empty())
         return "";
 
-    // 获取所需缓冲区大小
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
     if (size_needed <= 0)
     {
         throw std::runtime_error("WideCharToMultiByte failed");
     }
 
-    // 分配缓冲区
     std::string str(size_needed, 0);
 
-    // 执行转换
     int result =
         WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &str[0], size_needed, nullptr, nullptr);
     if (result <= 0)

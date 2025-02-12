@@ -11,7 +11,9 @@ add_definitions(
 )
 
 set(SQLITE_INCLUDE_DIR "./sqlite")
-set(BOOST_INCLUDE_DIR "C:\\Users\\SonnyCalcr\\scoop\\apps\\boost\\1.87.0")
+set(USERNAME "$ENV{USERNAME}")
+set(BOOST_VERSION "1.87.0")
+set(BOOST_INCLUDE_DIR "C:/Users/${USERNAME}/scoop/apps/boost/${BOOST_VERSION}")
 
 include_directories("./src")
 include_directories("./src/Candidate")
@@ -127,6 +129,9 @@ add_library(DeerWritingBrush SHARED
     # Thread
     "./src/Thread/ThreadFocusSink.cpp"
     "./src/Thread/ThreadMgrEventSink.cpp"
+    # Utils
+    "./src/Utils/FanyUtils.cpp"
+    "./src/Utils/FanyUtils.h"
     # Window
     "./src/Window/BaseWindow.cpp"
     "./src/Window/BaseWindow.h"
