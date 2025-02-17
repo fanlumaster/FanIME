@@ -11,7 +11,7 @@
 #pragma once
 
 #include "Private.h"
-#include "globals.h"
+#include "Globals.h"
 #include "SampleIME.h"
 #include "EnumDisplayAttributeInfo.h"
 

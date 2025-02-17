@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "private.h"
+#include "Private.h"
 #include <string>
 
 class CTipCandidateString : public ITfCandidateString

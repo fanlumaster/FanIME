@@ -11,7 +11,7 @@
 #define UNICODE
 #endif
 
-#include "private.h"
+#include "Private.h"
 #include "define.h"
 #include "SampleIMEBaseStructure.h"
 #include <iostream>

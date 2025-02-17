@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "private.h"
+#include "Private.h"
 
 //
 // CSearchCandidateProvider

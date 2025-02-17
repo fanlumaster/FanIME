@@ -5,7 +5,7 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "private.h"
+#include "Private.h"
 #include "TipCandidateList.h"
 #include "EnumTfCandidates.h"
 #include "TipCandidateString.h"

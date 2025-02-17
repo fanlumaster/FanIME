@@ -8,7 +8,7 @@
 #include "Private.h"
 #include "Globals.h"
 #include "BaseWindow.h"
-#include "globals.h"
+#include "Globals.h"
 #include <d2d1helper.h>
 #include "CandidateWindow.h"
 

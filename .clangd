@@ -23,6 +23,7 @@ CompileFlags:
     "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\IMECodes\\DeerWritingBrush\\sqlite",
     -DUNICODE,
     -D_UNICODE,
+    -Wno-unused-includes,
     -Wno-microsoft-goto,
     -Wno-unused-value,
     -Wno-nonportable-include-path,
@@ -30,4 +31,6 @@ CompileFlags:
     -Wno-invalid-token-paste
   ] # ignore some specific warnings
 Diagnostics:
-  UnusedIncludes: None
+  UnusedIncludes: None # This would not work in Windows, why?
+  Includes:
+    IgnoreHeader: ["Private.h", "Globals.h"] # Suppress unused includes waraning

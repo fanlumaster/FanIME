@@ -8,7 +8,7 @@
 #pragma once
 
 #include "Private.h"
-#include "globals.h"
+#include "Globals.h"
 
 //+---------------------------------------------------------------------------
 //

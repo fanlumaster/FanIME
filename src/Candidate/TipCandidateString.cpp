@@ -5,7 +5,7 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved
 
-#include "private.h"
+#include "Private.h"
 #include "TipCandidateString.h"
 
 HRESULT CTipCandidateString::CreateInstance(_Outptr_ CTipCandidateString **ppobj)
