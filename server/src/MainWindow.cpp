@@ -26,7 +26,7 @@ UINT WM_HIDE_MAIN_WINDOW;
 UINT WM_MOVE_CANDIDATE_WINDOW;
 
 static TCHAR szWindowClass[] = _T("global_candidate_window");
-static TCHAR szTitle[] = _T("WebView sample");
+static TCHAR szTitle[] = _T("Global Candidate Window");
 
 std::wstring candStr = L"";
 

@@ -19,18 +19,18 @@ add_definitions(
 #     /DFANY_DEBUG=1
 # )
 
-include_directories("./includes/")
+include_directories("./src/")
+include_directories("./src/webview2")
 
-set(HEADER_FILES
-    ./includes/main.h
-)
+set(MY_EXECUTABLE_NAME "fanimeui")
 
 set(SRC_FILES
-    "src/webview2/MainWindow.cpp"
+    "./src/webview2/webview2_ui.cpp"
+    "./src/webview2/webview2_ui.h"
+    "src/MainWindow.cpp"
 )
 
-add_executable(fanimeui WIN32
-    ${HEADER_FILES} 
+add_executable(${MY_EXECUTABLE_NAME} WIN32
     ${SRC_FILES}
 )
 
