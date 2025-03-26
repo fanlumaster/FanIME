@@ -4,11 +4,16 @@ set(PROJECT_NAME "fanimeui")
 
 project(${PROJECT_NAME} VERSION 1.0)
 
+set(Boost_ROOT "C:/Users/SonnyCalcr/scoop/apps/boost/1.87.0")
+set (Boost_USE_STATIC_LIBS ON)
+find_package(Boost REQUIRED COMPONENTS locale)
+
 add_subdirectory(fmt)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_definitions(
     /D_UNICODE=1
@@ -20,14 +25,22 @@ add_definitions(
 # )
 
 include_directories("./src/")
-include_directories("./src/webview2")
 
 set(MY_EXECUTABLE_NAME "fanimeui")
 
 set(SRC_FILES
-    "./src/webview2/webview2_ui.cpp"
-    "./src/webview2/webview2_ui.h"
-    "src/MainWindow.cpp"
+    "./src/defines/defines.h"
+    "./src/log/fanylog.cpp"
+    "./src/log/fanylog.h"
+    "./src/utils/webview_utils.cpp"
+    "./src/utils/webview_utils.h"
+    "./src/utils/common_utils.cpp"
+    "./src/utils/common_utils.h"
+    "./src/webview2/candidate_window_webview2.cpp"
+    "./src/webview2/candidate_window_webview2.h"
+    "./src/window/candidate_window.cpp"
+    "./src/window/candidate_window.h"
+    "./src/main.cpp"
 )
 
 add_executable(${MY_EXECUTABLE_NAME} WIN32
@@ -38,4 +51,4 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPrefere
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/FanIME_UI.props")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3124.44;Microsoft.Windows.ImplementationLibrary_1.0.240803.1")
 
-target_link_libraries(${PROJECT_NAME} fmt::fmt)
+target_link_libraries(${PROJECT_NAME} fmt::fmt Boost::locale)

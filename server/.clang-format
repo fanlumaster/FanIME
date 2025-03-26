@@ -3,4 +3,4 @@ BasedOnStyle: Microsoft
 IndentWidth: 4
 
 SortIncludes: true
-ColumnLimit: 80
+ColumnLimit: 120
