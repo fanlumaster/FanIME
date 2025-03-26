@@ -1,4 +1,6 @@
 #include "webview_utils.h"
+#include "spdlog/spdlog.h"
+#include "utils/common_utils.h"
 
 void MeasureDomUpdateTime(ComPtr<ICoreWebView2> webview)
 {
@@ -11,9 +13,7 @@ void MeasureDomUpdateTime(ComPtr<ICoreWebView2> webview)
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    auto duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::wstring message =
-        L"DOM update time: " + std::to_wstring(duration.count()) + L" μs";
-    // LogMessageW(message.c_str());
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::wstring message = L"DOM update time: " + std::to_wstring(duration.count()) + L" μs";
+    spdlog::info(wstring_to_string(message));
 }

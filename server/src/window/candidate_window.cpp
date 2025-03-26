@@ -1,6 +1,7 @@
 #include "candidate_window.h"
 #include "defines/defines.h"
-#include "log/fanylog.h"
+#include "spdlog/spdlog.h"
+#include "utils/common_utils.h"
 #include "webview2/candidate_window_webview2.h"
 #include <minwindef.h>
 
@@ -135,7 +136,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             std::wstring str = p;
             CandStr = str;
 #ifdef FANY_DEBUG
-            LogMessageW(str.c_str());
+            spdlog::info(wstring_to_string(str));
 #endif
             InflateCandidateWindow(str);
         }
