@@ -122,11 +122,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return MA_NOACTIVATE;
     case WM_COPYDATA: {
         COPYDATASTRUCT *pcds = (COPYDATASTRUCT *)lParam;
+        static int s_caretX = 0;
+        static int s_caretY = 0;
         if (pcds->dwData == 0)
         {
             POINT *pt = (POINT *)pcds->lpData;
-            int caretX = pt->x;
-            int caretY = pt->y;
+            auto caretX = pt->x;
+            auto caretY = pt->y;
+            s_caretX = caretX;
+            s_caretY = caretY;
             std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
             GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
 #ifdef FANY_DEBUG
@@ -157,9 +161,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             spdlog::info(wstring_to_string(str));
 #endif
             InflateCandidateWindow(str);
+            auto caretX = s_caretX;
+            auto caretY = s_caretY;
+            s_caretX = caretX;
+            s_caretY = caretY;
+            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
+#ifdef FANY_DEBUG
+                spdlog::info("Caret position: ({}, {})", caretX, caretY);
+                spdlog::info("Container size: ({}, {})", containerSize.first, containerSize.second);
+#endif
+                POINT pt = {caretX, caretY};
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                MoveWindow(            //
+                    hWnd,              //
+                    properPos->first,  //
+                    properPos->second, //
+                    (108 + 15) * 1.5,  //
+                    (246 + 15) * 1.5,  //
+                    TRUE               //
+                );                     //
+            });
+#ifdef FANY_DEBUG
+            spdlog::info("Window position: {}, {}", caretX, caretY);
+#endif
         }
+        ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         return 1;
     }
+
     case WM_ACTIVATE: {
         if (LOWORD(wParam) != WA_INACTIVE)
         {

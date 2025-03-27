@@ -27,7 +27,7 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
 #ifdef FANY_DEBUG
     spdlog::info("Div size: {}", jsonStr);
 #endif
-    auto size = std::make_pair(0.0, 0.0);
+    auto size = std::make_pair(108.0, 246.0);
     try
     {
         json::value parsed = json::parse(jsonStr);
