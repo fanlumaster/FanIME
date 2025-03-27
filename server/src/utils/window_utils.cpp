@@ -1,5 +1,6 @@
 #include "window_utils.h"
 #include "spdlog/spdlog.h"
+#include <utility>
 
 FLOAT GetWindowScale(HWND hwnd)
 {
@@ -31,10 +32,10 @@ MonitorCoordinates GetMonitorCoordinates()
     MONITORINFO monitorInfo = {sizeof(monitorInfo)};
     if (GetMonitorInfo(hMonitor, &monitorInfo))
     {
-        int width = (monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left) * scale;
-        int height = (monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top) * scale;
-        coordinates.left = monitorInfo.rcMonitor.left * scale;
-        coordinates.top = monitorInfo.rcMonitor.top * scale;
+        int width = (monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left);
+        int height = (monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top);
+        coordinates.left = monitorInfo.rcMonitor.left;
+        coordinates.top = monitorInfo.rcMonitor.top;
         coordinates.right = coordinates.left + width;
         coordinates.bottom = coordinates.top + height;
     }
@@ -47,24 +48,40 @@ MonitorCoordinates GetMonitorCoordinates()
     return coordinates;
 }
 
-int AdjustCandidateWindowPosition(POINT &point)
+int AdjustCandidateWindowPosition(                  //
+    const POINT *point,                             //
+    const std::pair<double, double> &containerSize, //
+    std::shared_ptr<std::pair<int, int>> properPos  //
+)
 {
+    HWND hwnd = GetForegroundWindow();
+    FLOAT scale = GetWindowScale(hwnd);
+
+    properPos->first = point->x;
+    properPos->second = point->y;
     MonitorCoordinates coordinates = GetMonitorCoordinates();
-    if (point.x < coordinates.left)
+#ifdef FANY_DEBUG
+    spdlog::info("Proper position: {}, {}", properPos->first, properPos->second);
+    spdlog::info("Coordinates: {}, {}, {}, {}", coordinates.left, coordinates.top, coordinates.right,
+                 coordinates.bottom);
+#endif
+    if (properPos->first < coordinates.left)
     {
-        point.x = coordinates.left + 2;
+        properPos->first = coordinates.left + 2;
     }
-    if (point.y < coordinates.top)
+    if (properPos->second < coordinates.top)
     {
-        point.y = coordinates.top + 2;
+        properPos->second = coordinates.top + 2;
     }
-    if (point.x > coordinates.right)
+    int containerSizeX = containerSize.first * scale;
+    int containerSizeY = containerSize.second * scale;
+    if (properPos->first + containerSizeX > coordinates.right)
     {
-        point.x = coordinates.right - 2;
+        properPos->first = coordinates.right - containerSizeX - 2;
     }
-    if (point.y > coordinates.bottom)
+    if (properPos->second + containerSizeY > coordinates.bottom)
     {
-        point.y = coordinates.bottom - 2;
+        properPos->second = properPos->second - containerSizeY - 30 - 2;
     }
     return 0;
 }

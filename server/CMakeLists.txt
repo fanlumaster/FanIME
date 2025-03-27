@@ -24,9 +24,9 @@ add_definitions(
     /DUNICODE=1
 )
 
-add_definitions(
-    /DFANY_DEBUG=1
-)
+# add_definitions(
+#     /DFANY_DEBUG=1
+# )
 
 include_directories("./src/")
 
@@ -38,6 +38,8 @@ set(SRC_FILES
     "./src/log/fanylog.h"
     "./src/utils/webview_utils.cpp"
     "./src/utils/webview_utils.h"
+    "./src/utils/window_utils.cpp"
+    "./src/utils/window_utils.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
     "./src/webview2/candidate_window_webview2.cpp"

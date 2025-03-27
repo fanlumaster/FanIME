@@ -3,9 +3,11 @@
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include "utils/webview_utils.h"
+#include "utils/window_utils.h"
 #include "webview2/candidate_window_webview2.h"
 #include <minwindef.h>
 #include <string>
+#include <windef.h>
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -123,20 +125,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (pcds->dwData == 0)
         {
             POINT *pt = (POINT *)pcds->lpData;
-            MoveWindow(           //
-                hWnd,             //
-                pt->x,            //
-                pt->y + 3,        //
-                (108 + 15) * 1.5, //
-                (246 + 15) * 1.5, //
-                TRUE              //
-            );                    //
+            int caretX = pt->x;
+            int caretY = pt->y;
+            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
 #ifdef FANY_DEBUG
-            std::string windowPos = std::to_string(pt->x) + "," + std::to_string(pt->y);
-            spdlog::info(windowPos);
-            GetContainerSize(webview, [](std::pair<double, double> size) {
-                spdlog::info("Container size: ({}, {})", size.first, size.second);
+                spdlog::info("Caret position: ({}, {})", caretX, caretY);
+                spdlog::info("Container size: ({}, {})", containerSize.first, containerSize.second);
+#endif
+                POINT pt = {caretX, caretY};
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                MoveWindow(            //
+                    hWnd,              //
+                    properPos->first,  //
+                    properPos->second, //
+                    (108 + 15) * 1.5,  //
+                    (246 + 15) * 1.5,  //
+                    TRUE               //
+                );                     //
             });
+#ifdef FANY_DEBUG
+            spdlog::info("Window position: {}, {}", pt->x, pt->y);
 #endif
         }
         else if (pcds->dwData == 1)
