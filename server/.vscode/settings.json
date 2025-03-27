@@ -2,5 +2,6 @@
   "files.exclude": {},
   "search.exclude": {
     "fmt": true,
-  }
+  },
+  "liveServer.settings.port": 5501
 }

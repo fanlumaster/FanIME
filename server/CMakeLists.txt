@@ -7,7 +7,7 @@ project(${PROJECT_NAME} VERSION 1.0)
 # Boost
 set(Boost_ROOT "C:/Users/SonnyCalcr/scoop/apps/boost/1.87.0")
 set (Boost_USE_STATIC_LIBS ON)
-find_package(Boost REQUIRED COMPONENTS locale)
+find_package(Boost REQUIRED COMPONENTS locale json)
 
 # fmt and spdlog
 set(CMAKE_PREFIX_PATH "C:/Users/SonnyCalcr/EDisk/CppCodes/Libraries/AllLibs")
@@ -24,9 +24,9 @@ add_definitions(
     /DUNICODE=1
 )
 
-# add_definitions(
-#     /DFANY_DEBUG=1
-# )
+add_definitions(
+    /DFANY_DEBUG=1
+)
 
 include_directories("./src/")
 
@@ -56,4 +56,4 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPrefere
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/FanIME_UI.props")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3124.44;Microsoft.Windows.ImplementationLibrary_1.0.240803.1")
 
-target_link_libraries(${PROJECT_NAME} fmt::fmt spdlog::spdlog Boost::locale)
+target_link_libraries(${PROJECT_NAME} fmt::fmt spdlog::spdlog Boost::locale Boost::json)

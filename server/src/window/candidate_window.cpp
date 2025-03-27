@@ -2,8 +2,10 @@
 #include "defines/defines.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
+#include "utils/webview_utils.h"
 #include "webview2/candidate_window_webview2.h"
 #include <minwindef.h>
+#include <string>
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -129,6 +131,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 (246 + 15) * 1.5, //
                 TRUE              //
             );                    //
+#ifdef FANY_DEBUG
+            std::string windowPos = std::to_string(pt->x) + "," + std::to_string(pt->y);
+            spdlog::info(windowPos);
+            GetContainerSize(webview, [](std::pair<double, double> size) {
+                spdlog::info("Container size: ({}, {})", size.first, size.second);
+            });
+#endif
         }
         else if (pcds->dwData == 1)
         {
