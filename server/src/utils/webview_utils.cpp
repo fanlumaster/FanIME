@@ -1,4 +1,5 @@
 #include "webview_utils.h"
+#include "defines/globals.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include <boost/json.hpp>
@@ -27,7 +28,8 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
 #ifdef FANY_DEBUG
     spdlog::info("Div size: {}", jsonStr);
 #endif
-    auto size = std::make_pair(108.0, 246.0);
+    auto size =
+        std::make_pair(static_cast<double>(::CANDIDATE_WINDOW_WIDTH), static_cast<double>(::CANDIDATE_WINDOW_HEIGHT));
     try
     {
         json::value parsed = json::parse(jsonStr);

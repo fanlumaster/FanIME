@@ -1,5 +1,6 @@
 #include "candidate_window.h"
 #include "defines/defines.h"
+#include "defines/globals.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include "utils/webview_utils.h"
@@ -48,24 +49,24 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 
 int CreateCandidateWindow(HINSTANCE hInstance)
 {
-    DWORD dwExStyle = WS_EX_LAYERED |    //
-                      WS_EX_TOOLWINDOW | //
-                      WS_EX_NOACTIVATE | //
-                      WS_EX_TOPMOST;     //
-    HWND hWnd = CreateWindowEx(          //
-        dwExStyle,                       //
-        szWindowClass,                   //
-        lpWindowName,                    //
-        WS_POPUP,                        //
-        100,                             //
-        100,                             //
-        (108 + 15) * 1.5,                //
-        (267 + 15) * 1.5,                //
-        nullptr,                         //
-        nullptr,                         //
-        hInstance,                       //
-        nullptr                          //
-    );                                   //
+    DWORD dwExStyle = WS_EX_LAYERED |                       //
+                      WS_EX_TOOLWINDOW |                    //
+                      WS_EX_NOACTIVATE |                    //
+                      WS_EX_TOPMOST;                        //
+    HWND hWnd = CreateWindowEx(                             //
+        dwExStyle,                                          //
+        szWindowClass,                                      //
+        lpWindowName,                                       //
+        WS_POPUP,                                           //
+        100,                                                //
+        100,                                                //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+        nullptr,                                            //
+        nullptr,                                            //
+        hInstance,                                          //
+        nullptr                                             //
+    );                                                      //
 
     if (!hWnd)
     {
@@ -78,14 +79,14 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         return 1;
     }
 
-    MoveWindow(           //
-        hWnd,             //
-        -1000,            //
-        100,              //
-        (108 + 15) * 1.5, //
-        (267 + 15) * 1.5, //
-        TRUE              //
-    );                    //
+    MoveWindow(                                             //
+        hWnd,                                               //
+        -1000,                                              //
+        100,                                                //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+        TRUE                                                //
+    );                                                      //
     ShowWindow(hWnd, SW_SHOW);
     UpdateWindow(hWnd);
 
@@ -146,14 +147,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #endif
                 POINT pt = {caretX, caretY};
                 AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                MoveWindow(            //
-                    hWnd,              //
-                    properPos->first,  //
-                    properPos->second, //
-                    (108 + 15) * 1.5,  //
-                    (267 + 15) * 1.5,  //
-                    TRUE               //
-                );                     //
+                MoveWindow(                                             //
+                    hWnd,                                               //
+                    properPos->first,                                   //
+                    properPos->second,                                  //
+                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+                    TRUE                                                //
+                );                                                      //
             });
 #ifdef FANY_DEBUG
             spdlog::info("Window position: {}, {}", pt->x, pt->y);
@@ -180,14 +181,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #endif
                 POINT pt = {caretX, caretY};
                 AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                MoveWindow(            //
-                    hWnd,              //
-                    properPos->first,  //
-                    properPos->second, //
-                    (108 + 15) * 1.5,  //
-                    (267 + 15) * 1.5,  //
-                    TRUE               //
-                );                     //
+                MoveWindow(                                             //
+                    hWnd,                                               //
+                    properPos->first,                                   //
+                    properPos->second,                                  //
+                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+                    TRUE                                                //
+                );                                                      //
             });
 #ifdef FANY_DEBUG
             spdlog::info("Window position: {}, {}", caretX, caretY);
