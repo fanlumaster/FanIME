@@ -58,7 +58,7 @@ int AdjustCandidateWindowPosition(                  //
     FLOAT scale = GetWindowScale(hwnd);
 
     properPos->first = point->x;
-    properPos->second = point->y;
+    properPos->second = point->y + 3;
     MonitorCoordinates coordinates = GetMonitorCoordinates();
 #ifdef FANY_DEBUG
     spdlog::info("Proper position: {}, {}", properPos->first, properPos->second);
@@ -79,7 +79,7 @@ int AdjustCandidateWindowPosition(                  //
     {
         properPos->first = coordinates.right - containerSizeX - 2;
     }
-    if (properPos->second + containerSizeY > coordinates.bottom)
+    if (properPos->second + 267 * scale > coordinates.bottom)
     {
         properPos->second = properPos->second - containerSizeY - 30 - 2;
     }

@@ -60,7 +60,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         100,                             //
         100,                             //
         (108 + 15) * 1.5,                //
-        (246 + 15) * 1.5,                //
+        (267 + 15) * 1.5,                //
         nullptr,                         //
         nullptr,                         //
         hInstance,                       //
@@ -78,7 +78,14 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         return 1;
     }
 
-    MoveWindow(hWnd, -1000, 100, (108 + 15) * 1.5, (246 + 15) * 1.5, TRUE);
+    MoveWindow(           //
+        hWnd,             //
+        -1000,            //
+        100,              //
+        (108 + 15) * 1.5, //
+        (267 + 15) * 1.5, //
+        TRUE              //
+    );                    //
     ShowWindow(hWnd, SW_SHOW);
     UpdateWindow(hWnd);
 
@@ -144,7 +151,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     properPos->first,  //
                     properPos->second, //
                     (108 + 15) * 1.5,  //
-                    (246 + 15) * 1.5,  //
+                    (267 + 15) * 1.5,  //
                     TRUE               //
                 );                     //
             });
@@ -178,7 +185,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     properPos->first,  //
                     properPos->second, //
                     (108 + 15) * 1.5,  //
-                    (246 + 15) * 1.5,  //
+                    (267 + 15) * 1.5,  //
                     TRUE               //
                 );                     //
             });
