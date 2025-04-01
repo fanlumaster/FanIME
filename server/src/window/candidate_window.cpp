@@ -112,6 +112,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (message == WM_HIDE_MAIN_WINDOW)
     {
         ShowWindow(hWnd, SW_HIDE);
+        ResetContainerHover(::webview);
         if (::CandStr.find(L",") == 1)
         {
             InflateCandidateWindow(::CandStr);
@@ -194,7 +195,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             spdlog::info("Window position: {}, {}", caretX, caretY);
 #endif
         }
+        ResetContainerHover(webview);
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
+        DisableMouseForAWhileWhenShown(webview);
         return 1;
     }
 

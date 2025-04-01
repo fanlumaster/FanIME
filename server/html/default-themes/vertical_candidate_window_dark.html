@@ -16,15 +16,12 @@
     }
 
     .container {
-      /* margin-top: 50px;
-      margin-left: 50px; */
       margin-top: 0px;
       margin-left: 0px;
       background-color: #202020;
       padding: 2px;
       border-radius: 6px;
       box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
-      /* width: 100px; */
       min-width: 70px;
       width: fit-content;
       user-select: none;
@@ -40,8 +37,11 @@
       margin-top: 2px;
     }
 
-    .cand:hover {
+    .cand {
       border-radius: 6px;
+    }
+
+    .hover-active .cand:hover {
       background-color: #414141;
     }
 
@@ -72,6 +72,17 @@
     }
   </style>
 
+  <script>
+    let a = false;
+    document.addEventListener('DOMContentLoaded', function () {
+      document.addEventListener('mousemove', function () {
+        if (a === true) {
+          const container = document.getElementById('container');
+          container.classList.add('hover-active');
+        }
+        a = true;
+      });
+    });
   </script>
 </head>
 

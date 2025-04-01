@@ -28,5 +28,7 @@ void UpdateHtmlContentWithJavaScript( //
     ComPtr<ICoreWebView2>,            //
     const std::wstring &              //
 );                                    //
+void ResetContainerHover(ComPtr<ICoreWebView2>);
+void DisableMouseForAWhileWhenShown(ComPtr<ICoreWebView2>);
 void InflateCandidateWindow(std::wstring &);
 void InitWebview(HWND);

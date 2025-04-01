@@ -38,6 +38,38 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     }
 }
 
+void ResetContainerHover(ComPtr<ICoreWebView2> webview)
+{
+    if (webview != nullptr)
+    {
+        std::wstring script = LR"(
+const container = document.getElementById('container');
+container.classList.remove('hover-active');
+        )";
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+}
+
+void DisableMouseForAWhileWhenShown(ComPtr<ICoreWebView2> webview)
+{
+    if (webview != nullptr)
+    {
+        std::wstring script = LR"(
+if (window.mouseBlockTimeout) {
+    clearTimeout(window.mouseBlockTimeout);
+}
+
+document.documentElement.style.pointerEvents = "none";
+
+window.mouseBlockTimeout = setTimeout(() => {
+    document.documentElement.style.pointerEvents = "auto";
+    window.mouseBlockTimeout = null;
+}, 500);
+        )";
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+}
+
 void InflateCandidateWindow(std::wstring &str)
 {
     std::wstringstream wss(str);
@@ -138,6 +170,8 @@ HRESULT OnControllerCreated(            //
     {
         ShowErrorMessage(hWnd, L"Failed to navigate to string.");
     }
+
+    // webview->OpenDevToolsWindow();
 
     return S_OK;
 }
