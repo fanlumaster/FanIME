@@ -147,7 +147,7 @@ HRESULT OnControllerCreated(            //
     {
         webview3->SetVirtualHostNameToFolderMapping(         //
             L"appassets",                                    //
-            LocalAssetsPath.c_str(),                         //
+            ::LocalAssetsPath.c_str(),                       //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
         );                                                   //
     }
