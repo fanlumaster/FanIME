@@ -2,5 +2,5 @@
 BasedOnStyle: Microsoft
 IndentWidth: 4
 
-SortIncludes: true
+SortIncludes: false
 ColumnLimit: 120
