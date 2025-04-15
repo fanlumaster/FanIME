@@ -6,3 +6,4 @@
 void ShowErrorMessage(HWND, const std::wstring &);
 
 std::string wstring_to_string(const std::wstring &);
+std::wstring string_to_wstring(const std::string &);
