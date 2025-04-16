@@ -4,7 +4,7 @@ CompileFlags:
       -D_UNICODE,
       -DFANY_DEBUG,
       "-std=c++17",
-      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/FanIME-UI/src",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/FanImeUi/src",
       "-IC:/Users/SonnyCalcr/EDisk/CppCodes/Libraries/AllLibs/include",
       "-IC:/Users/SonnyCalcr/.nuget/packages/microsoft.web.webview2/1.0.3124.44/build/native/include",
       "-IC:/Users/SonnyCalcr/.nuget/packages/microsoft.windows.implementationlibrary/1.0.240803.1/include",

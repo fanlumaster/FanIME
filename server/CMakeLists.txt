@@ -57,7 +57,7 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 
 # WebView2
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPreference "Static")
-set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/FanIME_UI.props")
+set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/FanImeUi.props")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3124.44;Microsoft.Windows.ImplementationLibrary_1.0.240803.1")
 
 target_link_libraries(${PROJECT_NAME} fmt::fmt spdlog::spdlog Boost::locale Boost::json)
