@@ -10,6 +10,7 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
+#include "ipc/ipc.h"
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -109,14 +110,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == WM_SHOW_MAIN_WINDOW)
     {
-        MoveWindow(                                             //
-            hWnd,                                               //
-            100,                                                //
-            100,                                                //
-            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-            TRUE                                                //
-        );                                                      //
+        int caretX = Global::Point[0];
+        int caretY = Global::Point[1];
+        std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+        GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
+            POINT pt = {caretX, caretY};
+            AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+            MoveWindow(                                             //
+                hWnd,                                               //
+                properPos->first,                                   //
+                properPos->second,                                  //
+                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+                TRUE                                                //
+            );                                                      //
+        });
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         return 0;
     }
