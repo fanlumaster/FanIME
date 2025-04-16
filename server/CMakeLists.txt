@@ -36,6 +36,8 @@ set(SRC_FILES
     "./src/defines/defines.h"
     "./src/ipc/event_listener.cpp"
     "./src/ipc/event_listener.h"
+    "./src/ipc/ipc.cpp"
+    "./src/ipc/ipc.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
     "./src/utils/webview_utils.cpp"

@@ -9,6 +9,7 @@
 #include <minwindef.h>
 #include <string>
 #include <windef.h>
+#include <winuser.h>
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -79,6 +80,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         return 1;
     }
 
+    ::global_hwnd = hWnd;
+
     MoveWindow(                                             //
         hWnd,                                               //
         -1000,                                              //
@@ -106,12 +109,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == WM_SHOW_MAIN_WINDOW)
     {
+        MoveWindow(                                             //
+            hWnd,                                               //
+            100,                                                //
+            100,                                                //
+            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+            TRUE                                                //
+        );                                                      //
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         return 0;
     }
     if (message == WM_HIDE_MAIN_WINDOW)
     {
         ShowWindow(hWnd, SW_HIDE);
+        /*
         ResetContainerHover(::webview);
         if (::CandStr.find(L",") == 1)
         {
@@ -121,6 +133,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             UpdateHtmlContentWithJavaScript(webview, L"");
         }
+        */
         return 0;
     }
 
