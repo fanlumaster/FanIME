@@ -3,6 +3,7 @@
 #include <minwindef.h>
 #include <winnt.h>
 #include "spdlog/spdlog.h"
+#include "utils/common_utils.h"
 
 static HANDLE hMapFile;
 static void *pBuf;
@@ -42,11 +43,10 @@ int InitIpc()
         // Error handling
     }
 
+    sharedData = static_cast<FanyImeSharedMemoryData *>(pBuf);
     // Only initialize the shared memory when first created
     if (!alreadyExists)
     {
-        sharedData = static_cast<FanyImeSharedMemoryData *>(pBuf);
-
         // Initialize
         *sharedData = {};
         sharedData->point[0] = 100;
@@ -56,17 +56,16 @@ int InitIpc()
     //
     // Events
     //
-    for (const auto &eventName : FANY_IME_EVENT_ARRAY)
+    for (int i = 0; i < FANY_IME_EVENT_ARRAY.size(); ++i)
     {
-        HANDLE hEvent = CreateEventW( //
-            nullptr,                  //
-            FALSE,                    //
-            FALSE,                    // Auto reset
-            eventName.c_str()         //
-        );                            //
-        if (!hEvent)
+        hEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_ARRAY[i].c_str());
+        if (!hEvents[i])
         {
-            // Error handling
+            spdlog::error("Failed to open event: {}", wstring_to_string(FANY_IME_EVENT_ARRAY[i]));
+            for (int j = 0; j < i; ++j)
+            {
+                CloseHandle(hEvents[j]);
+            }
         }
     }
 
@@ -142,6 +141,37 @@ int WriteDataToSharedMemory(           //
     if (write_flag >> 4 & 1u)
     {
         wcscpy_s(sharedData->pinyin_string, pinyin_string.c_str());
+    }
+
+    return 0;
+}
+
+int ReadDataFromSharedMemory(UINT read_flag)
+{
+    if (read_flag >> 0 & 1u)
+    {
+        Global::Keycode = sharedData->keycode;
+    }
+
+    if (read_flag >> 1 & 1u)
+    {
+        Global::ModifiersDown = sharedData->modifiers_down;
+    }
+
+    if (read_flag >> 2 & 1u)
+    {
+        Global::Point[0] = sharedData->point[0];
+        Global::Point[1] = sharedData->point[1];
+    }
+
+    if (read_flag >> 3 & 1u)
+    {
+        Global::PinyinLength = sharedData->pinyin_length;
+    }
+
+    if (read_flag >> 4 & 1u)
+    {
+        Global::PinyinString = sharedData->pinyin_string;
     }
 
     return 0;

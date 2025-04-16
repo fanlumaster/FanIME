@@ -12,6 +12,8 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_ARRAY = {
     L"FanyShowCandidateWndEvent", // Event sent to UI process to notify time to show candidate window
 };
 
+inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
+
 struct FanyImeSharedMemoryData
 {
     UINT keycode;
@@ -33,6 +35,15 @@ int WriteDataToSharedMemory(           //
     const std::wstring &pinyin_string, //
     UINT write_flag                    //
 );
+/*
+    read_flag:
+        firth bit: read keycode
+        second bit: read modifiers_down
+        third bit: read point
+        fourth bit: read pinyin_length
+        fifth bit: read pinyin_string
+*/
+int ReadDataFromSharedMemory(UINT read_flag);
 int SendKeyEventToUIProcess();
 
 namespace Global
