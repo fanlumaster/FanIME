@@ -145,6 +145,7 @@ HRESULT OnControllerCreated(            //
     // Configure virtual host path
     if (SUCCEEDED(webview->QueryInterface(IID_PPV_ARGS(&webview3))))
     {
+        // Assets mapping
         webview3->SetVirtualHostNameToFolderMapping(         //
             L"appassets",                                    //
             ::LocalAssetsPath.c_str(),                       //
