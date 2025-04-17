@@ -125,12 +125,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 TRUE                                                //
             );                                                      //
         });
+
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
+        std::wstring str = Global::PinyinString + L",1. 量子,2. 笔画,3. 凉水,4. 你们,5. 可恶,6. 卢各,7. 传说,8. 凤凰";
+        InflateCandidateWindow(str);
         return 0;
     }
     if (message == WM_HIDE_MAIN_WINDOW)
     {
         ShowWindow(hWnd, SW_HIDE);
+        UpdateHtmlContentWithJavaScript(webview, L"");
         /*
         ResetContainerHover(::webview);
         if (::CandStr.find(L",") == 1)

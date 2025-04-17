@@ -37,6 +37,7 @@ void EventListenerLoopThread()
             {
                 spdlog::info("Show window!");
                 ::ReadDataFromSharedMemory(0b11111);
+#ifdef FANY_DEBUG
                 spdlog::info(                               //
                     "Data: {}, {}, {}, {}, {}",             //
                     Global::Keycode,                        //
@@ -44,6 +45,7 @@ void EventListenerLoopThread()
                     Global::Point[0], Global::Point[1],     //
                     wstring_to_string(Global::PinyinString) //
                 );                                          //
+#endif
                 PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             }
         }
