@@ -16,8 +16,13 @@ void EventListenerLoopThread()
         if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + numEvents)
         {
             int eventIndex = result - WAIT_OBJECT_0;
-            spdlog::info("EventLoopThread: Event {} ({}) triggered!", eventIndex + 1,
-                         wstring_to_string(FANY_IME_EVENT_ARRAY[eventIndex]));
+#ifdef FANY_DEBUG
+            spdlog::info(                                           //
+                "EventLoopThread: Event {} ({}) triggered!",        //
+                eventIndex + 1,                                     //
+                wstring_to_string(FANY_IME_EVENT_ARRAY[eventIndex]) //
+            );                                                      //
+#endif
 
             // FanyImeKeyEvent
             if (eventIndex == 0)
@@ -27,16 +32,17 @@ void EventListenerLoopThread()
             // FanyHideCandidateWndEvent
             if (eventIndex == 1)
             {
+#ifdef FANY_DEBUG
                 spdlog::info("Hide window!");
+#endif
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             }
 
             // FanyShowCandidateWndEvent
             if (eventIndex == 2)
             {
+#ifdef FANY_DEBUG
                 spdlog::info("Show window!");
-                ::ReadDataFromSharedMemory(0b11111);
-                /*
                 spdlog::info(                               //
                     "Data: {}, {}, {}, {}, {}",             //
                     Global::Keycode,                        //
@@ -44,14 +50,17 @@ void EventListenerLoopThread()
                     Global::Point[0], Global::Point[1],     //
                     wstring_to_string(Global::PinyinString) //
                 );                                          //
-                */
+#endif
+                ::ReadDataFromSharedMemory(0b11111);
                 PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             }
 
             // FanyMoveCandidateWndEvent
             if (eventIndex == 3)
             {
+#ifdef FANY_DEBUG
                 spdlog::info("Move window!");
+#endif
                 ::ReadDataFromSharedMemory(0b00100);
                 PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             }
