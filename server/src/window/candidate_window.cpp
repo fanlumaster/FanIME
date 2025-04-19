@@ -112,20 +112,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         int caretX = Global::Point[0];
         int caretY = Global::Point[1];
-        std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-        GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-            POINT pt = {caretX, caretY};
-            AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+
+        if (caretY < -900)
+        {
             MoveWindow(                                             //
                 hWnd,                                               //
-                properPos->first,                                   //
-                properPos->second,                                  //
+                caretX,                                             //
+                caretY,                                             //
                 (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
                 (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
                 TRUE                                                //
             );                                                      //
-        });
-
+        }
+        else
+        {
+            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
+                POINT pt = {caretX, caretY};
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                MoveWindow(                                             //
+                    hWnd,                                               //
+                    properPos->first,                                   //
+                    properPos->second,                                  //
+                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+                    TRUE                                                //
+                );                                                      //
+            });
+        }
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         std::wstring str = Global::PinyinString + L",1. 量子,2. 笔画,3. 凉水,4. 你们,5. 可恶,6. 卢各,7. 传说,8. 凤凰";
         InflateCandidateWindow(str);
@@ -146,6 +160,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             UpdateHtmlContentWithJavaScript(webview, L"");
         }
         */
+        return 0;
+    }
+    if (message == WM_MOVE_CANDIDATE_WINDOW)
+    {
+        int caretX = Global::Point[0];
+        int caretY = Global::Point[1];
+        if (caretY < -900)
+        {
+            MoveWindow(                                             //
+                hWnd,                                               //
+                caretX,                                             //
+                caretY,                                             //
+                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+                TRUE                                                //
+            );                                                      //
+        }
+        else
+        {
+            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
+                POINT pt = {caretX, caretY};
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                MoveWindow(                                             //
+                    hWnd,                                               //
+                    properPos->first,                                   //
+                    properPos->second,                                  //
+                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
+                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
+                    TRUE                                                //
+                );                                                      //
+            });
+        }
         return 0;
     }
 

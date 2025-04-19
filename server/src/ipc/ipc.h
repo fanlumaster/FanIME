@@ -10,6 +10,7 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_ARRAY = {
     L"FanyImeKeyEvent",           // Event sent to UI process to notify time to update UI by new pinyin_string
     L"FanyHideCandidateWndEvent", // Event sent to UI process to notify time to hide candidate window
     L"FanyShowCandidateWndEvent", // Event sent to UI process to notify time to show candidate window
+    L"FanyMoveCandidateWndEvent", // Event sent to UI process to notify time to move candidate window
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
