@@ -5,7 +5,7 @@ CompileFlags:
       -DFANY_DEBUG,
       "-std=c++17",
       "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/FanImeUi/src",
-      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/Libraries/AllLibs/include",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/FanImeUi/build/vcpkg_installed/x64-windows/include",
       "-IC:/Users/SonnyCalcr/.nuget/packages/microsoft.web.webview2/1.0.3124.44/build/native/include",
       "-IC:/Users/SonnyCalcr/.nuget/packages/microsoft.windows.implementationlibrary/1.0.240803.1/include",
       -Wno-microsoft-goto,

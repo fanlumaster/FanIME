@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "fmt",
+    "spdlog",
+    "sqlite3"
+  ]
+}

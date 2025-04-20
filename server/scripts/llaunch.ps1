@@ -31,10 +31,11 @@ if (-not (Test-Path $buildFolderPath)) {
     Write-Host "build folder created."
 }
 
-cmake -G "Visual Studio 17 2022" -A x64 -S . -B ./build/
+# cmake -G "Visual Studio 17 2022" -A x64 -S . -B ./build/
+cmake --preset=default
 
 if ($LASTEXITCODE -eq 0) {
-    cmake --build ./build/ --config DEBUG
+    cmake --build build
     if ($LASTEXITCODE -eq 0) {
         $exePath = getExePathFromCMakeLists
         Write-Host "start running as follows..."
