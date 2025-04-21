@@ -8,6 +8,7 @@ project(${PROJECT_NAME} VERSION 1.0)
 set(Boost_ROOT "C:/Users/SonnyCalcr/scoop/apps/boost/1.87.0")
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # fmt, spdlog and sqlite3
 find_package(fmt CONFIG REQUIRED)
@@ -53,8 +54,34 @@ set(SRC_FILES
     "./src/main.cpp"
 )
 
+set(SRC_FILES_IME_ENGINE
+    "./src/ime_engine/shuangpin/dictionary.cpp"
+    "./src/ime_engine/shuangpin/pinyin_utils.cpp"
+)
+
+set(SRC_FILES_GOOGLEIME
+    "./src/ime_engine/googlepinyinime-rev/src/share/dictbuilder.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/dictlist.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/dicttrie.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/lpicache.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/matrixsearch.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/mystdlib.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/ngram.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/pinyinime.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/searchutility.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/spellingtable.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/spellingtrie.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/splparser.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/sync.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/userdict.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/utf16char.cpp"
+    "./src/ime_engine/googlepinyinime-rev/src/share/utf16reader.cpp"
+)
+
 add_executable(${MY_EXECUTABLE_NAME} WIN32
     ${SRC_FILES}
+    ${SRC_FILES_IME_ENGINE}
+    ${SRC_FILES_GOOGLEIME}
 )
 
 # WebView2

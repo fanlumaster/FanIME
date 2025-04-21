@@ -1,4 +1,6 @@
 #include "dictionary.h"
+#include "fmt/core.h"
+#include "fmt/format.h"
 #include "pinyin_utils.h"
 #include <sqlite3.h>
 #include <string>
@@ -6,11 +8,10 @@
 #include <utility>
 #include <regex>
 #include <cstdlib>
-#include <codecvt>
-#include <locale>
 #include "global_ime_vars.h"
 #include "../googlepinyinime-rev/src/include/pinyinime.h"
 #include "spdlog/spdlog.h"
+#include <boost/locale/encoding_utf.hpp>
 
 using namespace std;
 
@@ -177,9 +178,9 @@ string DictionaryUlPb::build_sql_for_updating_word(string word)
     if (!do_validate(pinyin, jp, word))
         return "";
     string table = choose_tbl(pinyin, jp.size());
-    string base_sql = "update %1% set weight = ( select MAX(weight) + 1 from %1% AS sub where sub.key = '%2%') "
-                      "where key = '%2%' and value = '%3%';";
-    string res_sql = boost::str(boost::format(base_sql) % table % pinyin % word);
+    string base_sql = "update {0} set weight = ( select MAX(weight) + 1 from {0} AS sub where sub.key = '{1}') "
+                      "where key = '{1}' and value = '{2}';";
+    string res_sql = fmt::format(base_sql, table, pinyin, word);
     return res_sql;
 }
 
@@ -332,16 +333,16 @@ pair<string, bool> DictionaryUlPb::build_sql(const string &sp_str, vector<string
         }
     }
     string sql;
-    string base_sql("select * from %1% where %2% = '%3%' order by weight desc limit %4%;");
+    string base_sql("select * from {0} where {1} = '{2}' order by weight desc limit {3};");
     string table = choose_tbl(sp_str, pinyin_list.size());
     bool need_filtering = false;
     if (all_entire_pinyin) // Segmentations are all quanpin
     {
-        sql = boost::str(boost::format(base_sql) % table % "key" % sp_str % default_candicate_page_limit);
+        sql = fmt::format(base_sql, table, "key", sp_str, default_candicate_page_limit);
     }
     else if (all_jp) // Segmentations are all jianpin
     {
-        sql = boost::str(boost::format(base_sql) % table % "jp" % sp_str % default_candicate_page_limit);
+        sql = fmt::format(sql, table, "jp", sp_str, default_candicate_page_limit);
     }
     else if (jp_cnt == 1) // Only one jianpin
     {
@@ -360,9 +361,10 @@ pair<string, bool> DictionaryUlPb::build_sql(const string &sp_str, vector<string
                 sql_param1 += pinyin_list[i];
             }
         }
-        sql = boost::str(
-            boost::format("select * from %1% where key >= '%2%' and key <= '%3%' order by weight desc limit %4%;") %
-            table % sql_param0 % sql_param1 % default_candicate_page_limit);
+        sql = fmt::format(                                                                           //
+            "select * from {0} where key >= '{1}' and key <= '{2}' order by weight desc limit {3};", //
+            table, sql_param0, sql_param1, default_candicate_page_limit                              //
+        );
     }
     else // Neithor pure quanpin, nor pure jianpin, and count of jianpin is more than 1
     {
@@ -373,23 +375,26 @@ pair<string, bool> DictionaryUlPb::build_sql(const string &sp_str, vector<string
             sql_param += cur_pinyin.substr(0, 1);
         }
         // TODO: not adding weight desc
-        sql = boost::str(boost::format("select * from %1% where jp = '%2%';") % table %
-                         sql_param); // do not use limit, we need retrive all data and then filter
+        sql = fmt::format("select * from {0} where jp = '{1}';", table, sql_param);
     }
     return make_pair(sql, need_filtering);
 }
 
 string DictionaryUlPb::build_sql_for_creating_word(const string &sp_str)
 {
-    string base_sql = "select * from(select * from %1% where key = '%2%' order by weight desc limit %3%)";
-    string res_sql = boost::str(boost::format(base_sql) % choose_tbl(sp_str.substr(0, 2), 1) % sp_str.substr(0, 2) %
-                                default_candicate_page_limit);
+    string base_sql = "select * from(select * from {} where key = '{}' order by weight desc limit {})";
+    string res_sql =
+        fmt::format(base_sql, choose_tbl(sp_str.substr(0, 2), 1), sp_str.substr(0, 2), default_candicate_page_limit);
     string trimed_sp_str = sp_str.substr(0, 8); // 4 hanzi at most
     for (size_t i = 4; i <= sp_str.size(); i += 2)
     {
-        res_sql = boost::str(boost::format(base_sql) % choose_tbl(sp_str.substr(0, i), i / 2) % sp_str.substr(0, i) %
-                             default_candicate_page_limit) +
-                  " union all " + res_sql;
+        res_sql = fmt::format(                                //
+                      base_sql,                               //
+                      choose_tbl(sp_str.substr(0, i), i / 2), //
+                      sp_str.substr(0, i),                    //
+                      default_candicate_page_limit)           //
+                  + " union all "                             //
+                  + res_sql;
     }
     return res_sql;
 }
@@ -397,23 +402,23 @@ string DictionaryUlPb::build_sql_for_creating_word(const string &sp_str)
 string DictionaryUlPb::build_sql_for_checking_word(string key, string jp, string value)
 {
     string table = choose_tbl(key, jp.size());
-    string base_sql = "select 1 from %1% where key = '%2%' and value = '%3%';";
-    return boost::str(boost::format(base_sql) % table % key % value); // 默认权重 weight 是 10,000
+    string base_sql = "select 1 from {} where key = '{}' and value = '{}';";
+    return fmt::format(base_sql, table, key, value); // Default weight is 10,000
 }
 
 string DictionaryUlPb::build_sql_for_inserting_word(string key, string jp, string value)
 {
     string table = choose_tbl(key, jp.size());
-    string base_sql = "insert into %1% (key, jp, value, weight) values ('%2%', '%3%', '%4%', '%5%');";
-    return boost::str(boost::format(base_sql) % table % key % jp % value % 10000); // default weight is 10,000
+    string base_sql = "insert into {} (key, jp, value, weight) values ('{}', '{}', '{}', '{}');";
+    return fmt::format(base_sql, table, key, jp, value, 10000); // Default weight is 10,000
 }
 
 string DictionaryUlPb::choose_tbl(const string &sp_str, size_t word_len)
 {
-    string base_tbl("tbl_%1%_%2%");
+    string base_tbl("tbl_{}_{}");
     if (word_len >= 8)
-        return boost::str(boost::format(base_tbl) % "others" % sp_str[0]);
-    return boost::str(boost::format(base_tbl) % word_len % sp_str[0]);
+        return fmt::format(base_tbl, "others", sp_str[0]);
+    return fmt::format(base_tbl, word_len, sp_str[0]);
 }
 
 bool DictionaryUlPb::do_validate(string key, string jp, string value)
@@ -423,11 +428,10 @@ bool DictionaryUlPb::do_validate(string key, string jp, string value)
     return true;
 }
 
-string fromUtf16(const ime_pinyin::char16 *buf, size_t len)
+string from_utf16(const ime_pinyin::char16 *buf, size_t len)
 {
     u16string utf16Str(reinterpret_cast<const char16_t *>(buf), len);
-    wstring_convert<codecvt_utf8_utf16<char16_t>, char16_t> convert;
-    return convert.to_bytes(utf16Str);
+    return boost::locale::conv::utf_to_utf<char>(utf16Str);
 }
 
 string DictionaryUlPb::search_sentence_from_ime_engine(const string &user_pinyin)
@@ -444,7 +448,7 @@ string DictionaryUlPb::search_sentence_from_ime_engine(const string &user_pinyin
         size_t len = 0;
         while (buf[len] != 0 && len < 255)
             ++len;
-        msg = fromUtf16(buf, len);
+        msg = from_utf16(buf, len);
     }
     return msg;
 }

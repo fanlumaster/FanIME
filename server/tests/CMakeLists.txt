@@ -11,6 +11,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(Boost_ROOT "C:/Users/SonnyCalcr/scoop/apps/boost/1.87.0")
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # fmt, spdlog and sqlite3
 find_package(fmt CONFIG REQUIRED)
@@ -24,7 +25,6 @@ add_definitions(
 
 include_directories("./includes/")
 include_directories("../src/")
-include_directories("C:/Users/SonnyCalcr/scoop/apps/boost/1.87.0")
 
 set(MY_EXECUTABLE_NAME "imetest")
 set(
@@ -53,4 +53,4 @@ set(
 
 add_executable(${MY_EXECUTABLE_NAME} ${SOURCE_FILES} )
 
-target_link_libraries(${MY_EXECUTABLE_NAME} fmt::fmt spdlog::spdlog unofficial::sqlite3::sqlite3)
+target_link_libraries(${MY_EXECUTABLE_NAME} fmt::fmt spdlog::spdlog unofficial::sqlite3::sqlite3 Boost::locale)

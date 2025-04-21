@@ -8,7 +8,6 @@
 #include <sqlite3.h>
 #include <memory>
 #include <boost/algorithm/string.hpp>
-#include <boost/format.hpp>
 
 class DictionaryUlPb
 {
