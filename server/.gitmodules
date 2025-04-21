@@ -1,0 +1,3 @@
+[submodule "src/ime_engine/googlepinyinime-rev"]
+	path = src/ime_engine/googlepinyinime-rev
+	url = git@github.com:fanlumaster/googlepinyinime-rev.git
