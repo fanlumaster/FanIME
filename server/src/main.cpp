@@ -1,6 +1,6 @@
+#include "ipc/event_listener.h"
 #include "log/fanylog.h"
 #include "window/candidate_window.h"
-#include "ipc/event_listener.h"
 #include <thread>
 #include "ipc/ipc.h"
 
@@ -14,6 +14,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     // #endif
 
     ::InitIpc();
+    g_dictQuery = std::make_shared<DictionaryUlPb>();
 
     RegisterCandidateWindowMessage();
 

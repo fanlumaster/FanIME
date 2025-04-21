@@ -1,10 +1,13 @@
 #include "event_listener.h"
 #include <Windows.h>
+#include <string>
 #include "Ipc.h"
 #include "defines/defines.h"
 #include "spdlog/spdlog.h"
 #include "ipc.h"
 #include "defines/globals.h"
+#include "utils/common_utils.h"
+#include "ime_engine/shuangpin/dictionary.h"
 
 enum class TaskType
 {
@@ -37,14 +40,24 @@ void WorkerThread()
 
         switch (task.type)
         {
-        case TaskType::ShowCandidate:
+        case TaskType::ShowCandidate: {
             ::ReadDataFromSharedMemory(0b11111);
+            std::string pinyin = wstring_to_string(Global::PinyinString);
+            spdlog::info("Pinyin: {}", pinyin);
+            std::vector<DictionaryUlPb::WordItem> candidate_list = g_dictQuery->generate(pinyin);
+            for (const auto &[pinyin, word, weight] : candidate_list)
+            {
+                spdlog::info("Word: {}", word);
+            }
+            spdlog::info("==========================================");
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
-        case TaskType::MoveCandidate:
+        }
+        case TaskType::MoveCandidate: {
             ::ReadDataFromSharedMemory(0b00100);
             PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;
+        }
         }
     }
 }

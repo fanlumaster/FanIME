@@ -1,5 +1,6 @@
 #pragma once
 
+#include <shared_mutex>
 #include <vector>
 #include <tuple>
 #include <unordered_map>
@@ -90,4 +91,8 @@ class DictionaryUlPb
     std::string build_sql_for_updating_word(std::string value);
     std::string choose_tbl(const std::string &sp_str, size_t word_len);
     bool do_validate(std::string key, std::string jp, std::string value);
+
+  private:
+    // Lock
+    std::shared_mutex mutex_; // Read-write separation lock
 };

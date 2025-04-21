@@ -2,6 +2,8 @@
 #include "fmt/core.h"
 #include "fmt/format.h"
 #include "pinyin_utils.h"
+#include <mutex>
+#include <shared_mutex>
 #include <sqlite3.h>
 #include <string>
 #include <tuple>
@@ -79,6 +81,7 @@ DictionaryUlPb::DictionaryUlPb()
  */
 vector<DictionaryUlPb::WordItem> DictionaryUlPb::generate(const string code)
 {
+    std::shared_lock lock(mutex_);
     vector<DictionaryUlPb::WordItem> candidate_list;
     if (code.size() == 0)
     {
@@ -203,6 +206,7 @@ int DictionaryUlPb::update_data(string sql_str)
 
 int DictionaryUlPb::update_weight_by_word(string word)
 {
+    std::unique_lock lock(mutex_);
     update_data(build_sql_for_updating_word(word));
     return OK;
 }
