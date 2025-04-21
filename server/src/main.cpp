@@ -20,10 +20,15 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     WNDCLASSEX wcex;
     RegisterCandidateWindowClass(wcex, hInstance);
 
-    std::thread eventListenerThread(EventListenerLoopThread);
-    eventListenerThread.detach();
+    std::thread worker(WorkerThread);
+    std::thread listener(EventListenerLoopThread);
 
     int ret = CreateCandidateWindow(hInstance);
+
+    running = false;
+    queueCv.notify_one();
+    worker.join();
+    listener.join();
 
     return ret;
 }

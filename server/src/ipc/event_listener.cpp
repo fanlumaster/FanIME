@@ -3,9 +3,60 @@
 #include "Ipc.h"
 #include "defines/defines.h"
 #include "spdlog/spdlog.h"
-#include "utils/common_utils.h"
 #include "ipc.h"
 #include "defines/globals.h"
+
+enum class TaskType
+{
+    ShowCandidate,
+    MoveCandidate
+};
+
+// 简单任务结构体（可以扩展参数）
+struct Task
+{
+    TaskType type;
+};
+
+std::queue<Task> taskQueue;
+std::mutex queueMutex;
+
+void WorkerThread()
+{
+    while (running)
+    {
+        Task task;
+        {
+            std::unique_lock lock(queueMutex);
+            queueCv.wait(lock, [] { return !taskQueue.empty() || !running; });
+            if (!running)
+                break;
+            task = taskQueue.front();
+            taskQueue.pop();
+        }
+
+        switch (task.type)
+        {
+        case TaskType::ShowCandidate:
+            ::ReadDataFromSharedMemory(0b11111);
+            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+            break;
+        case TaskType::MoveCandidate:
+            ::ReadDataFromSharedMemory(0b00100);
+            PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
+            break;
+        }
+    }
+}
+
+void EnqueueTask(TaskType type)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        taskQueue.push({type});
+    }
+    queueCv.notify_one();
+}
 
 void EventListenerLoopThread()
 {
@@ -16,53 +67,27 @@ void EventListenerLoopThread()
         if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + numEvents)
         {
             int eventIndex = result - WAIT_OBJECT_0;
+
 #ifdef FANY_DEBUG
-            spdlog::info(                                           //
-                "EventLoopThread: Event {} ({}) triggered!",        //
-                eventIndex + 1,                                     //
-                wstring_to_string(FANY_IME_EVENT_ARRAY[eventIndex]) //
-            );                                                      //
+            spdlog::info("EventLoopThread: Event {} triggered!", eventIndex + 1);
 #endif
 
-            // FanyImeKeyEvent
-            if (eventIndex == 0)
+            switch (eventIndex)
             {
-            }
+            case 0: // FanyImeKeyEvent
+                break;
 
-            // FanyHideCandidateWndEvent
-            if (eventIndex == 1)
-            {
-#ifdef FANY_DEBUG
-                spdlog::info("Hide window!");
-#endif
+            case 1: // FanyHideCandidateWndEvent
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
-            }
+                break;
 
-            // FanyShowCandidateWndEvent
-            if (eventIndex == 2)
-            {
-#ifdef FANY_DEBUG
-                spdlog::info("Show window!");
-                spdlog::info(                               //
-                    "Data: {}, {}, {}, {}, {}",             //
-                    Global::Keycode,                        //
-                    Global::ModifiersDown,                  //
-                    Global::Point[0], Global::Point[1],     //
-                    wstring_to_string(Global::PinyinString) //
-                );                                          //
-#endif
-                ::ReadDataFromSharedMemory(0b11111);
-                PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
-            }
+            case 2: // FanyShowCandidateWndEvent
+                EnqueueTask(TaskType::ShowCandidate);
+                break;
 
-            // FanyMoveCandidateWndEvent
-            if (eventIndex == 3)
-            {
-#ifdef FANY_DEBUG
-                spdlog::info("Move window!");
-#endif
-                ::ReadDataFromSharedMemory(0b00100);
-                PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
+            case 3: // FanyMoveCandidateWndEvent
+                EnqueueTask(TaskType::MoveCandidate);
+                break;
             }
         }
         else
@@ -72,5 +97,7 @@ void EventListenerLoopThread()
         }
     }
 
+    running = false;
+    queueCv.notify_one();
     ::CloseIpc();
 }
