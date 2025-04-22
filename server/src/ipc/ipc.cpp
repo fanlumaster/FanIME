@@ -108,41 +108,15 @@ int CloseIpc()
     return 0;
 }
 
-int WriteDataToSharedMemory(           //
-    UINT keycode,                      //
-    UINT modifiers_down,               //
-    const int point[2],                //
-    int pinyin_length,                 //
-    const std::wstring &pinyin_string, //
-    UINT write_flag                    //
+int WriteDataToSharedMemory(              //
+    const std::wstring &candidate_string, //
+    bool write_flag                       //
 )
 {
-    if (write_flag >> 0 & 1u)
+    if (write_flag)
     {
-        sharedData->keycode = keycode;
+        wcscpy_s(sharedData->candidate_string, candidate_string.c_str());
     }
-
-    if (write_flag >> 1 & 1u)
-    {
-        sharedData->modifiers_down = modifiers_down;
-    }
-
-    if (write_flag >> 2 & 1u)
-    {
-        sharedData->point[0] = point[0];
-        sharedData->point[1] = point[1];
-    }
-
-    if (write_flag >> 3 & 1u)
-    {
-        sharedData->pinyin_length = pinyin_length;
-    }
-
-    if (write_flag >> 4 & 1u)
-    {
-        wcscpy_s(sharedData->pinyin_string, pinyin_string.c_str());
-    }
-
     return 0;
 }
 
@@ -172,6 +146,11 @@ int ReadDataFromSharedMemory(UINT read_flag)
     if (read_flag >> 4 & 1u)
     {
         Global::PinyinString = sharedData->pinyin_string;
+    }
+
+    if (read_flag >> 5 & 1u)
+    {
+        Global::CandidateString = sharedData->candidate_string;
     }
 
     return 0;

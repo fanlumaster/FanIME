@@ -8,6 +8,9 @@
 #include "defines/globals.h"
 #include "utils/common_utils.h"
 #include "ime_engine/shuangpin/dictionary.h"
+#include <boost/range/iterator_range_core.hpp>
+#include <boost/range/iterator_range.hpp>
+#include <boost/algorithm/string/join.hpp>
 
 enum class TaskType
 {
@@ -43,13 +46,26 @@ void WorkerThread()
         case TaskType::ShowCandidate: {
             ::ReadDataFromSharedMemory(0b11111);
             std::string pinyin = wstring_to_string(Global::PinyinString);
-            spdlog::info("Pinyin: {}", pinyin);
             std::vector<DictionaryUlPb::WordItem> candidate_list = g_dictQuery->generate(pinyin);
+            std::string candidate_string;
+            int cnt = 0;
             for (const auto &[pinyin, word, weight] : candidate_list)
             {
-                spdlog::info("Word: {}", word);
+                if (cnt < 8)
+                {
+                    candidate_string += std::to_string(cnt + 1) + ". " + word;
+                    cnt++;
+                }
+                if (cnt < 7)
+                {
+                    candidate_string += ",";
+                }
+                else
+                {
+                    break;
+                }
             }
-            spdlog::info("==========================================");
+            ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
         }

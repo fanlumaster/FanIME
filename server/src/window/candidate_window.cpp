@@ -141,7 +141,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             });
         }
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
-        std::wstring str = Global::PinyinString + L",1. 量子,2. 笔画,3. 凉水,4. 你们,5. 可恶,6. 卢各,7. 传说,8. 凤凰";
+        ::ReadDataFromSharedMemory(0b100000);
+        std::wstring str = Global::PinyinString + L"," + Global::CandidateString;
         InflateCandidateWindow(str);
         return 0;
     }
