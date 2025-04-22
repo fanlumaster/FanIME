@@ -1,3 +1,4 @@
+#include "ipc/ipc.h"
 #include "candidate_window.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
@@ -10,7 +11,6 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
-#include "ipc/ipc.h"
 
 LRESULT RegisterCandidateWindowMessage()
 {

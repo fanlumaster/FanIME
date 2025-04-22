@@ -1,4 +1,6 @@
 #pragma once
+
+#include "ime_engine/shuangpin/dictionary.h"
 #include <Windows.h>
 #include <string>
 #include <vector>
@@ -52,5 +54,7 @@ inline int PinyinLength = 0;
 inline std::wstring PinyinString = L"";
 inline std::wstring CandidateString = L"";
 
+inline std::vector<DictionaryUlPb::WordItem> CandidateList;
+inline std::vector<std::wstring> CandidateWordList;
 inline std::wstring SelectedCandidateString = L"";
 } // namespace Global

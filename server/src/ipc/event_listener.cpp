@@ -46,10 +46,15 @@ void WorkerThread()
         case TaskType::ShowCandidate: {
             ::ReadDataFromSharedMemory(0b11111);
             std::string pinyin = wstring_to_string(Global::PinyinString);
-            std::vector<DictionaryUlPb::WordItem> candidate_list = g_dictQuery->generate(pinyin);
+            Global::CandidateList = g_dictQuery->generate(pinyin);
             std::string candidate_string;
+            //
+            // Clear before writing
+            //
+            Global::CandidateWordList.clear();
+            Global::SelectedCandidateString = L"";
             int cnt = 0;
-            for (const auto &[pinyin, word, weight] : candidate_list)
+            for (const auto &[pinyin, word, weight] : Global::CandidateList)
             {
                 if (cnt == 0)
                 {
@@ -58,6 +63,7 @@ void WorkerThread()
                 if (cnt < 8)
                 {
                     candidate_string += std::to_string(cnt + 1) + ". " + word;
+                    Global::CandidateWordList.push_back(string_to_wstring(word));
                     cnt++;
                 }
                 if (cnt < 7)
@@ -82,7 +88,21 @@ void WorkerThread()
             ::ReadDataFromSharedMemory(0b000001);
             if (Global::Keycode == VK_SPACE)
             {
-                ::SendImeInputs(Global::SelectedCandidateString);
+                if (Global::SelectedCandidateString != L"")
+                {
+                    ::SendImeInputs(Global::SelectedCandidateString);
+                }
+                else
+                {
+                    ::SendImeInputs(Global::PinyinString);
+                }
+            }
+            else if (Global::Keycode > '0' && Global::Keycode < '9')
+            {
+                if (Global::Keycode - '1' < Global::CandidateWordList.size())
+                {
+                    ::SendImeInputs(Global::CandidateWordList[Global::Keycode - '1']);
+                }
             }
         }
         }
