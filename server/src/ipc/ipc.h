@@ -28,9 +28,9 @@ struct FanyImeSharedMemoryData
 
 int InitIpc();
 int CloseIpc();
-int WriteDataToSharedMemory(                      //
+int WriteDataToSharedMemory(              //
     const std::wstring &candidate_string, //
-    bool write_flag                               //
+    bool write_flag                       //
 );
 /*
     read_flag:
@@ -51,4 +51,6 @@ inline int Point[2] = {100, 100};
 inline int PinyinLength = 0;
 inline std::wstring PinyinString = L"";
 inline std::wstring CandidateString = L"";
+
+inline std::wstring SelectedCandidateString = L"";
 } // namespace Global

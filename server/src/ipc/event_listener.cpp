@@ -15,10 +15,10 @@
 enum class TaskType
 {
     ShowCandidate,
-    MoveCandidate
+    MoveCandidate,
+    ImeKeyEvent
 };
 
-// 简单任务结构体（可以扩展参数）
 struct Task
 {
     TaskType type;
@@ -51,6 +51,10 @@ void WorkerThread()
             int cnt = 0;
             for (const auto &[pinyin, word, weight] : candidate_list)
             {
+                if (cnt == 0)
+                {
+                    Global::SelectedCandidateString = string_to_wstring(word);
+                }
                 if (cnt < 8)
                 {
                     candidate_string += std::to_string(cnt + 1) + ". " + word;
@@ -73,6 +77,13 @@ void WorkerThread()
             ::ReadDataFromSharedMemory(0b00100);
             PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;
+        }
+        case TaskType::ImeKeyEvent: {
+            ::ReadDataFromSharedMemory(0b000001);
+            if (Global::Keycode == VK_SPACE)
+            {
+                ::SendImeInputs(Global::SelectedCandidateString);
+            }
         }
         }
     }
@@ -104,6 +115,7 @@ void EventListenerLoopThread()
             switch (eventIndex)
             {
             case 0: // FanyImeKeyEvent
+                EnqueueTask(TaskType::ImeKeyEvent);
                 break;
 
             case 1: // FanyHideCandidateWndEvent
