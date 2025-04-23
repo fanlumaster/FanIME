@@ -76,21 +76,51 @@
       padding-right: 8px;
       color: #e9e8e8;
     }
+
+    #pinyin-container {
+      margin-top: 10px;
+      margin-left: 10px;
+      border-radius: 6px 6px 0 0;
+      border-bottom: 0px solid #9b9b9b2e;
+      box-shadow: 0 0 0 rgba(0, 0, 0, 0.5);
+      position: relative;
+      z-index: 2;
+    }
+
+    .pinyin {
+      padding-bottom: -4px;
+    }
+
+    #container {
+      /* border-top: 0px solid #9b9b9b2e; */
+      border-radius: 0 6px 6px 6px;
+      margin-left: 10px;
+      position: relative;
+      z-index: 1;
+      margin-top: -2px;
+    }
+
+    body {
+      background-color: #202020;
+    }
   </style>
 </head>
 
 <body>
-  <div class="container" id="container">
+  <div class="container" id="pinyin-container">
     <div class="pinyin-row">
       <div class="row pinyin">
         <div class="text">ni'uo</div>
       </div>
     </div>
+  </div>
+
+  <div class="container" id="container">
     <div class="candidates-row">
       <!--1Anchor-->
       <div class="row-wrapper">
         <div class="row cand first">
-          <div class="text">1. 你说什么</div>
+          <div class="text">1. 你说</div>
         </div>
       </div>
       <!--2Anchor-->
