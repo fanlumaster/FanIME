@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <string>
 #include "Ipc.h"
+#include "boost/algorithm/string/case_conv.hpp"
 #include "defines/defines.h"
 #include "spdlog/spdlog.h"
 #include "ipc.h"
@@ -11,6 +12,7 @@
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/iterator_range.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string.hpp>
 
 enum class TaskType
 {
@@ -45,8 +47,12 @@ void WorkerThread()
         {
         case TaskType::ShowCandidate: {
             ::ReadDataFromSharedMemory(0b11111);
-            std::string pinyin = wstring_to_string(Global::PinyinString);
+            std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
             Global::CandidateList = g_dictQuery->generate(pinyin);
+            if (Global::CandidateList.size() == 0)
+            {
+                Global::CandidateList.push_back(make_tuple(pinyin, pinyin, 1));
+            }
             std::string candidate_string;
             //
             // Clear before writing
