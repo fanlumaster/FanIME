@@ -143,10 +143,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         ::ReadDataFromSharedMemory(0b100000);
-        Global::PinyinString = string_to_wstring(                                    //
+        std::wstring embeded_pinyin = string_to_wstring(                             //
             PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
         );
-        std::wstring str = Global::PinyinString + L"," + Global::CandidateString;
+        std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
         InflateCandidateWindow(str);
         return 0;
     }

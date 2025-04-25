@@ -57,4 +57,8 @@ inline std::wstring CandidateString = L"";
 inline std::vector<DictionaryUlPb::WordItem> CandidateList;
 inline std::vector<std::wstring> CandidateWordList;
 inline std::wstring SelectedCandidateString = L"";
+
+inline int CountOfOnePage = 8;
+inline int PageIndex = 0;
+inline int ItemTotalCount = 0;
 } // namespace Global

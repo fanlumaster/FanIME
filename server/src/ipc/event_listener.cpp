@@ -59,26 +59,23 @@ void WorkerThread()
             //
             Global::CandidateWordList.clear();
             Global::SelectedCandidateString = L"";
-            int cnt = 0;
-            for (const auto &[pinyin, word, weight] : Global::CandidateList)
+            Global::PageIndex = 0;
+            Global::ItemTotalCount = Global::CandidateList.size();
+            int loop = Global::ItemTotalCount > Global::CountOfOnePage //
+                           ? Global::CountOfOnePage                    //
+                           : Global::ItemTotalCount;
+            for (int i = 0; i < loop; i++)
             {
-                if (cnt == 0)
+                auto &[pinyin, word, weight] = Global::CandidateList[i];
+                if (i == 0)
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                if (cnt < 8)
-                {
-                    candidate_string += std::to_string(cnt + 1) + ". " + word;
-                    Global::CandidateWordList.push_back(string_to_wstring(word));
-                    cnt++;
-                }
-                if (cnt < 7)
+                candidate_string += std::to_string(i + 1) + ". " + word;
+                Global::CandidateWordList.push_back(string_to_wstring(word));
+                if (i < Global::CountOfOnePage - 1)
                 {
                     candidate_string += ",";
-                }
-                else
-                {
-                    break;
                 }
             }
             ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
@@ -108,6 +105,61 @@ void WorkerThread()
                 if (Global::Keycode - '1' < Global::CandidateWordList.size())
                 {
                     ::SendImeInputs(Global::CandidateWordList[Global::Keycode - '1']);
+                }
+            }
+            else if (Global::Keycode == VK_OEM_MINUS) // Page previous
+            {
+                if (Global::PageIndex > 0)
+                {
+                    std::string candidate_string;
+                    Global::PageIndex--;
+                    int loop = Global::CountOfOnePage;
+                    for (int i = 0; i < loop; i++)
+                    {
+                        auto &[pinyin, word, weight] =
+                            Global::CandidateList[i + Global::PageIndex * Global::CountOfOnePage];
+                        if (i == 0)
+                        {
+                            Global::SelectedCandidateString = string_to_wstring(word);
+                        }
+                        candidate_string += std::to_string(i + 1) + ". " + word;
+                        Global::CandidateWordList.push_back(string_to_wstring(word));
+                        if (i < loop - 1)
+                        {
+                            candidate_string += ",";
+                        }
+                    }
+                    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+                    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+                }
+            }
+            else if (Global::Keycode == VK_OEM_PLUS) // Page next
+            {
+                if (Global::PageIndex < (Global::ItemTotalCount - 1) / Global::CountOfOnePage)
+                {
+                    std::string candidate_string;
+                    Global::PageIndex++;
+                    int loop =
+                        Global::ItemTotalCount - Global::PageIndex * Global::CountOfOnePage > Global::CountOfOnePage
+                            ? Global::CountOfOnePage
+                            : Global::ItemTotalCount - Global::PageIndex * Global::CountOfOnePage;
+                    for (int i = 0; i < loop; i++)
+                    {
+                        auto &[pinyin, word, weight] =
+                            Global::CandidateList[i + Global::PageIndex * Global::CountOfOnePage];
+                        if (i == 0)
+                        {
+                            Global::SelectedCandidateString = string_to_wstring(word);
+                        }
+                        candidate_string += std::to_string(i + 1) + ". " + word;
+                        Global::CandidateWordList.push_back(string_to_wstring(word));
+                        if (i < loop - 1)
+                        {
+                            candidate_string += ",";
+                        }
+                    }
+                    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+                    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
                 }
             }
         }
