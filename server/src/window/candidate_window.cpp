@@ -11,6 +11,7 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
+#include "ime_engine/shuangpin/pinyin_utils.h"
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -142,6 +143,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         ::ReadDataFromSharedMemory(0b100000);
+        Global::PinyinString = string_to_wstring(                                    //
+            PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
+        );
         std::wstring str = Global::PinyinString + L"," + Global::CandidateString;
         InflateCandidateWindow(str);
         return 0;
