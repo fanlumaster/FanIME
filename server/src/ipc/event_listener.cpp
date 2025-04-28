@@ -114,6 +114,9 @@ void WorkerThread()
                     std::string candidate_string;
                     Global::PageIndex--;
                     int loop = Global::CountOfOnePage;
+
+                    // Clear
+                    Global::CandidateWordList.clear();
                     for (int i = 0; i < loop; i++)
                     {
                         auto &[pinyin, word, weight] =
@@ -143,6 +146,9 @@ void WorkerThread()
                         Global::ItemTotalCount - Global::PageIndex * Global::CountOfOnePage > Global::CountOfOnePage
                             ? Global::CountOfOnePage
                             : Global::ItemTotalCount - Global::PageIndex * Global::CountOfOnePage;
+
+                    // Clear
+                    Global::CandidateWordList.clear();
                     for (int i = 0; i < loop; i++)
                     {
                         auto &[pinyin, word, weight] =
