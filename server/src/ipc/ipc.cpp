@@ -1,13 +1,69 @@
 #include "Ipc.h"
 #include <handleapi.h>
 #include <minwindef.h>
+#include <winbase.h>
 #include <winnt.h>
+#include <AclAPI.h>
+#include <Sddl.h>
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
+
+#define LOW_INTEGRITY_SDDL_SACL                                                                                        \
+    SDDL_SACL                                                                                                          \
+    SDDL_DELIMINATOR                                                                                                   \
+    SDDL_ACE_BEGIN                                                                                                     \
+    SDDL_MANDATORY_LABEL                                                                                               \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_NO_WRITE_UP                                                                                                   \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_ML_LOW                                                                                                        \
+    SDDL_ACE_END
+
+#define LOCAL_SYSTEM_FILE_ACCESS                                                                                       \
+    SDDL_ACE_BEGIN                                                                                                     \
+    SDDL_ACCESS_ALLOWED                                                                                                \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_FILE_ALL                                                                                                      \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_LOCAL_SYSTEM                                                                                                  \
+    SDDL_ACE_END
+
+#define EVERYONE_FILE_ACCESS                                                                                           \
+    SDDL_ACE_BEGIN                                                                                                     \
+    SDDL_ACCESS_ALLOWED                                                                                                \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_FILE_ALL                                                                                                      \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_EVERYONE                                                                                                      \
+    SDDL_ACE_END
+
+#define ALL_APP_PACKAGES_FILE_ACCESS                                                                                   \
+    SDDL_ACE_BEGIN                                                                                                     \
+    SDDL_ACCESS_ALLOWED                                                                                                \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_FILE_ALL                                                                                                      \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_SEPERATOR                                                                                                     \
+    SDDL_ALL_APP_PACKAGES                                                                                              \
+    SDDL_ACE_END
 
 static HANDLE hMapFile;
 static void *pBuf;
 static FanyImeSharedMemoryData *sharedData;
+
+static bool canUseSharedMemory = true;
+static bool canUseNamedPipe = true;
 
 int InitIpc()
 {
@@ -26,6 +82,8 @@ int InitIpc()
     if (!hMapFile)
     {
         // Error handling
+        canUseSharedMemory = false;
+        spdlog::info("CreateFileMapping error: {}", GetLastError());
     }
 
     bool alreadyExists = (GetLastError() == ERROR_ALREADY_EXISTS);
@@ -72,6 +130,45 @@ int InitIpc()
     return 0;
 }
 
+int InitNamedPipe()
+{
+    // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
+    PSECURITY_DESCRIPTOR pd;
+    SECURITY_ATTRIBUTES sa;
+    ConvertStringSecurityDescriptorToSecurityDescriptor(
+        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
+            ALL_APP_PACKAGES_FILE_ACCESS,
+        SDDL_REVISION_1, &pd, NULL);
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = pd;
+    sa.bInheritHandle = TRUE;
+    //
+    // Named Pipe
+    //
+    hPipe = CreateNamedPipe(FANY_IME_NAMED_PIPE,        // pipe name
+                            PIPE_ACCESS_DUPLEX,         // read/write access
+                            PIPE_TYPE_MESSAGE           // message type pipe
+                                | PIPE_READMODE_MESSAGE // message-read mode
+                                | PIPE_WAIT,            // blocking mode
+                            PIPE_UNLIMITED_INSTANCES,   // max instances
+                            BUFFER_SIZE,                // output buffer size
+                            BUFFER_SIZE,                // input buffer size
+                            0,                          // client time-out
+                            &sa                         // security attribute, for UWP/Metro apps
+    );
+
+    if (hPipe == INVALID_HANDLE_VALUE)
+    {
+        spdlog::error("CreateNamedPipe failed: {}", GetLastError());
+    }
+    else
+    {
+        spdlog::info("Named pipe created successfully");
+    }
+
+    return 0;
+}
+
 int CloseIpc()
 {
     //
@@ -105,6 +202,20 @@ int CloseIpc()
         }
     }
 
+    return 0;
+}
+
+/**
+ * @brief Close named pipe
+ *
+ * @return int
+ */
+int CloseNamedPipe()
+{
+    if (hPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(hPipe);
+    }
     return 0;
 }
 

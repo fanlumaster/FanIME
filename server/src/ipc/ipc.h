@@ -8,6 +8,9 @@
 inline const wchar_t *FANY_IME_SHARED_MEMORY = L"Local\\FanyImeSharedMemory";
 inline const int BUFFER_SIZE = 4096;
 
+inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
+inline HANDLE hPipe = INVALID_HANDLE_VALUE;
+
 inline const std::vector<std::wstring> FANY_IME_EVENT_ARRAY = {
     L"FanyImeKeyEvent",           // Event sent to UI process to notify time to update UI by new pinyin_string
     L"FanyHideCandidateWndEvent", // Event sent to UI process to notify time to hide candidate window
@@ -28,8 +31,24 @@ struct FanyImeSharedMemoryData
     wchar_t selected_candiate_string[128];
 };
 
+//
+// For uwp/metro apps, here we do not need candidate_string and selected_candiate_string,
+// just let server process to handle them
+//
+struct FanyImeNamedpipeData
+{
+    UINT event_type;
+    UINT keycode;
+    UINT modifiers_down = 0;
+    int point[2] = {100, 100};
+    int pinyin_length = 0;
+    wchar_t pinyin_string[128];
+};
+
 int InitIpc();
+int InitNamedPipe();
 int CloseIpc();
+int CloseNamedPipe();
 int WriteDataToSharedMemory(              //
     const std::wstring &candidate_string, //
     bool write_flag                       //

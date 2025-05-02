@@ -226,3 +226,108 @@ void EventListenerLoopThread()
     queueCv.notify_one();
     ::CloseIpc();
 }
+
+namespace FanyNamedPipe
+{
+FanyImeNamedpipeData namedpipeData;
+
+enum class TaskType
+{
+    ShowCandidate,
+    MoveCandidate,
+    ImeKeyEvent
+};
+
+struct Task
+{
+    TaskType type;
+};
+
+std::queue<Task> taskQueue;
+std::mutex queueMutex;
+
+void WorkerThread()
+{
+    while (pipe_running)
+    {
+        Task task;
+        {
+            std::unique_lock lock(queueMutex);
+            pipe_queueCv.wait(lock, [] { return !taskQueue.empty() || !pipe_running; });
+            if (!pipe_running)
+                break;
+            task = taskQueue.front();
+            taskQueue.pop();
+        }
+
+        switch (task.type)
+        {
+        case TaskType::ShowCandidate: {
+            spdlog::info("ShowCandidate");
+            break;
+        }
+        case TaskType::MoveCandidate: {
+            spdlog::info("MoveCandidateWindow");
+            break;
+        }
+        case TaskType::ImeKeyEvent: {
+            spdlog::info("ImeKeyEvent");
+            break;
+        }
+        }
+    }
+}
+
+void EnqueueTask(TaskType type)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        taskQueue.push({type});
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EventListenerLoopThread()
+{
+    int numEvents = FANY_IME_EVENT_ARRAY.size();
+    while (true)
+    {
+        spdlog::info("Pipe starts to wait");
+        BOOL connected = ConnectNamedPipe(hPipe, NULL);
+        spdlog::info("Pipe connected: {}", connected);
+        if (connected)
+        {
+            while (true)
+            {
+
+                DWORD bytesRead = 0;
+                BOOL readResult = ReadFile( //
+                    hPipe,                  //
+                    &namedpipeData,         //
+                    sizeof(namedpipeData),  //
+                    &bytesRead,             //
+                    NULL                    //
+                );
+                if (!readResult || bytesRead == 0) // Disconnected or error
+                {
+                    spdlog::error("NamedPipe readFile failed with error: {}", GetLastError());
+                    break;
+                }
+                spdlog::info("Namedpipe event type {}", namedpipeData.event_type);
+                spdlog::info("Namedpipe keycode {}", namedpipeData.keycode);
+                spdlog::info("Namedpipe pinyinlength: {}", namedpipeData.pinyin_length);
+                // spdlog::info("Namedpipe pinyin {}", wstring_to_string(namedpipeData.pinyin_string));
+            }
+        }
+        else
+        {
+            // TODO:
+        }
+        DisconnectNamedPipe(hPipe);
+    }
+
+    pipe_running = false;
+    pipe_queueCv.notify_one();
+    ::CloseNamedPipe();
+}
+} // namespace FanyNamedPipe
