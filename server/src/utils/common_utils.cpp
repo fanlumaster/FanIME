@@ -20,7 +20,7 @@ void SendUnicode(const wchar_t data)
 {
     INPUT input[4];
     HWND current_hwnd = GetForegroundWindow();
-    SetFocus(current_hwnd);
+    // SetFocus(current_hwnd);
 
     input[0].type = INPUT_KEYBOARD;
     input[0].ki.wVk = 0;
@@ -39,10 +39,26 @@ void SendUnicode(const wchar_t data)
     SendInput(1, &input[1], sizeof(INPUT));
 }
 
+//
+// In telegram, SendUnicode when words are en chars will trigger tsf, so we need to send char directly
+//
+void SendCharToForeground(wchar_t ch)
+{
+    HWND hwnd = GetForegroundWindow();
+    PostMessage(hwnd, WM_CHAR, ch, 0);
+}
+
 void SendImeInputs(std::wstring words)
 {
     for (wchar_t ch : words)
     {
-        SendUnicode(ch);
+        if ((ch >= L'a' && ch <= L'z') || (ch >= L'A' && ch <= L'Z'))
+        {
+            SendCharToForeground(ch);
+        }
+        else
+        {
+            SendUnicode(ch);
+        }
     }
 }
