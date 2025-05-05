@@ -1,5 +1,6 @@
 #include "event_listener.h"
 #include <Windows.h>
+#include <debugapi.h>
 #include <string>
 #include "Ipc.h"
 #include "boost/algorithm/string/case_conv.hpp"
@@ -13,6 +14,7 @@
 #include <boost/range/iterator_range.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string.hpp>
+#include "fmt/xchar.h"
 
 enum class TaskType
 {

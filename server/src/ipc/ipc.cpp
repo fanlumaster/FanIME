@@ -58,7 +58,7 @@
     SDDL_ALL_APP_PACKAGES                                                                                              \
     SDDL_ACE_END
 
-static HANDLE hMapFile;
+static HANDLE hMapFile = nullptr;
 static void *pBuf;
 static FanyImeSharedMemoryData *sharedData;
 
@@ -83,7 +83,7 @@ int InitIpc()
     {
         // Error handling
         canUseSharedMemory = false;
-        spdlog::info("CreateFileMapping error: {}", GetLastError());
+        spdlog::error("CreateFileMapping error: {}", GetLastError());
     }
 
     bool alreadyExists = (GetLastError() == ERROR_ALREADY_EXISTS);
@@ -112,7 +112,25 @@ int InitIpc()
     }
 
     //
-    // Events
+    // Events, create here
+    //
+    for (const auto &eventName : FANY_IME_EVENT_ARRAY)
+    {
+        HANDLE hEvent = CreateEventW( //
+            nullptr,                  //
+            FALSE,                    //
+            FALSE,                    // Auto reset
+            eventName.c_str()         //
+        );                            //
+        if (!hEvent)
+        {
+            // Error handling
+            spdlog::error("Failed to create event: {}", wstring_to_string(eventName));
+        }
+    }
+
+    //
+    // Events, open here
     //
     for (int i = 0; i < FANY_IME_EVENT_ARRAY.size(); ++i)
     {
