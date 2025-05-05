@@ -84,11 +84,13 @@ void WorkerThread()
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
         }
+
         case TaskType::MoveCandidate: {
             ::ReadDataFromSharedMemory(0b00100);
             PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;
         }
+
         case TaskType::ImeKeyEvent: {
             ::ReadDataFromSharedMemory(0b000001);
             if (Global::Keycode == VK_SPACE)
@@ -231,8 +233,6 @@ void EventListenerLoopThread()
 
 namespace FanyNamedPipe
 {
-FanyImeNamedpipeData namedpipeData;
-
 enum class TaskType
 {
     ShowCandidate,
@@ -265,16 +265,130 @@ void WorkerThread()
         switch (task.type)
         {
         case TaskType::ShowCandidate: {
-            spdlog::info("ShowCandidate");
+            ::ReadDataFromNamedPipe(0b11111);
+            std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
+            Global::CandidateList = g_dictQuery->generate(pinyin);
+            if (Global::CandidateList.size() == 0)
+            {
+                Global::CandidateList.push_back(make_tuple(pinyin, pinyin, 1));
+            }
+            std::string candidate_string;
+            //
+            // Clear before writing
+            //
+            Global::CandidateWordList.clear();
+            Global::SelectedCandidateString = L"";
+            Global::PageIndex = 0;
+            Global::ItemTotalCount = Global::CandidateList.size();
+            int loop = Global::ItemTotalCount > Global::CountOfOnePage //
+                           ? Global::CountOfOnePage                    //
+                           : Global::ItemTotalCount;
+            for (int i = 0; i < loop; i++)
+            {
+                auto &[pinyin, word, weight] = Global::CandidateList[i];
+                if (i == 0)
+                {
+                    Global::SelectedCandidateString = string_to_wstring(word);
+                }
+                candidate_string += std::to_string(i + 1) + ". " + word;
+                Global::CandidateWordList.push_back(string_to_wstring(word));
+                if (i < Global::CountOfOnePage - 1)
+                {
+                    candidate_string += ",";
+                }
+            }
+            ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
         }
+
         case TaskType::MoveCandidate: {
-            spdlog::info("MoveCandidateWindow");
+            ::ReadDataFromNamedPipe(0b00100);
+            PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;
         }
+
         case TaskType::ImeKeyEvent: {
-            spdlog::info("ImeKeyEvent");
-            break;
+            ::ReadDataFromNamedPipe(0b000001);
+            if (Global::Keycode == VK_SPACE)
+            {
+                if (Global::SelectedCandidateString != L"")
+                {
+                    ::SendImeInputs(Global::SelectedCandidateString);
+                }
+                else
+                {
+                    ::SendImeInputs(Global::PinyinString);
+                }
+            }
+            else if (Global::Keycode > '0' && Global::Keycode < '9')
+            {
+                if (Global::Keycode - '1' < Global::CandidateWordList.size())
+                {
+                    ::SendImeInputs(Global::CandidateWordList[Global::Keycode - '1']);
+                }
+            }
+            else if (Global::Keycode == VK_OEM_MINUS) // Page previous
+            {
+                if (Global::PageIndex > 0)
+                {
+                    std::string candidate_string;
+                    Global::PageIndex--;
+                    int loop = Global::CountOfOnePage;
+
+                    // Clear
+                    Global::CandidateWordList.clear();
+                    for (int i = 0; i < loop; i++)
+                    {
+                        auto &[pinyin, word, weight] =
+                            Global::CandidateList[i + Global::PageIndex * Global::CountOfOnePage];
+                        if (i == 0)
+                        {
+                            Global::SelectedCandidateString = string_to_wstring(word);
+                        }
+                        candidate_string += std::to_string(i + 1) + ". " + word;
+                        Global::CandidateWordList.push_back(string_to_wstring(word));
+                        if (i < loop - 1)
+                        {
+                            candidate_string += ",";
+                        }
+                    }
+                    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+                    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+                }
+            }
+            else if (Global::Keycode == VK_OEM_PLUS) // Page next
+            {
+                if (Global::PageIndex < (Global::ItemTotalCount - 1) / Global::CountOfOnePage)
+                {
+                    std::string candidate_string;
+                    Global::PageIndex++;
+                    int loop =
+                        Global::ItemTotalCount - Global::PageIndex * Global::CountOfOnePage > Global::CountOfOnePage
+                            ? Global::CountOfOnePage
+                            : Global::ItemTotalCount - Global::PageIndex * Global::CountOfOnePage;
+
+                    // Clear
+                    Global::CandidateWordList.clear();
+                    for (int i = 0; i < loop; i++)
+                    {
+                        auto &[pinyin, word, weight] =
+                            Global::CandidateList[i + Global::PageIndex * Global::CountOfOnePage];
+                        if (i == 0)
+                        {
+                            Global::SelectedCandidateString = string_to_wstring(word);
+                        }
+                        candidate_string += std::to_string(i + 1) + ". " + word;
+                        Global::CandidateWordList.push_back(string_to_wstring(word));
+                        if (i < loop - 1)
+                        {
+                            candidate_string += ",";
+                        }
+                    }
+                    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+                    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+                }
+            }
         }
         }
     }
@@ -312,13 +426,29 @@ void EventListenerLoopThread()
                 );
                 if (!readResult || bytesRead == 0) // Disconnected or error
                 {
-                    spdlog::error("NamedPipe readFile failed with error: {}", GetLastError());
+                    // TODO: Log
                     break;
                 }
-                spdlog::info("Namedpipe event type {}", namedpipeData.event_type);
-                spdlog::info("Namedpipe keycode {}", namedpipeData.keycode);
-                spdlog::info("Namedpipe pinyinlength: {}", namedpipeData.pinyin_length);
-                // spdlog::info("Namedpipe pinyin {}", wstring_to_string(namedpipeData.pinyin_string));
+
+                // Event handle
+                switch (namedpipeData.event_type)
+                {
+                case 0: // FanyImeKeyEvent
+                    EnqueueTask(TaskType::ImeKeyEvent);
+                    break;
+
+                case 1: // FanyHideCandidateWndEvent
+                    PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+                    break;
+
+                case 2: // FanyShowCandidateWndEvent
+                    EnqueueTask(TaskType::ShowCandidate);
+                    break;
+
+                case 3: // FanyMoveCandidateWndEvent
+                    EnqueueTask(TaskType::MoveCandidate);
+                    break;
+                }
             }
         }
         else

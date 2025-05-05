@@ -35,6 +35,12 @@ struct FanyImeSharedMemoryData
 // For uwp/metro apps, here we do not need candidate_string and selected_candiate_string,
 // just let server process to handle them
 //
+// event_type
+//   0: FanyImeKeyEvent
+//   1: FanyHideCandidateWndEvent
+//   2: FanyShowCandidateWndEvent
+//   3: FanyMoveCandidateWndEvent
+//
 struct FanyImeNamedpipeData
 {
     UINT event_type;
@@ -44,6 +50,8 @@ struct FanyImeNamedpipeData
     int pinyin_length = 0;
     wchar_t pinyin_string[128];
 };
+
+inline FanyImeNamedpipeData namedpipeData;
 
 int InitIpc();
 int InitNamedPipe();
@@ -62,6 +70,7 @@ int WriteDataToSharedMemory(              //
         fifth bit: read pinyin_string
 */
 int ReadDataFromSharedMemory(UINT read_flag);
+int ReadDataFromNamedPipe(UINT read_flag);
 int SendKeyEventToUIProcess();
 
 namespace Global

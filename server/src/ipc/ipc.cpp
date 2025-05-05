@@ -5,6 +5,7 @@
 #include <winnt.h>
 #include <AclAPI.h>
 #include <Sddl.h>
+#include "ipc.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 
@@ -280,6 +281,37 @@ int ReadDataFromSharedMemory(UINT read_flag)
     if (read_flag >> 5 & 1u)
     {
         Global::CandidateString = sharedData->candidate_string;
+    }
+
+    return 0;
+}
+
+int ReadDataFromNamedPipe(UINT read_flag)
+{
+    if (read_flag >> 0 & 1u)
+    {
+        Global::Keycode = namedpipeData.keycode;
+    }
+
+    if (read_flag >> 1 & 1u)
+    {
+        Global::ModifiersDown = namedpipeData.modifiers_down;
+    }
+
+    if (read_flag >> 2 & 1u)
+    {
+        Global::Point[0] = namedpipeData.point[0];
+        Global::Point[1] = namedpipeData.point[1];
+    }
+
+    if (read_flag >> 3 & 1u)
+    {
+        Global::PinyinLength = namedpipeData.pinyin_length;
+    }
+
+    if (read_flag >> 4 & 1u)
+    {
+        Global::PinyinString = namedpipeData.pinyin_string;
     }
 
     return 0;
