@@ -7,6 +7,7 @@
 #include "utils/webview_utils.h"
 #include "utils/window_utils.h"
 #include "webview2/candidate_window_webview2.h"
+#include <debugapi.h>
 #include <minwindef.h>
 #include <string>
 #include <windef.h>
@@ -84,14 +85,16 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     ::global_hwnd = hWnd;
 
-    MoveWindow(                                             //
+    SetWindowPos(                                           //
         hWnd,                                               //
+        HWND_TOPMOST,                                       //
         -1000,                                              //
         100,                                                //
         (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
         (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-        TRUE                                                //
-    );                                                      //
+        SWP_SHOWWINDOW                                      //
+    );
+
     ShowWindow(hWnd, SW_SHOW);
     UpdateWindow(hWnd);
 
@@ -114,73 +117,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         int caretX = Global::Point[0];
         int caretY = Global::Point[1];
 
-        if (caretY < -900)
-        {
-            MoveWindow(                                             //
-                hWnd,                                               //
-                caretX,                                             //
-                caretY,                                             //
-                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-                TRUE                                                //
-            );                                                      //
-        }
-        else
-        {
-            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-                POINT pt = {caretX, caretY};
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                MoveWindow(                                             //
-                    hWnd,                                               //
-                    properPos->first,                                   //
-                    properPos->second,                                  //
-                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-                    TRUE                                                //
-                );                                                      //
-            });
-        }
-        ShowWindow(hWnd, SW_SHOWNOACTIVATE);
         ::ReadDataFromSharedMemory(0b100000);
         std::wstring embeded_pinyin = string_to_wstring(                             //
             PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
         InflateCandidateWindow(str);
-        return 0;
-    }
-    if (message == WM_HIDE_MAIN_WINDOW)
-    {
-        ShowWindow(hWnd, SW_HIDE);
-        UpdateHtmlContentWithJavaScript(webview, L"");
-        /*
-        ResetContainerHover(::webview);
-        if (::CandStr.find(L",") == 1)
-        {
-            InflateCandidateWindow(::CandStr);
-        }
-        else
-        {
-            UpdateHtmlContentWithJavaScript(webview, L"");
-        }
-        */
-        return 0;
-    }
-    if (message == WM_MOVE_CANDIDATE_WINDOW)
-    {
-        int caretX = Global::Point[0];
-        int caretY = Global::Point[1];
+
         if (caretY < -900)
         {
-            MoveWindow(                                             //
-                hWnd,                                               //
-                caretX,                                             //
-                caretY,                                             //
-                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-                TRUE                                                //
-            );                                                      //
+            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
+                POINT pt = {caretX, caretY};
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                SetWindowPos(                                      //
+                    hWnd,                                          //
+                    nullptr,                                       //
+                    caretX,                                        //
+                    caretY,                                        //
+                    (containerSize.first + ::SHADOW_WIDTH) * 1.5,  //
+                    (containerSize.second + ::SHADOW_WIDTH) * 1.5, //
+                    SWP_NOZORDER | SWP_SHOWWINDOW                  //
+                );
+            });
         }
         else
         {
@@ -188,14 +147,58 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
                 POINT pt = {caretX, caretY};
                 AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                MoveWindow(                                             //
-                    hWnd,                                               //
-                    properPos->first,                                   //
-                    properPos->second,                                  //
-                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-                    TRUE                                                //
-                );                                                      //
+                SetWindowPos(                                      //
+                    hWnd,                                          //
+                    nullptr,                                       //
+                    properPos->first,                              //
+                    properPos->second,                             //
+                    (containerSize.first + ::SHADOW_WIDTH) * 1.5,  //
+                    (containerSize.second + ::SHADOW_WIDTH) * 1.5, //
+                    SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW     //
+                );
+            });
+        }
+        return 0;
+    }
+
+    if (message == WM_HIDE_MAIN_WINDOW)
+    {
+        ShowWindow(hWnd, SW_HIDE);
+        UpdateHtmlContentWithJavaScript(webview, L"");
+        return 0;
+    }
+
+    if (message == WM_MOVE_CANDIDATE_WINDOW)
+    {
+        int caretX = Global::Point[0];
+        int caretY = Global::Point[1];
+        if (caretY < -900)
+        {
+            SetWindowPos(                 //
+                hWnd,                     //
+                nullptr,                  //
+                caretX,                   //
+                caretY,                   //
+                0,                        //
+                0,                        //
+                SWP_NOSIZE | SWP_NOZORDER //
+            );
+        }
+        else
+        {
+            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
+            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
+                POINT pt = {caretX, caretY};
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                SetWindowPos(                 //
+                    hWnd,                     //
+                    nullptr,                  //
+                    properPos->first,         //
+                    properPos->second,        //
+                    0,                        //
+                    0,                        //
+                    SWP_NOSIZE | SWP_NOZORDER //
+                );
             });
         }
         return 0;
@@ -206,77 +209,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_MOUSEACTIVATE:
         // Stop the window from being activated by mouse click
         return MA_NOACTIVATE;
-    case WM_COPYDATA: {
-        COPYDATASTRUCT *pcds = (COPYDATASTRUCT *)lParam;
-        static int s_caretX = 0;
-        static int s_caretY = 0;
-        if (pcds->dwData == 0)
-        {
-            POINT *pt = (POINT *)pcds->lpData;
-            auto caretX = pt->x;
-            auto caretY = pt->y;
-            s_caretX = caretX;
-            s_caretY = caretY;
-            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-#ifdef FANY_DEBUG
-                spdlog::info("Caret position: ({}, {})", caretX, caretY);
-                spdlog::info("Container size: ({}, {})", containerSize.first, containerSize.second);
-#endif
-                POINT pt = {caretX, caretY};
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                MoveWindow(                                             //
-                    hWnd,                                               //
-                    properPos->first,                                   //
-                    properPos->second,                                  //
-                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-                    TRUE                                                //
-                );                                                      //
-            });
-#ifdef FANY_DEBUG
-            spdlog::info("Window position: {}, {}", pt->x, pt->y);
-#endif
-        }
-        else if (pcds->dwData == 1)
-        {
-            WCHAR *p = (WCHAR *)pcds->lpData;
-            std::wstring str = p;
-            CandStr = str;
-#ifdef FANY_DEBUG
-            spdlog::info(wstring_to_string(str));
-#endif
-            InflateCandidateWindow(str);
-            auto caretX = s_caretX;
-            auto caretY = s_caretY;
-            s_caretX = caretX;
-            s_caretY = caretY;
-            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-#ifdef FANY_DEBUG
-                spdlog::info("Caret position: ({}, {})", caretX, caretY);
-                spdlog::info("Container size: ({}, {})", containerSize.first, containerSize.second);
-#endif
-                POINT pt = {caretX, caretY};
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                MoveWindow(                                             //
-                    hWnd,                                               //
-                    properPos->first,                                   //
-                    properPos->second,                                  //
-                    (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
-                    (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
-                    TRUE                                                //
-                );                                                      //
-            });
-#ifdef FANY_DEBUG
-            spdlog::info("Window position: {}, {}", caretX, caretY);
-#endif
-        }
-        ResetContainerHover(webview);
-        ShowWindow(hWnd, SW_SHOWNOACTIVATE);
-        DisableMouseForAWhileWhenShown(webview);
-        return 1;
-    }
 
     case WM_ACTIVATE: {
         if (LOWORD(wParam) != WA_INACTIVE)
