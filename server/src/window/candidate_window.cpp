@@ -150,8 +150,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 SetWindowPos(                                      //
                     hWnd,                                          //
                     nullptr,                                       //
-                    properPos->first,                              //
-                    properPos->second,                             //
+                    0,                                             //
+                    0,                                             //
                     (containerSize.first + ::SHADOW_WIDTH) * 1.5,  //
                     (containerSize.second + ::SHADOW_WIDTH) * 1.5, //
                     SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW     //
@@ -165,6 +165,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         ShowWindow(hWnd, SW_HIDE);
         UpdateHtmlContentWithJavaScript(webview, L"");
+        std::wstring str = L"n,1. 那,2. 年,3. 女,4. 难,5. 内,6. 你,7. 男,8. 哪";
+        InflateCandidateWindow(str);
         return 0;
     }
 
