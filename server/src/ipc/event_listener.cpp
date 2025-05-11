@@ -405,11 +405,6 @@ void EnqueueTask(TaskType type)
 
 void EventListenerLoopThread()
 {
-    BOOL fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
-    if (!fConnected)
-    {
-        DisconnectNamedPipe(hPipe);
-    }
     int numEvents = FANY_IME_EVENT_ARRAY.size();
     while (true)
     {

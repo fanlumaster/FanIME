@@ -11,11 +11,21 @@ inline const int BUFFER_SIZE = 4096;
 inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
 
+//
+// Events from tsf to server
+//
 inline const std::vector<std::wstring> FANY_IME_EVENT_ARRAY = {
     L"FanyImeKeyEvent",           // Event sent to UI process to notify time to update UI by new pinyin_string
     L"FanyHideCandidateWndEvent", // Event sent to UI process to notify time to hide candidate window
     L"FanyShowCandidateWndEvent", // Event sent to UI process to notify time to show candidate window
     L"FanyMoveCandidateWndEvent", // Event sent to UI process to notify time to move candidate window
+};
+
+//
+// Events from server to tsf
+//
+inline const std::vector<std::wstring> FANY_IME_EVENT_TO_TSF_ARRAY = {
+    L"FanyImeCandidateReadyEvent", // Event sent to tsf to notify candidate(for committing to apps) is ready
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());

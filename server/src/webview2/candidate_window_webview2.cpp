@@ -1,5 +1,6 @@
 #include "candidate_window_webview2.h"
 #include "utils/common_utils.h"
+#include <debugapi.h>
 #include <filesystem>
 #include <windows.h>
 
@@ -33,7 +34,8 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
 {
     if (webview != nullptr)
     {
-        std::wstring script = L"document.body.innerHTML = `" + newContent + L"`;";
+        std::wstring script = fmt::format(LR"(document.body.innerHTML = `{}`; window.ClearState();)", newContent);
+
         webview->ExecuteScript(script.c_str(), nullptr);
     }
 }

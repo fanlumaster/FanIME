@@ -84,6 +84,12 @@
         a = true;
       });
     });
+
+    window.ClearState = function () {
+      a = false;
+      const container = document.getElementById('container');
+      container.classList.remove('hover-active');
+    }
   </script>
 </head>
 
