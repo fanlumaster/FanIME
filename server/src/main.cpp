@@ -25,9 +25,16 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     std::thread worker(WorkerThread);
     std::thread listener(EventListenerLoopThread);
 
+    //
     // Pipe
+    //
+
+    // Named Pipe for IPC between tsf and server
     std::thread pipe_worker(FanyNamedPipe::WorkerThread);
     std::thread pipe_listener(FanyNamedPipe::EventListenerLoopThread);
+    ::mainPipeThread = pipe_listener.native_handle();
+    // Aux Named Pipe for reconnecting main pipe
+    std::thread aux_pipe_listener(FanyNamedPipe::AuxPipeEventListenerLoopThread);
 
     int ret = CreateCandidateWindow(hInstance);
 
@@ -40,6 +47,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     pipe_queueCv.notify_one();
     pipe_worker.join();
     pipe_listener.join();
+
+    aux_pipe_listener.join();
 
     return ret;
 }

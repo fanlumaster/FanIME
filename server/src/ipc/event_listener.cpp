@@ -1,6 +1,8 @@
 #include "event_listener.h"
 #include <Windows.h>
 #include <debugapi.h>
+#include <ioapiset.h>
+#include <namedpipeapi.h>
 #include <string>
 #include "Ipc.h"
 #include "boost/algorithm/string/case_conv.hpp"
@@ -405,12 +407,14 @@ void EnqueueTask(TaskType type)
 
 void EventListenerLoopThread()
 {
-    int numEvents = FANY_IME_EVENT_ARRAY.size();
     while (true)
     {
         spdlog::info("Pipe starts to wait");
+        OutputDebugString(L"Pipe starts to wait");
         BOOL connected = ConnectNamedPipe(hPipe, NULL);
         spdlog::info("Pipe connected: {}", connected);
+        OutputDebugString(fmt::format(L"Pipe connected: {}", connected).c_str());
+        ::mainConnected = connected;
         if (connected)
         {
             while (true)
@@ -427,6 +431,7 @@ void EventListenerLoopThread()
                 if (!readResult || bytesRead == 0) // Disconnected or error
                 {
                     // TODO: Log
+                    OutputDebugString(L"Pipe disconnected or error");
                     break;
                 }
 
@@ -455,11 +460,64 @@ void EventListenerLoopThread()
         {
             // TODO:
         }
+        OutputDebugString(L"Pipe disconnected");
         DisconnectNamedPipe(hPipe);
     }
 
     pipe_running = false;
     pipe_queueCv.notify_one();
     ::CloseNamedPipe();
+}
+
+void AuxPipeEventListenerLoopThread()
+{
+    while (true)
+    {
+        spdlog::info("Aux Pipe starts to wait");
+        OutputDebugString(L"Aux Pipe starts to wait");
+        BOOL connected = ConnectNamedPipe(hAuxPipe, NULL);
+        spdlog::info("Aux Pipe connected: {}", connected);
+        OutputDebugString(fmt::format(L"Aux Pipe connected: {}", connected).c_str());
+        if (connected)
+        {
+            wchar_t buffer[128] = {0};
+            DWORD bytesRead = 0;
+            BOOL readResult = ReadFile( //
+                hAuxPipe,               //
+                buffer,                 //
+                sizeof(buffer),         //
+                &bytesRead,             //
+                NULL                    //
+            );
+            if (!readResult || bytesRead == 0) // Disconnected or error
+            {
+                // TODO: Log
+            }
+            else
+            {
+                std::wstring message(buffer, bytesRead / sizeof(wchar_t));
+                OutputDebugString(message.c_str());
+
+                if (message == L"kill")
+                {
+                    OutputDebugString(L"Aux Pipe to disconnect main pipe");
+                    if (::mainConnected)
+                    {
+                        OutputDebugString(L"Really disconnect main pipe");
+                        // DisconnectNamedPipe(hPipe);
+                        CancelSynchronousIo(::mainPipeThread);
+                        OutputDebugString(L"End disconnect main pipe");
+                    }
+                }
+            }
+        }
+        else
+        {
+            // TODO:
+        }
+        OutputDebugString(L"Aux Pipe disconnected");
+        DisconnectNamedPipe(hAuxPipe);
+    }
+    ::CloseAuxNamedPipe();
 }
 } // namespace FanyNamedPipe

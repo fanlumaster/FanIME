@@ -9,7 +9,11 @@ inline const wchar_t *FANY_IME_SHARED_MEMORY = L"Local\\FanyImeSharedMemory";
 inline const int BUFFER_SIZE = 4096;
 
 inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
+inline const wchar_t *FANY_IME_AUX_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeAuxNamedPipe";
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
+inline HANDLE hAuxPipe = INVALID_HANDLE_VALUE;
+inline bool mainConnected = false;
+inline HANDLE mainPipeThread = NULL;
 
 //
 // Events from tsf to server
@@ -67,6 +71,7 @@ int InitIpc();
 int InitNamedPipe();
 int CloseIpc();
 int CloseNamedPipe();
+int CloseAuxNamedPipe();
 int WriteDataToSharedMemory(              //
     const std::wstring &candidate_string, //
     bool write_flag                       //

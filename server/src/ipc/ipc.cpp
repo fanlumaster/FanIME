@@ -1,4 +1,5 @@
 #include "Ipc.h"
+#include <debugapi.h>
 #include <handleapi.h>
 #include <minwindef.h>
 #include <winbase.h>
@@ -8,6 +9,7 @@
 #include "ipc.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
+#include "fmt/xchar.h"
 
 #define LOW_INTEGRITY_SDDL_SACL                                                                                        \
     SDDL_SACL                                                                                                          \
@@ -164,16 +166,32 @@ int InitNamedPipe()
     //
     // Named Pipe
     //
-    hPipe = CreateNamedPipe(FANY_IME_NAMED_PIPE,        // pipe name
-                            PIPE_ACCESS_DUPLEX,         // read/write access
-                            PIPE_TYPE_MESSAGE           // message type pipe
-                                | PIPE_READMODE_MESSAGE // message-read mode
-                                | PIPE_WAIT,            // blocking mode
-                            PIPE_UNLIMITED_INSTANCES,   // max instances
-                            BUFFER_SIZE,                // output buffer size
-                            BUFFER_SIZE,                // input buffer size
-                            0,                          // client time-out
-                            &sa                         // security attribute, for UWP/Metro apps
+
+    // Nmaedpipe for IME communication
+    hPipe = CreateNamedPipe(        //
+        FANY_IME_NAMED_PIPE,        // pipe name
+        PIPE_ACCESS_DUPLEX,         // read/write access
+        PIPE_TYPE_MESSAGE           // message type pipe
+            | PIPE_READMODE_MESSAGE // message-read mode
+            | PIPE_WAIT,            // blocking mode
+        PIPE_UNLIMITED_INSTANCES,   // max instances
+        BUFFER_SIZE,                // output buffer size
+        BUFFER_SIZE,                // input buffer size
+        0,                          // client time-out
+        &sa                         // security attribute, for UWP/Metro apps
+    );
+    // Nmaedpipe for reconnecting main pipe
+    hAuxPipe = CreateNamedPipe(     //
+        FANY_IME_AUX_NAMED_PIPE,    // pipe name
+        PIPE_ACCESS_DUPLEX,         // read/write access
+        PIPE_TYPE_MESSAGE           // message type pipe
+            | PIPE_READMODE_MESSAGE // message-read mode
+            | PIPE_WAIT,            // blocking mode
+        PIPE_UNLIMITED_INSTANCES,   // max instances
+        128,                        // output buffer size
+        128,                        // input buffer size
+        0,                          // client time-out
+        &sa                         // security attribute, for UWP/Metro apps
     );
 
     if (hPipe == INVALID_HANDLE_VALUE)
@@ -183,6 +201,15 @@ int InitNamedPipe()
     else
     {
         spdlog::info("Named pipe created successfully");
+    }
+
+    if (hAuxPipe == INVALID_HANDLE_VALUE)
+    {
+        OutputDebugString(fmt::format(L"CreateNamedPipe aux pipe failed: {}", GetLastError()).c_str());
+    }
+    else
+    {
+        OutputDebugString(L"Named pipe aux pipe created successfully");
     }
 
     return 0;
@@ -234,6 +261,15 @@ int CloseNamedPipe()
     if (hPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hPipe);
+    }
+    return 0;
+}
+
+int CloseAuxNamedPipe()
+{
+    if (hAuxPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(hAuxPipe);
     }
     return 0;
 }
