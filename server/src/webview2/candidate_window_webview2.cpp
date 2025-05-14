@@ -3,6 +3,7 @@
 #include <debugapi.h>
 #include <filesystem>
 #include <windows.h>
+#include "global/globals.h"
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
 {
@@ -203,14 +204,19 @@ HRESULT OnEnvironmentCreated(HWND hWnd, HRESULT result, ICoreWebView2Environment
 // Initialize WebView2
 void InitWebview(HWND hWnd)
 {
-    CreateCoreWebView2EnvironmentWithOptions(                                  //
-        nullptr,                                                               //
-        nullptr,                                                               //
-        nullptr,                                                               //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
-            [hWnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
-                return OnEnvironmentCreated(hWnd, result, env);                //
-            })                                                                 //
-            .Get()                                                             //
-    );                                                                         //
+    std::wstring appDataPath = string_to_wstring(CommonUtils::get_local_appdata_path()) + //
+                               LR"(\)" +                                                  //
+                               GlobalIme::AppName +                                       //
+                               LR"(\)" +                                                  //
+                               LR"(webview2)";                                            //
+    CreateCoreWebView2EnvironmentWithOptions(                                             //
+        nullptr,                                                                          //
+        appDataPath.c_str(),                                                              //
+        nullptr,                                                                          //
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(             //
+            [hWnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {            //
+                return OnEnvironmentCreated(hWnd, result, env);                           //
+            })                                                                            //
+            .Get()                                                                        //
+    );                                                                                    //
 }

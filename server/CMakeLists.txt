@@ -35,6 +35,7 @@ set(MY_EXECUTABLE_NAME "fanimeui")
 
 set(SRC_FILES
     "./src/defines/defines.h"
+    "./src/global/globals.h"
     "./src/ipc/event_listener.cpp"
     "./src/ipc/event_listener.h"
     "./src/ipc/ipc.cpp"

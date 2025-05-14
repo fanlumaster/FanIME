@@ -1,6 +1,8 @@
 #include "common_utils.h"
 #include <boost/locale.hpp>
 
+using namespace std;
+
 void ShowErrorMessage(HWND hWnd, const std::wstring &message)
 {
     MessageBox(hWnd, message.c_str(), L"Error", MB_OK);
@@ -62,3 +64,19 @@ void SendImeInputs(std::wstring words)
         }
     }
 }
+
+namespace CommonUtils
+{
+string get_local_appdata_path()
+{
+    char *localAppDataDir = nullptr;
+    std::string localAppDataDirStr;
+    errno_t err = _dupenv_s(&localAppDataDir, nullptr, "LOCALAPPDATA");
+    if (err == 0 && localAppDataDir != nullptr)
+    {
+        localAppDataDirStr = std::string(localAppDataDir);
+    }
+    std::unique_ptr<char, decltype(&free)> dirPtr(localAppDataDir, free);
+    return localAppDataDirStr.empty() ? "" : localAppDataDirStr;
+}
+} // namespace CommonUtils
