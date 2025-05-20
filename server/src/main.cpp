@@ -32,7 +32,10 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     // Named Pipe for IPC between tsf and server
     std::thread pipe_worker(FanyNamedPipe::WorkerThread);
     std::thread pipe_listener(FanyNamedPipe::EventListenerLoopThread);
+    // Named Pipe for IPC, used to pass data to TSF
+    std::thread to_tsf_pipe_listener(FanyNamedPipe::ToTsfPipeEventListenerLoopThread);
     ::mainPipeThread = pipe_listener.native_handle();
+    ::toTsfPipeThread = to_tsf_pipe_listener.native_handle();
     // Aux Named Pipe for reconnecting main pipe
     std::thread aux_pipe_listener(FanyNamedPipe::AuxPipeEventListenerLoopThread);
 
@@ -47,7 +50,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     pipe_queueCv.notify_one();
     pipe_worker.join();
     pipe_listener.join();
-
+    // To Tsf Pipe
+    to_tsf_pipe_listener.join();
     aux_pipe_listener.join();
 
     return ret;

@@ -252,6 +252,18 @@ std::mutex queueMutex;
 
 void WorkerThread()
 {
+    HANDLE hEvent = OpenEvent(               //
+        EVENT_MODIFY_STATE,                  //
+        FALSE,                               //
+        FANY_IME_EVENT_PIPE_ARRAY[0].c_str() //
+    );                                       //
+
+    if (!hEvent)
+    {
+        // TODO: Error handling
+        OutputDebugString(L"FanyImeTimeToWritePipeEvent OpenEvent failed");
+    }
+
     while (pipe_running)
     {
         Task task;
@@ -316,18 +328,35 @@ void WorkerThread()
             {
                 if (Global::SelectedCandidateString != L"")
                 {
-                    ::SendImeInputs(Global::SelectedCandidateString);
+                    // ::SendImeInputs(Global::SelectedCandidateString);
+                    if (!SetEvent(hEvent))
+                    {
+                        // TODO: Error handling
+                        OutputDebugString(L"SetEvent failed");
+                    }
                 }
                 else
                 {
-                    ::SendImeInputs(Global::PinyinString);
+                    // ::SendImeInputs(Global::PinyinString);
+                    Global::SelectedCandidateString = Global::PinyinString;
+                    if (!SetEvent(hEvent))
+                    {
+                        // TODO: Error handling
+                        OutputDebugString(L"SetEvent failed");
+                    }
                 }
             }
             else if (Global::Keycode > '0' && Global::Keycode < '9')
             {
                 if (Global::Keycode - '1' < Global::CandidateWordList.size())
                 {
-                    ::SendImeInputs(Global::CandidateWordList[Global::Keycode - '1']);
+                    // ::SendImeInputs(Global::CandidateWordList[Global::Keycode - '1']);
+                    Global::SelectedCandidateString = Global::CandidateWordList[Global::Keycode - '1'];
+                    if (!SetEvent(hEvent))
+                    {
+                        // TODO: Error handling
+                        OutputDebugString(L"SetEvent failed");
+                    }
                 }
             }
             else if (Global::Keycode == VK_OEM_MINUS) // Page previous
@@ -394,6 +423,8 @@ void WorkerThread()
         }
         }
     }
+
+    CloseHandle(hEvent);
 }
 
 void EnqueueTask(TaskType type)
@@ -407,6 +438,17 @@ void EnqueueTask(TaskType type)
 
 void EventListenerLoopThread()
 {
+    HANDLE hCancelToTsfPipeConnectEvent = OpenEvent( //
+        EVENT_MODIFY_STATE,                          //
+        FALSE,                                       //
+        FANY_IME_EVENT_PIPE_ARRAY[1].c_str()         // FanyImeCancelToWritePipeEvent
+    );                                               //
+
+    if (!hCancelToTsfPipeConnectEvent)
+    {
+        // TODO: Error handling
+        OutputDebugString(L"FanyImeCancelToWritePipeEvent OpenEvent failed");
+    }
     while (true)
     {
         spdlog::info("Pipe starts to wait");
@@ -432,6 +474,19 @@ void EventListenerLoopThread()
                 {
                     // TODO: Log
                     OutputDebugString(L"Pipe disconnected or error");
+
+                    // We alse need to disconnect toTsf named pipe
+                    if (::toTsfConnected)
+                    {
+                        OutputDebugString(L"Really disconnect toTsf pipe");
+                        // DisconnectNamedPipe toTsf hPipe
+                        if (!SetEvent(hCancelToTsfPipeConnectEvent))
+                        {
+                            // TODO: Error handling
+                            OutputDebugString(L"hCancelToTsfPipeConnectEvent SetEvent failed");
+                        }
+                        OutputDebugString(L"End disconnect toTsf pipe");
+                    }
                     break;
                 }
 
@@ -469,6 +524,94 @@ void EventListenerLoopThread()
     ::CloseNamedPipe();
 }
 
+void SendToTsfViaNamedpipe(std::wstring &pipeData)
+{
+    if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
+    {
+        // TODO: Error handling
+        OutputDebugString(L"SendToTsfViaNamedpipe Pipe disconnected");
+        return;
+    }
+    DWORD bytesWritten = 0;
+    BOOL ret = WriteFile(                    //
+        hToTsfPipe,                          //
+        pipeData.c_str(),                    //
+        pipeData.length() * sizeof(wchar_t), //
+        &bytesWritten,                       //
+        NULL                                 //
+    );
+    if (!ret || bytesWritten != pipeData.length() * sizeof(wchar_t))
+    {
+        // TODO: Error handling
+        OutputDebugString(L"SendToTsfViaNamedpipe WriteFile failed");
+    }
+}
+
+void ToTsfPipeEventListenerLoopThread()
+{
+    // Open events here
+    std::vector<HANDLE> hPipeEvents(FANY_IME_EVENT_PIPE_ARRAY.size());
+    int numEvents = FANY_IME_EVENT_PIPE_ARRAY.size();
+    for (int i = 0; i < FANY_IME_EVENT_PIPE_ARRAY.size(); ++i)
+    {
+        hPipeEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_PIPE_ARRAY[i].c_str());
+        if (!hPipeEvents[i])
+        {
+            for (int j = 0; j < i; ++j)
+            {
+                CloseHandle(hPipeEvents[j]);
+            }
+        }
+    }
+
+    while (true)
+    {
+        spdlog::info("ToTsf Pipe starts to wait");
+        OutputDebugString(L"ToTsf Pipe starts to wait");
+        BOOL connected = ConnectNamedPipe(hToTsfPipe, NULL);
+        ::toTsfConnected = connected;
+        spdlog::info("ToTsf Pipe connected: {}", connected);
+        OutputDebugString(fmt::format(L"ToTsf Pipe connected: {}", connected).c_str());
+        if (connected)
+        {
+            // Wait for event to write data to tsf
+            while (true)
+            {
+                bool isBreakWile = false;
+                DWORD result = WaitForMultipleObjects(numEvents, hPipeEvents.data(), FALSE, INFINITE);
+                if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + numEvents)
+                {
+                    int eventIndex = result - WAIT_OBJECT_0;
+                    switch (eventIndex)
+                    {
+                    case 0: { // FanyImeTimeToWritePipeEvent
+                        // Write data to tsf via named pipe
+                        SendToTsfViaNamedpipe(::Global::SelectedCandidateString);
+                        break;
+                    }
+                    case 1: { // Cancel event
+                        OutputDebugString(L"Event canceled.");
+                        isBreakWile = true;
+                        break;
+                    }
+                    }
+                }
+                if (isBreakWile)
+                {
+                    break;
+                }
+            }
+        }
+        else
+        {
+            // TODO:
+        }
+        OutputDebugString(L"ToTsf Pipe disconnected");
+        DisconnectNamedPipe(hToTsfPipe);
+    }
+    ::CloseToTsfNamedPipe();
+}
+
 void AuxPipeEventListenerLoopThread()
 {
     while (true)
@@ -500,14 +643,21 @@ void AuxPipeEventListenerLoopThread()
 
                 if (message == L"kill")
                 {
-                    OutputDebugString(L"Aux Pipe to disconnect main pipe");
+                    OutputDebugString(L" Pipe to disconnect main and toTsf pipe");
                     if (::mainConnected)
                     {
                         OutputDebugString(L"Really disconnect main pipe");
-                        // DisconnectNamedPipe(hPipe);
+                        // DisconnectNamedPipe hPipe
                         CancelSynchronousIo(::mainPipeThread);
                         OutputDebugString(L"End disconnect main pipe");
                     }
+                    // if (::toTsfConnected)
+                    // {
+                    //     OutputDebugString(L"Really disconnect toTsf pipe");
+                    //     // DisconnectNamedPipe toTsf hPipe
+                    //     CancelSynchronousIo(::toTsfPipeThread);
+                    //     OutputDebugString(L"End disconnect toTsf pipe");
+                    // }
                 }
             }
         }
@@ -520,4 +670,5 @@ void AuxPipeEventListenerLoopThread()
     }
     ::CloseAuxNamedPipe();
 }
+
 } // namespace FanyNamedPipe

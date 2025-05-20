@@ -23,4 +23,5 @@ namespace FanyNamedPipe
 void WorkerThread();
 void EventListenerLoopThread();
 void AuxPipeEventListenerLoopThread();
+void ToTsfPipeEventListenerLoopThread();
 } // namespace FanyNamedPipe

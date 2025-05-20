@@ -10,10 +10,14 @@ inline const int BUFFER_SIZE = 4096;
 
 inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
 inline const wchar_t *FANY_IME_AUX_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeAuxNamedPipe";
+inline const wchar_t *FANY_IME_TO_TSF_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfNamedPipe";
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
 inline HANDLE hAuxPipe = INVALID_HANDLE_VALUE;
+inline HANDLE hToTsfPipe = INVALID_HANDLE_VALUE;
 inline bool mainConnected = false;
 inline HANDLE mainPipeThread = NULL;
+inline bool toTsfConnected = false;
+inline HANDLE toTsfPipeThread = NULL;
 
 //
 // Events from tsf to server
@@ -28,8 +32,9 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_ARRAY = {
 //
 // Events from server to tsf
 //
-inline const std::vector<std::wstring> FANY_IME_EVENT_TO_TSF_ARRAY = {
-    L"FanyImeCandidateReadyEvent", // Event sent to tsf to notify candidate(for committing to apps) is ready
+inline const std::vector<std::wstring> FANY_IME_EVENT_PIPE_ARRAY = {
+    L"FanyImeTimeToWritePipeEvent",   // Event sent to thread that used to send pipe data to tsf
+    L"FanyImeCancelToWritePipeEvent", // Event sent to thread that used to cancel sending pipe data to tsf
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
@@ -68,9 +73,10 @@ struct FanyImeNamedpipeData
 inline FanyImeNamedpipeData namedpipeData;
 
 int InitIpc();
-int InitNamedPipe();
 int CloseIpc();
+int InitNamedPipe();
 int CloseNamedPipe();
+int CloseToTsfNamedPipe();
 int CloseAuxNamedPipe();
 int WriteDataToSharedMemory(              //
     const std::wstring &candidate_string, //

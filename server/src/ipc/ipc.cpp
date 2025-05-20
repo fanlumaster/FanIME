@@ -151,6 +151,9 @@ int InitIpc()
     return 0;
 }
 
+//
+// We also create events for thread-communication here
+//
 int InitNamedPipe()
 {
     // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
@@ -180,6 +183,7 @@ int InitNamedPipe()
         0,                          // client time-out
         &sa                         // security attribute, for UWP/Metro apps
     );
+
     // Nmaedpipe for reconnecting main pipe
     hAuxPipe = CreateNamedPipe(     //
         FANY_IME_AUX_NAMED_PIPE,    // pipe name
@@ -190,6 +194,20 @@ int InitNamedPipe()
         PIPE_UNLIMITED_INSTANCES,   // max instances
         128,                        // output buffer size
         128,                        // input buffer size
+        0,                          // client time-out
+        &sa                         // security attribute, for UWP/Metro apps
+    );
+
+    // Namedpipe for passing data from this process to TSF process
+    hToTsfPipe = CreateNamedPipe(   //
+        FANY_IME_TO_TSF_NAMED_PIPE, // pipe name
+        PIPE_ACCESS_DUPLEX,         // read/write access
+        PIPE_TYPE_MESSAGE           // message type pipe
+            | PIPE_READMODE_MESSAGE // message-read mode
+            | PIPE_WAIT,            // blocking mode
+        PIPE_UNLIMITED_INSTANCES,   // max instances
+        512,                        // output buffer size
+        512,                        // input buffer size
         0,                          // client time-out
         &sa                         // security attribute, for UWP/Metro apps
     );
@@ -210,6 +228,33 @@ int InitNamedPipe()
     else
     {
         OutputDebugString(L"Named pipe aux pipe created successfully");
+    }
+
+    if (hToTsfPipe == INVALID_HANDLE_VALUE)
+    {
+        OutputDebugString(fmt::format(L"CreateNamedPipe to tsf pipe failed: {}", GetLastError()).c_str());
+    }
+    else
+    {
+        OutputDebugString(L"Named pipe to tsf pipe created successfully");
+    }
+
+    //
+    // Events, create here
+    //
+    for (const auto &eventName : FANY_IME_EVENT_PIPE_ARRAY)
+    {
+        HANDLE hEvent = CreateEventW( //
+            nullptr,                  //
+            FALSE,                    //
+            FALSE,                    // Auto reset
+            eventName.c_str()         //
+        );                            //
+        if (!hEvent)
+        {
+            // Error handling
+            OutputDebugString(fmt::format(L"CreateEvent failed: {}", GetLastError()).c_str());
+        }
     }
 
     return 0;
@@ -261,6 +306,15 @@ int CloseNamedPipe()
     if (hPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hPipe);
+    }
+    return 0;
+}
+
+int CloseToTsfNamedPipe()
+{
+    if (hAuxPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(hToTsfPipe);
     }
     return 0;
 }
