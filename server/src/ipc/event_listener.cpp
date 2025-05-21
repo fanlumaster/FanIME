@@ -323,7 +323,7 @@ void WorkerThread()
         }
 
         case TaskType::ImeKeyEvent: {
-            ::ReadDataFromNamedPipe(0b000001);
+            ::ReadDataFromNamedPipe(0b000011);
             if (Global::Keycode == VK_SPACE)
             {
                 if (Global::SelectedCandidateString != L"")
@@ -359,7 +359,10 @@ void WorkerThread()
                     }
                 }
             }
-            else if (Global::Keycode == VK_OEM_MINUS) // Page previous
+            else if (Global::Keycode == VK_OEM_MINUS ||     //
+                     (Global::Keycode == VK_TAB             //
+                      && (Global::ModifiersDown >> 0 & 1u)) //
+                     )                                      // Page previous
             {
                 if (Global::PageIndex > 0)
                 {
@@ -388,7 +391,10 @@ void WorkerThread()
                     PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
                 }
             }
-            else if (Global::Keycode == VK_OEM_PLUS) // Page next
+            else if (Global::Keycode == VK_OEM_PLUS ||    //
+                     (Global::Keycode == VK_TAB &&        //
+                      !(Global::ModifiersDown >> 0 & 1u)) //
+                     )                                    // Page next
             {
                 if (Global::PageIndex < (Global::ItemTotalCount - 1) / Global::CountOfOnePage)
                 {
