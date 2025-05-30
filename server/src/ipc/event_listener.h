@@ -7,7 +7,7 @@
 #include <condition_variable>
 #include <queue>
 #include <atomic>
-#include "ime_engine/shuangpin/dictionary.h"
+#include "FanImeEngine/shuangpin/dictionary.h"
 
 inline std::condition_variable queueCv;
 inline std::condition_variable pipe_queueCv;

@@ -4,6 +4,7 @@
 #include <ioapiset.h>
 #include <namedpipeapi.h>
 #include <string>
+#include "FanImeEngine/shuangpin/pinyin_utils.h"
 #include "Ipc.h"
 #include "boost/algorithm/string/case_conv.hpp"
 #include "defines/defines.h"
@@ -11,7 +12,6 @@
 #include "ipc.h"
 #include "defines/globals.h"
 #include "utils/common_utils.h"
-#include "ime_engine/shuangpin/dictionary.h"
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/iterator_range.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -52,7 +52,7 @@ void WorkerThread()
         case TaskType::ShowCandidate: {
             ::ReadDataFromSharedMemory(0b11111);
             std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
-            Global::CandidateList = g_dictQuery->generate(pinyin);
+            Global::CandidateList = g_dictQuery->generate(pinyin, PinyinUtil::pinyin_segmentation(pinyin));
             if (Global::CandidateList.size() == 0)
             {
                 Global::CandidateList.push_back(make_tuple(pinyin, pinyin, 1));
@@ -281,7 +281,7 @@ void WorkerThread()
         case TaskType::ShowCandidate: {
             ::ReadDataFromNamedPipe(0b11111);
             std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
-            Global::CandidateList = g_dictQuery->generate(pinyin);
+            Global::CandidateList = g_dictQuery->generate(pinyin, PinyinUtil::pinyin_segmentation(pinyin));
             if (Global::CandidateList.size() == 0)
             {
                 Global::CandidateList.push_back(make_tuple(pinyin, pinyin, 1));
