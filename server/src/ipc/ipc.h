@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ime_engine/shuangpin/dictionary.h"
+#include "FanImeEngine/shuangpin/dictionary.h"
 #include <Windows.h>
 #include <string>
 #include <vector>

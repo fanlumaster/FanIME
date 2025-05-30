@@ -12,4 +12,5 @@ void SendImeInputs(std::wstring words);
 namespace CommonUtils
 {
 std::string get_local_appdata_path();
-}
+std::string get_username();
+} // namespace CommonUtils

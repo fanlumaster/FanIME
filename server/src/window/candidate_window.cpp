@@ -2,7 +2,6 @@
 #include "candidate_window.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
-#include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include "utils/webview_utils.h"
 #include "utils/window_utils.h"
@@ -12,7 +11,7 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
-#include "ime_engine/shuangpin/pinyin_utils.h"
+#include "FanImeEngine/shuangpin/pinyin_utils.h"
 
 LRESULT RegisterCandidateWindowMessage()
 {

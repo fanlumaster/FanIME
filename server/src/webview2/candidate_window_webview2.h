@@ -10,6 +10,8 @@
 #include <vector>
 #include <wrl.h>
 #include <wrl/client.h>
+#include "utils/common_utils.h"
+#include "global/globals.h"
 
 using namespace Microsoft::WRL;
 
@@ -21,7 +23,11 @@ inline ComPtr<ICoreWebView2Controller2> webviewController2;
 inline std::wstring HTMLString = LR"()";
 inline std::wstring BodyString = LR"()";
 inline std::wstring CandStr = L"";
-const std::wstring LocalAssetsPath = L"C:\\Users\\SonnyCalcr\\AppData\\Roaming\\PotPlayerMini64\\Capture";
+const std::wstring LocalAssetsPath = fmt::format(             //
+    L"{}\\{}\\assets",                                        //
+    string_to_wstring(CommonUtils::get_local_appdata_path()), //
+    GlobalIme::AppName                                        //
+);
 
 int PrepareCandidateWindowHtml();
 void UpdateHtmlContentWithJavaScript( //
