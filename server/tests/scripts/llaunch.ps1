@@ -1,5 +1,5 @@
 #
-# generate, compile and run exe files
+# Generate, compile and run exe files
 #
 function getExePathFromCMakeLists() {
     $content = Get-Content -Raw -Path "./CMakeLists.txt"
@@ -31,7 +31,6 @@ if (-not (Test-Path $buildFolderPath)) {
     Write-Host "build folder created."
 }
 
-# cmake -G -A x64 -DCMAKE_TOOLCHAIN_FILE=C:/Users/SonnyCalcr/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake -S . -B ./build/
 cmake --preset=default
 
 if ($LASTEXITCODE -eq 0) {

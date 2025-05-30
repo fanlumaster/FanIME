@@ -1,0 +1,39 @@
+<Project DefaultTargets="Build" ToolsVersion="4.0"
+    xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <ImportGroup Label="PropertySheets">
+        <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+            Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+            Label="LocalAppDataPlatform" />
+    </ImportGroup>
+
+    <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.vcxproj'">
+        <ProjectCapability Include="PackageReferences" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- WebView2 version-->
+        <PackageReference Update="Microsoft.Web.WebView2" Version="1.0.3240.44" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.vcxproj'">
+        <!-- NuGet config -->
+        <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+        <NuGetPackageImportStamp>true</NuGetPackageImportStamp>
+
+        <!-- TargetPlatform x64 -->
+        <Platform Condition="'$(Platform)' == ''">x64</Platform>
+        <TargetFramework>native</TargetFramework>
+
+        <!-- NuGet package root -->
+        <NuGetPackageRoot Condition="'$(NuGetPackageRoot)' == ''">$(UserProfile)\.nuget\packages</NuGetPackageRoot>
+
+        <!-- WebView2 config -->
+        <WebView2LoaderPreference>Static</WebView2LoaderPreference>
+
+        <!-- NuGet target -->
+        <NuGetTargetMoniker Condition="'$(NuGetTargetMoniker)' == ''">native,Version=v0.0</NuGetTargetMoniker>
+        <RuntimeIdentifiers Condition="'$(RuntimeIdentifiers)' == ''">
+            win;win-x86;win-x64;win-arm;win-arm64
+        </RuntimeIdentifiers>
+    </PropertyGroup>
+</Project>
