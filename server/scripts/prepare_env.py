@@ -19,7 +19,6 @@ FanImeServer_src_path = normpath(os.path.join(FanImeServer_root_path, "src"))
 vcpkg_include_path = normpath(
     os.path.join(
         FanImeServer_root_path,
-        "tests",
         "build",
         "vcpkg_installed",
         "x64-windows",
@@ -62,13 +61,13 @@ dot_clangd_file = os.path.join(
 dot_clangd_output_file = os.path.join(FanImeServer_root_path, ".clangd")
 with open(dot_clangd_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
-lines[6] = f'      "-IC:{FanImeServer_root_path}",\n'
-lines[7] = f'      "-IC:{FanImeServer_src_path}",\n'
-lines[8] = f'      "-IC:{vcpkg_include_path}",\n'
-lines[10] = f'      "-IC:{utfcpp_path}",\n'
-lines[12] = f'      "-IC:{webview2_path}",\n'
-lines[13] = f'      "-IC:{wim_path}",\n'
-lines[15] = f'      "-IC:{boost_path}",\n'
+lines[6] = f'      "-I{FanImeServer_root_path}",\n'
+lines[7] = f'      "-I{FanImeServer_src_path}",\n'
+lines[8] = f'      "-I{vcpkg_include_path}",\n'
+lines[10] = f'      "-I{utfcpp_path}",\n'
+lines[12] = f'      "-I{webview2_path}",\n'
+lines[13] = f'      "-I{wim_path}",\n'
+lines[15] = f'      "-I{boost_path}",\n'
 with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
 
