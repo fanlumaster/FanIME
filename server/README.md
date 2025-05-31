@@ -1,4 +1,4 @@
-# Server end of FanImeTsf
+# FanImeServer
 
 This is the server end of [FanIMETsf](https://github.com/fanlumaster/FanImeTsf).
 

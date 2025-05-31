@@ -10,7 +10,6 @@ home_dir = os.path.expanduser("~")
 
 cur_file_path = os.path.dirname(os.path.abspath(__file__))
 project_root_path = os.path.dirname(cur_file_path)
-print(project_root_path)
 
 user_home = os.path.expanduser("~")
 
