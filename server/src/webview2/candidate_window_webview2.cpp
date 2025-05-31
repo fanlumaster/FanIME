@@ -22,12 +22,28 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
 
 int PrepareCandidateWindowHtml()
 {
-    std::wstring htmlPath =
-        std::filesystem::current_path().wstring() + L"/html/default-themes/vertical_candidate_window_dark.html";
+    std::wstring entireHtml = L"/html/default-themes/vertical_candidate_window_dark.html";
+    std::wstring bodyHtml = L"/html/default-themes/body/vertical_candidate_window_dark.html";
+
+    bool isHorizontal = true;
+    bool isNormal = true;
+
+    if (isHorizontal)
+    {
+        entireHtml = L"/html/default-themes/horizontal_candidate_window_dark.html";
+        bodyHtml = L"/html/default-themes/body/horizontal_candidate_window_dark.html";
+        if (isNormal)
+        {
+            entireHtml = L"/html/default-themes/horizontal_candidate_window_dark_normal.html";
+            bodyHtml = L"/html/default-themes/body/horizontal_candidate_window_dark_normal.html";
+        }
+    }
+
+    std::wstring htmlPath = std::filesystem::current_path().wstring() + entireHtml;
     ::HTMLString = ReadHtmlFile(htmlPath);
-    std::wstring bodyPath =
-        std::filesystem::current_path().wstring() + L"/html/default-themes/body/vertical_candidate_window_dark.html";
+    std::wstring bodyPath = std::filesystem::current_path().wstring() + bodyHtml;
     ::BodyString = ReadHtmlFile(bodyPath);
+
     return 0;
 }
 

@@ -10,6 +10,7 @@
       font-family: Arial, sans-serif;
       font-size: 24px;
       height: 100vh;
+      width: fit-content;
       margin: 0;
       overflow: hidden;
       border-radius: 6px;
@@ -20,7 +21,8 @@
       margin-top: 0px;
       margin-left: 0px;
       background-color: #202020;
-      padding: 2px;
+      padding: 0.12px;
+      padding-left: 0.12em;
       border-radius: 6px;
       box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
       display: flex;
@@ -33,6 +35,7 @@
     .pinyin-row {
       padding-right: 1px;
       margin-bottom: 2px;
+      display: none;
     }
 
     .candidates-row {
@@ -43,7 +46,7 @@
 
     .row {
       padding-right: 1px;
-      margin: 0 1px;
+      margin: 0.18em 0.12em;
     }
 
     .cand:hover {
@@ -77,43 +80,21 @@
       padding-right: 8px;
       color: #e9e8e8;
     }
-
-    #pinyin-container {
-      border-radius: 6px 6px 0 0;
-      border-bottom: 0px solid #9b9b9b2e;
-      box-shadow: 0 0 0 rgba(0, 0, 0, 0.5);
-      position: relative;
-      z-index: 2;
-    }
-
-    .pinyin {
-      padding-bottom: -4px;
-    }
-
-    #container {
-      border-radius: 0 6px 6px 6px;
-      position: relative;
-      z-index: 1;
-      margin-top: -2px;
-    }
   </style>
 </head>
 
 <body>
-  <div class="container" id="pinyin-container">
+  <div class="container" id="container">
     <div class="pinyin-row">
       <div class="row pinyin">
         <div class="text">ni'uo</div>
       </div>
     </div>
-  </div>
-
-  <div class="container" id="container">
     <div class="candidates-row">
       <!--1Anchor-->
       <div class="row-wrapper">
         <div class="row cand first">
-          <div class="text">1. 你说</div>
+          <div class="text">1. 你说什么</div>
         </div>
       </div>
       <!--2Anchor-->
