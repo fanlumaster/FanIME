@@ -1,11 +1,13 @@
-# Front end of FanIME
+# Server end of FanImeTsf
 
-This is the front end of [FanIMETsf](https://github.com/fanlumaster/FanImeTsf).
+This is the server end of [FanIMETsf](https://github.com/fanlumaster/FanImeTsf).
 
-Not only the UI, but also IME engine.
+## Screenshots
 
-![](https://s2.loli.net/2025/03/20/4ZdbHLWAeBJOqIo.png)
+![](https://i.postimg.cc/v8Bpx6Gf/image.png)
 
-![](https://s2.loli.net/2025/03/24/n1X7RZr9LjEWO23.png)
+![](https://i.postimg.cc/ssBgtM5M/image.png)
 
-![](https://s2.loli.net/2025/04/24/xSWUb2Ref74KTmQ.png)
+![](https://i.postimg.cc/ryDqXH0B/image.png)
+
+## How to build
