@@ -304,7 +304,7 @@ void WorkerThread()
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                candidate_string += std::to_string(i + 1) + ". " + word;
+                candidate_string += std::to_string(i + 1) + " " + word;
                 Global::CandidateWordList.push_back(string_to_wstring(word));
                 if (i < Global::CountOfOnePage - 1)
                 {
