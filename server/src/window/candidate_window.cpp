@@ -87,8 +87,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     SetWindowPos(                                           //
         hWnd,                                               //
         HWND_TOPMOST,                                       //
-        -1000,                                              //
-        100,                                                //
+        -10000,                                             //
+        -10000,                                             //
         (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * 1.5,  //
         (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * 1.5, //
         SWP_SHOWWINDOW                                      //
