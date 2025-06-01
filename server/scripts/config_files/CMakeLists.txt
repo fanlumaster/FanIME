@@ -34,7 +34,7 @@ add_compile_options(/Zc:__cplusplus)
 
 include_directories("./")
 include_directories("./src/")
-include_directories("../FanImeEngine/utfcpp/source/")
+include_directories("./FanImeEngine/utfcpp/source/")
 
 set(MY_EXECUTABLE_NAME "FanImeServer")
 
