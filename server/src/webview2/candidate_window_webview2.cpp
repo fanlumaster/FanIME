@@ -26,7 +26,7 @@ int PrepareCandidateWindowHtml()
     std::wstring bodyHtml = L"/html/default-themes/body/vertical_candidate_window_dark.html";
 
     bool isHorizontal = false;
-    bool isNormal = false;
+    bool isNormal = true;
 
     if (isHorizontal)
     {
