@@ -3,8 +3,8 @@
 
 namespace GlobalIme
 {
-inline std::wstring AppName = L"FanImeTsf";
-inline std::wstring ServerName = L"FanImeTsf";
+inline std::wstring AppName = L"MetasequoiaImeTsf";
+inline std::wstring ServerName = L"MetasequoiaImeTsf";
 } // namespace GlobalIme
 
 namespace CandidateUi

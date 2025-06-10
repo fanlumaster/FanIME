@@ -4,11 +4,11 @@ CompileFlags:
       -D_UNICODE,
       -DFANY_DEBUG,
       "-std=c++17",
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/FanImeServer",
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/FanImeServer/src",
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/FanImeServer/build/vcpkg_installed/x64-windows/include",
+      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer",
+      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/src",
+      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/build/vcpkg_installed/x64-windows/include",
       # utfcpp includes
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/FanImeServer/FanImeEngine/utfcpp/source",
+      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/MetasequoiaImeEngine/utfcpp/source",
       # WebView2 includes
       "-IC:/Users/19833/.nuget/packages/microsoft.web.webview2/1.0.3240.44/build/native/include",
       "-IC:/Users/19833/.nuget/packages/microsoft.windows.implementationlibrary/1.0.240803.1/include",

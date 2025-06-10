@@ -4,7 +4,7 @@
 #include <ioapiset.h>
 #include <namedpipeapi.h>
 #include <string>
-#include "FanImeEngine/shuangpin/pinyin_utils.h"
+#include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 #include "Ipc.h"
 #include "boost/algorithm/string/case_conv.hpp"
 #include "defines/defines.h"

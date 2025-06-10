@@ -13,11 +13,11 @@ project_root_path = os.path.dirname(cur_file_path)
 
 user_home = os.path.expanduser("~")
 
-FanImeServer_root_path = normpath(project_root_path)
-FanImeServer_src_path = normpath(os.path.join(FanImeServer_root_path, "src"))
+MetasequoiaImeServer_root_path = normpath(project_root_path)
+MetasequoiaImeServer_src_path = normpath(os.path.join(MetasequoiaImeServer_root_path, "src"))
 vcpkg_include_path = normpath(
     os.path.join(
-        FanImeServer_root_path,
+        MetasequoiaImeServer_root_path,
         "build",
         "vcpkg_installed",
         "x64-windows",
@@ -25,7 +25,7 @@ vcpkg_include_path = normpath(
     )
 )
 utfcpp_path = normpath(
-    os.path.join(FanImeServer_root_path, "FanImeEngine", "utfcpp", "source")
+    os.path.join(MetasequoiaImeServer_root_path, "MetasequoiaImeEngine", "utfcpp", "source")
 )
 webview2_path = normpath(
     os.path.join(
@@ -55,13 +55,13 @@ boost_path = normpath(os.path.join(user_home, "scoop", "apps", "boost", "current
 # project_root/.clangd
 #
 dot_clangd_file = os.path.join(
-    FanImeServer_root_path, "scripts", "config_files", ".clangd"
+    MetasequoiaImeServer_root_path, "scripts", "config_files", ".clangd"
 )
-dot_clangd_output_file = os.path.join(FanImeServer_root_path, ".clangd")
+dot_clangd_output_file = os.path.join(MetasequoiaImeServer_root_path, ".clangd")
 with open(dot_clangd_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
-lines[6] = f'      "-I{FanImeServer_root_path}",\n'
-lines[7] = f'      "-I{FanImeServer_src_path}",\n'
+lines[6] = f'      "-I{MetasequoiaImeServer_root_path}",\n'
+lines[7] = f'      "-I{MetasequoiaImeServer_src_path}",\n'
 lines[8] = f'      "-I{vcpkg_include_path}",\n'
 lines[10] = f'      "-I{utfcpp_path}",\n'
 lines[12] = f'      "-I{webview2_path}",\n'
@@ -74,9 +74,9 @@ with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
 # project_root/tests/CMakeLists.txt
 #
 CMakeLists_file = os.path.join(
-    FanImeServer_root_path, "scripts", "config_files", "CMakeLists.txt"
+    MetasequoiaImeServer_root_path, "scripts", "config_files", "CMakeLists.txt"
 )
-CMakeLists_output_file = os.path.join(FanImeServer_root_path, "CMakeLists.txt")
+CMakeLists_output_file = os.path.join(MetasequoiaImeServer_root_path, "CMakeLists.txt")
 with open(CMakeLists_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
 lines[7] = f'set(Boost_ROOT "{boost_path}")\n'
@@ -87,10 +87,10 @@ with open(CMakeLists_output_file, "w", encoding="utf-8") as f:
 # CMakePresets.json
 #
 CMakePresets_file = os.path.join(
-    FanImeServer_root_path, "scripts", "config_files", "CMakePresets.json"
+    MetasequoiaImeServer_root_path, "scripts", "config_files", "CMakePresets.json"
 )
 CMakePresets_file_output_file = os.path.join(
-    FanImeServer_root_path, "CMakePresets.json"
+    MetasequoiaImeServer_root_path, "CMakePresets.json"
 )
 with open(CMakePresets_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
@@ -105,10 +105,10 @@ with open(CMakePresets_file_output_file, "w", encoding="utf-8") as f:
 # project_root/tests/CMakeLists.txt
 #
 Tests_CMakeLists_file = os.path.join(
-    FanImeServer_root_path, "scripts", "config_files", "tests", "CMakeLists.txt"
+    MetasequoiaImeServer_root_path, "scripts", "config_files", "tests", "CMakeLists.txt"
 )
 Tests_CMakeLists_output_file = os.path.join(
-    FanImeServer_root_path, "tests", "CMakeLists.txt"
+    MetasequoiaImeServer_root_path, "tests", "CMakeLists.txt"
 )
 with open(Tests_CMakeLists_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
@@ -120,10 +120,10 @@ with open(Tests_CMakeLists_output_file, "w", encoding="utf-8") as f:
 # project_root/tests/CMakePresets.json
 #
 Tests_CMakePresets_file = os.path.join(
-    FanImeServer_root_path, "scripts", "config_files", "tests", "CMakePresets.json"
+    MetasequoiaImeServer_root_path, "scripts", "config_files", "tests", "CMakePresets.json"
 )
 Tests_CMakePresets_output_file = os.path.join(
-    FanImeServer_root_path, "tests", "CMakePresets.json"
+    MetasequoiaImeServer_root_path, "tests", "CMakePresets.json"
 )
 with open(Tests_CMakePresets_file, "r", encoding="utf-8") as f:
     lines = f.readlines()

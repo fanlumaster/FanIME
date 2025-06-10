@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-set(PROJECT_NAME "FanImeServer")
+set(PROJECT_NAME "MetasequoiaImeServer")
 
 project(${PROJECT_NAME} VERSION 1.0)
 
@@ -34,9 +34,9 @@ add_compile_options(/Zc:__cplusplus)
 
 include_directories("./")
 include_directories("./src/")
-include_directories("./FanImeEngine/utfcpp/source/")
+include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 
-set(MY_EXECUTABLE_NAME "FanImeServer")
+set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 
 set(SRC_FILES
     "./src/defines/defines.h"
@@ -61,27 +61,27 @@ set(SRC_FILES
 )
 
 set(SRC_FILES_IME_ENGINE
-    "./FanImeEngine/shuangpin/dictionary.cpp"
-    "./FanImeEngine/shuangpin/pinyin_utils.cpp"
+    "./MetasequoiaImeEngine/shuangpin/dictionary.cpp"
+    "./MetasequoiaImeEngine/shuangpin/pinyin_utils.cpp"
 )
 
 set(SRC_FILES_GOOGLEIME
-    "./FanImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/dicttrie.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/lpicache.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/matrixsearch.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/mystdlib.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/ngram.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/pinyinime.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/searchutility.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/spellingtable.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/spellingtrie.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/splparser.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/sync.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/userdict.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/utf16char.cpp"
-    "./FanImeEngine/googlepinyinime-rev/src/share/utf16reader.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/dicttrie.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/lpicache.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/matrixsearch.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/mystdlib.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/ngram.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/pinyinime.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/searchutility.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtable.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtrie.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/splparser.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/sync.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/userdict.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16char.cpp"
+    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16reader.cpp"
 )
 
 add_executable(${MY_EXECUTABLE_NAME} WIN32
@@ -92,7 +92,7 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 
 # WebView2
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPreference "Static")
-set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/FanImeServer.props")
+set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/MetasequoiaImeServer.props")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3240.44;Microsoft.Windows.ImplementationLibrary_1.0.240803.1")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json)

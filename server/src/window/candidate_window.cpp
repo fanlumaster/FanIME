@@ -11,7 +11,7 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
-#include "FanImeEngine/shuangpin/pinyin_utils.h"
+#include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 
 LRESULT RegisterCandidateWindowMessage()
 {

@@ -26,31 +26,31 @@ add_definitions(
 include_directories("./includes/")
 include_directories("../src/")
 include_directories("../")
-include_directories("../FanImeEngine/utfcpp/source/")
+include_directories("../MetasequoiaImeEngine/utfcpp/source/")
 
 set(MY_EXECUTABLE_NAME "imetest")
 set(
     SOURCE_FILES
     "./src/test_shuangpin.cpp"
-    "../FanImeEngine/shuangpin/dictionary.cpp"
-    "../FanImeEngine/shuangpin/pinyin_utils.cpp"
+    "../MetasequoiaImeEngine/shuangpin/dictionary.cpp"
+    "../MetasequoiaImeEngine/shuangpin/pinyin_utils.cpp"
     # Google IME
-    "../FanImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/dicttrie.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/lpicache.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/matrixsearch.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/mystdlib.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/ngram.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/pinyinime.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/searchutility.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/spellingtable.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/spellingtrie.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/splparser.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/sync.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/userdict.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/utf16char.cpp"
-    "../FanImeEngine/googlepinyinime-rev/src/share/utf16reader.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/dicttrie.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/lpicache.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/matrixsearch.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/mystdlib.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/ngram.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/pinyinime.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/searchutility.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtable.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtrie.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/splparser.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/sync.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/userdict.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16char.cpp"
+    "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16reader.cpp"
 )
 
 add_executable(${MY_EXECUTABLE_NAME} ${SOURCE_FILES} )

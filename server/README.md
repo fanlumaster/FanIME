@@ -1,6 +1,6 @@
-# FanImeServer
+# MetasequoiaImeServer
 
-This is the server end of [FanIMETsf](https://github.com/fanlumaster/FanImeTsf).
+This is the server end of [MetasequoiaImeTsf](https://github.com/fanlumaster/MetasequoiaImeTsf).
 
 ## How to build
 
@@ -20,28 +20,28 @@ Make sure vcpkg and Nuget are installed by **Scoop**.
 
 ```powershell
 cd $env:LOCALAPPDATA
-mkdir FanImeTsf
-cd FanImeTsf
+mkdir MetasequoiaImeTsf
+cd MetasequoiaImeTsf
 git clone https://github.com/fanlumaster/FanyDictForIME.git
 cd .\FanyDictForIME\makecikudb\xnheulpb\makedb\separated_jp_version
 python .\create_db_and_table.py
 python .\insert_data.py
 python .\create_index_for_db.py
-Copy-Item -Path .\out\cutted_flyciku_with_jp.db -Destination $env:LOCALAPPDATA\FanImeTsf
+Copy-Item -Path .\out\cutted_flyciku_with_jp.db -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
 ```
 
-**Then**, clone and build FanImeServer,
+**Then**, clone and build MetasequoiaImeServer,
 
 ```powershell
-git clone --recursive https://github.com/fanlumaster/FanImeServer.git
+git clone --recursive https://github.com/fanlumaster/MetasequoiaImeServer.git
 ```
 
 Prepare environment,
 
 ```powershell
-cd FanImeServer
+cd MetasequoiaImeServer
 python .\scripts\prepare_env.py
-Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\FanImeTsf
+Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
 ```
 
 Then, build and run,
