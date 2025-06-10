@@ -1,0 +1,3 @@
+[submodule "MetasequoiaImeEngine"]
+	path = MetasequoiaImeEngine
+	url = https://github.com/fanlumaster/MetasequoiaImeEngine.git
