@@ -35,6 +35,7 @@ add_compile_options(/Zc:__cplusplus)
 include_directories("./")
 include_directories("./src/")
 include_directories("./MetasequoiaImeEngine/utfcpp/source/")
+include_directories("../sciter-js-sdk-main/include/")
 
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 

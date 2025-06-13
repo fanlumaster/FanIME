@@ -1,0 +1,165 @@
+<html lang="zh-CN" window-frame="transparent">
+<!-- <html lang="zh-CN"> -->
+
+<head>
+  <title>Vertical Candidate Window</title>
+  <style>
+    html {
+      background: transparent;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', Arial, sans-serif;
+      font-size: 18px;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .container {
+      margin-top: 0px;
+      margin-left: 0px;
+      background-color: #202020;
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      min-width: 4em;
+      width: max-content;
+      user-select: none;
+      border: 0.1em solid #9b9b9b2e;
+    }
+
+    .row {
+      justify-content: space-between;
+      padding: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 0.1em;
+    }
+
+    .pinyin {
+      font-size: 0.9em;
+    }
+
+    .cand-number {
+      font-size: 0.8em;
+    }
+
+    .cand {
+      border-radius: 0.33em;
+    }
+
+    .cand:hover {
+      background-color: #414141;
+    }
+
+    .row-wrapper {
+      position: relative;
+    }
+
+    .first {
+      background-color: #3e3e3eb9;
+      border-radius: 6px;
+      position: relative;
+    }
+
+    .text {
+      padding-left: 0.4em;
+      /* padding-top: 0.2em;
+      padding-bottom: 0.1em; */
+      color: #e9e8e8;
+    }
+
+    /* TODO:  */
+    .first-bar {
+      position: absolute;
+      height: 0.8em;
+      width: 0.18em;
+      left: 0;
+      top: calc(50% - 0.4em);
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+  </style>
+
+  <script>
+    document.on("ready", function () {
+      const container = document.$("#container");
+      const [width, height] = container.state.box("dimension", "border", "self", true);
+
+      var ver = FanyClass.my_msg;
+      console.log(ver);
+      var db = FanyClass.open("whatsfasjlk");
+
+      // console.log(width, height);
+      // Window.this.move(0, 0, width, height);
+    });
+
+    globalThis.myFunc = function (arg) {
+      console.log("myFunc is called, arg is:", arg);
+    };
+  </script>
+</head>
+
+<body>
+  <div class="container" id="container">
+    <!--0Anchor-->
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <!--1Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text"><span class="cand-number">1</span> 你</div>
+      </div>
+    </div>
+    <!--2Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <!--3Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+    <!--4Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">4</span> 牛</div>
+      </div>
+    </div>
+    <!--5Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">5</span> 仙</div>
+      </div>
+    </div>
+    <!--6Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">6</span> 可</div>
+      </div>
+    </div>
+    <!--7Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">7</span> 木</div>
+      </div>
+    </div>
+    <!--8Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">8</span> 无</div>
+      </div>
+    </div>
+    <!--9Anchor-->
+  </div>
+</body>
+
+</html>

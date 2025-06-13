@@ -50,6 +50,7 @@ wim_path = normpath(
     )
 )
 boost_path = normpath(os.path.join(user_home, "scoop", "apps", "boost", "current"))
+sciter_path = normpath(os.path.join(os.path.dirname(project_root_path) , "sciter-js-sdk-main", "include"))
 
 #
 # project_root/.clangd
@@ -67,6 +68,7 @@ lines[10] = f'      "-I{utfcpp_path}",\n'
 lines[12] = f'      "-I{webview2_path}",\n'
 lines[13] = f'      "-I{wim_path}",\n'
 lines[15] = f'      "-I{boost_path}",\n'
+lines[17] = f'      "-I{sciter_path}",\n'
 with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
 

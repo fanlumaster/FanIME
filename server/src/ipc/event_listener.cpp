@@ -305,7 +305,8 @@ void WorkerThread()
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
+                // candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
+                candidate_string += word;
                 Global::CandidateWordList.push_back(string_to_wstring(word));
                 if (i < Global::CountOfOnePage - 1)
                 {
@@ -381,7 +382,8 @@ void WorkerThread()
                         {
                             Global::SelectedCandidateString = string_to_wstring(word);
                         }
-                        candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
+                        // candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
+                        candidate_string += word;
                         Global::CandidateWordList.push_back(string_to_wstring(word));
                         if (i < loop - 1)
                         {
@@ -416,7 +418,8 @@ void WorkerThread()
                         {
                             Global::SelectedCandidateString = string_to_wstring(word);
                         }
-                        candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
+                        // candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
+                        candidate_string += word;
                         Global::CandidateWordList.push_back(string_to_wstring(word));
                         if (i < loop - 1)
                         {
