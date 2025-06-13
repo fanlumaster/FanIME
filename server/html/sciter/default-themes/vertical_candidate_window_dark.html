@@ -10,7 +10,7 @@
 
     body {
       font-family: 'Noto Sans SC', Arial, sans-serif;
-      font-size: 18px;
+      font-size: 17px;
       height: 100vh;
       margin: 0;
       overflow: hidden;
@@ -51,7 +51,7 @@
       border-radius: 0.33em;
     }
 
-    .cand:hover {
+    .hover-active .cand:hover {
       background-color: #414141;
     }
 
@@ -85,21 +85,21 @@
   </style>
 
   <script>
-    document.on("ready", function () {
-      const container = document.$("#container");
-      const [width, height] = container.state.box("dimension", "border", "self", true);
-
-      var ver = FanyClass.my_msg;
-      console.log(ver);
-      var db = FanyClass.open("whatsfasjlk");
-
-      // console.log(width, height);
-      // Window.this.move(0, 0, width, height);
+    let a = false;
+    document.on('ready', function () {
+      document.on('mousemove', function (event) {
+        if (a === true) {
+          const container = document.getElementById('container');
+          container.classList.add('hover-active');
+        }
+        a = true;
+      });
     });
-
-    globalThis.myFunc = function (arg) {
-      console.log("myFunc is called, arg is:", arg);
-    };
+    window.ClearState = function () {
+      a = false;
+      const container = document.getElementById('container');
+      container.classList.remove('hover-active');
+    }
   </script>
 </head>
 

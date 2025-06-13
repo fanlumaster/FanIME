@@ -89,7 +89,6 @@ void InflateCandidateWindowSciter(std::wstring &str)
     }
 
     UpdateBodyContent(::global_hwnd, result.c_str());
-    // UpdateBodyContent(::global_hwnd, str.c_str());
 }
 
 SBOOL SC_CALLBACK UpdateBodyCallback(HELEMENT he, LPVOID param)
@@ -111,7 +110,8 @@ void UpdateBodyContent(HWND hwnd, const wchar_t *newContent)
     HELEMENT root = 0;
     if (SciterGetRootElement(hwnd, &root) != SCDOM_OK || !root)
         return;
-
+    // Do not trigger hover effect when window first show
+    SciterCallScriptingFunction(root, "ClearState", nullptr, 0, nullptr);
     SciterSelectElementsW(  //
         root,               //
         WSTR("body"),       //
