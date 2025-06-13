@@ -85,20 +85,19 @@
   </style>
 
   <script>
-    let a = false;
+    let a = 0;
     document.on('ready', function () {
       document.on('mousemove', function (event) {
-        if (a === true) {
+        if (a === 4) {
           const container = document.getElementById('container');
           container.classList.add('hover-active');
         }
-        a = true;
+        if (a < 10)
+          a += 1;
       });
     });
     window.ClearState = function () {
-      a = false;
-      const container = document.getElementById('container');
-      container.classList.remove('hover-active');
+      a = 0;
     }
   </script>
 </head>
