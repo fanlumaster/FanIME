@@ -7,6 +7,7 @@
 #include "defines/globals.h"
 #include "utils/common_utils.h"
 #include "candidate_window_sciter.h"
+#include "global/globals.h"
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
 {
@@ -25,8 +26,16 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
 
 int PrepareCandidateWindowSciterHtml()
 {
-    std::wstring entireHtml = L"/html/sciter/default-themes/vertical_candidate_window_dark.html";
-    std::wstring bodyHtml = L"/html/sciter/default-themes/body/vertical_candidate_window_dark.html";
+    std::wstring entireHtml = fmt::format(                                            //
+        L"{}\\{}\\html\\sciter\\default-themes\\vertical_candidate_window_dark.html", //
+        string_to_wstring(CommonUtils::get_local_appdata_path()),                     //
+        GlobalIme::AppName                                                            //
+    );
+    std::wstring bodyHtml = fmt::format(                                                    //
+        L"{}\\{}\\html\\sciter\\default-themes\\body\\vertical_candidate_window_dark.html", //
+        string_to_wstring(CommonUtils::get_local_appdata_path()),                           //
+        GlobalIme::AppName                                                                  //
+    );
 
     bool isHorizontal = false;
     bool isNormal = true;
@@ -42,9 +51,8 @@ int PrepareCandidateWindowSciterHtml()
         }
     }
 
-    std::wstring htmlPath = std::filesystem::current_path().wstring() + entireHtml;
-    ::HTMLString = ReadHtmlFile(htmlPath);
-    std::wstring bodyPath = std::filesystem::current_path().wstring() + bodyHtml;
+    std::wstring htmlPath = entireHtml;
+    std::wstring bodyPath = bodyHtml;
     ::BodyString = ReadHtmlFile(bodyPath);
     OutputDebugString(bodyPath.c_str());
 

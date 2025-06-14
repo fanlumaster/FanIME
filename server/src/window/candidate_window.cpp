@@ -11,10 +11,11 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
-#include <filesystem>
 #include <sciter-x-api.h>
+#include <fmt/xchar.h>
 #include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 #include "sciter/candidate_window_sciter.h"
+#include "global/globals.h"
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -269,8 +270,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
     case WM_CREATE: {
-        std::wstring entireHtml = L"/html/sciter/default-themes/vertical_candidate_window_dark.html";
-        std::wstring htmlPath = std::filesystem::current_path().wstring() + entireHtml;
+        std::wstring entireHtml = fmt::format(                                            //
+            L"{}\\{}\\html\\sciter\\default-themes\\vertical_candidate_window_dark.html", //
+            string_to_wstring(CommonUtils::get_local_appdata_path()),                     //
+            GlobalIme::AppName                                                            //
+        );
+        std::wstring htmlPath = entireHtml;
         SciterSetOption(NULL, SCITER_SET_GFX_LAYER, GFX_LAYER_D2D); // GPU
         SciterLoadFile(hwnd, htmlPath.c_str());
         break;
