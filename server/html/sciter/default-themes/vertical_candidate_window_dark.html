@@ -93,16 +93,38 @@
   </style>
 
   <script>
-    let a = 0;
-    let size_index = 2;
-    let sizeHandler = function (evt) {
-      const container = document.$("#container");
-      const [width, height] = container.state.box("dimension", "border", "self", true);
-      console.log(width, height);
-      SciterBridgeJs.preserveWindowSize(size_index, width);
-      size_index += 1;
-    }
+    /* 27 Han chars at most, not used currently */
+    const dummy_cand_arr = [
+      // "雨",
+      // "杏花",
+      "玄都观",
+      "正日临朝",
+      "少华甘露寺", // 5
+      "桃红复含宿雨",
+      "浮生七十今三十",
+      "巡衣锦军制还乡歌",
+      "疏影横斜暗上书窗敲",
+      "红豆生南国春来发几枝", // 10
+      "不知天上宫阙今夕是何年",
+      "两岸青山相送迎谁知离别情",
+      "年年今夜月华如练长是人千里",
+      "裁翦冰绡轻叠数重淡著燕脂匀注",
+      "画阁魂消高楼目断斜阳只送平波远", // 15
+      "河畔青芜堤上柳为问新愁何事年年有",
+      "度万壑千岩越溪深处怒涛渐息樵风乍起",
+      "对江南千里楼下分流水声中有当日凭高泪",
+      "树底人家朱户北楼闲上疏帘高卷直见街南树",
+      "红叶黄花秋意晚千里念行客飞云过尽归鸿无信", // 20
+      "似花还似非花也无人惜从教坠抛家傍路思量却是",
+      "负佳人几许盟言便忍把从前欢会陡顿翻成忧戚愁极",
+      "绣帘开一点明月窥人人未寝欹枕钗横鬓乱起来携素手",
+      "此去经年应是良辰好景虚设便纵有千种风情更与何人说",
+      "长安古道马迟迟高柳乱蝉嘶夕阳岛外秋风原上目断四天垂", // 25
+      "夜饮东坡醒复醉归来仿佛三更长恨此身非我有何时忘却营营",
+      "月华收云淡霜天曙西征客此时情苦翠娥执手送临歧轧轧开朱户",
+    ];
 
+    let a = 0;
     /* Ready */
     document.on('ready', function () {
       /* Mouse move */
@@ -115,58 +137,22 @@
           a += 1;
       });
 
-      /* Size change */
-      document.$("#container").on("sizechange", sizeHandler);
-
-      /* 27 Han chars at most */
-      const dummy_cand_arr = [
-        // "雨",
-        // "杏花",
-        "玄都观",
-        "正日临朝",
-        "少华甘露寺", // 5
-        "桃红复含宿雨",
-        "浮生七十今三十",
-        "巡衣锦军制还乡歌",
-        "疏影横斜暗上书窗敲",
-        "红豆生南国春来发几枝", // 10
-        "不知天上宫阙今夕是何年",
-        "两岸青山相送迎谁知离别情",
-        "年年今夜月华如练长是人千里",
-        "裁翦冰绡轻叠数重淡著燕脂匀注",
-        "画阁魂消高楼目断斜阳只送平波远", // 15
-        "河畔青芜堤上柳为问新愁何事年年有",
-        "度万壑千岩越溪深处怒涛渐息樵风乍起",
-        "对江南千里楼下分流水声中有当日凭高泪",
-        "树底人家朱户北楼闲上疏帘高卷直见街南树",
-        "红叶黄花秋意晚千里念行客飞云过尽归鸿无信", // 20
-        "似花还似非花也无人惜从教坠抛家傍路思量却是",
-        "负佳人几许盟言便忍把从前欢会陡顿翻成忧戚愁极",
-        "绣帘开一点明月窥人人未寝欹枕钗横鬓乱起来携素手",
-        "此去经年应是良辰好景虚设便纵有千种风情更与何人说",
-        "长安古道马迟迟高柳乱蝉嘶夕阳岛外秋风原上目断四天垂", // 25
-        "夜饮东坡醒复醉归来仿佛三更长恨此身非我有何时忘却营营",
-        "月华收云淡霜天曙西征客此时情苦翠娥执手送临歧轧轧开朱户",
-      ];
-      const first_cand = document.$("#cand-first");
-      dummy_cand_arr.forEach((text, index) => {
-        setTimeout(() => {
-          first_cand.innerHTML = `<span class="cand-number">1</span> ${text}`;
-        }, 100 * index);
-      });
-
-      const container = document.$("#container");
-      const [width, height] = container.state.box("dimension", "border", "self", true);
-      console.log(width, height);
-
-      setTimeout(() => {
-        SciterBridgeJs.adjustInitialWindowSize(width, height);
-      }, 100 * 26);
-
-      setTimeout(() => {
-        first_cand.innerHTML = `<span class="cand-number">1</span> 雨`;
-        document.$("#container").on("sizechange", sizeHandler);
-      }, 100 * 25);
+      //
+      // Measure container size at different cases
+      //
+      const container01 = document.$("#container");
+      const [width01, height01] = container01.state.box("dimension", "border", "self", true);
+      console.log(width01, height01);
+      console.log(width01, height01);
+      let size_index = 2;
+      for (let i = 0; i < 25; i++) {
+        const cur_container = document.$("#container" + (i + 2));
+        const [cur_width, cur_height] = cur_container.state.box("dimension", "border", "self", true);
+        console.log(cur_width, cur_height);
+        SciterBridgeJs.preserveWindowSize(size_index, cur_width, cur_height);
+        size_index += 1;
+      }
+      SciterBridgeJs.adjustInitialWindowSize(width01, height01);
     });
 
     /* ClearState each time when inflating candidate window */
@@ -242,6 +228,450 @@
       </div>
     </div>
     <!--9Anchor-->
+  </div>
+
+  <div class="container" id="container2">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 玄都观</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container3">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 正日临朝</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container4">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 少华甘露寺</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container5">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 桃红复含宿雨</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">4</span> 牛</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container6">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 浮生七十今三十</div>
+      </div>
+    </div>
+    <!--2Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <!--3Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+    <!--4Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">4</span> 牛</div>
+      </div>
+    </div>
+    <!--5Anchor-->
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">5</span> 仙</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container7">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 巡衣锦军制还乡歌</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">4</span> 牛</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">5</span> 仙</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">6</span> 可</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container8">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 疏影横斜暗上书窗敲</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">4</span> 牛</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">5</span> 仙</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">6</span> 可</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">7</span> 木</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container9">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 红豆生南国春来发几枝</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">2</span> 笔</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">3</span> 量</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">4</span> 牛</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">5</span> 仙</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">6</span> 可</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">7</span> 木</div>
+      </div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand">
+        <div class="text"><span class="cand-number">8</span> 无</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container10">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 不知天上宫阙今夕是何年</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container11">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 两岸青山相送迎谁知离别情</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container12">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 年年今夜月华如练长是人千里</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container13">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 裁翦冰绡轻叠数重淡著燕脂匀注</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container14">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 画阁魂消高楼目断斜阳只送平波远</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container15">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 河畔青芜堤上柳为问新愁何事年年有</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container16">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 度万壑千岩越溪深处怒涛渐息樵风乍起</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container17">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 对江南千里楼下分流水声中有当日凭高泪</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container18">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 树底人家朱户北楼闲上疏帘高卷直见街南树</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container19">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 红叶黄花秋意晚千里念行客飞云过尽归鸿无信</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container20">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 似花还似非花也无人惜从教坠抛家傍路思量却是</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container21">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 负佳人几许盟言便忍把从前欢会陡顿翻成忧戚愁极</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container22">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 绣帘开一点明月窥人人未寝欹枕钗横鬓乱起来携素手</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container23">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 此去经年应是良辰好景虚设便纵有千种风情更与何人说</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container24">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 长安古道马迟迟高柳乱蝉嘶夕阳岛外秋风原上目断四天垂</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container25">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 夜饮东坡醒复醉归来仿佛三更长恨此身非我有何时忘却营营</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="container26">
+    <div class="row pinyin">
+      <div class="text">ni</div>
+    </div>
+    <div class="row-wrapper">
+      <div class="row cand first">
+        <div class="first-bar"></div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 月华收云淡霜天曙西征客此时情苦翠娥执手送临歧轧轧开朱户</div>
+      </div>
+    </div>
   </div>
 </body>
 

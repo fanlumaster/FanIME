@@ -164,7 +164,7 @@ void SciterBridgeJs::adjustInitialWindowSize(sciter::value width, sciter::value 
     );
 }
 
-void SciterBridgeJs::preserveWindowSize(sciter::value index, sciter::value width)
+void SciterBridgeJs::preserveWindowSize(sciter::value index, sciter::value width, sciter::value height)
 {
     int curIndex = 0;
     if (index.is_int())
@@ -179,5 +179,14 @@ void SciterBridgeJs::preserveWindowSize(sciter::value index, sciter::value width
     if (curIndex < ::MAX_HAN_CHARS)
     {
         ::cand_window_width_array[curIndex] = realWidth;
+    }
+    int realHeight = 0;
+    if (height.is_int())
+    {
+        realHeight = height.get<int>();
+    }
+    if (curIndex < ::MAX_HAN_CHARS)
+    {
+        ::cand_window_height_array[curIndex - 2] = realHeight;
     }
 }

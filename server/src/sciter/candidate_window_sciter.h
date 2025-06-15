@@ -21,7 +21,7 @@ class SciterBridgeJs : public sciter::om::asset<SciterBridgeJs>
     }
 
     void adjustInitialWindowSize(sciter::value width, sciter::value height);
-    void preserveWindowSize(sciter::value index, sciter::value width);
+    void preserveWindowSize(sciter::value index, sciter::value width, sciter::value height);
 
     SOM_PASSPORT_BEGIN(SciterBridgeJs)
     SOM_FUNCS(                             //
