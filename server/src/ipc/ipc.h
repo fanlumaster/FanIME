@@ -110,4 +110,6 @@ inline std::wstring SelectedCandidateString = L"";
 inline int CountOfOnePage = 8;
 inline int PageIndex = 0;
 inline int ItemTotalCount = 0;
+/* For the use of adjusting candidate */
+inline int CurPageMaxWordLen = 2;
 } // namespace Global

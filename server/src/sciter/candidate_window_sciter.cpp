@@ -1,5 +1,4 @@
 #include <string>
-#include <filesystem>
 #include <boost/locale.hpp>
 #include <fstream>
 #include <fmt/xchar.h>
@@ -8,6 +7,7 @@
 #include "utils/common_utils.h"
 #include "candidate_window_sciter.h"
 #include "global/globals.h"
+#include <utf8.h>
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
 {
@@ -65,9 +65,12 @@ void InflateCandidateWindowSciter(std::wstring &str)
     std::wstring token;
     std::vector<std::wstring> words;
 
+    int i = 0;
+    int maxCnt = 2;
     while (std::getline(wss, token, L','))
     {
         words.push_back(token);
+        i++;
     }
 
     int size = words.size();
@@ -126,4 +129,55 @@ void UpdateBodyContent(HWND hwnd, const wchar_t *newContent)
         UpdateBodyCallback, //
         (LPVOID)newContent  //
     );
+}
+
+void SciterBridgeJs::adjustInitialWindowSize(sciter::value width, sciter::value height)
+{
+    int realWidth = 0;
+    if (width.is_int())
+    {
+        realWidth = width.get<int>();
+    }
+    int realHeight = 0;
+    if (height.is_int())
+    {
+        realHeight = height.get<int>();
+    }
+#ifdef FANY_DEBUG
+    OutputDebugString(fmt::format(L"Candidate Window size: {} {}", realWidth, realHeight).c_str());
+#endif
+    // TODO: Adjust window size
+    ::CANDIDATE_WINDOW_WIDTH = realWidth;
+    ::DEFAULT_WINDOW_WIDTH = realWidth;
+    ::CANDIDATE_WINDOW_HEIGHT = realHeight;
+    ::cand_window_width_array[0] = realWidth;
+    ::cand_window_width_array[1] = realWidth;
+    UINT uflags = SWP_NOZORDER | SWP_NOMOVE;
+    SetWindowPos(                    //
+        ::global_hwnd,               //
+        nullptr,                     //
+        0,                           //
+        0,                           //
+        realWidth + ::SHADOW_WIDTH,  //
+        realHeight + ::SHADOW_WIDTH, //
+        uflags                       //
+    );
+}
+
+void SciterBridgeJs::preserveWindowSize(sciter::value index, sciter::value width)
+{
+    int curIndex = 0;
+    if (index.is_int())
+    {
+        curIndex = index.get<int>();
+    }
+    int realWidth = 0;
+    if (width.is_int())
+    {
+        realWidth = width.get<int>();
+    }
+    if (curIndex < ::MAX_HAN_CHARS)
+    {
+        ::cand_window_width_array[curIndex] = realWidth;
+    }
 }

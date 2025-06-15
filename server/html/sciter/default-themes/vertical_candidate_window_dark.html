@@ -16,6 +16,7 @@
       overflow: hidden;
       border-radius: 6px;
       background: transparent;
+      position: relative;
     }
 
     .container {
@@ -29,6 +30,12 @@
       width: max-content;
       user-select: none;
       border: 0.1em solid #9b9b9b2e;
+    }
+
+    .move-above {
+      position: absolute;
+      left: 0;
+      bottom: 0;
     }
 
     .row {
@@ -67,6 +74,7 @@
 
     .text {
       padding-left: 0.4em;
+      padding-right: 0.3em;
       /* padding-top: 0.2em;
       padding-bottom: 0.1em; */
       color: #e9e8e8;
@@ -86,7 +94,18 @@
 
   <script>
     let a = 0;
+    let size_index = 2;
+    let sizeHandler = function (evt) {
+      const container = document.$("#container");
+      const [width, height] = container.state.box("dimension", "border", "self", true);
+      console.log(width, height);
+      SciterBridgeJs.preserveWindowSize(size_index, width);
+      size_index += 1;
+    }
+
+    /* Ready */
     document.on('ready', function () {
+      /* Mouse move */
       document.on('mousemove', function (event) {
         if (a === 4) {
           const container = document.getElementById('container');
@@ -95,9 +114,74 @@
         if (a < 10)
           a += 1;
       });
+
+      /* Size change */
+      document.$("#container").on("sizechange", sizeHandler);
+
+      /* 27 Han chars at most */
+      const dummy_cand_arr = [
+        // "雨",
+        // "杏花",
+        "玄都观",
+        "正日临朝",
+        "少华甘露寺", // 5
+        "桃红复含宿雨",
+        "浮生七十今三十",
+        "巡衣锦军制还乡歌",
+        "疏影横斜暗上书窗敲",
+        "红豆生南国春来发几枝", // 10
+        "不知天上宫阙今夕是何年",
+        "两岸青山相送迎谁知离别情",
+        "年年今夜月华如练长是人千里",
+        "裁翦冰绡轻叠数重淡著燕脂匀注",
+        "画阁魂消高楼目断斜阳只送平波远", // 15
+        "河畔青芜堤上柳为问新愁何事年年有",
+        "度万壑千岩越溪深处怒涛渐息樵风乍起",
+        "对江南千里楼下分流水声中有当日凭高泪",
+        "树底人家朱户北楼闲上疏帘高卷直见街南树",
+        "红叶黄花秋意晚千里念行客飞云过尽归鸿无信", // 20
+        "似花还似非花也无人惜从教坠抛家傍路思量却是",
+        "负佳人几许盟言便忍把从前欢会陡顿翻成忧戚愁极",
+        "绣帘开一点明月窥人人未寝欹枕钗横鬓乱起来携素手",
+        "此去经年应是良辰好景虚设便纵有千种风情更与何人说",
+        "长安古道马迟迟高柳乱蝉嘶夕阳岛外秋风原上目断四天垂", // 25
+        "夜饮东坡醒复醉归来仿佛三更长恨此身非我有何时忘却营营",
+        "月华收云淡霜天曙西征客此时情苦翠娥执手送临歧轧轧开朱户",
+      ];
+      const first_cand = document.$("#cand-first");
+      dummy_cand_arr.forEach((text, index) => {
+        setTimeout(() => {
+          first_cand.innerHTML = `<span class="cand-number">1</span> ${text}`;
+        }, 100 * index);
+      });
+
+      const container = document.$("#container");
+      const [width, height] = container.state.box("dimension", "border", "self", true);
+      console.log(width, height);
+
+      setTimeout(() => {
+        SciterBridgeJs.adjustInitialWindowSize(width, height);
+      }, 100 * 26);
+
+      setTimeout(() => {
+        first_cand.innerHTML = `<span class="cand-number">1</span> 雨`;
+        document.$("#container").on("sizechange", sizeHandler);
+      }, 100 * 25);
     });
+
+    /* ClearState each time when inflating candidate window */
     window.ClearState = function () {
       a = 0;
+    }
+
+    //
+    // When candidate window touches the bottom of the screen, 
+    // move the container to the bottom, cause win32 already move
+    // window itself above of the text
+    //
+    window.MoveContainerToBodyBottom = function () {
+      const container = document.getElementById('container');
+      container.classList.add('move-above');
     }
   </script>
 </head>
@@ -112,7 +196,7 @@
     <div class="row-wrapper">
       <div class="row cand first">
         <div class="first-bar"></div>
-        <div class="text"><span class="cand-number">1</span> 你</div>
+        <div class="text" id="cand-first"><span class="cand-number">1</span> 你</div>
       </div>
     </div>
     <!--2Anchor-->

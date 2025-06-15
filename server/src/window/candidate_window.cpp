@@ -11,7 +11,6 @@
 #include <string>
 #include <windef.h>
 #include <winuser.h>
-#include <sciter-x-api.h>
 #include <fmt/xchar.h>
 #include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 #include "sciter/candidate_window_sciter.h"
@@ -145,22 +144,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (caretY < -900)
         {
             std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-
-            /*
-            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-                POINT pt = {caretX, caretY};
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                SetWindowPos(                                      //
-                    hWnd,                                          //
-                    nullptr,                                       //
-                    caretX,                                        //
-                    caretY,                                        //
-                    (containerSize.first + ::SHADOW_WIDTH) * 1.5,  //
-                    (containerSize.second + ::SHADOW_WIDTH) * 1.5, //
-                    SWP_NOZORDER | SWP_SHOWWINDOW                  //
-                );
-            });
-            */
             SetWindowPos(                                  //
                 hwnd,                                      //
                 nullptr,                                   //
@@ -174,29 +157,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         else
         {
             std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-            /*
-            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-                POINT pt = {caretX, caretY};
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                SetWindowPos(                                      //
-                    hWnd,                                          //
-                    nullptr,                                       //
-                    0,                                             //
-                    0,                                             //
-                    (containerSize.first + ::SHADOW_WIDTH) * 1.5,  //
-                    (containerSize.second + ::SHADOW_WIDTH) * 1.5, //
-                    SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW     //
-                );
-            });
-            */
-            SetWindowPos(                                               //
-                hwnd,                                                   //
-                nullptr,                                                //
-                0,                                                      //
-                0,                                                      //
-                0,                                                      //
-                0,                                                      //
-                SWP_NOMOVE | SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW //
+            if (Global::CurPageMaxWordLen > 2)
+            {
+                ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
+            }
+            SetWindowPos(                                     //
+                hwnd,                                         //
+                nullptr,                                      //
+                0,                                            //
+                0,                                            //
+                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
+                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
+                SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW    //
             );
         }
         return 0;
@@ -277,22 +249,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         );
         std::wstring htmlPath = entireHtml;
         SciterSetOption(NULL, SCITER_SET_GFX_LAYER, GFX_LAYER_D2D); // GPU
+        /* Sciter Bridge for Js to call cpp */
+        SciterSetGlobalAsset(new SciterBridgeJs());
         SciterLoadFile(hwnd, htmlPath.c_str());
         break;
     }
-    /*
-    case WM_MOUSEACTIVATE:
-        // Stop the window from being activated by mouse click
-        return MA_NOACTIVATE;
-
-    case WM_ACTIVATE: {
-        if (LOWORD(wParam) != WA_INACTIVE)
-        {
-            ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-        }
-        break;
-    }
-*/
     case WM_DESTROY: {
         PostQuitMessage(0);
         break;

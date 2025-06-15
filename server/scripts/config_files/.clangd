@@ -2,7 +2,7 @@ CompileFlags:
   Add: [
       -DUNICODE,
       -D_UNICODE,
-      -DFANY_DEBUG,
+      # -DFANY_DEBUG,
       "-std=c++17",
       "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer",
       "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/src",

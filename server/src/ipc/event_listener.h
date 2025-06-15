@@ -9,14 +9,9 @@
 #include <atomic>
 #include "MetasequoiaImeEngine/shuangpin/dictionary.h"
 
-inline std::condition_variable queueCv;
 inline std::condition_variable pipe_queueCv;
-inline std::atomic_bool running = true;
 inline std::atomic_bool pipe_running = true;
 inline std::shared_ptr<DictionaryUlPb> g_dictQuery;
-
-void WorkerThread();
-void EventListenerLoopThread();
 
 namespace FanyNamedPipe
 {
