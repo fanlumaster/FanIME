@@ -112,4 +112,5 @@ inline int PageIndex = 0;
 inline int ItemTotalCount = 0;
 /* For the use of adjusting candidate */
 inline int CurPageMaxWordLen = 2;
+inline int CurPageItemCnt = 8;
 } // namespace Global

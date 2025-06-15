@@ -137,7 +137,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
-        // InflateCandidateWindow(str);
 
         InflateCandidateWindowSciter(str);
 
@@ -156,19 +155,29 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
         {
-            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
             if (Global::CurPageMaxWordLen > 2)
             {
                 ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
             }
+            ::CANDIDATE_WINDOW_HEIGHT = ::cand_window_height_array[Global::CurPageItemCnt - 1];
+            /* Adjust candidate window position */
+            int properPos[2] = {0, 0};
+            AdjustWndPosition(             //
+                hwnd,                      //
+                caretX,                    //
+                caretY,                    //
+                ::CANDIDATE_WINDOW_WIDTH,  //
+                ::CANDIDATE_WINDOW_HEIGHT, //
+                properPos                  //
+            );
             SetWindowPos(                                     //
                 hwnd,                                         //
                 nullptr,                                      //
-                0,                                            //
-                0,                                            //
+                properPos[0],                                 //
+                properPos[1],                                 //
                 (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
                 (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-                SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW    //
+                SWP_NOZORDER | SWP_SHOWWINDOW                 //
             );
         }
         return 0;
@@ -177,13 +186,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (message == WM_HIDE_MAIN_WINDOW)
     {
         ShowWindow(hwnd, SW_HIDE);
-        // SetWindowPos(hwnd, NULL, -10000, -10000, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
         UpdateBodyContent(hwnd, L"");
-        // SetWindowPos(hwnd, NULL, -10000, -10000, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-        // UpdateHtmlContentWithJavaScript(webview, L"");
-        // std::wstring str = L"n,那,年,女,难,内,你,男,哪";
-        // InflateCandidateWindow(str);
-        // InflateCandidateWindowSciter(str);
         return 0;
     }
 
@@ -205,27 +208,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
         {
-            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-            /*
-            GetContainerSize(webview, [caretX, caretY, properPos, hWnd](std::pair<double, double> containerSize) {
-                POINT pt = {caretX, caretY};
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-                SetWindowPos(                 //
-                    hWnd,                     //
-                    nullptr,                  //
-                    properPos->first,         //
-                    properPos->second,        //
-                    0,                        //
-                    0,                        //
-                    SWP_NOSIZE | SWP_NOZORDER //
-                );
-            });
-            */
+            if (Global::CurPageMaxWordLen > 2)
+            {
+                ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
+            }
+            ::CANDIDATE_WINDOW_HEIGHT = ::cand_window_height_array[Global::CurPageItemCnt - 1];
+            /* Adjust candidate window position */
+            int properPos[2] = {0, 0};
+            AdjustWndPosition(             //
+                hwnd,                      //
+                caretX,                    //
+                caretY,                    //
+                ::CANDIDATE_WINDOW_WIDTH,  //
+                ::CANDIDATE_WINDOW_HEIGHT, //
+                properPos                  //
+            );
             SetWindowPos(                 //
                 hwnd,                     //
                 nullptr,                  //
-                caretX,                   //
-                caretY,                   //
+                properPos[0],             //
+                properPos[1],             //
                 0,                        //
                 0,                        //
                 SWP_NOSIZE | SWP_NOZORDER //

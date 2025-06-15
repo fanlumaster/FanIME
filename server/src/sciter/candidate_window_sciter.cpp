@@ -8,6 +8,9 @@
 #include "candidate_window_sciter.h"
 #include "global/globals.h"
 #include <utf8.h>
+#include "utils/window_utils.h"
+#include "defines/globals.h"
+#include "ipc/ipc.h"
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
 {
@@ -129,6 +132,37 @@ void UpdateBodyContent(HWND hwnd, const wchar_t *newContent)
         UpdateBodyCallback, //
         (LPVOID)newContent  //
     );
+}
+
+int AdjustWndPosition( //
+    HWND hwnd,         //
+    int crateX,        //
+    int crateY,        //
+    int width,         //
+    int height,        //
+    int properPos[2]   //
+)
+{
+    properPos[0] = crateX;
+    properPos[1] = crateY + 3;
+    MonitorCoordinates coordinates = GetMonitorCoordinates();
+    if (properPos[0] < coordinates.left)
+    {
+        properPos[0] = coordinates.left + 2;
+    }
+    if (properPos[1] < coordinates.top)
+    {
+        properPos[1] = coordinates.top + 2;
+    }
+    if (properPos[0] + width > coordinates.right)
+    {
+        properPos[0] = coordinates.right - width - 2;
+    }
+    if (properPos[1] + ::cand_window_height_array[7] > coordinates.bottom)
+    {
+        properPos[1] = properPos[1] - height - 30 - 2;
+    }
+    return 0;
 }
 
 void SciterBridgeJs::adjustInitialWindowSize(sciter::value width, sciter::value height)

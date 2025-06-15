@@ -11,6 +11,15 @@ int PrepareCandidateWindowSciterHtml();
 void UpdateBodyContent(HWND hwnd, const wchar_t *newContent);
 void InflateCandidateWindowSciter(std::wstring &str);
 
+int AdjustWndPosition( //
+    HWND hwnd,                //
+    int crateX,               //
+    int crateY,               //
+    int width,                //
+    int height,               //
+    int properPos[2]          //
+);
+
 class SciterBridgeJs : public sciter::om::asset<SciterBridgeJs>
 {
   public:

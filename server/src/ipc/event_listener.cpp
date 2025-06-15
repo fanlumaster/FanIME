@@ -109,6 +109,8 @@ void WorkerThread()
             {
                 Global::CurPageMaxWordLen = maxCount;
             }
+            Global::CurPageItemCnt = loop;
+
             ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
