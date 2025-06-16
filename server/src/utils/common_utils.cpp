@@ -92,4 +92,19 @@ string get_username()
     std::unique_ptr<char, decltype(&free)> dirPtr(localAppDataDir, free);
     return localAppDataDirStr.empty() ? "" : localAppDataDirStr;
 }
+
+std::vector<std::wstring> cvt_str_to_vector(std::wstring text)
+{
+    std::vector<std::wstring> lines;
+    size_t start = 0;
+    size_t end = text.find(L',');
+    while (end != std::wstring::npos)
+    {
+        lines.push_back(text.substr(start, end - start));
+        start = end + 1;
+        end = text.find(L',', start);
+    }
+    lines.push_back(text.substr(start));
+    return lines;
+}
 } // namespace CommonUtils

@@ -10,8 +10,10 @@
 #include <winuser.h>
 #include <fmt/xchar.h>
 #include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
-#include "sciter/candidate_window_sciter.h"
-#include "global/globals.h"
+#include "d2d/candidate_window_d2d.h"
+#include <dwmapi.h>
+
+#pragma comment(lib, "dwmapi.lib")
 
 LRESULT RegisterCandidateWindowMessage()
 {
@@ -32,7 +34,7 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
     wcex.hInstance = hInstance;
     wcex.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-    // We do not need background color, otherwise it will flash when rendering
+    /* We do not need background color, otherwise it will flash when rendering */
     wcex.hbrBackground = NULL;
     wcex.lpszMenuName = NULL;
     wcex.lpszClassName = szWindowClass;
@@ -43,7 +45,7 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
         MessageBox(                             //
             NULL,                               //
             L"Call to RegisterClassEx failed!", //
-            L"Windows Desktop Guided Tour",     //
+            L"Please check your codes!",        //
             NULL                                //
         );                                      //
         return 1;
@@ -53,11 +55,10 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 
 int CreateCandidateWindow(HINSTANCE hInstance)
 {
-    DWORD dwExStyle = WS_EX_LAYERED |    //
-                      WS_EX_TOOLWINDOW | //
-                      WS_EX_NOACTIVATE | //
-                      WS_EX_TOPMOST;     //
-    dwExStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST;
+    DWORD dwExStyle = WS_EX_LAYERED |                 //
+                      WS_EX_TOOLWINDOW |              //
+                      WS_EX_NOACTIVATE |              //
+                      WS_EX_TOPMOST;                  //
     HWND hwnd = CreateWindowEx(                       //
         dwExStyle,                                    //
         szWindowClass,                                //
@@ -78,10 +79,17 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         MessageBox(                          //
             NULL,                            //
             L"Call to CreateWindow failed!", //
-            L"Windows Desktop Guided Tour",  //
+            L"Please check your codes!",     //
             NULL                             //
         );                                   //
         return 1;
+    }
+    else
+    {
+        // Set the window to be fully not transparent
+        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+        MARGINS mar = {-1};
+        DwmExtendFrameIntoClientArea(hwnd, &mar);
     }
 
     ::global_hwnd = hwnd;
@@ -109,8 +117,6 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 
-    PrepareCandidateWindowSciterHtml();
-
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
@@ -126,18 +132,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         int caretX = Global::Point[0];
         int caretY = Global::Point[1];
-
         ::ReadDataFromSharedMemory(0b100000);
         std::wstring embeded_pinyin = string_to_wstring(                             //
             PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
 
-        InflateCandidateWindowSciter(str);
-
         if (caretY < -900)
         {
-            std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
             SetWindowPos(                                  //
                 hwnd,                                      //
                 nullptr,                                   //
@@ -150,40 +152,24 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
         {
-            if (Global::CurPageMaxWordLen > 2)
-            {
-                ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
-            }
-            ::CANDIDATE_WINDOW_HEIGHT = ::cand_window_height_array[Global::CurPageItemCnt - 1];
-            // int realHeight = ::cand_window_height_array[7];
-
-            /* Adjust candidate window position */
-            int properPos[2] = {0, 0};
-            AdjustWndPosition(             //
-                hwnd,                      //
-                caretX,                    //
-                caretY,                    //
-                ::CANDIDATE_WINDOW_WIDTH,  //
-                ::CANDIDATE_WINDOW_HEIGHT, //
-                properPos                  //
-            );
             SetWindowPos(                                     //
                 hwnd,                                         //
                 nullptr,                                      //
-                properPos[0],                                 //
-                properPos[1],                                 //
+                caretX,                                       //
+                caretY,                                       //
                 (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
                 (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-                SWP_NOZORDER | SWP_SHOWWINDOW                 //
+                SWP_NOZORDER | SWP_NOMOVE                     //
             );
         }
+        InvalidateRect(hwnd, NULL, FALSE);
+        ShowWindow(hwnd, SW_SHOWNOACTIVATE);
         return 0;
     }
 
     if (message == WM_HIDE_MAIN_WINDOW)
     {
         ShowWindow(hwnd, SW_HIDE);
-        UpdateBodyContent(hwnd, L"");
         return 0;
     }
 
@@ -205,27 +191,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else
         {
-            if (Global::CurPageMaxWordLen > 2)
-            {
-                ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
-            }
-            ::CANDIDATE_WINDOW_HEIGHT = ::cand_window_height_array[Global::CurPageItemCnt - 1];
-            int realHeight = ::cand_window_height_array[Global::CurPageItemCnt - 1];
-            /* Adjust candidate window position */
-            int properPos[2] = {0, 0};
-            AdjustWndPosition(            //
-                hwnd,                     //
-                caretX,                   //
-                caretY,                   //
-                ::CANDIDATE_WINDOW_WIDTH, //
-                realHeight,               //
-                properPos                 //
-            );
             SetWindowPos(                 //
                 hwnd,                     //
                 nullptr,                  //
-                properPos[0],             //
-                properPos[1],             //
+                caretX,                   //
+                caretY,                   //
                 0,                        //
                 0,                        //
                 SWP_NOSIZE | SWP_NOZORDER //
@@ -234,32 +204,72 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    LRESULT lResult;
-    BOOL bHandled;
-
-    lResult = SciterProcND(hwnd, message, wParam, lParam, &bHandled);
-
     switch (message)
     {
+    case WM_ERASEBKGND: {
+        return 1;
+    }
     case WM_CREATE: {
-        std::wstring entireHtml = fmt::format(                                            //
-            L"{}\\{}\\html\\sciter\\default-themes\\vertical_candidate_window_dark.html", //
-            string_to_wstring(CommonUtils::get_local_appdata_path()),                     //
-            GlobalIme::AppName                                                            //
-        );
-        std::wstring htmlPath = entireHtml;
-        SciterSetOption(NULL, SCITER_SET_GFX_LAYER, GFX_LAYER_D2D); // GPU
-        /* Sciter Bridge for Js to call cpp */
-        SciterSetGlobalAsset(new SciterBridgeJs());
-        SciterLoadFile(hwnd, htmlPath.c_str());
+        if (!InitD2DAndDWrite())
+        {
+            MessageBox(                      //
+                NULL,                        //
+                L"InitD2DAndDWrite failed!", //
+                L"Please check your codes!", //
+                NULL                         //
+            );
+        }
+        if (!InitD2DRenderTarget(hwnd))
+        {
+            MessageBox(                         //
+                NULL,                           //
+                L"InitD2DRenderTarget failed!", //
+                L"Please check your codes!",    //
+                NULL                            //
+            );
+        }
+        return 0;
+    }
+
+    case WM_MOUSEMOVE: {
+        float x = (float)LOWORD(lParam);
+        float y = (float)HIWORD(lParam);
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        if (x >= rc.left && x <= rc.right && y >= rc.top && y <= rc.bottom)
+        {
+            SetCursor(LoadCursor(nullptr, IDC_ARROW));
+        }
         break;
     }
+
+    case WM_SIZE: {
+        if (pRenderTarget)
+        {
+            UINT width = LOWORD(lParam);
+            UINT height = HIWORD(lParam);
+            pRenderTarget->Resize(D2D1::SizeU(width, height));
+        }
+        return 0;
+    }
+
+    case WM_PAINT: {
+        std::wstring embeded_pinyin = string_to_wstring(                             //
+            PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
+        );
+        std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
+        PaintCandidates(hwnd, str);
+        return 0;
+    }
+
     case WM_DESTROY: {
         PostQuitMessage(0);
         break;
     }
-    default:
+
+    default: {
         return DefWindowProc(hwnd, message, wParam, lParam);
+    }
     }
 
     return 0;

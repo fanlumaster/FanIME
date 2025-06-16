@@ -2,6 +2,7 @@
 
 #include <string>
 #include <windows.h>
+#include <vector>
 
 void ShowErrorMessage(HWND, const std::wstring &);
 
@@ -13,4 +14,5 @@ namespace CommonUtils
 {
 std::string get_local_appdata_path();
 std::string get_username();
+std::vector<std::wstring> cvt_str_to_vector(std::wstring text);
 } // namespace CommonUtils
