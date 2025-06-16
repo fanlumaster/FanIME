@@ -3,9 +3,6 @@
 #include "defines/defines.h"
 #include "defines/globals.h"
 #include "utils/common_utils.h"
-// #include "utils/webview_utils.h"
-// #include "utils/window_utils.h"
-// #include "webview2/candidate_window_webview2.h"
 #include <debugapi.h>
 #include <minwindef.h>
 #include <string>
@@ -61,7 +58,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
                       WS_EX_NOACTIVATE | //
                       WS_EX_TOPMOST;     //
     dwExStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST;
-    HWND hWnd = CreateWindowEx(                       //
+    HWND hwnd = CreateWindowEx(                       //
         dwExStyle,                                    //
         szWindowClass,                                //
         lpWindowName,                                 //
@@ -76,7 +73,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         nullptr                                       //
     );                                                //
 
-    if (!hWnd)
+    if (!hwnd)
     {
         MessageBox(                          //
             NULL,                            //
@@ -87,10 +84,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         return 1;
     }
 
-    ::global_hwnd = hWnd;
+    ::global_hwnd = hwnd;
 
     SetWindowPos(                                     //
-        hWnd,                                         //
+        hwnd,                                         //
         HWND_TOPMOST,                                 //
         -10000,                                       //
         -10000,                                       //
@@ -100,7 +97,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     );
 
     SetWindowPos(                                     //
-        hWnd,                                         //
+        hwnd,                                         //
         HWND_TOPMOST,                                 //
         100,                                          //
         100,                                          //
@@ -109,12 +106,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         SWP_SHOWWINDOW                                //
     );
 
-    ShowWindow(hWnd, SW_SHOW);
-    UpdateWindow(hWnd);
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
 
-    // PrepareCandidateWindowHtml();
     PrepareCandidateWindowSciterHtml();
-    // InitWebview(hWnd);
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
@@ -160,6 +155,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
             }
             ::CANDIDATE_WINDOW_HEIGHT = ::cand_window_height_array[Global::CurPageItemCnt - 1];
+            // int realHeight = ::cand_window_height_array[7];
+
             /* Adjust candidate window position */
             int properPos[2] = {0, 0};
             AdjustWndPosition(             //
@@ -213,15 +210,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 ::CANDIDATE_WINDOW_WIDTH = ::cand_window_width_array[Global::CurPageMaxWordLen - 1];
             }
             ::CANDIDATE_WINDOW_HEIGHT = ::cand_window_height_array[Global::CurPageItemCnt - 1];
+            int realHeight = ::cand_window_height_array[Global::CurPageItemCnt - 1];
             /* Adjust candidate window position */
             int properPos[2] = {0, 0};
-            AdjustWndPosition(             //
-                hwnd,                      //
-                caretX,                    //
-                caretY,                    //
-                ::CANDIDATE_WINDOW_WIDTH,  //
-                ::CANDIDATE_WINDOW_HEIGHT, //
-                properPos                  //
+            AdjustWndPosition(            //
+                hwnd,                     //
+                caretX,                   //
+                caretY,                   //
+                ::CANDIDATE_WINDOW_WIDTH, //
+                realHeight,               //
+                properPos                 //
             );
             SetWindowPos(                 //
                 hwnd,                     //

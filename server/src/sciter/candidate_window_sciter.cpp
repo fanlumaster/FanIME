@@ -10,7 +10,6 @@
 #include <utf8.h>
 #include "utils/window_utils.h"
 #include "defines/globals.h"
-#include "ipc/ipc.h"
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
 {
