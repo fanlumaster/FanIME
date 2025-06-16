@@ -146,7 +146,30 @@ bool InitD2DRenderTarget(HWND hwnd)
         hr = pRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), pBrush.GetAddressOf());
     }
 
+    if (SUCCEEDED(hr))
+    {
+        hr = pRenderTarget.As(&pDeviceContext);
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        CreateBlurEffect();
+    }
+
     return SUCCEEDED(hr);
+}
+
+void CreateBlurEffect()
+{
+    if (!pDeviceContext)
+        return;
+
+    HRESULT hr = pDeviceContext->CreateEffect(CLSID_D2D1GaussianBlur, &pGaussianBlurEffect);
+    if (SUCCEEDED(hr))
+    {
+        pGaussianBlurEffect->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, 3.0f);
+        pGaussianBlurEffect->SetValue(D2D1_GAUSSIANBLUR_PROP_BORDER_MODE, D2D1_BORDER_MODE_HARD);
+    }
 }
 
 float MeasureTextWidth(                     //
@@ -177,29 +200,60 @@ float MeasureTextWidth(                     //
     return metrics.width; // Accurate width in pixels
 }
 
-//
-// Text e.g. nihc,你好,拟好,倪浩,倪皓
-//
 void PaintCandidates(HWND hwnd, std::wstring &text)
 {
-    if (!pRenderTarget)
+    if (!pRenderTarget || !pDeviceContext)
         return;
+
     pRenderTarget->BeginDraw();
 
     /* Clear to transparent */
     pRenderTarget->Clear(D2D1::ColorF(0.1f, 0.1f, 0.1f, 0.0f));
 
-    pBrush->SetColor(D2D1::ColorF(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 1.0f));
-    D2D1_ROUNDED_RECT roundedRect = {
-        D2D1::RectF(         //
-            0.0f,            //
-            3.0f,            //
-            120.0f / 1.25f,  //
-            296.0f / 1.25f), //
-        8.0f,                //
-        8.0f                 //
-    };
-    pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
+    /* Create a compatible render target for gaussian blur */
+    ComPtr<ID2D1BitmapRenderTarget> pCompatibleRenderTarget;
+    HRESULT hr = pRenderTarget->CreateCompatibleRenderTarget(&pCompatibleRenderTarget);
+    if (SUCCEEDED(hr))
+    {
+        pCompatibleRenderTarget->BeginDraw();
+
+        /* Draw background to compatible render target */
+        pBrush->SetColor(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.6f));
+        D2D1_ROUNDED_RECT roundedRect = {
+            D2D1::RectF(         //
+                6.0f,            //
+                6.0f,            //
+                126.0f / 1.25f,  //
+                302.0f / 1.25f), //
+            8.0f,                //
+            8.0f                 //
+        };
+        pCompatibleRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
+
+        pCompatibleRenderTarget->EndDraw();
+
+        /* Get bitmap */
+        ComPtr<ID2D1Bitmap> pBitmap;
+        hr = pCompatibleRenderTarget->GetBitmap(&pBitmap);
+        if (SUCCEEDED(hr) && pGaussianBlurEffect)
+        {
+            pGaussianBlurEffect->SetInput(0, pBitmap.Get());
+            /* Draw blur effect */
+            pDeviceContext->DrawImage(pGaussianBlurEffect.Get());
+        }
+
+        pBrush->SetColor(D2D1::ColorF(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 1.0f));
+        roundedRect = {
+            D2D1::RectF(         //
+                0.0f,            //
+                0.0f,            //
+                120.0f / 1.25f,  //
+                296.0f / 1.25f), //
+            8.0f,                //
+            8.0f                 //
+        };
+        pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
+    }
 
     std::vector<std::wstring> lines = CommonUtils::cvt_str_to_vector(text);
 
@@ -247,10 +301,12 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
         y += lineHeight;
     }
 
-    HRESULT hr = pRenderTarget->EndDraw();
+    hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)
     {
         pRenderTarget.Reset();
+        pDeviceContext.Reset();
+        pGaussianBlurEffect.Reset();
         InitD2DRenderTarget(hwnd);
     }
 
