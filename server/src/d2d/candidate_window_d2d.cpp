@@ -208,17 +208,18 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
     pRenderTarget->BeginDraw();
 
     /* Clear to transparent */
-    pRenderTarget->Clear(D2D1::ColorF(0.1f, 0.1f, 0.1f, 0.0f));
+    pRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f)); // Fully transparent
 
-    /* Create a compatible render target for gaussian blur */
+    /* Draw shadow/blur effect only once */
     ComPtr<ID2D1BitmapRenderTarget> pCompatibleRenderTarget;
     HRESULT hr = pRenderTarget->CreateCompatibleRenderTarget(&pCompatibleRenderTarget);
     if (SUCCEEDED(hr))
     {
         pCompatibleRenderTarget->BeginDraw();
+        pCompatibleRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f)); // Clear shadow render target
 
         /* Draw background to compatible render target */
-        pBrush->SetColor(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.6f));
+        pBrush->SetColor(D2D1::ColorF(10.0 / 255.0f, 10.0 / 255.0f, 10.0 / 255.0f, 0.5f));
         D2D1_ROUNDED_RECT roundedRect = {
             D2D1::RectF(         //
                 6.0f,            //
@@ -229,57 +230,48 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
             8.0f                 //
         };
         pCompatibleRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
-
         pCompatibleRenderTarget->EndDraw();
 
-        /* Get bitmap */
+        /* Get bitmap and apply blur */
         ComPtr<ID2D1Bitmap> pBitmap;
         hr = pCompatibleRenderTarget->GetBitmap(&pBitmap);
         if (SUCCEEDED(hr) && pGaussianBlurEffect)
         {
             pGaussianBlurEffect->SetInput(0, pBitmap.Get());
-            /* Draw blur effect */
             pDeviceContext->DrawImage(pGaussianBlurEffect.Get());
         }
-
-        pBrush->SetColor(D2D1::ColorF(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 1.0f));
-        roundedRect = {
-            D2D1::RectF(         //
-                0.0f,            //
-                0.0f,            //
-                120.0f / 1.25f,  //
-                296.0f / 1.25f), //
-            8.0f,                //
-            8.0f                 //
-        };
-        pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
     }
 
-    std::vector<std::wstring> lines = CommonUtils::cvt_str_to_vector(text);
+    /* Draw main content */
+    pBrush->SetColor(D2D1::ColorF(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 1.0f));
+    D2D1_ROUNDED_RECT roundedRect = {
+        D2D1::RectF(         //
+            0.0f,            //
+            0.0f,            //
+            120.0f / 1.25f,  //
+            296.0f / 1.25f), //
+        8.0f,                //
+        8.0f                 //
+    };
+    pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
 
-    float lineHeight = 26.0f; //
-    float x = 8.0f;           //
-    float y = 0.0f;           //
+    /* Draw text content */
+    std::vector<std::wstring> lines = CommonUtils::cvt_str_to_vector(text);
+    float lineHeight = 26.0f;
+    float x = 8.0f;
+    float y = 0.0f;
+
     for (int i = 0; i < lines.size(); ++i)
     {
         if (i == 1)
         {
             float radius = 6.0f;
             float width = MeasureTextWidth(pDWriteFactory, pTextFormat, lines[i]);
-            OutputDebugString(fmt::format(L"width: {}", width).c_str());
             if (width < 56)
-            {
                 width = 56;
-            }
-            D2D1_ROUNDED_RECT roundedRect = {
-                D2D1::RectF(                //
-                    x - 3.0f,               //
-                    y,                      //
-                    x + width + 5.0f,       //
-                    y + lineHeight - 1.0f), //
-                radius,                     //
-                radius                      //
-            };
+
+            D2D1_ROUNDED_RECT roundedRect = {D2D1::RectF(x - 3.0f, y, x + width + 5.0f, y + lineHeight - 1.0f), radius,
+                                             radius};
             pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::LightBlue, 0.3f));
             pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
             pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::Pink, 1.0f));
@@ -289,15 +281,8 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
             pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 1.0f));
         }
 
-        pRenderTarget->DrawText(                       //
-            lines[i].c_str(),                          //
-            static_cast<UINT32>(lines[i].length()),    //
-            pTextFormat.Get(),                         //
-            D2D1::RectF(x, y, 590.0f, y + lineHeight), //
-            pBrush.Get()                               //
-        );
-
-        /* Update y coordinate */
+        pRenderTarget->DrawText(lines[i].c_str(), static_cast<UINT32>(lines[i].length()), pTextFormat.Get(),
+                                D2D1::RectF(x, y, 590.0f, y + lineHeight), pBrush.Get());
         y += lineHeight;
     }
 
