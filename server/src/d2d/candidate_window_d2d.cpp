@@ -246,6 +246,7 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
     auto minRes0 = MeasureTextWidth(pDWriteFactory, pTextFormat, L"浣溪纱");
     auto minRes1 = MeasureTextWidth(pDWriteFactory, pTextFormatOfNum, L"1");
     float minWidth = minRes0.first + minRes1.first;
+    auto res_preedit = MeasureTextWidth(pDWriteFactory, pTextFormatOfPreedit, lines[0]);
     for (size_t i = 0; i < lines.size(); ++i)
     {
         auto res = MeasureTextWidth(pDWriteFactory, pTextFormat, lines[i]);
@@ -274,16 +275,18 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
     }
     if (maxWidth < minWidth)
         maxWidth = minWidth;
+    if (maxWidth < res_preedit.first)
+        maxWidth = res_preedit.first;
 
-    float containerMarginBottom = 2.0f;
+    float containerPaddingBottom = 4.0f;
     float lineItemPaddingVertical = 1.0f;
-    float lineItemPaddingHorizontal = 3.0f;
+    float lineItemPaddingHorizontal = 6.0f;
     float marginVertical = 1.0f;
     float marginHorizontal = 6.0f;
     float lineItemMarginAfterNum = 2.0f;
     float lineHeight = maxHeight + lineItemPaddingVertical * 2; // 1.0f for padding top and bottom
     float containerWidth = maxWidth + marginHorizontal * 2 + lineItemPaddingHorizontal * 2 + lineItemMarginAfterNum;
-    float containerHeight = lineHeight * lines.size() + marginVertical * (lines.size() + 1) + containerMarginBottom;
+    float containerHeight = lineHeight * lines.size() + marginVertical * (lines.size() + 1) + containerPaddingBottom;
     float x = 0.0f;
     float y = 0.0f;
     ::CANDIDATE_WINDOW_WIDTH = std::ceil(containerWidth * 1.25);
@@ -409,6 +412,18 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
             };
             pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::LightBlue, 0.3f));
             pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
+            pBrush->SetColor(D2D1::ColorF(142.0f / 255.0f, 140.0f / 255.0f, 216.0f / 255.0f, 1.0f));
+            float verticalBarHeight = 0.64f * lineHeight;
+            y += 0.18f * lineHeight;
+            roundedRect = {
+                D2D1::RectF(x,                       //
+                            y,                       //
+                            x + 3.0f,                //
+                            y + 0.64f * lineHeight), //
+                1.5f,                                //
+                0.18f / 2 * lineHeight               //
+            };
+            pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
             pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::Pink, 1.0f));
         }
         else
@@ -418,23 +433,22 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
 
         if (i == 0)
         {
-            auto res_preedit = MeasureTextWidth(pDWriteFactory, pTextFormatOfPreedit, lines[i]);
-            float x = marginHorizontal + lineItemPaddingVertical + maxHeight - res_preedit.second;
-            float y = marginVertical * (i + 1) + lineHeight * i + lineItemPaddingVertical;
+            float x = marginHorizontal + lineItemPaddingVertical;
+            float y = marginVertical + lineItemPaddingVertical + maxHeight - res_preedit.second;
             pRenderTarget->DrawText(                    //
                 lines[i].c_str(),                       //
                 static_cast<UINT32>(lines[i].length()), //
                 pTextFormatOfPreedit.Get(),             //
                 D2D1::RectF(x,                          //
                             y,                          //
-                            x + maxWidth,               //
-                            y + lineHeight),            //
+                            x + res_preedit.first,      //
+                            y + res_preedit.second),    //
                 pBrush.Get()                            //
             );
         }
         else if (i > 0)
         {
-            float x = marginHorizontal + lineItemPaddingVertical;
+            float x = marginHorizontal + lineItemPaddingHorizontal;
             float y = marginVertical * (i + 1) + lineHeight * i + lineItemPaddingVertical;
             y = y + (maxHeight - maxNumHeight) / 2.0f;
             pRenderTarget->DrawText(                    //
@@ -444,7 +458,7 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
                 D2D1::RectF(x,                          //
                             y,                          //
                             x + maxNumWidth,            //
-                            y + maxNumWidth),           //
+                            y + maxNumHeight),          //
                 pBrush.Get()                            //
             );
             x = x + maxNumWidth + lineItemMarginAfterNum;
