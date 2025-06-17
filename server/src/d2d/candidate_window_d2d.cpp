@@ -120,6 +120,7 @@ bool InitD2DAndDWrite()
         L"zh-cn",                          //
         pTextFormat.GetAddressOf()         //
     );
+    pTextFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
     // pTextFormatOfPreedit
     hr = pDWriteFactory->CreateTextFormat(  //
@@ -132,6 +133,7 @@ bool InitD2DAndDWrite()
         L"zh-cn",                           //
         pTextFormatOfPreedit.GetAddressOf() //
     );
+    pTextFormatOfPreedit->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
     // TextFormatOfNum
     hr = pDWriteFactory->CreateTextFormat( //
@@ -144,6 +146,7 @@ bool InitD2DAndDWrite()
         L"zh-cn",                          //
         pTextFormatOfNum.GetAddressOf()    //
     );
+    pTextFormatOfNum->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
     if (FAILED(hr))
         return false;
@@ -215,8 +218,8 @@ std::pair<float, float> MeasureTextWidth(   //
         text.c_str(),                              //
         static_cast<UINT32>(text.length()),        //
         pTextFormat.Get(),                         //
-        1000.0f,                                   // Max width enough to avoid wrapping
-        1000.0f,                                   // Max height
+        FLT_MAX,                                   //
+        FLT_MAX,                                   //
         pTextLayout.GetAddressOf()                 //
     );
 
