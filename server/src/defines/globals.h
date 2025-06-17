@@ -11,6 +11,9 @@ inline int CANDIDATE_WINDOW_HEIGHT = 417;
 inline int SHADOW_WIDTH = 15;
 
 inline int DEFAULT_WINDOW_WIDTH = CANDIDATE_WINDOW_WIDTH;
+inline int DEFAULT_WINDOW_HEIGHT = 0;
+inline float DEFAULT_WINDOW_WIDTH_DIP = CANDIDATE_WINDOW_WIDTH;
+inline float DEFAULT_WINDOW_HEIGHT_DIP = 0;
 
 inline const int MAX_HAN_CHARS = 27;
 inline const int MAX_LINES = 8;

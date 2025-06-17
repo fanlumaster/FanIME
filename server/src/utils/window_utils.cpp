@@ -1,4 +1,5 @@
 #include "window_utils.h"
+#include "defines/globals.h"
 #include "spdlog/spdlog.h"
 #include <utility>
 
@@ -82,6 +83,37 @@ int AdjustCandidateWindowPosition(                  //
     if (properPos->second + 267 * scale > coordinates.bottom)
     {
         properPos->second = properPos->second - containerSizeY - 30 - 2;
+    }
+    return 0;
+}
+
+int AdjustWndPosition( //
+    HWND hwnd,         //
+    int crateX,        //
+    int crateY,        //
+    int width,         //
+    int height,        //
+    int properPos[2]   //
+)
+{
+    properPos[0] = crateX;
+    properPos[1] = crateY + 3;
+    MonitorCoordinates coordinates = GetMonitorCoordinates();
+    if (properPos[0] < coordinates.left)
+    {
+        properPos[0] = coordinates.left + 2;
+    }
+    if (properPos[1] < coordinates.top)
+    {
+        properPos[1] = coordinates.top + 2;
+    }
+    if (properPos[0] + width > coordinates.right)
+    {
+        properPos[0] = coordinates.right - width - 2;
+    }
+    if (properPos[1] + ::DEFAULT_WINDOW_HEIGHT > coordinates.bottom)
+    {
+        properPos[1] = properPos[1] - ::DEFAULT_WINDOW_HEIGHT - 30 - 2;
     }
     return 0;
 }

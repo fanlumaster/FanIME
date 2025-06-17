@@ -12,3 +12,12 @@ int AdjustCandidateWindowPosition(       //
     const std::pair<double, double> &,   //
     std::shared_ptr<std::pair<int, int>> //
 );
+
+int AdjustWndPosition( //
+    HWND hwnd,         //
+    int crateX,        //
+    int crateY,        //
+    int width,         //
+    int height,        //
+    int properPos[2]   //
+);

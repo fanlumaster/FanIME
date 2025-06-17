@@ -99,7 +99,7 @@ void WorkerThread()
                     maxCount = size;
                 }
                 Global::CandidateWordList.push_back(string_to_wstring(word));
-                if (i < Global::CountOfOnePage - 1)
+                if (i < loop - 1)
                 {
                     candidate_string += ",";
                 }
