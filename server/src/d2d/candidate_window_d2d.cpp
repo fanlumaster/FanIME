@@ -362,15 +362,33 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
     /* Draw text content */
     pBrush->SetColor(D2D1::ColorF(22.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f, 1.0f));
     D2D1_ROUNDED_RECT roundedRect = {
-        D2D1::RectF(              //
-            x,                    //
-            y,                    //
-            x + containerWidth,   //
-            y + containerHeight), //
-        8.0f,                     //
-        8.0f                      //
+        D2D1::RectF(                            //
+            x + 1.0f,                           //
+            y + 1.0f,                           //
+            x + 1.0f + containerWidth - 2.0f,   //
+            y + 1.0f + containerHeight - 2.0f), //
+        4.0f,                                   //
+        4.0f                                    //
     };
-    pRenderTarget->FillRoundedRectangle(roundedRect, pBrush.Get());
+    pRenderTarget->FillRoundedRectangle( //
+        roundedRect,                     //
+        pBrush.Get()                     //
+    );
+    pBrush->SetColor(D2D1::ColorF(74.0f / 255.0f, 84.0f / 255.0f, 89.0f / 255.0f, 0.7f));
+    float strokeWidth = 1.0f;
+    roundedRect = {
+        x + strokeWidth / 2,                   //
+        y + strokeWidth / 2,                   //
+        x + containerWidth - strokeWidth / 2,  //
+        y + containerHeight - strokeWidth / 2, //
+        4.0f,                                  //
+        4.0f                                   //
+    };
+    pRenderTarget->DrawRoundedRectangle( //
+        roundedRect,                     //
+        pBrush.Get(),                    //
+        strokeWidth                      //
+    );
 
     for (size_t i = 0; i < lines.size(); ++i)
     {
