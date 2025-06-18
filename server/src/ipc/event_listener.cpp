@@ -4,7 +4,6 @@
 #include <ioapiset.h>
 #include <namedpipeapi.h>
 #include <string>
-#include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 #include "Ipc.h"
 #include "boost/algorithm/string/case_conv.hpp"
 #include "defines/defines.h"
@@ -67,7 +66,7 @@ void WorkerThread()
         case TaskType::ShowCandidate: {
             ::ReadDataFromNamedPipe(0b11111);
             std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
-            Global::CandidateList = g_dictQuery->generate(pinyin, PinyinUtil::pinyin_segmentation(pinyin));
+            Global::CandidateList = g_dictQuery->get_cur_candiate_list();
             if (Global::CandidateList.size() == 0)
             {
                 Global::CandidateList.push_back(make_tuple(pinyin, pinyin, 1));
@@ -124,11 +123,11 @@ void WorkerThread()
 
         case TaskType::ImeKeyEvent: {
             ::ReadDataFromNamedPipe(0b000011);
+            g_dictQuery->handleVkCode(Global::Keycode);
             if (Global::Keycode == VK_SPACE)
             {
                 if (Global::SelectedCandidateString != L"")
                 {
-                    // ::SendImeInputs(Global::SelectedCandidateString);
                     if (!SetEvent(hEvent))
                     {
                         // TODO: Error handling
@@ -137,7 +136,6 @@ void WorkerThread()
                 }
                 else
                 {
-                    // ::SendImeInputs(Global::PinyinString);
                     Global::SelectedCandidateString = Global::PinyinString;
                     if (!SetEvent(hEvent))
                     {
@@ -150,7 +148,6 @@ void WorkerThread()
             {
                 if (Global::Keycode - '1' < Global::CandidateWordList.size())
                 {
-                    // ::SendImeInputs(Global::CandidateWordList[Global::Keycode - '1']);
                     Global::SelectedCandidateString = Global::CandidateWordList[Global::Keycode - '1'];
                     if (!SetEvent(hEvent))
                     {
