@@ -122,7 +122,7 @@ bool InitD2DAndDWrite()
     );
     pTextFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
-    // pTextFormatOfPreedit
+    // TextFormatOfPreedit
     hr = pDWriteFactory->CreateTextFormat(  //
         L"Noto Sans SC",                    //
         nullptr,                            //
@@ -454,15 +454,16 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
             float x = marginHorizontal + lineItemPaddingHorizontal;
             float y = marginVertical * (i + 1) + lineHeight * i + lineItemPaddingVertical;
             y = y + (maxHeight - maxNumHeight) / 2.0f;
-            pRenderTarget->DrawText(                    //
-                std::to_wstring(i).c_str(),             //
-                static_cast<UINT32>(lines[i].length()), //
-                pTextFormatOfNum.Get(),                 //
-                D2D1::RectF(x,                          //
-                            y,                          //
-                            x + maxNumWidth,            //
-                            y + maxNumHeight),          //
-                pBrush.Get()                            //
+            auto lineNo = std::to_wstring(i);
+            pRenderTarget->DrawText(                  //
+                lineNo.c_str(),                       //
+                static_cast<UINT32>(lineNo.length()), //
+                pTextFormatOfNum.Get(),               //
+                D2D1::RectF(x,                        //
+                            y,                        //
+                            x + maxNumWidth,          //
+                            y + maxNumHeight),        //
+                pBrush.Get()                          //
             );
             x = x + maxNumWidth + lineItemMarginAfterNum;
             y = marginVertical * (i + 1) + lineHeight * i + lineItemPaddingVertical;
