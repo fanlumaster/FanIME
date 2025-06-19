@@ -60,6 +60,7 @@ set(SRC_FILES
 )
 
 set(SRC_FILES_IME_ENGINE
+    "./MetasequoiaImeEngine/shuangpin/common_utils.cpp"
     "./MetasequoiaImeEngine/shuangpin/dictionary.cpp"
     "./MetasequoiaImeEngine/shuangpin/pinyin_utils.cpp"
 )
