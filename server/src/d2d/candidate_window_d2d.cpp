@@ -292,9 +292,10 @@ void PaintCandidates(HWND hwnd, std::wstring &text)
     float containerHeight = lineHeight * lines.size() + marginVertical * (lines.size() + 1) + containerPaddingBottom;
     float x = 0.0f;
     float y = 0.0f;
-    ::CANDIDATE_WINDOW_WIDTH = std::ceil(containerWidth * 1.25);
-    ::CANDIDATE_WINDOW_HEIGHT = std::ceil(containerHeight * 1.25);
-    ::SHADOW_WIDTH = std::ceil(6.0 * 1.25) * 2;
+    static float wndScale = GetWindowScale(hwnd);
+    ::CANDIDATE_WINDOW_WIDTH = std::ceil(containerWidth * wndScale);
+    ::CANDIDATE_WINDOW_HEIGHT = std::ceil(containerHeight * wndScale);
+    ::SHADOW_WIDTH = std::ceil(6.0 * wndScale) * 2;
     if (::CANDIDATE_WINDOW_HEIGHT > ::DEFAULT_WINDOW_HEIGHT)
     {
         ::DEFAULT_WINDOW_HEIGHT = ::CANDIDATE_WINDOW_HEIGHT;
