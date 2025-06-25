@@ -11,8 +11,9 @@ This is the server end of [MetasequoiaImeTsf](https://github.com/fanlumaster/Met
 - vcpkg
 - Nuget
 - Python3
+- Boost
 
-Make sure vcpkg and Nuget are installed by **Scoop**.
+Make sure vcpkg, Nuget and Boost are installed by **Scoop**.
 
 ### Build steps
 
