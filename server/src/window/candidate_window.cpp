@@ -16,6 +16,8 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
+int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
+
 LRESULT RegisterCandidateWindowMessage()
 {
 
@@ -140,30 +142,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
         InvalidateRect(hwnd, NULL, FALSE);
 
-        if (caretY < -900)
-        {
-            SetWindowPos(                                  //
-                hwnd,                                      //
-                nullptr,                                   //
-                caretX,                                    //
-                caretY,                                    //
-                0,                                         //
-                0,                                         //
-                SWP_NOZORDER | SWP_SHOWWINDOW | SWP_NOSIZE //
-            );
-        }
-        else
-        {
-            SetWindowPos(                                    //
-                hwnd,                                        //
-                nullptr,                                     //
-                caretX,                                      //
-                caretY,                                      //
-                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH), //
-                (::DEFAULT_WINDOW_HEIGHT + ::SHADOW_WIDTH),  //
-                SWP_NOZORDER | SWP_NOMOVE                    //
-            );
-        }
+        UINT firstFlag = SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE;
+        UINT secondFlag = SWP_NOZORDER | SWP_NOMOVE;
+
+        FineTuneWindow(hwnd, firstFlag, secondFlag);
+
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
         return 0;
     }
@@ -176,43 +159,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (message == WM_MOVE_CANDIDATE_WINDOW)
     {
-        int caretX = Global::Point[0];
-        int caretY = Global::Point[1];
-
-        if (caretY < -900)
-        {
-            SetWindowPos(                 //
-                hwnd,                     //
-                nullptr,                  //
-                caretX,                   //
-                caretY,                   //
-                0,                        //
-                0,                        //
-                SWP_NOSIZE | SWP_NOZORDER //
-            );
-        }
-        else
-        {
-            int point[2] = {0, 0};
-            AdjustWndPosition(                                //
-                hwnd,                                         //
-                caretX,                                       //
-                caretY,                                       //
-                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
-                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-                point                                         //
-            );
-
-            SetWindowPos(                 //
-                hwnd,                     //
-                nullptr,                  //
-                point[0],                 //
-                point[1],                 //
-                0,                        //
-                0,                        //
-                SWP_NOSIZE | SWP_NOZORDER //
-            );
-        }
+        UINT firstFlag = SWP_NOZORDER | SWP_NOSIZE;
+        UINT secondFlag = SWP_NOZORDER | SWP_NOSIZE;
+        FineTuneWindow(hwnd, firstFlag, secondFlag);
         return 0;
     }
 
@@ -266,31 +215,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_PAINT: {
-        int caretX = Global::Point[0];
-        int caretY = Global::Point[1];
         std::wstring embeded_pinyin = string_to_wstring(                             //
             PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
         PaintCandidates(hwnd, str);
-        int point[2] = {0, 0};
-        AdjustWndPosition(                                //
-            hwnd,                                         //
-            caretX,                                       //
-            caretY,                                       //
-            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
-            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-            point                                         //
-        );
-        SetWindowPos(                                    //
-            hwnd,                                        //
-            nullptr,                                     //
-            point[0],                                    //
-            point[1],                                    //
-            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH), //
-            (::DEFAULT_WINDOW_HEIGHT + ::SHADOW_WIDTH),  //
-            SWP_NOZORDER                                 //
-        );
+
+        UINT firstFlag = SWP_NOZORDER;
+        UINT secondFlag = SWP_NOZORDER;
+        FineTuneWindow(hwnd, firstFlag, secondFlag);
+
         return 0;
     }
 
@@ -304,5 +238,50 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     }
 
+    return 0;
+}
+
+int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag)
+{
+    int caretX = Global::Point[0];
+    int caretY = Global::Point[1];
+
+    int newWidth = (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH);
+    int newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH);
+
+    if (caretY < -900)
+    {
+        SetWindowPos(  //
+            hwnd,      //
+            nullptr,   //
+            caretX,    //
+            caretY,    //
+            newWidth,  //
+            newHeight, //
+            firstFlag  //
+        );
+    }
+    else
+    {
+        int point[2] = {0, 0};
+        AdjustWndPosition( //
+            hwnd,          //
+            caretX,        //
+            caretY,        //
+            newWidth,      //
+            newHeight,     //
+            point          //
+        );
+
+        SetWindowPos(  //
+            hwnd,      //
+            nullptr,   //
+            point[0],  //
+            point[1],  //
+            newWidth,  //
+            newHeight, //
+            secondFlag //
+        );
+    }
     return 0;
 }
