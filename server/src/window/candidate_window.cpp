@@ -247,7 +247,7 @@ int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag)
     int caretY = Global::Point[1];
 
     int newWidth = (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH);
-    int newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH);
+    int newHeight = (::DEFAULT_WINDOW_HEIGHT + ::SHADOW_WIDTH);
 
     if (caretY < -900)
     {
