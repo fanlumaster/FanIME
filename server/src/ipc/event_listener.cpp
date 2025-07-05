@@ -17,6 +17,7 @@
 #include <boost/algorithm/string.hpp>
 #include "fmt/xchar.h"
 #include <utf8.h>
+#include "global/globals.h"
 
 namespace FanyNamedPipe
 {
@@ -64,7 +65,7 @@ void WorkerThread()
         switch (task.type)
         {
         case TaskType::ShowCandidate: {
-            ::ReadDataFromNamedPipe(0b11111);
+            ::ReadDataFromNamedPipe(0b111111);
             std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
             Global::CandidateList = g_dictQuery->get_cur_candiate_list();
             if (Global::CandidateList.size() == 0)
@@ -90,7 +91,6 @@ void WorkerThread()
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                // candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
                 candidate_string += word;
                 int size = utf8::distance(word.begin(), word.end());
                 if (size > maxCount)
@@ -116,15 +116,19 @@ void WorkerThread()
         }
 
         case TaskType::MoveCandidate: {
-            ::ReadDataFromNamedPipe(0b00100);
+            ::ReadDataFromNamedPipe(0b001000);
             PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;
         }
 
         case TaskType::ImeKeyEvent: {
-            ::ReadDataFromNamedPipe(0b000011);
+            ::ReadDataFromNamedPipe(0b000111);
             g_dictQuery->handleVkCode(Global::Keycode);
-            if (Global::Keycode == VK_SPACE)
+            //
+            // In some cases, TSF end will request the first candidate string
+            //
+            /* 1. Punctuations, 2. VK_SPACE */
+            if (Global::Keycode == VK_SPACE || GlobalIme::PUNC_SET.find(Global::Wch) != GlobalIme::PUNC_SET.end())
             {
                 if (Global::SelectedCandidateString != L"")
                 {
@@ -143,7 +147,10 @@ void WorkerThread()
                         OutputDebugString(L"SetEvent failed");
                     }
                 }
+                /* Clear dict engine state */
+                g_dictQuery->reset_state();
             }
+            /* 3. Digits */
             else if (Global::Keycode > '0' && Global::Keycode < '9')
             {
                 if (Global::Keycode - '1' < Global::CandidateWordList.size())
@@ -177,7 +184,6 @@ void WorkerThread()
                         {
                             Global::SelectedCandidateString = string_to_wstring(word);
                         }
-                        // candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
                         candidate_string += word;
                         Global::CandidateWordList.push_back(string_to_wstring(word));
                         if (i < loop - 1)

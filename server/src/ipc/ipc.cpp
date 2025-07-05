@@ -349,26 +349,31 @@ int ReadDataFromSharedMemory(UINT read_flag)
 
     if (read_flag >> 1 & 1u)
     {
-        Global::ModifiersDown = sharedData->modifiers_down;
+        Global::Wch = sharedData->wch;
     }
 
     if (read_flag >> 2 & 1u)
+    {
+        Global::ModifiersDown = sharedData->modifiers_down;
+    }
+
+    if (read_flag >> 3 & 1u)
     {
         Global::Point[0] = sharedData->point[0];
         Global::Point[1] = sharedData->point[1];
     }
 
-    if (read_flag >> 3 & 1u)
+    if (read_flag >> 4 & 1u)
     {
         Global::PinyinLength = sharedData->pinyin_length;
     }
 
-    if (read_flag >> 4 & 1u)
+    if (read_flag >> 5 & 1u)
     {
         Global::PinyinString = sharedData->pinyin_string;
     }
 
-    if (read_flag >> 5 & 1u)
+    if (read_flag >> 6 & 1u)
     {
         Global::CandidateString = sharedData->candidate_string;
     }
@@ -385,21 +390,26 @@ int ReadDataFromNamedPipe(UINT read_flag)
 
     if (read_flag >> 1 & 1u)
     {
-        Global::ModifiersDown = namedpipeData.modifiers_down;
+        Global::Wch = namedpipeData.wch;
     }
 
     if (read_flag >> 2 & 1u)
+    {
+        Global::ModifiersDown = namedpipeData.modifiers_down;
+    }
+
+    if (read_flag >> 3 & 1u)
     {
         Global::Point[0] = namedpipeData.point[0];
         Global::Point[1] = namedpipeData.point[1];
     }
 
-    if (read_flag >> 3 & 1u)
+    if (read_flag >> 4 & 1u)
     {
         Global::PinyinLength = namedpipeData.pinyin_length;
     }
 
-    if (read_flag >> 4 & 1u)
+    if (read_flag >> 5 & 1u)
     {
         Global::PinyinString = namedpipeData.pinyin_string;
     }

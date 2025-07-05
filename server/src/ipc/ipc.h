@@ -42,6 +42,7 @@ inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
 struct FanyImeSharedMemoryData
 {
     UINT keycode;
+    WCHAR wch;
     UINT modifiers_down = 0;
     int point[2] = {100, 100};
     int pinyin_length = 0;
@@ -63,7 +64,8 @@ struct FanyImeSharedMemoryData
 struct FanyImeNamedpipeData
 {
     UINT event_type;
-    UINT keycode;
+    UINT keycode; // VkCode
+    WCHAR wch;    // Unicode character converted from vkcode
     UINT modifiers_down = 0;
     int point[2] = {100, 100};
     int pinyin_length = 0;
@@ -97,6 +99,7 @@ int SendKeyEventToUIProcess();
 namespace Global
 {
 inline UINT Keycode = 0;
+inline WCHAR Wch = 0;
 inline UINT ModifiersDown = 0;
 inline int Point[2] = {100, 100};
 inline int PinyinLength = 0;

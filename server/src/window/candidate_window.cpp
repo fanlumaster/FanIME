@@ -135,7 +135,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         int caretX = Global::Point[0];
         int caretY = Global::Point[1];
-        ::ReadDataFromSharedMemory(0b100000);
+        /* Read candidate string */
+        ::ReadDataFromSharedMemory(0b1000000);
         std::wstring embeded_pinyin = string_to_wstring(                             //
             PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
         );
