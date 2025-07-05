@@ -18,6 +18,7 @@
 #include "fmt/xchar.h"
 #include <utf8.h>
 #include "global/globals.h"
+#include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 
 namespace FanyNamedPipe
 {
@@ -91,7 +92,7 @@ void WorkerThread()
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                candidate_string += word;
+                candidate_string += word + PinyinUtil::compute_helpcodes(word);
                 int size = utf8::distance(word.begin(), word.end());
                 if (size > maxCount)
                 {
@@ -184,7 +185,7 @@ void WorkerThread()
                         {
                             Global::SelectedCandidateString = string_to_wstring(word);
                         }
-                        candidate_string += word;
+                        candidate_string += word + PinyinUtil::compute_helpcodes(word);
                         Global::CandidateWordList.push_back(string_to_wstring(word));
                         if (i < loop - 1)
                         {
@@ -219,8 +220,7 @@ void WorkerThread()
                         {
                             Global::SelectedCandidateString = string_to_wstring(word);
                         }
-                        // candidate_string += std::to_string(i + 1) + CandidateUi::NumHanSeparator + word;
-                        candidate_string += word;
+                        candidate_string += word + PinyinUtil::compute_helpcodes(word);
                         Global::CandidateWordList.push_back(string_to_wstring(word));
                         if (i < loop - 1)
                         {
