@@ -13,6 +13,7 @@
 #include "d2d/candidate_window_d2d.h"
 #include <dwmapi.h>
 #include "utils/window_utils.h"
+#include "ipc/event_listener.h"
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -137,8 +138,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         int caretY = Global::Point[1];
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring embeded_pinyin = string_to_wstring(                             //
-            PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
+        std::wstring embeded_pinyin = string_to_wstring( //
+            g_dictQuery->get_segmentation_pinyin()       //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
         InvalidateRect(hwnd, NULL, FALSE);
