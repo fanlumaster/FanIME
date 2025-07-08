@@ -129,8 +129,10 @@ void WorkerThread()
             // In some cases, TSF end will request the first candidate string
             //
             /* 1. Punctuations, 2. VK_SPACE */
+            Global::IsNumOutofRange = false;
             if (Global::Keycode == VK_SPACE || GlobalIme::PUNC_SET.find(Global::Wch) != GlobalIme::PUNC_SET.end())
             {
+                Global::SelectedCandidateString = Global::CandidateWordList[0];
                 if (Global::SelectedCandidateString != L"")
                 {
                     if (!SetEvent(hEvent))
@@ -152,16 +154,21 @@ void WorkerThread()
                 g_dictQuery->reset_state();
             }
             /* 3. Digits */
-            else if (Global::Keycode > '0' && Global::Keycode < '9')
+            else if (Global::Keycode > '0' && Global::Keycode <= '9')
             {
-                if (Global::Keycode - '1' < Global::CandidateWordList.size())
+                if (Global::Keycode - '0' <= Global::CandidateWordList.size())
                 {
                     Global::SelectedCandidateString = Global::CandidateWordList[Global::Keycode - '1'];
-                    if (!SetEvent(hEvent))
-                    {
-                        // TODO: Error handling
-                        OutputDebugString(L"SetEvent failed");
-                    }
+                }
+                else
+                {
+                    Global::SelectedCandidateString = L"OutofRange";
+                    Global::IsNumOutofRange = true;
+                }
+                if (!SetEvent(hEvent))
+                {
+                    // TODO: Error handling
+                    OutputDebugString(L"SetEvent failed");
                 }
             }
             else if (Global::Keycode == VK_OEM_MINUS ||     //
@@ -335,29 +342,6 @@ void EventListenerLoopThread()
     ::CloseNamedPipe();
 }
 
-void SendToTsfViaNamedpipe(std::wstring &pipeData)
-{
-    if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
-    {
-        // TODO: Error handling
-        OutputDebugString(L"SendToTsfViaNamedpipe Pipe disconnected");
-        return;
-    }
-    DWORD bytesWritten = 0;
-    BOOL ret = WriteFile(                    //
-        hToTsfPipe,                          //
-        pipeData.c_str(),                    //
-        pipeData.length() * sizeof(wchar_t), //
-        &bytesWritten,                       //
-        NULL                                 //
-    );
-    if (!ret || bytesWritten != pipeData.length() * sizeof(wchar_t))
-    {
-        // TODO: Error handling
-        OutputDebugString(L"SendToTsfViaNamedpipe WriteFile failed");
-    }
-}
-
 void ToTsfPipeEventListenerLoopThread()
 {
     // Open events here
@@ -397,7 +381,7 @@ void ToTsfPipeEventListenerLoopThread()
                     {
                     case 0: { // FanyImeTimeToWritePipeEvent
                         // Write data to tsf via named pipe
-                        SendToTsfViaNamedpipe(::Global::SelectedCandidateString);
+                        SendToTsfViaNamedpipe(Global::IsNumOutofRange ? 1 : 0, ::Global::SelectedCandidateString);
                         break;
                     }
                     case 1: { // Cancel event

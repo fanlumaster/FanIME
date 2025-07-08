@@ -68,6 +68,8 @@ static FanyImeSharedMemoryData *sharedData;
 static bool canUseSharedMemory = true;
 static bool canUseNamedPipe = true;
 
+static struct FanyImeNamedpipeDataToTsf namedpipeDataToTsf = {};
+
 int InitIpc()
 {
     //
@@ -199,17 +201,17 @@ int InitNamedPipe()
     );
 
     // Namedpipe for passing data from this process to TSF process
-    hToTsfPipe = CreateNamedPipe(   //
-        FANY_IME_TO_TSF_NAMED_PIPE, // pipe name
-        PIPE_ACCESS_DUPLEX,         // read/write access
-        PIPE_TYPE_MESSAGE           // message type pipe
-            | PIPE_READMODE_MESSAGE // message-read mode
-            | PIPE_WAIT,            // blocking mode
-        PIPE_UNLIMITED_INSTANCES,   // max instances
-        512,                        // output buffer size
-        512,                        // input buffer size
-        0,                          // client time-out
-        &sa                         // security attribute, for UWP/Metro apps
+    hToTsfPipe = CreateNamedPipe(                 //
+        FANY_IME_TO_TSF_NAMED_PIPE,               // pipe name
+        PIPE_ACCESS_DUPLEX,                       // read/write access
+        PIPE_TYPE_MESSAGE                         // message type pipe
+            | PIPE_READMODE_MESSAGE               // message-read mode
+            | PIPE_WAIT,                          // blocking mode
+        PIPE_UNLIMITED_INSTANCES,                 // max instances
+        sizeof(struct FanyImeNamedpipeDataToTsf), // output buffer size
+        sizeof(struct FanyImeNamedpipeDataToTsf), // input buffer size
+        0,                                        // client time-out
+        &sa                                       // security attribute, for UWP/Metro apps
     );
 
     if (hPipe == INVALID_HANDLE_VALUE)
@@ -417,26 +419,29 @@ int ReadDataFromNamedPipe(UINT read_flag)
     return 0;
 }
 
-int SendKeyEventToUIProcess()
+void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData)
 {
-    HANDLE hEvent = OpenEventW(         //
-        EVENT_MODIFY_STATE,             //
-        FALSE,                          //
-        FANY_IME_EVENT_ARRAY[0].c_str() //
-    );                                  //
-
-    if (!hEvent)
+    if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
     {
         // TODO: Error handling
+        OutputDebugString(L"SendToTsfViaNamedpipe Pipe disconnected");
+        return;
     }
+    DWORD bytesWritten = 0;
 
-    if (!SetEvent(hEvent))
+    namedpipeDataToTsf.msg_type = msg_type;
+    wcscpy_s(namedpipeDataToTsf.candidate_string, pipeData.c_str());
+
+    BOOL ret = WriteFile(           //
+        hToTsfPipe,                 //
+        &namedpipeDataToTsf,        //
+        sizeof(namedpipeDataToTsf), //
+        &bytesWritten,              //
+        NULL                        //
+    );
+    if (!ret || bytesWritten != pipeData.length() * sizeof(wchar_t))
     {
         // TODO: Error handling
-        DWORD err = GetLastError();
-        spdlog::info("SetEvent error: {}", err);
+        OutputDebugString(L"SendToTsfViaNamedpipe WriteFile failed");
     }
-
-    CloseHandle(hEvent);
-    return 0;
 }

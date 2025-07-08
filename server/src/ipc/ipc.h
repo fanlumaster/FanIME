@@ -72,6 +72,19 @@ struct FanyImeNamedpipeData
     wchar_t pinyin_string[128];
 };
 
+//
+// Data sent to tsf end
+//
+// msg_type
+//   0: success
+//   1: candidate index out of range error
+//
+struct FanyImeNamedpipeDataToTsf
+{
+    UINT msg_type;
+    wchar_t candidate_string[200]; // 200 chars at most
+};
+
 inline FanyImeNamedpipeData namedpipeData;
 
 int InitIpc();
@@ -94,7 +107,7 @@ int WriteDataToSharedMemory(              //
 */
 int ReadDataFromSharedMemory(UINT read_flag);
 int ReadDataFromNamedPipe(UINT read_flag);
-int SendKeyEventToUIProcess();
+void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData);
 
 namespace Global
 {
@@ -116,4 +129,5 @@ inline int ItemTotalCount = 0;
 /* For the use of adjusting candidate */
 inline int CurPageMaxWordLen = 2;
 inline int CurPageItemCnt = 8;
+inline bool IsNumOutofRange = 0;
 } // namespace Global
