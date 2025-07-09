@@ -5,7 +5,6 @@
 #include <namedpipeapi.h>
 #include <string>
 #include "Ipc.h"
-#include "boost/algorithm/string/case_conv.hpp"
 #include "defines/defines.h"
 #include "spdlog/spdlog.h"
 #include "ipc.h"
@@ -67,7 +66,7 @@ void WorkerThread()
         {
         case TaskType::ShowCandidate: {
             ::ReadDataFromNamedPipe(0b111111);
-            std::string pinyin = boost::algorithm::to_lower_copy(wstring_to_string(Global::PinyinString));
+            std::string pinyin = wstring_to_string(Global::PinyinString);
             Global::CandidateList = g_dictQuery->get_cur_candiate_list();
             if (Global::CandidateList.size() == 0)
             {
