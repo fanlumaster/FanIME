@@ -8,21 +8,21 @@ namespace GlobalIme
 inline std::wstring AppName = L"MetasequoiaImeTsf";
 inline std::wstring ServerName = L"MetasequoiaImeTsf";
 inline std::unordered_set<WCHAR> PUNC_SET = {
-    L'`',  //
-    L'!',  //
-    L'@',  //
-    L'#',  //
-    L'$',  //
-    L'%',  //
-    L'^',  //
-    L'&',  //
-    L'*',  //
-    L'(',  //
-    L')',  //
-    L'-',  //
-    L'_',  //
-    L'=',  //
-    L'+',  //
+    L'`', //
+    L'!', //
+    L'@', //
+    L'#', //
+    L'$', //
+    L'%', //
+    L'^', //
+    L'&', //
+    L'*', //
+    L'(', //
+    L')', //
+    // L'-',  //
+    L'_', //
+    // L'=',  //
+    // L'+',  //
     L'[',  //
     L']',  //
     L'\\', //
