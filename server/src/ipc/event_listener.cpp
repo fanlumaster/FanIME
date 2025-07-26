@@ -123,7 +123,7 @@ void WorkerThread()
 
         case TaskType::ImeKeyEvent: {
             ::ReadDataFromNamedPipe(0b000111);
-            g_dictQuery->handleVkCode(Global::Keycode);
+            g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown);
             //
             // In some cases, TSF end will request the first candidate string
             //

@@ -61,6 +61,13 @@ struct FanyImeSharedMemoryData
 //   2: FanyShowCandidateWndEvent
 //   3: FanyMoveCandidateWndEvent
 //
+// modifiers_down:
+//     0b00000001: Shift
+//     0b00000010: Control
+//     0b00000100: Alt
+// TODO: Make it able to denote explicit modifiers, e.g. LShift, RShift, we could use left keys
+//
+//
 struct FanyImeNamedpipeData
 {
     UINT event_type;
