@@ -235,6 +235,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
 
+    /* Clear dictionary buffer cache */
+    case WM_USER + 100: {
+        g_dictQuery->reset_cache();
+        OutputDebugString(fmt::format(L"Cleared dictionary buffer cache.").c_str());
+        break;
+    }
+
     default: {
         return DefWindowProc(hwnd, message, wParam, lParam);
     }

@@ -2,9 +2,9 @@
 
 #include <windows.h>
 
-inline WCHAR szWindowClass[] = L"global_candidate_window";
-inline WCHAR szTitle[] = L"Global Candidate Window";
-inline WCHAR lpWindowName[] = L"fanycandidatewindow";
+inline WCHAR szWindowClass[] = L"metasequoiaime_candidate_window";
+inline WCHAR szTitle[] = L"MetasequoiaIme Candidate Window";
+inline WCHAR lpWindowName[] = L"metaseuqoiaimecandidatewindow";
 
 LRESULT RegisterCandidateWindowMessage();
 LRESULT RegisterCandidateWindowClass(WNDCLASSEX &, HINSTANCE);
