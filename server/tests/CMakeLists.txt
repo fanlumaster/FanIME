@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Boost
-set(Boost_ROOT "C:/Users/SonnyCalcr/scoop/apps/boost/current")
+set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)
 include_directories(${Boost_INCLUDE_DIRS})
