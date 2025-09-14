@@ -5,3 +5,4 @@ log.*
 /CMakePresets.json
 /tests/CMakeLists.txt
 /tests/CMakePresets.json
+/.vs
