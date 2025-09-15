@@ -39,8 +39,8 @@ include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 
 set(SRC_FILES
-    "./src/d2d/candidate_window_d2d.cpp"
-    "./src/d2d/candidate_window_d2d.h"
+    "./src/webview2/candidate_window_webview2.cpp"
+    "./src/webview2/candidate_window_webview2.h"
     "./src/defines/defines.h"
     "./src/global/globals.h"
     "./src/ipc/event_listener.cpp"
@@ -49,10 +49,12 @@ set(SRC_FILES
     "./src/ipc/ipc.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
-    "./src/utils/window_utils.cpp"
-    "./src/utils/window_utils.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
+    "./src/utils/webview_utils.cpp"
+    "./src/utils/webview_utils.h"
+    "./src/utils/window_utils.cpp"
+    "./src/utils/window_utils.h"
     "./src/window/candidate_window.cpp"
     "./src/window/candidate_window.h"
     "./src/main.cpp"

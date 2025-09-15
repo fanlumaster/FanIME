@@ -22,8 +22,8 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
 
 int PrepareCandidateWindowHtml()
 {
-    std::wstring entireHtml = L"/html/default-themes/vertical_candidate_window_dark.html";
-    std::wstring bodyHtml = L"/html/default-themes/body/vertical_candidate_window_dark.html";
+    std::wstring entireHtml = L"/html/webview2/default-themes/vertical_candidate_window_dark.html";
+    std::wstring bodyHtml = L"/html/webview2/default-themes/body/vertical_candidate_window_dark.html";
 
     bool isHorizontal = false;
     bool isNormal = true;
@@ -41,6 +41,7 @@ int PrepareCandidateWindowHtml()
 
     std::wstring htmlPath = std::filesystem::current_path().wstring() + entireHtml;
     ::HTMLString = ReadHtmlFile(htmlPath);
+    OutputDebugString(fmt::format(htmlPath).c_str());
     std::wstring bodyPath = std::filesystem::current_path().wstring() + bodyHtml;
     ::BodyString = ReadHtmlFile(bodyPath);
 
