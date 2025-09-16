@@ -9,7 +9,6 @@
 #include <windef.h>
 #include <winuser.h>
 #include <fmt/xchar.h>
-#include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 #include "webview2/candidate_window_webview2.h"
 #include "utils/webview_utils.h"
 #include "utils/window_utils.h"
@@ -145,8 +144,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         int caretY = Global::Point[1];
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring embeded_pinyin = string_to_wstring(                             //
-            PinyinUtil::pinyin_segmentation(wstring_to_string(Global::PinyinString)) //
+        std::wstring embeded_pinyin = string_to_wstring( //
+            g_dictQuery->get_segmentation_pinyin()       //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
         InflateCandidateWindow(str);
@@ -246,6 +245,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
+    /* Clear dictionary buffer cache */
+    case WM_CLS_DICT_CACHE: {
+        g_dictQuery->reset_cache();
+        OutputDebugString(fmt::format(L"Cleared dictionary buffer cache.").c_str());
+        break;
+    }
+
     case WM_DESTROY: {
         PostQuitMessage(0);
         break;
