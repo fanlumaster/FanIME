@@ -192,7 +192,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         ShowWindow(hwnd, SW_HIDE);
         UpdateHtmlContentWithJavaScript(webview, L"");
-        std::wstring str = L"n,1. 那,2. 年,3. 女,4. 难,5. 内,6. 你,7. 男,8. 哪";
+        std::wstring str = L"n,那,年,女,难,内,你,男,哪";
         InflateCandidateWindow(str);
         return 0;
     }
