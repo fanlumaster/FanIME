@@ -23,7 +23,7 @@ Make sure vcpkg, Nuget and Boost are installed by **Scoop**.
 cd $env:LOCALAPPDATA
 mkdir MetasequoiaImeTsf
 cd MetasequoiaImeTsf
-git clone https://github.com/fanlumaster/FanyDictForIME.git
+git clone --recursive https://github.com/fanlumaster/FanyDictForIME.git
 cd .\FanyDictForIME\makecikudb\xnheulpb\makedb\separated_jp_version
 python .\create_db_and_table.py
 python .\insert_data.py
