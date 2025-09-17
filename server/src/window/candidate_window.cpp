@@ -62,24 +62,25 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 
 int CreateCandidateWindow(HINSTANCE hInstance)
 {
-    DWORD dwExStyle = WS_EX_LAYERED |                 //
-                      WS_EX_TOOLWINDOW |              //
-                      WS_EX_NOACTIVATE |              //
-                      WS_EX_TOPMOST;                  //
-    HWND hwnd = CreateWindowEx(                       //
-        dwExStyle,                                    //
-        szWindowClass,                                //
-        lpWindowName,                                 //
-        WS_POPUP,                                     //
-        100,                                          //
-        100,                                          //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-        nullptr,                                      //
-        nullptr,                                      //
-        hInstance,                                    //
-        nullptr                                       //
-    );                                                //
+    DWORD dwExStyle = WS_EX_LAYERED |    //
+                      WS_EX_TOOLWINDOW | //
+                      WS_EX_NOACTIVATE | //
+                      WS_EX_TOPMOST;     //
+    FLOAT scale = GetForegroundWindowScale();
+    HWND hwnd = CreateWindowEx(                               //
+        dwExStyle,                                            //
+        szWindowClass,                                        //
+        lpWindowName,                                         //
+        WS_POPUP,                                             //
+        100,                                                  //
+        100,                                                  //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        nullptr,                                              //
+        nullptr,                                              //
+        hInstance,                                            //
+        nullptr                                               //
+    );                                                        //
 
     if (!hwnd)
     {
@@ -101,24 +102,24 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     ::global_hwnd = hwnd;
 
-    SetWindowPos(                                     //
-        hwnd,                                         //
-        HWND_TOPMOST,                                 //
-        -10000,                                       //
-        -10000,                                       //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-        SWP_SHOWWINDOW                                //
+    SetWindowPos(                                             //
+        hwnd,                                                 //
+        HWND_TOPMOST,                                         //
+        -10000,                                               //
+        -10000,                                               //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        SWP_SHOWWINDOW                                        //
     );
 
-    SetWindowPos(                                     //
-        hwnd,                                         //
-        HWND_TOPMOST,                                 //
-        100,                                          //
-        100,                                          //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH),  //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH), //
-        SWP_SHOWWINDOW                                //
+    SetWindowPos(                                             //
+        hwnd,                                                 //
+        HWND_TOPMOST,                                         //
+        100,                                                  //
+        100,                                                  //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        SWP_SHOWWINDOW                                        //
     );
 
     ShowWindow(hwnd, SW_SHOW);
@@ -157,7 +158,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (message == WM_HIDE_MAIN_WINDOW)
     {
-        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_HIDEWINDOW);
+        FLOAT scale = GetForegroundWindowScale();
+        if (scale < 1.5)
+        {
+            scale = 1.5;
+        }
+        SetWindowPos(                                             //
+            hwnd,                                                 //
+            HWND_TOPMOST,                                         //
+            0,                                                    //
+            Global::INVALID_Y,                                    //
+            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
+            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+            SWP_SHOWWINDOW                                        //
+        );
         UpdateHtmlContentWithJavaScript(webview, L"");
         std::wstring str = L"n,那,年,女,难,内,你,男,哪";
         InflateCandidateWindow(str);
@@ -228,14 +242,26 @@ int FineTuneWindow(HWND hwnd)
         {
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
         }
-        SetWindowPos(                                        //
-            hwnd,                                            //
-            nullptr,                                         //
-            properPos->first,                                //
-            properPos->second,                               //
-            (containerSize.first + ::SHADOW_WIDTH) * scale,  //
-            (containerSize.second + ::SHADOW_WIDTH) * scale, //
-            flag                                             //
+        int newWidth = 0;
+        int newHeight = 0;
+        UINT newFlag = flag;
+        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH)
+        {
+            newWidth = (containerSize.first + ::SHADOW_WIDTH) * scale;
+            newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale;
+        }
+        else
+        {
+            newFlag = flag | SWP_NOSIZE;
+        }
+        SetWindowPos(          //
+            hwnd,              //
+            nullptr,           //
+            properPos->first,  //
+            properPos->second, //
+            newWidth,          //
+            newHeight,         //
+            newFlag            //
         );
     });
     return 0;

@@ -6,8 +6,8 @@
 // Here we make initial window size large enough to make sure the horizontal
 // candidate window is not cut off in most situations
 //
-inline int CANDIDATE_WINDOW_WIDTH = 206 * 2;
-inline int CANDIDATE_WINDOW_HEIGHT = 417;
+inline int CANDIDATE_WINDOW_WIDTH = 102 + 10;
+inline int CANDIDATE_WINDOW_HEIGHT = 232 + 10;
 inline int SHADOW_WIDTH = 15;
 
 inline int DEFAULT_WINDOW_WIDTH = CANDIDATE_WINDOW_WIDTH;
