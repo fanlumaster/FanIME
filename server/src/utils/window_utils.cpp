@@ -10,6 +10,13 @@ FLOAT GetWindowScale(HWND hwnd)
     return scale;
 }
 
+FLOAT GetForegroundWindowScale()
+{
+    HWND hwnd = GetForegroundWindow();
+    FLOAT scale = GetWindowScale(hwnd);
+    return scale;
+}
+
 //+---------------------------------------------------------------------------
 //
 // GetMonitorCoordinates

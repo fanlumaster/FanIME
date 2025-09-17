@@ -4,6 +4,7 @@
 #include <windows.h>
 
 FLOAT GetWindowScale(HWND);
+FLOAT GetForegroundWindowScale();
 
 MonitorCoordinates GetMonitorCoordinates();
 

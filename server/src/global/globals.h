@@ -42,3 +42,8 @@ namespace CandidateUi
 {
 inline std::string NumHanSeparator = " "; // Number and Hanzi separator
 } // namespace CandidateUi
+
+namespace Global
+{
+inline LONG INVALID_Y = -100000;
+}
