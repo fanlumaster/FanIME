@@ -22,6 +22,7 @@ inline ComPtr<ICoreWebView2Controller2> webviewController2;
 
 inline std::wstring HTMLString = LR"()";
 inline std::wstring BodyString = LR"()";
+inline std::wstring MeasureString = LR"()";
 inline std::wstring CandStr = L"";
 const std::wstring LocalAssetsPath = fmt::format(             //
     L"{}\\{}\\assets",                                        //
@@ -37,4 +38,5 @@ void UpdateHtmlContentWithJavaScript( //
 void ResetContainerHover(ComPtr<ICoreWebView2>);
 void DisableMouseForAWhileWhenShown(ComPtr<ICoreWebView2>);
 void InflateCandidateWindow(std::wstring &);
+void InflateMeasureDiv(std::wstring &str);
 void InitWebview(HWND);

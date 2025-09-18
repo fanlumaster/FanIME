@@ -1,5 +1,6 @@
 #include "webview_utils.h"
 #include "defines/globals.h"
+#include "fmt/xchar.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include <boost/json.hpp>
@@ -58,7 +59,7 @@ void GetContainerSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pai
 {
     std::wstring script = LR"(
         (function() {
-            var rect = document.querySelector("#container").getBoundingClientRect();
+            var rect = document.getElementById("measureBody").getBoundingClientRect();
             return JSON.stringify({width: rect.width, height: rect.height});
         })();
     )";
@@ -72,11 +73,36 @@ void GetContainerSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pai
             }
             else
             {
-#ifdef FANY_DEBUG
-                spdlog::error("Failed to get container size.");
-#endif
             }
             callback(size);
             return S_OK;
         }).Get());
+}
+
+void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
+{
+    if (!webview)
+    {
+        return;
+    }
+    std::wstring script;
+    script.reserve(256);
+    script.append(L"var el = document.getElementById('justBody');");
+    script.append(L"if (el) {");
+    script.append(L"el.style.marginTop = '");
+    script.append(std::to_wstring(marginTop));
+    script.append(L"px';");
+    script.append(L"}");
+    OutputDebugString(script.c_str());
+    webview->ExecuteScript(script.c_str(), nullptr);
+}
+
+void MakeBodyVisible(ComPtr<ICoreWebView2> webview)
+{
+    if (!webview)
+    {
+        return;
+    }
+    std::wstring script = L"document.body.style.visibility = \"visible\";";
+    webview->ExecuteScript(script.c_str(), nullptr);
 }

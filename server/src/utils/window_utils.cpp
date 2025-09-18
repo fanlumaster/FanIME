@@ -1,6 +1,7 @@
 #include "window_utils.h"
 #include "defines/globals.h"
-#include "spdlog/spdlog.h"
+#include "ipc/ipc.h"
+#include "webview_utils.h"
 #include <utility>
 
 FLOAT GetWindowScale(HWND hwnd)
@@ -62,17 +63,19 @@ int AdjustCandidateWindowPosition(                  //
     std::shared_ptr<std::pair<int, int>> properPos  //
 )
 {
-    HWND hwnd = GetForegroundWindow();
-    FLOAT scale = GetWindowScale(hwnd);
+    Global::MarginTop = 0;
+    static int MaxContainerHeight = ::DEFAULT_WINDOW_HEIGHT;
+    if (containerSize.second > MaxContainerHeight)
+    {
+        MaxContainerHeight = containerSize.second;
+    }
 
     properPos->first = point->x;
     properPos->second = point->y + 3;
     MonitorCoordinates coordinates = GetMonitorCoordinates();
-#ifdef FANY_DEBUG
-    spdlog::info("Proper position: {}, {}", properPos->first, properPos->second);
-    spdlog::info("Coordinates: {}, {}, {}, {}", coordinates.left, coordinates.top, coordinates.right,
-                 coordinates.bottom);
-#endif
+    FLOAT scale = GetForegroundWindowScale();
+    int width = containerSize.first * scale;
+    int height = ::DEFAULT_WINDOW_HEIGHT * scale;
     if (properPos->first < coordinates.left)
     {
         properPos->first = coordinates.left + 2;
@@ -81,15 +84,19 @@ int AdjustCandidateWindowPosition(                  //
     {
         properPos->second = coordinates.top + 2;
     }
-    int containerSizeX = containerSize.first * scale;
-    int containerSizeY = containerSize.second * scale;
-    if (properPos->first + containerSizeX > coordinates.right)
+    if (properPos->first + width > coordinates.right)
     {
-        properPos->first = coordinates.right - containerSizeX - 2;
+        properPos->first = coordinates.right - width - 2;
     }
-    if (properPos->second + 267 * scale > coordinates.bottom)
+
+    if (properPos->second + height > coordinates.bottom)
     {
-        properPos->second = properPos->second - containerSizeY - 30 - 2;
+        properPos->second = properPos->second - height - 30 - 2;
+        if (Global::CandidateWordList.size() < Global::CountOfOnePage)
+        {
+            // MoveContainerBottom(webview, MaxContainerHeight - containerSize.second);
+            Global::MarginTop = MaxContainerHeight - containerSize.second;
+        }
     }
     return 0;
 }

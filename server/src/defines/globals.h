@@ -6,14 +6,14 @@
 // Here we make initial window size large enough to make sure the horizontal
 // candidate window is not cut off in most situations
 //
-inline int CANDIDATE_WINDOW_WIDTH = 102 + 10;
-inline int CANDIDATE_WINDOW_HEIGHT = 232 + 10;
+inline int CANDIDATE_WINDOW_WIDTH = 102;
+inline int CANDIDATE_WINDOW_HEIGHT = 232;
 inline int SHADOW_WIDTH = 15;
 
 inline int DEFAULT_WINDOW_WIDTH = CANDIDATE_WINDOW_WIDTH;
-inline int DEFAULT_WINDOW_HEIGHT = 0;
+inline int DEFAULT_WINDOW_HEIGHT = CANDIDATE_WINDOW_HEIGHT;
 inline float DEFAULT_WINDOW_WIDTH_DIP = CANDIDATE_WINDOW_WIDTH;
-inline float DEFAULT_WINDOW_HEIGHT_DIP = 0;
+inline float DEFAULT_WINDOW_HEIGHT_DIP = CANDIDATE_WINDOW_HEIGHT;
 
 inline const int MAX_HAN_CHARS = 27;
 inline const int MAX_LINES = 8;

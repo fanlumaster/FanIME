@@ -149,7 +149,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             g_dictQuery->get_segmentation_pinyin()       //
         );
         std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
-        InflateCandidateWindow(str);
+        InflateMeasureDiv(str);
 
         FineTuneWindow(hwnd);
 
@@ -174,7 +174,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         );
         UpdateHtmlContentWithJavaScript(webview, L"");
         std::wstring str = L"n,那,年,女,难,内,你,男,哪";
-        InflateCandidateWindow(str);
+        // InflateCandidateWindow(str);
         return 0;
     }
 
@@ -233,7 +233,7 @@ int FineTuneWindow(HWND hwnd)
                                hwnd](std::pair<double, double> containerSize) {
         POINT pt = {caretX, caretY};
         /* Whether need to adjust candidate window position */
-        if (caretX == Global::INVALID_Y)
+        if (caretY == Global::INVALID_Y)
         {
             properPos->first = caretX;
             properPos->second = caretY;
@@ -242,6 +242,13 @@ int FineTuneWindow(HWND hwnd)
         {
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
         }
+
+        std::wstring embeded_pinyin = string_to_wstring( //
+            g_dictQuery->get_segmentation_pinyin()       //
+        );
+        std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
+        InflateCandidateWindow(str);
+
         int newWidth = 0;
         int newHeight = 0;
         UINT newFlag = flag;

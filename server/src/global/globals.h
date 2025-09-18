@@ -46,4 +46,5 @@ inline std::string NumHanSeparator = " "; // Number and Hanzi separator
 namespace Global
 {
 inline LONG INVALID_Y = -100000;
-}
+inline int MarginTop = 0;
+} // namespace Global
