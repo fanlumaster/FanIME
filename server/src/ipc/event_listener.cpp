@@ -1,9 +1,11 @@
+#define NOMINMAX
 #include "event_listener.h"
 #include <Windows.h>
 #include <debugapi.h>
 #include <ioapiset.h>
 #include <namedpipeapi.h>
 #include <string>
+#include <algorithm>
 #include "Ipc.h"
 #include "defines/defines.h"
 #include "spdlog/spdlog.h"
@@ -18,6 +20,7 @@
 #include <utf8.h>
 #include "global/globals.h"
 #include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
+#include "ipc/event_listener.h"
 
 namespace FanyNamedPipe
 {
@@ -35,6 +38,58 @@ struct Task
 
 std::queue<Task> taskQueue;
 std::mutex queueMutex;
+
+void PrepareCandidateList()
+{
+    ::ReadDataFromNamedPipe(0b111111);
+    std::string pinyin = wstring_to_string(Global::PinyinString);
+    Global::CandidateList = g_dictQuery->get_cur_candiate_list();
+
+    if (Global::CandidateList.empty())
+    {
+        Global::CandidateList.push_back(std::make_tuple(pinyin, pinyin, 1));
+    }
+
+    //
+    // Clear before writing
+    //
+    Global::CandidateWordList.clear();
+    Global::SelectedCandidateString = L"";
+    Global::PageIndex = 0;
+    Global::ItemTotalCount = Global::CandidateList.size();
+
+    int loop = std::min(Global::ItemTotalCount, Global::CountOfOnePage);
+    int maxCount = 0;
+    std::string candidate_string;
+
+    for (int i = 0; i < loop; i++)
+    {
+        auto &[pinyin, word, weight] = Global::CandidateList[i];
+        if (i == 0)
+        {
+            Global::SelectedCandidateString = string_to_wstring(word);
+        }
+
+        candidate_string += word + PinyinUtil::compute_helpcodes(word);
+        int size = utf8::distance(word.begin(), word.end());
+        maxCount = std::max(maxCount, size);
+
+        Global::CandidateWordList.push_back(string_to_wstring(word));
+        if (i < loop - 1)
+        {
+            candidate_string += ",";
+        }
+    }
+
+    /* Update max word length in current page */
+    if (maxCount > 2)
+    {
+        Global::CurPageMaxWordLen = maxCount;
+    }
+
+    Global::CurPageItemCnt = loop;
+    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+}
 
 void WorkerThread()
 {
@@ -65,52 +120,7 @@ void WorkerThread()
         switch (task.type)
         {
         case TaskType::ShowCandidate: {
-            ::ReadDataFromNamedPipe(0b111111);
-            std::string pinyin = wstring_to_string(Global::PinyinString);
-            Global::CandidateList = g_dictQuery->get_cur_candiate_list();
-            if (Global::CandidateList.size() == 0)
-            {
-                Global::CandidateList.push_back(make_tuple(pinyin, pinyin, 1));
-            }
-            std::string candidate_string;
-            //
-            // Clear before writing
-            //
-            Global::CandidateWordList.clear();
-            Global::SelectedCandidateString = L"";
-            Global::PageIndex = 0;
-            Global::ItemTotalCount = Global::CandidateList.size();
-            int loop = Global::ItemTotalCount > Global::CountOfOnePage //
-                           ? Global::CountOfOnePage                    //
-                           : Global::ItemTotalCount;
-            int maxCount = 0;
-            for (int i = 0; i < loop; i++)
-            {
-                auto &[pinyin, word, weight] = Global::CandidateList[i];
-                if (i == 0)
-                {
-                    Global::SelectedCandidateString = string_to_wstring(word);
-                }
-                candidate_string += word + PinyinUtil::compute_helpcodes(word);
-                int size = utf8::distance(word.begin(), word.end());
-                if (size > maxCount)
-                {
-                    maxCount = size;
-                }
-                Global::CandidateWordList.push_back(string_to_wstring(word));
-                if (i < loop - 1)
-                {
-                    candidate_string += ",";
-                }
-            }
-            // Update max word length in current page
-            if (maxCount > 2)
-            {
-                Global::CurPageMaxWordLen = maxCount;
-            }
-            Global::CurPageItemCnt = loop;
-
-            ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+            PrepareCandidateList();
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
         }
@@ -122,18 +132,47 @@ void WorkerThread()
         }
 
         case TaskType::ImeKeyEvent: {
+            /* 先清理一下状态 */
+            Global::MsgTypeToTsf = Global::DataFromServerMsgTypeNormal;
+            /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
+             * 等等，然后再在下面处理其中的特殊的按键 */
             ::ReadDataFromNamedPipe(0b000111);
             g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown);
             //
             // In some cases, TSF end will request the first candidate string
+            // 当在一些情况下，TSF 端会请求第一个候选字符串
+            //  - 标点，标点会和第一个候选项一起上屏
+            //  - 空格，会上屏第一个候选项
+            //
+            // 这里，造词需要考虑的是空格的情况，如果空格上屏的汉字字符串所对应的拼音比实际的拼音要短的话，那么，就可能会触发造词事件，那么，就要适时改变候选框的状态
             //
             /* 1. Punctuations, 2. VK_SPACE */
-            Global::IsNumOutofRange = false;
             if (Global::Keycode == VK_SPACE || GlobalIme::PUNC_SET.find(Global::Wch) != GlobalIme::PUNC_SET.end())
             {
+                bool isNeedCreateWord = false;
                 Global::SelectedCandidateString = Global::CandidateWordList[0];
                 if (Global::SelectedCandidateString != L"")
-                {
+                { // 合适的汉字的字串
+                    /* 判断一下是否是在造词，先用简单的纯双拼的字串来试验一下 */
+                    DictionaryUlPb::WordItem curWordItem = Global::CandidateList[0];
+                    std::string curWordPinyin = std::get<0>(curWordItem);
+                    std::string curFullPinyin = g_dictQuery->get_pinyin_sequence();
+                    std::string curFullPinyinWithCases = g_dictQuery->get_pinyin_sequence_with_cases();
+                    isNeedCreateWord =
+                        curWordPinyin.size() < curFullPinyin.size() && g_dictQuery->is_all_complete_pinyin();
+                    if (isNeedCreateWord)
+                    { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit 的每一个分词都是完整的拼音 */
+                        Global::MsgTypeToTsf = Global::DataFromServerMsgTypeNeedToCreateWord;
+                        /* 重新生成剩下的序列 */
+                        std::string restPinyinSeq =
+                            curFullPinyin.substr(curWordPinyin.size(), curFullPinyin.size() - curWordPinyin.size());
+                        std::string restPinyinSeqWithCases = curFullPinyinWithCases.substr(
+                            curWordPinyin.size(), curFullPinyinWithCases.size() - curWordPinyin.size());
+                        g_dictQuery->handleVkCode(0, 0);
+                        PrepareCandidateList();
+                        PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+                    }
+
                     if (!SetEvent(hEvent))
                     {
                         // TODO: Error handling
@@ -149,26 +188,55 @@ void WorkerThread()
                         OutputDebugString(L"SetEvent failed");
                     }
                 }
+
                 /* Clear dict engine state */
-                g_dictQuery->reset_state();
+                if (!isNeedCreateWord)
+                {
+                    g_dictQuery->reset_state();
+                }
             }
+            //
+            // 数字键也可能会触发造词，如果数字键上屏的汉字字符串所对应的拼音比实际的拼音要短的话，那么，就可能会触发造词事件，那么，就要适时改变候选框的状态
+            //
             /* 3. Digits */
             else if (Global::Keycode > '0' && Global::Keycode <= '9')
             {
                 if (Global::Keycode - '0' <= Global::CandidateWordList.size())
                 {
-                    Global::SelectedCandidateString = Global::CandidateWordList[Global::Keycode - '1'];
+                    int index = Global::Keycode - '0';
+                    Global::SelectedCandidateString = Global::CandidateWordList[index];
+                    DictionaryUlPb::WordItem curWordItem = Global::CandidateList[index];
+                    std::string curWordPinyin = std::get<0>(curWordItem);
+                    std::string curFullPinyin = g_dictQuery->get_pinyin_sequence();
+                    std::string curFullPinyinWithCases = g_dictQuery->get_pinyin_sequence_with_cases();
+                    bool isNeedCreateWord =
+                        curWordPinyin.size() < curFullPinyin.size() && g_dictQuery->is_all_complete_pinyin();
+                    if (isNeedCreateWord)
+                    { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit 的每一个分词都是完整的拼音 */
+                        Global::MsgTypeToTsf = Global::DataFromServerMsgTypeNeedToCreateWord;
+                        /* 重新生成剩下的序列 */
+                        std::string restPinyinSeq =
+                            curFullPinyin.substr(curWordPinyin.size(), curFullPinyin.size() - curWordPinyin.size());
+                        std::string restPinyinSeqWithCases = curFullPinyinWithCases.substr(
+                            curWordPinyin.size(), curFullPinyinWithCases.size() - curWordPinyin.size());
+                        g_dictQuery->handleVkCode(0, 0);
+                        PrepareCandidateList();
+                        PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+                    }
+
+                    /* 判断一下是否是在造词，先用简单的纯双拼的字串来试验一下 */
                 }
                 else
                 {
                     Global::SelectedCandidateString = L"OutofRange";
-                    Global::IsNumOutofRange = true;
+                    Global::MsgTypeToTsf = Global::DataFromServerMsgTypeOutofRange;
                 }
                 if (!SetEvent(hEvent))
                 {
                     // TODO: Error handling
                     OutputDebugString(L"SetEvent failed");
                 }
+                /* 判断一下是否是在造词 */
             }
             else if (Global::Keycode == VK_OEM_MINUS ||     //
                      (Global::Keycode == VK_TAB             //
@@ -380,7 +448,8 @@ void ToTsfPipeEventListenerLoopThread()
                     {
                     case 0: { // FanyImeTimeToWritePipeEvent
                         // Write data to tsf via named pipe
-                        SendToTsfViaNamedpipe(Global::IsNumOutofRange ? 1 : 0, ::Global::SelectedCandidateString);
+                        UINT msg_type = Global::MsgTypeToTsf;
+                        SendToTsfViaNamedpipe(msg_type, ::Global::SelectedCandidateString);
                         break;
                     }
                     case 1: { // Cancel event

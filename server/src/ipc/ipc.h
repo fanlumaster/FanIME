@@ -126,8 +126,8 @@ inline int PinyinLength = 0;
 inline std::wstring PinyinString = L"";
 inline std::wstring CandidateString = L"";
 
-inline std::vector<DictionaryUlPb::WordItem> CandidateList;
-inline std::vector<std::wstring> CandidateWordList;
+inline std::vector<DictionaryUlPb::WordItem> CandidateList; // 候选条目列表
+inline std::vector<std::wstring> CandidateWordList;         // 候选字符串列表
 inline std::wstring SelectedCandidateString = L"";
 
 inline int CountOfOnePage = 8;
@@ -137,4 +137,10 @@ inline int ItemTotalCount = 0;
 inline int CurPageMaxWordLen = 2;
 inline int CurPageItemCnt = 8;
 inline bool IsNumOutofRange = 0;
+
+inline const UINT DataFromServerMsgTypeNormal = 0;
+inline const UINT DataFromServerMsgTypeOutofRange = 1;
+inline const UINT DataFromServerMsgTypeNeedToCreateWord = 2;
+
+inline UINT MsgTypeToTsf = DataFromServerMsgTypeNormal;
 } // namespace Global
