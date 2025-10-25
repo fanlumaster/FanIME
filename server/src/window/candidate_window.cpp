@@ -3,7 +3,6 @@
 #include "candidate_window.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
-#include "utils/common_utils.h"
 #include <debugapi.h>
 #include <minwindef.h>
 #include <string>
@@ -16,6 +15,7 @@
 #include <dwmapi.h>
 #include "utils/window_utils.h"
 #include "ipc/event_listener.h"
+#include "utils/ime_utils.h"
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -143,12 +143,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (message == WM_SHOW_MAIN_WINDOW)
     {
+        OutputDebugString(L"WM_SHOW_MAIN_WINDOW\n");
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring embeded_pinyin = string_to_wstring( //
-            g_dictQuery->get_segmentation_pinyin()       //
-        );
-        std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
+        std::wstring preedit = GetPreedit();
+        std::wstring str = preedit + L"," + Global::CandidateString;
+        OutputDebugString(fmt::format(L"Global candidate string: {}\n", str).c_str());
         InflateMeasureDiv(str);
 
         FineTuneWindow(hwnd);
@@ -243,10 +243,9 @@ int FineTuneWindow(HWND hwnd)
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
         }
 
-        std::wstring embeded_pinyin = string_to_wstring( //
-            g_dictQuery->get_segmentation_pinyin()       //
-        );
-        std::wstring str = embeded_pinyin + L"," + Global::CandidateString;
+        std::wstring preedit = GetPreedit();
+        std::wstring str = preedit + L"," + Global::CandidateString;
+        OutputDebugString(fmt::format(L"Global candidate string: {}", str).c_str());
         InflateCandidateWindow(str);
 
         int newWidth = 0;
