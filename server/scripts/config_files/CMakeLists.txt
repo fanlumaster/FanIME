@@ -5,7 +5,7 @@ set(PROJECT_NAME "MetasequoiaImeServer")
 project(${PROJECT_NAME} VERSION 1.0)
 
 # Boost
-set(Boost_ROOT "C:/Users/19833/scoop/apps/boost/current")
+set(Boost_ROOT "C:/Users/SonnyCalcr/scoop/apps/boost/current")
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -51,6 +51,8 @@ set(SRC_FILES
     "./src/log/fanylog.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
+    "./src/utils/ime_utils.cpp"
+    "./src/utils/ime_utils.h"
     "./src/utils/webview_utils.cpp"
     "./src/utils/webview_utils.h"
     "./src/utils/window_utils.cpp"

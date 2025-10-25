@@ -138,9 +138,13 @@ inline int CurPageMaxWordLen = 2;
 inline int CurPageItemCnt = 8;
 inline bool IsNumOutofRange = 0;
 
-inline const UINT DataFromServerMsgTypeNormal = 0;
-inline const UINT DataFromServerMsgTypeOutofRange = 1;
-inline const UINT DataFromServerMsgTypeNeedToCreateWord = 2;
+namespace DataFromServerMsgType
+{
+constexpr UINT Normal = 0;
+constexpr UINT OutofRange = 1;
+constexpr UINT NeedToCreateWord = 2;
+constexpr UINT Preedit = 3;
+} // namespace DataFromServerMsgType
 
-inline UINT MsgTypeToTsf = DataFromServerMsgTypeNormal;
+inline UINT MsgTypeToTsf = DataFromServerMsgType::Normal; // 默认为 Normal
 } // namespace Global

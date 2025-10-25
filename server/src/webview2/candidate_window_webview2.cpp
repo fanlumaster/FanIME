@@ -2,6 +2,7 @@
 #include "utils/common_utils.h"
 #include <debugapi.h>
 #include <filesystem>
+#include <string>
 #include <windows.h>
 #include "global/globals.h"
 #include "fmt/xchar.h"
@@ -46,12 +47,17 @@ int PrepareCandidateWindowHtml()
         }
     }
 
-    std::wstring htmlPath = std::filesystem::current_path().wstring() + entireHtml;
-    ::HTMLString = ReadHtmlFile(htmlPath);
-    std::wstring bodyPath = std::filesystem::current_path().wstring() + bodyHtml;
-    ::BodyString = ReadHtmlFile(bodyPath);
-    std::wstring measurePath = std::filesystem::current_path().wstring() + measureHtml;
-    ::MeasureString = ReadHtmlFile(measurePath);
+    std::wstring assetPath = L"C:\\Users\\SonnyCalcr\\AppData\\Local\\MetasequoiaImeTsf";
+
+    std::wstring entireHtmlPath = std::filesystem::current_path().wstring() + entireHtml;
+    entireHtmlPath = assetPath + entireHtml;
+    ::HTMLString = ReadHtmlFile(entireHtmlPath);
+    std::wstring bodyHtmlPath = std::filesystem::current_path().wstring() + bodyHtml;
+    bodyHtmlPath = assetPath + bodyHtml;
+    ::BodyString = ReadHtmlFile(bodyHtmlPath);
+    std::wstring measureHtmlPath = std::filesystem::current_path().wstring() + measureHtml;
+    measureHtmlPath = assetPath + measureHtml;
+    ::MeasureString = ReadHtmlFile(measureHtmlPath);
 
     return 0;
 }
@@ -170,6 +176,8 @@ void InflateMeasureDiv(std::wstring &str)
     std::wstringstream wss(str);
     std::wstring token;
     std::vector<std::wstring> words;
+    
+    OutputDebugString(fmt::format(L"whatn?").c_str());
 
     while (std::getline(wss, token, L','))
     {
