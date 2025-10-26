@@ -1,8 +1,8 @@
 build/
 log.*
-/.clangd
-/CMakeLists.txt
-/CMakePresets.json
+# /.clangd
+# /CMakeLists.txt
+# /CMakePresets.json
 /tests/CMakeLists.txt
 /tests/CMakePresets.json
 /.vs

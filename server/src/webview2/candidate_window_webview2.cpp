@@ -177,8 +177,6 @@ void InflateMeasureDiv(std::wstring &str)
     std::wstring token;
     std::vector<std::wstring> words;
     
-    OutputDebugString(fmt::format(L"whatn?").c_str());
-
     while (std::getline(wss, token, L','))
     {
         words.push_back(token);

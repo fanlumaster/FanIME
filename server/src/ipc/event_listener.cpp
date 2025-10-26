@@ -74,6 +74,8 @@ void WorkerThread()
         switch (task.type)
         {
         case TaskType::ShowCandidate: {
+            static int cnt = 0;
+            OutputDebugString(fmt::format(L"ShowCandidate: {}\n", ++cnt).c_str());
             PrepareCandidateList();
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
@@ -88,6 +90,8 @@ void WorkerThread()
         }
 
         case TaskType::MoveCandidate: {
+            static int cnt = 0;
+            OutputDebugString(fmt::format(L"MoveCandidate: {}\n", ++cnt).c_str());
             ::ReadDataFromNamedPipe(0b001000);
             PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;

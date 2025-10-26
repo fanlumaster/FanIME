@@ -143,12 +143,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     if (message == WM_SHOW_MAIN_WINDOW)
     {
-        OutputDebugString(L"WM_SHOW_MAIN_WINDOW\n");
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
         std::wstring preedit = GetPreedit();
         std::wstring str = preedit + L"," + Global::CandidateString;
-        OutputDebugString(fmt::format(L"Global candidate string: {}\n", str).c_str());
         InflateMeasureDiv(str);
 
         FineTuneWindow(hwnd);
@@ -245,7 +243,6 @@ int FineTuneWindow(HWND hwnd)
 
         std::wstring preedit = GetPreedit();
         std::wstring str = preedit + L"," + Global::CandidateString;
-        OutputDebugString(fmt::format(L"Global candidate string: {}", str).c_str());
         InflateCandidateWindow(str);
 
         int newWidth = 0;
