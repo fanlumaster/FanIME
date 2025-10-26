@@ -467,6 +467,8 @@ void HandleImeKey(HANDLE hEvent)
     /* 2. VK_SPACE, 3. Digits */
     else if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
     {
+        static bool isNeedUpdateWeight = false;
+        isNeedUpdateWeight = false;
         if (Global::Keycode == VK_SPACE || Global::Keycode - '0' <= Global::CandidateWordList.size())
         {
             int index = 0;
@@ -477,6 +479,7 @@ void HandleImeKey(HANDLE hEvent)
             else
             {
                 index = Global::Keycode - '1';
+                isNeedUpdateWeight = true;
             }
             Global::SelectedCandidateString = Global::CandidateWordList[index];
             DictionaryUlPb::WordItem curWordItem =
@@ -511,6 +514,7 @@ void HandleImeKey(HANDLE hEvent)
             // 详细处理一下造词的逻辑
             if (GlobalIme::is_during_creating_word)
             {
+                isNeedCreateWord = false;
                 /* 造词的第一次的完整的拼音就是所需的拼音 */
                 if (GlobalIme::pinyin_for_creating_word.empty())
                 {
@@ -556,6 +560,15 @@ void HandleImeKey(HANDLE hEvent)
                  * 越界的问题 */
                 PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             }
+
+            if (isNeedUpdateWeight)
+            {
+                //
+                // 更新权重，并且清理缓存，否则更新后的权重在当前运行的输入法中不会生效
+                //
+                g_dictQuery->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+                g_dictQuery->reset_cache();
+            }
         }
         else
         {
@@ -567,7 +580,6 @@ void HandleImeKey(HANDLE hEvent)
             // TODO: Error handling
             OutputDebugString(L"SetEvent failed");
         }
-        /* 判断一下是否是在造词 */
     }
     else if (Global::Keycode == VK_OEM_MINUS ||     //
              (Global::Keycode == VK_TAB             //
