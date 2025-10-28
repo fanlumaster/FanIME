@@ -403,6 +403,7 @@ void HandleImeKey(HANDLE hEvent)
      * 等等，然后再在下面处理其中的特殊的按键 */
     ::ReadDataFromNamedPipe(0b000111);
     g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown);
+    GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
 
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
@@ -511,6 +512,7 @@ void HandleImeKey(HANDLE hEvent)
                 g_dictQuery->set_pinyin_sequence(restPinyinSeq);
                 g_dictQuery->set_pinyin_sequence_with_cases(restPinyinSeqWithCases);
                 g_dictQuery->handleVkCode(0, 0);
+                GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
 
                 PrepareCandidateList();
             }
@@ -518,7 +520,6 @@ void HandleImeKey(HANDLE hEvent)
             // 详细处理一下造词的逻辑
             if (GlobalIme::is_during_creating_word)
             {
-                isNeedCreateWord = false;
                 /* 造词的第一次的完整的拼音就是所需的拼音 */
                 if (GlobalIme::pinyin_for_creating_word.empty())
                 {

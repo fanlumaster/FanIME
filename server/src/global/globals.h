@@ -38,6 +38,11 @@ inline std::unordered_set<WCHAR> PUNC_SET = {
 };
 
 //
+// 拼音分词
+//
+inline std::string pinyin_seq = "";
+
+//
 // 给造词使用
 //
 inline std::string preedit_during_creating_word = "";
