@@ -126,8 +126,8 @@ inline int PinyinLength = 0;
 inline std::wstring PinyinString = L"";
 inline std::wstring CandidateString = L"";
 
-inline std::vector<DictionaryUlPb::WordItem> CandidateList; // 候选条目列表
-inline std::vector<std::wstring> CandidateWordList;         // 候选字符串列表
+inline std::vector<DictionaryUlPb::WordItem> CandidateList; // 所有的候选条目列表
+inline std::vector<std::wstring> CandidateWordList;         // 当前页的候选字符串列表
 inline std::wstring SelectedCandidateString = L"";
 
 inline int CountOfOnePage = 8;

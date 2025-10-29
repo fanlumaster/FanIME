@@ -19,4 +19,6 @@ void WorkerThread();
 void EventListenerLoopThread();
 void AuxPipeEventListenerLoopThread();
 void ToTsfPipeEventListenerLoopThread();
+
+void PrepareCandidateList();
 } // namespace FanyNamedPipe

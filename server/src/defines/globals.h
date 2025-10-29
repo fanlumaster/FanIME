@@ -20,4 +20,5 @@ inline const int MAX_LINES = 8;
 inline int cand_window_width_array[MAX_HAN_CHARS] = {206};
 inline int cand_window_height_array[MAX_LINES] = {417};
 
-inline HWND global_hwnd;
+inline HWND global_hwnd = NULL;
+inline bool is_global_wnd_shown = false;

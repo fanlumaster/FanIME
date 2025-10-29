@@ -59,6 +59,8 @@ set(SRC_FILES
     "./src/utils/window_utils.h"
     "./src/window/candidate_window.cpp"
     "./src/window/candidate_window.h"
+    "./src/window/window_hook.cpp"
+    "./src/window/window_hook.h"
     "./src/main.cpp"
 )
 

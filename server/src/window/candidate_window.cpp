@@ -16,6 +16,7 @@
 #include "utils/window_utils.h"
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
+#include "window_hook.h"
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -129,12 +130,27 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     PrepareCandidateWindowHtml();
     InitWebview(hwnd);
 
+    //
+    // 注册一下全局钩子
+    //
+    g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
+    if (!g_hHook)
+    {
+        // TODO: log "钩子安装失败"
+        return 1;
+    }
+    // TODO: log "钩子安装成功"
+
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    /* 卸载钩子 */
+    UnhookWindowsHookEx(g_hHook);
+
     return (int)msg.wParam;
 }
 
@@ -150,6 +166,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         InflateMeasureDiv(str);
 
         FineTuneWindow(hwnd);
+
+        ::is_global_wnd_shown = true;
 
         return 0;
     }
@@ -173,6 +191,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         UpdateHtmlContentWithJavaScript(webview, L"");
         std::wstring str = L"n,那,年,女,难,内,你,男,哪";
         // InflateCandidateWindow(str);
+
+        ::is_global_wnd_shown = false;
         return 0;
     }
 
@@ -200,6 +220,35 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CLS_DICT_CACHE: {
         g_dictQuery->reset_cache();
         OutputDebugString(fmt::format(L"Cleared dictionary buffer cache.").c_str());
+        break;
+    }
+
+    case WM_DELETE_CANDIDATE: {
+        int one_based = static_cast<int>(wParam);
+        int zero_based = one_based - 1;
+        OutputDebugString(fmt::format(L"Really to delete candidate {}\n", one_based).c_str());
+        if (one_based > Global::CandidateWordList.size())
+        {
+            break;
+        }
+
+        //
+        // 在词库中删除
+        //
+        /* 先取出拼音和汉字 */
+        DictionaryUlPb::WordItem curWordItem =
+            Global::CandidateList[zero_based + Global::PageIndex * Global::CountOfOnePage];
+        std::string curWord = std::get<1>(curWordItem);
+        std::string curWordPinyin = std::get<0>(curWordItem);
+        /* 删除条目 */
+        g_dictQuery->delete_by_pinyin_and_word(curWordPinyin, curWord);
+        /* 刷新候选窗列表 */
+        g_dictQuery->reset_cache();
+        g_dictQuery->handleVkCode(0, 0); // 重新查一次
+        /* 刷新窗口 */
+        FanyNamedPipe::PrepareCandidateList();
+        PostMessage(hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+
         break;
     }
 
