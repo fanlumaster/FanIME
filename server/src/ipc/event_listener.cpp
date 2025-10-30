@@ -452,7 +452,15 @@ void HandleImeKey(HANDLE hEvent)
     if (GlobalIme::PUNC_SET.find(Global::Wch) != GlobalIme::PUNC_SET.end())
     {
         Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
+
+        if (!Global::CandidateWordList.empty())
+        { /* 防止第一次直接输入标点时触发数组下标访问越界 */
         Global::SelectedCandidateString = Global::CandidateWordList[0];
+        }
+        else
+        {
+            Global::SelectedCandidateString = L"";
+        }
 
         if (!SetEvent(hEvent))
         {
