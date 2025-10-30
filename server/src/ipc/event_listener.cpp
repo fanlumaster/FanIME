@@ -30,7 +30,8 @@ enum class TaskType
     ShowCandidate,
     HideCandidate,
     MoveCandidate,
-    ImeKeyEvent
+    ImeKeyEvent,
+    LangbarRightClick
 };
 
 struct Task
@@ -97,6 +98,13 @@ void WorkerThread()
 
         case TaskType::ImeKeyEvent: {
             HandleImeKey(hEvent);
+            break;
+        }
+
+        case TaskType::LangbarRightClick: {
+            ::ReadDataFromNamedPipe(0b001101);
+            PostMessage(::global_hwnd_menu, WM_LANGBAR_RIGHTCLICK, 0, 0);
+            break;
         }
         }
     }
@@ -187,6 +195,11 @@ void EventListenerLoopThread()
 
                 case 3: { // FanyMoveCandidateWndEvent
                     EnqueueTask(TaskType::MoveCandidate);
+                    break;
+                }
+
+                case 4: { // FanyLangbarRightClickEvent
+                    EnqueueTask(TaskType::LangbarRightClick);
                     break;
                 }
                 }
@@ -455,7 +468,7 @@ void HandleImeKey(HANDLE hEvent)
 
         if (!Global::CandidateWordList.empty())
         { /* 防止第一次直接输入标点时触发数组下标访问越界 */
-        Global::SelectedCandidateString = Global::CandidateWordList[0];
+            Global::SelectedCandidateString = Global::CandidateWordList[0];
         }
         else
         {

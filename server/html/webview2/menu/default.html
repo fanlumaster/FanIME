@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>(IME)TrayMenu</title>
+  <style>
+    body {
+      background-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+
+    .menu {
+      background-color: #2b2b2b;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 0.2em 0;
+      width: 12em;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      user-select: none;
+    }
+
+    .menu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4em 0.4em;
+      font-size: 14px;
+      color: #e0e0e0;
+      border-radius: 6px;
+      margin: 1px 6px;
+      transition: background 0.15s ease, color 0.15s ease;
+      cursor: pointer;
+    }
+
+    .menu-item:hover {
+      background-color: #3b3b3b;
+      color: #fff;
+    }
+
+    .shortcut {
+      color: #999;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="menu" id="measureBody">
+    <div class="menu-item">
+      表情和符号
+      <span class="shortcut">Win+⇧+.</span>
+    </div>
+    <div class="menu-item">
+      设置
+      <span class="shortcut">Ctrl+Alt+Shift+S</span>
+    </div>
+    <div class="menu-item">
+      关于
+      <span class="shortcut"></span>
+    </div>
+    <div class="menu-item">
+      帮助与反馈
+      <span class="shortcut"></span>
+    </div>
+  </div>
+
+</body>
+
+</html>

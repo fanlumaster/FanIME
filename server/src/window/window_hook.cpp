@@ -43,3 +43,25 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     // 放行其他程序
     return CallNextHookEx(g_hHook, nCode, wParam, lParam);
 }
+
+LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode >= 0)
+    {
+        if (wParam == WM_LBUTTONDOWN || wParam == WM_RBUTTONDOWN)
+        {
+            MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *)lParam;
+            POINT pt = p->pt;
+
+            RECT rc;
+            GetWindowRect(global_hwnd_menu, &rc);
+            if (!PtInRect(&rc, pt))
+            {
+                ShowWindow(global_hwnd_menu, SW_HIDE);
+                UnhookWindowsHookEx(g_mouseHook);
+                g_mouseHook = nullptr;
+            }
+        }
+    }
+    return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+}

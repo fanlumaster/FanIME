@@ -20,6 +20,8 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
+constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW = 1;
+
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
 
@@ -68,6 +70,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
                       WS_EX_NOACTIVATE | //
                       WS_EX_TOPMOST;     //
     FLOAT scale = GetForegroundWindowScale();
+
+    //
+    // 候选框窗口
+    //
     HWND hwnd = CreateWindowEx(                               //
         dwExStyle,                                            //
         szWindowClass,                                        //
@@ -123,12 +129,55 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         SWP_SHOWWINDOW                                        //
     );
 
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
+    //
+    // 任务栏托盘区的菜单窗口
+    //
+    DWORD dwExStyleMenu = WS_EX_LAYERED |                        //
+                          WS_EX_TOOLWINDOW |                     //
+                          WS_EX_NOACTIVATE |                     //
+                          WS_EX_TOPMOST;                         //
+    HWND hwnd_menu = CreateWindowEx(                             //
+        dwExStyleMenu,                                           //
+        szWindowClass,                                           //
+        lpWindowNameMenu,                                        //
+        WS_POPUP,                                                //
+        200,                                                     //
+        200,                                                     //
+        (::CANDIDATE_WINDOW_WIDTH * 2 + ::SHADOW_WIDTH) * scale, //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale,    //
+        nullptr,                                                 //
+        nullptr,                                                 //
+        hInstance,                                               //
+        nullptr                                                  //
+    );                                                           //
+    if (!hwnd_menu)
+    {
+        MessageBox(                          //
+            NULL,                            //
+            L"Call to CreateWindow failed!", //
+            L"Please check your codes!",     //
+            NULL                             //
+        );                                   //
+        return 1;
+    }
+    ::global_hwnd_menu = hwnd_menu;
 
-    /* Preparing webview2 env */
+    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd_menu, SW_SHOW);
+    UpdateWindow(hwnd);
+    UpdateWindow(hwnd_menu);
+
+    //
+    // Preparing webview2 env
+    //
     PrepareCandidateWindowHtml();
+    /* 候选框窗口 */
     InitWebview(hwnd);
+    /* 托盘语言区右键菜单 */
+    InitMenuWindowWebview(hwnd_menu);
+
+    /* 调整菜单窗口 size */
+    SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW, 200, nullptr);
 
     //
     // 注册一下全局钩子
@@ -156,6 +205,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (hwnd == ::global_hwnd_menu)
+    {
+        return WndProcMenuWindow(hwnd, message, wParam, lParam);
+    }
 
     if (message == WM_SHOW_MAIN_WINDOW)
     {
@@ -260,6 +313,79 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
 
+    return 0;
+}
+
+LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_LANGBAR_RIGHTCLICK: {
+        int left = Global::Point[0];
+        int top = Global::Point[1];
+        int right = Global::Keycode;
+        int bottom = Global::ModifiersDown;
+        int iconWidth = (right - left) * ::SCALE;
+        int iconHeight = (bottom - top) * ::SCALE;
+        int iconMiddleX = left + iconWidth / 2;
+        int menuX = iconMiddleX - ::MENU_WINDOW_WIDTH / 2;
+        int menuY = top - ::MENU_WINDOW_HEIGHT;
+        UINT flag = SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW;
+        SetWindowPos( //
+            hwnd,     //
+            nullptr,  //
+            menuX,    //
+            menuY,    //
+            0,        //
+            0,        //
+            flag      //
+        );
+        /* 安装鼠标钩子 */
+        g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
+        break;
+    }
+
+    case WM_TIMER: {
+        if (wParam == TIMER_ID_INIT_WEBVIEW)
+        {
+            KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW);
+            if (webviewMenuWindow) // 确保 webview 已初始化
+            {
+                GetContainerSize(webviewMenuWindow, [hwnd](std::pair<double, double> containerSize) {
+                    if (hwnd == ::global_hwnd_menu)
+                    {
+                        UINT flag = SWP_NOZORDER | SWP_NOMOVE;
+                        FLOAT scale = GetForegroundWindowScale();
+                        int newWidth = (containerSize.first) * scale;
+                        int newHeight = (containerSize.second) * scale;
+                        ::SCALE = scale;
+                        ::MENU_WINDOW_WIDTH = newWidth;
+                        ::MENU_WINDOW_HEIGHT = newHeight;
+                        /* 调整菜单窗口 size */
+                        SetWindowPos(  //
+                            hwnd,      //
+                            nullptr,   //
+                            0,         //
+                            0,         //
+                            newWidth,  //
+                            newHeight, //
+                            flag       //
+                        );
+                    }
+                });
+            }
+            else
+            {
+                // 如果 webview 还没准备好，再等一会
+                SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW, 100, nullptr);
+            }
+        }
+        break;
+    }
+    default: {
+        return DefWindowProc(hwnd, message, wParam, lParam);
+    }
+    }
     return 0;
 }
 

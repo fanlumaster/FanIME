@@ -33,6 +33,8 @@ int PrepareCandidateWindowHtml()
     std::wstring bodyHtml = L"/html/webview2/default-themes/body/vertical_candidate_window_dark.html";
     std::wstring measureHtml = L"/html/webview2/default-themes/body/vertical_candidate_window_dark_measure.html";
 
+    std::wstring menuWindowHtml = L"/html/webview2/menu/default.html";
+
     bool isHorizontal = false;
     bool isNormal = true;
 
@@ -58,6 +60,13 @@ int PrepareCandidateWindowHtml()
     std::wstring measureHtmlPath = std::filesystem::current_path().wstring() + measureHtml;
     measureHtmlPath = assetPath + measureHtml;
     ::MeasureString = ReadHtmlFile(measureHtmlPath);
+
+    //
+    // 托盘语言区菜单窗口
+    //
+    std::wstring entireHtmlMenuWindowPath = std::filesystem::current_path().wstring() + menuWindowHtml;
+    entireHtmlMenuWindowPath = assetPath + menuWindowHtml;
+    ::HTMLStringMenuWindow = ReadHtmlFile(entireHtmlMenuWindowPath);
 
     return 0;
 }
@@ -176,7 +185,7 @@ void InflateMeasureDiv(std::wstring &str)
     std::wstringstream wss(str);
     std::wstring token;
     std::vector<std::wstring> words;
-    
+
     while (std::getline(wss, token, L','))
     {
         words.push_back(token);
@@ -281,6 +290,84 @@ HRESULT OnControllerCreated(            //
     return S_OK;
 }
 
+/**
+ * @brief
+ *
+ * @param hwnd
+ * @param result
+ * @param controller
+ * @return HRESULT
+ */
+HRESULT OnMenuWindowControllerCreated(  //
+    HWND hwnd,                          //
+    HRESULT result,                     //
+    ICoreWebView2Controller *controller //
+)
+{
+    if (!controller || FAILED(result))
+    {
+        OutputDebugString(fmt::format(L"Failed to create menu window webview2 controller.").c_str());
+        return E_FAIL;
+    }
+
+    /* 给 controller 和 webview 赋值 */
+    webviewControllerMenuWindow = controller;
+    webviewControllerMenuWindow->get_CoreWebView2(webviewMenuWindow.GetAddressOf());
+
+    if (!webviewMenuWindow)
+    {
+        OutputDebugString(fmt::format(L"Failed to get webview2 instance.").c_str());
+        return E_FAIL;
+    }
+
+    // Configure webviewMenuWindow settings
+    ComPtr<ICoreWebView2Settings> settings;
+    if (SUCCEEDED(webviewMenuWindow->get_Settings(&settings)))
+    {
+        settings->put_IsScriptEnabled(TRUE);
+        settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+        settings->put_IsWebMessageEnabled(TRUE);
+        settings->put_AreHostObjectsAllowed(TRUE);
+    }
+
+    // Configure virtual host path
+    if (SUCCEEDED(webviewMenuWindow->QueryInterface(IID_PPV_ARGS(&webview3MenuWindow))))
+    {
+        // Assets mapping
+        webview3MenuWindow->SetVirtualHostNameToFolderMapping( //
+            L"appassets",                                      //
+            ::LocalAssetsPath.c_str(),                         //
+            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS   //
+        );                                                     //
+    }
+
+    // Set transparent background
+    if (SUCCEEDED(controller->QueryInterface(IID_PPV_ARGS(&webviewController2MenuWindow))))
+    {
+        COREWEBVIEW2_COLOR backgroundColor = {0, 0, 0, 0};
+        webviewController2MenuWindow->put_DefaultBackgroundColor(backgroundColor);
+    }
+
+    // Adjust to window size
+    RECT bounds;
+    GetClientRect(hwnd, &bounds);
+    bounds.right += boundRightExtra;
+    bounds.bottom += boundBottomExtra;
+    webviewControllerMenuWindow->put_Bounds(bounds);
+
+    // Navigate to HTML
+    HRESULT hr = webviewMenuWindow->NavigateToString(::HTMLStringMenuWindow.c_str());
+    if (FAILED(hr))
+    {
+        OutputDebugString(fmt::format(L"Failed to navigate to string.").c_str());
+    }
+
+    /* Debug console */
+    // webviewMenuWindow->OpenDevToolsWindow();
+
+    return S_OK;
+}
+
 // Handle WebView2 environment creation
 HRESULT OnEnvironmentCreated(HWND hWnd, HRESULT result, ICoreWebView2Environment *env)
 {
@@ -302,6 +389,33 @@ HRESULT OnEnvironmentCreated(HWND hWnd, HRESULT result, ICoreWebView2Environment
     );                                                                       //
 }
 
+/**
+ * @brief
+ *
+ * @param hWnd
+ * @param result
+ * @param env
+ * @return HRESULT
+ */
+HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env)
+{
+    if (FAILED(result) || !env)
+    {
+        OutputDebugString(fmt::format(L"Failed to create menu window webview2 environment.").c_str());
+        return result;
+    }
+
+    // Create WebView2 controller
+    return env->CreateCoreWebView2Controller(                                        //
+        hwnd,                                                                        //
+        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(         //
+            [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT { //
+                return OnMenuWindowControllerCreated(hwnd, result, controller);      //
+            })                                                                       //
+            .Get()                                                                   //
+    );                                                                               //
+}
+
 // Initialize WebView2
 void InitWebview(HWND hWnd)
 {
@@ -317,6 +431,25 @@ void InitWebview(HWND hWnd)
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(             //
             [hWnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {            //
                 return OnEnvironmentCreated(hWnd, result, env);                           //
+            })                                                                            //
+            .Get()                                                                        //
+    );                                                                                    //
+}
+
+void InitMenuWindowWebview(HWND hwnd)
+{
+    std::wstring appDataPath = string_to_wstring(CommonUtils::get_local_appdata_path()) + //
+                               LR"(\)" +                                                  //
+                               GlobalIme::AppName +                                       //
+                               LR"(\)" +                                                  //
+                               LR"(webview2)";                                            //
+    CreateCoreWebView2EnvironmentWithOptions(                                             //
+        nullptr,                                                                          //
+        appDataPath.c_str(),                                                              //
+        nullptr,                                                                          //
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(             //
+            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {            //
+                return OnMenuWindowEnvironmentCreated(hwnd, result, env);                 //
             })                                                                            //
             .Get()                                                                        //
     );                                                                                    //
