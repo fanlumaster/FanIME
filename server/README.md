@@ -1,8 +1,6 @@
-# Meta IME Server(水杉输入法 Server 端)
+# Metasequoia IME Server(水杉输入法 Server 端)
 
-Meta stands for Metasequoia.
-
-This is the server end of [MetaIMETsf](https://github.com/fanlumaster/MetaImeTsf).
+This is the server end of [MetaIME](https://github.com/fanlumaster/MetaIME).
 
 ## How to build
 
