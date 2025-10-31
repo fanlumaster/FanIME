@@ -40,7 +40,7 @@ inline std::wstring BodyStringCandWnd = LR"()";
 inline std::wstring MeasureStringCandWnd = LR"()";
 inline std::wstring StrCandWnd = L"";
 
-int PrepareHtmlCandWnd();
+int PrepareHtmlForWnds();
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
@@ -50,11 +50,35 @@ void InitWebviewCandWnd(HWND hwnd);
 //
 // 菜单窗口 webview
 //
-inline ComPtr<ICoreWebView2Controller> webviewControllerMenuWindow;
-inline ComPtr<ICoreWebView2> webviewMenuWindow;
-inline ComPtr<ICoreWebView2_3> webview3MenuWindow;
-inline ComPtr<ICoreWebView2Controller2> webviewController2MenuWindow;
+inline ComPtr<ICoreWebView2Controller> webviewControllerMenuWnd;
+inline ComPtr<ICoreWebView2> webviewMenuWnd;
+inline ComPtr<ICoreWebView2_3> webview3MenuWnd;
+inline ComPtr<ICoreWebView2Controller2> webviewController2MenuWnd;
 
-inline std::wstring HTMLStringMenuWindow = LR"()";
+inline std::wstring HTMLStringMenuWnd = LR"()";
 
 void InitWebviewMenuWnd(HWND hwnd);
+
+//
+// settings 窗口 webview
+//
+inline ComPtr<ICoreWebView2Controller> webviewControllerSettingsWnd;
+inline ComPtr<ICoreWebView2> webviewSettingsWnd;
+inline ComPtr<ICoreWebView2_3> webview3SettingsWnd;
+inline ComPtr<ICoreWebView2Controller2> webviewController2SettingsWnd;
+
+inline std::wstring HTMLStringSettingsWnd = LR"()";
+
+void InitWebviewSettingsWnd(HWND hwnd);
+
+//
+// floating toolbar 窗口 webview
+//
+inline ComPtr<ICoreWebView2Controller> webviewControllerFtbWnd;
+inline ComPtr<ICoreWebView2> webviewFtbWnd;
+inline ComPtr<ICoreWebView2_3> webview3FtbWnd;
+inline ComPtr<ICoreWebView2Controller2> webviewController2FtbWnd;
+
+inline std::wstring HTMLStringFtbWnd = LR"()";
+
+void InitWebviewFtbWnd(HWND hwnd);

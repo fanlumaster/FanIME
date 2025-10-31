@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>输入法状态栏</title>
+  <style>
+    body {
+      background-color: transparent;
+      margin: 0;
+      height: 100vh;
+    }
+
+    /* 状态栏整体样式 */
+    .status-bar {
+      position: absolute;
+      height: 25px;
+      top: 0px;
+      left: 0px;
+      display: flex;
+      align-items: center;
+      background-color: #1a1a1a;
+      border-radius: 8px;
+      padding: 0px 10px;
+      padding-left: 8px;
+      padding-right: 2px;
+      gap: 3px;
+
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+    }
+
+    /* 拖动条 */
+    .drag-handle {
+      color: ;
+      width: 2.5px;
+      height: 14px;
+      border-radius: 2px;
+      background: #8E8CD8;
+      margin-right: 0px;
+      position: relative;
+    }
+
+    /* 分隔线 */
+    .divider {
+      width: 1.2px;
+      align-self: stretch;
+      background-color: rgba(255, 255, 255, 0.15);
+      margin-left: 4px;
+      margin-right: 0px;
+    }
+
+    .icon {
+      color: #fff;
+      font-size: 15px;
+      font-family: "Segoe UI Symbol", "Microsoft YaHei", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      transition: background-color 0.15s ease;
+      cursor: default;
+    }
+
+    .icon:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .icon-gear svg {
+      width: 18px;
+      height: 18px;
+      fill: #fff;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="status-bar">
+    <div class="drag-handle"></div>
+    <div class="divider"></div>
+    <div class="icon">中</div>
+    <div class="icon">🌙</div>
+    <div class="icon">；</div>
+    <div class="icon">简</div>
+    <div class="icon">😊</div>
+    <div class="icon icon-gear">
+      <svg viewBox="0 0 24 24">
+        <path
+          d="M19.14 12.936a7.952 7.952 0 0 0 .057-.936 7.952 7.952 0 0 0-.057-.936l2.037-1.58a.48.48 0 0 0 .116-.613l-1.928-3.338a.48.48 0 0 0-.593-.21l-2.397.96a7.952 7.952 0 0 0-1.62-.936l-.36-2.54A.48.48 0 0 0 13.86 2h-3.72a.48.48 0 0 0-.475.397l-.36 2.54a7.952 7.952 0 0 0-1.62.936l-2.397-.96a.48.48 0 0 0-.593.21L2.767 8.87a.48.48 0 0 0 .116.613l2.037 1.58c-.038.308-.057.62-.057.936 0 .316.02.628.057.936l-2.037 1.58a.48.48 0 0 0-.116.613l1.928 3.338a.48.48 0 0 0 .593.21l2.397-.96c.5.382 1.045.7 1.62.936l.36 2.54a.48.48 0 0 0 .475.397h3.72a.48.48 0 0 0 .475-.397l.36-2.54a7.952 7.952 0 0 0 1.62-.936l2.397.96a.48.48 0 0 0 .593-.21l1.928-3.338a.48.48 0 0 0-.116-.613l-2.037-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z" />
+      </svg>
+    </div>
+  </div>
+
+</body>
+
+</html>

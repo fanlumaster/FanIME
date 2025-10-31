@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>水杉输入法设置</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Noto Sans SC", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      background-color: transparent;
+      color: #fff;
+    }
+
+    /* 左侧导航栏 */
+    .sidebar {
+      width: 200px;
+      background: linear-gradient(to bottom, #2c3e50, #34495e);
+      display: flex;
+      flex-direction: column;
+      padding-top: 20px;
+    }
+
+    .sidebar .item {
+      padding: 15px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar .item.active {
+      background-color: #0078D4;
+      /* Fluent 蓝色 */
+      border-radius: 4px;
+    }
+
+    .sidebar .item:hover {
+      background-color: rgba(0, 120, 212, 0.1);
+      /* Fluent 浅蓝悬停 */
+    }
+
+    /* 右侧内容区 */
+    .content {
+      flex: 1;
+      padding: 20px;
+      background-color: #121212;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #ccc;
+    }
+
+    /* 候选字 */
+    .candidate-preview {
+      display: flex;
+      gap: 5px;
+      background-color: #222;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    .candidate-preview span {
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .candidate-preview span.active {
+      background-color: #0078D4;
+      /* Fluent 蓝色 */
+      color: #fff;
+    }
+
+    /* 滑块 */
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+    }
+
+    /* 下拉选择 */
+    select {
+      padding: 5px 10px;
+      border-radius: 4px;
+      border: none;
+      background-color: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <div class="item active">外观</div>
+    <div class="item">输入</div>
+    <div class="item">快捷键</div>
+    <div class="item">词库管理</div>
+    <div class="item">皮肤</div>
+    <div class="item">关于&反馈</div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <h2>候选字预览</h2>
+      <div class="candidate-preview">
+        <span class="active">1水杉</span>
+        <span>2水杉输入法</span>
+        <span>3连心</span>
+        <span>4为新</span>
+        <span>5唯心</span>
+        <span>6威</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>候选字大小</h2>
+      <div class="slider-container">
+        <span>最小</span>
+        <input type="range" min="10" max="30" value="16">
+        <span>最大</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>主题模式</h2>
+      <select>
+        <option value="dark" selected>深色</option>
+        <option value="light">浅色</option>
+      </select>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -75,7 +75,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     HWND hwnd = CreateWindowEx(                               //
         dwExStyle,                                            //
         szWindowClass,                                        //
-        lpWindowName,                                         //
+        lpWindowNameCand,                                     //
         WS_POPUP,                                             //
         100,                                                  //
         100,                                                  //
@@ -125,24 +125,24 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // 任务栏托盘区的菜单窗口
     //
-    DWORD dwExStyleMenu = WS_EX_LAYERED |                        //
-                          WS_EX_TOOLWINDOW |                     //
-                          WS_EX_NOACTIVATE |                     //
-                          WS_EX_TOPMOST;                         //
-    HWND hwnd_menu = CreateWindowEx(                             //
-        dwExStyleMenu,                                           //
-        szWindowClass,                                           //
-        lpWindowNameMenu,                                        //
-        WS_POPUP,                                                //
-        200,                                                     //
-        200,                                                     //
-        (::CANDIDATE_WINDOW_WIDTH * 2 + ::SHADOW_WIDTH) * scale, //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale,    //
-        nullptr,                                                 //
-        nullptr,                                                 //
-        hInstance,                                               //
-        nullptr                                                  //
-    );                                                           //
+    dwExStyle = WS_EX_LAYERED |       //
+                WS_EX_TOOLWINDOW |    //
+                WS_EX_NOACTIVATE |    //
+                WS_EX_TOPMOST;        //
+    HWND hwnd_menu = CreateWindowEx(  //
+        dwExStyle,                    //
+        szWindowClass,                //
+        lpWindowNameMenu,             //
+        WS_POPUP,                     //
+        200,                          //
+        200,                          //
+        (::MENU_WINDOW_WIDTH)*scale,  //
+        (::MENU_WINDOW_HEIGHT)*scale, //
+        nullptr,                      //
+        nullptr,                      //
+        hInstance,                    //
+        nullptr                       //
+    );                                //
     if (!hwnd_menu)
     {
         OutputDebugString(fmt::format(L"Call to CreateWindow for menu failed!\n").c_str());
@@ -153,27 +153,88 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // settings 窗口
     //
+    dwExStyle = WS_EX_LAYERED |               //
+                WS_EX_APPWINDOW |             //
+                WS_EX_NOACTIVATE;             //
+    DWORD styleSettingsWnd = WS_POPUP |       //
+                             WS_SYSMENU |     //
+                             WS_MINIMIZEBOX | //
+                             WS_MAXIMIZEBOX;  //
+    HWND hwnd_settings = CreateWindowEx(      //
+        dwExStyle,                            //
+        szWindowClass,                        //
+        lpWindowNameSettings,                 //
+        styleSettingsWnd,                     //
+        400,                                  //
+        400,                                  //
+        (::SETTINGS_WINDOW_WIDTH)*scale,      //
+        (::SETTINGS_WINDOW_HEIGHT)*scale,     //
+        nullptr,                              //
+        nullptr,                              //
+        hInstance,                            //
+        nullptr                               //
+    );                                        //
+    if (!hwnd_settings)
+    {
+        OutputDebugString(fmt::format(L"Call to CreateWindow for settings failed!\n").c_str());
+        return 1;
+    }
+    MARGINS m_settings{-1}; // 全部填满
+    DwmExtendFrameIntoClientArea(hwnd_settings, &m_settings);
+    ::global_hwnd_settings = hwnd_settings;
 
     //
     // floating toolbar 窗口
     //
+    dwExStyle = WS_EX_LAYERED |                         //
+                WS_EX_TOOLWINDOW |                      //
+                WS_EX_NOACTIVATE |                      //
+                WS_EX_TOPMOST;                          //
+    HWND hwnd_ftb = CreateWindowEx(                     //
+        dwExStyle,                                      //
+        szWindowClass,                                  //
+        lpWindowNameFtb,                                //
+        WS_POPUP,                                       //
+        800,                                            //
+        800,                                            //
+        (::FTB_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
+        (::FTB_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        nullptr,                                        //
+        nullptr,                                        //
+        hInstance,                                      //
+        nullptr                                         //
+    );                                                  //
+    if (!hwnd_ftb)
+    {
+        OutputDebugString(fmt::format(L"Call to CreateWindow for floating toolbar failed!\n").c_str());
+        return 1;
+    }
+    ::global_hwnd_ftb = hwnd_ftb;
 
     //
-    // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口
+    // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口、floating toolbar hover tip 窗口
     //
     ShowWindow(hwnd, SW_SHOW);
     ShowWindow(hwnd_menu, SW_SHOW);
+    ShowWindow(hwnd_settings, SW_SHOW);
+    ShowWindow(hwnd_ftb, SW_SHOW);
     UpdateWindow(hwnd);
     UpdateWindow(hwnd_menu);
+    UpdateWindow(hwnd_settings);
+    UpdateWindow(hwnd_ftb);
 
     //
     // Preparing webview2 env
     //
-    PrepareHtmlCandWnd();
+    PrepareHtmlForWnds();
     /* 候选框窗口 */
     InitWebviewCandWnd(hwnd);
-    /* 托盘语言区右键菜单 */
+    /* 托盘语言区右键菜单窗口 */
     InitWebviewMenuWnd(hwnd_menu);
+    /* settings 窗口 */
+    InitWebviewSettingsWnd(hwnd_settings);
+    /* flaoting toolbar 窗口 */
+    InitWebviewFtbWnd(hwnd_ftb);
 
     /* 调整菜单窗口 size */
     SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW, 200, nullptr);
@@ -217,7 +278,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     /* settings 窗口 */
-    // if (hwnd == )
+    if (hwnd == ::global_hwnd_settings)
+    {
+        return WndProcSettingsWindow(hwnd, message, wParam, lParam);
+    }
+
+    /* floating toolbar 窗口 */
+    if (hwnd == ::global_hwnd_ftb)
+    {
+        return WndProcFtbWindow(hwnd, message, wParam, lParam);
+    }
 
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
@@ -363,9 +433,9 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         if (wParam == TIMER_ID_INIT_WEBVIEW)
         {
             KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW);
-            if (webviewMenuWindow) // 确保 webview 已初始化
+            if (webviewMenuWnd) // 确保 webview 已初始化
             {
-                GetContainerSize(webviewMenuWindow, [hwnd](std::pair<double, double> containerSize) {
+                GetContainerSize(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
                     if (hwnd == ::global_hwnd_menu)
                     {
                         UINT flag = SWP_NOZORDER | SWP_NOMOVE;
@@ -396,6 +466,28 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         break;
     }
+    default: {
+        return DefWindowProc(hwnd, message, wParam, lParam);
+    }
+    }
+    return 0;
+}
+
+LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    default: {
+        return DefWindowProc(hwnd, message, wParam, lParam);
+    }
+    }
+    return 0;
+}
+
+LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
     default: {
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
