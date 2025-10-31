@@ -1,6 +1,6 @@
 #include "global/globals.h"
 #include "ipc/ipc.h"
-#include "candidate_window.h"
+#include "ime_windows.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
 #include <debugapi.h>
@@ -9,7 +9,7 @@
 #include <windef.h>
 #include <winuser.h>
 #include <fmt/xchar.h>
-#include "webview2/candidate_window_webview2.h"
+#include "webview2/windows_webview2.h"
 #include "utils/webview_utils.h"
 #include "utils/window_utils.h"
 #include <dwmapi.h>
@@ -34,8 +34,11 @@ LRESULT RegisterCandidateWindowMessage()
     return 0;
 }
 
-LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
+LRESULT RegisterIMEWindowsClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 {
+    //
+    // 注册窗口类
+    //
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = WndProc;
@@ -52,12 +55,7 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 
     if (!RegisterClassEx(&wcex))
     {
-        MessageBox(                             //
-            NULL,                               //
-            L"Call to RegisterClassEx failed!", //
-            L"Please check your codes!",        //
-            NULL                                //
-        );                                      //
+        OutputDebugString(fmt::format(L"Call to RegisterClassEx failed!\n").c_str());
         return 1;
     }
     return 0;
@@ -65,15 +63,15 @@ LRESULT RegisterCandidateWindowClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 
 int CreateCandidateWindow(HINSTANCE hInstance)
 {
+    //
+    // 候选框窗口
+    //
     DWORD dwExStyle = WS_EX_LAYERED |    //
                       WS_EX_TOOLWINDOW | //
                       WS_EX_NOACTIVATE | //
                       WS_EX_TOPMOST;     //
     FLOAT scale = GetForegroundWindowScale();
 
-    //
-    // 候选框窗口
-    //
     HWND hwnd = CreateWindowEx(                               //
         dwExStyle,                                            //
         szWindowClass,                                        //
@@ -91,12 +89,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     if (!hwnd)
     {
-        MessageBox(                          //
-            NULL,                            //
-            L"Call to CreateWindow failed!", //
-            L"Please check your codes!",     //
-            NULL                             //
-        );                                   //
+        OutputDebugString(fmt::format(L"Call to CreateWindow for candidate window failed!\n").c_str());
         return 1;
     }
     else
@@ -152,16 +145,22 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     );                                                           //
     if (!hwnd_menu)
     {
-        MessageBox(                          //
-            NULL,                            //
-            L"Call to CreateWindow failed!", //
-            L"Please check your codes!",     //
-            NULL                             //
-        );                                   //
+        OutputDebugString(fmt::format(L"Call to CreateWindow for menu failed!\n").c_str());
         return 1;
     }
     ::global_hwnd_menu = hwnd_menu;
 
+    //
+    // settings 窗口
+    //
+
+    //
+    // floating toolbar 窗口
+    //
+
+    //
+    // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口
+    //
     ShowWindow(hwnd, SW_SHOW);
     ShowWindow(hwnd_menu, SW_SHOW);
     UpdateWindow(hwnd);
@@ -170,11 +169,11 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // Preparing webview2 env
     //
-    PrepareCandidateWindowHtml();
+    PrepareHtmlCandWnd();
     /* 候选框窗口 */
-    InitWebview(hwnd);
+    InitWebviewCandWnd(hwnd);
     /* 托盘语言区右键菜单 */
-    InitMenuWindowWebview(hwnd_menu);
+    InitWebviewMenuWnd(hwnd_menu);
 
     /* 调整菜单窗口 size */
     SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW, 200, nullptr);
@@ -185,10 +184,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
     if (!g_hHook)
     {
-        // TODO: log "钩子安装失败"
+        OutputDebugString(fmt::format(L"键盘钩子安装失败\n").c_str());
         return 1;
     }
-    // TODO: log "钩子安装成功"
+    OutputDebugString(fmt::format(L"键盘钩子安装成功").c_str());
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
@@ -205,22 +204,37 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    /* 候选窗口 */
+    if (hwnd == ::global_hwnd)
+    {
+        return WndProcCandWindow(hwnd, message, wParam, lParam);
+    }
+
+    /* tray icon 菜单窗口 */
     if (hwnd == ::global_hwnd_menu)
     {
         return WndProcMenuWindow(hwnd, message, wParam, lParam);
     }
 
+    /* settings 窗口 */
+    // if (hwnd == )
+
+    return DefWindowProc(hwnd, message, wParam, lParam);
+}
+
+LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
     if (message == WM_SHOW_MAIN_WINDOW)
     {
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
         std::wstring preedit = GetPreedit();
         std::wstring str = preedit + L"," + Global::CandidateString;
-        InflateMeasureDiv(str);
+        InflateMeasureDivCandWnd(str);
 
         FineTuneWindow(hwnd);
 
-        ::is_global_wnd_shown = true;
+        ::is_global_wnd_cand_shown = true;
 
         return 0;
     }
@@ -241,11 +255,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
             SWP_SHOWWINDOW                                        //
         );
-        UpdateHtmlContentWithJavaScript(webview, L"");
+        UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         std::wstring str = L"n,那,年,女,难,内,你,男,哪";
         // InflateCandidateWindow(str);
 
-        ::is_global_wnd_shown = false;
+        ::is_global_wnd_cand_shown = false;
         return 0;
     }
 
@@ -398,12 +412,12 @@ int FineTuneWindow(HWND hwnd)
     int caretX = Global::Point[0];
     int caretY = Global::Point[1];
     std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-    GetContainerSize(webview, [flag,      //
-                               scale,     //
-                               caretX,    //
-                               caretY,    //
-                               properPos, //
-                               hwnd](std::pair<double, double> containerSize) {
+    GetContainerSize(webviewCandWnd, [flag,      //
+                                      scale,     //
+                                      caretX,    //
+                                      caretY,    //
+                                      properPos, //
+                                      hwnd](std::pair<double, double> containerSize) {
         POINT pt = {caretX, caretY};
         /* Whether need to adjust candidate window position */
         if (caretY == Global::INVALID_Y)
@@ -418,7 +432,7 @@ int FineTuneWindow(HWND hwnd)
 
         std::wstring preedit = GetPreedit();
         std::wstring str = preedit + L"," + Global::CandidateString;
-        InflateCandidateWindow(str);
+        InflateCandWnd(str);
 
         int newWidth = 0;
         int newHeight = 0;

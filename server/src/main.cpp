@@ -1,6 +1,6 @@
 #include "ipc/event_listener.h"
 #include "log/fanylog.h"
-#include "window/candidate_window.h"
+#include "window/ime_windows.h"
 #include <thread>
 #include "ipc/ipc.h"
 
@@ -20,7 +20,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     RegisterCandidateWindowMessage();
 
     WNDCLASSEX wcex;
-    RegisterCandidateWindowClass(wcex, hInstance);
+    RegisterIMEWindowsClass(wcex, hInstance);
 
     //
     // Pipe

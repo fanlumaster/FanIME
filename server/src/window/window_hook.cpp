@@ -15,7 +15,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
 
-        if (!::is_global_wnd_shown)
+        if (!::is_global_wnd_cand_shown)
         {
             return CallNextHookEx(g_hHook, nCode, wParam, lParam);
         }

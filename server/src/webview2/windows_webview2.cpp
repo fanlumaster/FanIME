@@ -1,4 +1,4 @@
-#include "candidate_window_webview2.h"
+#include "windows_webview2.h"
 #include "utils/common_utils.h"
 #include <debugapi.h>
 #include <filesystem>
@@ -27,7 +27,44 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
     return buffer.str();
 }
 
-int PrepareCandidateWindowHtml()
+inline std::wstring GetAppdataPath()
+{
+    return string_to_wstring(CommonUtils::get_local_appdata_path()) + //
+           LR"(\)" +                                                  //
+           GlobalIme::AppName +                                       //
+           LR"(\)" +                                                  //
+           LR"(webview2)";
+}
+
+void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
+{
+    if (webview != nullptr)
+    {
+        std::wstring script;
+        script.reserve(256);
+
+        script.append(L"document.getElementById('justBody').innerHTML = `");
+        script.append(newContent);
+        script.append(L"`;\n");
+        script.append(L"window.ClearState();\n");
+        script.append(L"var el = document.getElementById('justBody');\n");
+        script.append(L"if (el) {\n");
+        script.append(L"  el.style.marginTop = \"");
+        script.append(std::to_wstring(Global::MarginTop));
+        script.append(L"px\";\n");
+        script.append(L"}\n");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+}
+
+//
+//
+// 候选窗口 webview
+//
+//
+
+int PrepareHtmlCandWnd()
 {
     std::wstring entireHtml = L"/html/webview2/default-themes/vertical_candidate_window_dark.html";
     std::wstring bodyHtml = L"/html/webview2/default-themes/body/vertical_candidate_window_dark.html";
@@ -53,13 +90,13 @@ int PrepareCandidateWindowHtml()
 
     std::wstring entireHtmlPath = std::filesystem::current_path().wstring() + entireHtml;
     entireHtmlPath = assetPath + entireHtml;
-    ::HTMLString = ReadHtmlFile(entireHtmlPath);
+    ::HTMLStringCandWnd = ReadHtmlFile(entireHtmlPath);
     std::wstring bodyHtmlPath = std::filesystem::current_path().wstring() + bodyHtml;
     bodyHtmlPath = assetPath + bodyHtml;
-    ::BodyString = ReadHtmlFile(bodyHtmlPath);
+    ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPath);
     std::wstring measureHtmlPath = std::filesystem::current_path().wstring() + measureHtml;
     measureHtmlPath = assetPath + measureHtml;
-    ::MeasureString = ReadHtmlFile(measureHtmlPath);
+    ::MeasureStringCandWnd = ReadHtmlFile(measureHtmlPath);
 
     //
     // 托盘语言区菜单窗口
@@ -69,28 +106,6 @@ int PrepareCandidateWindowHtml()
     ::HTMLStringMenuWindow = ReadHtmlFile(entireHtmlMenuWindowPath);
 
     return 0;
-}
-
-void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
-{
-    if (webview != nullptr)
-    {
-        std::wstring script;
-        script.reserve(256);
-
-        script.append(L"document.getElementById('justBody').innerHTML = `");
-        script.append(newContent);
-        script.append(L"`;\n");
-        script.append(L"window.ClearState();\n");
-        script.append(L"var el = document.getElementById('justBody');\n");
-        script.append(L"if (el) {\n");
-        script.append(L"  el.style.marginTop = \"");
-        script.append(std::to_wstring(Global::MarginTop));
-        script.append(L"px\";\n");
-        script.append(L"}\n");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
-    }
 }
 
 void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
@@ -108,7 +123,7 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
     }
 }
 
-void ResetContainerHover(ComPtr<ICoreWebView2> webview)
+void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
 {
     if (webview != nullptr)
     {
@@ -120,7 +135,7 @@ container.classList.remove('hover-active');
     }
 }
 
-void DisableMouseForAWhileWhenShown(ComPtr<ICoreWebView2> webview)
+void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview)
 {
     if (webview != nullptr)
     {
@@ -140,7 +155,7 @@ window.mouseBlockTimeout = setTimeout(() => {
     }
 }
 
-void InflateCandidateWindow(std::wstring &str)
+void InflateCandWnd(std::wstring &str)
 {
     std::wstringstream wss(str);
     std::wstring token;
@@ -159,7 +174,7 @@ void InflateCandidateWindow(std::wstring &str)
     }
 
     std::wstring result = fmt::format( //
-        BodyString,                    //
+        BodyStringCandWnd,             //
         words[0],                      //
         words[1],                      //
         words[2],                      //
@@ -177,10 +192,10 @@ void InflateCandidateWindow(std::wstring &str)
         result = result.substr(0, pos) + L"</div>";
     }
 
-    UpdateHtmlContentWithJavaScript(webview, result);
+    UpdateHtmlContentWithJavaScript(webviewCandWnd, result);
 }
 
-void InflateMeasureDiv(std::wstring &str)
+void InflateMeasureDivCandWnd(std::wstring &str)
 {
     std::wstringstream wss(str);
     std::wstring token;
@@ -199,7 +214,7 @@ void InflateMeasureDiv(std::wstring &str)
     }
 
     std::wstring result = fmt::format( //
-        ::MeasureString,               //
+        ::MeasureStringCandWnd,        //
         words[0],                      //
         words[1],                      //
         words[2],                      //
@@ -217,11 +232,18 @@ void InflateMeasureDiv(std::wstring &str)
         result = result.substr(0, pos) + L"</div>";
     }
 
-    UpdateMeasureContentWithJavaScript(webview, result);
+    UpdateMeasureContentWithJavaScript(webviewCandWnd, result);
 }
 
-// Handle WebView2 controller creation
-HRESULT OnControllerCreated(            //
+/**
+ * @brief Handle candidate window webview2 controller creation
+ *
+ * @param hWnd
+ * @param result
+ * @param controller
+ * @return HRESULT
+ */
+HRESULT OnControllerCreatedCandWnd(     //
     HWND hWnd,                          //
     HRESULT result,                     //
     ICoreWebView2Controller *controller //
@@ -233,10 +255,10 @@ HRESULT OnControllerCreated(            //
         return E_FAIL;
     }
 
-    webviewController = controller;
-    webviewController->get_CoreWebView2(webview.GetAddressOf());
+    webviewControllerCandWnd = controller;
+    webviewControllerCandWnd->get_CoreWebView2(webviewCandWnd.GetAddressOf());
 
-    if (!webview)
+    if (!webviewCandWnd)
     {
         ShowErrorMessage(hWnd, L"Failed to get WebView2 instance.");
         return E_FAIL;
@@ -244,7 +266,7 @@ HRESULT OnControllerCreated(            //
 
     // Configure WebView settings
     ComPtr<ICoreWebView2Settings> settings;
-    if (SUCCEEDED(webview->get_Settings(&settings)))
+    if (SUCCEEDED(webviewCandWnd->get_Settings(&settings)))
     {
         settings->put_IsScriptEnabled(TRUE);
         settings->put_AreDefaultScriptDialogsEnabled(TRUE);
@@ -253,10 +275,10 @@ HRESULT OnControllerCreated(            //
     }
 
     // Configure virtual host path
-    if (SUCCEEDED(webview->QueryInterface(IID_PPV_ARGS(&webview3))))
+    if (SUCCEEDED(webviewCandWnd->QueryInterface(IID_PPV_ARGS(&webview3CandWnd))))
     {
         // Assets mapping
-        webview3->SetVirtualHostNameToFolderMapping(         //
+        webview3CandWnd->SetVirtualHostNameToFolderMapping(  //
             L"appassets",                                    //
             ::LocalAssetsPath.c_str(),                       //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
@@ -264,10 +286,10 @@ HRESULT OnControllerCreated(            //
     }
 
     // Set transparent background
-    if (SUCCEEDED(controller->QueryInterface(IID_PPV_ARGS(&webviewController2))))
+    if (SUCCEEDED(controller->QueryInterface(IID_PPV_ARGS(&webviewController2CandWnd))))
     {
         COREWEBVIEW2_COLOR backgroundColor = {0, 0, 0, 0};
-        webviewController2->put_DefaultBackgroundColor(backgroundColor);
+        webviewController2CandWnd->put_DefaultBackgroundColor(backgroundColor);
     }
 
     // Adjust to window size
@@ -275,10 +297,10 @@ HRESULT OnControllerCreated(            //
     GetClientRect(hWnd, &bounds);
     bounds.right += boundRightExtra;
     bounds.bottom += boundBottomExtra;
-    webviewController->put_Bounds(bounds);
+    webviewControllerCandWnd->put_Bounds(bounds);
 
     // Navigate to HTML
-    HRESULT hr = webview->NavigateToString(HTMLString.c_str());
+    HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
     if (FAILED(hr))
     {
         ShowErrorMessage(hWnd, L"Failed to navigate to string.");
@@ -291,14 +313,68 @@ HRESULT OnControllerCreated(            //
 }
 
 /**
- * @brief
+ * @brief Handle candidate window webview2 environment creation
+ *
+ * @param hWnd
+ * @param result
+ * @param env
+ * @return HRESULT
+ */
+HRESULT OnEnvironmentCreated(HWND hWnd, HRESULT result, ICoreWebView2Environment *env)
+{
+    if (FAILED(result) || !env)
+    {
+        ShowErrorMessage(hWnd, L"Failed to create WebView2 environment.");
+        return result;
+    }
+
+    // Create WebView2 controller
+    return env->CreateCoreWebView2Controller(                                //
+        hWnd,                                                                //
+        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
+            [hWnd](HRESULT result,                                           //
+                   ICoreWebView2Controller *controller) -> HRESULT {         //
+                return OnControllerCreatedCandWnd(hWnd, result, controller); //
+            })                                                               //
+            .Get()                                                           //
+    );                                                                       //
+}
+
+/**
+ * @brief 初始化候选窗口的 webview
+ *
+ * @param hWnd
+ */
+void InitWebviewCandWnd(HWND hWnd)
+{
+    std::wstring appDataPath = GetAppdataPath();
+    CreateCoreWebView2EnvironmentWithOptions(                                  //
+        nullptr,                                                               //
+        appDataPath.c_str(),                                                   //
+        nullptr,                                                               //
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
+            [hWnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
+                return OnEnvironmentCreated(hWnd, result, env);                //
+            })                                                                 //
+            .Get()                                                             //
+    );                                                                         //
+}
+
+//
+//
+// 菜单窗口 webview
+//
+//
+
+/**
+ * @brief Handle menu window webview2 controller creation
  *
  * @param hwnd
  * @param result
  * @param controller
  * @return HRESULT
  */
-HRESULT OnMenuWindowControllerCreated(  //
+HRESULT OnControllerCreatedMenuWnd(     //
     HWND hwnd,                          //
     HRESULT result,                     //
     ICoreWebView2Controller *controller //
@@ -368,29 +444,8 @@ HRESULT OnMenuWindowControllerCreated(  //
     return S_OK;
 }
 
-// Handle WebView2 environment creation
-HRESULT OnEnvironmentCreated(HWND hWnd, HRESULT result, ICoreWebView2Environment *env)
-{
-    if (FAILED(result) || !env)
-    {
-        ShowErrorMessage(hWnd, L"Failed to create WebView2 environment.");
-        return result;
-    }
-
-    // Create WebView2 controller
-    return env->CreateCoreWebView2Controller(                                //
-        hWnd,                                                                //
-        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
-            [hWnd](HRESULT result,                                           //
-                   ICoreWebView2Controller *controller) -> HRESULT {         //
-                return OnControllerCreated(hWnd, result, controller);        //
-            })                                                               //
-            .Get()                                                           //
-    );                                                                       //
-}
-
 /**
- * @brief
+ * @brief Handle menu window webview2 environment creation
  *
  * @param hWnd
  * @param result
@@ -410,47 +465,40 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
         hwnd,                                                                        //
         Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(         //
             [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT { //
-                return OnMenuWindowControllerCreated(hwnd, result, controller);      //
+                return OnControllerCreatedMenuWnd(hwnd, result, controller);         //
             })                                                                       //
             .Get()                                                                   //
     );                                                                               //
 }
 
-// Initialize WebView2
-void InitWebview(HWND hWnd)
+/**
+ * @brief 初始化菜单窗口的 webview
+ *
+ * @param hwnd
+ */
+void InitWebviewMenuWnd(HWND hwnd)
 {
-    std::wstring appDataPath = string_to_wstring(CommonUtils::get_local_appdata_path()) + //
-                               LR"(\)" +                                                  //
-                               GlobalIme::AppName +                                       //
-                               LR"(\)" +                                                  //
-                               LR"(webview2)";                                            //
-    CreateCoreWebView2EnvironmentWithOptions(                                             //
-        nullptr,                                                                          //
-        appDataPath.c_str(),                                                              //
-        nullptr,                                                                          //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(             //
-            [hWnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {            //
-                return OnEnvironmentCreated(hWnd, result, env);                           //
-            })                                                                            //
-            .Get()                                                                        //
-    );                                                                                    //
+    std::wstring appDataPath = GetAppdataPath();
+    CreateCoreWebView2EnvironmentWithOptions(                                  //
+        nullptr,                                                               //
+        appDataPath.c_str(),                                                   //
+        nullptr,                                                               //
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
+            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
+                return OnMenuWindowEnvironmentCreated(hwnd, result, env);      //
+            })                                                                 //
+            .Get()                                                             //
+    );                                                                         //
 }
 
-void InitMenuWindowWebview(HWND hwnd)
-{
-    std::wstring appDataPath = string_to_wstring(CommonUtils::get_local_appdata_path()) + //
-                               LR"(\)" +                                                  //
-                               GlobalIme::AppName +                                       //
-                               LR"(\)" +                                                  //
-                               LR"(webview2)";                                            //
-    CreateCoreWebView2EnvironmentWithOptions(                                             //
-        nullptr,                                                                          //
-        appDataPath.c_str(),                                                              //
-        nullptr,                                                                          //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(             //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {            //
-                return OnMenuWindowEnvironmentCreated(hwnd, result, env);                 //
-            })                                                                            //
-            .Get()                                                                        //
-    );                                                                                    //
-}
+//
+//
+// settings 窗口 webview
+//
+//
+
+//
+//
+// toolbar 窗口 webview
+//
+//

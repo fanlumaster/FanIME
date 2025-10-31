@@ -1,6 +1,6 @@
 #pragma once
 
-#include "webview2/candidate_window_webview2.h"
+#include "webview2/windows_webview2.h"
 #include <utility>
 
 void MeasureDomUpdateTime(ComPtr<ICoreWebView2>);
