@@ -125,25 +125,27 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     //
     // 任务栏托盘区的菜单窗口
+    // TODO: 这里的初始 width 和 height 需要设置足够大，不然，底部的 item 会不接受响应。不然，也可以在 wndProc
+    // 中刷新一下 webview
     //
-    dwExStyle = WS_EX_LAYERED |       //
-                WS_EX_TOOLWINDOW |    //
-                WS_EX_NOACTIVATE |    //
-                WS_EX_TOPMOST;        //
-    HWND hwnd_menu = CreateWindowEx(  //
-        dwExStyle,                    //
-        szWindowClass,                //
-        lpWindowNameMenu,             //
-        WS_POPUP,                     //
-        200,                          //
-        200,                          //
-        (::MENU_WINDOW_WIDTH)*scale,  //
-        (::MENU_WINDOW_HEIGHT)*scale, //
-        nullptr,                      //
-        nullptr,                      //
-        hInstance,                    //
-        nullptr                       //
-    );                                //
+    dwExStyle = WS_EX_LAYERED |             //
+                WS_EX_TOOLWINDOW |          //
+                WS_EX_NOACTIVATE |          //
+                WS_EX_TOPMOST;              //
+    HWND hwnd_menu = CreateWindowEx(        //
+        dwExStyle,                          //
+        szWindowClass,                      //
+        lpWindowNameMenu,                   //
+        WS_POPUP,                           //
+        200,                                //
+        200,                                //
+        (::MENU_WINDOW_WIDTH)*scale,        //
+        (::MENU_WINDOW_HEIGHT * 2) * scale, //
+        nullptr,                            //
+        nullptr,                            //
+        hInstance,                          //
+        nullptr                             //
+    );                                      //
     if (!hwnd_menu)
     {
         OutputDebugString(fmt::format(L"Call to CreateWindow for menu failed!\n").c_str());

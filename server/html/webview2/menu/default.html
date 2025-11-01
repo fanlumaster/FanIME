@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8">
@@ -41,9 +41,47 @@
       color: #fff;
     }
 
+    .menu-item-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 32px;
+      height: 16px;
+      background: #555;
+      border-radius: 8px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .toggle.active {
+      background: #0078D4;
+    }
+
+    .toggle.active::after {
+      transform: translateX(16px);
+    }
+
     .shortcut {
-      color: #999;
+      font-family: consolas;
+      font-weight: 600;
       font-size: 12px;
+      color: #999;
     }
   </style>
 </head>
@@ -52,22 +90,82 @@
 
   <div class="menu" id="measureBody">
     <div class="menu-item">
-      表情和符号
+      <div class="menu-item-left">
+        <span>🖲️</span>
+        悬浮工具栏
+      </div>
+      <div class="toggle" id="floatingToggle"></div>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span>😊</span>
+        表情面板
+      </div>
       <span class="shortcut">Win+⇧+.</span>
     </div>
+
     <div class="menu-item">
-      设置
-      <span class="shortcut">Ctrl+Alt+Shift+S</span>
+      <div class="menu-item-left">
+        <span>🔣</span>
+        符号面板
+      </div>
+      <span class="shortcut">Win+⇧+I</span>
     </div>
+
     <div class="menu-item">
-      关于
+      <div class="menu-item-left">
+        <span>✍️</span>
+        手写识别板
+      </div>
+      <span class="shortcut">Win+⇧+P</span>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span>🖥️</span> 屏幕键盘
+      </div>
+      <span class="shortcut">Win+⇧+K</span>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span>🎨</span>
+        皮肤
+      </div>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span>⚙️</span>
+        设置
+      </div>
+      <span class="shortcut">Win+⇧+S</span>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span>ℹ️</span>
+        关于
+      </div>
       <span class="shortcut"></span>
     </div>
+
     <div class="menu-item">
-      帮助与反馈
+      <div class="menu-item-left">
+        <span>❓</span>
+        帮助与反馈
+      </div>
       <span class="shortcut"></span>
     </div>
   </div>
+
+  <script>
+    const toggle = document.getElementById('floatingToggle');
+    toggle.addEventListener('click', () => {
+      toggle.classList.toggle('active');
+    });
+  </script>
 
 </body>
 
