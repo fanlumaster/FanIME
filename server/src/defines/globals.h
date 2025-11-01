@@ -48,8 +48,9 @@ inline bool is_global_wnd_settings_shown = false;
 //
 // 悬浮工具栏窗口
 //
-inline int FTB_WINDOW_WIDTH = 174;
-inline int FTB_WINDOW_HEIGHT = 28;
+inline int FTB_WND_WIDTH = 207;
+inline int FTB_WND_HEIGHT = 38;
+inline int FTB_WND_SHADOW_WIDTH = 8;
 
 inline HWND global_hwnd_ftb = NULL;
 inline bool is_global_wnd_ftb_shown = false;

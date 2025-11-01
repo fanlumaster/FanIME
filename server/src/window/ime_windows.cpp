@@ -17,6 +17,7 @@
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "window_hook.h"
+#include <windowsx.h>
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -186,24 +187,24 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // floating toolbar 窗口
     //
-    dwExStyle = WS_EX_LAYERED |                         //
-                WS_EX_TOOLWINDOW |                      //
-                WS_EX_NOACTIVATE |                      //
-                WS_EX_TOPMOST;                          //
-    HWND hwnd_ftb = CreateWindowEx(                     //
-        dwExStyle,                                      //
-        szWindowClass,                                  //
-        lpWindowNameFtb,                                //
-        WS_POPUP,                                       //
-        800,                                            //
-        800,                                            //
-        (::FTB_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
-        (::FTB_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
-        nullptr,                                        //
-        nullptr,                                        //
-        hInstance,                                      //
-        nullptr                                         //
-    );                                                  //
+    dwExStyle = WS_EX_LAYERED |                              //
+                WS_EX_TOOLWINDOW |                           //
+                WS_EX_NOACTIVATE |                           //
+                WS_EX_TOPMOST;                               //
+    HWND hwnd_ftb = CreateWindowEx(                          //
+        dwExStyle,                                           //
+        szWindowClass,                                       //
+        lpWindowNameFtb,                                     //
+        WS_POPUP,                                            //
+        800,                                                 //
+        800,                                                 //
+        (::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale,  //
+        (::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale, //
+        nullptr,                                             //
+        nullptr,                                             //
+        hInstance,                                           //
+        nullptr                                              //
+    );                                                       //
     if (!hwnd_ftb)
     {
         OutputDebugString(fmt::format(L"Call to CreateWindow for floating toolbar failed!\n").c_str());

@@ -716,6 +716,24 @@ HRESULT OnControllerCreatedFtbWnd(      //
         OutputDebugString(fmt::format(L"Failed to navigate to string.").c_str());
     }
 
+    /* 使 floating toolbar 窗口可拖动 */
+    webviewFtbWnd->add_WebMessageReceived(                     //
+        Callback<ICoreWebView2WebMessageReceivedEventHandler>( //
+            [hwnd](ICoreWebView2 *sender,                      //
+                   ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                wil::unique_cotaskmem_string message;
+                args->get_WebMessageAsJson(&message);
+                std::wstring json = message.get();
+                if (json.find(L"dragStart") != std::string::npos)
+                {
+                    ReleaseCapture();
+                    SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                }
+                return S_OK;
+            })
+            .Get(),
+        nullptr);
+
     /* Debug console */
     // webviewFtbWindow->OpenDevToolsWindow();
 
