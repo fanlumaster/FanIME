@@ -157,8 +157,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // settings 窗口
     //
     dwExStyle = WS_EX_LAYERED |               //
-                WS_EX_APPWINDOW |             //
-                WS_EX_NOACTIVATE;             //
+                WS_EX_APPWINDOW;              //
     DWORD styleSettingsWnd = WS_POPUP |       //
                              WS_SYSMENU |     //
                              WS_MINIMIZEBOX | //
