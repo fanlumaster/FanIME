@@ -39,8 +39,8 @@ inline bool is_global_wnd_menu_shown = false;
 //
 // settings 窗口
 //
-inline int SETTINGS_WINDOW_WIDTH = 800;
-inline int SETTINGS_WINDOW_HEIGHT = 600;
+inline int SETTINGS_WINDOW_WIDTH = 900;
+inline int SETTINGS_WINDOW_HEIGHT = 680;
 
 inline HWND global_hwnd_settings = NULL;
 inline bool is_global_wnd_settings_shown = false;

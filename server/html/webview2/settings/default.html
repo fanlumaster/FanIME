@@ -46,11 +46,9 @@
     }
 
     .sidebar {
-      width: 240px;
+      width: 200px;
       display: flex;
       flex-direction: column;
-      background: var(--sidebar-bg);
-      border-right: 1px solid var(--border-color);
       padding: 12px 0;
       overflow-y: auto;
     }
@@ -70,20 +68,19 @@
     }
 
     .sidebar-header span {
-      font-weight: 600;
-      font-size: 16px;
+      font-weight: 500;
+      font-size: 18px;
     }
 
     .sidebar .item {
-      padding: 10px 24px;
-      cursor: pointer;
+      padding: 6px 24px;
       display: flex;
       align-items: center;
       position: relative;
       transition: background 0.2s, color 0.2s;
-      border-radius: 8px;
+      border-radius: 5px;
       margin: 2px 8px;
-      color: #ccc;
+      color: #e6e6e6;
     }
 
     .sidebar .item:hover {
@@ -97,25 +94,25 @@
     .sidebar .item.active::before {
       content: "";
       position: absolute;
-      left: 8px;
-      width: 3px;
-      height: 40%;
+      left: -2px;
+      width: 4px;
+      height: 50%;
       border-radius: 3px;
       background: var(--accent-color);
     }
 
     .content {
       flex: 1;
-      padding: 32px 48px;
+      padding: 12px 12px;
       overflow-y: auto;
     }
 
     .section {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 12px;
+      border-radius: 8px;
       padding: 20px 24px;
-      margin-bottom: 24px;
+      margin-bottom: 18px;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
       backdrop-filter: blur(10px);
     }
@@ -148,31 +145,134 @@
       accent-color: var(--accent-color);
     }
 
-    .candidate-preview {
-      display: flex;
-      gap: 6px;
-      background: rgba(50, 50, 50, 0.8);
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-    }
-
-    .candidate-preview span {
-      padding: 6px 12px;
+    .candidate-container {
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      background-color: #202020;
+      padding: 2px;
       border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-      color: #ddd;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      min-width: 7em;
+      width: fit-content;
+      user-select: none;
+      border: 2px solid #9b9b9b2e;
     }
 
-    .candidate-preview span:hover {
-      background: rgba(255, 255, 255, 0.1);
+    .candidate-row {
+      justify-content: space-between;
+      padding: 2px;
+      padding-right: 12px;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+    }
+
+    .candidate-cand {
+      border-radius: 6px;
+    }
+
+    .candidate-row-wrapper {
+      position: relative;
+    }
+
+    .candidate-first {
+      background-color: #3e3e3eb9;
+      border-radius: 6px;
+    }
+
+    .candidate-first::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 0.8em;
+      width: 0.2em;
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+
+    .candidate-text {
+      padding-left: 8px;
+      color: #e9e8e8;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    /* 下拉按钮主体 */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-toggle {
+      background: rgba(45, 45, 45, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #f3f3f3;
+      font-size: 14px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 100px;
+      text-align: left;
+    }
+
+    .dropdown-toggle:hover {
+      background: rgba(55, 55, 55, 0.95);
+      border-color: var(--accent-color);
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: rgba(40, 40, 40, 0.96);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      min-width: 120px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+      z-index: 999;
+      overflow: hidden;
+      animation: dropdownFade 0.12s ease-out;
+    }
+
+    @keyframes dropdownFade {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .dropdown-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      color: #eee;
+    }
+
+    .dropdown-item:hover {
+      background: rgba(255, 255, 255, 0.08);
       color: #fff;
     }
 
-    .candidate-preview span.active {
-      background: var(--accent-color);
-      color: white;
+    .dropdown.open .dropdown-menu {
+      display: block;
     }
   </style>
 </head>
@@ -181,11 +281,12 @@
   <div class="main">
     <div class="sidebar">
       <div class="sidebar-header">
-        <img src="https://imesettings/assets/MetasequoiaIME.ico" alt="">
+        <!-- <img src="https://imesettings/assets/MetasequoiaIME.ico" alt=""> -->
+        <img src="./assets/MetasequoiaIME.ico" alt="">
         <span>水杉输入法</span>
       </div>
-      <div class="item active">通用</div>
-      <div class="item">外观</div>
+      <div class="item">通用</div>
+      <div class="item active">外观</div>
       <div class="item">输入</div>
       <div class="item">快捷键</div>
       <div class="item">词库管理</div>
@@ -197,22 +298,68 @@
 
     <div class="content">
       <div class="section">
-        <h2>默认主题模式</h2>
-        <select>
-          <option value="dark" selected>深色</option>
-          <option value="light">浅色</option>
-        </select>
+        <h2>候选窗口预览</h2>
+        <div class="candidate-container">
+          <div class="candidate-row">
+            <div class="candidate-text">ni</div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand candidate-first">
+              <div class="candidate-text">1 你你(rX)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">2 什么(rP)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">3 量(oA)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">4 牛(pA)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">5 仙(rE)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">6 可(dK)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">7 木(aN)</div>
+            </div>
+          </div>
+          <div class="candidate-row-wrapper">
+            <div class="candidate-row candidate-cand"></div>
+            <div class="candidate-text">8 无(aV)</div>
+          </div>
+        </div>
       </div>
 
       <div class="section">
-        <h2>候选词预览</h2>
-        <div class="candidate-preview">
-          <span>水</span>
-          <span>杉</span>
-          <span class="active">输入法</span>
+        <div class="section-header">
+          <h2>主题模式</h2>
+          <div class="dropdown">
+            <button class="dropdown-toggle" id="themeBtn">深色 ▾</button>
+            <div class="dropdown-menu" id="themeMenu">
+              <div class="dropdown-item" data-value="dark">深色</div>
+              <div class="dropdown-item" data-value="light">浅色</div>
+              <div class="dropdown-item" data-value="system">跟随系统</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <script>
