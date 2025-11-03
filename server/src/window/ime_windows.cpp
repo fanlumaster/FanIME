@@ -18,6 +18,7 @@
 #include "utils/ime_utils.h"
 #include "window_hook.h"
 #include <windowsx.h>
+#include "resource/resource.h"
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -46,7 +47,8 @@ LRESULT RegisterIMEWindowsClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
+    wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IME_ICON));
+    wcex.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IME_ICON));
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
     /* We do not need background color, otherwise it will flash when rendering */
     wcex.hbrBackground = NULL;
@@ -156,34 +158,42 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // settings 窗口
     //
-    dwExStyle = WS_EX_LAYERED |               //
-                WS_EX_APPWINDOW;              //
-    DWORD styleSettingsWnd = WS_POPUP |       //
-                             WS_SYSMENU |     //
-                             WS_MINIMIZEBOX | //
-                             WS_MAXIMIZEBOX;  //
-    HWND hwnd_settings = CreateWindowEx(      //
-        dwExStyle,                            //
-        szWindowClass,                        //
-        lpWindowNameSettings,                 //
-        styleSettingsWnd,                     //
-        400,                                  //
-        400,                                  //
-        (::SETTINGS_WINDOW_WIDTH)*scale,      //
-        (::SETTINGS_WINDOW_HEIGHT)*scale,     //
-        nullptr,                              //
-        nullptr,                              //
-        hInstance,                            //
-        nullptr                               //
-    );                                        //
+    dwExStyle = 0;                        //
+    HWND hwnd_settings = CreateWindowEx(  //
+        dwExStyle,                        //
+        szWindowClass,                    //
+        lpWindowNameSettings,             //
+        WS_OVERLAPPEDWINDOW,              //
+        400,                              //
+        400,                              //
+        (::SETTINGS_WINDOW_WIDTH)*scale,  //
+        (::SETTINGS_WINDOW_HEIGHT)*scale, //
+        nullptr,                          //
+        nullptr,                          //
+        hInstance,                        //
+        nullptr                           //
+    );                                    //
     if (!hwnd_settings)
     {
         OutputDebugString(fmt::format(L"Call to CreateWindow for settings failed!\n").c_str());
         return 1;
     }
-    MARGINS m_settings{-1}; // 全部填满
-    DwmExtendFrameIntoClientArea(hwnd_settings, &m_settings);
+    // 使用 DWM 允许透明
+    DWM_BLURBEHIND bb = {0};
+    bb.dwFlags = DWM_BB_ENABLE;
+    bb.fEnable = TRUE;
+    bb.hRgnBlur = nullptr;
+    DwmEnableBlurBehindWindow(hwnd_settings, &bb);
+    BOOL useDarkMode = TRUE;
+    DwmSetWindowAttribute(             //
+        hwnd_settings,                 //
+        DWMWA_USE_IMMERSIVE_DARK_MODE, //
+        &useDarkMode,                  //
+        sizeof(useDarkMode)            //
+    );
     ::global_hwnd_settings = hwnd_settings;
+    BOOL cloak = TRUE;
+    DwmSetWindowAttribute(hwnd_settings, DWMWA_CLOAK, &cloak, sizeof(cloak));
 
     //
     // floating toolbar 窗口
@@ -218,7 +228,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     ShowWindow(hwnd, SW_SHOW);
     ShowWindow(hwnd_menu, SW_SHOW);
-    ShowWindow(hwnd_settings, SW_SHOW);
+    ShowWindow(hwnd_settings, SW_SHOWMINIMIZED);
+    ShowWindow(hwnd_settings, SW_RESTORE);
     ShowWindow(hwnd_ftb, SW_SHOW);
     UpdateWindow(hwnd);
     UpdateWindow(hwnd_menu);
@@ -479,6 +490,25 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
 {
     switch (message)
     {
+    case WM_ERASEBKGND: { // Make the background dark
+        // HDC hdc = (HDC)wParam;
+        // RECT rc;
+        // GetClientRect(hwnd, &rc);
+
+        // HBRUSH darkBrush = CreateSolidBrush(RGB(32, 32, 32));
+        // FillRect(hdc, &rc, darkBrush);
+        // DeleteObject(darkBrush);
+        return 1;
+    }
+    case WM_SIZE: {
+        if (::webviewControllerSettingsWnd)
+        {
+            RECT rect;
+            GetClientRect(hwnd, &rect);
+            webviewControllerSettingsWnd->put_Bounds(rect);
+        }
+        break;
+    }
     default: {
         return DefWindowProc(hwnd, message, wParam, lParam);
     }

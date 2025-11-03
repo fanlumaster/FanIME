@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string>
 #include <windows.h>
+#include <dwmapi.h>
 #include "global/globals.h"
 #include "fmt/xchar.h"
 
@@ -556,10 +557,15 @@ HRESULT OnControllerCreatedSettingsWnd( //
     // Configure virtual host path
     if (SUCCEEDED(webviewSettingsWnd->QueryInterface(IID_PPV_ARGS(&webview3SettingsWnd))))
     {
+        const std::wstring assetPath = fmt::format(                   //
+            L"{}\\{}\\html\\webview2\\settings",                      //
+            string_to_wstring(CommonUtils::get_local_appdata_path()), //
+            GlobalIme::AppName                                        //
+        );
         // Assets mapping
         webview3SettingsWnd->SetVirtualHostNameToFolderMapping( //
-            L"appassets",                                       //
-            ::LocalAssetsPath.c_str(),                          //
+            L"imesettings",                                     //
+            assetPath.c_str(),                                  //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS    //
         );                                                      //
     }
@@ -574,16 +580,35 @@ HRESULT OnControllerCreatedSettingsWnd( //
     // Adjust to window size
     RECT bounds;
     GetClientRect(hwnd, &bounds);
-    bounds.right += boundRightExtra;
-    bounds.bottom += boundBottomExtra;
     webviewControllerSettingsWnd->put_Bounds(bounds);
 
     // Navigate to HTML
-    HRESULT hr = webviewSettingsWnd->NavigateToString(::HTMLStringSettingsWnd.c_str());
+    // HRESULT hr = webviewSettingsWnd->NavigateToString(::HTMLStringSettingsWnd.c_str());
+    std::wstring url = L"https://imesettings/default.html";
+    HRESULT hr = webviewSettingsWnd->Navigate(url.c_str());
     if (FAILED(hr))
     {
         OutputDebugString(fmt::format(L"Failed to navigate to string.").c_str());
     }
+
+    EventRegistrationToken navCompletedToken;
+    webviewSettingsWnd->add_NavigationCompleted(
+        Callback<ICoreWebView2NavigationCompletedEventHandler>( //
+            [hwnd](ICoreWebView2 *sender, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
+                BOOL success;
+                args->get_IsSuccess(&success);
+                if (success)
+                {
+                    OutputDebugString(L"✅ WebView2 页面加载完成\n");
+                    // 在这里执行你想等页面准备好的逻辑，比如执行 JS 初始化
+
+                    BOOL cloak = FALSE;
+                    DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
+                }
+                return S_OK;
+            })
+            .Get(),
+        &navCompletedToken);
 
     /* Debug console */
     // webviewSettingsWindow->OpenDevToolsWindow();

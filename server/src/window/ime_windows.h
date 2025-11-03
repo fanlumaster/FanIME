@@ -9,7 +9,7 @@ inline WCHAR lpWindowNameCand[] = L"metaseuqoiaimecandwnd";
 /* 菜单窗口 */
 inline WCHAR lpWindowNameMenu[] = L"metaseuqoiaimemenuwnd";
 /* settings 窗口 */
-inline WCHAR lpWindowNameSettings[] = L"metaseuqoiaimesettingswnd";
+inline WCHAR lpWindowNameSettings[] = L"Settings";
 /* floating toolbar 窗口 */
 inline WCHAR lpWindowNameFtb[] = L"metaseuqoiaimeftbwnd";
 

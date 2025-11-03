@@ -49,6 +49,8 @@ set(SRC_FILES
     "./src/ipc/ipc.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
+    "./src/resource/resource.h"
+    "./src/resource/resource.rc"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
     "./src/utils/ime_utils.cpp"
