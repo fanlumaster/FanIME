@@ -539,6 +539,9 @@ void HandleImeKey(HANDLE hEvent)
             // 详细处理一下造词的逻辑
             if (GlobalIme::is_during_creating_word)
             {
+                /* 造词的时候，不可以更新词频 */
+                isNeedUpdateWeight = false;
+
                 /* 造词的第一次的完整的拼音就是所需的拼音 */
                 if (GlobalIme::pinyin_for_creating_word.empty())
                 {
