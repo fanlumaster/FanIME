@@ -5,275 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>(IME)Settings</title>
+  <link rel="icon" href="./assets/MetasequoiaIME.ico">
+  <link href="./style.css" rel="stylesheet">
   <style>
-    :root {
-      --accent-color: #8E8CD8;
-      --bg-color: rgba(32, 32, 32, 0.65);
-      --sidebar-bg: rgba(25, 25, 25, 0.7);
-      --sidebar-hover: rgba(255, 255, 255, 0.09);
-      --item-active-hover: rgba(255, 255, 255, 0.06);
-      --text-color: #f3f3f3;
-      --border-color: rgba(255, 255, 255, 0.08);
-      --card-bg: rgba(38, 38, 38, 0.8);
-      --titlebar-height: 32px;
-    }
-
-    * {
-      box-sizing: border-box;
-      font-family: "Segoe UI Variable", "Segoe UI", "Noto Sans SC", sans-serif;
-      user-select: none;
-    }
-
-    body {
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      width: 100vw;
-      color: var(--text-color);
-      /* background: var(--bg-color); */
-      background: #202020;
-      /* backdrop-filter: blur(20px) saturate(160%); */
-      -webkit-backdrop-filter: blur(20px) saturate(160%);
-      /* overflow: hidden; */
-    }
-
-    /* 主体区域 */
-    .main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .sidebar {
-      width: 200px;
-      display: flex;
-      flex-direction: column;
-      padding: 12px 0;
-      overflow-y: auto;
-    }
-
-    .sidebar-header {
-      display: flex;
-      align-items: center;
-      padding: 0 24px 12px 24px;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-
-    .sidebar-header img {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-    }
-
-    .sidebar-header span {
-      font-weight: 500;
-      font-size: 18px;
-    }
-
-    .sidebar .item {
-      padding: 6px 24px;
-      display: flex;
-      align-items: center;
-      position: relative;
-      transition: background 0.2s, color 0.2s;
-      border-radius: 5px;
-      margin: 2px 8px;
-      color: #e6e6e6;
-    }
-
-    .sidebar .item:hover {
-      background: var(--sidebar-hover);
-    }
-
-    .sidebar .item.active {
-      background: var(--item-active-hover);
-    }
-
-    .sidebar .item.active::before {
-      content: "";
-      position: absolute;
-      left: -2px;
-      width: 4px;
-      height: 50%;
-      border-radius: 3px;
-      background: var(--accent-color);
-    }
-
-    .content {
-      flex: 1;
-      padding: 12px 12px;
-      overflow-y: auto;
-    }
-
-    .section {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 20px 24px;
-      margin-bottom: 18px;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-      backdrop-filter: blur(10px);
-    }
-
-    .section h2 {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      color: #ccc;
-    }
-
-    select {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      background-color: rgba(45, 45, 45, 0.8);
-      color: #f3f3f3;
-      font-size: 14px;
-      transition: border 0.2s, background 0.2s;
-    }
-
-    select:focus {
-      outline: none;
-      border: 1px solid var(--accent-color);
-      background-color: rgba(50, 50, 50, 0.9);
-    }
-
-    input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent-color);
-    }
-
-    .candidate-container {
-      font-family: Arial, sans-serif;
-      font-size: 16px;
-      background-color: #202020;
-      padding: 2px;
-      border-radius: 6px;
-      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
-      min-width: 7em;
-      width: fit-content;
-      user-select: none;
-      border: 2px solid #9b9b9b2e;
-    }
-
-    .candidate-row {
-      justify-content: space-between;
-      padding: 2px;
-      padding-right: 12px;
-      padding-top: 0;
-      padding-bottom: 0;
-      margin-top: 2px;
-      display: flex;
-      align-items: center;
-    }
-
-    .candidate-cand {
-      border-radius: 6px;
-    }
-
-    .candidate-row-wrapper {
-      position: relative;
-    }
-
-    .candidate-first {
-      background-color: #3e3e3eb9;
-      border-radius: 6px;
-    }
-
-    .candidate-first::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      height: 0.8em;
-      width: 0.2em;
-      background: #6b69d6;
-      border-radius: 8px;
-    }
-
-    .candidate-text {
-      padding-left: 8px;
-      color: #e9e8e8;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    /* 下拉按钮主体 */
-    .dropdown {
-      position: relative;
-      display: inline-block;
-    }
-
-    .dropdown-toggle {
-      background: rgba(45, 45, 45, 0.85);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      color: #f3f3f3;
-      font-size: 14px;
-      padding: 6px 12px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      min-width: 100px;
-      text-align: left;
-    }
-
-    .dropdown-toggle:hover {
-      background: rgba(55, 55, 55, 0.95);
-      border-color: var(--accent-color);
-    }
-
-    .dropdown-menu {
-      display: none;
-      position: absolute;
-      right: 0;
-      top: calc(100% + 6px);
-      background: rgba(40, 40, 40, 0.96);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      min-width: 120px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(12px);
-      z-index: 999;
-      overflow: hidden;
-      animation: dropdownFade 0.12s ease-out;
-    }
-
-    @keyframes dropdownFade {
-      from {
-        opacity: 0;
-        transform: translateY(-4px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .dropdown-item {
-      padding: 8px 12px;
-      cursor: pointer;
-      transition: background 0.15s;
-      color: #eee;
-    }
-
-    .dropdown-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #fff;
-    }
-
-    .dropdown.open .dropdown-menu {
-      display: block;
-    }
   </style>
 </head>
 
@@ -281,75 +15,84 @@
   <div class="main">
     <div class="sidebar">
       <div class="sidebar-header">
-        <!-- <img src="https://imesettings/assets/MetasequoiaIME.ico" alt=""> -->
         <img src="./assets/MetasequoiaIME.ico" alt="">
         <span>水杉输入法</span>
       </div>
-      <div class="item">通用</div>
-      <div class="item active">外观</div>
-      <div class="item">输入</div>
-      <div class="item">快捷键</div>
-      <div class="item">词库管理</div>
-      <div class="item">皮肤</div>
-      <div class="item">帮助</div>
-      <div class="item">关于</div>
-      <div class="item">反馈</div>
+      <div class="item"><span class="icon">⚙️</span> 通用</div>
+      <div class="item active"><span class="icon">🎨</span> 外观</div>
+      <div class="item"><span class="icon input-icon">⌨️</span> 输入</div>
+      <div class="item"><span class="icon">🧩</span> 辅助码</div>
+      <div class="item"><span class="icon">⌘</span> 快捷键</div>
+      <div class="item"><span class="icon">📚</span> 词库</div>
+      <div class="item"><span class="icon">🖼️</span> 皮肤</div>
+      <div class="item"><span class="icon">🎙️</span> 语音打字</div>
+      <div class="item"><span class="icon">🤖</span> AI 辅助</div>
+      <div class="item"><span class="icon">❓</span> 帮助</div>
+      <div class="item"><span class="icon">ℹ️</span> 关于</div>
+      <div class="item"><span class="icon">💬</span> 反馈</div>
     </div>
 
     <div class="content">
-      <div class="section">
+      <!-- 候选窗口预览 -->
+      <div class="section candidate-preview">
         <h2>候选窗口预览</h2>
         <div class="candidate-container">
           <div class="candidate-row">
-            <div class="candidate-text">ni</div>
+            <div class="candidate-text">ni'mf</div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand candidate-first">
-              <div class="candidate-text">1 你你(rX)</div>
+              <div class="candidate-text">1 你们(rR)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand">
-              <div class="candidate-text">2 什么(rP)</div>
+              <div class="candidate-text">2 你(rX)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand">
-              <div class="candidate-text">3 量(oA)</div>
+              <div class="candidate-text">3 尼(uV)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand">
-              <div class="candidate-text">4 牛(pA)</div>
+              <div class="candidate-text">4 妮(nV)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand">
-              <div class="candidate-text">5 仙(rE)</div>
+              <div class="candidate-text">5 泥(dV)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand">
-              <div class="candidate-text">6 可(dK)</div>
+              <div class="candidate-text">6 逆(zQ)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
             <div class="candidate-row candidate-cand">
-              <div class="candidate-text">7 木(aN)</div>
+              <div class="candidate-text">7 拟(fR)</div>
             </div>
           </div>
           <div class="candidate-row-wrapper">
-            <div class="candidate-row candidate-cand"></div>
-            <div class="candidate-text">8 无(aV)</div>
+            <div class="candidate-row candidate-cand">
+              <div class="candidate-text">8 腻(oD)</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="section">
+      <div class="section theme">
         <div class="section-header">
           <h2>主题模式</h2>
           <div class="dropdown">
-            <button class="dropdown-toggle" id="themeBtn">深色 ▾</button>
+            <button class="dropdown-toggle" id="themeBtn">
+              <span>深色</span>
+              <div class="arrow">
+                <img src="./assets/arrow.svg" alt="arrow">
+              </div>
+            </button>
             <div class="dropdown-menu" id="themeMenu">
               <div class="dropdown-item" data-value="dark">深色</div>
               <div class="dropdown-item" data-value="light">浅色</div>
@@ -363,23 +106,42 @@
   </div>
 
   <script>
-    function onMinimize() {
-      if (window.chrome?.webview) {
-        window.chrome.webview.postMessage({ action: "minimize" });
-      }
-    }
+    const btn = document.getElementById('themeBtn');
+    const menu = document.getElementById('themeMenu');
+    const dropdown = document.querySelector('.dropdown');
+    const textSpan = btn.querySelector('span');
 
-    function onMaximize() {
-      if (window.chrome?.webview) {
-        window.chrome.webview.postMessage({ action: "maximize" });
-      }
-    }
+    // 打开/关闭下拉菜单
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    });
 
-    function onClose() {
-      if (window.chrome?.webview) {
-        window.chrome.webview.postMessage({ action: "close" });
+    // 点击菜单项
+    menu.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const value = item.dataset.value;
+        const text = item.textContent;
+
+        // 更新按钮文字
+        textSpan.textContent = text;
+
+        // 可选：发送给 webview 通知主题变化
+        if (window.chrome?.webview) {
+          window.chrome.webview.postMessage({ action: "changeTheme", theme: value });
+        }
+
+        // 关闭菜单
+        dropdown.classList.remove('open');
+      });
+    });
+
+    // 点击其他地方关闭菜单
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('open');
       }
-    }
+    });
   </script>
 </body>
 
