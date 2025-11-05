@@ -194,6 +194,11 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     ::global_hwnd_settings = hwnd_settings;
     BOOL cloak = TRUE;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_CLOAK, &cloak, sizeof(cloak));
+    /* 设置标题栏和窗口区域为 mica 材质 */
+    MARGINS margins = {-1};
+    DwmExtendFrameIntoClientArea(hwnd_settings, &margins);
+    DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_MAINWINDOW; // Mica 背景类型
+    DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
 
     //
     // floating toolbar 窗口

@@ -6,7 +6,7 @@
   --item-active-hover: rgba(255, 255, 255, 0.06);
   --text-color: #f3f3f3;
   --border-color: rgba(255, 255, 255, 0.08);
-  --card-bg: rgba(38, 38, 38, 0.8);
+  --card-bg: rgba(38, 38, 38, 0.5);
   --titlebar-height: 32px;
 }
 
@@ -24,7 +24,8 @@ body {
   width: 100vw;
   color: var(--text-color);
   /* background: var(--bg-color); */
-  background: #202020;
+  /* background: #202020; */
+  background: transparent;
   /* backdrop-filter: blur(20px) saturate(160%); */
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   /* overflow: hidden; */
