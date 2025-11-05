@@ -2,7 +2,7 @@
   --accent-color: #8E8CD8;
   --bg-color: rgba(32, 32, 32, 0.65);
   --sidebar-bg: rgba(25, 25, 25, 0.7);
-  --sidebar-hover: rgba(255, 255, 255, 0.09);
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
   --item-active-hover: rgba(255, 255, 255, 0.06);
   --text-color: #f3f3f3;
   --border-color: rgba(255, 255, 255, 0.08);
@@ -92,7 +92,8 @@ body {
   justify-content: flex-start;
   gap: 15px;
   position: relative;
-  transition: background 0.2s, color 0.2s;
+  /* transition: background 0.02s, color 0.02s; */
+  transition: none;
   border-radius: 5px;
   margin: 2px 8px;
   color: #e6e6e6;
@@ -104,6 +105,11 @@ body {
 
 .sidebar .item.active {
   background: var(--item-active-hover);
+}
+
+.sidebar .item.active:hover {
+  background: var(--sidebar-hover);
+  color: #fff;
 }
 
 .sidebar .item.active::before {
@@ -189,7 +195,7 @@ input[type="range"] {
 }
 
 .candidate-cand {
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .candidate-row-wrapper {
@@ -198,7 +204,7 @@ input[type="range"] {
 
 .candidate-first {
   background-color: #3e3e3eb9;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .candidate-first::before {
