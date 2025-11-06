@@ -75,7 +75,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
                       WS_EX_TOPMOST;     //
     FLOAT scale = GetForegroundWindowScale();
 
-    HWND hwnd = CreateWindowEx(                               //
+    HWND hwnd_cand = CreateWindowEx(                          //
         dwExStyle,                                            //
         szWindowClass,                                        //
         lpWindowNameCand,                                     //
@@ -90,7 +90,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         nullptr                                               //
     );                                                        //
 
-    if (!hwnd)
+    if (!hwnd_cand)
     {
         OutputDebugString(fmt::format(L"Call to CreateWindow for candidate window failed!\n").c_str());
         return 1;
@@ -98,15 +98,15 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     else
     {
         // Set the window to be fully not transparent
-        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+        SetLayeredWindowAttributes(hwnd_cand, 0, 255, LWA_ALPHA);
         MARGINS mar = {-1};
-        DwmExtendFrameIntoClientArea(hwnd, &mar);
+        DwmExtendFrameIntoClientArea(hwnd_cand, &mar);
     }
 
-    ::global_hwnd = hwnd;
+    ::global_hwnd = hwnd_cand;
 
     SetWindowPos(                                             //
-        hwnd,                                                 //
+        hwnd_cand,                                            //
         HWND_TOPMOST,                                         //
         -10000,                                               //
         -10000,                                               //
@@ -116,7 +116,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     );
 
     SetWindowPos(                                             //
-        hwnd,                                                 //
+        hwnd_cand,                                            //
         HWND_TOPMOST,                                         //
         100,                                                  //
         100,                                                  //
@@ -197,8 +197,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     /* 设置标题栏和窗口区域为 mica 材质 */
     MARGINS margins = {-1};
     DwmExtendFrameIntoClientArea(hwnd_settings, &margins);
-    DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_MAINWINDOW; // Mica 背景类型
-    DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+    DWM_SYSTEMBACKDROP_TYPE backdrop_settings = DWMSBT_MAINWINDOW; // Mica 背景类型
+    DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop_settings, sizeof(backdrop_settings));
 
     //
     // floating toolbar 窗口
@@ -231,12 +231,12 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口、floating toolbar hover tip 窗口
     //
-    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd_cand, SW_SHOW);
     ShowWindow(hwnd_menu, SW_SHOW);
     ShowWindow(hwnd_settings, SW_SHOWMINIMIZED);
     ShowWindow(hwnd_settings, SW_RESTORE);
     ShowWindow(hwnd_ftb, SW_SHOW);
-    UpdateWindow(hwnd);
+    UpdateWindow(hwnd_cand);
     UpdateWindow(hwnd_menu);
     UpdateWindow(hwnd_settings);
     UpdateWindow(hwnd_ftb);
@@ -246,7 +246,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     PrepareHtmlForWnds();
     /* 候选框窗口 */
-    InitWebviewCandWnd(hwnd);
+    InitWebviewCandWnd(hwnd_cand);
     /* 托盘语言区右键菜单窗口 */
     InitWebviewMenuWnd(hwnd_menu);
     /* settings 窗口 */

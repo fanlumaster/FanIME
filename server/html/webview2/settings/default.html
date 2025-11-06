@@ -18,24 +18,44 @@
         <img src="./assets/MetasequoiaIME.ico" alt="">
         <span>水杉输入法</span>
       </div>
-      <div class="item"><span class="icon">⚙️</span> 通用</div>
-      <div class="item active"><span class="icon">🎨</span> 外观</div>
-      <div class="item"><span class="icon input-icon">⌨️</span> 输入</div>
-      <div class="item"><span class="icon">🧩</span> 辅助码</div>
-      <div class="item"><span class="icon">⌘</span> 快捷键</div>
-      <div class="item"><span class="icon">📚</span> 词库</div>
-      <div class="item"><span class="icon">🖼️</span> 皮肤</div>
-      <div class="item"><span class="icon">🎙️</span> 语音打字</div>
-      <div class="item"><span class="icon">🤖</span> AI 辅助</div>
-      <div class="item"><span class="icon">❓</span> 帮助</div>
-      <div class="item"><span class="icon">ℹ️</span> 关于</div>
-      <div class="item"><span class="icon">💬</span> 反馈</div>
+      <div class="item" data-target="general-settings"><span class="icon">⚙️</span> 通用</div>
+      <div class="item active" data-target="appearence-settings"><span class="icon">🎨</span> 外观</div>
+      <div class="item" data-target="input-settings"><span class="icon input-icon">⌨️</span> 输入</div>
+      <div class="item" data-target="helpcode-settings"><span class="icon">🧩</span> 辅助码</div>
+      <div class="item" data-target="shortcut-settings"><span class="icon">⌘</span> 快捷键</div>
+      <div class="item" data-target="dict-settings"><span class="icon">📚</span> 词库</div>
+      <div class="item" data-target="skin-settings"><span class="icon">🖼️</span> 皮肤</div>
+      <div class="item" data-target="voice-settings"><span class="icon">🎙️</span> 语音打字</div>
+      <div class="item" data-target="screenkb-settings"><span class="icon">🖥️</span> 屏幕键盘</div>
+      <div class="item" data-target="tools-settings"><span class="icon">🛠️</span> 实用功能</div>
+      <div class="item" data-target="ai-settings"><span class="icon">🤖</span> AI 辅助</div>
+      <div class="item" data-target="help-settings"><span class="icon">❓</span> 帮助</div>
+      <div class="item" data-target="about-settings"><span class="icon">ℹ️</span> 关于</div>
+      <div class="item" data-target="feedback-settings"><span class="icon">💬</span> 反馈</div>
     </div>
 
-    <div class="content">
+    <!-- 通用 -->
+    <div class="content" id="general-settings">
+      <div class="content-header"><span>通用</span></div>
+
+      <!-- 悬浮工具栏 toggle -->
+      <div class="section ftb-toggle">
+        <div class="section-header">
+          <div class="section-title">悬浮工具栏</div>
+          <div class="ftb-toggle-btn" id="ftbToggleBtn">
+            <div class="ftb-toggle-knob"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 外观 -->
+    <div class="content active" id="appearence-settings">
+      <div class="content-header"><span>外观</span></div>
+
       <!-- 候选窗口预览 -->
       <div class="section candidate-preview">
-        <h2>候选窗口预览</h2>
+        <div class="section-title cand-prev-title">候选窗口预览</div>
         <div class="candidate-container">
           <div class="candidate-row">
             <div class="candidate-text">ni'mf</div>
@@ -83,9 +103,10 @@
         </div>
       </div>
 
+      <!-- 主题模式 -->
       <div class="section theme">
         <div class="section-header">
-          <h2>主题模式</h2>
+          <div class="section-title">主题模式(默认)</div>
           <div class="dropdown">
             <button class="dropdown-toggle" id="themeBtn">
               <span>深色</span>
@@ -100,47 +121,153 @@
             </div>
           </div>
         </div>
+
+        <div class="divider"></div>
+
+        <div class="section-header arrange-item">
+          <div class="section-title">候选项排列方式</div>
+          <div class="dropdown">
+            <button class="dropdown-toggle" id="arrangeBtn">
+              <span>竖排</span>
+              <div class="arrow">
+                <img src="./assets/arrow.svg" alt="arrow">
+              </div>
+            </button>
+            <div class="dropdown-menu" id="arrangeMenu">
+              <div class="dropdown-item" data-value="horizontal">横排</div>
+              <div class="dropdown-item" data-value="vertical">竖排</div>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <!-- 输入 -->
+    <div class="content" id="input-settings">
+      <div class="content-header"><span>输入</span></div>
+    </div>
+
+    <!-- 辅助码 -->
+    <div class="content" id="helpcode-settings">
+      <div class="content-header"><span>辅助码</span></div>
+    </div>
+
+    <!-- 快捷键 -->
+    <div class="content" id="shortcut-settings">
+      <div class="content-header"><span>快捷键</span></div>
+    </div>
+
+    <!-- 词库 -->
+    <div class="content" id="dict-settings">
+      <div class="content-header"><span>词库</span></div>
+    </div>
+
+    <!-- 皮肤 -->
+    <div class="content" id="skin-settings">
+      <div class="content-header"><span>皮肤</span></div>
+    </div>
+
+    <!-- 语音打字 -->
+    <div class="content" id="voice-settings">
+      <div class="content-header"><span>语音打字</span></div>
+    </div>
+
+    <!-- 屏幕键盘 -->
+    <div class="content" id="screenkb-settings">
+      <div class="content-header"><span>屏幕键盘</span></div>
+    </div>
+
+    <!-- 实用功能 -->
+    <div class="content" id="tools-settings">
+      <div class="content-header"><span>实用功能</span></div>
+    </div>
+
+    <!-- AI 辅助 -->
+    <div class="content" id="ai-settings">
+      <div class="content-header"><span>AI 辅助</span></div>
+    </div>
+
+    <!-- 帮助 -->
+    <div class="content" id="help-settings">
+      <div class="content-header"><span>帮助</span></div>
+    </div>
+
+    <!-- 关于 -->
+    <div class="content" id="about-settings">
+      <div class="content-header"><span>关于</span></div>
+    </div>
+
+    <!-- 反馈 -->
+    <div class="content" id="feedback-settings">
+      <div class="content-header"><span>反馈</span></div>
     </div>
   </div>
   </div>
 
   <script>
-    const btn = document.getElementById('themeBtn');
-    const menu = document.getElementById('themeMenu');
-    const dropdown = document.querySelector('.dropdown');
-    const textSpan = btn.querySelector('span');
 
-    // 打开/关闭下拉菜单
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dropdown.classList.toggle('open');
-    });
+    const sidebarItems = document.querySelectorAll('.sidebar .item');
 
-    // 点击菜单项
-    menu.querySelectorAll('.dropdown-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        const value = item.dataset.value;
-        const text = item.textContent;
+    sidebarItems.forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelector('.sidebar .item.active')?.classList.remove('active');
+        item.classList.add('active');
 
-        // 更新按钮文字
-        textSpan.textContent = text;
-
-        // 可选：发送给 webview 通知主题变化
-        if (window.chrome?.webview) {
-          window.chrome.webview.postMessage({ action: "changeTheme", theme: value });
-        }
-
-        // 关闭菜单
-        dropdown.classList.remove('open');
+        document.querySelector('.content.active')?.classList.remove('active');
+        const targetId = item.dataset.target;
+        document.getElementById(targetId)?.classList.add('active');
       });
     });
 
-    // 点击其他地方关闭菜单
-    document.addEventListener('click', (e) => {
-      if (!dropdown.contains(e.target)) {
-        dropdown.classList.remove('open');
-      }
+    //
+    // 外观 -> 主题模式(默认)
+    //
+    document.querySelectorAll('.dropdown').forEach(dropdown => {
+      const btn = dropdown.querySelector('.dropdown-toggle');
+      const menu = dropdown.querySelector('.dropdown-menu');
+      const textSpan = btn.querySelector('span');
+
+      // 打开/关闭菜单
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+      });
+
+      // 点击菜单项
+      menu.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+          textSpan.textContent = item.textContent;
+
+          // 根据按钮 id 区分动作
+          if (window.chrome?.webview) {
+            if (btn.id === 'themeBtn') {
+              window.chrome.webview.postMessage({ action: "changeTheme", theme: item.dataset.value });
+            } else if (btn.id === 'arrangeBtn') {
+              window.chrome.webview.postMessage({ action: "changeCandidateArrange", arrange: item.dataset.value });
+            }
+          }
+
+          dropdown.classList.remove('open');
+        });
+      });
+    });
+
+    // 点击空白处关闭所有下拉
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('open'));
+    });
+
+    //
+    // 外观 -> 候选项排列方式
+    //
+
+
+    //
+    // 通用 -> 悬浮工具栏
+    //
+    const toggle = document.getElementById('ftbToggleBtn');
+    toggle.addEventListener('click', () => {
+      toggle.classList.toggle('active');
     });
   </script>
 </body>
