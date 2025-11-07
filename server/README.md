@@ -1,6 +1,6 @@
 # Metasequoia IME Server(水杉输入法 Server 端)
 
-This is the server end of [MetaIME](https://github.com/fanlumaster/MetaIME).
+This is the server end of [MetasequoiaIME](https://github.com/fanlumaster/MetasequoiaIME).
 
 ## How to build
 
