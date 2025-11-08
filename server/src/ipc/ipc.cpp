@@ -439,9 +439,11 @@ void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData)
         &bytesWritten,              //
         NULL                        //
     );
-    if (!ret || bytesWritten != pipeData.length() * sizeof(wchar_t))
+    if (!ret || bytesWritten != sizeof(namedpipeDataToTsf))
     {
         // TODO: Error handling
-        OutputDebugString(L"SendToTsfViaNamedpipe WriteFile failed\n");
+        OutputDebugString(
+            fmt::format(L"SendToTsfViaNamedpipe: WriteFile failed, gle={}, written={}\n", GetLastError(), bytesWritten)
+                .c_str());
     }
 }
