@@ -57,7 +57,7 @@ void WorkerThread()
     if (!hEvent)
     {
         // TODO: Error handling
-        OutputDebugString(L"FanyImeTimeToWritePipeEvent OpenEvent failed");
+        OutputDebugString(L"FanyImeTimeToWritePipeEvent OpenEvent failed\n");
     }
 
     while (pipe_running)
@@ -132,15 +132,15 @@ void EventListenerLoopThread()
     if (!hCancelToTsfPipeConnectEvent)
     {
         // TODO: Error handling
-        OutputDebugString(L"FanyImeCancelToWritePipeEvent OpenEvent failed");
+        OutputDebugString(L"FanyImeCancelToWritePipeEvent OpenEvent failed\n");
     }
     while (true)
     {
         spdlog::info("Pipe starts to wait");
-        OutputDebugString(L"Pipe starts to wait");
+        OutputDebugString(L"Pipe starts to wait\n");
         BOOL connected = ConnectNamedPipe(hPipe, NULL);
         spdlog::info("Pipe connected: {}", connected);
-        OutputDebugString(fmt::format(L"Pipe connected: {}", connected).c_str());
+        OutputDebugString(fmt::format(L"Pipe connected: {}\n", connected).c_str());
         ::mainConnected = connected;
         if (connected)
         {
@@ -158,19 +158,19 @@ void EventListenerLoopThread()
                 if (!readResult || bytesRead == 0) // Disconnected or error
                 {
                     // TODO: Log
-                    OutputDebugString(L"Pipe disconnected or error");
+                    OutputDebugString(L"Pipe disconnected or error\n");
 
                     // We alse need to disconnect toTsf named pipe
                     if (::toTsfConnected)
                     {
-                        OutputDebugString(L"Really disconnect toTsf pipe");
+                        OutputDebugString(L"Really disconnect toTsf pipe\n");
                         // DisconnectNamedPipe toTsf hPipe
                         if (!SetEvent(hCancelToTsfPipeConnectEvent))
                         {
                             // TODO: Error handling
-                            OutputDebugString(L"hCancelToTsfPipeConnectEvent SetEvent failed");
+                            OutputDebugString(L"hCancelToTsfPipeConnectEvent SetEvent failed\n");
                         }
-                        OutputDebugString(L"End disconnect toTsf pipe");
+                        OutputDebugString(L"End disconnect toTsf pipe\n");
                     }
                     break;
                 }
@@ -209,7 +209,7 @@ void EventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"Pipe disconnected");
+        OutputDebugString(L"Pipe disconnected\n");
         DisconnectNamedPipe(hPipe);
     }
 
@@ -238,11 +238,11 @@ void ToTsfPipeEventListenerLoopThread()
     while (true)
     {
         spdlog::info("ToTsf Pipe starts to wait");
-        OutputDebugString(L"ToTsf Pipe starts to wait");
+        OutputDebugString(L"ToTsf Pipe starts to wait\n");
         BOOL connected = ConnectNamedPipe(hToTsfPipe, NULL);
         ::toTsfConnected = connected;
         spdlog::info("ToTsf Pipe connected: {}", connected);
-        OutputDebugString(fmt::format(L"ToTsf Pipe connected: {}", connected).c_str());
+        OutputDebugString(fmt::format(L"ToTsf Pipe connected: {}\n", connected).c_str());
         if (connected)
         {
             // Wait for event to write data to tsf
@@ -266,7 +266,7 @@ void ToTsfPipeEventListenerLoopThread()
                         break;
                     }
                     case 1: { // Cancel event
-                        OutputDebugString(L"Event canceled.");
+                        OutputDebugString(L"Event canceled.\n");
                         isBreakWhile = true;
                         break;
                     }
@@ -282,7 +282,7 @@ void ToTsfPipeEventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"ToTsf Pipe disconnected");
+        OutputDebugString(L"ToTsf Pipe disconnected\n");
         DisconnectNamedPipe(hToTsfPipe);
     }
     ::CloseToTsfNamedPipe();
@@ -293,10 +293,10 @@ void AuxPipeEventListenerLoopThread()
     while (true)
     {
         spdlog::info("Aux Pipe starts to wait");
-        OutputDebugString(L"Aux Pipe starts to wait");
+        OutputDebugString(L"Aux Pipe starts to wait\n");
         BOOL connected = ConnectNamedPipe(hAuxPipe, NULL);
         spdlog::info("Aux Pipe connected: {}", connected);
-        OutputDebugString(fmt::format(L"Aux Pipe connected: {}", connected).c_str());
+        OutputDebugString(fmt::format(L"Aux Pipe connected: {}\n", connected).c_str());
         if (connected)
         {
             wchar_t buffer[128] = {0};
@@ -315,17 +315,17 @@ void AuxPipeEventListenerLoopThread()
             else
             {
                 std::wstring message(buffer, bytesRead / sizeof(wchar_t));
-                OutputDebugString(message.c_str());
+                OutputDebugString((message + L"\n").c_str());
 
                 if (message == L"kill")
                 {
-                    OutputDebugString(L" Pipe to disconnect main and toTsf pipe");
+                    OutputDebugString(L" Pipe to disconnect main and toTsf pipe\n");
                     if (::mainConnected)
                     {
                         OutputDebugString(L"Really disconnect main pipe");
                         // DisconnectNamedPipe hPipe
                         CancelSynchronousIo(::mainPipeThread);
-                        OutputDebugString(L"End disconnect main pipe");
+                        OutputDebugString(L"End disconnect main pipe\n");
                     }
                     // if (::toTsfConnected)
                     // {
@@ -341,7 +341,7 @@ void AuxPipeEventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"Aux Pipe disconnected");
+        OutputDebugString(L"Aux Pipe disconnected\n");
         DisconnectNamedPipe(hAuxPipe);
     }
     ::CloseAuxNamedPipe();
@@ -429,7 +429,7 @@ void HandleImeKey(HANDLE hEvent)
             if (!SetEvent(hEvent))
             {
                 // TODO: Error handling
-                OutputDebugString(L"SetEvent failed");
+                OutputDebugString(L"SetEvent failed\n");
             }
         }
     }
@@ -449,7 +449,7 @@ void HandleImeKey(HANDLE hEvent)
                 if (!SetEvent(hEvent))
                 {
                     // TODO: Error handling
-                    OutputDebugString(L"SetEvent failed");
+                    OutputDebugString(L"SetEvent failed\n");
                 }
             }
         }
@@ -478,7 +478,7 @@ void HandleImeKey(HANDLE hEvent)
         if (!SetEvent(hEvent))
         {
             // TODO: Error handling
-            OutputDebugString(L"SetEvent failed");
+            OutputDebugString(L"SetEvent failed\n");
         }
 
         /* 清理状态 */
@@ -556,7 +556,7 @@ void HandleImeKey(HANDLE hEvent)
                 if (PinyinUtil::cnt_han_chars(GlobalIme::word_for_creating_word) * 2 ==
                     GlobalIme::pinyin_for_creating_word.size())
                 { /* 最终的造词 */
-                    OutputDebugString(fmt::format(L"create_word 造词：{} {}",
+                    OutputDebugString(fmt::format(L"create_word 造词：{} {}\n",
                                                   string_to_wstring(GlobalIme::word_for_creating_word),
                                                   string_to_wstring(GlobalIme::pinyin_for_creating_word))
                                           .c_str());
@@ -605,7 +605,7 @@ void HandleImeKey(HANDLE hEvent)
         if (!SetEvent(hEvent))
         { /* 触发事件，将候选词数据写入管道 */
             // TODO: Error handling
-            OutputDebugString(L"SetEvent failed");
+            OutputDebugString(L"SetEvent failed\n");
         }
     }
     else if (Global::Keycode == VK_OEM_MINUS ||     //

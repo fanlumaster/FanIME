@@ -225,20 +225,20 @@ int InitNamedPipe()
 
     if (hAuxPipe == INVALID_HANDLE_VALUE)
     {
-        OutputDebugString(fmt::format(L"CreateNamedPipe aux pipe failed: {}", GetLastError()).c_str());
+        OutputDebugString(fmt::format(L"CreateNamedPipe aux pipe failed: {}\n", GetLastError()).c_str());
     }
     else
     {
-        OutputDebugString(L"Named pipe aux pipe created successfully");
+        OutputDebugString(L"Named pipe aux pipe created successfully\n");
     }
 
     if (hToTsfPipe == INVALID_HANDLE_VALUE)
     {
-        OutputDebugString(fmt::format(L"CreateNamedPipe to tsf pipe failed: {}", GetLastError()).c_str());
+        OutputDebugString(fmt::format(L"CreateNamedPipe to tsf pipe failed: {}\n", GetLastError()).c_str());
     }
     else
     {
-        OutputDebugString(L"Named pipe to tsf pipe created successfully");
+        OutputDebugString(L"Named pipe to tsf pipe created successfully\n");
     }
 
     //
@@ -255,7 +255,7 @@ int InitNamedPipe()
         if (!hEvent)
         {
             // Error handling
-            OutputDebugString(fmt::format(L"CreateEvent failed: {}", GetLastError()).c_str());
+            OutputDebugString(fmt::format(L"CreateEvent failed: {}\n", GetLastError()).c_str());
         }
     }
 
@@ -424,7 +424,7 @@ void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData)
     if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
     {
         // TODO: Error handling
-        OutputDebugString(L"SendToTsfViaNamedpipe Pipe disconnected");
+        OutputDebugString(L"SendToTsfViaNamedpipe Pipe disconnected\n");
         return;
     }
     DWORD bytesWritten = 0;
@@ -442,6 +442,6 @@ void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData)
     if (!ret || bytesWritten != pipeData.length() * sizeof(wchar_t))
     {
         // TODO: Error handling
-        OutputDebugString(L"SendToTsfViaNamedpipe WriteFile failed");
+        OutputDebugString(L"SendToTsfViaNamedpipe WriteFile failed\n");
     }
 }

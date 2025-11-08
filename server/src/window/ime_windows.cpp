@@ -266,7 +266,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         OutputDebugString(fmt::format(L"键盘钩子安装失败\n").c_str());
         return 1;
     }
-    OutputDebugString(fmt::format(L"键盘钩子安装成功").c_str());
+    OutputDebugString(fmt::format(L"键盘钩子安装成功\n").c_str());
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
@@ -374,7 +374,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     /* Clear dictionary buffer cache */
     case WM_CLS_DICT_CACHE: {
         g_dictQuery->reset_cache();
-        OutputDebugString(fmt::format(L"Cleared dictionary buffer cache.").c_str());
+        OutputDebugString(fmt::format(L"Cleared dictionary buffer cache.\n").c_str());
         break;
     }
 

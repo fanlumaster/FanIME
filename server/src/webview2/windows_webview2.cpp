@@ -399,7 +399,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
 {
     if (!controller || FAILED(result))
     {
-        OutputDebugString(fmt::format(L"Failed to create menu window webview2 controller.").c_str());
+        OutputDebugString(fmt::format(L"Failed to create menu window webview2 controller.\n").c_str());
         return E_FAIL;
     }
 
@@ -409,7 +409,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
 
     if (!webviewMenuWnd)
     {
-        OutputDebugString(fmt::format(L"Failed to get webview2 instance.").c_str());
+        OutputDebugString(fmt::format(L"Failed to get webview2 instance.\n").c_str());
         return E_FAIL;
     }
 
@@ -452,7 +452,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
     HRESULT hr = webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
     if (FAILED(hr))
     {
-        OutputDebugString(fmt::format(L"Failed to navigate to string.").c_str());
+        OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
     }
 
     /* Debug console */
@@ -473,7 +473,7 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
 {
     if (FAILED(result) || !env)
     {
-        OutputDebugString(fmt::format(L"Failed to create menu window webview2 environment.").c_str());
+        OutputDebugString(fmt::format(L"Failed to create menu window webview2 environment.\n").c_str());
         return result;
     }
 
@@ -530,7 +530,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
 {
     if (!controller || FAILED(result))
     {
-        OutputDebugString(fmt::format(L"Failed to create settings window webview2 controller.").c_str());
+        OutputDebugString(fmt::format(L"Failed to create settings window webview2 controller.\n").c_str());
         return E_FAIL;
     }
 
@@ -540,7 +540,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
 
     if (!webviewSettingsWnd)
     {
-        OutputDebugString(fmt::format(L"Failed to get webview2 instance.").c_str());
+        OutputDebugString(fmt::format(L"Failed to get webview2 instance.\n").c_str());
         return E_FAIL;
     }
 
@@ -588,7 +588,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
     HRESULT hr = webviewSettingsWnd->Navigate(url.c_str());
     if (FAILED(hr))
     {
-        OutputDebugString(fmt::format(L"Failed to navigate to string.").c_str());
+        OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
     }
 
     EventRegistrationToken navCompletedToken;
@@ -628,7 +628,7 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
 {
     if (FAILED(result) || !env)
     {
-        OutputDebugString(fmt::format(L"Failed to create settings window webview2 environment.").c_str());
+        OutputDebugString(fmt::format(L"Failed to create settings window webview2 environment.\n").c_str());
         return result;
     }
 
@@ -685,7 +685,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 {
     if (!controller || FAILED(result))
     {
-        OutputDebugString(fmt::format(L"Failed to create floating toolbar window webview2 controller.").c_str());
+        OutputDebugString(fmt::format(L"Failed to create floating toolbar window webview2 controller.\n").c_str());
         return E_FAIL;
     }
 
@@ -695,7 +695,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
     if (!webviewFtbWnd)
     {
-        OutputDebugString(fmt::format(L"Failed to get webview2 instance.").c_str());
+        OutputDebugString(fmt::format(L"Failed to get webview2 instance.\n").c_str());
         return E_FAIL;
     }
 
@@ -738,7 +738,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     HRESULT hr = webviewFtbWnd->NavigateToString(::HTMLStringFtbWnd.c_str());
     if (FAILED(hr))
     {
-        OutputDebugString(fmt::format(L"Failed to navigate to string.").c_str());
+        OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
     }
 
     /* 使 floating toolbar 窗口可拖动 */
@@ -777,7 +777,7 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 {
     if (FAILED(result) || !env)
     {
-        OutputDebugString(fmt::format(L"Failed to create floating toolbar window webview2 environment.").c_str());
+        OutputDebugString(fmt::format(L"Failed to create floating toolbar window webview2 environment.\n").c_str());
         return result;
     }
 

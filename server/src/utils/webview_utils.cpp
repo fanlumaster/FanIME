@@ -93,7 +93,7 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
     script.append(std::to_wstring(marginTop));
     script.append(L"px';");
     script.append(L"}");
-    OutputDebugString(script.c_str());
+    OutputDebugString((script + L"\n").c_str());
     webview->ExecuteScript(script.c_str(), nullptr);
 }
 
