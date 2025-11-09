@@ -55,11 +55,36 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
     return size;
 }
 
-void GetContainerSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
 {
     std::wstring script = LR"(
         (function() {
             var rect = document.getElementById("measureContainerParent").getBoundingClientRect();
+            return JSON.stringify({width: rect.width, height: rect.height});
+        })();
+    )";
+    webview->ExecuteScript( //
+        script.c_str(),     //
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+            std::pair<double, double> size;
+            if (SUCCEEDED(errorCode) && result)
+            {
+                size = ParseDivSize(result);
+                // OutputDebugString(fmt::format(L"GetContainerSize: {} {}\n", size.first, size.second).c_str());
+            }
+            else
+            {
+            }
+            callback(size);
+            return S_OK;
+        }).Get());
+}
+
+void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+{
+    std::wstring script = LR"(
+        (function() {
+            var rect = document.getElementById("menuContainer").getBoundingClientRect();
             return JSON.stringify({width: rect.width, height: rect.height});
         })();
     )";

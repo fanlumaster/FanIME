@@ -212,8 +212,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         szWindowClass,                                       //
         lpWindowNameFtb,                                     //
         WS_POPUP,                                            //
-        800,                                                 //
-        800,                                                 //
+        2216,                                                //
+        1254,                                                //
         (::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale,  //
         (::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale, //
         nullptr,                                             //
@@ -343,10 +343,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
             SWP_SHOWWINDOW                                        //
         );
-        // UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
+        UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         /* 候选词部分使用全角空格来占位 */
-        std::wstring str = L" ,　,　,　,　,　,　,　,　";
-        InflateCandWnd(str);
+        // std::wstring str = L" ,　,　,　,　,　,　,　,　";
+        // InflateCandWnd(str);
 
         ::is_global_wnd_cand_shown = false;
         return 0;
@@ -454,7 +454,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW);
             if (webviewMenuWnd) // 确保 webview 已初始化
             {
-                GetContainerSize(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
+                GetContainerSizeMenu(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
                     if (hwnd == ::global_hwnd_menu)
                     {
                         UINT flag = SWP_NOZORDER | SWP_NOMOVE;
@@ -542,12 +542,12 @@ int FineTuneWindow(HWND hwnd)
     int caretX = Global::Point[0];
     int caretY = Global::Point[1];
     std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-    GetContainerSize(webviewCandWnd, [flag,      //
-                                      scale,     //
-                                      caretX,    //
-                                      caretY,    //
-                                      properPos, //
-                                      hwnd](std::pair<double, double> containerSize) {
+    GetContainerSizeCand(webviewCandWnd, [flag,      //
+                                          scale,     //
+                                          caretX,    //
+                                          caretY,    //
+                                          properPos, //
+                                          hwnd](std::pair<double, double> containerSize) {
         POINT pt = {caretX, caretY};
         /* Whether need to adjust candidate window position */
         if (caretY == Global::INVALID_Y)
@@ -567,11 +567,12 @@ int FineTuneWindow(HWND hwnd)
         int newWidth = 0;
         int newHeight = 0;
         UINT newFlag = flag;
-        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH || containerSize.second > ::CANDIDATE_WINDOW_HEIGHT)
+        /* 默认情况下，输入法候选框是不用动的 */
+        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH)
         {
             newWidth = (containerSize.first + ::SHADOW_WIDTH) * scale;
-            // newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale;
-            newHeight = (containerSize.second + ::SHADOW_WIDTH) * scale;
+            newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale;
+            // newHeight = (containerSize.second + ::SHADOW_WIDTH) * scale;
         }
         else
         {
