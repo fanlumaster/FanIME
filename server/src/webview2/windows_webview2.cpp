@@ -762,7 +762,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 if (json.find(L"dragStart") != std::string::npos)
                 {
                     ReleaseCapture();
-                    SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                    PostMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
                 }
                 return S_OK;
             })
