@@ -44,16 +44,18 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
         std::wstring script;
         script.reserve(256);
 
-        script.append(L"document.getElementById('justBody').innerHTML = `");
+        script.append(L"document.getElementById('realContainer').innerHTML = `");
         script.append(newContent);
         script.append(L"`;\n");
         script.append(L"window.ClearState();\n");
-        script.append(L"var el = document.getElementById('justBody');\n");
+        script.append(L"var el = document.getElementById('realContainerParent');\n");
         script.append(L"if (el) {\n");
         script.append(L"  el.style.marginTop = \"");
         script.append(std::to_wstring(Global::MarginTop));
         script.append(L"px\";\n");
         script.append(L"}\n");
+
+        // OutputDebugString(fmt::format(L"UpdateHtmlContentWithJavaScript: {}\n", script).c_str());
 
         webview->ExecuteScript(script.c_str(), nullptr);
     }
@@ -66,19 +68,19 @@ int PrepareHtmlForWnds()
     //
     // 候选窗口
     //
-    std::wstring htmlCandWnd = L"/html/webview2/default-themes/vertical_candidate_window_dark.html";
-    std::wstring bodyHtmlCandWnd = L"/html/webview2/default-themes/body/vertical_candidate_window_dark.html";
-    std::wstring measureHtmlCandWnd = L"/html/webview2/default-themes/body/vertical_candidate_window_dark_measure.html";
+    std::wstring htmlCandWnd = L"/html/webview2/candwnd/vertical_candidate_window_dark.html";
+    std::wstring bodyHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark.html";
+    std::wstring measureHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark_measure.html";
     bool isHorizontal = false;
     bool isNormal = true;
     if (isHorizontal)
     {
-        htmlCandWnd = L"/html/default-themes/horizontal_candidate_window_dark.html";
-        bodyHtmlCandWnd = L"/html/default-themes/body/horizontal_candidate_window_dark.html";
+        htmlCandWnd = L"/html/candwnd/horizontal_candidate_window_dark.html";
+        bodyHtmlCandWnd = L"/html/candwnd/body/horizontal_candidate_window_dark.html";
         if (isNormal)
         {
-            htmlCandWnd = L"/html/default-themes/horizontal_candidate_window_dark_normal.html";
-            bodyHtmlCandWnd = L"/html/default-themes/body/horizontal_candidate_window_dark_normal.html";
+            htmlCandWnd = L"/html/candwnd/horizontal_candidate_window_dark_normal.html";
+            bodyHtmlCandWnd = L"/html/candwnd/body/horizontal_candidate_window_dark_normal.html";
         }
     }
 
@@ -132,7 +134,7 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
         std::wstring script;
         script.reserve(256);
 
-        script.append(L"document.getElementById('measure').innerHTML = `");
+        script.append(L"document.getElementById('measureContainer').innerHTML = `");
         script.append(newContent);
         script.append(L"`;\n");
 
@@ -145,8 +147,8 @@ void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
     if (webview != nullptr)
     {
         std::wstring script = LR"(
-const container = document.getElementById('container');
-container.classList.remove('hover-active');
+const realContainer = document.getElementById('realContainer');
+realContainer.classList.remove('hover-active');
         )";
         webview->ExecuteScript(script.c_str(), nullptr);
     }
@@ -206,7 +208,8 @@ void InflateCandWnd(std::wstring &str)
     if (size < 9)
     {
         size_t pos = result.find(fmt::format(L"<!--{}Anchor-->", size));
-        result = result.substr(0, pos) + L"</div>";
+        // result = result.substr(0, pos) + L"</div>";
+        result = result.substr(0, pos);
     }
 
     UpdateHtmlContentWithJavaScript(webviewCandWnd, result);
@@ -246,7 +249,8 @@ void InflateMeasureDivCandWnd(std::wstring &str)
     if (size < 9)
     {
         size_t pos = result.find(fmt::format(L"<!--{}Anchor-->", size));
-        result = result.substr(0, pos) + L"</div>";
+        // result = result.substr(0, pos) + L"</div>";
+        result = result.substr(0, pos);
     }
 
     UpdateMeasureContentWithJavaScript(webviewCandWnd, result);
@@ -294,10 +298,16 @@ HRESULT OnControllerCreatedCandWnd(     //
     // Configure virtual host path
     if (SUCCEEDED(webviewCandWnd->QueryInterface(IID_PPV_ARGS(&webview3CandWnd))))
     {
+        const std::wstring assetPath = fmt::format(                   //
+            L"{}\\{}\\html\\webview2\\candwnd",                       //
+            string_to_wstring(CommonUtils::get_local_appdata_path()), //
+            GlobalIme::AppName                                        //
+        );
+
         // Assets mapping
         webview3CandWnd->SetVirtualHostNameToFolderMapping(  //
-            L"appassets",                                    //
-            ::LocalAssetsPath.c_str(),                       //
+            L"candwnd",                                      //
+            assetPath.c_str(),                               //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
         );                                                   //
     }

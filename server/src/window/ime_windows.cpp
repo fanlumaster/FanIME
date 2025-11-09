@@ -343,9 +343,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
             SWP_SHOWWINDOW                                        //
         );
-        UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
-        std::wstring str = L"n,那,年,女,难,内,你,男,哪";
-        // InflateCandidateWindow(str);
+        // UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
+        /* 候选词部分使用全角空格来占位 */
+        std::wstring str = L" ,　,　,　,　,　,　,　,　";
+        InflateCandWnd(str);
 
         ::is_global_wnd_cand_shown = false;
         return 0;
@@ -566,10 +567,11 @@ int FineTuneWindow(HWND hwnd)
         int newWidth = 0;
         int newHeight = 0;
         UINT newFlag = flag;
-        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH)
+        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH || containerSize.second > ::CANDIDATE_WINDOW_HEIGHT)
         {
             newWidth = (containerSize.first + ::SHADOW_WIDTH) * scale;
-            newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale;
+            // newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale;
+            newHeight = (containerSize.second + ::SHADOW_WIDTH) * scale;
         }
         else
         {

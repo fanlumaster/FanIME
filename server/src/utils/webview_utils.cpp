@@ -59,7 +59,7 @@ void GetContainerSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pai
 {
     std::wstring script = LR"(
         (function() {
-            var rect = document.getElementById("measureBody").getBoundingClientRect();
+            var rect = document.getElementById("measureContainerParent").getBoundingClientRect();
             return JSON.stringify({width: rect.width, height: rect.height});
         })();
     )";
@@ -70,6 +70,7 @@ void GetContainerSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pai
             if (SUCCEEDED(errorCode) && result)
             {
                 size = ParseDivSize(result);
+                // OutputDebugString(fmt::format(L"GetContainerSize: {} {}\n", size.first, size.second).c_str());
             }
             else
             {
@@ -87,7 +88,7 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
     }
     std::wstring script;
     script.reserve(256);
-    script.append(L"var el = document.getElementById('justBody');");
+    script.append(L"var el = document.getElementById('realContainerParent');");
     script.append(L"if (el) {");
     script.append(L"el.style.marginTop = '");
     script.append(std::to_wstring(marginTop));
