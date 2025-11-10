@@ -88,11 +88,13 @@
       visibility: hidden;
     }
 
+    /*
     .below-img {
       margin-top: 6px;
       width: 500px;
       height: auto;
     }
+    */
   </style>
 
   <script>
@@ -100,7 +102,7 @@
     document.addEventListener('DOMContentLoaded', function () {
       document.addEventListener('mousemove', function () {
         if (a === true) {
-          const container = document.getElementById('container');
+          const container = document.getElementById('realContainer');
           container.classList.add('hover-active');
         }
         a = true;
@@ -109,7 +111,7 @@
 
     window.ClearState = function () {
       a = false;
-      const container = document.getElementById('container');
+      const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
     }
   </script>
@@ -175,7 +177,7 @@
         <!--9Anchor-->
       </div>
 
-      <img src="https://candwnd/assets/ziranma.png" alt="" class="below-img">
+      <!-- <img src="https://candwnd/assets/ziranma.png" alt="" class="below-img"> -->
       <!-- <img src="./assets/ziranma.png" alt="" class="below-img"> -->
     </div>
   </div>
@@ -239,7 +241,7 @@
         </div>
         <!--9Anchor-->
       </div>
-      <img src="https://candwnd/assets/ziranma.png" alt="" class="below-img">
+      <!-- <img src="https://candwnd/assets/ziranma.png" alt="" class="below-img"> -->
       <!-- <img src="./assets/ziranma.png" alt="" class="below-img"> -->
     </div>
   </div>
