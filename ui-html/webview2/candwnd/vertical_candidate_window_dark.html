@@ -34,6 +34,14 @@
       border: 1.5px solid #9b9b9b2e;
     }
 
+    .cursor {
+      display: inline-block;
+      margin-left: 1px;
+      width: 1.5px;
+      height: 1em;
+      background: #6b69d6;
+    }
+
     .row {
       justify-content: space-between;
       padding: 2px;
@@ -60,6 +68,7 @@
       border-radius: 4px;
     }
 
+    /* bar */
     .first::before {
       content: "";
       position: absolute;
@@ -123,7 +132,7 @@
       <div class="container" id="realContainer">
         <!--0Anchor-->
         <div class="row pinyin">
-          <div class="text">ni</div>
+          <div class="text">nig<span class="cursor"></span></div>
           <div class="hidden-pinyin">n</div>
         </div>
         <!--1Anchor-->
