@@ -15,14 +15,60 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
 
+        bool ctrl = IsKeyPressed(VK_CONTROL);
+        bool alt = IsKeyPressed(VK_MENU);
+        bool shift = IsKeyPressed(VK_SHIFT);
+
+        //
+        // Ctrl + Shift + Alt + T to terminate
+        //
+        if (ctrl && shift && alt && p->vkCode == 'T')
+        {
+            ExitProcess(0);
+        }
+
+        //
+        // Ctrl + Shift + Alt + R to restart
+        //
+        if (ctrl && shift && alt && p->vkCode == 'R')
+        {
+            UnhookWindowsHookEx(g_hHook);
+
+            wchar_t path[MAX_PATH];
+            GetModuleFileNameW(NULL, path, MAX_PATH);
+
+            // 即便没有参数，也必须给 command line
+            auto cmd = fmt::format(L"\"{}\"", path);
+
+            STARTUPINFOW si = {sizeof(si)};
+            PROCESS_INFORMATION pi = {};
+
+            // lpApplicationName 用 path
+            // lpCommandLine 用 cmd.data()
+            if (CreateProcessW(path,       // 可执行路径
+                               cmd.data(), // 必须是可写的 command line
+                               NULL,       //
+                               NULL,       //
+                               FALSE,      //
+                               0,          //
+                               NULL,       //
+                               NULL,       //
+                               &si,        //
+                               &pi))
+            {
+                CloseHandle(pi.hProcess);
+                CloseHandle(pi.hThread);
+                ExitProcess(0);
+            }
+        }
+
+        //
+        // Ctrl + Alt + Shift + 1-8 to delete candidate
+        //
         if (!::is_global_wnd_cand_shown)
         {
             return CallNextHookEx(g_hHook, nCode, wParam, lParam);
         }
-
-        bool ctrl = IsKeyPressed(VK_CONTROL);
-        bool alt = IsKeyPressed(VK_MENU);
-        bool shift = IsKeyPressed(VK_SHIFT);
 
         if (ctrl && alt && shift)
         {

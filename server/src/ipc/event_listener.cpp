@@ -265,7 +265,7 @@ void ToTsfPipeEventListenerLoopThread()
                         }
                         break;
                     }
-                    case 1: { // Cancel event
+                    case 1: { // FanyImeCancelToWritePipeEvent: Cancel event
                         OutputDebugString(L"Event canceled.\n");
                         isBreakWhile = true;
                         break;
@@ -323,17 +323,13 @@ void AuxPipeEventListenerLoopThread()
                     if (::mainConnected)
                     {
                         OutputDebugString(L"Really disconnect main pipe");
-                        // DisconnectNamedPipe hPipe
+                        /* DisconnectNamedPipe hPipe and hToTsfPipe, 这里直接中断 hPipe,
+                         * 然后，再在中断 hPipe 的时候，通过 event 来中断 hToTsfPipe，达到清理
+                         * 脏句柄的目的
+                         */
                         CancelSynchronousIo(::mainPipeThread);
                         OutputDebugString(L"End disconnect main pipe\n");
                     }
-                    // if (::toTsfConnected)
-                    // {
-                    //     OutputDebugString(L"Really disconnect toTsf pipe");
-                    //     // DisconnectNamedPipe toTsf hPipe
-                    //     CancelSynchronousIo(::toTsfPipeThread);
-                    //     OutputDebugString(L"End disconnect toTsf pipe");
-                    // }
                 }
             }
         }
