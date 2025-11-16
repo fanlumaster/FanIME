@@ -475,8 +475,8 @@
     .check-option input[type="checkbox"] {
       appearance: none;
       -webkit-appearance: none;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       border: 2px solid #8a8886;
       border-radius: 2px;
       background-color: transparent;
@@ -497,10 +497,10 @@
     .check-option input[type="checkbox"]:checked::after {
       content: "";
       position: absolute;
-      top: 2px;
-      left: 5px;
+      top: 1px;
+      left: 4px;
       width: 4px;
-      height: 10px;
+      height: 9px;
       border: solid white;
       border-width: 0 2px 2px 0;
       transform: rotate(45deg);
@@ -736,6 +736,15 @@
             <input type="checkbox" name="page-method" value="tab">
             <span>Shift+Tab / Tab</span>
           </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">中英混输</div>
+          <div class="ftb-toggle-btn active" id="zhEnToggleBtn">
+            <div class="ftb-toggle-knob"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1190,6 +1199,16 @@
     //
     {
       const toggle = document.getElementById('ftbToggleBtn');
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('active');
+      });
+    }
+
+    //
+    // 通用 -> 中英混输开关
+    //
+    {
+      const toggle = document.getElementById('zhEnToggleBtn');
       toggle.addEventListener('click', () => {
         toggle.classList.toggle('active');
       });

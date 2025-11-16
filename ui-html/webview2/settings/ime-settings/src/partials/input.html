@@ -1,0 +1,41 @@
+<div class="content" id="input-settings">
+  <div class="content-header"><span>输入</span></div>
+
+  <!-- 输入方案 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">输入方案</div>
+    </div>
+    <div class="input-option-content">
+      <label class="radio-option">
+        <input type="radio" name="input-method" value="quanpin" checked>
+        <span>全拼</span>
+      </label>
+      <div class="input-option-divider"></div>
+      <label class="radio-option">
+        <input type="radio" name="input-method" value="shuangpin">
+        <span>双拼</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 双拼方案 -->
+  <div class="section shuangpin-option-content">
+    <div class="section-header">
+      <div class="section-title">双拼方案</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle dropdown-toggle-shuangpin-scheme" id="shuangpinSchemeBtn">
+          <span>小鹤双拼</span>
+          <img class="shuangpin-scheme-arrow" src="/assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu shuangpin-scheme-dropdown-menu" id="shuangpinSchemeMenu">
+          <div class="dropdown-item" data-value="xiaohe">小鹤双拼</div>
+          <div class="dropdown-item" data-value="microsoft">微软双拼</div>
+          <div class="dropdown-item" data-value="ziguang">紫光双拼</div>
+          <div class="dropdown-item" data-value="abc">智能ABC</div>
+          <div class="dropdown-item" data-value="nature">自然码</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,110 @@
+.sidebar {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* 滚动条样式 */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: rgba(120, 120, 120, 0.4);
+  border-radius: 2px;
+  transition: background-color 0.2s;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(160, 160, 160, 0.6);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  padding: 0 24px 12px 24px;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sidebar-header img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.sidebar-header span {
+  font-weight: 500;
+  font-size: 19px;
+}
+
+.sidebar .item {
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 15px;
+  position: relative;
+  transition: none;
+  border-radius: 5px;
+  margin: 2px 8px;
+  color: #e6e6e6;
+}
+
+.sidebar .item:hover {
+  background: var(--sidebar-hover);
+}
+
+.sidebar .item.active {
+  background: var(--item-active-hover);
+}
+
+.sidebar .item.active:hover {
+  background: var(--sidebar-hover);
+  color: #fff;
+}
+
+/* item 左侧的 bar */
+.sidebar .item::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  width: 4px;
+  height: 50%;
+  border-radius: 3px;
+  background: var(--accent-color);
+  transform: scaleY(0);
+  transform-origin: center center;
+  transition: transform 0.25s ease;
+  opacity: 0;
+}
+
+.sidebar .item.active::before {
+  transform: scaleY(1);
+  opacity: 1;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  position: relative;
+  top: 1px;
+}
+
+.input-icon {
+  position: relative;
+  top: -1px;
+}

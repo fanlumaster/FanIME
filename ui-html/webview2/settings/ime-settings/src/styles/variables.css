@@ -1,0 +1,11 @@
+:root {
+  --accent-color: #8E8CD8;
+  --bg-color: rgba(32, 32, 32, 0.65);
+  --sidebar-bg: rgba(25, 25, 25, 0.7);
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --item-active-hover: rgba(255, 255, 255, 0.06);
+  --text-color: #f3f3f3;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --card-bg: rgba(38, 38, 38, 0.5);
+  --titlebar-height: 32px;
+}
