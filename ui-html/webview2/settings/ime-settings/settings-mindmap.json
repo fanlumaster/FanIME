@@ -1,0 +1,1034 @@
+{
+  "layout": "logicalStructure",
+  "root": {
+    "data": {
+      "text": "<p class=\"ql-align-center\"><span style=\"font-size: 14px;\">水杉 IME 设置</span></p>",
+      "expand": true,
+      "uid": "49e3a607-87e2-4aa6-b733-41bfa7b66e07",
+      "richText": true,
+      "isActive": false,
+      "imgMap": {},
+      "borderColor": "#AEA1FF",
+      "borderWidth": 1,
+      "customTextWidth": 100.5,
+      "tagPlacement": "right",
+      "imgPlacement": "top",
+      "paddingY": 9,
+      "paddingX": 8,
+      "textAlign": "center",
+      "fontSize": 18
+    },
+    "children": [
+      {
+        "data": {
+          "text": "<p>通用</p>",
+          "generalization": [],
+          "uid": "4cddbb08-46b2-4dd6-b0a5-fcd60cb73037",
+          "richText": true,
+          "expand": true,
+          "isActive": false,
+          "borderColor": "#AEA1FF",
+          "borderWidth": 1
+        },
+        "children": [
+          {
+            "data": {
+              "text": "<p>悬浮工具栏</p>",
+              "uid": "71f478db-93d5-4da8-ac0e-79566470c0a6",
+              "richText": true,
+              "expand": true,
+              "isActive": false,
+              "borderWidth": 1,
+              "borderColor": "#AEA1FF"
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>开关</p>",
+                  "uid": "2f8c8217-b8e6-4907-89fa-80c94a501fe1",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#AEA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>默认是关</p>",
+                      "uid": "6e581585-84fa-4399-8ad5-433311849c8c",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#AEA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p>翻页方式</p>",
+              "uid": "cbd953f9-b4b1-49c9-b4da-59c0aac40d8b",
+              "richText": true,
+              "expand": true,
+              "isActive": false,
+              "borderColor": "#AEA1FF",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>多选框</p>",
+                  "uid": "ec0019cf-73e2-4211-8be7-853af3c6c606",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#AEA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>- / =</p>",
+                      "uid": "644d2cc9-7bab-42fe-995c-65606d6d2610",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#AEA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>, / .</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "87a19a0a-8ac6-4f6b-94c7-70def818a097",
+                      "borderColor": "#AEA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>Shift + Tab / Tab</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "5727eaa9-ed48-4cd0-8aaa-8a859e7cd8b6",
+                      "borderColor": "#AEA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p>中英混输</p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "623a73e0-a026-4103-93df-6be9ea05f26e",
+              "borderColor": "#AEA1FF",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>开关</p>",
+                  "uid": "9b3553ab-f4b5-4db8-9829-84873c721e96",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#AEA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>默认是开</p>",
+                      "uid": "49d4f7ed-3e0d-4a87-a230-c5b97d8b98bc",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#AEA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p><br></p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "fa79bde8-508c-46b6-8b9d-d02a780ef0d9",
+              "borderWidth": 1,
+              "borderColor": "#AEA1FF"
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>智能联想算法</p>",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "uid": "1a95097c-7fe1-413a-867c-07b82b6afc7f",
+                  "borderColor": "#AEA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>下拉选项</p>",
+                      "uid": "ecd60a96-c737-45f8-925d-022527120f98",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderWidth": 1,
+                      "borderColor": "#AEA1FF"
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>bigram</p>",
+                          "uid": "c6909c56-0c0b-4bf4-8ebd-ca991dbafdea",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": [
+                          {
+                            "data": {
+                              "text": "<p>默认</p>",
+                              "uid": "d09e4880-933c-463f-ab19-e4b678b7df0a",
+                              "expand": true,
+                              "richText": true,
+                              "isActive": false,
+                              "borderWidth": 1,
+                              "borderColor": "#AEA1FF"
+                            },
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "data": {
+                          "text": "<p>trigram</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "9d8471d2-259b-40c8-8368-bd0825d5c49f",
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "data": {
+                  "text": "<p>联想模型</p>",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "uid": "4b2c90f3-3679-48a7-9545-87a13cda0812",
+                  "borderWidth": 1,
+                  "borderColor": "#AEA1FF"
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>下拉选项</p>",
+                      "uid": "2127e946-48b9-445a-bbd9-f69081ba0cd0",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderWidth": 1,
+                      "borderColor": "#AEA1FF"
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>通用</p>",
+                          "uid": "368a8a3e-3d6d-4d93-a93c-aefbf95f938f",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": [
+                          {
+                            "data": {
+                              "text": "<p>默认</p>",
+                              "uid": "76b29fd7-8827-4485-aae1-86d3226069b6",
+                              "expand": true,
+                              "richText": true,
+                              "isActive": false,
+                              "borderWidth": 1,
+                              "borderColor": "#AEA1FF"
+                            },
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "data": {
+                          "text": "<p>文学</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "bda42fa1-a757-49b1-9cbd-b254aa73937a",
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": []
+                      },
+                      {
+                        "data": {
+                          "text": "<p>计算机</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "28a9030e-f297-4090-b401-1a722f0b35d9",
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": []
+                      },
+                      {
+                        "data": {
+                          "text": "<p>医学</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "bba02ee9-193f-4238-850d-66248e60b67d",
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": []
+                      },
+                      {
+                        "data": {
+                          "text": "<p>化学</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "cc95c5d4-2d20-47fe-9117-8b216113e2f9",
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": []
+                      },
+                      {
+                        "data": {
+                          "text": "<p>生物</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "72ce5875-3d5c-4229-962e-20223b3c6b36",
+                          "borderWidth": 1,
+                          "borderColor": "#AEA1FF"
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "data": {
+                  "text": "<p> 添加自定义模型(高级)</p>",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "uid": "2f59c585-ead3-418e-8ddf-7a0e4127a9e3",
+                  "borderColor": "#AEA1FF",
+                  "borderWidth": 1,
+                  "note": "这个东西是让用户去自行添加训练好的模型。用户可以自行选择语料，然后使用我们的工具进行训练，最后把训练好的文件命名好，之后点击按钮导入之后，就可以在上面的那个下拉选项中选择这个模型了。"
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>按钮</p>",
+                      "uid": "8ec62c4f-49c7-4596-8974-fd51d3b7f5f9",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#AEA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>一个加号</p>",
+                          "uid": "607ac216-8ad4-4458-97ca-8b3266ce501c",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#AEA1FF",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "data": {
+          "text": "<p>外观</p>",
+          "expand": true,
+          "richText": true,
+          "isActive": false,
+          "uid": "8e34065d-1b93-4b99-b76f-19af4a285055",
+          "borderColor": "#FDA1FF",
+          "borderWidth": 1
+        },
+        "children": [
+          {
+            "data": {
+              "text": "<p>候选窗预览</p>",
+              "uid": "7da37ed2-eaeb-402a-8fd3-7a4263a3a115",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "borderColor": "#FDA1FF",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>实际的候选窗的预览</p>",
+                  "uid": "f389828a-f667-43f4-ba16-b18bc4350a64",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#FDA1FF",
+                  "borderWidth": 1
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p>主题模式</p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "b763800c-7711-45b5-b5f5-d894874c04bd",
+              "borderColor": "#FDA1FF",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>下拉选项</p>",
+                  "uid": "094dccf5-a724-4b69-b2fb-cdde6c3a4b01",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#FDA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>深色</p>",
+                      "uid": "14a51052-84ae-4541-b078-a6a37b4aea8d",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#FDA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>浅色</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "1ec2a79c-1a00-4b17-9e6d-f3db1bf7dcaa",
+                      "borderColor": "#FDA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>跟随系统</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "3a4ee401-d50c-4e96-bd8b-d29f7b9dddfb",
+                      "borderColor": "#FDA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>默认</p>",
+                          "uid": "9dc3477a-acce-4db1-b3cb-94de547ce003",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#FDA1FF",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p>候选项排列方式</p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "a5754f6d-bb85-4da3-81cf-1a4ec7a9795c",
+              "borderColor": "#FDA1FF",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>下拉选项</p>",
+                  "uid": "590fa148-4b9c-4852-9c0a-6cac74e119a5",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#FDA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>横向</p>",
+                      "uid": "9cab0073-4e84-41b1-b7d0-f8f3cfa1084a",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#FDA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>纵向</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "9057814b-a96a-4300-8607-b11b270c2ab0",
+                      "borderColor": "#FDA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>默认</p>",
+                          "uid": "fdd1c853-784e-4ab4-b358-02d0825f9fd6",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#FDA1FF",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p>双拼键位提示图片</p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "85707b7f-2905-4c1f-8499-979c86cc6639",
+              "borderColor": "#FDA1FF",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>开关</p>",
+                  "uid": "f06b4ebf-6da3-4498-952c-d74410afda88",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#FDA1FF",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>默认是关</p>",
+                      "uid": "043b5489-519f-4d86-9342-de31facfc12c",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#FDA1FF",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "data": {
+          "text": "<p>输入</p>",
+          "expand": true,
+          "richText": true,
+          "isActive": false,
+          "uid": "70c5baca-7dab-4b67-bf8d-a68be4549bbd",
+          "borderColor": "#A4DD00",
+          "borderWidth": 1
+        },
+        "children": [
+          {
+            "data": {
+              "text": "<p>输入方案</p>",
+              "uid": "ab56fbfe-7907-4eee-bcd5-0f577947e6b5",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "borderColor": "#A4DD00",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>单选框</p>",
+                  "uid": "2a05c3e5-0ed2-4f7a-bc2a-d95755b2feb7",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#A4DD00",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>全拼</p>",
+                      "uid": "489dd34a-5308-4870-b830-f96e43d4037a",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>双拼</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "5ddd7eed-58ca-4601-973c-d9507845d276",
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>五笔</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "22eb014d-061e-4e94-9ccf-b4b1a278c9a8",
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p>双拼方案</p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "d1b383f9-1e1b-4b96-8861-172e3bbdca20",
+              "borderColor": "#A4DD00",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>下拉选项</p>",
+                  "uid": "fc574418-0816-4a61-847a-a123acc386e1",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#A4DD00",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>小鹤双拼</p>",
+                      "uid": "82fe83c6-c1c3-4053-8dcb-9d2562d59466",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>自然码双拼</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "8792713a-d2f5-40d2-aa05-31cd2dd6179f",
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>微软双拼</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "31d4f9ec-fd98-432b-b382-2b4632d2267f",
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>紫光双拼</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "bbf3415d-f4fd-45fd-bf43-910cf20e7a4d",
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  },
+                  {
+                    "data": {
+                      "text": "<p>智能ABC</p>",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "uid": "79398d45-6138-42c1-913e-fd6e53dcd9c0",
+                      "borderColor": "#A4DD00",
+                      "borderWidth": 1
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "data": {
+          "text": "<p>辅助码</p>",
+          "expand": true,
+          "richText": true,
+          "isActive": false,
+          "uid": "f5d7b4b8-bbea-473c-9915-962a69b45e03",
+          "borderColor": "#68CCCA",
+          "borderWidth": 1
+        },
+        "children": [
+          {
+            "data": {
+              "text": "<p><br></p>",
+              "uid": "bf62b26c-9697-43c6-81ec-42a3a84cf447",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "borderColor": "#68CCCA",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>双拼辅助码</p>",
+                  "uid": "ff9baff3-9b00-4128-8880-6b22835877d3",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#68CCCA",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>开关</p>",
+                      "uid": "ce63375f-af3d-4741-9df4-2807403cb89e",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#68CCCA",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>默认是开</p>",
+                          "uid": "f685664a-3eb6-4130-93a2-29dd7f16c927",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#68CCCA",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "data": {
+                  "text": "<p>辅助码方案</p>",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "uid": "cf1d7bd9-8e75-479a-b02f-bc09c294e646",
+                  "borderColor": "#68CCCA",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>下拉选项</p>",
+                      "uid": "5101231b-fd52-412e-a3f1-1c86a6298a57",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#68CCCA",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>蓝天小雨点</p>",
+                          "uid": "6ae0e6d1-c970-4b1f-919a-d4f3d4f330af",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#68CCCA",
+                          "borderWidth": 1
+                        },
+                        "children": [
+                          {
+                            "data": {
+                              "text": "<p>默认</p>",
+                              "uid": "ded31cd9-5545-430f-afa3-55c1cc23c47d",
+                              "expand": true,
+                              "richText": true,
+                              "isActive": false,
+                              "borderColor": "#68CCCA",
+                              "borderWidth": 1
+                            },
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "data": {
+                          "text": "<p>自然码辅码</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "64462f73-029b-4915-aa67-1922aa15735b",
+                          "borderColor": "#68CCCA",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": {
+              "text": "<p><br></p>",
+              "expand": true,
+              "richText": true,
+              "isActive": false,
+              "uid": "76ab68b6-9b0e-438d-9aba-c06d3ed412f9",
+              "borderColor": "#68CCCA",
+              "borderWidth": 1
+            },
+            "children": [
+              {
+                "data": {
+                  "text": "<p>全拼辅助码</p>",
+                  "uid": "f25dc642-492b-42b9-96cc-e544be3cd6f7",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "borderColor": "#68CCCA",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>开关</p>",
+                      "uid": "20b1d4a9-8469-426f-82ff-65fd0b8c4c04",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#68CCCA",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>默认是开</p>",
+                          "uid": "5b2224a5-82cc-4d06-b65e-1dbc026dee12",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#68CCCA",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "data": {
+                  "text": "<p>辅助码方案</p>",
+                  "expand": true,
+                  "richText": true,
+                  "isActive": false,
+                  "uid": "51ef45f3-3543-4025-b00f-47112e8edfca",
+                  "borderColor": "#68CCCA",
+                  "borderWidth": 1
+                },
+                "children": [
+                  {
+                    "data": {
+                      "text": "<p>下拉选项</p>",
+                      "uid": "59703f7f-f833-4583-a8e4-398871fecffe",
+                      "expand": true,
+                      "richText": true,
+                      "isActive": false,
+                      "borderColor": "#68CCCA",
+                      "borderWidth": 1
+                    },
+                    "children": [
+                      {
+                        "data": {
+                          "text": "<p>蓝天小雨点</p>",
+                          "uid": "b211faa1-adf4-4355-9fdb-0cdf68d56036",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "borderColor": "#68CCCA",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      },
+                      {
+                        "data": {
+                          "text": "<p>自然码辅码</p>",
+                          "expand": true,
+                          "richText": true,
+                          "isActive": false,
+                          "uid": "c08a8339-3137-40cf-8ecf-a20fcba7f932",
+                          "borderColor": "#68CCCA",
+                          "borderWidth": 1
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "theme": {
+    "template": "classic",
+    "config": {}
+  },
+  "view": {
+    "transform": {
+      "scaleX": 1.4,
+      "scaleY": 1.4,
+      "shear": 0,
+      "rotate": 0,
+      "translateX": -1194.4999877929686,
+      "translateY": -701.8030303030312,
+      "originX": 0,
+      "originY": 0,
+      "a": 1.4,
+      "b": 0,
+      "c": 0,
+      "d": 1.4,
+      "e": -1194.4999877929686,
+      "f": -701.8030303030312
+    },
+    "state": {
+      "scale": 1.4,
+      "x": -1194.4999877929686,
+      "y": -701.8030303030312,
+      "sx": -1194.4999877929686,
+      "sy": 98.19696969696884
+    }
+  }
+}
