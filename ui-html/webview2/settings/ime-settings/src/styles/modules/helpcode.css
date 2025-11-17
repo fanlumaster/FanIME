@@ -1,0 +1,27 @@
+/* 辅助码 -> 双拼辅助码 */
+.section-header-shuangpin-helpcode {
+  margin-top: 12px;
+}
+
+.dropdown-toggle-shuangpin-helpcode-scheme {
+  padding: 4px 6px 4px 9px;
+  min-width: 110px;
+}
+
+.dropdown-menu-shuangpin-helpcode-scheme {
+  min-width: 110px;
+}
+
+/* 辅助码 -> 全拼辅助码 */
+.section-header-quanpin-helpcode {
+  margin-top: 12px;
+}
+
+.dropdown-toggle-quanpin-helpcode-scheme {
+  padding: 4px 6px 4px 9px;
+  min-width: 110px;
+}
+
+.dropdown-menu-quanpin-helpcode-scheme {
+  min-width: 110px;
+}

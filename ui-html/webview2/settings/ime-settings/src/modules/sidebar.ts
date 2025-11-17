@@ -39,7 +39,6 @@ export function setupSidebar(): void {
       const targetId = htmlItem.dataset.target;
       console.log(targetId);
       if (targetId) {
-        // document.getElementById(targetId)?.classList.add('active');
         loadContent(targetId);
       }
     });

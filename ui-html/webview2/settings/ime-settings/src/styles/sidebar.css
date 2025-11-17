@@ -1,3 +1,7 @@
+/**/
+/* 侧边栏 */
+/**/
+
 .sidebar {
   width: 200px;
   display: flex;
@@ -24,6 +28,16 @@
 
 .sidebar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(160, 160, 160, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(180, 180, 180, 0.25);
+  }
+
+  .sidebar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(220, 220, 220, 0.4);
+  }
 }
 
 .sidebar-header {

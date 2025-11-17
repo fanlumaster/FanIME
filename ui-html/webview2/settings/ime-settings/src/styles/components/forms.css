@@ -58,6 +58,16 @@ select:focus {
   transform: rotate(45deg);
 }
 
+.check-option span {
+  font-size: 14px;
+  color: #f3f3f3;
+  font-weight: 400;
+}
+
+.check-option:hover span {
+  color: #ffffff;
+}
+
 /* 单选框样式 */
 .radio-option {
   display: flex;

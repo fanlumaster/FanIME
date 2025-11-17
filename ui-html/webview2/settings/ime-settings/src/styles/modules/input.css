@@ -1,0 +1,66 @@
+/* 输入 -> 输入方案 */
+.input-option-content {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 输入 -> 双拼方案 */
+.shuangpin-option-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.shuangpin-scheme-arrow {
+  width: 16px;
+  height: 16px;
+}
+
+.dropdown-toggle-shuangpin-scheme {
+  padding: 4px 6px 4px 9px;
+  min-width: 110px;
+}
+
+.shuangpin-scheme-dropdown-menu {
+  min-width: 110px;
+}
+
+.shuangpin-scheme-dropdown-menu div {
+  font-size: 14px;
+  color: #ccc;
+}
+
+/* 添加方案 */
+.add-shuangpin-scheme {
+  text-align: right;
+}
+
+.add-shuangpin-scheme-btn {
+  display: inline-flex;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  width: auto;
+  height: 30px;
+  border-radius: 6px;
+  background: #292929;
+  border: 0px solid #666;
+  color: #ccc;
+  font-size: 14px;
+  user-select: none;
+  transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.add-shuangpin-scheme-btn:hover {
+  background: #333;
+  background: rgba(45, 45, 45);
+  border-color: #777;
+}
+
+.add-shuangpin-scheme-btn:active {
+  background: #d1d1d128;
+  border-color: #555;
+}

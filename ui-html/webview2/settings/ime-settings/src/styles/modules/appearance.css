@@ -1,0 +1,13 @@
+/* 外观 -> 主题模式 */
+.theme .ftb-toggle {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.theme-toggle-header {
+  margin-bottom: 0;
+}
+
+.arrange-item {
+  margin-top: 12px;
+}

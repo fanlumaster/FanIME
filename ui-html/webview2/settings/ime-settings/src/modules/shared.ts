@@ -62,5 +62,10 @@ export function setupToggleButton(btnId: string): void {
 
   toggle.addEventListener('click', () => {
     toggle.classList.toggle('active');
+    console.log("en?");
+    
   });
+  
+  console.log("what?");
+  
 }

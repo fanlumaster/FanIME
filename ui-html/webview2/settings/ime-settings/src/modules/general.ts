@@ -4,11 +4,11 @@ export function setupGeneral(): void {
   // 悬浮工具栏
   setupToggleButton('ftbToggleBtn');
 
-  // 中英混输开关
-  setupToggleButton('zhEnToggleBtn');
-
   // 设置翻页方式复选框
   setupPageOptions();
+
+  // 中英混输开关
+  setupToggleButton('zhEnToggleBtn');
 }
 
 function setupPageOptions(): void {
@@ -17,12 +17,6 @@ function setupPageOptions(): void {
     checkbox.addEventListener('change', (e: Event) => {
       const target = e.target as HTMLInputElement;
       if (target.checked) {
-        // 取消其他复选框的选中状态
-        checkboxes.forEach((other: Element) => {
-          if (other !== checkbox) {
-            (other as HTMLInputElement).checked = false;
-          }
-        });
       }
     });
   });

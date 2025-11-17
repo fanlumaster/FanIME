@@ -1,0 +1,8 @@
+/* 通用 -> 翻页方式 */
+.section-page-option {}
+
+.content-page-option {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}

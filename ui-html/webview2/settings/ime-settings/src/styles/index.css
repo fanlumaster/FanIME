@@ -1,7 +1,19 @@
+/* 基础样式 */
 @import './variables.css';
 @import './base.css';
 @import './layout.css';
+
+/* 布局组件 */
 @import './sidebar.css';
+@import './components/sections.css';
+
+/* 通用组件 */
 @import './components/dropdown.css';
 @import './components/toggle.css';
 @import './components/forms.css';
+
+/* 功能模块样式 */
+@import './modules/general.css';
+@import './modules/appearance.css';
+@import './modules/input.css';
+@import './modules/helpcode.css';
