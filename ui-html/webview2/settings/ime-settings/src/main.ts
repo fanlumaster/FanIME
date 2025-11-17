@@ -9,7 +9,8 @@ async function initializeApp() {
   document.getElementById('sidebar-container')!.innerHTML = sidebarHTML;
 
   // 加载默认内容(通用设置)，初始化功能
-  await loadContent('general');
+  // await loadContent('general');
+  await loadContent('appearance');
   setupSidebar();
 }
 

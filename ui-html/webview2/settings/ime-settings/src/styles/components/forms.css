@@ -33,7 +33,6 @@ select:focus {
   border-radius: 2px;
   background-color: transparent;
   position: relative;
-  cursor: pointer;
   transition: all 0.1s ease;
 }
 

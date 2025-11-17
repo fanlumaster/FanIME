@@ -1,11 +1,13 @@
 #sidebar-container {
   display: flex;
   flex: 1;
+  margin-top: 8px;
 }
 
 #content-container {
   display: flex;
   flex: 3;
+  margin-top: 8px;
 }
 
 .main {

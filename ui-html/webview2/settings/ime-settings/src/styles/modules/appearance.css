@@ -1,4 +1,22 @@
-/* 外观 -> 主题模式 */
+/********/
+/* 外观 */
+/********/
+
+.s-h-cand-preview {
+  /* display: flex;
+  flex-direction: row; */
+}
+
+.candidate {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/**/
+/* 主题模式 */
+/**/
 .theme .ftb-toggle {
   padding-top: 5px;
   padding-bottom: 5px;

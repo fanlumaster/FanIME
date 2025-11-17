@@ -1,0 +1,78 @@
+.candidate {
+  .container {
+    margin-top: 0px;
+    margin-left: 0px;
+    background: #202020;
+    /* background: url("https://appassets/background.jpg"); */
+    padding: 2px;
+    border-radius: 6px;
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+    min-width: 7em;
+    width: fit-content;
+    user-select: none;
+    border: 1.5px solid #9b9b9b2e;
+  }
+
+  .cursor {
+    display: inline-block;
+    margin-left: 1px;
+    width: 1.5px;
+    height: 1em;
+    background: #6b69d6;
+  }
+
+  .row {
+    justify-content: space-between;
+    padding: 2px;
+    padding-right: 12px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 2px;
+  }
+
+  .cand {
+    border-radius: 4px;
+  }
+
+  .cand:hover {
+    background-color: #414141;
+  }
+
+  .row-wrapper {
+    position: relative;
+  }
+
+  .first {
+    background-color: #3e3e3eb9;
+    border-radius: 4px;
+  }
+
+  /* bar */
+  .first::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 0.8em;
+    width: 0.2em;
+    background: #6b69d6;
+    border-radius: 8px;
+  }
+
+  .text {
+    padding-left: 8px;
+    color: #e9e8e8;
+  }
+
+  .pinyin {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hidden-pinyin {
+    visibility: hidden;
+  }
+}
