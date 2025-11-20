@@ -7,7 +7,11 @@ import { setupHelpcode } from './helpcode';
 // 动态加载内容
 export async function loadContent(moduleName: string) {
   const contentHTML = await loadHTML(`/src/partials/${moduleName}.html`);
-  document.getElementById('content-container')!.innerHTML = contentHTML;
+  const container = document.getElementById('content-container')!;
+
+  // 隐藏容器以避免闪烁
+  container.style.visibility = 'hidden';
+  container.innerHTML = contentHTML;
 
   // 根据加载的模块初始化对应的功能
   switch (moduleName) {
@@ -15,7 +19,7 @@ export async function loadContent(moduleName: string) {
       setupGeneral();
       break;
     case 'appearance':
-      setupAppearance();
+      await setupAppearance();
       break;
     case 'input':
       setupInput();
@@ -24,6 +28,9 @@ export async function loadContent(moduleName: string) {
       setupHelpcode();
       break;
   }
+
+  // 初始化完成后显示容器
+  container.style.visibility = 'visible';
 }
 
 export function setupSidebar(): void {
