@@ -38,6 +38,9 @@ export function setupSidebar(): void {
 
   sidebarItems.forEach((item: Element) => {
     item.addEventListener('click', () => {
+      if (item.classList.contains('active')) {
+        return;
+      }
       const currentActive = document.querySelector('.sidebar .item.active');
       currentActive?.classList.remove('active');
       item.classList.add('active');
