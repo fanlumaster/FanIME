@@ -164,8 +164,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         szWindowClass,                    //
         lpWindowNameSettings,             //
         WS_OVERLAPPEDWINDOW,              //
-        400,                              //
-        400,                              //
+        600,                              // Initial position
+        200,                              //
         (::SETTINGS_WINDOW_WIDTH)*scale,  //
         (::SETTINGS_WINDOW_HEIGHT)*scale, //
         nullptr,                          //
@@ -263,10 +263,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
     if (!g_hHook)
     {
-        OutputDebugString(fmt::format(L"键盘钩子安装失败\n").c_str());
+        OutputDebugString(fmt::format(L"Kbd hook for IME failed!\n").c_str());
         return 1;
     }
-    OutputDebugString(fmt::format(L"键盘钩子安装成功\n").c_str());
+    OutputDebugString(fmt::format(L"Kbd hook for IME installed.\n").c_str());
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))

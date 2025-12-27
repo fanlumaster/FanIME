@@ -63,7 +63,10 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
 
 int PrepareHtmlForWnds()
 {
-    std::wstring assetPath = L"C:\\Users\\SonnyCalcr\\AppData\\Local\\MetasequoiaImeTsf";
+    // e.g. C:\\Users\\SonnyCalcr\\AppData\\Local\\MetasequoiaImeTsf
+    std::wstring assetPath = fmt::format( //
+        L"{}\\{}",                        //
+        string_to_wstring(CommonUtils::get_local_appdata_path()), GlobalIme::AppName);
 
     //
     // 候选窗口
@@ -84,38 +87,32 @@ int PrepareHtmlForWnds()
         }
     }
 
-    std::wstring entireHtmlPathCandWnd = std::filesystem::current_path().wstring() + htmlCandWnd;
-    entireHtmlPathCandWnd = assetPath + htmlCandWnd;
+    std::wstring entireHtmlPathCandWnd = assetPath + htmlCandWnd;
     ::HTMLStringCandWnd = ReadHtmlFile(entireHtmlPathCandWnd);
-    std::wstring bodyHtmlPathCandWnd = std::filesystem::current_path().wstring() + bodyHtmlCandWnd;
-    bodyHtmlPathCandWnd = assetPath + bodyHtmlCandWnd;
+    std::wstring bodyHtmlPathCandWnd = assetPath + bodyHtmlCandWnd;
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
-    std::wstring measureHtmlPathCandWnd = std::filesystem::current_path().wstring() + measureHtmlCandWnd;
-    measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
+    std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
     ::MeasureStringCandWnd = ReadHtmlFile(measureHtmlPathCandWnd);
 
     //
     // 托盘语言区菜单窗口
     //
     std::wstring htmlMenuWnd = L"/html/webview2/menu/default.html";
-    std::wstring entireHtmlPathMenuWnd = std::filesystem::current_path().wstring() + htmlMenuWnd;
-    entireHtmlPathMenuWnd = assetPath + htmlMenuWnd;
+    std::wstring entireHtmlPathMenuWnd = assetPath + htmlMenuWnd;
     ::HTMLStringMenuWnd = ReadHtmlFile(entireHtmlPathMenuWnd);
 
     //
     // settings 窗口
     //
     std::wstring htmlSettingsWnd = L"/html/webview2/settings/default.html";
-    std::wstring entireHtmlPathSettingsWnd = std::filesystem::current_path().wstring() + htmlSettingsWnd;
-    entireHtmlPathSettingsWnd = assetPath + htmlSettingsWnd;
+    std::wstring entireHtmlPathSettingsWnd = assetPath + htmlSettingsWnd;
     ::HTMLStringSettingsWnd = ReadHtmlFile(entireHtmlPathSettingsWnd);
 
     //
     // floating toolbar 窗口
     //
     std::wstring htmlFtbWnd = L"/html/webview2/ftb/default.html";
-    std::wstring entireHtmlPathFtbWnd = std::filesystem::current_path().wstring() + htmlFtbWnd;
-    entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
+    std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
     ::HTMLStringFtbWnd = ReadHtmlFile(entireHtmlPathFtbWnd);
 
     return 0;
