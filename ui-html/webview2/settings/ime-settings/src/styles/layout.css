@@ -1,3 +1,10 @@
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  /* overflow-x: hidden; */
+}
+
 #sidebar-container {
   display: flex;
   flex: 1;
@@ -5,16 +12,11 @@
 }
 
 #content-container {
-  flex: 3;
+  flex: 4;
   display: block;
   margin-top: 8px;
-  margin-right: 1rem;
-}
-
-.main {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
+  padding-left: 1rem;
+  padding-right: 1.5rem;
 }
 
 .content {
