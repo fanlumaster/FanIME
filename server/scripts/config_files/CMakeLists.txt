@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.25.0)
 
 set(PROJECT_NAME "MetasequoiaImeServer")
 
+cmake_policy(SET CMP0167 NEW)
 project(${PROJECT_NAME} VERSION 1.0)
 
 # Boost

@@ -81,7 +81,7 @@ CMakeLists_file = os.path.join(
 CMakeLists_output_file = os.path.join(MetasequoiaImeServer_root_path, "CMakeLists.txt")
 with open(CMakeLists_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
-lines[7] = f'set(Boost_ROOT "{boost_path}")\n'
+lines[8] = f'set(Boost_ROOT "{boost_path}")\n'
 with open(CMakeLists_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
 
