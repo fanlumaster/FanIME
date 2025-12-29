@@ -5,9 +5,10 @@
 }
 
 #content-container {
-  display: flex;
   flex: 3;
+  display: block;
   margin-top: 8px;
+  margin-right: 1rem;
 }
 
 .main {

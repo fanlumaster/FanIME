@@ -1,4 +1,4 @@
-import { loadHTML } from '../utils/common-utils';
+import { loadHTML, showOnlyCurrentModule } from '../utils/common-utils';
 import { setupGeneral } from './general';
 import { setupAppearance } from './appearance';
 import { setupInput } from './input';
@@ -7,10 +7,8 @@ import { setupHelpcode } from './helpcode';
 // 动态加载内容
 export async function loadContent(moduleName: string) {
   const contentHTML = await loadHTML(`/src/partials/${moduleName}.html`);
-  const container = document.getElementById('content-container')!;
+  const container = document.getElementById(moduleName)!;
 
-  // 隐藏容器以避免闪烁
-  container.style.visibility = 'hidden';
   container.innerHTML = contentHTML;
 
   // 根据加载的模块初始化对应的功能
@@ -28,9 +26,6 @@ export async function loadContent(moduleName: string) {
       setupHelpcode();
       break;
   }
-
-  // 初始化完成后显示容器
-  container.style.visibility = 'visible';
 }
 
 export function setupSidebar(): void {
@@ -49,7 +44,7 @@ export function setupSidebar(): void {
       const targetId = htmlItem.dataset.target;
       console.log(targetId);
       if (targetId) {
-        loadContent(targetId);
+        showOnlyCurrentModule(targetId);
       }
     });
   });
