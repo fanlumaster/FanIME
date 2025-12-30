@@ -1,4 +1,4 @@
-.candidate {
+.wnd-h {
   .container {
     margin-top: 0px;
     margin-left: 0px;
@@ -19,15 +19,17 @@
     width: 1.5px;
     height: 1em;
     background: #6b69d6;
+    transform: translateY(1px);
   }
 
   .row {
     justify-content: space-between;
-    padding: 2px;
-    padding-right: 12px;
+    /* padding: 2px; */
+    /* padding-right: 12px; */
     padding-top: 0;
     padding-bottom: 0;
     margin-top: 2px;
+    margin-bottom: 1px;
   }
 
   .cand {
@@ -40,6 +42,12 @@
 
   .row-wrapper {
     position: relative;
+    display: inline-block;
+    vertical-align: top;
+  }
+
+  .first-row-wrapper {
+    margin-left: 2px;
   }
 
   .first {
@@ -52,7 +60,7 @@
     content: "";
     position: absolute;
     left: 0;
-    top: 50%;
+    top: 53%;
     transform: translateY(-50%);
     height: 0.8em;
     width: 0.2em;
@@ -61,15 +69,25 @@
   }
 
   .text {
-    padding-left: 8px;
+    padding-left: 5px;
+    padding-right: 5px;
     color: #e9e8e8;
+    display: flex;
+    align-items: baseline;
+  }
+
+  .num {
+    font-size: 12px;
+    margin-right: 1px;
   }
 
   .pinyin {
+    font-size: 14px;
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    margin-bottom: 0;
   }
 
   .hidden-pinyin {

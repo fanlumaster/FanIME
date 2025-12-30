@@ -1,10 +1,20 @@
 /********/
 /* 外观 */
 /********/
+.sec-candidate-preview {
+}
 
 .s-h-cand-preview {
   /* display: flex;
   flex-direction: row; */
+}
+
+.cand-preview {
+  min-height: 16rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
 }
 
 .candidate {

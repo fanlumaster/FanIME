@@ -13,5 +13,5 @@ body {
   width: 100vw;
   color: var(--text-color);
   background: #202020;
-  background: transparent;
+  /* background: transparent; */
 }

@@ -31,6 +31,19 @@ export function setupDropdownMenu(
     item.addEventListener('click', () => {
       textSpan.textContent = item.textContent;
 
+      // 分发给具体的函数去处理
+      switch (messageAction) {
+        case 'changeTheme':
+          // setTheme(item.dataset.value);
+          break;
+        case 'changeCandidateArrange':
+          const htmlItem = item as HTMLElement;
+          setArrange(htmlItem.dataset.value);
+          break;
+        default:
+          break;
+      }
+
       if (window.chrome?.webview) {
         const htmlItem = item as HTMLElement;
         window.chrome.webview.postMessage(JSON.stringify({
@@ -62,10 +75,13 @@ export function setupToggleButton(btnId: string): void {
 
   toggle.addEventListener('click', () => {
     toggle.classList.toggle('active');
-    console.log("en?");
-    
   });
-  
-  console.log("what?");
-  
+}
+
+function setArrange(value: string | undefined): void {
+  console.log(value);
+  const wnd_h = document.getElementById('candidate-wnd-h')!;
+  wnd_h.style.display = value === 'horizontal' ? 'flex' : 'none';
+  const wnd_v = document.getElementById('candidate-wnd-v')!;
+  wnd_v.style.display = value === 'vertical' ? 'flex' : 'none';
 }

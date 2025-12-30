@@ -15,6 +15,7 @@
 /* 功能模块样式 */
 @import './modules/general.css';
 @import './modules/appearance.css';
-@import './modules/candidate/style.css';
+@import './modules/candidate/style-v.css';
+@import './modules/candidate/style-h.css';
 @import './modules/input.css';
 @import './modules/helpcode.css';
