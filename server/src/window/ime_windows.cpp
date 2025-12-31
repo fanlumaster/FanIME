@@ -22,7 +22,8 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
-constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW = 1;
+constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 1;
+constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 2;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
@@ -213,7 +214,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         lpWindowNameFtb,                                     //
         WS_POPUP,                                            //
         2216,                                                //
-        1254,                                                //
+        -12540,                                              //
         (::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale,  //
         (::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale, //
         nullptr,                                             //
@@ -255,7 +256,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     InitWebviewFtbWnd(hwnd_ftb);
 
     /* 调整菜单窗口 size */
-    SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW, 200, nullptr);
+    SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW_MENU, 200, nullptr);
+
+    /* 调整 floating toolbar 窗口 position */
+    SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
 
     //
     // 注册一下全局钩子
@@ -449,15 +453,15 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     }
 
     case WM_TIMER: {
-        if (wParam == TIMER_ID_INIT_WEBVIEW)
+        if (wParam == TIMER_ID_INIT_WEBVIEW_MENU)
         {
-            KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW);
-            if (webviewMenuWnd) // 确保 webview 已初始化
+            KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW_MENU);
+            if (::webviewMenuWnd) // 确保 webview 已初始化
             {
                 GetContainerSizeMenu(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
                     if (hwnd == ::global_hwnd_menu)
                     {
-                        UINT flag = SWP_NOZORDER | SWP_NOMOVE;
+                        UINT flag = SWP_NOZORDER | SWP_NOMOVE | SWP_HIDEWINDOW;
                         FLOAT scale = GetForegroundWindowScale();
                         int newWidth = (containerSize.first) * scale;
                         int newHeight = (containerSize.second) * scale;
@@ -480,7 +484,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             else
             {
                 // 如果 webview 还没准备好，再等一会
-                SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW, 100, nullptr);
+                SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_MENU, 100, nullptr);
             }
         }
         break;
@@ -526,6 +530,39 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
 {
     switch (message)
     {
+    case WM_TIMER: {
+        if (wParam == TIMER_ID_MOVE_WEBVIEW_FTB)
+        {
+            KillTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_FTB);
+            if (::webviewFtbWnd)
+            {
+                // 放在屏幕右下角
+                // 获取主屏幕尺寸
+                MonitorCoordinates coordinates = GetMainMonitorCoordinates();
+                // 获取窗口尺寸
+                RECT rect;
+                GetWindowRect(hwnd, &rect);
+                // 获取任务栏高度
+                int taskbarHeight = GetTaskbarHeight();
+                // 移动窗口
+                SetWindowPos(                                                           //
+                    hwnd,                                                               //
+                    0,                                                                  //
+                    coordinates.right - (rect.right - rect.left) - 10,                  //
+                    coordinates.bottom - (rect.bottom - rect.top) - taskbarHeight - 10, //
+                    0,                                                                  //
+                    0,                                                                  //
+                    SWP_NOSIZE);
+                break;
+            }
+            else
+            {
+                // 如果 webview 还没准备好，再等一会
+                SetTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_FTB, 100, nullptr);
+            }
+        }
+        break;
+    }
     default: {
         return DefWindowProc(hwnd, message, wParam, lParam);
     }

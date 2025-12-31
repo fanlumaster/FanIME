@@ -7,6 +7,8 @@ FLOAT GetWindowScale(HWND);
 FLOAT GetForegroundWindowScale();
 
 MonitorCoordinates GetMonitorCoordinates();
+MonitorCoordinates GetMainMonitorCoordinates();
+int GetTaskbarHeight();
 
 int AdjustCandidateWindowPosition(       //
     const POINT *point,                  //

@@ -57,6 +57,59 @@ MonitorCoordinates GetMonitorCoordinates()
     return coordinates;
 }
 
+/**
+ * @brief Get the Main Monitor Coordinates
+ *
+ * @return MonitorCoordinates
+ */
+MonitorCoordinates GetMainMonitorCoordinates()
+{
+    MonitorCoordinates coordinates{};
+
+    HMONITOR hPrimary = MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY);
+
+    MONITORINFO mi{};
+    mi.cbSize = sizeof(mi);
+
+    if (GetMonitorInfo(hPrimary, &mi))
+    {
+        coordinates.left = mi.rcMonitor.left;
+        coordinates.top = mi.rcMonitor.top;
+        coordinates.right = mi.rcMonitor.right;
+        coordinates.bottom = mi.rcMonitor.bottom;
+    }
+
+    return coordinates;
+}
+
+/**
+ * @brief Get the Taskbar Height
+ *
+ * @return int
+ */
+int GetTaskbarHeight()
+{
+    APPBARDATA abd{};
+    abd.cbSize = sizeof(abd);
+
+    if (!SHAppBarMessage(ABM_GETTASKBARPOS, &abd))
+        return 0;
+
+    RECT &r = abd.rc;
+
+    switch (abd.uEdge)
+    {
+    case ABE_BOTTOM:
+    case ABE_TOP:
+        return r.bottom - r.top; // 高度
+    case ABE_LEFT:
+    case ABE_RIGHT:
+        return r.right - r.left; // 宽度（竖向任务栏）
+    }
+
+    return 0;
+}
+
 int AdjustCandidateWindowPosition(                  //
     const POINT *point,                             //
     const std::pair<double, double> &containerSize, //
