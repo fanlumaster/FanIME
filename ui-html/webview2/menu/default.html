@@ -159,9 +159,16 @@
   </div>
 
   <script>
+    // 向 C++ 端发送消息，隐藏/显示悬浮工具栏
     const toggle = document.getElementById('floatingToggle');
     toggle.addEventListener('click', () => {
       toggle.classList.toggle('active');
+      console.log("floatingToggle: ", toggle.classList.contains('active'));
+      // 向 C++ 端发送消息，隐藏/显示悬浮工具栏
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'floatingToggle',
+        data: toggle.classList.contains('active')
+      }));
     });
   </script>
 </body>
