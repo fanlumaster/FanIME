@@ -1,12 +1,16 @@
 #include "windows_webview2.h"
+#include "defines/globals.h"
 #include "utils/common_utils.h"
 #include <debugapi.h>
-#include <filesystem>
+#include <boost/json.hpp>
 #include <string>
 #include <windows.h>
 #include <dwmapi.h>
+#include <winuser.h>
 #include "global/globals.h"
 #include "fmt/xchar.h"
+
+namespace json = boost::json;
 
 int boundRightExtra = 1000;
 int boundBottomExtra = 1000;
@@ -464,6 +468,36 @@ HRESULT OnControllerCreatedMenuWnd(     //
 
     /* Debug console */
     // webviewMenuWindow->OpenDevToolsWindow();
+
+    webviewMenuWnd->add_WebMessageReceived(
+        Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+            [hwnd](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                wil::unique_cotaskmem_string message;
+                HRESULT hr = args->TryGetWebMessageAsString(&message);
+
+                if (SUCCEEDED(hr) && message.get())
+                {
+                    std::wstring msg(message.get());
+                    // 解析 msg，执行相应操作
+                    json::value val = json::parse(wstring_to_string(msg));
+                    std::string type = json::value_to<std::string>(val.at("type"));
+                    if (type == "floatingToggle")
+                    {
+                        bool isShown = json::value_to<bool>(val.at("data"));
+                        if (isShown)
+                        {
+                            ShowWindow(::global_hwnd_ftb, SW_SHOW);
+                        }
+                        else
+                        {
+                            ShowWindow(::global_hwnd_ftb, SW_HIDE);
+                        }
+                    }
+                }
+                return S_OK;
+            })
+            .Get(),
+        nullptr);
 
     return S_OK;
 }
