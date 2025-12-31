@@ -133,7 +133,7 @@
       <span class="shortcut">Win+⇧+V</span>
     </div>
 
-    <div class="menu-item">
+    <div class="menu-item" id="settings">
       <div class="menu-item-left">
         <span>⚙️</span>
         设置
@@ -159,7 +159,7 @@
   </div>
 
   <script>
-    // 向 C++ 端发送消息，隐藏/显示悬浮工具栏
+    // 悬浮工具栏：向 C++ 端发送消息，隐藏/显示悬浮工具栏
     const toggle = document.getElementById('floatingToggle');
     toggle.addEventListener('click', () => {
       toggle.classList.toggle('active');
@@ -168,6 +168,15 @@
       window.chrome.webview.postMessage(JSON.stringify({
         type: 'floatingToggle',
         data: toggle.classList.contains('active')
+      }));
+    });
+
+    // 设置：向 C++ 端发送消息，打开设置
+    const settings = document.getElementById('settings');
+    settings.addEventListener('click', () => {
+      console.log("settings");
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'settings',
       }));
     });
   </script>
