@@ -23,7 +23,8 @@
 #pragma comment(lib, "dwmapi.lib")
 
 constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 1;
-constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 2;
+constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 2;
+constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 3;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
@@ -257,6 +258,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     /* 调整菜单窗口 size */
     SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW_MENU, 200, nullptr);
+
+    /* 调整 settings 窗口 position */
+    SetTimer(hwnd_settings, TIMER_ID_MOVE_WEBVIEW_SETTINGS, 200, nullptr);
 
     /* 调整 floating toolbar 窗口 position */
     SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
@@ -500,6 +504,39 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
 {
     switch (message)
     {
+    case WM_TIMER: {
+        if (wParam == TIMER_ID_MOVE_WEBVIEW_SETTINGS)
+        {
+            KillTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_SETTINGS);
+            if (::webviewSettingsWnd)
+            {
+                // 放在屏幕右下角
+                // 获取主屏幕尺寸
+                MonitorCoordinates coordinates = GetMainMonitorCoordinates();
+                // 获取窗口尺寸
+                RECT rect;
+                GetWindowRect(hwnd, &rect);
+                // 获取任务栏高度
+                int taskbarHeight = GetTaskbarHeight();
+                // 移动窗口
+                SetWindowPos(                                                              //
+                    hwnd,                                                                  //
+                    0,                                                                     //
+                    coordinates.right / 2 - (rect.right - rect.left) / 2,                  //
+                    coordinates.bottom / 2 - (rect.bottom - rect.top) / 2 - taskbarHeight, //
+                    0,                                                                     //
+                    0,                                                                     //
+                    SWP_NOSIZE);
+                break;
+            }
+            else
+            {
+                // 如果 webview 还没准备好，再等一会
+                SetTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_SETTINGS, 100, nullptr);
+            }
+        }
+        break;
+    }
     case WM_ERASEBKGND: { // Make the background dark
         // HDC hdc = (HDC)wParam;
         // RECT rc;
