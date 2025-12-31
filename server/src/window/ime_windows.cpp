@@ -167,7 +167,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         lpWindowNameSettings,             //
         WS_OVERLAPPEDWINDOW,              //
         600,                              // Initial position
-        200,                              //
+        -20000,                           //
         (::SETTINGS_WINDOW_WIDTH)*scale,  //
         (::SETTINGS_WINDOW_HEIGHT)*scale, //
         nullptr,                          //
@@ -526,7 +526,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     coordinates.bottom / 2 - (rect.bottom - rect.top) / 2 - taskbarHeight, //
                     0,                                                                     //
                     0,                                                                     //
-                    SWP_NOSIZE);
+                    SWP_NOSIZE | SWP_HIDEWINDOW);
                 break;
             }
             else
@@ -536,6 +536,11 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             }
         }
         break;
+    }
+    case WM_CLOSE: {
+        // 不销毁窗口，只隐藏
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
     }
     case WM_ERASEBKGND: { // Make the background dark
         // HDC hdc = (HDC)wParam;

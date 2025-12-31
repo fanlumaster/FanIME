@@ -493,6 +493,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
                             ShowWindow(::global_hwnd_ftb, SW_HIDE);
                         }
                     }
+                    else if (type == "settings")
+                    {
+                        ShowWindow(::global_hwnd_settings, SW_SHOW);
+                        ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
                 }
                 return S_OK;
             })
