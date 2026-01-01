@@ -483,8 +483,8 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     std::string type = json::value_to<std::string>(val.at("type"));
                     if (type == "floatingToggle")
                     {
-                        bool isShown = json::value_to<bool>(val.at("data"));
-                        if (isShown)
+                        bool needShown = json::value_to<bool>(val.at("data"));
+                        if (needShown)
                         {
                             ShowWindow(::global_hwnd_ftb, SW_SHOW);
                         }
@@ -495,7 +495,8 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     }
                     else if (type == "settings")
                     {
-                        ShowWindow(::global_hwnd_settings, SW_SHOW);
+                        ShowWindow(::global_hwnd_settings, SW_RESTORE);
+                        SetForegroundWindow(::global_hwnd_settings);
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                 }
