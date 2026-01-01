@@ -60,6 +60,9 @@ struct FanyImeSharedMemoryData
 //   1: FanyHideCandidateWndEvent
 //   2: FanyShowCandidateWndEvent
 //   3: FanyMoveCandidateWndEvent
+//   4: FanyLangbarRightClickEvent
+//   5: FanyIMEActivationEvent
+//   6: FanyIMEDeactivationEvent
 //
 // modifiers_down:
 //     0b00000001: Shift

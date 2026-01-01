@@ -366,6 +366,18 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    if (message == WM_IMEACTIVATE)
+    {
+        ShowWindow(::global_hwnd_ftb, SW_SHOW);
+        return 0;
+    }
+
+    if (message == WM_IMEDEACTIVATE)
+    {
+        ShowWindow(::global_hwnd_ftb, SW_HIDE);
+        return 0;
+    }
+
     switch (message)
     {
     case WM_MOUSEACTIVATE:

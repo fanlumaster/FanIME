@@ -31,7 +31,9 @@ enum class TaskType
     HideCandidate,
     MoveCandidate,
     ImeKeyEvent,
-    LangbarRightClick
+    LangbarRightClick,
+    IMEActivation,
+    IMEDeactivation
 };
 
 struct Task
@@ -104,6 +106,16 @@ void WorkerThread()
         case TaskType::LangbarRightClick: {
             ::ReadDataFromNamedPipe(0b001101);
             PostMessage(::global_hwnd_menu, WM_LANGBAR_RIGHTCLICK, 0, 0);
+            break;
+        }
+
+        case TaskType::IMEActivation: {
+            PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
+            break;
+        }
+
+        case TaskType::IMEDeactivation: {
+            PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
             break;
         }
         }
@@ -200,6 +212,16 @@ void EventListenerLoopThread()
 
                 case 4: { // FanyLangbarRightClickEvent
                     EnqueueTask(TaskType::LangbarRightClick);
+                    break;
+                }
+
+                case 5: { // FanyIMEActivationEvent
+                    EnqueueTask(TaskType::IMEActivation);
+                    break;
+                }
+
+                case 6: { // FanyIMEDeactivationEvent
+                    EnqueueTask(TaskType::IMEDeactivation);
                     break;
                 }
                 }
