@@ -486,7 +486,23 @@ HRESULT OnControllerCreatedMenuWnd(     //
                         bool needShown = json::value_to<bool>(val.at("data"));
                         if (needShown)
                         {
+                            /**
+                             * @brief 显示 ftb 的时候，当 menu 和 ftb 部分交叠在一起时不应因为 z-order 的原因而带来闪烁
+                             *
+                             */
+                            SetLayeredWindowAttributes( //
+                                ::global_hwnd_ftb,
+                                0, // 不用 color key
+                                0, // Alpha = 0（完全透明）
+                                LWA_ALPHA);
                             ShowWindow(::global_hwnd_ftb, SW_SHOW);
+                            SetWindowPos(::global_hwnd_menu, ::global_hwnd_ftb, 0, 0, 0, 0,
+                                         SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
+                            SetLayeredWindowAttributes( //
+                                ::global_hwnd_ftb,      //
+                                0,                      //
+                                255,                    // 恢复完全不透明
+                                LWA_ALPHA);
                         }
                         else
                         {
