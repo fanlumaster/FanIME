@@ -94,12 +94,21 @@
     <div class="divider"></div>
 
     <div class="right-section">
-      <div class="icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M3.92 6.78H20.04V16.18H18.5V8.24H5.42V16.28H3.92V6.78ZM4.72 13.56H19.4V15.04H4.72V13.56ZM11.16 3.2H12.74V21.58H11.16V3.2Z"
-            fill="white" />
-        </svg>
+      <div id="cn-en">
+        <div class="icon" id="cn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M3.92 6.78H20.04V16.18H18.5V8.24H5.42V16.28H3.92V6.78ZM4.72 13.56H19.4V15.04H4.72V13.56ZM11.16 3.2H12.74V21.58H11.16V3.2Z"
+              fill="white" />
+          </svg>
+        </div>
+        <div class="icon" id="en">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M3.14 14.44H20.9V15.86H3.14V14.44ZM5.2 9.76H18.92V15.02H17.42V11.08H6.64V15.02H5.2V9.76ZM11.14 7.46H12.7V13C12.7 13.6933 12.6333 14.3733 12.5 15.04C12.38 15.6933 12.1467 16.34 11.8 16.98C11.4533 17.6067 10.9467 18.2067 10.28 18.78C9.61333 19.34 8.74 19.86 7.66 20.34C6.59333 20.8333 5.26667 21.2667 3.68 21.64C3.62667 21.5333 3.54667 21.4 3.44 21.24C3.33333 21.08 3.22 20.92 3.1 20.76C2.99333 20.6133 2.88 20.4867 2.76 20.38C4.28 20.0467 5.54667 19.6667 6.56 19.24C7.57333 18.8133 8.38667 18.3533 9 17.86C9.61333 17.3667 10.0733 16.8533 10.38 16.32C10.6867 15.7867 10.8867 15.24 10.98 14.68C11.0867 14.12 11.14 13.5533 11.14 12.98V7.46ZM12.94 14.96C13.58 16.4667 14.6067 17.66 16.02 18.54C17.4467 19.4067 19.2333 19.9867 21.38 20.28C21.26 20.3867 21.14 20.52 21.02 20.68C20.9 20.84 20.7867 21.0067 20.68 21.18C20.5733 21.3533 20.4867 21.5067 20.42 21.64C18.9267 21.3733 17.6067 20.9733 16.46 20.44C15.3267 19.9067 14.3533 19.2133 13.54 18.36C12.74 17.5067 12.0867 16.4867 11.58 15.3L12.94 14.96ZM3.38 5.04H20.56V6.4H3.38V5.04ZM7.62 3.2H9.1V8.5H7.62V3.2ZM14.8 3.2H16.3V8.5H14.8V3.2Z"
+              fill="white" />
+          </svg>
+        </div>
       </div>
       <div class="icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -187,6 +196,10 @@
 
   window.addEventListener('resize', updateDividerX);
   window.addEventListener('load', updateDividerX);
+
+  // Default status is CN
+  document.getElementById('en').style.display = 'none';
+  // document.getElementById('cn').style.display = 'none';
 </script>
 
 </html>
