@@ -33,7 +33,8 @@ enum class TaskType
     ImeKeyEvent,
     LangbarRightClick,
     IMEActivation,
-    IMEDeactivation
+    IMEDeactivation,
+    IMESwitch
 };
 
 struct Task
@@ -116,6 +117,12 @@ void WorkerThread()
 
         case TaskType::IMEDeactivation: {
             PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
+            break;
+        }
+
+        case TaskType::IMESwitch: {
+            ::ReadDataFromNamedPipe(0b000001);
+            PostMessage(::global_hwnd, WM_IMESWITCH, Global::Keycode, 0);
             break;
         }
         }
@@ -222,6 +229,11 @@ void EventListenerLoopThread()
 
                 case 6: { // FanyIMEDeactivationEvent
                     EnqueueTask(TaskType::IMEDeactivation);
+                    break;
+                }
+
+                case 7: { // FanyIMESwitchEvent
+                    EnqueueTask(TaskType::IMESwitch);
                     break;
                 }
                 }

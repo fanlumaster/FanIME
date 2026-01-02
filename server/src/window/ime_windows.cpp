@@ -378,6 +378,19 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    if (message == WM_IMESWITCH)
+    {
+        if (wParam == 0) // 此时是英文状态
+        {
+            UpdateFtbCnEnState(::webviewFtbWnd, 0); // 更新 floating toolbar 的中英文状态为英文
+        }
+        else // 此时是中文状态
+        {
+            UpdateFtbCnEnState(::webviewFtbWnd, 1); // 更新 floating toolbar 的中英文状态为中文
+        }
+        return 0;
+    }
+
     switch (message)
     {
     case WM_MOUSEACTIVATE:

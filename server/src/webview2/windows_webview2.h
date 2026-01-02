@@ -82,3 +82,4 @@ inline ComPtr<ICoreWebView2Controller2> webviewController2FtbWnd;
 inline std::wstring HTMLStringFtbWnd = LR"()";
 
 void InitWebviewFtbWnd(HWND hwnd);
+void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState);

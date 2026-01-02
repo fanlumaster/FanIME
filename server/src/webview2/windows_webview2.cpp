@@ -712,7 +712,7 @@ void InitWebviewSettingsWnd(HWND hwnd)
 
 //
 //
-// toolbar 窗口 webview
+// floating toolbar(ftb) 窗口 webview
 //
 //
 
@@ -857,4 +857,39 @@ void InitWebviewFtbWnd(HWND hwnd)
             })                                                                 //
             .Get()                                                             //
     );                                                                         //
+}
+
+/**
+ * @brief 更新 floating toolbar 窗口的中英文切换状态
+ *
+ * @param webview
+ * @param cnEnState 1: 中文, 0: 英文
+ */
+void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState)
+{
+    if (webview == nullptr)
+    {
+        return;
+    }
+
+    if (cnEnState == 1)
+    {
+        std::wstring script;
+        script.reserve(256);
+
+        script.append(L"document.getElementById('cn').style.display = 'flex';");
+        script.append(L"document.getElementById('en').style.display = 'none';");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+    else if (cnEnState == 0)
+    {
+        std::wstring script;
+        script.reserve(256);
+
+        script.append(L"document.getElementById('cn').style.display = 'none';");
+        script.append(L"document.getElementById('en').style.display = 'flex';");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
 }
