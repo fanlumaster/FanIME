@@ -3,6 +3,8 @@
 #include "ipc/ipc.h"
 #include "webview_utils.h"
 #include <utility>
+#include <winuser.h>
+#include <dwmapi.h>
 
 FLOAT GetWindowScale(HWND hwnd)
 {
@@ -183,4 +185,103 @@ int AdjustWndPosition( //
         properPos[1] = properPos[1] - ::DEFAULT_WINDOW_HEIGHT - 30 - 2;
     }
     return 0;
+}
+
+bool CoversMonitor(HWND hwnd)
+{
+    if (!IsWindow(hwnd) || IsIconic(hwnd) || !IsWindowVisible(hwnd))
+        return false;
+
+    if (hwnd == GetDesktopWindow() || hwnd == GetShellWindow())
+        return false;
+
+    RECT rcWin;
+    GetWindowRect(hwnd, &rcWin);
+
+    HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi{sizeof(mi)};
+    GetMonitorInfo(hMon, &mi);
+
+    RECT rcMon = mi.rcMonitor;
+
+    constexpr int tolerance = 2;                          // 容忍 1~2px
+    return abs(rcWin.left - rcMon.left) <= tolerance      //
+           && abs(rcWin.top - rcMon.top) <= tolerance     //
+           && abs(rcWin.right - rcMon.right) <= tolerance //
+           && abs(rcWin.bottom - rcMon.bottom) <= tolerance;
+}
+
+bool IsActuallyFullscreen(HWND hwnd)
+{
+    // 1. 基础合法性检查
+    if (!IsWindow(hwnd) || !IsWindowVisible(hwnd) || IsIconic(hwnd))
+        return false;
+
+    // 2. 过滤掉桌面、任务栏等系统窗口
+    char className[256];
+    if (GetClassNameA(hwnd, className, sizeof(className)))
+    {
+        if (strcmp(className, "Progman") == 0 || strcmp(className, "WorkerW") == 0 ||
+            strcmp(className, "Shell_TrayWnd") == 0)
+        {
+            return false;
+        }
+    }
+
+    // 3. 获取窗口真实的物理位置 (DWM 坐标)
+    // 使用 DWM 才能排除掉 Win10/11 窗口四周那种看不见的“隐形边框”
+    RECT rcWin;
+    HRESULT hr = DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &rcWin, sizeof(rcWin));
+    if (FAILED(hr))
+    {
+        // 如果 DWM 获取失败（比如句柄失效），回退到普通 Rect
+        if (!GetWindowRect(hwnd, &rcWin))
+            return false;
+    }
+
+    // 4. 获取窗口所在的显示器信息
+    HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {sizeof(mi)};
+    if (!GetMonitorInfo(hMon, &mi))
+        return false;
+
+    // 5. 核心逻辑判断
+    // 全屏窗口必须完全覆盖（甚至超出）屏幕的每一个边缘
+    // 注意：全屏窗口的坐标往往会比 rcMonitor 稍微大一点点（例如 -1, -1），所以用 <= 和 >=
+    bool coversMonitor = (rcWin.left <= mi.rcMonitor.left && rcWin.top <= mi.rcMonitor.top &&
+                          rcWin.right >= mi.rcMonitor.right && rcWin.bottom >= mi.rcMonitor.bottom);
+
+    if (!coversMonitor)
+        return false;
+
+    // 6. 排除“最大化”但不是“全屏”的情况
+    // 最大化窗口会被限制在 mi.rcWork (即避开任务栏后的区域)
+    // 真正的全屏会盖住任务栏
+    bool touchesWorkArea = (rcWin.left == mi.rcWork.left && rcWin.top == mi.rcWork.top &&
+                            rcWin.right == mi.rcWork.right && rcWin.bottom == mi.rcWork.bottom);
+
+    // 如果窗口和工作区完全重合，且工作区小于屏幕（有任务栏存在），那它只是最大化
+    if (touchesWorkArea)
+    {
+        if (mi.rcWork.bottom != mi.rcMonitor.bottom || mi.rcWork.right != mi.rcMonitor.right)
+        {
+            return false;
+        }
+    }
+
+    // 7. 样式检查：全屏窗口通常没有标题栏
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
+    if (style & WS_CAPTION)
+    {
+        // 特殊情况：有些窗口即使全屏也保留了样式位，但在屏幕外。
+        // 所以如果已经盖住了屏幕，样式只是辅助参考。
+        return false;
+    }
+
+    return true;
+}
+
+bool CheckFullscreen(HWND hwnd)
+{
+    return IsActuallyFullscreen(hwnd);
 }

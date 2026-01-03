@@ -9,3 +9,5 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
 void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback);
 void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop);
 void MakeBodyVisible(ComPtr<ICoreWebView2> webview);
+
+bool CheckFullscreen(HWND hwnd);

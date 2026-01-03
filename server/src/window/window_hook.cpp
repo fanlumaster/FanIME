@@ -1,8 +1,11 @@
 #include "window_hook.h"
+#include "utils/webview_utils.h"
 #include "defines/globals.h"
 #include "defines/defines.h"
 #include <fmt/xchar.h>
 #include <winuser.h>
+
+void OnWinEvent(HWND hwnd);
 
 bool IsKeyPressed(int vk)
 {
@@ -110,4 +113,36 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         }
     }
     return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+}
+
+void CALLBACK WinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG, DWORD, DWORD)
+{
+    if (idObject != OBJID_WINDOW || !hwnd)
+        return;
+
+    if (event == EVENT_OBJECT_LOCATIONCHANGE || event == EVENT_SYSTEM_FOREGROUND)
+    {
+        OnWinEvent(hwnd);
+    }
+}
+
+void OnWinEvent(HWND hwnd)
+{
+    if (!IsWindow(hwnd) || !IsWindowVisible(hwnd))
+        return;
+
+    hwnd = GetForegroundWindow();
+    bool nowFullscreen = CheckFullscreen(hwnd);
+    bool wasFullscreen = g_fullscreen_states[hwnd];
+
+    if (nowFullscreen)
+    {
+        ShowWindow(::global_hwnd_ftb, SW_HIDE);
+    }
+    else if (wasFullscreen && !nowFullscreen)
+    {
+        ShowWindow(::global_hwnd_ftb, SW_SHOW);
+    }
+
+    g_fullscreen_states[hwnd] = nowFullscreen;
 }

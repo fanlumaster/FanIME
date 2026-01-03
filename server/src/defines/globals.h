@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <unordered_map>
 
 inline float SCALE = 1.0f;
 inline int SHADOW_WIDTH = 15;
@@ -54,3 +55,8 @@ inline int FTB_WND_SHADOW_WIDTH = 8;
 
 inline HWND global_hwnd_ftb = NULL;
 inline bool is_global_wnd_ftb_shown = false;
+
+//
+// 全屏状态
+//
+inline std::unordered_map<HWND, bool> g_fullscreen_states;

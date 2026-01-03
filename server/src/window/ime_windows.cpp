@@ -276,6 +276,15 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
     OutputDebugString(fmt::format(L"Kbd hook for IME installed.\n").c_str());
 
+    HWINEVENTHOOK hook = SetWinEventHook( //
+        EVENT_SYSTEM_FOREGROUND,          //
+        EVENT_OBJECT_LOCATIONCHANGE,      //
+        nullptr,                          //
+        WinEventProc,                     //
+        0,                                //
+        0,                                //
+        WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
