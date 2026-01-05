@@ -157,6 +157,9 @@
   </div>
 </body>
 <script>
+  // 
+  // 左侧拖拽区域
+  //
   let dividerX = 0;
 
   // 初始化时或窗口尺寸变化时更新一次
@@ -172,9 +175,7 @@
   window.addEventListener('mousedown', e => {
     if (e.clientX < dividerX) { // 左部区域
       isDragging = true;
-      startX = e.screenX;
-      startY = e.screenY;
-      window.chrome.webview.postMessage({ type: 'dragStart' });
+      window.chrome.webview.postMessage(JSON.stringify({ type: 'dragStart' }));
     }
   });
 
@@ -182,24 +183,23 @@
     isDragging = false;
   });
 
-  window.addEventListener('mousemove', e => {
-    if (isDragging) {
-      window.chrome.webview.postMessage({
-        type: 'dragMove',
-        dx: e.screenX - startX,
-        dy: e.screenY - startY
-      });
-      startX = e.screenX;
-      startY = e.screenY;
-    }
-  });
-
   window.addEventListener('resize', updateDividerX);
   window.addEventListener('load', updateDividerX);
 
+  //
+  // 中英切换
+  //
   // Default status is CN
   document.getElementById('en').style.display = 'none';
   // document.getElementById('cn').style.display = 'none';
+
+  // 中英切换点击，向 Cpp 端发送消息
+  document.getElementById('cn').addEventListener('click', () => {
+    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
+  });
+  document.getElementById('en').addEventListener('click', () => {
+    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'cn' }));
+  });
 </script>
 
 </html>
