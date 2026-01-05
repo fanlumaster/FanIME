@@ -214,6 +214,20 @@ int InitNamedPipe()
         &sa                                       // security attribute, for UWP/Metro apps
     );
 
+    // Namedpipe for sending msg to TSF side
+    hToTsfWorkerThreadPipe = CreateNamedPipe(                 //
+        FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,             // pipe name
+        PIPE_ACCESS_DUPLEX,                                   // read/write access
+        PIPE_TYPE_MESSAGE                                     // message type pipe
+            | PIPE_READMODE_MESSAGE                           // message-read mode
+            | PIPE_WAIT,                                      // blocking mode
+        PIPE_UNLIMITED_INSTANCES,                             // max instances
+        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // output buffer size
+        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // input buffer size
+        0,                                                    // client time-out
+        &sa                                                   // security attribute, for UWP/Metro apps
+    );
+
     if (hPipe == INVALID_HANDLE_VALUE)
     {
         spdlog::error("CreateNamedPipe failed: {}", GetLastError());
@@ -241,6 +255,16 @@ int InitNamedPipe()
         OutputDebugString(L"Named pipe to tsf pipe created successfully\n");
     }
 
+    if (hToTsfWorkerThreadPipe == INVALID_HANDLE_VALUE)
+    {
+        OutputDebugString(
+            fmt::format(L"CreateNamedPipe to tsf worker thread pipe failed: {}\n", GetLastError()).c_str());
+    }
+    else
+    {
+        OutputDebugString(L"Named pipe to tsf worker thread pipe created successfully\n");
+    }
+
     //
     // Events, create here
     //
@@ -255,7 +279,22 @@ int InitNamedPipe()
         if (!hEvent)
         {
             // Error handling
-            OutputDebugString(fmt::format(L"CreateEvent failed: {}\n", GetLastError()).c_str());
+            OutputDebugString(fmt::format(L"Create Event To TSF failed: {}\n", GetLastError()).c_str());
+        }
+    }
+
+    for (const auto &eventName : FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY)
+    {
+        HANDLE hEvent = CreateEventW( //
+            nullptr,                  //
+            FALSE,                    //
+            FALSE,                    // Auto reset
+            eventName.c_str()         //
+        );                            //
+        if (!hEvent)
+        {
+            // Error handling
+            OutputDebugString(fmt::format(L"Create Event To TSF Worker Thread failed: {}\n", GetLastError()).c_str());
         }
     }
 
@@ -326,6 +365,15 @@ int CloseAuxNamedPipe()
     if (hAuxPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hAuxPipe);
+    }
+    return 0;
+}
+
+int CloseToTsfWorkerThreadNamedPipe()
+{
+    if (hToTsfWorkerThreadPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(hToTsfWorkerThreadPipe);
     }
     return 0;
 }
@@ -419,7 +467,7 @@ int ReadDataFromNamedPipe(UINT read_flag)
     return 0;
 }
 
-void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData)
+void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
 {
     if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
     {
@@ -445,5 +493,34 @@ void SendToTsfViaNamedpipe(UINT msg_type, std::wstring &pipeData)
         OutputDebugString(
             fmt::format(L"SendToTsfViaNamedpipe: WriteFile failed, gle={}, written={}\n", GetLastError(), bytesWritten)
                 .c_str());
+    }
+}
+
+void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
+{
+    if (!hToTsfWorkerThreadPipe || hToTsfWorkerThreadPipe == INVALID_HANDLE_VALUE)
+    {
+        // TODO: Error handling
+        OutputDebugString(L"SendToTsfWorkerThreadViaNamedpipe Pipe disconnected\n");
+        return;
+    }
+    DWORD bytesWritten = 0;
+
+    namedpipeDataToTsfWorkerThread.msg_type = msg_type;
+    wcscpy_s(namedpipeDataToTsfWorkerThread.data, pipeData.c_str());
+
+    BOOL ret = WriteFile(                       //
+        hToTsfWorkerThreadPipe,                 //
+        &namedpipeDataToTsfWorkerThread,        //
+        sizeof(namedpipeDataToTsfWorkerThread), //
+        &bytesWritten,                          //
+        NULL                                    //
+    );
+    if (!ret || bytesWritten != sizeof(namedpipeDataToTsfWorkerThread))
+    {
+        // TODO: Error handling
+        OutputDebugString(fmt::format(L"SendToTsfWorkerThreadViaNamedpipe: WriteFile failed, gle={}, written={}\n",
+                                      GetLastError(), bytesWritten)
+                              .c_str());
     }
 }

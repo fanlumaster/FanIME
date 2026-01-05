@@ -148,11 +148,24 @@ void EventListenerLoopThread()
         FANY_IME_EVENT_PIPE_ARRAY[1].c_str()         // FanyImeCancelToWritePipeEvent
     );                                               //
 
+    HANDLE hCancelToTsfWorkerThreadPipeConnectEvent = OpenEvent(  //
+        EVENT_MODIFY_STATE,                                       //
+        FALSE,                                                    //
+        FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[2].c_str() // To Tsf Worker Thread Cancel event
+    );                                                            //
+
     if (!hCancelToTsfPipeConnectEvent)
     {
         // TODO: Error handling
         OutputDebugString(L"FanyImeCancelToWritePipeEvent OpenEvent failed\n");
     }
+
+    if (!hCancelToTsfWorkerThreadPipeConnectEvent)
+    {
+        // TODO: Error handling
+        OutputDebugString(L"To Tsf Worker Thread Cancel event OpenEvent failed\n");
+    }
+
     while (true)
     {
         spdlog::info("Pipe starts to wait");
@@ -190,6 +203,14 @@ void EventListenerLoopThread()
                             OutputDebugString(L"hCancelToTsfPipeConnectEvent SetEvent failed\n");
                         }
                         OutputDebugString(L"End disconnect toTsf pipe\n");
+
+                        OutputDebugString(fmt::format(L"Really disconnect toTsf worker thread pipe\n").c_str());
+                        if (!SetEvent(hCancelToTsfWorkerThreadPipeConnectEvent))
+                        {
+                            // TODO: Error handling
+                            OutputDebugString(L"hCancelToTsfWorkerThreadPipeConnectEvent SetEvent failed\n");
+                        }
+                        OutputDebugString(L"End disconnect toTsf worker thread pipe\n");
                     }
                     break;
                 }
@@ -318,6 +339,76 @@ void ToTsfPipeEventListenerLoopThread()
         }
         OutputDebugString(L"ToTsf Pipe disconnected\n");
         DisconnectNamedPipe(hToTsfPipe);
+    }
+    ::CloseToTsfNamedPipe();
+}
+
+void ToTsfWorkerThreadPipeEventListenerLoopThread()
+{
+    // Open events here
+    std::vector<HANDLE> hPipeEvents(FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size());
+    int numEvents = FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size();
+    for (int i = 0; i < FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size(); ++i)
+    {
+        hPipeEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[i].c_str());
+        if (!hPipeEvents[i])
+        {
+            for (int j = 0; j < i; ++j)
+            {
+                CloseHandle(hPipeEvents[j]);
+            }
+        }
+    }
+
+    while (true)
+    {
+        OutputDebugString(L"ToTsf Worker Thread Pipe starts to wait\n");
+        BOOL connected = ConnectNamedPipe(hToTsfWorkerThreadPipe, NULL);
+        ::toTsfWorkerThreadConnected = connected;
+        if (connected)
+        {
+            OutputDebugString(fmt::format(L"ToTsf Worker Thread Pipe connected: {}\n", connected).c_str());
+            // Wait for event to write data to tsf
+            while (true)
+            {
+                bool isBreakWhile = false;
+                DWORD result = WaitForMultipleObjects(numEvents, hPipeEvents.data(), FALSE, INFINITE);
+                if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + numEvents)
+                {
+                    int eventIndex = result - WAIT_OBJECT_0;
+                    switch (eventIndex)
+                    {
+                    case 0: { // Switch to EN
+                        // Write data to tsf via named pipe
+                        OutputDebugString(fmt::format(L"Named Pipe Switch to EN\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
+                        break;
+                    }
+                    case 1: { // Switch to CN
+                        OutputDebugString(fmt::format(L"Named PipeSwitch to CN\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
+                        break;
+                    }
+                    case 2: {
+                        isBreakWhile = true;
+                        break;
+                    }
+                    }
+                }
+                if (isBreakWhile)
+                {
+                    break;
+                }
+            }
+        }
+        else
+        {
+            // TODO:
+        }
+        OutputDebugString(L"ToTsf Worker Thread Pipe disconnected\n");
+        DisconnectNamedPipe(hToTsfWorkerThreadPipe);
     }
     ::CloseToTsfNamedPipe();
 }

@@ -9,6 +9,7 @@
 #include <winuser.h>
 #include "global/globals.h"
 #include "fmt/xchar.h"
+#include "ipc/ipc.h"
 
 namespace json = boost::json;
 
@@ -804,26 +805,67 @@ HRESULT OnControllerCreatedFtbWnd(      //
         OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
     }
 
+    /* Debug console */
+    // webviewFtbWindow->OpenDevToolsWindow();
+
     /* 使 floating toolbar 窗口可拖动 */
-    webviewFtbWnd->add_WebMessageReceived(                     //
-        Callback<ICoreWebView2WebMessageReceivedEventHandler>( //
-            [hwnd](ICoreWebView2 *sender,                      //
-                   ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+    webviewFtbWnd->add_WebMessageReceived(
+        Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+            [hwnd](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
                 wil::unique_cotaskmem_string message;
-                args->get_WebMessageAsJson(&message);
-                std::wstring json = message.get();
-                if (json.find(L"dragStart") != std::string::npos)
+                HRESULT hr = args->TryGetWebMessageAsString(&message);
+                OutputDebugString(fmt::format(L"test????F\n").c_str());
+                if (SUCCEEDED(hr) && message.get())
                 {
-                    ReleaseCapture();
-                    PostMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                    OutputDebugString(fmt::format(L"ftb msg??????\n").c_str());
+                    std::wstring msg(message.get());
+                    // 解析 msg，执行相应操作
+                    json::value val = json::parse(wstring_to_string(msg));
+                    std::string type = json::value_to<std::string>(val.at("type"));
+                    if (type == "dragStart")
+                    {
+                        ReleaseCapture();
+                        PostMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                    }
+                    else if (type == "changeIMEMode")
+                    {
+                        std::string mode = json::value_to<std::string>(val.at("data"));
+
+                        if (mode == "cn") // Change to CN
+                        {
+                            OutputDebugString(fmt::format(L"Change to CN\n").c_str());
+                            HANDLE hEvent = OpenEvent(                                    //
+                                EVENT_MODIFY_STATE,                                       //
+                                FALSE,                                                    //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[1].c_str() //
+                            );                                                            //
+                            if (hEvent)
+                            {
+                                SetEvent(hEvent);
+                                CloseHandle(hEvent);
+                            }
+                        }
+                        else if (mode == "en") // Change to EN
+                        {
+                            OutputDebugString(fmt::format(L"Change to EN\n").c_str());
+                            HANDLE hEvent = OpenEvent(                                    //
+                                EVENT_MODIFY_STATE,                                       //
+                                FALSE,                                                    //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[0].c_str() //
+                            );                                                            //
+                            if (hEvent)
+                            {
+                                SetEvent(hEvent);
+                                CloseHandle(hEvent);
+                            }
+                        }
+                    }
                 }
+
                 return S_OK;
             })
             .Get(),
         nullptr);
-
-    /* Debug console */
-    // webviewFtbWindow->OpenDevToolsWindow();
 
     return S_OK;
 }
