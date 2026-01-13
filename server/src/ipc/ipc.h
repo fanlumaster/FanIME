@@ -133,7 +133,9 @@ int InitIpc();
 int CloseIpc();
 int InitNamedPipe();
 int CloseNamedPipe();
+int OpenToTsfNamedPipe();
 int CloseToTsfNamedPipe();
+int OpenToTsfWorkerThreadNamedPipe();
 int CloseToTsfWorkerThreadNamedPipe();
 int CloseAuxNamedPipe();
 int WriteDataToSharedMemory(              //

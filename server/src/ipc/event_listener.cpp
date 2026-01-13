@@ -170,6 +170,7 @@ void EventListenerLoopThread()
     {
         spdlog::info("Pipe starts to wait");
         OutputDebugString(L"Pipe starts to wait\n");
+        ::mainConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hPipe, NULL);
         spdlog::info("Pipe connected: {}", connected);
         OutputDebugString(fmt::format(L"Pipe connected: {}\n", connected).c_str());
@@ -292,11 +293,10 @@ void ToTsfPipeEventListenerLoopThread()
 
     while (true)
     {
-        spdlog::info("ToTsf Pipe starts to wait");
         OutputDebugString(L"ToTsf Pipe starts to wait\n");
+        ::toTsfConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hToTsfPipe, NULL);
         ::toTsfConnected = connected;
-        spdlog::info("ToTsf Pipe connected: {}", connected);
         OutputDebugString(fmt::format(L"ToTsf Pipe connected: {}\n", connected).c_str());
         if (connected)
         {
@@ -363,6 +363,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
     while (true)
     {
         OutputDebugString(L"ToTsf Worker Thread Pipe starts to wait\n");
+        ::toTsfWorkerThreadConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hToTsfWorkerThreadPipe, NULL);
         ::toTsfWorkerThreadConnected = connected;
         if (connected)
@@ -410,7 +411,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
         OutputDebugString(L"ToTsf Worker Thread Pipe disconnected\n");
         DisconnectNamedPipe(hToTsfWorkerThreadPipe);
     }
-    ::CloseToTsfNamedPipe();
+    ::CloseToTsfWorkerThreadNamedPipe();
 }
 
 void AuxPipeEventListenerLoopThread()

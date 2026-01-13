@@ -351,6 +351,35 @@ int CloseNamedPipe()
     return 0;
 }
 
+int OpenToTsfNamedPipe()
+{
+    // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
+    PSECURITY_DESCRIPTOR pd;
+    SECURITY_ATTRIBUTES sa;
+    ConvertStringSecurityDescriptorToSecurityDescriptor(
+        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
+            ALL_APP_PACKAGES_FILE_ACCESS,
+        SDDL_REVISION_1, &pd, NULL);
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = pd;
+    sa.bInheritHandle = TRUE;
+
+    // Namedpipe for passing data from this process to TSF process
+    hToTsfPipe = CreateNamedPipe(                 //
+        FANY_IME_TO_TSF_NAMED_PIPE,               // pipe name
+        PIPE_ACCESS_DUPLEX,                       // read/write access
+        PIPE_TYPE_MESSAGE                         // message type pipe
+            | PIPE_READMODE_MESSAGE               // message-read mode
+            | PIPE_WAIT,                          // blocking mode
+        PIPE_UNLIMITED_INSTANCES,                 // max instances
+        sizeof(struct FanyImeNamedpipeDataToTsf), // output buffer size
+        sizeof(struct FanyImeNamedpipeDataToTsf), // input buffer size
+        0,                                        // client time-out
+        &sa                                       // security attribute, for UWP/Metro apps
+    );
+    return 0;
+}
+
 int CloseToTsfNamedPipe()
 {
     if (hAuxPipe != INVALID_HANDLE_VALUE)
@@ -366,6 +395,34 @@ int CloseAuxNamedPipe()
     {
         CloseHandle(hAuxPipe);
     }
+    return 0;
+}
+
+int OpenToTsfWorkerThreadNamedPipe()
+{
+    // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
+    PSECURITY_DESCRIPTOR pd;
+    SECURITY_ATTRIBUTES sa;
+    ConvertStringSecurityDescriptorToSecurityDescriptor(
+        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
+            ALL_APP_PACKAGES_FILE_ACCESS,
+        SDDL_REVISION_1, &pd, NULL);
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = pd;
+    sa.bInheritHandle = TRUE;
+
+    hToTsfWorkerThreadPipe = CreateNamedPipe(                 //
+        FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,             // pipe name
+        PIPE_ACCESS_DUPLEX,                                   // read/write access
+        PIPE_TYPE_MESSAGE                                     // message type pipe
+            | PIPE_READMODE_MESSAGE                           // message-read mode
+            | PIPE_WAIT,                                      // blocking mode
+        PIPE_UNLIMITED_INSTANCES,                             // max instances
+        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // output buffer size
+        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // input buffer size
+        0,                                                    // client time-out
+        &sa                                                   // security attribute, for UWP/Metro apps
+    );
     return 0;
 }
 
