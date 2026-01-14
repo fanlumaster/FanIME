@@ -204,7 +204,9 @@ void EventListenerLoopThread()
                             OutputDebugString(L"hCancelToTsfPipeConnectEvent SetEvent failed\n");
                         }
                         OutputDebugString(L"End disconnect toTsf pipe\n");
-
+                    }
+                    if (::toTsfWorkerThreadConnected)
+                    {
                         OutputDebugString(fmt::format(L"Really disconnect toTsf worker thread pipe\n").c_str());
                         if (!SetEvent(hCancelToTsfWorkerThreadPipeConnectEvent))
                         {
