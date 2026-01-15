@@ -126,6 +126,8 @@ void CALLBACK WinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject,
     }
 }
 
+static bool g_isHiddenDueToFullscreen = false;
+
 void OnWinEvent(HWND hwnd)
 {
     if (!IsWindow(hwnd) || !IsWindowVisible(hwnd))
@@ -133,16 +135,24 @@ void OnWinEvent(HWND hwnd)
 
     hwnd = GetForegroundWindow();
     bool nowFullscreen = CheckFullscreen(hwnd);
-    bool wasFullscreen = g_fullscreen_states[hwnd];
+    // bool wasFullscreen = g_fullscreen_states[hwnd];
 
     if (nowFullscreen)
     {
-        ShowWindow(::global_hwnd_ftb, SW_HIDE);
+        if (IsWindowVisible(::global_hwnd_ftb))
+        {
+            ShowWindow(::global_hwnd_ftb, SW_HIDE);
+            g_isHiddenDueToFullscreen = true;
+        }
     }
-    else if (wasFullscreen && !nowFullscreen)
+    else
     {
-        ShowWindow(::global_hwnd_ftb, SW_SHOW);
+        if (g_isHiddenDueToFullscreen)
+        {
+            ShowWindow(::global_hwnd_ftb, SW_SHOW);
+            g_isHiddenDueToFullscreen = false;
+        }
     }
 
-    g_fullscreen_states[hwnd] = nowFullscreen;
+    // g_fullscreen_states[hwnd] = nowFullscreen;
 }
