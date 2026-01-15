@@ -115,13 +115,13 @@
       visibility: hidden;
     }
 
-    /*
-    .below-img {
-      margin-top: 6px;
-      width: 500px;
-      height: auto;
+    /* Hide container when empty */
+    .container:empty {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
     }
-    */
   </style>
 
   <script>
@@ -203,9 +203,6 @@
         </div>
         <!--9Anchor-->
       </div>
-
-      <!-- <img src="https://candwnd/assets/ziranma.png" alt="" class="below-img"> -->
-      <!-- <img src="./assets/ziranma.png" alt="" class="below-img"> -->
     </div>
   </div>
 
@@ -268,8 +265,6 @@
         </div>
         <!--9Anchor-->
       </div>
-      <!-- <img src="https://candwnd/assets/ziranma.png" alt="" class="below-img"> -->
-      <!-- <img src="./assets/ziranma.png" alt="" class="below-img"> -->
     </div>
   </div>
 </body>
