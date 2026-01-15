@@ -32,8 +32,6 @@ enum class TaskType
     MoveCandidate,
     ImeKeyEvent,
     LangbarRightClick,
-    IMEActivation,
-    IMEDeactivation,
     IMESwitch
 };
 
@@ -110,15 +108,15 @@ void WorkerThread()
             break;
         }
 
-        case TaskType::IMEActivation: {
-            PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
-            break;
-        }
+            // case TaskType::IMEActivation: {
+            //     PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
+            //     break;
+            // }
 
-        case TaskType::IMEDeactivation: {
-            PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
-            break;
-        }
+            // case TaskType::IMEDeactivation: {
+            //     PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
+            //     break;
+            // }
 
         case TaskType::IMESwitch: {
             ::ReadDataFromNamedPipe(0b000001);
@@ -243,16 +241,6 @@ void EventListenerLoopThread()
 
                 case 4: { // FanyLangbarRightClickEvent
                     EnqueueTask(TaskType::LangbarRightClick);
-                    break;
-                }
-
-                case 5: { // FanyIMEActivationEvent
-                    EnqueueTask(TaskType::IMEActivation);
-                    break;
-                }
-
-                case 6: { // FanyIMEDeactivationEvent
-                    EnqueueTask(TaskType::IMEDeactivation);
                     break;
                 }
 
@@ -458,6 +446,14 @@ void AuxPipeEventListenerLoopThread()
                         CancelSynchronousIo(::mainPipeThread);
                         OutputDebugString(L"End disconnect main pipe\n");
                     }
+                }
+                else if (message == L"IMEActivation")
+                {
+                    PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
+                }
+                else if (message == L"IMEDeactivation")
+                {
+                    PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
                 }
             }
         }
