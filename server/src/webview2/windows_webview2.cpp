@@ -949,3 +949,42 @@ void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState)
         webview->ExecuteScript(script.c_str(), nullptr);
     }
 }
+
+/**
+ * @brief 更新 floating toolbar 窗口的中英文切换状态和标点切换状态
+ *
+ * @param webview
+ * @param cnEnState 1: 中文, 0: 英文
+ */
+void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState)
+{
+    if (webview == nullptr)
+    {
+        return;
+    }
+
+    if (cnEnState == 1)
+    {
+        std::wstring script;
+        script.reserve(256);
+
+        script.append(L"document.getElementById('cn').style.display = 'flex';");
+        script.append(L"document.getElementById('en').style.display = 'none';");
+        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
+        script.append(L"document.getElementById('puncEn').style.display = 'none';");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+    else if (cnEnState == 0)
+    {
+        std::wstring script;
+        script.reserve(256);
+
+        script.append(L"document.getElementById('cn').style.display = 'none';");
+        script.append(L"document.getElementById('en').style.display = 'flex';");
+        script.append(L"document.getElementById('puncCn').style.display = 'none';");
+        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+}

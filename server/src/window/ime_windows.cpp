@@ -393,11 +393,13 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     {
         if (wParam == 0) // 此时是英文状态
         {
-            UpdateFtbCnEnState(::webviewFtbWnd, 0); // 更新 floating toolbar 的中英文状态为英文
+            /* 更新 floating toolbar 的中英文状态为英文，同时更新标点的全角和半角状态 */
+            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 0);
         }
         else // 此时是中文状态
         {
-            UpdateFtbCnEnState(::webviewFtbWnd, 1); // 更新 floating toolbar 的中英文状态为中文
+            /* 更新 floating toolbar 的中英文状态为中文，同时更新标点的全角和半角状态 */
+            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 1);
         }
         return 0;
     }
