@@ -988,38 +988,37 @@ void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState)
  *
  * @param webview
  * @param cnEnState 1: 中文, 0: 英文
+ * @param puncState 1: 中文标点, 0: 英文标点
  */
-void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState)
+void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int puncState)
 {
     if (webview == nullptr)
     {
         return;
     }
-
+    std::wstring script;
+    script.reserve(256);
     if (cnEnState == 1)
     {
-        std::wstring script;
-        script.reserve(256);
-
         script.append(L"document.getElementById('cn').style.display = 'flex';");
         script.append(L"document.getElementById('en').style.display = 'none';");
-        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
-        script.append(L"document.getElementById('puncEn').style.display = 'none';");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
     }
     else if (cnEnState == 0)
     {
-        std::wstring script;
-        script.reserve(256);
-
         script.append(L"document.getElementById('cn').style.display = 'none';");
         script.append(L"document.getElementById('en').style.display = 'flex';");
+    }
+    if (puncState == 1)
+    {
+        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
+        script.append(L"document.getElementById('puncEn').style.display = 'none';");
+    }
+    else if (puncState == 0)
+    {
         script.append(L"document.getElementById('puncCn').style.display = 'none';");
         script.append(L"document.getElementById('puncEn').style.display = 'flex';");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
     }
+    webview->ExecuteScript(script.c_str(), nullptr);
 }
 
 /**

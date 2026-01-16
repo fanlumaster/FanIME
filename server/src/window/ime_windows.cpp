@@ -394,12 +394,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         if (wParam == 0) // 此时是英文状态
         {
             /* 更新 floating toolbar 的中英文状态为英文，同时更新标点的全角和半角状态 */
-            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 0);
+            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 0, 0);
         }
         else // 此时是中文状态
         {
             /* 更新 floating toolbar 的中英文状态为中文，同时更新标点的全角和半角状态 */
-            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 1);
+            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 1, 1);
         }
         return 0;
     }
@@ -626,6 +626,13 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     static int s_check_cnt = 0;
     switch (message)
     {
+    case UPDATE_FTB_STATUS: {
+        int cnEnState = (wParam >> 1) & 0x1;
+        int puncState = wParam & 0x1;
+        UpdateFtbCnEnAndPuncState(::webviewFtbWnd, cnEnState, puncState);
+        break;
+    }
+
     case WM_TIMER: {
         if (wParam == TIMER_ID_MOVE_WEBVIEW_FTB)
         {

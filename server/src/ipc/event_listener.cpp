@@ -469,6 +469,26 @@ void AuxPipeEventListenerLoopThread()
                 {
                     PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
                 }
+                else if (boost::starts_with(message, L"ftbStatus"))
+                {
+                    std::wstring ftbStatus = message.substr(9);
+                    if (ftbStatus == L"11") // 中中
+                    {
+                        PostMessage(::global_hwnd_ftb, UPDATE_FTB_STATUS, 3, 0);
+                    }
+                    else if (ftbStatus == L"00") // 英英
+                    {
+                        PostMessage(::global_hwnd_ftb, UPDATE_FTB_STATUS, 0, 0);
+                    }
+                    else if (ftbStatus == L"10") // 中英
+                    {
+                        PostMessage(::global_hwnd_ftb, UPDATE_FTB_STATUS, 2, 0);
+                    }
+                    else if (ftbStatus == L"01") // 英中
+                    {
+                        PostMessage(::global_hwnd_ftb, UPDATE_FTB_STATUS, 1, 0);
+                    }
+                }
             }
         }
         else

@@ -15,3 +15,4 @@ inline const UINT WM_IMEACTIVATE = WM_USER + 103;
 inline const UINT WM_IMEDEACTIVATE = WM_USER + 104;
 inline const UINT WM_IMESWITCH = WM_USER + 105;
 inline const UINT WM_PUNCSWITCH = WM_USER + 106;
+inline const UINT UPDATE_FTB_STATUS = WM_USER + 107;
