@@ -435,10 +435,10 @@ void AuxPipeEventListenerLoopThread()
 
                 if (message == L"kill")
                 {
-                    OutputDebugString(L" Pipe to disconnect main and toTsf pipe\n");
+                    OutputDebugString(L"Pipe to disconnect main and toTsf pipe\n");
                     if (::mainConnected)
                     {
-                        OutputDebugString(L"Really disconnect main pipe");
+                        OutputDebugString(L"Really disconnect main pipe\n");
                         /* DisconnectNamedPipe hPipe and hToTsfPipe, 这里直接中断 hPipe,
                          * 然后，再在中断 hPipe 的时候，通过 event 来中断 hToTsfPipe，达到清理
                          * 脏句柄的目的

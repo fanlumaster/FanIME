@@ -814,10 +814,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
             [hwnd](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
                 wil::unique_cotaskmem_string message;
                 HRESULT hr = args->TryGetWebMessageAsString(&message);
-                OutputDebugString(fmt::format(L"test????F\n").c_str());
                 if (SUCCEEDED(hr) && message.get())
                 {
-                    OutputDebugString(fmt::format(L"ftb msg??????\n").c_str());
                     std::wstring msg(message.get());
                     // 解析 msg，执行相应操作
                     json::value val = json::parse(wstring_to_string(msg));
