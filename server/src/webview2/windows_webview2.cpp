@@ -808,7 +808,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     /* Debug console */
     // webviewFtbWindow->OpenDevToolsWindow();
 
-    /* 使 floating toolbar 窗口可拖动 */
+    /* 处理 js 发过来的消息 */
     webviewFtbWnd->add_WebMessageReceived(
         Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
             [hwnd](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
@@ -820,6 +820,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     // 解析 msg，执行相应操作
                     json::value val = json::parse(wstring_to_string(msg));
                     std::string type = json::value_to<std::string>(val.at("type"));
+                    /* 使 floating toolbar 窗口可拖动 */
                     if (type == "dragStart")
                     {
                         ReleaseCapture();
@@ -850,6 +851,38 @@ HRESULT OnControllerCreatedFtbWnd(      //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
                                 FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[0].c_str() //
+                            );                                                            //
+                            if (hEvent)
+                            {
+                                SetEvent(hEvent);
+                                CloseHandle(hEvent);
+                            }
+                        }
+                    }
+                    else if (type == "changePuncMode")
+                    {
+                        std::string mode = json::value_to<std::string>(val.at("data"));
+                        if (mode == "puncEn")
+                        {
+                            OutputDebugString(fmt::format(L"Change to puncEn\n").c_str());
+                            HANDLE hEvent = OpenEvent(                                    //
+                                EVENT_MODIFY_STATE,                                       //
+                                FALSE,                                                    //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[3].c_str() //
+                            );                                                            //
+                            if (hEvent)
+                            {
+                                SetEvent(hEvent);
+                                CloseHandle(hEvent);
+                            }
+                        }
+                        else if (mode == "puncCn")
+                        {
+                            OutputDebugString(fmt::format(L"Change to puncCn\n").c_str());
+                            HANDLE hEvent = OpenEvent(                                    //
+                                EVENT_MODIFY_STATE,                                       //
+                                FALSE,                                                    //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[4].c_str() //
                             );                                                            //
                             if (hEvent)
                             {
@@ -982,6 +1015,41 @@ void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState)
 
         script.append(L"document.getElementById('cn').style.display = 'none';");
         script.append(L"document.getElementById('en').style.display = 'flex';");
+        script.append(L"document.getElementById('puncCn').style.display = 'none';");
+        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+}
+
+/**
+ * @brief 更新 floating toolbar 窗口的标点切换状态
+ *
+ * @param webview
+ * @param puncState 1: 中文标点, 0: 英文标点
+ */
+void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState)
+{
+    if (webview == nullptr)
+    {
+        return;
+    }
+
+    if (puncState == 1)
+    {
+        std::wstring script;
+        script.reserve(256);
+
+        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
+        script.append(L"document.getElementById('puncEn').style.display = 'none';");
+
+        webview->ExecuteScript(script.c_str(), nullptr);
+    }
+    else if (puncState == 0)
+    {
+        std::wstring script;
+        script.reserve(256);
+
         script.append(L"document.getElementById('puncCn').style.display = 'none';");
         script.append(L"document.getElementById('puncEn').style.display = 'flex';");
 

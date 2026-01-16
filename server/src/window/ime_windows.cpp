@@ -404,6 +404,21 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    if (message == WM_PUNCSWITCH)
+    {
+        if (wParam == 0) // 此时是中文标点状态
+        {
+            /* 更新 floating toolbar 的标点全角和半角状态为全角 */
+            UpdateFtbPuncState(::webviewFtbWnd, 0);
+        }
+        else // 此时是英文标点状态
+        {
+            /* 更新 floating toolbar 的标点全角和半角状态为半角 */
+            UpdateFtbPuncState(::webviewFtbWnd, 1);
+        }
+        return 0;
+    }
+
     switch (message)
     {
     case WM_MOUSEACTIVATE:

@@ -48,6 +48,8 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_
     L"SwitchToEn",                   // Switch to EN
     L"SwitchToCn",                   // Switch to CN
     L"ToTsfWorkerThreadCancelEvent", // To Tsf Worker Thread Cancel event
+    L"SwitchToPuncEn",               // Switch to Punc EN
+    L"SwitchToPuncCn",               // Switch to Punc CN
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
@@ -191,6 +193,8 @@ namespace DataFromServerMsgTypeToTsfWorkerThread
 {
 constexpr UINT SwitchToEn = 0;
 constexpr UINT SwitchToCn = 1;
+constexpr UINT SwitchToPuncEn = 2;
+constexpr UINT SwitchToPuncCn = 3;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

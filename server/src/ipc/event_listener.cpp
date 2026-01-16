@@ -32,7 +32,8 @@ enum class TaskType
     MoveCandidate,
     ImeKeyEvent,
     LangbarRightClick,
-    IMESwitch
+    IMESwitch,
+    PuncSwitch,
 };
 
 struct Task
@@ -111,6 +112,12 @@ void WorkerThread()
         case TaskType::IMESwitch: {
             ::ReadDataFromNamedPipe(0b000001);
             PostMessage(::global_hwnd, WM_IMESWITCH, Global::Keycode, 0);
+            break;
+        }
+
+        case TaskType::PuncSwitch: {
+            ::ReadDataFromNamedPipe(0b000001);
+            PostMessage(::global_hwnd, WM_PUNCSWITCH, Global::Keycode, 0);
             break;
         }
         }
@@ -236,6 +243,11 @@ void EventListenerLoopThread()
 
                 case 7: { // FanyIMESwitchEvent
                     EnqueueTask(TaskType::IMESwitch);
+                    break;
+                }
+
+                case 8: { // FanyPuncSwitchEvent
+                    EnqueueTask(TaskType::PuncSwitch);
                     break;
                 }
                 }
@@ -367,13 +379,25 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
                         break;
                     }
                     case 1: { // Switch to CN
-                        OutputDebugString(fmt::format(L"Named PipeSwitch to CN\n").c_str());
+                        OutputDebugString(fmt::format(L"Named Pipe Switch to CN\n").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     case 2: {
                         isBreakWhile = true;
+                        break;
+                    }
+                    case 3: {
+                        OutputDebugString(fmt::format(L"Named Pipe Switch to Punc EN\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
+                        break;
+                    }
+                    case 4: {
+                        OutputDebugString(fmt::format(L"Named Pipe Switch to Punc CN\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     }
