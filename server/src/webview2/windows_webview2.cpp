@@ -1060,6 +1060,55 @@ void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int
 }
 
 /**
+ * @brief 更新 floating toolbar 窗口的中英文切换状态和标点切换状态
+ *
+ * @param webview
+ * @param cnEnState 1: 中文, 0: 英文
+ * @param doubleSingleByteState 1: 全角, 0: 半角
+ * @param puncState 1: 中文标点, 0: 英文标点
+ */
+void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int doubleSingleByteState, int puncState)
+{
+    if (webview == nullptr)
+    {
+        return;
+    }
+    std::wstring script;
+    script.reserve(256);
+    if (cnEnState == 1)
+    {
+        script.append(L"document.getElementById('cn').style.display = 'flex';");
+        script.append(L"document.getElementById('en').style.display = 'none';");
+    }
+    else if (cnEnState == 0)
+    {
+        script.append(L"document.getElementById('cn').style.display = 'none';");
+        script.append(L"document.getElementById('en').style.display = 'flex';");
+    }
+    if (doubleSingleByteState == 1)
+    {
+        script.append(L"document.getElementById('fullwidth').style.display = 'flex';");
+        script.append(L"document.getElementById('halfwidth').style.display = 'none';");
+    }
+    else if (doubleSingleByteState == 0)
+    {
+        script.append(L"document.getElementById('fullwidth').style.display = 'none';");
+        script.append(L"document.getElementById('halfwidth').style.display = 'flex';");
+    }
+    if (puncState == 1)
+    {
+        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
+        script.append(L"document.getElementById('puncEn').style.display = 'none';");
+    }
+    else if (puncState == 0)
+    {
+        script.append(L"document.getElementById('puncCn').style.display = 'none';");
+        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
+    }
+    webview->ExecuteScript(script.c_str(), nullptr);
+}
+
+/**
  * @brief 更新 floating toolbar 窗口的标点切换状态
  *
  * @param webview

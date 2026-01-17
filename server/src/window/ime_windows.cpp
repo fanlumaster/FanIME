@@ -647,9 +647,10 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     switch (message)
     {
     case UPDATE_FTB_STATUS: {
-        int cnEnState = (wParam >> 1) & 0x1;
+        int cnEnState = (wParam >> 2) & 0x1;
+        int doubleSingleByteState = (wParam >> 1) & 0x1;
         int puncState = wParam & 0x1;
-        UpdateFtbCnEnAndPuncState(::webviewFtbWnd, cnEnState, puncState);
+        UpdateFtbCnEnAndPuncState(::webviewFtbWnd, cnEnState, doubleSingleByteState, puncState);
         break;
     }
 
