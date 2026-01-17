@@ -195,6 +195,11 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         sizeof(useDarkMode)            //
     );
     ::global_hwnd_settings = hwnd_settings;
+    // 设置 settings 窗口的自定义图标
+    HICON hSettingsIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SETTINGS_ICON));
+    HICON hIMEIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IME_ICON));
+    SendMessage(hwnd_settings, WM_SETICON, ICON_SMALL, (LPARAM)hSettingsIcon);
+    SendMessage(hwnd_settings, WM_SETICON, ICON_BIG, (LPARAM)hIMEIcon);
     BOOL cloak = TRUE;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_CLOAK, &cloak, sizeof(cloak));
     /* 设置标题栏和窗口区域为 mica 材质 */

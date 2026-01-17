@@ -1,3 +1,4 @@
 #include "resource.h"
 
 IDI_IME_ICON ICON "MetasequoiaIME.ico"
+IDI_SETTINGS_ICON ICON "Settings.ico"
