@@ -94,7 +94,8 @@
     <div class="divider"></div>
 
     <div class="right-section">
-      <!-- 中文 -->
+      <!-- 1. 输入法状态 -->
+      <!-- 中文状态 -->
       <div id="cn-en">
         <div class="icon" id="cn">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -103,7 +104,7 @@
               fill="white" />
           </svg>
         </div>
-        <!-- 英文 -->
+        <!-- 英文状态 -->
         <div class="icon" id="en">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -113,11 +114,19 @@
         </div>
       </div>
 
-      <div class="icon">
+      <!-- 2. 字符状态 -->
+      <!-- 半角 -->
+      <div class="icon" id="halfwidth">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path fill-rule="evenodd" clip-rule="evenodd"
             d="M21 14.2894C17.8146 15.1746 14.3993 14.2763 12.0615 11.9385C9.72366 9.60074 8.82541 6.18545 9.71056 3C5.44557 4.18647 2.63796 8.25133 3.03782 12.6602C3.43767 17.069 6.93101 20.5623 11.3399 20.9622C15.7487 21.362 19.8136 18.5544 21 14.2894Z"
             stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <!-- 全角 -->
+      <div class="icon" id="fullwidth">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9.25" stroke="white" stroke-width="1.5" />
         </svg>
       </div>
 
@@ -211,6 +220,19 @@
   });
   document.getElementById('en').addEventListener('click', () => {
     window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'cn' }));
+  });
+
+  //
+  // 半角全角切换
+  //
+  // Default status is Halfwidth
+  document.getElementById('fullwidth').style.display = 'none';
+  // document.getElementById('halfwidth').style.display = 'none';
+  document.getElementById('halfwidth').addEventListener('click', () => {
+    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeCharMode', data: 'fullwidth' }));
+  });
+  document.getElementById('fullwidth').addEventListener('click', () => {
+    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeCharMode', data: 'halfwidth' }));
   });
 
   //
