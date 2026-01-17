@@ -424,6 +424,21 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    if (message == WM_DOUBLESINGLEBYTESWITCH)
+    {
+        if (wParam == 0) // 此时是半角状态
+        {
+            /* 更新 floating toolbar 的全角和半角状态为半角 */
+            UpdateFtbDoubleSingleByteState(::webviewFtbWnd, 0);
+        }
+        else // 此时是全角状态
+        {
+            /* 更新 floating toolbar 的全角和半角状态为全角 */
+            UpdateFtbDoubleSingleByteState(::webviewFtbWnd, 1);
+        }
+        return 0;
+    }
+
     switch (message)
     {
     case WM_MOUSEACTIVATE:

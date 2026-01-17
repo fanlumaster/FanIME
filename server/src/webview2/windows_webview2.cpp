@@ -836,7 +836,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[1].c_str() //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[1].c_str() // SwitchToCn
                             );                                                            //
                             if (hEvent)
                             {
@@ -850,7 +850,39 @@ HRESULT OnControllerCreatedFtbWnd(      //
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[0].c_str() //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[0].c_str() // SwitchToEn
+                            );                                                            //
+                            if (hEvent)
+                            {
+                                SetEvent(hEvent);
+                                CloseHandle(hEvent);
+                            }
+                        }
+                    }
+                    else if (type == "changeCharMode")
+                    {
+                        std::string mode = json::value_to<std::string>(val.at("data"));
+                        if (mode == "fullwidth")
+                        {
+                            OutputDebugString(fmt::format(L"Change to fullwidth\n").c_str());
+                            HANDLE hEvent = OpenEvent(                                    //
+                                EVENT_MODIFY_STATE,                                       //
+                                FALSE,                                                    //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[5].c_str() // SwitchToFullwidth
+                            );                                                            //
+                            if (hEvent)
+                            {
+                                SetEvent(hEvent);
+                                CloseHandle(hEvent);
+                            }
+                        }
+                        else if (mode == "halfwidth")
+                        {
+                            OutputDebugString(fmt::format(L"Change to halfwidth\n").c_str());
+                            HANDLE hEvent = OpenEvent(                                    //
+                                EVENT_MODIFY_STATE,                                       //
+                                FALSE,                                                    //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[6].c_str() // SwitchToHalfwidth
                             );                                                            //
                             if (hEvent)
                             {
@@ -868,7 +900,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[3].c_str() //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[3].c_str() // SwitchToPuncEn
                             );                                                            //
                             if (hEvent)
                             {
@@ -882,7 +914,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[4].c_str() //
+                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[4].c_str() // SwitchToPuncCn
                             );                                                            //
                             if (hEvent)
                             {
@@ -1060,4 +1092,31 @@ void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState)
 
         webview->ExecuteScript(script.c_str(), nullptr);
     }
+}
+
+/**
+ * @brief 更新 floating toolbar 窗口的全角和半角状态
+ *
+ * @param webview
+ * @param doubleSingleByteState 0: 半角, 1: 全角
+ */
+void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState)
+{
+    if (webview == nullptr)
+    {
+        return;
+    }
+    std::wstring script;
+    script.reserve(256);
+    if (doubleSingleByteState == 0)
+    {
+        script.append(L"document.getElementById('halfwidth').style.display = 'flex';");
+        script.append(L"document.getElementById('fullwidth').style.display = 'none';");
+    }
+    else if (doubleSingleByteState == 1)
+    {
+        script.append(L"document.getElementById('halfwidth').style.display = 'none';");
+        script.append(L"document.getElementById('fullwidth').style.display = 'flex';");
+    }
+    webview->ExecuteScript(script.c_str(), nullptr);
 }

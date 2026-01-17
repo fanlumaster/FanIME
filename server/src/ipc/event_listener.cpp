@@ -34,6 +34,7 @@ enum class TaskType
     LangbarRightClick,
     IMESwitch,
     PuncSwitch,
+    DoubleSingleByteSwitch,
 };
 
 struct Task
@@ -118,6 +119,12 @@ void WorkerThread()
         case TaskType::PuncSwitch: {
             ::ReadDataFromNamedPipe(0b000001);
             PostMessage(::global_hwnd, WM_PUNCSWITCH, Global::Keycode, 0);
+            break;
+        }
+
+        case TaskType::DoubleSingleByteSwitch: {
+            ::ReadDataFromNamedPipe(0b000001);
+            PostMessage(::global_hwnd, WM_DOUBLESINGLEBYTESWITCH, Global::Keycode, 0);
             break;
         }
         }
@@ -250,6 +257,11 @@ void EventListenerLoopThread()
                     EnqueueTask(TaskType::PuncSwitch);
                     break;
                 }
+
+                case 9: { // FanyDoubleSingleByteSwitchEvent
+                    EnqueueTask(TaskType::DoubleSingleByteSwitch);
+                    break;
+                }
                 }
             }
         }
@@ -371,32 +383,44 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
                     int eventIndex = result - WAIT_OBJECT_0;
                     switch (eventIndex)
                     {
-                    case 0: { // Switch to EN
+                    case 0: { // SwitchToEn
                         // Write data to tsf via named pipe
                         OutputDebugString(fmt::format(L"Named Pipe Switch to EN\n").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
-                    case 1: { // Switch to CN
+                    case 1: { // SwitchToCn
                         OutputDebugString(fmt::format(L"Named Pipe Switch to CN\n").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
-                    case 2: {
+                    case 2: { // ToTsfWorkerThreadCancelEvent
                         isBreakWhile = true;
                         break;
                     }
-                    case 3: {
+                    case 3: { // SwitchToPuncEn
                         OutputDebugString(fmt::format(L"Named Pipe Switch to Punc EN\n").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
-                    case 4: {
+                    case 4: { // SwitchToPuncCn
                         OutputDebugString(fmt::format(L"Named Pipe Switch to Punc CN\n").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
+                        break;
+                    }
+                    case 5: { // SwitchToFullwidth
+                        OutputDebugString(fmt::format(L"Named Pipe Switch to Fullwidth\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
+                        break;
+                    }
+                    case 6: { // SwitchToHalfwidth
+                        OutputDebugString(fmt::format(L"Named Pipe Switch to Halfwidth\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }

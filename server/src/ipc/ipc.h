@@ -45,11 +45,13 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_PIPE_ARRAY = {
 // Event for toTsfWorkerThreadNamedPipe
 //
 inline const std::vector<std::wstring> FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY = {
-    L"SwitchToEn",                   // Switch to EN
-    L"SwitchToCn",                   // Switch to CN
-    L"ToTsfWorkerThreadCancelEvent", // To Tsf Worker Thread Cancel event
-    L"SwitchToPuncEn",               // Switch to Punc EN
-    L"SwitchToPuncCn",               // Switch to Punc CN
+    L"SwitchToEn",                   // 0: Switch to EN
+    L"SwitchToCn",                   // 1: Switch to CN
+    L"ToTsfWorkerThreadCancelEvent", // 2: To Tsf Worker Thread Cancel event
+    L"SwitchToPuncEn",               // 3: Switch to Punc EN
+    L"SwitchToPuncCn",               // 4: Switch to Punc CN
+    L"SwitchToFullwidth",            // 5: Switch to Fullwidth
+    L"SwitchToHalfwidth",            // 6: Switch to Halfwidth
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
@@ -195,6 +197,8 @@ constexpr UINT SwitchToEn = 0;
 constexpr UINT SwitchToCn = 1;
 constexpr UINT SwitchToPuncEn = 2;
 constexpr UINT SwitchToPuncCn = 3;
+constexpr UINT SwitchToFullwidth = 4;
+constexpr UINT SwitchToHalfwidth = 5;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

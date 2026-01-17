@@ -85,3 +85,4 @@ void InitWebviewFtbWnd(HWND hwnd);
 void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState);
 void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int puncState);
 void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState);
+void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState);
