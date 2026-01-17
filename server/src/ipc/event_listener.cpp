@@ -422,11 +422,9 @@ void AuxPipeEventListenerLoopThread()
 {
     while (true)
     {
-        spdlog::info("Aux Pipe starts to wait");
-        OutputDebugString(L"Aux Pipe starts to wait\n");
+        // OutputDebugString(L"Aux Pipe starts to wait\n");
         BOOL connected = ConnectNamedPipe(hAuxPipe, NULL);
-        spdlog::info("Aux Pipe connected: {}", connected);
-        OutputDebugString(fmt::format(L"Aux Pipe connected: {}\n", connected).c_str());
+        // OutputDebugString(fmt::format(L"Aux Pipe connected: {}\n", connected).c_str());
         if (connected)
         {
             wchar_t buffer[128] = {0};
@@ -445,7 +443,7 @@ void AuxPipeEventListenerLoopThread()
             else
             {
                 std::wstring message(buffer, bytesRead / sizeof(wchar_t));
-                OutputDebugString((message + L"\n").c_str());
+                // OutputDebugString((message + L"\n").c_str());
 
                 if (message == L"kill")
                 {
@@ -495,7 +493,7 @@ void AuxPipeEventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"Aux Pipe disconnected\n");
+        // OutputDebugString(L"Aux Pipe disconnected\n");
         DisconnectNamedPipe(hAuxPipe);
     }
     ::CloseAuxNamedPipe();

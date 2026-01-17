@@ -891,6 +891,12 @@ HRESULT OnControllerCreatedFtbWnd(      //
                             }
                         }
                     }
+                    else if (type == "openSettings")
+                    {
+                        OutputDebugString(fmt::format(L"Open settings\n").c_str());
+                        ShowWindow(::global_hwnd_settings, SW_RESTORE);
+                        SetForegroundWindow(::global_hwnd_settings);
+                    }
                 }
 
                 return S_OK;
