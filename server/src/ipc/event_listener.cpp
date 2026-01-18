@@ -23,6 +23,10 @@
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 
+static UINT s_ime_switch_keycode = 0;
+static UINT s_double_single_byte_switch_keycode = 0;
+static UINT s_punc_switch_keycode = 0;
+
 namespace FanyNamedPipe
 {
 enum class TaskType
@@ -111,20 +115,17 @@ void WorkerThread()
         }
 
         case TaskType::IMESwitch: {
-            ::ReadDataFromNamedPipe(0b000001);
-            PostMessage(::global_hwnd, WM_IMESWITCH, Global::Keycode, 0);
+            PostMessage(::global_hwnd, WM_IMESWITCH, s_ime_switch_keycode, 0);
             break;
         }
 
         case TaskType::PuncSwitch: {
-            ::ReadDataFromNamedPipe(0b000001);
-            PostMessage(::global_hwnd, WM_PUNCSWITCH, Global::Keycode, 0);
+            PostMessage(::global_hwnd, WM_PUNCSWITCH, s_punc_switch_keycode, 0);
             break;
         }
 
         case TaskType::DoubleSingleByteSwitch: {
-            ::ReadDataFromNamedPipe(0b000001);
-            PostMessage(::global_hwnd, WM_DOUBLESINGLEBYTESWITCH, Global::Keycode, 0);
+            PostMessage(::global_hwnd, WM_DOUBLESINGLEBYTESWITCH, s_double_single_byte_switch_keycode, 0);
             break;
         }
         }
@@ -250,16 +251,22 @@ void EventListenerLoopThread()
 
                 case 7: { // FanyIMESwitchEvent
                     EnqueueTask(TaskType::IMESwitch);
+                    ::ReadDataFromNamedPipe(0b000001);
+                    s_ime_switch_keycode = Global::Keycode;
                     break;
                 }
 
                 case 8: { // FanyPuncSwitchEvent
                     EnqueueTask(TaskType::PuncSwitch);
+                    ::ReadDataFromNamedPipe(0b000001);
+                    s_punc_switch_keycode = Global::Keycode;
                     break;
                 }
 
                 case 9: { // FanyDoubleSingleByteSwitchEvent
                     EnqueueTask(TaskType::DoubleSingleByteSwitch);
+                    ::ReadDataFromNamedPipe(0b000001);
+                    s_double_single_byte_switch_keycode = Global::Keycode;
                     break;
                 }
                 }

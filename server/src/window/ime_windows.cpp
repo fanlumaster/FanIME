@@ -650,7 +650,7 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         int cnEnState = (wParam >> 2) & 0x1;
         int doubleSingleByteState = (wParam >> 1) & 0x1;
         int puncState = wParam & 0x1;
-        UpdateFtbCnEnAndPuncState(::webviewFtbWnd, cnEnState, doubleSingleByteState, puncState);
+        UpdateFtbCnEnAndDoubleSingleAndPuncState(::webviewFtbWnd, cnEnState, doubleSingleByteState, puncState);
         break;
     }
 

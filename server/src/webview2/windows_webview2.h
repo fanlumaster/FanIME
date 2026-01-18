@@ -84,6 +84,11 @@ inline std::wstring HTMLStringFtbWnd = LR"()";
 void InitWebviewFtbWnd(HWND hwnd);
 void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState);
 void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int puncState);
-void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int doubleSingleByteState, int puncState);
+void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
+    ComPtr<ICoreWebView2> webview,             //
+    int cnEnState,                             //
+    int doubleSingleByteState,                 //
+    int puncState                              //
+);
 void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState);
 void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState);

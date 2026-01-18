@@ -1067,7 +1067,12 @@ void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int
  * @param doubleSingleByteState 1: 全角, 0: 半角
  * @param puncState 1: 中文标点, 0: 英文标点
  */
-void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int doubleSingleByteState, int puncState)
+void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
+    ComPtr<ICoreWebView2> webview,             //
+    int cnEnState,                             //
+    int doubleSingleByteState,                 //
+    int puncState                              //
+)
 {
     if (webview == nullptr)
     {
