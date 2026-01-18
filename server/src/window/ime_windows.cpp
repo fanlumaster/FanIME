@@ -389,6 +389,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_IMEDEACTIVATE)
     {
+        ShowWindow(::global_hwnd_ftb, SW_HIDE);
         // 设置一个定时任务，每个 200ms，用来检测新的窗口焦点是否有 tsf 命名管道连接上，如果没有，再去隐藏窗口
         SetTimer(::global_hwnd_ftb, TIMER_ID_CHECK_TSF_TO_HIDE_FTB, 200, nullptr);
         return 0;
@@ -697,9 +698,9 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
             }
             else
             {
-                if (!::toTsfWorkerThreadConnected)
+                if (::toTsfWorkerThreadConnected)
                 {
-                    ShowWindow(::global_hwnd_ftb, SW_HIDE);
+                    ShowWindow(::global_hwnd_ftb, SW_SHOW); // 如果连上了，那就再重新显示出来
                 }
                 s_check_cnt = 0;
             }
