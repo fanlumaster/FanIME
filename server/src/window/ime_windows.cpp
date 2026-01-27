@@ -85,8 +85,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         WS_POPUP,                                             //
         100,                                                  //
         100,                                                  //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
         nullptr,                                              //
         nullptr,                                              //
         hInstance,                                            //
@@ -113,8 +113,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         HWND_TOPMOST,                                         //
         -10000,                                               //
         -10000,                                               //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
         SWP_SHOWWINDOW                                        //
     );
 
@@ -123,8 +123,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         HWND_TOPMOST,                                         //
         100,                                                  //
         100,                                                  //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
         SWP_SHOWWINDOW                                        //
     );
 
@@ -362,8 +362,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             HWND_TOPMOST,                                         //
             0,                                                    //
             Global::INVALID_Y,                                    //
-            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH) * scale,  //
-            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale, //
+            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
             SWP_SHOWWINDOW                                        //
         );
         UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
@@ -752,8 +752,8 @@ int FineTuneWindow(HWND hwnd)
         /* 默认情况下，输入法候选框是不用动的 */
         if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH)
         {
-            newWidth = (containerSize.first + ::SHADOW_WIDTH) * scale;
-            newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_WIDTH) * scale;
+            newWidth = (containerSize.first + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale;
+            newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale;
             // newHeight = (containerSize.second + ::SHADOW_WIDTH) * scale;
         }
         else

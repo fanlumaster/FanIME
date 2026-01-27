@@ -663,9 +663,9 @@ HRESULT OnControllerCreatedSettingsWnd( //
                 args->get_IsSuccess(&success);
                 if (success)
                 {
-                    OutputDebugString(L"✅ WebView2 页面加载完成\n");
-                    // 在这里执行你想等页面准备好的逻辑，比如执行 JS 初始化
-
+                    // 隐藏窗口
+                    OutputDebugString(
+                        fmt::format(L"Webview2 settings window loaded and already hidden window\n").c_str());
                     BOOL cloak = FALSE;
                     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
                 }

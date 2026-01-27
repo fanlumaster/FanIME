@@ -4,7 +4,10 @@
 #include <unordered_map>
 
 inline float SCALE = 1.0f;
+inline int POP_UP_WND_WIDTH = 43;
+inline int POP_UP_WND_HEIGHT = 55;
 inline int SHADOW_WIDTH = 15;
+inline int SHADOW_HEIGHT = 15;
 
 //
 // 候选窗口
