@@ -171,12 +171,10 @@ void EventListenerLoopThread()
 
     while (true)
     {
-        spdlog::info("Pipe starts to wait");
-        OutputDebugString(L"Pipe starts to wait\n");
+        OutputDebugString(L"Main pipe starts to wait\n");
         ::mainConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hPipe, NULL);
-        spdlog::info("Pipe connected: {}", connected);
-        OutputDebugString(fmt::format(L"Pipe connected: {}\n", connected).c_str());
+        OutputDebugString(fmt::format(L"Main pipe connected: {}\n", connected).c_str());
         ::mainConnected = connected;
         if (connected)
         {
@@ -194,29 +192,24 @@ void EventListenerLoopThread()
                 if (!readResult || bytesRead == 0) // Disconnected or error
                 {
                     // TODO: Log
-                    OutputDebugString(L"Pipe disconnected or error\n");
 
                     // We alse need to disconnect toTsf named pipe
                     if (::toTsfConnected)
                     {
-                        OutputDebugString(L"Really disconnect toTsf pipe\n");
                         // DisconnectNamedPipe toTsf hPipe
                         if (!SetEvent(hCancelToTsfPipeConnectEvent))
                         {
                             // TODO: Error handling
                             OutputDebugString(L"hCancelToTsfPipeConnectEvent SetEvent failed\n");
                         }
-                        OutputDebugString(L"End disconnect toTsf pipe\n");
                     }
                     if (::toTsfWorkerThreadConnected)
                     {
-                        OutputDebugString(fmt::format(L"Really disconnect toTsf worker thread pipe\n").c_str());
                         if (!SetEvent(hCancelToTsfWorkerThreadPipeConnectEvent))
                         {
                             // TODO: Error handling
                             OutputDebugString(L"hCancelToTsfWorkerThreadPipeConnectEvent SetEvent failed\n");
                         }
-                        OutputDebugString(L"End disconnect toTsf worker thread pipe\n");
                     }
                     break;
                 }
@@ -276,7 +269,7 @@ void EventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"Pipe disconnected\n");
+        OutputDebugString(L"Main pipe disconnected\n");
         DisconnectNamedPipe(hPipe);
     }
 
@@ -332,7 +325,6 @@ void ToTsfPipeEventListenerLoopThread()
                         break;
                     }
                     case 1: { // FanyImeCancelToWritePipeEvent: Cancel event
-                        OutputDebugString(L"Event canceled.\n");
                         isBreakWhile = true;
                         break;
                     }
@@ -478,16 +470,14 @@ void AuxPipeEventListenerLoopThread()
 
                 if (message == L"kill")
                 {
-                    OutputDebugString(L"Pipe to disconnect main and toTsf pipe\n");
+                    OutputDebugString(L"Kill event from TSF\n");
                     if (::mainConnected)
                     {
-                        OutputDebugString(L"Really disconnect main pipe\n");
                         /* DisconnectNamedPipe hPipe and hToTsfPipe, 这里直接中断 hPipe,
                          * 然后，再在中断 hPipe 的时候，通过 event 来中断 hToTsfPipe，达到清理
                          * 脏句柄的目的
                          */
                         CancelSynchronousIo(::mainPipeThread);
-                        OutputDebugString(L"End disconnect main pipe\n");
                     }
                 }
                 else if (message == L"IMEActivation")
