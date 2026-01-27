@@ -112,11 +112,76 @@
       box-shadow: none;
       min-width: 0;
     }
+
+    /* Custom context menu */
+    .context-menu {
+      position: fixed;
+      background: #2d2d2d;
+      border: 1px solid #9b9b9b2e;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      padding: 1px 0;
+      /* min-width: 80px; */
+      z-index: 1000;
+      /* 默认隐藏 */
+      /* display: none; */
+    }
+
+    .context-menu-item {
+      padding: 1px 4px;
+      margin: 2px 2px;
+      color: #e9e8e8;
+      cursor: default;
+      font-size: 0.9em;
+      border-radius: 4px;
+    }
+
+    .context-menu-item:hover {
+      background-color: #414141;
+    }
   </style>
 
   <script>
     let a = false;
+    let currentRightClickedCand = null;
+
     document.addEventListener('DOMContentLoaded', function () {
+      // Disable native context menu globally
+      document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+      });
+
+      // Handle right-click on candidate items
+      document.addEventListener('contextmenu', function (e) {
+        const candElement = e.target.closest('.cand');
+        if (!candElement) {
+          return;
+        }
+
+        e.preventDefault();
+        currentRightClickedCand = candElement;
+
+        // Move .first class to the clicked candidate
+        // TODO: .first 类名需要改为更合适的
+        const container = document.getElementById('realContainer');
+        const currentFirst = container.querySelector('.cand.first');
+        if (currentFirst) {
+          currentFirst.classList.remove('first');
+        }
+        candElement.classList.add('first');
+
+        showContextMenu(e.clientX, e.clientY);
+      });
+
+      //
+      // Hide context menu when clicking elsewhere
+      //
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.context-menu')) {
+          hideContextMenu();
+        }
+      });
+
       document.addEventListener('mousemove', function () {
         if (a === true) {
           const container = document.getElementById('realContainer');
@@ -126,10 +191,74 @@
       });
     });
 
+    //
+    // Show context menu
+    //
+    function showContextMenu(x, y) {
+      const menu = document.getElementById('contextMenu');
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+      menu.style.display = 'block';
+    }
+
+    //
+    // Hide context menu
+    //
+    function hideContextMenu() {
+      const menu = document.getElementById('contextMenu');
+      menu.style.display = 'none';
+      currentRightClickedCand = null;
+    }
+
+    //
+    // 置顶当前候选项
+    //
+    function onPinToTop(event) {
+      // 只针对鼠标左键的点击有效
+      if (event.button !== 0) {
+        return;
+      }
+
+      if (currentRightClickedCand) {
+        // Get the candidate index from the cand-no element
+        const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+        const candIndex = candNoElement ? candNoElement.textContent.trim() : null;
+        const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+        const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+        console.log('Pin to top:', candIndex, candContent);
+        // TODO: 通知 C++ 端置顶
+
+      }
+      hideContextMenu();
+    }
+
+    //
+    // 删除当前候选项
+    //
+    function onDelete(event) {
+      // 只针对鼠标左键的点击有效
+      if (event.button !== 0) {
+        return;
+      }
+
+      if (currentRightClickedCand) {
+        // Get the candidate index from the cand-no element
+        const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+        const candIndex = candNoElement ? candNoElement.textContent.trim() : null;
+        const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+        const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+        console.log('Delete:', candIndex, candContent);
+        // TODO: 通知 C++ 端删除
+
+      }
+      hideContextMenu();
+    }
+
     window.ClearState = function () {
       a = false;
       const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
+      hideContextMenu();
     }
   </script>
 </head>
@@ -146,49 +275,49 @@
         <!--1Anchor-->
         <div class="row-wrapper">
           <div class="row cand first">
-            <div class="text"><span class="cand-no">1</span> 你们(rR)</div>
+            <div class="text"><span class="cand-no">1</span><span class="cand-content">你们(rR)</span></div>
           </div>
         </div>
         <!--2Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">2</span> 你(rX)</div>
+            <div class="text"><span class="cand-no">2</span><span class="cand-content">你(rX)</span></div>
           </div>
         </div>
         <!--3Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">3</span> 尼(uV)</div>
+            <div class="text"><span class="cand-no">3</span><span class="cand-content">尼(uV)</span></div>
           </div>
         </div>
         <!--4Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">4</span> 妮(nV)</div>
+            <div class="text"><span class="cand-no">4</span><span class="cand-content">妮(nV)</span></div>
           </div>
         </div>
         <!--5Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">5</span> 泥(dV)</div>
+            <div class="text"><span class="cand-no">5</span><span class="cand-content">泥(dV)</span></div>
           </div>
         </div>
         <!--6Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">6</span> 逆(zQ)</div>
+            <div class="text"><span class="cand-no">6</span><span class="cand-content">逆(zQ)</span></div>
           </div>
         </div>
         <!--7Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">7</span> 拟(fR)</div>
+            <div class="text"><span class="cand-no">7</span><span class="cand-content">拟(fR)</span></div>
           </div>
         </div>
         <!--8Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">8</span> 腻(oD)</div>
+            <div class="text"><span class="cand-no">8</span><span class="cand-content">腻(oD)</span></div>
           </div>
         </div>
         <!--9Anchor-->
@@ -208,54 +337,61 @@
         <!--1Anchor-->
         <div class="row-wrapper">
           <div class="row cand first">
-            <div class="text"><span class="cand-no">1</span> {1} 你</div>
+            <div class="text"><span class="cand-no">1</span><span class="cand-content"> {1} 你</span></div>
           </div>
         </div>
         <!--2Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">2</span> {2} 我</div>
+            <div class="text"><span class="cand-no">2</span><span class="cand-content"> {2} 我</span></div>
           </div>
         </div>
         <!--3Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">3</span> {3} 什么</div>
+            <div class="text"><span class="cand-no">3</span><span class="cand-content"> {3} 什么</span></div>
           </div>
         </div>
         <!--4Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">4</span> {4} 量子</div>
+            <div class="text"><span class="cand-no">4</span><span class="cand-content"> {4} 量子</span></div>
           </div>
         </div>
         <!--5Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">5</span> {5} 可恶</div>
+            <div class="text"><span class="cand-no">5</span><span class="cand-content"> {5} 可恶</span></div>
           </div>
         </div>
         <!--6Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">6</span> {6} 不是</div>
+            <div class="text"><span class="cand-no">6</span><span class="cand-content"> {6} 不是</span></div>
           </div>
         </div>
         <!--7Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">7</span> {7} 那么</div>
+            <div class="text"><span class="cand-no">7</span><span class="cand-content"> {7} 那么</span></div>
           </div>
         </div>
         <!--8Anchor-->
         <div class="row-wrapper">
           <div class="row cand">
-            <div class="text"><span class="cand-no">8</span> {8} 如果</div>
+            <div class="text"><span class="cand-no">8</span><span class="cand-content"> {8} 如果</span></div>
           </div>
         </div>
         <!--9Anchor-->
       </div>
     </div>
+  </div>
+
+
+  <!-- Custom Context Menu -->
+  <div id="contextMenu" class="context-menu">
+    <div class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
+    <div class="context-menu-item" onmouseup="onDelete(event)">删除</div>
   </div>
 </body>
 
