@@ -206,6 +206,21 @@
         if (!e.target.closest('.context-menu')) {
           hideContextMenu();
         }
+
+        const candElement = e.target.closest('.cand');
+        if (candElement && e.button === 0) {
+          const candNoElement = candElement.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          if (candIndex !== null) {
+            console.log('Candidate left clicked:', candIndex);
+            try {
+              window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: Number(candIndex) }));
+              // TODO: 考虑一下，这里要不要也去做一下 html 界面的隐藏。
+            } catch (e) {
+              console.error('Failed to send message:', e);
+            }
+          }
+        }
       });
 
       document.addEventListener('mousemove', function () {
