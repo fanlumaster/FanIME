@@ -462,6 +462,36 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         break;
     }
 
+    case WM_PIN_TO_TOP_CANDIDATE: {
+        int one_based = static_cast<int>(wParam);
+        int zero_based = one_based - 1;
+        OutputDebugString(fmt::format(L"Really to pin to top candidate {}\n", one_based).c_str());
+        if (one_based > Global::CandidateWordList.size())
+        {
+            break;
+        }
+
+        //
+        // 在词库中调整 weight 以置顶
+        //
+        /* 先取出拼音和汉字 */
+        DictionaryUlPb::WordItem curWordItem =
+            Global::CandidateList[zero_based + Global::PageIndex * Global::CountOfOnePage];
+        std::string curWord = std::get<1>(curWordItem);
+        std::string curWordPinyin = std::get<0>(curWordItem);
+
+        /* 调整条目 weight，一次到顶 */
+        g_dictQuery->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+        /* 刷新候选窗列表 */
+        g_dictQuery->reset_cache();
+        g_dictQuery->handleVkCode(0, 0); // 重新查一次
+        /* 刷新窗口 */
+        FanyNamedPipe::PrepareCandidateList();
+        PostMessage(hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+
+        break;
+    }
+
     case WM_DELETE_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
         int zero_based = one_based - 1;
