@@ -219,17 +219,22 @@
         return;
       }
 
-      if (currentRightClickedCand) {
-        // Get the candidate index from the cand-no element
-        const candNoElement = currentRightClickedCand.querySelector('.cand-no');
-        const candIndex = candNoElement ? candNoElement.textContent.trim() : null;
-        const candContentElement = currentRightClickedCand.querySelector('.cand-content');
-        const candContent = candContentElement ? candContentElement.textContent.trim() : null;
-        console.log('Pin to top:', candIndex, candContent);
-        // TODO: 通知 C++ 端置顶
-
+      try {
+        if (currentRightClickedCand) {
+          // Get the candidate index from the cand-no element
+          const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+          const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+          console.log('Pin to top:', candIndex, candContent);
+          // 通知 C++ 端置顶
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'pin', data: Number(candIndex) }));
+        }
+      } catch (e) {
+        // TODO: 处理异常
+      } finally {
+        hideContextMenu();
       }
-      hideContextMenu();
     }
 
     //
@@ -241,17 +246,22 @@
         return;
       }
 
-      if (currentRightClickedCand) {
-        // Get the candidate index from the cand-no element
-        const candNoElement = currentRightClickedCand.querySelector('.cand-no');
-        const candIndex = candNoElement ? candNoElement.textContent.trim() : null;
-        const candContentElement = currentRightClickedCand.querySelector('.cand-content');
-        const candContent = candContentElement ? candContentElement.textContent.trim() : null;
-        console.log('Delete:', candIndex, candContent);
-        // TODO: 通知 C++ 端删除
-
+      try {
+        if (currentRightClickedCand) {
+          // Get the candidate index from the cand-no element
+          const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+          const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+          console.log('Delete:', candIndex, candContent);
+          // 通知 C++ 端删除
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'delete', data: Number(candIndex) }));
+        }
+      } catch (e) {
+        // TODO: 处理异常
+      } finally {
+        hideContextMenu();
       }
-      hideContextMenu();
     }
 
     window.ClearState = function () {
