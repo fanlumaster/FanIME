@@ -145,6 +145,23 @@
     let a = false;
     let currentRightClickedCand = null;
 
+
+    //
+    // 判断候选项是否为单个汉字
+    //
+    function isSingleCharCandidate(candElement) {
+      const contentEl = candElement.querySelector('.cand-content');
+      if (!contentEl) return false;
+
+      let text = contentEl.textContent.trim();
+
+      // 去掉括号里的编码，例如：你们(rR) → 你们
+      text = text.replace(/\(.*?\)$/, '').trim();
+
+      // 按 Unicode code point 计数
+      return Array.from(text).length === 1;
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
       // Disable native context menu globally
       document.addEventListener('contextmenu', function (e) {
@@ -169,6 +186,15 @@
           currentFirst.classList.remove('first');
         }
         candElement.classList.add('first');
+
+        // 根据候选项是否为单字符决定是否显示删除菜单项
+        const menuDelete = document.getElementById('menuDelete');
+        const isSingle = isSingleCharCandidate(candElement);
+        if (isSingle) {
+          menuDelete.style.display = 'none';
+        } else {
+          menuDelete.style.display = 'block';
+        }
 
         showContextMenu(e.clientX, e.clientY);
       });
@@ -400,8 +426,8 @@
 
   <!-- Custom Context Menu -->
   <div id="contextMenu" class="context-menu">
-    <div class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
-    <div class="context-menu-item" onmouseup="onDelete(event)">删除</div>
+    <div id="menuPin" class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
+    <div id="menuDelete" class="context-menu-item" onmouseup="onDelete(event)">删除</div>
   </div>
 </body>
 
