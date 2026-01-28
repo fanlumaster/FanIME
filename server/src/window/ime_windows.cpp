@@ -9,6 +9,7 @@
 #include <windef.h>
 #include <winuser.h>
 #include <fmt/xchar.h>
+#include <utf8.h>
 #include "webview2/windows_webview2.h"
 #include "utils/webview_utils.h"
 #include "utils/window_utils.h"
@@ -478,6 +479,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             Global::CandidateList[zero_based + Global::PageIndex * Global::CountOfOnePage];
         std::string curWord = std::get<1>(curWordItem);
         std::string curWordPinyin = std::get<0>(curWordItem);
+        // 单字不删除，静默无任何操作来处理
+        if (utf8::distance(curWord.begin(), curWord.end()) == 1)
+        {
+            break;
+        }
+
         /* 删除条目 */
         g_dictQuery->delete_by_pinyin_and_word(curWordPinyin, curWord);
         /* 刷新候选窗列表 */
