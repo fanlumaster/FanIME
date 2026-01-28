@@ -7,7 +7,6 @@
 #include <AclAPI.h>
 #include <Sddl.h>
 #include "ipc.h"
-#include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include "fmt/xchar.h"
 
@@ -88,7 +87,7 @@ int InitIpc()
     {
         // Error handling
         canUseSharedMemory = false;
-        spdlog::error("CreateFileMapping error: {}", GetLastError());
+        OutputDebugString(fmt::format(L"CreateFileMapping error: {}\n", GetLastError()).c_str());
     }
 
     bool alreadyExists = (GetLastError() == ERROR_ALREADY_EXISTS);
@@ -130,7 +129,7 @@ int InitIpc()
         if (!hEvent)
         {
             // Error handling
-            spdlog::error("Failed to create event: {}", wstring_to_string(eventName));
+            OutputDebugString(fmt::format(L"Failed to create event: {}\n", eventName).c_str());
         }
     }
 
@@ -142,7 +141,7 @@ int InitIpc()
         hEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_ARRAY[i].c_str());
         if (!hEvents[i])
         {
-            spdlog::error("Failed to open event: {}", wstring_to_string(FANY_IME_EVENT_ARRAY[i]));
+            OutputDebugString(fmt::format(L"Failed to open event: {}\n", FANY_IME_EVENT_ARRAY[i]).c_str());
             for (int j = 0; j < i; ++j)
             {
                 CloseHandle(hEvents[j]);
@@ -230,11 +229,11 @@ int InitNamedPipe()
 
     if (hPipe == INVALID_HANDLE_VALUE)
     {
-        spdlog::error("CreateNamedPipe failed: {}", GetLastError());
+        OutputDebugString(fmt::format(L"CreateNamedPipe failed: {}", GetLastError()).c_str());
     }
     else
     {
-        spdlog::info("Named pipe created successfully");
+        OutputDebugString(L"Named pipe created successfully\n");
     }
 
     if (hAuxPipe == INVALID_HANDLE_VALUE)

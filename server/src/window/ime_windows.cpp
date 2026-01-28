@@ -78,20 +78,20 @@ int CreateCandidateWindow(HINSTANCE hInstance)
                       WS_EX_TOPMOST;     //
     FLOAT scale = GetForegroundWindowScale();
 
-    HWND hwnd_cand = CreateWindowEx(                          //
-        dwExStyle,                                            //
-        szWindowClass,                                        //
-        lpWindowNameCand,                                     //
-        WS_POPUP,                                             //
-        100,                                                  //
-        100,                                                  //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+    HWND hwnd_cand = CreateWindowEx(                                                 //
+        dwExStyle,                                                                   //
+        szWindowClass,                                                               //
+        lpWindowNameCand,                                                            //
+        WS_POPUP,                                                                    //
+        100,                                                                         //
+        100,                                                                         //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
         (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-        nullptr,                                              //
-        nullptr,                                              //
-        hInstance,                                            //
-        nullptr                                               //
-    );                                                        //
+        nullptr,                                                                     //
+        nullptr,                                                                     //
+        hInstance,                                                                   //
+        nullptr                                                                      //
+    );                                                                               //
 
     if (!hwnd_cand)
     {
@@ -108,24 +108,24 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     ::global_hwnd = hwnd_cand;
 
-    SetWindowPos(                                             //
-        hwnd_cand,                                            //
-        HWND_TOPMOST,                                         //
-        -10000,                                               //
-        -10000,                                               //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+    SetWindowPos(                                                                    //
+        hwnd_cand,                                                                   //
+        HWND_TOPMOST,                                                                //
+        -10000,                                                                      //
+        -10000,                                                                      //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
         (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-        SWP_SHOWWINDOW                                        //
+        SWP_SHOWWINDOW                                                               //
     );
 
-    SetWindowPos(                                             //
-        hwnd_cand,                                            //
-        HWND_TOPMOST,                                         //
-        100,                                                  //
-        100,                                                  //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+    SetWindowPos(                                                                    //
+        hwnd_cand,                                                                   //
+        HWND_TOPMOST,                                                                //
+        100,                                                                         //
+        100,                                                                         //
+        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
         (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-        SWP_SHOWWINDOW                                        //
+        SWP_SHOWWINDOW                                                               //
     );
 
     //
@@ -357,14 +357,14 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             scale = 1.5;
         }
-        SetWindowPos(                                             //
-            hwnd,                                                 //
-            HWND_TOPMOST,                                         //
-            0,                                                    //
-            Global::INVALID_Y,                                    //
-            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,  //
+        SetWindowPos(                                                                    //
+            hwnd,                                                                        //
+            HWND_TOPMOST,                                                                //
+            0,                                                                           //
+            Global::INVALID_Y,                                                           //
+            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
             (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-            SWP_SHOWWINDOW                                        //
+            SWP_SHOWWINDOW                                                               //
         );
         UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         /* 候选词部分使用全角空格来占位 */

@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <dwmapi.h>
 #include <winuser.h>
+#include "defines/defines.h"
 #include "global/globals.h"
 #include "fmt/xchar.h"
 #include "ipc/ipc.h"
@@ -337,6 +338,48 @@ HRESULT OnControllerCreatedCandWnd(     //
 
     /* Debug console */
     // webview->OpenDevToolsWindow();
+
+    webviewCandWnd->add_WebMessageReceived(
+        Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+            [hwnd](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                wil::unique_cotaskmem_string message;
+                HRESULT hr = args->TryGetWebMessageAsString(&message);
+
+                if (SUCCEEDED(hr) && message.get())
+                {
+                    std::wstring msg(message.get());
+                    // 解析 msg，执行相应操作
+                    try
+                    {
+                        json::value val = json::parse(wstring_to_string(msg));
+                        std::string type = json::value_to<std::string>(val.at("type"));
+                        if (type == "delete")
+                        {
+                            int idx = json::value_to<int>(val.at("data"));
+                            if (idx >= 0 && idx < 9)
+                            {
+                                PostMessage(::global_hwnd, WM_DELETE_CANDIDATE, idx, 0);
+                            }
+                        }
+                        else if (type == "pin")
+                        {
+                            int idx = json::value_to<int>(val.at("data"));
+                            if (idx >= 0 && idx < 9)
+                            {
+                            }
+                        }
+                    }
+                    catch (const std::exception &e)
+                    {
+                        OutputDebugString(
+                            fmt::format(L"Exception happens when parsing cand wnd webview2 message\n").c_str());
+                        return S_OK;
+                    }
+                }
+                return S_OK;
+            })
+            .Get(),
+        nullptr);
 
     return S_OK;
 }

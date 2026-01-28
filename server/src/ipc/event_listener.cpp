@@ -8,7 +8,6 @@
 #include <algorithm>
 #include "Ipc.h"
 #include "defines/defines.h"
-#include "spdlog/spdlog.h"
 #include "ipc.h"
 #include "defines/globals.h"
 #include "utils/common_utils.h"

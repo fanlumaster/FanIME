@@ -82,7 +82,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 
             if (idx >= 0)
             {
-                // TODO: 执行候选项删除逻辑，PostMessage 给窗口过程去执行
+                // 执行候选项删除逻辑，PostMessage 给窗口过程去执行
                 OutputDebugString(fmt::format(L"To delete candidate {}\n", idx + 1).c_str());
                 PostMessage(::global_hwnd, WM_DELETE_CANDIDATE, idx + 1, 0);
             }
