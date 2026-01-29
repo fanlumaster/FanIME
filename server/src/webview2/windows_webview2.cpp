@@ -369,6 +369,14 @@ HRESULT OnControllerCreatedCandWnd(     //
                                 PostMessage(::global_hwnd, WM_PIN_TO_TOP_CANDIDATE, idx, 0);
                             }
                         }
+                        else if (type == "candidate")
+                        {
+                            int idx = json::value_to<int>(val.at("data"));
+                            if (idx >= 0 && idx < 9)
+                            {
+                                PostMessage(::global_hwnd, WM_COMMIT_CANDIDATE, idx, 0);
+                            }
+                        }
                     }
                     catch (const std::exception &e)
                     {

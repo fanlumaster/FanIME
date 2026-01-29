@@ -52,6 +52,7 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_
     L"SwitchToPuncCn",               // 4: Switch to Punc CN
     L"SwitchToFullwidth",            // 5: Switch to Fullwidth
     L"SwitchToHalfwidth",            // 6: Switch to Halfwidth
+    L"CommitCandidate",              // 7: Commit Candidate
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
@@ -199,6 +200,7 @@ constexpr UINT SwitchToPuncEn = 2;
 constexpr UINT SwitchToPuncCn = 3;
 constexpr UINT SwitchToFullwidth = 4;
 constexpr UINT SwitchToHalfwidth = 5;
+constexpr UINT CommitCandidate = 6;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

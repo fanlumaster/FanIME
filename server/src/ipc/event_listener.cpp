@@ -422,6 +422,12 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
+                    case 7: { // CommitCandidate
+                        OutputDebugString(fmt::format(L"Named Pipe Commit Candidate\n").c_str());
+                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate;
+                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
+                        break;
+                    }
                     }
                 }
                 if (isBreakWhile)
