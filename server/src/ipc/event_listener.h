@@ -22,4 +22,5 @@ void ToTsfPipeEventListenerLoopThread();
 void ToTsfWorkerThreadPipeEventListenerLoopThread();
 
 void PrepareCandidateList();
+void ProcessSelectionKey(UINT keycode);
 } // namespace FanyNamedPipe

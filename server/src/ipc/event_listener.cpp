@@ -51,6 +51,7 @@ std::mutex queueMutex;
 void PrepareCandidateList();
 void HandleImeKey(HANDLE hEvent);
 void ClearState();
+void ProcessSelectionKey(UINT keycode);
 
 void WorkerThread()
 {
@@ -656,117 +657,7 @@ void HandleImeKey(HANDLE hEvent)
     /* 2. VK_SPACE, 3. Digits */
     else if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
     {
-        static bool isNeedUpdateWeight = false;
-        isNeedUpdateWeight = false;
-        if (Global::Keycode == VK_SPACE || Global::Keycode - '0' <= Global::CandidateWordList.size())
-        {
-            int index = 0;
-            if (Global::Keycode == VK_SPACE)
-            {
-                index = 0;
-            }
-            else
-            {
-                index = Global::Keycode - '1';
-                isNeedUpdateWeight = true;
-            }
-            Global::SelectedCandidateString = Global::CandidateWordList[index];
-            DictionaryUlPb::WordItem curWordItem =
-                Global::CandidateList[index + Global::PageIndex * Global::CountOfOnePage];
-            std::string curWord = std::get<1>(curWordItem);
-            std::string curWordPinyin = std::get<0>(curWordItem);
-            std::string curFullPurePinyin = g_dictQuery->get_pure_pinyin_sequence();
-            std::string curFullPinyinWithCases = g_dictQuery->get_pure_pinyin_sequence();
-            bool isNeedCreateWord = false;
-            isNeedCreateWord =
-                curWordPinyin.size() < curFullPurePinyin.size() && g_dictQuery->is_all_complete_pure_pinyin();
-            if (isNeedCreateWord)
-            { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit
-                 拼音的纯拼音版本(去除辅助码)的每一个分词都是完整的拼音 */
-                /* 打开造词开关 */
-                GlobalIme::is_during_creating_word = true;
-
-                /* 重新生成剩下的序列 */
-                std::string restPinyinSeq =
-                    curFullPurePinyin.substr(curWordPinyin.size(), curFullPurePinyin.size() - curWordPinyin.size());
-                std::string restPinyinSeqWithCases = curFullPinyinWithCases.substr(
-                    curWordPinyin.size(), curFullPinyinWithCases.size() - curWordPinyin.size());
-                Global::MsgTypeToTsf = Global::DataFromServerMsgType::NeedToCreateWord;
-
-                g_dictQuery->set_pinyin_sequence(restPinyinSeq);
-                g_dictQuery->set_pinyin_sequence_with_cases(restPinyinSeqWithCases);
-                g_dictQuery->handleVkCode(0, 0);
-                GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
-
-                PrepareCandidateList();
-            }
-
-            // 详细处理一下造词的逻辑
-            if (GlobalIme::is_during_creating_word)
-            {
-                /* 造词的时候，不可以更新词频 */
-                isNeedUpdateWeight = false;
-
-                /* 造词的第一次的完整的拼音就是所需的拼音 */
-                if (GlobalIme::pinyin_for_creating_word.empty())
-                {
-                    GlobalIme::pinyin_for_creating_word = curFullPurePinyin;
-                }
-                GlobalIme::word_for_creating_word += curWord;
-                GlobalIme::preedit_during_creating_word =
-                    GlobalIme::word_for_creating_word + g_dictQuery->get_pinyin_segmentation();
-                /* 更新一下中间态的造词时 tsf 端所需的数据 */
-                Global::SelectedCandidateString =
-                    string_to_wstring(GlobalIme::pinyin_for_creating_word + "," + GlobalIme::word_for_creating_word);
-                if (PinyinUtil::cnt_han_chars(GlobalIme::word_for_creating_word) * 2 ==
-                    GlobalIme::pinyin_for_creating_word.size())
-                { /* 最终的造词 */
-                    OutputDebugString(fmt::format(L"create_word 造词：{} {}\n",
-                                                  string_to_wstring(GlobalIme::word_for_creating_word),
-                                                  string_to_wstring(GlobalIme::pinyin_for_creating_word))
-                                          .c_str());
-
-                    /* 更新一下被选中的候选项 */
-                    Global::SelectedCandidateString = string_to_wstring(GlobalIme::word_for_creating_word);
-
-                    /* TODO:
-                     * 这里应该再开一个线程给造词使用，然后这里就只用发送，不应使这里的行为卡顿哪怕只有一点点 */
-                    /* 暂时就先直接在这里向词库插入数据吧 */
-                    g_dictQuery->create_word(GlobalIme::pinyin_for_creating_word, GlobalIme::word_for_creating_word);
-
-                    /* 清理 */
-                    GlobalIme::word_for_creating_word.clear();
-                    GlobalIme::pinyin_for_creating_word.clear();
-                    GlobalIme::preedit_during_creating_word.clear();
-                    GlobalIme::is_during_creating_word = false;
-                }
-            }
-
-            if (!isNeedCreateWord)
-            {
-                g_dictQuery->reset_state();
-            }
-            else
-            {
-                /* 这里到 main 线程的时候，可能下面的那个清理状态的操作已经执行了，因此，这里可能会导致 string
-                 * 越界的问题 */
-                PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
-            }
-
-            if (isNeedUpdateWeight)
-            {
-                //
-                // 更新权重，并且清理缓存，否则更新后的权重在当前运行的输入法中不会生效
-                //
-                g_dictQuery->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
-                g_dictQuery->reset_cache();
-            }
-        }
-        else
-        {
-            Global::SelectedCandidateString = L"OutofRange";
-            Global::MsgTypeToTsf = Global::DataFromServerMsgType::OutofRange;
-        }
+        ProcessSelectionKey(Global::Keycode);
         if (!SetEvent(hEvent))
         { /* 触发事件，将候选词数据写入管道 */
             // TODO: Error handling
@@ -848,6 +739,125 @@ void ClearState()
     GlobalIme::pinyin_for_creating_word.clear();
     GlobalIme::preedit_during_creating_word.clear();
     GlobalIme::is_during_creating_word = false;
+}
+
+void ProcessSelectionKey(UINT keycode)
+{
+    /* 先清理一下状态 */
+    Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
+
+    static bool isNeedUpdateWeight = false;
+    isNeedUpdateWeight = false;
+
+    if (keycode == VK_SPACE || keycode - '0' <= Global::CandidateWordList.size())
+    {
+        int index = 0;
+        if (keycode == VK_SPACE)
+        {
+            index = 0;
+        }
+        else
+        {
+            index = keycode - '1';
+            isNeedUpdateWeight = true;
+        }
+        Global::SelectedCandidateString = Global::CandidateWordList[index];
+        DictionaryUlPb::WordItem curWordItem =
+            Global::CandidateList[index + Global::PageIndex * Global::CountOfOnePage];
+        std::string curWord = std::get<1>(curWordItem);
+        std::string curWordPinyin = std::get<0>(curWordItem);
+        std::string curFullPurePinyin = g_dictQuery->get_pure_pinyin_sequence();
+        std::string curFullPinyinWithCases = g_dictQuery->get_pure_pinyin_sequence();
+        bool isNeedCreateWord = false;
+        isNeedCreateWord =
+            curWordPinyin.size() < curFullPurePinyin.size() && g_dictQuery->is_all_complete_pure_pinyin();
+        if (isNeedCreateWord)
+        { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit
+             拼音的纯拼音版本(去除辅助码)的每一个分词都是完整的拼音 */
+            /* 打开造词开关 */
+            GlobalIme::is_during_creating_word = true;
+
+            /* 重新生成剩下的序列 */
+            std::string restPinyinSeq =
+                curFullPurePinyin.substr(curWordPinyin.size(), curFullPurePinyin.size() - curWordPinyin.size());
+            std::string restPinyinSeqWithCases = curFullPinyinWithCases.substr(
+                curWordPinyin.size(), curFullPinyinWithCases.size() - curWordPinyin.size());
+            Global::MsgTypeToTsf = Global::DataFromServerMsgType::NeedToCreateWord;
+
+            g_dictQuery->set_pinyin_sequence(restPinyinSeq);
+            g_dictQuery->set_pinyin_sequence_with_cases(restPinyinSeqWithCases);
+            g_dictQuery->handleVkCode(0, 0);
+            GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
+
+            PrepareCandidateList();
+        }
+
+        // 详细处理一下造词的逻辑
+        if (GlobalIme::is_during_creating_word)
+        {
+            /* 造词的时候，不可以更新词频 */
+            isNeedUpdateWeight = false;
+
+            /* 造词的第一次的完整的拼音就是所需的拼音 */
+            if (GlobalIme::pinyin_for_creating_word.empty())
+            {
+                GlobalIme::pinyin_for_creating_word = curFullPurePinyin;
+            }
+            GlobalIme::word_for_creating_word += curWord;
+            GlobalIme::preedit_during_creating_word =
+                GlobalIme::word_for_creating_word + g_dictQuery->get_pinyin_segmentation();
+            /* 更新一下中间态的造词时 tsf 端所需的数据 */
+            Global::SelectedCandidateString =
+                string_to_wstring(GlobalIme::pinyin_for_creating_word + "," + GlobalIme::word_for_creating_word);
+            if (PinyinUtil::cnt_han_chars(GlobalIme::word_for_creating_word) * 2 ==
+                GlobalIme::pinyin_for_creating_word.size())
+            { /* 最终的造词 */
+                OutputDebugString(fmt::format(L"create_word 造词：{} {}\n",
+                                              string_to_wstring(GlobalIme::word_for_creating_word),
+                                              string_to_wstring(GlobalIme::pinyin_for_creating_word))
+                                      .c_str());
+
+                /* 更新一下被选中的候选项 */
+                Global::SelectedCandidateString = string_to_wstring(GlobalIme::word_for_creating_word);
+
+                /* TODO:
+                 * 这里应该再开一个线程给造词使用，然后这里就只用发送，不应使这里的行为卡顿哪怕只有一点点 */
+                /* 暂时就先直接在这里向词库插入数据吧 */
+                g_dictQuery->create_word(GlobalIme::pinyin_for_creating_word, GlobalIme::word_for_creating_word);
+
+                /* 清理 */
+                GlobalIme::word_for_creating_word.clear();
+                GlobalIme::pinyin_for_creating_word.clear();
+                GlobalIme::preedit_during_creating_word.clear();
+                GlobalIme::is_during_creating_word = false;
+            }
+        }
+
+        if (!isNeedCreateWord)
+        {
+            g_dictQuery->reset_state();
+        }
+        else
+        {
+            /* TODO: 这里到 main 线程的时候，可能下面的那个清理状态的操作已经执行了，因此，这里可能会导致 string
+             * 越界的问题 */
+            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+        }
+
+        if (isNeedUpdateWeight)
+        {
+            //
+            // 更新权重，并且清理缓存，否则更新后的权重在当前运行的输入法中不会生效
+            //
+            g_dictQuery->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+            g_dictQuery->reset_cache();
+        }
+    }
+    else
+    {
+        Global::SelectedCandidateString = L"OutofRange";
+        Global::MsgTypeToTsf = Global::DataFromServerMsgType::OutofRange;
+    }
 }
 
 } // namespace FanyNamedPipe

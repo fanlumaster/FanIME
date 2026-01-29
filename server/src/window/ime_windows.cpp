@@ -473,8 +473,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
         /* 取出汉字 */
         Global::SelectedCandidateString = Global::CandidateWordList[zero_based];
-        /* 重置词典状态 */
-        g_dictQuery->reset_state();
+        UINT keycode = '0' + one_based;
+        FanyNamedPipe::ProcessSelectionKey(keycode);
+
         /* 触发事件，将候选词数据写入管道 */
         HANDLE hEventWritePipe = OpenEvent(      //
             EVENT_MODIFY_STATE,                  //
