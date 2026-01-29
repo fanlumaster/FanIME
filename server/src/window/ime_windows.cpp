@@ -472,7 +472,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
 
         /* 取出汉字 */
-        Global::SelectedCandidateString = Global::CandidateWordList[zero_based];
         UINT keycode = '0' + one_based;
         FanyNamedPipe::ProcessSelectionKey(keycode);
 
