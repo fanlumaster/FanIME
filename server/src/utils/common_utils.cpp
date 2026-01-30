@@ -1,5 +1,6 @@
 #include "common_utils.h"
 #include <boost/locale.hpp>
+#include "global/globals.h"
 
 using namespace std;
 
@@ -78,6 +79,11 @@ string get_local_appdata_path()
     }
     std::unique_ptr<char, decltype(&free)> dirPtr(localAppDataDir, free);
     return localAppDataDirStr.empty() ? "" : localAppDataDirStr;
+}
+
+string get_ime_data_path()
+{
+    return get_local_appdata_path() + "\\" + wstring_to_string(GlobalIme::AppName);
 }
 
 string get_username()

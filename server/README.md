@@ -6,7 +6,7 @@ This is the server end of [MetasequoiaIME](https://github.com/fanlumaster/Metase
 
 ### Prerequisites
 
-- Visual Studio 2022
+- Visual Studio 2026
 - CMake
 - vcpkg
 - Nuget
@@ -15,7 +15,7 @@ This is the server end of [MetasequoiaIME](https://github.com/fanlumaster/Metase
 
 Make sure vcpkg, Nuget and Boost are installed by **Scoop**.
 
-### Build steps
+### Build steps(For Dev)
 
 **First**, build IME dictonary and prepare assets,
 
@@ -43,6 +43,7 @@ Prepare environment,
 cd MetasequoiaImeServer
 python .\scripts\prepare_env.py
 Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
+New-Item -ItemType SymbolicLink -Path "$env:LOCALAPPDATA\MetasequoiaImeTsf\config.toml" -Target ".\assets\config\config.toml"
 ```
 
 Then, build and run,

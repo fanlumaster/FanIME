@@ -40,8 +40,8 @@ include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 
 set(SRC_FILES
-    "./src/webview2/windows_webview2.cpp"
-    "./src/webview2/windows_webview2.h"
+    "./src/config/ime_config.cpp"
+    "./src/config/ime_config.h"
     "./src/defines/defines.h"
     "./src/global/globals.h"
     "./src/ipc/event_listener.cpp"
@@ -60,6 +60,8 @@ set(SRC_FILES
     "./src/utils/webview_utils.h"
     "./src/utils/window_utils.cpp"
     "./src/utils/window_utils.h"
+    "./src/webview2/windows_webview2.cpp"
+    "./src/webview2/windows_webview2.h"
     "./src/window/ime_windows.cpp"
     "./src/window/ime_windows.h"
     "./src/window/window_hook.cpp"
@@ -102,5 +104,8 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPreference "Static")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/MetasequoiaImeServer.props")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3240.44;Microsoft.Windows.ImplementationLibrary_1.0.240803.1")
+
+# Tomlplusplus and other head-only libraries
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json)

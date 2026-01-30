@@ -73,7 +73,7 @@ with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
 
 #
-# project_root/tests/CMakeLists.txt
+# project_root/CMakeLists.txt
 #
 CMakeLists_file = os.path.join(
     MetasequoiaImeServer_root_path, "scripts", "config_files", "CMakeLists.txt"

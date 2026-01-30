@@ -2,6 +2,7 @@
   "dependencies": [
     "fmt",
     "spdlog",
-    "sqlite3"
+    "sqlite3",
+    "tomlplusplus"
   ]
 }

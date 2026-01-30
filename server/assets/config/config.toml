@@ -1,0 +1,8 @@
+[general]
+page_size = 8
+enable_emoji = true
+
+[candidate_window]
+font = "Noto Sans SC"
+font_size = 14
+follow_cursor = true
