@@ -1,8 +1,112 @@
+#
+# General
+# 通用
+#
 [general]
-page_size = 8
+# 悬浮工具栏
+floating_toolbar = true
+# Emoji
 enable_emoji = true
+# 翻页方式，可选："-/=", ",/.", "Shift+Tab/Tab"
+paging_mode = "-/="
+# 中英混输
+cn_en_mixed_input = false
+# 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。
+clean_mode = false
 
-[candidate_window]
+#
+# Appearance
+# 外观
+#
+[appearance]
+# 主题模式，可选："dark", "light", "system"
+theme_mode = "dark"
+# 字体
 font = "Noto Sans SC"
+# 字体大小
 font_size = 14
-follow_cursor = true
+# 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9, 10
+page_size = 8
+# 候选窗口跟随光标
+candidate_window_follow_cursor = true
+# 候选窗口排列方式，可选："vertical", "horizontal"
+candidate_window_layout = "vertical"
+
+#
+# Input
+# 输入
+#
+[input]
+# 输入方案，可选："quanpin", "shuangpin", "wubi"
+schema = "shuangpin"
+# 双拼方案，可选："xiaohe", "ziranma"
+shuangpin_schema = "xiaohe"
+# 五笔方案，可选："wubi86", "wubi98"
+wubi_schema = "wubi86"
+
+#
+# Helpcode
+# 辅助码
+#
+[helpcode]
+# 双拼辅助码
+shuangpin_helpcode = true
+# 双拼辅助码方案，可选："lantian", "ziranma"
+shuangpin_helpcode_schema = "lantian"
+# 全拼辅助码
+quanpin_helpcode = true
+# 全拼辅助码方案，可选："lantian", "ziranma"
+quanpin_helpcode_schema = "lantian"
+
+#
+# Keybindings
+# 快捷键
+#
+[keybindings]
+# 切换中英文输入法，数组中的元素可选："Ctrl+Space", "Shift"
+switch_language = ["Ctrl+Space", "Shift"]
+
+#
+# Dictionary
+# 词库
+#
+[dictionary]
+# 词库路径
+dictionary_path = "./assets/dictionaries/cutted_flyciku_with_jp.db"
+
+#
+# Skin
+# 皮肤
+#
+[skin]
+# 皮肤名称
+skin_name = "default"
+
+#
+# Voice Input
+# 语音输入
+#
+[voice_input]
+# 语音输入
+voice_input = true
+
+
+#
+# Soft Keyboard
+# 屏幕键盘
+#
+[soft_keyboard]
+
+
+#
+# Utility
+# 实用功能
+#
+[utility]
+
+
+#
+# AI Assistant
+# AI 辅助
+#
+[ai_assistant]
