@@ -11,6 +11,7 @@
 #include "global/globals.h"
 #include "fmt/xchar.h"
 #include "ipc/ipc.h"
+#include <WebView2EnvironmentOptions.h>
 
 namespace json = boost::json;
 
@@ -48,7 +49,7 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     if (webview != nullptr)
     {
         std::wstring script;
-        script.reserve(256);
+        script.reserve(newContent.length() + 512);
 
         script.append(L"document.getElementById('realContainer').innerHTML = `");
         script.append(newContent);
@@ -293,9 +294,36 @@ HRESULT OnControllerCreatedCandWnd(     //
     if (SUCCEEDED(webviewCandWnd->get_Settings(&settings)))
     {
         settings->put_IsScriptEnabled(TRUE);
-        settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+        settings->put_AreDefaultScriptDialogsEnabled(FALSE);
         settings->put_IsWebMessageEnabled(TRUE);
-        settings->put_AreHostObjectsAllowed(TRUE);
+        settings->put_AreHostObjectsAllowed(FALSE); // Since we only use WebMessages
+        settings->put_IsZoomControlEnabled(FALSE);
+        settings->put_IsStatusBarEnabled(FALSE);
+        settings->put_AreDefaultContextMenusEnabled(FALSE);
+        settings->put_AreDevToolsEnabled(FALSE);
+
+        // Try to disable browser accelerators (Ctrl+R, F5, etc.)
+        ComPtr<ICoreWebView2Settings3> settings3;
+        if (SUCCEEDED(settings->QueryInterface(IID_PPV_ARGS(&settings3))))
+        {
+            settings3->put_AreBrowserAcceleratorKeysEnabled(FALSE);
+            // settings3->put_IsPinchZoomEnabled(FALSE); // Unsupported in this header version
+        }
+
+        // Try to disable autofill and password saving
+        ComPtr<ICoreWebView2Settings5> settings5;
+        if (SUCCEEDED(settings->QueryInterface(IID_PPV_ARGS(&settings5))))
+        {
+            settings5->put_IsGeneralAutofillEnabled(FALSE);
+            settings5->put_IsPasswordAutosaveEnabled(FALSE);
+        }
+
+        // Try to disable built-in error pages for a cleaner UI
+        ComPtr<ICoreWebView2Settings6> settings6;
+        if (SUCCEEDED(settings->QueryInterface(IID_PPV_ARGS(&settings6))))
+        {
+            settings6->put_IsBuiltInErrorPageEnabled(FALSE);
+        }
     }
 
     // Configure virtual host path
@@ -428,11 +456,25 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
  */
 void InitWebviewCandWnd(HWND hwnd)
 {
-    std::wstring appDataPath = GetAppdataPath();
+    std::wstring appDataBase = GetAppdataPath();
+    std::wstring candUdfPath = appDataBase + L"\\candwnd"; // Isolate UDF for candidate window
+
+    auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
+    options->put_AdditionalBrowserArguments( //
+        L"--disable-features=TranslateUI "
+        L"--enable-gpu --disable-software-rasterizer "
+        L"--disable-background-networking "
+        L"--disable-default-apps "
+        L"--disable-sync "
+        L"--disable-component-update "
+        L"--disable-prompt-on-repost "
+        L"--metrics-recording-only "
+        L"--no-first-run");
+
     CreateCoreWebView2EnvironmentWithOptions(                                  //
         nullptr,                                                               //
-        appDataPath.c_str(),                                                   //
-        nullptr,                                                               //
+        candUdfPath.c_str(),                                                   //
+        options.Get(),                                                         //
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
             [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
                 return OnEnvironmentCreated(hwnd, result, env);                //
