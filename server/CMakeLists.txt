@@ -103,7 +103,7 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 # WebView2
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPreference "Static")
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/MetasequoiaImeServer.props")
-set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3240.44;Microsoft.Windows.ImplementationLibrary_1.0.240803.1")
+set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3719.77;Microsoft.Windows.ImplementationLibrary_1.0.260126.7")
 
 # Tomlplusplus and other head-only libraries
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include")

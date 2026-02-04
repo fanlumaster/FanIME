@@ -438,15 +438,15 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
     }
 
     // Create WebView2 controller
-    return env->CreateCoreWebView2Controller(                                //
-        hwnd,                                                                //
-        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
-            [hwnd](HRESULT result,                                           //
-                   ICoreWebView2Controller *controller) -> HRESULT {         //
-                return OnControllerCreatedCandWnd(hwnd, result, controller); //
-            })                                                               //
-            .Get()                                                           //
-    );                                                                       //
+    return env->CreateCoreWebView2Controller(                                                //
+        hwnd,                                                                                //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
+            [hwnd](HRESULT result,                                                           //
+                   ICoreWebView2Controller *controller) -> HRESULT {                         //
+                return OnControllerCreatedCandWnd(hwnd, result, controller);                 //
+            })                                                                               //
+            .Get()                                                                           //
+    );                                                                                       //
 }
 
 /**
@@ -471,16 +471,16 @@ void InitWebviewCandWnd(HWND hwnd)
         L"--metrics-recording-only "
         L"--no-first-run");
 
-    CreateCoreWebView2EnvironmentWithOptions(                                  //
-        nullptr,                                                               //
-        candUdfPath.c_str(),                                                   //
-        options.Get(),                                                         //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
-                return OnEnvironmentCreated(hwnd, result, env);                //
-            })                                                                 //
-            .Get()                                                             //
-    );                                                                         //
+    CreateCoreWebView2EnvironmentWithOptions(                                                 //
+        nullptr,                                                                              //
+        candUdfPath.c_str(),                                                                  //
+        options.Get(),                                                                        //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>( //
+            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {                //
+                return OnEnvironmentCreated(hwnd, result, env);                               //
+            })                                                                                //
+            .Get()                                                                            //
+    );                                                                                        //
 }
 
 //
@@ -636,14 +636,14 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
     }
 
     // Create WebView2 controller
-    return env->CreateCoreWebView2Controller(                                        //
-        hwnd,                                                                        //
-        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(         //
-            [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT { //
-                return OnControllerCreatedMenuWnd(hwnd, result, controller);         //
-            })                                                                       //
-            .Get()                                                                   //
-    );                                                                               //
+    return env->CreateCoreWebView2Controller(                                                //
+        hwnd,                                                                                //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
+            [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {         //
+                return OnControllerCreatedMenuWnd(hwnd, result, controller);                 //
+            })                                                                               //
+            .Get()                                                                           //
+    );                                                                                       //
 }
 
 /**
@@ -654,16 +654,16 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
 void InitWebviewMenuWnd(HWND hwnd)
 {
     std::wstring appDataPath = GetAppdataPath();
-    CreateCoreWebView2EnvironmentWithOptions(                                  //
-        nullptr,                                                               //
-        appDataPath.c_str(),                                                   //
-        nullptr,                                                               //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
-                return OnMenuWindowEnvironmentCreated(hwnd, result, env);      //
-            })                                                                 //
-            .Get()                                                             //
-    );                                                                         //
+    CreateCoreWebView2EnvironmentWithOptions(                                                 //
+        nullptr,                                                                              //
+        appDataPath.c_str(),                                                                  //
+        nullptr,                                                                              //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>( //
+            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {                //
+                return OnMenuWindowEnvironmentCreated(hwnd, result, env);                     //
+            })                                                                                //
+            .Get()                                                                            //
+    );                                                                                        //
 }
 
 //
@@ -751,7 +751,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
 
     EventRegistrationToken navCompletedToken;
     webviewSettingsWnd->add_NavigationCompleted(
-        Callback<ICoreWebView2NavigationCompletedEventHandler>( //
+        Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>( //
             [hwnd](ICoreWebView2 *sender, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
                 BOOL success;
                 args->get_IsSuccess(&success);
@@ -791,14 +791,14 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
     }
 
     // Create WebView2 controller
-    return env->CreateCoreWebView2Controller(                                        //
-        hwnd,                                                                        //
-        Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(         //
-            [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT { //
-                return OnControllerCreatedSettingsWnd(hwnd, result, controller);     //
-            })                                                                       //
-            .Get()                                                                   //
-    );                                                                               //
+    return env->CreateCoreWebView2Controller(                                                //
+        hwnd,                                                                                //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
+            [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {         //
+                return OnControllerCreatedSettingsWnd(hwnd, result, controller);             //
+            })                                                                               //
+            .Get()                                                                           //
+    );                                                                                       //
 }
 
 /**
@@ -809,16 +809,16 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
 void InitWebviewSettingsWnd(HWND hwnd)
 {
     std::wstring appDataPath = GetAppdataPath();
-    CreateCoreWebView2EnvironmentWithOptions(                                  //
-        nullptr,                                                               //
-        appDataPath.c_str(),                                                   //
-        nullptr,                                                               //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
-                return OnSettingsWindowEnvironmentCreated(hwnd, result, env);  //
-            })                                                                 //
-            .Get()                                                             //
-    );                                                                         //
+    CreateCoreWebView2EnvironmentWithOptions(                                                 //
+        nullptr,                                                                              //
+        appDataPath.c_str(),                                                                  //
+        nullptr,                                                                              //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>( //
+            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {                //
+                return OnSettingsWindowEnvironmentCreated(hwnd, result, env);                 //
+            })                                                                                //
+            .Get()                                                                            //
+    );                                                                                        //
 }
 
 //

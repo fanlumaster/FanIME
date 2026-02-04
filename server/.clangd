@@ -19,6 +19,9 @@ CompileFlags:
       -Wno-microsoft-goto,
       -Wno-nonportable-include-path,
       -Wno-microsoft-extra-qualification,
+      "-fms-extensions",
+      "-fms-compatibility",
+      "-fms-compatibility-version=19",
       # -Wno-unused-value,
     ] # ignore some specific warnings
   CompilationDatabase: build/ # Search build/ directory for compile_commands.json

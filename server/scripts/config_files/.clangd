@@ -10,8 +10,8 @@ CompileFlags:
       # utfcpp includes
       "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/MetasequoiaImeEngine/utfcpp/source",
       # WebView2 includes
-      "-IC:/Users/19833/.nuget/packages/microsoft.web.webview2/1.0.3240.44/build/native/include",
-      "-IC:/Users/19833/.nuget/packages/microsoft.windows.implementationlibrary/1.0.240803.1/include",
+      "-IC:/Users/sonnycalcr/.nuget/packages/microsoft.web.webview2/1.0.3719.77/build/native/include",
+      "-IC:/Users/sonnycalcr/.nuget/packages/microsoft.windows.implementationlibrary/1.0.260126.7/include",
       # Boost includes
       "-IC:/Users/19833/scoop/apps/boost/current",
       # Sciter includes
@@ -19,6 +19,9 @@ CompileFlags:
       -Wno-microsoft-goto,
       -Wno-nonportable-include-path,
       -Wno-microsoft-extra-qualification,
+      "-fms-extensions",
+      "-fms-compatibility",
+      "-fms-compatibility-version=19",
       # -Wno-unused-value,
     ] # ignore some specific warnings
   CompilationDatabase: build/ # Search build/ directory for compile_commands.json
