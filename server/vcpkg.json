@@ -3,6 +3,7 @@
     "fmt",
     "spdlog",
     "sqlite3",
-    "tomlplusplus"
+    "tomlplusplus",
+    "webview2"
   ]
 }

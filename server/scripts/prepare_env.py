@@ -54,6 +54,7 @@ sciter_path = normpath(os.path.join(os.path.dirname(project_root_path) , "sciter
 
 #
 # project_root/.clangd
+# line 7, 8, 9, 11, 13, 15
 #
 dot_clangd_file = os.path.join(
     MetasequoiaImeServer_root_path, "scripts", "config_files", ".clangd"
@@ -65,10 +66,8 @@ lines[6] = f'      "-I{MetasequoiaImeServer_root_path}",\n'
 lines[7] = f'      "-I{MetasequoiaImeServer_src_path}",\n'
 lines[8] = f'      "-I{vcpkg_include_path}",\n'
 lines[10] = f'      "-I{utfcpp_path}",\n'
-lines[12] = f'      "-I{webview2_path}",\n'
-lines[13] = f'      "-I{wim_path}",\n'
-lines[15] = f'      "-I{boost_path}",\n'
-lines[17] = f'      "-I{sciter_path}",\n'
+lines[12] = f'      "-I{boost_path}",\n'
+lines[14] = f'      "-I{sciter_path}",\n'
 with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
 

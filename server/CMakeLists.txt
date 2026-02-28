@@ -100,12 +100,10 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
     ${SRC_FILES_GOOGLEIME}
 )
 
-# WebView2
-set_target_properties(${PROJECT_NAME} PROPERTIES VS_GLOBAL_WebView2LoaderPreference "Static")
-set_target_properties(${PROJECT_NAME} PROPERTIES VS_USER_PROPS "${CMAKE_SOURCE_DIR}/MetasequoiaImeServer.props")
-set_target_properties(${PROJECT_NAME} PROPERTIES VS_PACKAGE_REFERENCES "Microsoft.Web.WebView2_1.0.3719.77;Microsoft.Windows.ImplementationLibrary_1.0.260126.7")
-
-# Tomlplusplus and other head-only libraries
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include")
+# Tomlplusplus, Webview2 and other head-only libraries
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+    "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json)

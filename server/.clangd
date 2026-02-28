@@ -9,9 +9,6 @@ CompileFlags:
       "-IC:/Users/sonnycalcr/EDisk/CppCodes/IMECodes/MetasequoiaImeServer/build/vcpkg_installed/x64-windows/include",
       # utfcpp includes
       "-IC:/Users/sonnycalcr/EDisk/CppCodes/IMECodes/MetasequoiaImeServer/MetasequoiaImeEngine/utfcpp/source",
-      # WebView2 includes
-      "-IC:/Users/sonnycalcr/.nuget/packages/microsoft.web.webview2/1.0.3240.44/build/native/include",
-      "-IC:/Users/sonnycalcr/.nuget/packages/microsoft.windows.implementationlibrary/1.0.240803.1/include",
       # Boost includes
       "-IC:/Users/sonnycalcr/scoop/apps/boost/current",
       # Sciter includes
