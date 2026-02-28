@@ -9,11 +9,10 @@ This is the server end of [MetasequoiaIME](https://github.com/fanlumaster/Metase
 - Visual Studio 2026
 - CMake
 - vcpkg
-- Nuget
 - Python3
 - Boost
 
-Make sure vcpkg, Nuget and Boost are installed by **Scoop**.
+Make sure vcpkg and Boost are installed by **Scoop**.
 
 ### Build steps(For Dev)
 
