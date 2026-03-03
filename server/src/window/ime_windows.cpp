@@ -27,6 +27,7 @@ constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 1;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 2;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 3;
 constexpr UINT_PTR TIMER_ID_CHECK_TSF_TO_HIDE_FTB = 4;
+constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 5;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
@@ -75,8 +76,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     DWORD dwExStyle = WS_EX_LAYERED |    //
                       WS_EX_TOOLWINDOW | //
-                      WS_EX_NOACTIVATE | //
-                      WS_EX_TOPMOST;     //
+                      WS_EX_NOACTIVATE;  //
+                                         //   WS_EX_TOPMOST;     //
     FLOAT scale = GetForegroundWindowScale();
 
     HWND hwnd_cand = CreateWindowEx(                                                 //
@@ -111,7 +112,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     SetWindowPos(                                                                    //
         hwnd_cand,                                                                   //
-        HWND_TOPMOST,                                                                //
+        HWND_TOP,                                                                    //
         -10000,                                                                      //
         -10000,                                                                      //
         (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
@@ -121,7 +122,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     SetWindowPos(                                                                    //
         hwnd_cand,                                                                   //
-        HWND_TOPMOST,                                                                //
+        HWND_TOP,                                                                    //
         100,                                                                         //
         100,                                                                         //
         (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
@@ -136,8 +137,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     dwExStyle = WS_EX_LAYERED |             //
                 WS_EX_TOOLWINDOW |          //
-                WS_EX_NOACTIVATE |          //
-                WS_EX_TOPMOST;              //
+                WS_EX_NOACTIVATE;           //
+                                            // WS_EX_TOPMOST;              //
     HWND hwnd_menu = CreateWindowEx(        //
         dwExStyle,                          //
         szWindowClass,                      //
@@ -214,8 +215,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     dwExStyle = WS_EX_LAYERED |                              //
                 WS_EX_TOOLWINDOW |                           //
-                WS_EX_NOACTIVATE |                           //
-                WS_EX_TOPMOST;                               //
+                WS_EX_NOACTIVATE;                            //
+                                                             // WS_EX_TOPMOST;                               //
     HWND hwnd_ftb = CreateWindowEx(                          //
         dwExStyle,                                           //
         szWindowClass,                                       //
@@ -271,6 +272,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     /* 调整 floating toolbar 窗口 position */
     SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
+
+    /* 启动 6 秒后，置顶候选框/菜单/floating toolbar 窗口 */
+    SetTimer(hwnd_cand, TIMER_ID_PIN_WINDOWS_TO_TOP, 6000, nullptr);
 
     //
     // 注册一下全局钩子
@@ -360,7 +364,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         SetWindowPos(                                                                    //
             hwnd,                                                                        //
-            HWND_TOPMOST,                                                                //
+            HWND_TOP,                                                                    //
             0,                                                                           //
             Global::INVALID_Y,                                                           //
             (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
@@ -443,6 +447,50 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     switch (message)
     {
+    case WM_TIMER: {
+        if (wParam == TIMER_ID_PIN_WINDOWS_TO_TOP)
+        {
+            KillTimer(hwnd, TIMER_ID_PIN_WINDOWS_TO_TOP);
+            if (::global_hwnd)
+            {
+                SetWindowPos(                                //
+                    ::global_hwnd,                           //
+                    HWND_TOPMOST,                            //
+                    0,                                       //
+                    0,                                       //
+                    0,                                       //
+                    0,                                       //
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
+                );
+            }
+            if (::global_hwnd_menu)
+            {
+                SetWindowPos(                                //
+                    ::global_hwnd_menu,                      //
+                    HWND_TOPMOST,                            //
+                    0,                                       //
+                    0,                                       //
+                    0,                                       //
+                    0,                                       //
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
+                );
+            }
+            if (::global_hwnd_ftb)
+            {
+                SetWindowPos(                                //
+                    ::global_hwnd_ftb,                       //
+                    HWND_TOPMOST,                            //
+                    0,                                       //
+                    0,                                       //
+                    0,                                       //
+                    0,                                       //
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
+                );
+            }
+        }
+        break;
+    }
+
     case WM_MOUSEACTIVATE:
         // Stop the window from being activated by mouse click
         return MA_NOACTIVATE;
