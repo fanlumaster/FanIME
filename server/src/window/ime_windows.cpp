@@ -23,11 +23,12 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
-constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 1;
-constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 2;
-constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 3;
-constexpr UINT_PTR TIMER_ID_CHECK_TSF_TO_HIDE_FTB = 4;
-constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 5;
+constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_CAND = 1;
+constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 2;
+constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 3;
+constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
+constexpr UINT_PTR TIMER_ID_CHECK_TSF_TO_HIDE_FTB = 5;
+constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 6;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
@@ -264,17 +265,17 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     /* flaoting toolbar 窗口 */
     InitWebviewFtbWnd(hwnd_ftb);
 
-    /* 调整菜单窗口 size */
+    /* 调整候选框窗口 size，顺便置顶 */
+    SetTimer(hwnd_cand, TIMER_ID_INIT_WEBVIEW_CAND, 200, nullptr);
+
+    /* 调整菜单窗口 size，顺便置顶 */
     SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW_MENU, 200, nullptr);
 
-    /* 调整 settings 窗口 position */
+    /* 调整 settings 窗口 position，顺便置顶 */
     SetTimer(hwnd_settings, TIMER_ID_MOVE_WEBVIEW_SETTINGS, 200, nullptr);
 
-    /* 调整 floating toolbar 窗口 position */
+    /* 调整 floating toolbar 窗口 position，顺便置顶 */
     SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
-
-    /* 启动 6 秒后，置顶候选框/菜单/floating toolbar 窗口 */
-    SetTimer(hwnd_cand, TIMER_ID_PIN_WINDOWS_TO_TOP, 6000, nullptr);
 
     //
     // 注册一下全局钩子
@@ -488,6 +489,29 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 );
             }
         }
+        if (wParam == TIMER_ID_INIT_WEBVIEW_CAND)
+        {
+            KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND);
+            if (::webviewCandWnd)
+            {
+                InitWebviewCandWnd(::global_hwnd);
+                UINT flag = SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOMOVE;
+                SetWindowPos(      //
+                    ::global_hwnd, //
+                    HWND_TOPMOST,  //
+                    0,             //
+                    0,             //
+                    0,             //
+                    0,             //
+                    flag);
+                break;
+            }
+            else
+            {
+                SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND, 100, nullptr);
+                break;
+            }
+        }
         break;
     }
 
@@ -675,7 +699,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     if (hwnd == ::global_hwnd_menu)
                     {
                         // UINT flag = SWP_NOZORDER | SWP_NOMOVE | SWP_HIDEWINDOW;
-                        UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER;
+                        UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE;
                         FLOAT scale = GetForegroundWindowScale();
                         int newWidth = (containerSize.first) * scale;
                         int newHeight = (containerSize.second) * scale;
@@ -813,7 +837,7 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     coordinates.bottom - (rect.bottom - rect.top) - taskbarHeight - 10, //
                     0,                                                                  //
                     0,                                                                  //
-                    SWP_NOSIZE | SWP_NOZORDER);
+                    SWP_NOSIZE);
                 break;
             }
             else
