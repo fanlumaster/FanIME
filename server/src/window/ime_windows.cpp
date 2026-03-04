@@ -463,10 +463,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
                 );
             }
-            if (::global_hwnd_menu)
+            if (::global_hwnd_ftb)
             {
                 SetWindowPos(                                //
-                    ::global_hwnd_menu,                      //
+                    ::global_hwnd_ftb,                       //
                     HWND_TOPMOST,                            //
                     0,                                       //
                     0,                                       //
@@ -475,10 +475,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
                 );
             }
-            if (::global_hwnd_ftb)
+            if (::global_hwnd_menu)
             {
                 SetWindowPos(                                //
-                    ::global_hwnd_ftb,                       //
+                    ::global_hwnd_menu,                      //
                     HWND_TOPMOST,                            //
                     0,                                       //
                     0,                                       //
@@ -648,16 +648,18 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         int iconMiddleX = left + iconWidth / 2;
         int menuX = iconMiddleX - ::MENU_WINDOW_WIDTH / 2;
         int menuY = top - ::MENU_WINDOW_HEIGHT;
-        UINT flag = SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW;
-        SetWindowPos( //
-            hwnd,     //
-            nullptr,  //
-            menuX,    //
-            menuY,    //
-            0,        //
-            0,        //
-            flag      //
+        UINT flag = SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOZORDER;
+        SetLastError(0);
+        BOOL okShowMenu = SetWindowPos( //
+            ::global_hwnd_menu,         //
+            HWND_TOPMOST,               //
+            menuX,                      //
+            menuY,                      //
+            0,                          //
+            0,                          //
+            flag                        //
         );
+        SetForegroundWindow(::global_hwnd_menu);
         /* 安装鼠标钩子 */
         g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
         break;
@@ -672,7 +674,8 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 GetContainerSizeMenu(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
                     if (hwnd == ::global_hwnd_menu)
                     {
-                        UINT flag = SWP_NOZORDER | SWP_NOMOVE | SWP_HIDEWINDOW;
+                        // UINT flag = SWP_NOZORDER | SWP_NOMOVE | SWP_HIDEWINDOW;
+                        UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER;
                         FLOAT scale = GetForegroundWindowScale();
                         int newWidth = (containerSize.first) * scale;
                         int newHeight = (containerSize.second) * scale;
@@ -680,14 +683,14 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                         ::MENU_WINDOW_WIDTH = newWidth;
                         ::MENU_WINDOW_HEIGHT = newHeight;
                         /* 调整菜单窗口 size */
-                        SetWindowPos(  //
-                            hwnd,      //
-                            nullptr,   //
-                            0,         //
-                            0,         //
-                            newWidth,  //
-                            newHeight, //
-                            flag       //
+                        SetWindowPos(     //
+                            hwnd,         //
+                            HWND_TOPMOST, //
+                            0,            //
+                            0,            //
+                            newWidth,     //
+                            newHeight,    //
+                            flag          //
                         );
                     }
                 });
@@ -805,12 +808,12 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 // 移动窗口
                 SetWindowPos(                                                           //
                     hwnd,                                                               //
-                    0,                                                                  //
+                    HWND_TOPMOST,                                                       //
                     coordinates.right - (rect.right - rect.left) - 10,                  //
                     coordinates.bottom - (rect.bottom - rect.top) - taskbarHeight - 10, //
                     0,                                                                  //
                     0,                                                                  //
-                    SWP_NOSIZE);
+                    SWP_NOSIZE | SWP_NOZORDER);
                 break;
             }
             else
@@ -833,7 +836,14 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
             {
                 if (::toTsfWorkerThreadConnected)
                 {
-                    ShowWindow(::global_hwnd_ftb, SW_SHOW); // 如果连上了，那就再重新显示出来
+                    SetWindowPos(     //
+                        hwnd,         //
+                        HWND_TOPMOST, //
+                        0,            //
+                        0,            //
+                        0,            //
+                        0,            //
+                        SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOMOVE);
                 }
                 s_check_cnt = 0;
             }

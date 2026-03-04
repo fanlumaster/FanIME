@@ -595,9 +595,14 @@ HRESULT OnControllerCreatedMenuWnd(     //
                                 0, // 不用 color key
                                 0, // Alpha = 0（完全透明）
                                 LWA_ALPHA);
-                            ShowWindow(::global_hwnd_ftb, SW_SHOW);
-                            SetWindowPos(::global_hwnd_menu, ::global_hwnd_ftb, 0, 0, 0, 0,
-                                         SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
+                            SetWindowPos(          //
+                                ::global_hwnd_ftb, //
+                                HWND_TOPMOST,      //
+                                0,                 //
+                                0,                 //
+                                0,                 //
+                                0,                 //
+                                SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOMOVE);
                             SetLayeredWindowAttributes( //
                                 ::global_hwnd_ftb,      //
                                 0,                      //
