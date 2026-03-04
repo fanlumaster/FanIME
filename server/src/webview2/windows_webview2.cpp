@@ -326,6 +326,8 @@ HRESULT OnControllerCreatedCandWnd(     //
         }
     }
 
+    webviewControllerCandWnd->put_ZoomFactor(1.0);
+
     // Configure virtual host path
     if (SUCCEEDED(webviewCandWnd->QueryInterface(IID_PPV_ARGS(&webview3CandWnd))))
     {
@@ -527,7 +529,10 @@ HRESULT OnControllerCreatedMenuWnd(     //
         settings->put_AreDefaultScriptDialogsEnabled(TRUE);
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
+        settings->put_IsZoomControlEnabled(false);
     }
+
+    webviewControllerMenuWnd->put_ZoomFactor(1.0);
 
     // Configure virtual host path
     if (SUCCEEDED(webviewMenuWnd->QueryInterface(IID_PPV_ARGS(&webview3MenuWnd))))
@@ -710,7 +715,10 @@ HRESULT OnControllerCreatedSettingsWnd( //
         settings->put_AreDefaultScriptDialogsEnabled(TRUE);
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
+        settings->put_IsZoomControlEnabled(FALSE);
     }
+
+    webviewControllerSettingsWnd->put_ZoomFactor(1.0);
 
     // Configure virtual host path
     if (SUCCEEDED(webviewSettingsWnd->QueryInterface(IID_PPV_ARGS(&webview3SettingsWnd))))
@@ -865,7 +873,12 @@ HRESULT OnControllerCreatedFtbWnd(      //
         settings->put_AreDefaultScriptDialogsEnabled(TRUE);
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
+        // 禁止界面缩放
+        settings->put_IsZoomControlEnabled(false);
     }
+
+    // 初始时缩放设置成 1.0
+    webviewControllerFtbWnd->put_ZoomFactor(1.0);
 
     // Configure virtual host path
     if (SUCCEEDED(webviewFtbWnd->QueryInterface(IID_PPV_ARGS(&webview3FtbWnd))))
