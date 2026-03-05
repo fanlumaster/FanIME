@@ -396,8 +396,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     if (message == WM_IMEDEACTIVATE)
     {
         ShowWindow(::global_hwnd_ftb, SW_HIDE);
-        // 设置一个定时任务，每个 200ms，用来检测新的窗口焦点是否有 tsf 命名管道连接上，如果没有，再去隐藏窗口
-        SetTimer(::global_hwnd_ftb, TIMER_ID_CHECK_TSF_TO_HIDE_FTB, 200, nullptr);
         return 0;
     }
 
@@ -763,7 +761,6 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
 
 LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static int s_check_cnt = 0;
     switch (message)
     {
     case UPDATE_FTB_STATUS: {
@@ -805,33 +802,6 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 SetTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_FTB, 100, nullptr);
             }
         }
-        else if (wParam == TIMER_ID_CHECK_TSF_TO_HIDE_FTB)
-        {
-            KillTimer(hwnd, TIMER_ID_CHECK_TSF_TO_HIDE_FTB);
-            s_check_cnt++;
-            // TODO: 需要更稳定的写法。
-            /* 需要检查两次，第二次的时候再确定 */
-            if (s_check_cnt < 2)
-            {
-                SetTimer(hwnd, TIMER_ID_CHECK_TSF_TO_HIDE_FTB, 200, nullptr);
-            }
-            else
-            {
-                if (::toTsfWorkerThreadConnected)
-                {
-                    SetWindowPos(     //
-                        hwnd,         //
-                        HWND_TOPMOST, //
-                        0,            //
-                        0,            //
-                        0,            //
-                        0,            //
-                        SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOMOVE);
-                }
-                s_check_cnt = 0;
-            }
-        }
-
         break;
     }
     default: {
