@@ -449,46 +449,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     switch (message)
     {
     case WM_TIMER: {
-        if (wParam == TIMER_ID_PIN_WINDOWS_TO_TOP)
-        {
-            KillTimer(hwnd, TIMER_ID_PIN_WINDOWS_TO_TOP);
-            if (::global_hwnd)
-            {
-                SetWindowPos(                                //
-                    ::global_hwnd,                           //
-                    HWND_TOPMOST,                            //
-                    0,                                       //
-                    0,                                       //
-                    0,                                       //
-                    0,                                       //
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
-                );
-            }
-            if (::global_hwnd_ftb)
-            {
-                SetWindowPos(                                //
-                    ::global_hwnd_ftb,                       //
-                    HWND_TOPMOST,                            //
-                    0,                                       //
-                    0,                                       //
-                    0,                                       //
-                    0,                                       //
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
-                );
-            }
-            if (::global_hwnd_menu)
-            {
-                SetWindowPos(                                //
-                    ::global_hwnd_menu,                      //
-                    HWND_TOPMOST,                            //
-                    0,                                       //
-                    0,                                       //
-                    0,                                       //
-                    0,                                       //
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE //
-                );
-            }
-        }
         if (wParam == TIMER_ID_INIT_WEBVIEW_CAND)
         {
             KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND);
