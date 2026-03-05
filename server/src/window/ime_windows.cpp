@@ -494,7 +494,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND);
             if (::webviewCandWnd)
             {
-                InitWebviewCandWnd(::global_hwnd);
                 UINT flag = SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOMOVE;
                 SetWindowPos(      //
                     ::global_hwnd, //
