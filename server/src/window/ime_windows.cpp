@@ -743,6 +743,13 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         // DeleteObject(darkBrush);
         return 1;
     }
+    case WM_GETMINMAXINFO: {
+        auto *mmi = reinterpret_cast<MINMAXINFO *>(lParam);
+        // 设置 settings 窗口最小可拖拽尺寸
+        mmi->ptMinTrackSize.x = 1200;
+        mmi->ptMinTrackSize.y = 800;
+        return 0;
+    }
     case WM_SIZE: {
         if (::webviewControllerSettingsWnd)
         {
