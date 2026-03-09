@@ -579,7 +579,7 @@ void HandleImeKey(HANDLE hEvent)
     /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
      * 等等，然后再在下面处理其中的特殊的按键 */
     ::ReadDataFromNamedPipe(0b000111);
-    g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown);
+    g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown, Global::Wch);
     GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
 
     //
