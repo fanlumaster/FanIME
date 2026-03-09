@@ -9,6 +9,7 @@
   padding: 12px 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
+  position: relative;
 }
 
 /* 滚动条样式 */
@@ -35,6 +36,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
+
   .sidebar::-webkit-scrollbar-thumb,
   .content::-webkit-scrollbar-thumb {
     background-color: rgba(180, 180, 180, 0.25);
@@ -91,24 +93,23 @@
   color: #fff;
 }
 
-/* item 左侧的 bar */
-.sidebar .item::before {
-  content: "";
+/* item 左侧滑动指示条 */
+.sidebar .active-indicator {
   position: absolute;
-  left: -2px;
+  left: 0;
+  top: 0;
   width: 4px;
-  height: 50%;
+  height: 18px;
   border-radius: 3px;
   background: var(--accent-color);
-  transform: scaleY(0);
-  transform-origin: center center;
-  transition: transform 0.25s ease;
+  transform: translate(0, 0);
   opacity: 0;
+  pointer-events: none;
+  will-change: transform;
 }
 
-.sidebar .item.active::before {
-  transform: scaleY(1);
-  opacity: 1;
+.sidebar .active-indicator.ready {
+  transition: transform 0.24s ease, opacity 0.18s ease;
 }
 
 .icon {
