@@ -13,5 +13,7 @@ e.g.
 
 ```shell
 git clone https://github.com/fanlumaster/MetasequoiaImeUiHtml.git
-New-Item -ItemType SymbolicLink -Path "C:\Users\SonnyCalcr\AppData\Local\MetasequoiaImeTsf\html" -Target "C:\Users\SonnyCalcr\EDisk\HtmlCodes\MetasequoiaImeUiHtml"
+New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\MetasequoiaImeTsf\html" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeUiHtml"
 ```
+
+Note: here we must use absolute path.
