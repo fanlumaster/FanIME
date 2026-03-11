@@ -56,7 +56,7 @@ int PrepareCandidateWindowSciterHtml()
     std::wstring htmlPath = entireHtml;
     std::wstring bodyPath = bodyHtml;
     ::BodyString = ReadHtmlFile(bodyPath);
-    OutputDebugString(fmt::format(L"[msime]: bodyPath = {}\n", bodyPath).c_str());
+    OutputDebugString(fmt::format(L"[msime]: bodyPath = {}", bodyPath).c_str());
 
     return 0;
 }

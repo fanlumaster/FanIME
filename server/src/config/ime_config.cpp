@@ -25,12 +25,12 @@ void InitImeConfig()
 
         bool follow_cursor = tbl["candidate_window"]["follow_cursor"].value_or(false);
 
-        OutputDebugString(fmt::format(L"[msime]: page_size = {}\n", page_size).c_str());
-        OutputDebugString(fmt::format(L"[msime]: font = {}\n", string_to_wstring(font)).c_str());
-        OutputDebugString(fmt::format(L"[msime]: follow_cursor = {}\n", follow_cursor).c_str());
+        OutputDebugString(fmt::format(L"[msime]: page_size = {}", page_size).c_str());
+        OutputDebugString(fmt::format(L"[msime]: font = {}", string_to_wstring(font)).c_str());
+        OutputDebugString(fmt::format(L"[msime]: follow_cursor = {}", follow_cursor).c_str());
     }
     catch (const toml::parse_error &err)
     {
-        OutputDebugString(fmt::format(L"[msime]: TOML error\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: TOML error").c_str());
     }
 }

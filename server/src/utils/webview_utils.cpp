@@ -70,7 +70,7 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
             if (SUCCEEDED(errorCode) && result)
             {
                 size = ParseDivSize(result);
-                // OutputDebugString(fmt::format(L"[msime]: GetContainerSize: {} {}\n", size.first,
+                // OutputDebugString(fmt::format(L"[msime]: GetContainerSize: {} {}", size.first,
                 // size.second).c_str());
             }
             else
@@ -96,7 +96,7 @@ void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std:
             if (SUCCEEDED(errorCode) && result)
             {
                 size = ParseDivSize(result);
-                // OutputDebugString(fmt::format(L"[msime]: GetContainerSize: {} {}\n", size.first,
+                // OutputDebugString(fmt::format(L"[msime]: GetContainerSize: {} {}", size.first,
                 // size.second).c_str());
             }
             else
@@ -121,7 +121,7 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
     script.append(std::to_wstring(marginTop));
     script.append(L"px';");
     script.append(L"}");
-    OutputDebugString(fmt::format(L"[msime]: script: {}\n", script).c_str());
+    OutputDebugString(fmt::format(L"[msime]: script: {}", script).c_str());
     webview->ExecuteScript(script.c_str(), nullptr);
 }
 

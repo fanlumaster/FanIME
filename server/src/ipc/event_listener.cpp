@@ -64,7 +64,7 @@ void WorkerThread()
     if (!hEvent)
     {
         // TODO: Error handling
-        OutputDebugString(L"[msime]: FanyImeTimeToWritePipeEvent OpenEvent failed\n");
+        OutputDebugString(L"[msime]: FanyImeTimeToWritePipeEvent OpenEvent failed");
     }
 
     while (pipe_running)
@@ -160,21 +160,21 @@ void EventListenerLoopThread()
     if (!hCancelToTsfPipeConnectEvent)
     {
         // TODO: Error handling
-        OutputDebugString(L"[msime]: FanyImeCancelToWritePipeEvent OpenEvent failed\n");
+        OutputDebugString(L"[msime]: FanyImeCancelToWritePipeEvent OpenEvent failed");
     }
 
     if (!hCancelToTsfWorkerThreadPipeConnectEvent)
     {
         // TODO: Error handling
-        OutputDebugString(L"[msime]: To Tsf Worker Thread Cancel event OpenEvent failed\n");
+        OutputDebugString(L"[msime]: To Tsf Worker Thread Cancel event OpenEvent failed");
     }
 
     while (true)
     {
-        OutputDebugString(L"[msime]: Main pipe starts to wait\n");
+        OutputDebugString(L"[msime]: Main pipe starts to wait");
         ::mainConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hPipe, NULL);
-        OutputDebugString(fmt::format(L"[msime]: Main pipe connected: {}\n", connected).c_str());
+        OutputDebugString(fmt::format(L"[msime]: Main pipe connected: {}", connected).c_str());
         ::mainConnected = connected;
         if (connected)
         {
@@ -200,7 +200,7 @@ void EventListenerLoopThread()
                         if (!SetEvent(hCancelToTsfPipeConnectEvent))
                         {
                             // TODO: Error handling
-                            OutputDebugString(L"[msime]: hCancelToTsfPipeConnectEvent SetEvent failed\n");
+                            OutputDebugString(L"[msime]: hCancelToTsfPipeConnectEvent SetEvent failed");
                         }
                     }
                     if (::toTsfWorkerThreadConnected)
@@ -208,7 +208,7 @@ void EventListenerLoopThread()
                         if (!SetEvent(hCancelToTsfWorkerThreadPipeConnectEvent))
                         {
                             // TODO: Error handling
-                            OutputDebugString(L"[msime]: hCancelToTsfWorkerThreadPipeConnectEvent SetEvent failed\n");
+                            OutputDebugString(L"[msime]: hCancelToTsfWorkerThreadPipeConnectEvent SetEvent failed");
                         }
                     }
                     break;
@@ -269,7 +269,7 @@ void EventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"[msime]: Main pipe disconnected\n");
+        OutputDebugString(L"[msime]: Main pipe disconnected");
         DisconnectNamedPipe(hPipe);
     }
 
@@ -297,11 +297,11 @@ void ToTsfPipeEventListenerLoopThread()
 
     while (true)
     {
-        OutputDebugString(L"[msime]: ToTsf Pipe starts to wait\n");
+        OutputDebugString(L"[msime]: ToTsf Pipe starts to wait");
         ::toTsfConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hToTsfPipe, NULL);
         ::toTsfConnected = connected;
-        OutputDebugString(fmt::format(L"[msime]: ToTsf Pipe connected: {}\n", connected).c_str());
+        OutputDebugString(fmt::format(L"[msime]: ToTsf Pipe connected: {}", connected).c_str());
         if (connected)
         {
             // Wait for event to write data to tsf
@@ -340,7 +340,7 @@ void ToTsfPipeEventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"[msime]: ToTsf Pipe disconnected\n");
+        OutputDebugString(L"[msime]: ToTsf Pipe disconnected");
         DisconnectNamedPipe(hToTsfPipe);
     }
     ::CloseToTsfNamedPipe();
@@ -365,13 +365,13 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
 
     while (true)
     {
-        OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe starts to wait\n");
+        OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe starts to wait");
         ::toTsfWorkerThreadConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hToTsfWorkerThreadPipe, NULL);
         ::toTsfWorkerThreadConnected = connected;
         if (connected)
         {
-            OutputDebugString(fmt::format(L"[msime]: ToTsf Worker Thread Pipe connected: {}\n", connected).c_str());
+            OutputDebugString(fmt::format(L"[msime]: ToTsf Worker Thread Pipe connected: {}", connected).c_str());
             // Wait for event to write data to tsf
             while (true)
             {
@@ -384,13 +384,13 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
                     {
                     case 0: { // SwitchToEn
                         // Write data to tsf via named pipe
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to EN\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to EN").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     case 1: { // SwitchToCn
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to CN\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to CN").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
@@ -400,31 +400,31 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
                         break;
                     }
                     case 3: { // SwitchToPuncEn
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Punc EN\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Punc EN").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     case 4: { // SwitchToPuncCn
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Punc CN\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Punc CN").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     case 5: { // SwitchToFullwidth
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Fullwidth\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Fullwidth").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     case 6: { // SwitchToHalfwidth
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Halfwidth\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Halfwidth").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
                     }
                     case 7: { // CommitCandidate
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Commit Candidate\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Commit Candidate").c_str());
                         UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate;
                         SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
                         break;
@@ -441,7 +441,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
         {
             // TODO:
         }
-        OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe disconnected\n");
+        OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe disconnected");
         DisconnectNamedPipe(hToTsfWorkerThreadPipe);
     }
     ::CloseToTsfWorkerThreadNamedPipe();
@@ -451,9 +451,9 @@ void AuxPipeEventListenerLoopThread()
 {
     while (true)
     {
-        // OutputDebugString(L"[msime]: Aux Pipe starts to wait\n");
+        // OutputDebugString(L"[msime]: Aux Pipe starts to wait");
         BOOL connected = ConnectNamedPipe(hAuxPipe, NULL);
-        // OutputDebugString(fmt::format(L"[msime]: Aux Pipe connected: {}\n", connected).c_str());
+        // OutputDebugString(fmt::format(L"[msime]: Aux Pipe connected: {}", connected).c_str());
         if (connected)
         {
             wchar_t buffer[128] = {0};
@@ -475,7 +475,7 @@ void AuxPipeEventListenerLoopThread()
 
                 if (message == L"kill")
                 {
-                    OutputDebugString(L"[msime]: Kill event from TSF\n");
+                    OutputDebugString(L"[msime]: Kill event from TSF");
                     if (::mainConnected)
                     {
                         /* DisconnectNamedPipe hPipe and hToTsfPipe, 这里直接中断 hPipe,
@@ -506,7 +506,7 @@ void AuxPipeEventListenerLoopThread()
         {
             // TODO:
         }
-        // OutputDebugString(L"[msime]: Aux Pipe disconnected\n");
+        // OutputDebugString(L"[msime]: Aux Pipe disconnected");
         DisconnectNamedPipe(hAuxPipe);
     }
     ::CloseAuxNamedPipe();
@@ -594,7 +594,7 @@ void HandleImeKey(HANDLE hEvent)
             if (!SetEvent(hEvent))
             {
                 // TODO: Error handling
-                OutputDebugString(L"[msime]: SetEvent failed\n");
+                OutputDebugString(L"[msime]: SetEvent failed");
             }
         }
     }
@@ -614,7 +614,7 @@ void HandleImeKey(HANDLE hEvent)
                 if (!SetEvent(hEvent))
                 {
                     // TODO: Error handling
-                    OutputDebugString(L"[msime]: SetEvent failed\n");
+                    OutputDebugString(L"[msime]: SetEvent failed");
                 }
             }
         }
@@ -643,7 +643,7 @@ void HandleImeKey(HANDLE hEvent)
         if (!SetEvent(hEvent))
         {
             // TODO: Error handling
-            OutputDebugString(L"[msime]: SetEvent failed\n");
+            OutputDebugString(L"[msime]: SetEvent failed");
         }
 
         /* 清理状态 */
@@ -660,7 +660,7 @@ void HandleImeKey(HANDLE hEvent)
         if (!SetEvent(hEvent))
         { /* 触发事件，将候选词数据写入管道 */
             // TODO: Error handling
-            OutputDebugString(L"[msime]: SetEvent failed\n");
+            OutputDebugString(L"[msime]: SetEvent failed");
         }
     }
     else if (Global::Keycode == VK_OEM_MINUS ||     //
@@ -811,7 +811,7 @@ void ProcessSelectionKey(UINT keycode)
             if (PinyinUtil::cnt_han_chars(GlobalIme::word_for_creating_word) * 2 ==
                 GlobalIme::pinyin_for_creating_word.size())
             { /* 最终的造词 */
-                OutputDebugString(fmt::format(L"[msime]: create_word 造词：{} {}\n",
+                OutputDebugString(fmt::format(L"[msime]: create_word 造词：{} {}",
                                               string_to_wstring(GlobalIme::word_for_creating_word),
                                               string_to_wstring(GlobalIme::pinyin_for_creating_word))
                                       .c_str());
