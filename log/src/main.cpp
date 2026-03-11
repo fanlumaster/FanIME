@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -69,6 +71,59 @@ std::string NormalizeMessage(const char *data, size_t max_len)
     }
 
     return std::string(data, len);
+}
+
+std::string FormatTimestamp()
+{
+    SYSTEMTIME st{};
+    GetLocalTime(&st);
+    std::ostringstream oss;
+    oss << std::setfill('0') << std::setw(4) << st.wYear << "-" << std::setw(2) << st.wMonth << "-" << std::setw(2) << st.wDay << " " << std::setw(2) << st.wHour << ":" << std::setw(2) << st.wMinute << ":" << std::setw(2) << st.wSecond << "." << std::setw(3) << st.wMilliseconds;
+    return oss.str();
+}
+
+std::string BaseNameFromPath(const std::string &path)
+{
+    if (path.empty())
+    {
+        return {};
+    }
+    size_t pos = path.find_last_of("\\/");
+    if (pos == std::string::npos || pos + 1 >= path.size())
+    {
+        return path;
+    }
+    return path.substr(pos + 1);
+}
+
+std::string GetProcessName(DWORD pid)
+{
+    if (pid == 0)
+    {
+        return "unknown";
+    }
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!process)
+    {
+        return "unknown";
+    }
+
+    std::wstring buffer;
+    buffer.resize(32768);
+    DWORD size = static_cast<DWORD>(buffer.size());
+    std::string result = "unknown";
+    if (QueryFullProcessImageNameW(process, 0, buffer.data(), &size))
+    {
+        buffer.resize(size);
+        std::string utf8 = WideToUtf8(buffer.c_str());
+        std::string base = BaseNameFromPath(utf8);
+        if (!base.empty())
+        {
+            result = base;
+        }
+    }
+    CloseHandle(process);
+    return result;
 }
 
 std::filesystem::path ResolveLogPath()
@@ -157,6 +212,7 @@ int main()
 
     std::cout << "Listening for OutputDebugString messages. Writing [msime] to " << log_path.u8string() << "\n";
 
+    uint64_t line_counter = 0;
     while (g_running.load())
     {
         DWORD wait_result = WaitForSingleObject(data_ready, kWaitTimeoutMs);
@@ -174,9 +230,19 @@ int main()
 
         if (!message.empty() && message.rfind(kPrefix, 0) == 0)
         {
-            log_file.write(message.data(), static_cast<std::streamsize>(message.size()));
+            ++line_counter;
+            DWORD pid = shared_buffer->process_id;
+            std::string time_text = FormatTimestamp();
+            std::string process_name = GetProcessName(pid);
+            std::ostringstream line;
+            line << line_counter << " " << time_text << " " << pid << " " << process_name << " " << message;
+            std::string output = line.str();
+
+            log_file.write(output.data(), static_cast<std::streamsize>(output.size()));
             log_file.put('\n');
             log_file.flush();
+
+            std::cout << output << "\n";
         }
 
         SetEvent(buffer_ready);
