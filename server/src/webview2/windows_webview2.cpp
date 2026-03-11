@@ -62,7 +62,7 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
         script.append(L"px\";\n");
         script.append(L"}\n");
 
-        // OutputDebugString(fmt::format(L"UpdateHtmlContentWithJavaScript: {}\n", script).c_str());
+        // OutputDebugString(fmt::format(L"[msime]: UpdateHtmlContentWithJavaScript: {}\n", script).c_str());
 
         webview->ExecuteScript(script.c_str(), nullptr);
     }
@@ -411,7 +411,8 @@ HRESULT OnControllerCreatedCandWnd(     //
                     catch (const std::exception &e)
                     {
                         OutputDebugString(
-                            fmt::format(L"Exception happens when parsing cand wnd webview2 message\n").c_str());
+                            fmt::format(L"[msime]: Exception happens when parsing cand wnd webview2 message\n")
+                                .c_str());
                         return S_OK;
                     }
                 }
@@ -507,7 +508,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
 {
     if (!controller || FAILED(result))
     {
-        OutputDebugString(fmt::format(L"Failed to create menu window webview2 controller.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to create menu window webview2 controller.\n").c_str());
         return E_FAIL;
     }
 
@@ -517,7 +518,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
 
     if (!webviewMenuWnd)
     {
-        OutputDebugString(fmt::format(L"Failed to get webview2 instance.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.\n").c_str());
         return E_FAIL;
     }
 
@@ -563,7 +564,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
     HRESULT hr = webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
     if (FAILED(hr))
     {
-        OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.\n").c_str());
     }
 
     /* Debug console */
@@ -641,7 +642,7 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
 {
     if (FAILED(result) || !env)
     {
-        OutputDebugString(fmt::format(L"Failed to create menu window webview2 environment.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to create menu window webview2 environment.\n").c_str());
         return result;
     }
 
@@ -698,7 +699,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
 {
     if (!controller || FAILED(result))
     {
-        OutputDebugString(fmt::format(L"Failed to create settings window webview2 controller.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to create settings window webview2 controller.\n").c_str());
         return E_FAIL;
     }
 
@@ -708,7 +709,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
 
     if (!webviewSettingsWnd)
     {
-        OutputDebugString(fmt::format(L"Failed to get webview2 instance.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.\n").c_str());
         return E_FAIL;
     }
 
@@ -759,7 +760,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
     HRESULT hr = webviewSettingsWnd->Navigate(url.c_str());
     if (FAILED(hr))
     {
-        OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.\n").c_str());
     }
 
     EventRegistrationToken navCompletedToken;
@@ -772,7 +773,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
                 {
                     // 隐藏窗口
                     OutputDebugString(
-                        fmt::format(L"Webview2 settings window loaded and already hidden window\n").c_str());
+                        fmt::format(L"[msime]: Webview2 settings window loaded and already hidden window\n").c_str());
                     BOOL cloak = FALSE;
                     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
                 }
@@ -799,7 +800,7 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
 {
     if (FAILED(result) || !env)
     {
-        OutputDebugString(fmt::format(L"Failed to create settings window webview2 environment.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to create settings window webview2 environment.\n").c_str());
         return result;
     }
 
@@ -856,7 +857,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
 {
     if (!controller || FAILED(result))
     {
-        OutputDebugString(fmt::format(L"Failed to create floating toolbar window webview2 controller.\n").c_str());
+        OutputDebugString(
+            fmt::format(L"[msime]: Failed to create floating toolbar window webview2 controller.\n").c_str());
         return E_FAIL;
     }
 
@@ -866,7 +868,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
     if (!webviewFtbWnd)
     {
-        OutputDebugString(fmt::format(L"Failed to get webview2 instance.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.\n").c_str());
         return E_FAIL;
     }
 
@@ -914,7 +916,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     HRESULT hr = webviewFtbWnd->NavigateToString(::HTMLStringFtbWnd.c_str());
     if (FAILED(hr))
     {
-        OutputDebugString(fmt::format(L"Failed to navigate to string.\n").c_str());
+        OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.\n").c_str());
     }
 
     /* Debug console */
@@ -944,7 +946,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
                         if (mode == "cn") // Change to CN
                         {
-                            OutputDebugString(fmt::format(L"Change to CN\n").c_str());
+                            OutputDebugString(fmt::format(L"[msime]: Change to CN\n").c_str());
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -958,7 +960,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         }
                         else if (mode == "en") // Change to EN
                         {
-                            OutputDebugString(fmt::format(L"Change to EN\n").c_str());
+                            OutputDebugString(fmt::format(L"[msime]: Change to EN\n").c_str());
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -976,7 +978,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         std::string mode = json::value_to<std::string>(val.at("data"));
                         if (mode == "fullwidth")
                         {
-                            OutputDebugString(fmt::format(L"Change to fullwidth\n").c_str());
+                            OutputDebugString(fmt::format(L"[msime]: Change to fullwidth\n").c_str());
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -990,7 +992,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         }
                         else if (mode == "halfwidth")
                         {
-                            OutputDebugString(fmt::format(L"Change to halfwidth\n").c_str());
+                            OutputDebugString(fmt::format(L"[msime]: Change to halfwidth\n").c_str());
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -1008,7 +1010,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         std::string mode = json::value_to<std::string>(val.at("data"));
                         if (mode == "puncEn")
                         {
-                            OutputDebugString(fmt::format(L"Change to puncEn\n").c_str());
+                            OutputDebugString(fmt::format(L"[msime]: Change to puncEn\n").c_str());
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -1022,7 +1024,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         }
                         else if (mode == "puncCn")
                         {
-                            OutputDebugString(fmt::format(L"Change to puncCn\n").c_str());
+                            OutputDebugString(fmt::format(L"[msime]: Change to puncCn\n").c_str());
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -1037,7 +1039,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     }
                     else if (type == "openSettings")
                     {
-                        OutputDebugString(fmt::format(L"Open settings\n").c_str());
+                        OutputDebugString(fmt::format(L"[msime]: Open settings\n").c_str());
                         ShowWindow(::global_hwnd_settings, SW_RESTORE);
                         SetForegroundWindow(::global_hwnd_settings);
                     }
@@ -1063,7 +1065,8 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 {
     if (FAILED(result) || !env)
     {
-        OutputDebugString(fmt::format(L"Failed to create floating toolbar window webview2 environment.\n").c_str());
+        OutputDebugString(
+            fmt::format(L"[msime]: Failed to create floating toolbar window webview2 environment.\n").c_str());
         return result;
     }
 
