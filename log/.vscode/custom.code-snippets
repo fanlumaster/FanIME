@@ -1,0 +1,27 @@
+{
+  "Debug snippets": {
+    "scope": "c,cpp",
+    "prefix": "dbug",
+    "body": [
+      "#ifdef FANY_DEBUG",
+      "#endif",
+    ],
+    "description": "Add debug macro"
+  },
+  "Win32 log": {
+    "scope": "c,cpp",
+    "prefix": "dlog",
+    "body": [
+      "OutputDebugString(L\"$0\");",
+    ],
+    "description": "Debugview log"
+  },
+  "Win32 log with fmt": {
+    "scope": "c,cpp",
+    "prefix": "flog",
+    "body": [
+      "OutputDebugString(fmt::format(L\"$0\").c_str());",
+    ],
+    "description": "Debugview log with fmt"
+  }
+}
