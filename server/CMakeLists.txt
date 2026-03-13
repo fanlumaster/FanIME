@@ -107,3 +107,20 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json)
+
+# WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
+set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
+set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")
+set(WEBVIEW2_LOADER_DEBUG "${WEBVIEW2_VCPKG_ROOT}/debug/lib/WebView2Loader.dll.lib")
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:${WEBVIEW2_LOADER_DEBUG}>
+    $<$<CONFIG:Release>:${WEBVIEW2_LOADER_RELEASE}>
+)
+
+# Ensure the loader DLL is next to the executable
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<$<CONFIG:Debug>:${WEBVIEW2_VCPKG_ROOT}/debug/bin/WebView2Loader.dll>
+        $<$<CONFIG:Release>:${WEBVIEW2_VCPKG_ROOT}/bin/WebView2Loader.dll>
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
