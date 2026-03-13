@@ -110,10 +110,13 @@ int PrepareHtmlForWnds()
 
     //
     // settings 窗口
+    // 这里暂时没有用到，因为 settings 窗口使用的是映射 url 导航
     //
+    /*
     std::wstring htmlSettingsWnd = L"/html/webview2/settings/default.html";
     std::wstring entireHtmlPathSettingsWnd = assetPath + htmlSettingsWnd;
     ::HTMLStringSettingsWnd = ReadHtmlFile(entireHtmlPathSettingsWnd);
+    */
 
     //
     // floating toolbar 窗口
@@ -411,8 +414,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                     catch (const std::exception &e)
                     {
                         OutputDebugString(
-                            fmt::format(L"[msime]: Exception happens when parsing cand wnd webview2 message")
-                                .c_str());
+                            fmt::format(L"[msime]: Exception happens when parsing cand wnd webview2 message").c_str());
                         return S_OK;
                     }
                 }
@@ -730,7 +732,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
     if (SUCCEEDED(webviewSettingsWnd->QueryInterface(IID_PPV_ARGS(&webview3SettingsWnd))))
     {
         const std::wstring assetPath = fmt::format(                   //
-            L"{}\\{}\\html\\webview2\\settings",                      //
+            L"{}\\{}\\html\\webview2\\settings\\ime-settings\\dist",  //
             string_to_wstring(CommonUtils::get_local_appdata_path()), //
             GlobalIme::AppName                                        //
         );
@@ -738,7 +740,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
         webview3SettingsWnd->SetVirtualHostNameToFolderMapping( //
             L"imesettings",                                     //
             assetPath.c_str(),                                  //
-            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS    //
+            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW        //
         );                                                      //
     }
 
@@ -756,7 +758,7 @@ HRESULT OnControllerCreatedSettingsWnd( //
 
     // Navigate to HTML
     // HRESULT hr = webviewSettingsWnd->NavigateToString(::HTMLStringSettingsWnd.c_str());
-    std::wstring url = L"https://imesettings/default.html";
+    std::wstring url = L"https://imesettings/index.html";
     HRESULT hr = webviewSettingsWnd->Navigate(url.c_str());
     if (FAILED(hr))
     {
