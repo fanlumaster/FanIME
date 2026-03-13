@@ -24,6 +24,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_definitions(
     /D_UNICODE=1
     /DUNICODE=1
+    /DFANY_DEBUG=1
 )
 
 # add_definitions(
