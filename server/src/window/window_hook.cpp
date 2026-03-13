@@ -82,8 +82,10 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 
             if (idx >= 0)
             {
-                // 执行候选项删除逻辑，PostMessage 给窗口过程去执行
+// 执行候选项删除逻辑，PostMessage 给窗口过程去执行
+#ifdef FANY_DEBUG
                 OutputDebugString(fmt::format(L"[msime]: To delete candidate {}", idx + 1).c_str());
+#endif
                 PostMessage(::global_hwnd, WM_DELETE_CANDIDATE, idx + 1, 0);
             }
         }

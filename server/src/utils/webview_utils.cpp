@@ -26,9 +26,6 @@ void MeasureDomUpdateTime(ComPtr<ICoreWebView2> webview)
 std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
 {
     std::string jsonStr = wstring_to_string(jsonResult);
-#ifdef FANY_DEBUG
-    spdlog::info("Div size: {}", jsonStr);
-#endif
     auto size =
         std::make_pair(static_cast<double>(::CANDIDATE_WINDOW_WIDTH), static_cast<double>(::CANDIDATE_WINDOW_HEIGHT));
     try
@@ -48,9 +45,7 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
     }
     catch (const std::exception &e)
     {
-#ifdef FANY_DEBUG
-        spdlog::error("Failed to parse JSON: {}", e.what());
-#endif
+        // TODO: log
     }
     return size;
 }
@@ -121,7 +116,9 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
     script.append(std::to_wstring(marginTop));
     script.append(L"px';");
     script.append(L"}");
+#ifdef FANY_DEBUG
     OutputDebugString(fmt::format(L"[msime]: script: {}", script).c_str());
+#endif
     webview->ExecuteScript(script.c_str(), nullptr);
 }
 

@@ -87,7 +87,9 @@ int InitIpc()
     {
         // Error handling
         canUseSharedMemory = false;
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateFileMapping error: {}", GetLastError()).c_str());
+#endif
     }
 
     bool alreadyExists = (GetLastError() == ERROR_ALREADY_EXISTS);
@@ -128,8 +130,10 @@ int InitIpc()
         );                            //
         if (!hEvent)
         {
-            // Error handling
+// Error handling
+#ifdef FANY_DEBUG
             OutputDebugString(fmt::format(L"[msime]: Failed to create event: {}", eventName).c_str());
+#endif
         }
     }
 
@@ -141,7 +145,9 @@ int InitIpc()
         hEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_ARRAY[i].c_str());
         if (!hEvents[i])
         {
+#ifdef FANY_DEBUG
             OutputDebugString(fmt::format(L"[msime]: Failed to open event: {}", FANY_IME_EVENT_ARRAY[i]).c_str());
+#endif
             for (int j = 0; j < i; ++j)
             {
                 CloseHandle(hEvents[j]);
@@ -229,39 +235,54 @@ int InitNamedPipe()
 
     if (hPipe == INVALID_HANDLE_VALUE)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateNamedPipe failed: {}", GetLastError()).c_str());
+#endif
     }
     else
     {
+#ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe created successfully");
+#endif
     }
 
     if (hAuxPipe == INVALID_HANDLE_VALUE)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateNamedPipe aux pipe failed: {}", GetLastError()).c_str());
+#endif
     }
     else
     {
+#ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe aux pipe created successfully");
+#endif
     }
 
     if (hToTsfPipe == INVALID_HANDLE_VALUE)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateNamedPipe to tsf pipe failed: {}", GetLastError()).c_str());
+#endif
     }
     else
     {
+#ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe to tsf pipe created successfully");
+#endif
     }
 
     if (hToTsfWorkerThreadPipe == INVALID_HANDLE_VALUE)
     {
-        OutputDebugString(
-            fmt::format(L"CreateNamedPipe to tsf worker thread pipe failed: {}", GetLastError()).c_str());
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"CreateNamedPipe to tsf worker thread pipe failed: {}", GetLastError()).c_str());
+#endif
     }
     else
     {
+#ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe to tsf worker thread pipe created successfully");
+#endif
     }
 
     //
@@ -277,8 +298,10 @@ int InitNamedPipe()
         );                            //
         if (!hEvent)
         {
-            // Error handling
+// Error handling
+#ifdef FANY_DEBUG
             OutputDebugString(fmt::format(L"[msime]: Create Event To TSF failed: {}", GetLastError()).c_str());
+#endif
         }
     }
 
@@ -292,8 +315,11 @@ int InitNamedPipe()
         );                            //
         if (!hEvent)
         {
-            // Error handling
-            OutputDebugString(fmt::format(L"[msime]: Create Event To TSF Worker Thread failed: {}", GetLastError()).c_str());
+// Error handling
+#ifdef FANY_DEBUG
+            OutputDebugString(
+                fmt::format(L"[msime]: Create Event To TSF Worker Thread failed: {}", GetLastError()).c_str());
+#endif
         }
     }
 
@@ -527,8 +553,10 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
 {
     if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
     {
-        // TODO: Error handling
+// TODO: Error handling
+#ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: SendToTsfViaNamedpipe Pipe disconnected");
+#endif
         return;
     }
     DWORD bytesWritten = 0;
@@ -545,10 +573,12 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
     );
     if (!ret || bytesWritten != sizeof(namedpipeDataToTsf))
     {
-        // TODO: Error handling
-        OutputDebugString(
-            fmt::format(L"[msime]: SendToTsfViaNamedpipe: WriteFile failed, gle={}, written={}", GetLastError(), bytesWritten)
-                .c_str());
+// TODO: Error handling
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"[msime]: SendToTsfViaNamedpipe: WriteFile failed, gle={}, written={}",
+                                      GetLastError(), bytesWritten)
+                              .c_str());
+#endif
     }
 }
 
@@ -556,8 +586,10 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
 {
     if (!hToTsfWorkerThreadPipe || hToTsfWorkerThreadPipe == INVALID_HANDLE_VALUE)
     {
-        // TODO: Error handling
+// TODO: Error handling
+#ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: SendToTsfWorkerThreadViaNamedpipe Pipe disconnected");
+#endif
         return;
     }
     DWORD bytesWritten = 0;
@@ -574,9 +606,12 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
     );
     if (!ret || bytesWritten != sizeof(namedpipeDataToTsfWorkerThread))
     {
-        // TODO: Error handling
-        OutputDebugString(fmt::format(L"[msime]: SendToTsfWorkerThreadViaNamedpipe: WriteFile failed, gle={}, written={}",
-                                      GetLastError(), bytesWritten)
-                              .c_str());
+// TODO: Error handling
+#ifdef FANY_DEBUG
+        OutputDebugString(
+            fmt::format(L"[msime]: SendToTsfWorkerThreadViaNamedpipe: WriteFile failed, gle={}, written={}",
+                        GetLastError(), bytesWritten)
+                .c_str());
+#endif
     }
 }

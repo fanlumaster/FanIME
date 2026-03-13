@@ -64,7 +64,9 @@ LRESULT RegisterIMEWindowsClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
 
     if (!RegisterClassEx(&wcex))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Call to RegisterClassEx failed!").c_str());
+#endif
         return 1;
     }
     return 0;
@@ -98,7 +100,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     if (!hwnd_cand)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for candidate window failed!").c_str());
+#endif
         return 1;
     }
     else
@@ -156,7 +160,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     );                                      //
     if (!hwnd_menu)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for menu failed!").c_str());
+#endif
         return 1;
     }
     ::global_hwnd_menu = hwnd_menu;
@@ -181,7 +187,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     );                                    //
     if (!hwnd_settings)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for settings failed!").c_str());
+#endif
         return 1;
     }
     // 使用 DWM 允许透明
@@ -234,7 +242,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     );                                                       //
     if (!hwnd_ftb)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for floating toolbar failed!").c_str());
+#endif
         return 1;
     }
     ::global_hwnd_ftb = hwnd_ftb;
@@ -283,10 +293,14 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
     if (!g_hHook)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Kbd hook for IME failed!").c_str());
+#endif
         return 1;
     }
+#ifdef FANY_DEBUG
     OutputDebugString(fmt::format(L"[msime]: Kbd hook for IME installed.").c_str());
+#endif
 
     HWINEVENTHOOK hook = SetWinEventHook( //
         EVENT_SYSTEM_FOREGROUND,          //
@@ -487,14 +501,18 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     /* Clear dictionary buffer cache */
     case WM_CLS_DICT_CACHE: {
         g_dictQuery->reset_cache();
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Cleared dictionary buffer cache.").c_str());
+#endif
         break;
     }
 
     case WM_COMMIT_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
         int zero_based = one_based - 1;
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to commit candidate {}", one_based).c_str());
+#endif
         if (one_based > Global::CandidateWordList.size())
         {
             break;
@@ -517,7 +535,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         else
         {
+#ifdef FANY_DEBUG
             OutputDebugString(L"[msime]: Failed to open event for writing candidate word");
+#endif
         }
 
         /* 触发事件，发送消息到 tsf worker thread */
@@ -533,7 +553,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         else
         {
+#ifdef FANY_DEBUG
             OutputDebugString(L"[msime]: Failed to open event for sending message to tsf worker thread");
+#endif
         }
 
         break;
@@ -542,7 +564,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_PIN_TO_TOP_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
         int zero_based = one_based - 1;
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to pin to top candidate {}", one_based).c_str());
+#endif
         if (one_based > Global::CandidateWordList.size())
         {
             break;
@@ -572,7 +596,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_DELETE_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
         int zero_based = one_based - 1;
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to delete candidate {}", one_based).c_str());
+#endif
         if (one_based > Global::CandidateWordList.size())
         {
             break;

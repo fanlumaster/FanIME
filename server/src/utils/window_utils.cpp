@@ -34,9 +34,7 @@ MonitorCoordinates GetMonitorCoordinates()
     HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     if (!hMonitor)
     {
-#ifdef FANY_DEBUG
-        spdlog::error("Failed to get monitor.");
-#endif
+        // TODO: log
         return coordinates;
     }
 
@@ -52,9 +50,7 @@ MonitorCoordinates GetMonitorCoordinates()
     }
     else
     {
-#ifdef FANY_DEBUG
-        spdlog::error("Failed to get monitor info.");
-#endif
+        // TODO: log
     }
     return coordinates;
 }

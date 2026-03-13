@@ -413,8 +413,10 @@ HRESULT OnControllerCreatedCandWnd(     //
                     }
                     catch (const std::exception &e)
                     {
+#ifdef FANY_DEBUG
                         OutputDebugString(
                             fmt::format(L"[msime]: Exception happens when parsing cand wnd webview2 message").c_str());
+#endif
                         return S_OK;
                     }
                 }
@@ -510,7 +512,9 @@ HRESULT OnControllerCreatedMenuWnd(     //
 {
     if (!controller || FAILED(result))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to create menu window webview2 controller.").c_str());
+#endif
         return E_FAIL;
     }
 
@@ -520,7 +524,9 @@ HRESULT OnControllerCreatedMenuWnd(     //
 
     if (!webviewMenuWnd)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.").c_str());
+#endif
         return E_FAIL;
     }
 
@@ -568,7 +574,9 @@ HRESULT OnControllerCreatedMenuWnd(     //
     HRESULT hr = webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
     if (FAILED(hr))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
+#endif
     }
 
     /* Debug console */
@@ -646,7 +654,9 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
 {
     if (FAILED(result) || !env)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to create menu window webview2 environment.").c_str());
+#endif
         return result;
     }
 
@@ -703,7 +713,9 @@ HRESULT OnControllerCreatedSettingsWnd( //
 {
     if (!controller || FAILED(result))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to create settings window webview2 controller.").c_str());
+#endif
         return E_FAIL;
     }
 
@@ -713,7 +725,9 @@ HRESULT OnControllerCreatedSettingsWnd( //
 
     if (!webviewSettingsWnd)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.").c_str());
+#endif
         return E_FAIL;
     }
 
@@ -764,7 +778,9 @@ HRESULT OnControllerCreatedSettingsWnd( //
     HRESULT hr = webviewSettingsWnd->Navigate(url.c_str());
     if (FAILED(hr))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
+#endif
     }
 
     EventRegistrationToken navCompletedToken;
@@ -775,9 +791,11 @@ HRESULT OnControllerCreatedSettingsWnd( //
                 args->get_IsSuccess(&success);
                 if (success)
                 {
-                    // 隐藏窗口
+// 隐藏窗口
+#ifdef FANY_DEBUG
                     OutputDebugString(
                         fmt::format(L"[msime]: Webview2 settings window loaded and already hidden window").c_str());
+#endif
                     BOOL cloak = FALSE;
                     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
                 }
@@ -804,7 +822,9 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
 {
     if (FAILED(result) || !env)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to create settings window webview2 environment.").c_str());
+#endif
         return result;
     }
 
@@ -861,8 +881,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
 {
     if (!controller || FAILED(result))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(
             fmt::format(L"[msime]: Failed to create floating toolbar window webview2 controller.").c_str());
+#endif
         return E_FAIL;
     }
 
@@ -872,7 +894,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
     if (!webviewFtbWnd)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.").c_str());
+#endif
         return E_FAIL;
     }
 
@@ -923,7 +947,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
     HRESULT hr = webviewFtbWnd->NavigateToString(::HTMLStringFtbWnd.c_str());
     if (FAILED(hr))
     {
+#ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
+#endif
     }
 
     /* Debug console */
@@ -953,7 +979,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
                         if (mode == "cn") // Change to CN
                         {
+#ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to CN").c_str());
+#endif
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -967,7 +995,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         }
                         else if (mode == "en") // Change to EN
                         {
+#ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to EN").c_str());
+#endif
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -985,7 +1015,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         std::string mode = json::value_to<std::string>(val.at("data"));
                         if (mode == "fullwidth")
                         {
+#ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to fullwidth").c_str());
+#endif
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -999,7 +1031,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         }
                         else if (mode == "halfwidth")
                         {
+#ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to halfwidth").c_str());
+#endif
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -1017,7 +1051,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         std::string mode = json::value_to<std::string>(val.at("data"));
                         if (mode == "puncEn")
                         {
+#ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to puncEn").c_str());
+#endif
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -1031,7 +1067,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         }
                         else if (mode == "puncCn")
                         {
+#ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to puncCn").c_str());
+#endif
                             HANDLE hEvent = OpenEvent(                                    //
                                 EVENT_MODIFY_STATE,                                       //
                                 FALSE,                                                    //
@@ -1046,7 +1084,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     }
                     else if (type == "openSettings")
                     {
+#ifdef FANY_DEBUG
                         OutputDebugString(fmt::format(L"[msime]: Open settings").c_str());
+#endif
                         ShowWindow(::global_hwnd_settings, SW_RESTORE);
                         SetForegroundWindow(::global_hwnd_settings);
                     }
@@ -1072,8 +1112,10 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 {
     if (FAILED(result) || !env)
     {
+#ifdef FANY_DEBUG
         OutputDebugString(
             fmt::format(L"[msime]: Failed to create floating toolbar window webview2 environment.").c_str());
+#endif
         return result;
     }
 
