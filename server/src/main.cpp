@@ -1,12 +1,30 @@
 #include "ipc/event_listener.h"
 #include "log/fanylog.h"
 #include "window/ime_windows.h"
+#include <commctrl.h>
 #include <thread>
 #include "ipc/ipc.h"
 #include "config/ime_config.h"
+#include <windows.h>
+#include <fmt/xchar.h>
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
+    // Single instance guard
+    HANDLE hSingleInstanceMutex = CreateMutexW(nullptr, TRUE, L"Local\\MetasequoiaImeServer_SingleInstance");
+    if (hSingleInstanceMutex == nullptr)
+    {
+        OutputDebugString(fmt::format(L"[msime]: Failed to create single instance mutex.").c_str());
+        return 0;
+    }
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        OutputDebugString(
+            fmt::format(L"[msime]: Single instance already exists, MetasequoiaImeServer is already running.").c_str());
+        CloseHandle(hSingleInstanceMutex);
+        return 0;
+    }
+
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
     // #ifdef FANY_DEBUG
@@ -53,5 +71,6 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     to_tsf_worker_thread_pipe_listener.join();
     aux_pipe_listener.join();
 
+    CloseHandle(hSingleInstanceMutex);
     return ret;
 }
