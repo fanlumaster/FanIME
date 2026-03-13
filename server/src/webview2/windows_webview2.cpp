@@ -532,6 +532,8 @@ HRESULT OnControllerCreatedMenuWnd(     //
         settings->put_AreDefaultScriptDialogsEnabled(TRUE);
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
+        settings->put_AreDefaultContextMenusEnabled(FALSE);
+        settings->put_AreDevToolsEnabled(FALSE);
         settings->put_IsZoomControlEnabled(false);
     }
 
@@ -882,6 +884,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
         settings->put_AreDefaultScriptDialogsEnabled(TRUE);
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
+        // 禁用右键菜单和开发者工具
+        settings->put_AreDefaultContextMenusEnabled(FALSE);
+        settings->put_AreDevToolsEnabled(FALSE);
         // 禁止界面缩放
         settings->put_IsZoomControlEnabled(false);
     }
