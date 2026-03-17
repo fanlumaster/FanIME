@@ -60,11 +60,13 @@
   width: 25px;
   height: 25px;
   border-radius: 6px;
+  transform: translateY(1px);
 }
 
 .sidebar-header span {
   font-weight: 500;
   font-size: 19px;
+  margin-left: 3px;
 }
 
 .sidebar .item {
