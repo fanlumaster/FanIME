@@ -1,6 +1,6 @@
 # Metasequoia IME Server(水杉输入法 Server 端)
 
-This is the server end of [MetasequoiaIME](https://github.com/fanlumaster/MetasequoiaIME).
+This is the server end of [MetasequoiaImeTsf](https://github.com/metasequoiaime/MetasequoiaImeTsf.git).
 
 ## How to build
 
@@ -9,7 +9,7 @@ This is the server end of [MetasequoiaIME](https://github.com/fanlumaster/Metase
 - Visual Studio 2026
 - CMake
 - vcpkg
-- Python3
+- Python3.10+
 - Boost
 
 Make sure vcpkg and Boost are installed by **Scoop**.
@@ -22,8 +22,8 @@ Make sure vcpkg and Boost are installed by **Scoop**.
 cd $env:LOCALAPPDATA
 mkdir MetasequoiaImeTsf
 cd MetasequoiaImeTsf
-git clone --recursive https://github.com/fanlumaster/FanyDictForIME.git
-cd .\FanyDictForIME\makecikudb\xnheulpb\makedb\separated_jp_version
+git clone --recursive https://github.com/metasequoiaime/MetasequoiaImeDict.git
+cd .\MetasequoiaImeDict\makecikudb\xnheulpb\makedb\separated_jp_version
 python .\create_db_and_table.py
 python .\insert_data.py
 python .\create_index_for_db.py
@@ -33,7 +33,7 @@ Copy-Item -Path .\out\cutted_flyciku_with_jp.db -Destination $env:LOCALAPPDATA\M
 **Then**, clone and build MetasequoiaImeServer,
 
 ```powershell
-git clone --recursive https://github.com/fanlumaster/MetasequoiaImeServer.git
+git clone --recursive https://github.com/metasequoiaime/MetasequoiaImeServer.git
 ```
 
 Prepare environment,
