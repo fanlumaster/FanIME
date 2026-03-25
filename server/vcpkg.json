@@ -5,6 +5,7 @@
     "spdlog",
     "sqlite3",
     "tomlplusplus",
-    "webview2"
+    "webview2",
+    "nlohmann-json"
   ]
 }

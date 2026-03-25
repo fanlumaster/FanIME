@@ -6,6 +6,7 @@
 #include <namedpipeapi.h>
 #include <string>
 #include <algorithm>
+#include <cstdint>
 #include "Ipc.h"
 #include "defines/defines.h"
 #include "ipc.h"
@@ -21,6 +22,7 @@
 #include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
+#include "cloud/cloud_ime.h"
 
 static UINT s_ime_switch_keycode = 0;
 static UINT s_double_single_byte_switch_keycode = 0;
@@ -38,11 +40,15 @@ enum class TaskType
     IMESwitch,
     PuncSwitch,
     DoubleSingleByteSwitch,
+    ApplyCloudCandidate,
 };
 
 struct Task
 {
     TaskType type;
+    std::string cloud_candidate;
+    std::string cloud_pinyin;
+    uint64_t cloud_generation = 0;
 };
 
 std::queue<Task> taskQueue;
@@ -52,6 +58,7 @@ void PrepareCandidateList();
 void HandleImeKey(HANDLE hEvent);
 void ClearState();
 void ProcessSelectionKey(UINT keycode);
+void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 
 void WorkerThread()
 {
@@ -130,6 +137,11 @@ void WorkerThread()
             PostMessage(::global_hwnd, WM_DOUBLESINGLEBYTESWITCH, s_double_single_byte_switch_keycode, 0);
             break;
         }
+
+        case TaskType::ApplyCloudCandidate: {
+            ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation);
+            break;
+        }
         }
     }
 
@@ -141,6 +153,20 @@ void EnqueueTask(TaskType type)
     {
         std::lock_guard lock(queueMutex);
         taskQueue.push({type});
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ApplyCloudCandidate;
+        task.cloud_candidate = candidate;
+        task.cloud_pinyin = pinyin;
+        task.cloud_generation = generation;
+        taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
 }
@@ -608,6 +634,71 @@ void PrepareCandidateList()
     ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
 }
 
+void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
+{
+    (void)generation;
+    if (candidate.empty())
+        return;
+
+    if (GlobalIme::is_during_creating_word)
+        return;
+
+    std::string current_pinyin = g_dictQuery->get_quanpin();
+    if (current_pinyin.empty() || current_pinyin != pinyin)
+        return;
+
+    if (Global::CandidateList.empty())
+        return;
+
+    // 找一下看云候选词在当前候选列表里有没有，如果没有就插到第二位，如果有就不处理。就不需要判断字词的数量大于 2
+    // 的时候才插入云候选项了。
+    auto dup_it = std::find_if(Global::CandidateList.begin(), Global::CandidateList.end(),
+                               [&](const DictionaryUlPb::WordItem &item) { return std::get<1>(item) == candidate; });
+    if (dup_it != Global::CandidateList.end())
+        return;
+
+    size_t insert_index = Global::CandidateList.size() >= 1 ? 1 : 0;
+    Global::CandidateList.insert(Global::CandidateList.begin() + insert_index, std::make_tuple(pinyin, candidate, 1));
+
+    Global::ItemTotalCount = static_cast<int>(Global::CandidateList.size());
+    Global::PageIndex = 0;
+
+    int loop = std::min(Global::ItemTotalCount, Global::CountOfOnePage);
+    int maxCount = 0;
+    std::string candidate_string;
+
+    Global::CandidateWordList.clear();
+    for (int i = 0; i < loop; i++)
+    {
+        auto &[item_pinyin, word, weight] = Global::CandidateList[i];
+        (void)item_pinyin;
+        (void)weight;
+        if (i == 0)
+        {
+            Global::SelectedCandidateString = string_to_wstring(word);
+        }
+
+        candidate_string += word + PinyinUtil::compute_helpcodes(word);
+        int size = utf8::distance(word.begin(), word.end());
+        maxCount = std::max(maxCount, size);
+
+        Global::CandidateWordList.push_back(string_to_wstring(word));
+        if (i < loop - 1)
+        {
+            candidate_string += ",";
+        }
+    }
+
+    if (maxCount > 2)
+    {
+        Global::CurPageMaxWordLen = maxCount;
+    }
+    Global::CurPageItemCnt = loop;
+
+    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+}
+
 /**
  * @brief
  *
@@ -624,6 +715,7 @@ void HandleImeKey(HANDLE hEvent)
     ::ReadDataFromNamedPipe(0b000111);
     g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown, Global::Wch);
     GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
+    CloudIme::OnInputChanged(g_dictQuery->get_quanpin());
 
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
@@ -783,6 +875,7 @@ void HandleImeKey(HANDLE hEvent)
 
 void ClearState()
 {
+    CloudIme::Clear();
     /* Clear dict engine state */
     g_dictQuery->reset_state();
     /* 造词的状态也要清理 */

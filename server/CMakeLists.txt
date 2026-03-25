@@ -15,6 +15,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,6 +42,8 @@ include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 
 set(SRC_FILES
+    "./src/cloud/cloud_ime.cpp"
+    "./src/cloud/cloud_ime.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/defines/defines.h"
@@ -107,7 +110,8 @@ target_include_directories(${PROJECT_NAME}
     "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json)
+target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
 set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")

@@ -7,6 +7,7 @@
 #include "config/ime_config.h"
 #include <windows.h>
 #include <fmt/xchar.h>
+#include "cloud/cloud_ime.h"
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -60,7 +61,13 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     /* Aux Named Pipe for reconnecting main pipe */
     std::thread aux_pipe_listener(FanyNamedPipe::AuxPipeEventListenerLoopThread);
 
+    CloudIme::Start([](const std::string &candidate, const std::string &pinyin, uint64_t generation) {
+        FanyNamedPipe::EnqueueCloudCandidate(candidate, pinyin, generation);
+    });
+
     int ret = CreateCandidateWindow(hInstance);
+
+    CloudIme::Stop();
 
     pipe_running = false;
     pipe_queueCv.notify_one();
