@@ -170,21 +170,21 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // settings 窗口
     //
-    dwExStyle = 0;                        //
-    HWND hwnd_settings = CreateWindowEx(  //
-        dwExStyle,                        //
-        szWindowClass,                    //
-        lpWindowNameSettings,             //
-        WS_OVERLAPPEDWINDOW,              //
-        600,                              // Initial position
-        -20000,                           //
-        (::SETTINGS_WINDOW_WIDTH)*scale,  //
-        (::SETTINGS_WINDOW_HEIGHT)*scale, //
-        nullptr,                          //
-        nullptr,                          //
-        hInstance,                        //
-        nullptr                           //
-    );                                    //
+    dwExStyle = WS_EX_LAYERED;                                                   //
+    HWND hwnd_settings = CreateWindowEx(                                         //
+        dwExStyle,                                                               //
+        szWindowClass,                                                           //
+        lpWindowNameSettings,                                                    //
+        WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME, //
+        600,                                                                     // Initial position
+        -20000,                                                                  //
+        (::SETTINGS_WINDOW_WIDTH)*scale,                                         //
+        (::SETTINGS_WINDOW_HEIGHT)*scale,                                        //
+        nullptr,                                                                 //
+        nullptr,                                                                 //
+        hInstance,                                                               //
+        nullptr                                                                  //
+    );                                                                           //
     if (!hwnd_settings)
     {
 #ifdef FANY_DEBUG
@@ -192,19 +192,6 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 #endif
         return 1;
     }
-    // 使用 DWM 允许透明
-    DWM_BLURBEHIND bb = {0};
-    bb.dwFlags = DWM_BB_ENABLE;
-    bb.fEnable = TRUE;
-    bb.hRgnBlur = nullptr;
-    DwmEnableBlurBehindWindow(hwnd_settings, &bb);
-    BOOL useDarkMode = TRUE;
-    DwmSetWindowAttribute(             //
-        hwnd_settings,                 //
-        DWMWA_USE_IMMERSIVE_DARK_MODE, //
-        &useDarkMode,                  //
-        sizeof(useDarkMode)            //
-    );
     ::global_hwnd_settings = hwnd_settings;
     // 设置 settings 窗口的自定义图标
     HICON hSettingsIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SETTINGS_ICON));
@@ -213,11 +200,14 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     SendMessage(hwnd_settings, WM_SETICON, ICON_BIG, (LPARAM)hIMEIcon);
     BOOL cloak = TRUE;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_CLOAK, &cloak, sizeof(cloak));
-    /* 设置标题栏和窗口区域为 mica 材质 */
-    MARGINS margins = {-1};
-    DwmExtendFrameIntoClientArea(hwnd_settings, &margins);
-    DWM_SYSTEMBACKDROP_TYPE backdrop_settings = DWMSBT_MAINWINDOW; // Mica 背景类型
-    DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop_settings, sizeof(backdrop_settings));
+    BOOL dark = TRUE;
+    DwmSetWindowAttribute(hwnd_settings, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+
+    DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+    DwmSetWindowAttribute(hwnd_settings, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
+
+    // DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_MAINWINDOW;
+    // DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
 
     //
     // floating toolbar 窗口
@@ -753,6 +743,41 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             }
         }
         break;
+    }
+    case WM_NCCALCSIZE: {
+        if (wParam == TRUE)
+        {
+            NCCALCSIZE_PARAMS *params = (NCCALCSIZE_PARAMS *)lParam;
+
+            // 直接使用整个窗口区域
+            params->rgrc[0] = params->rgrc[0];
+
+            return 0;
+        }
+        return 0;
+    }
+    case WM_NCHITTEST: {
+        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        ScreenToClient(hwnd, &pt);
+
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+
+        int width = rc.right - rc.left;
+        int height = rc.bottom - rc.top;
+
+        const int border = 8;
+
+        if (pt.x < border)
+            return HTLEFT;
+        if (pt.x > width - border)
+            return HTRIGHT;
+        if (pt.y < border)
+            return HTTOP;
+        if (pt.y > height - border)
+            return HTBOTTOM;
+
+        return HTCLIENT;
     }
     case WM_CLOSE: {
         // 不销毁窗口，只隐藏

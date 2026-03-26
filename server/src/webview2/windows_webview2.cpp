@@ -630,7 +630,10 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     else if (type == "settings")
                     {
                         ShowWindow(::global_hwnd_settings, SW_RESTORE);
+                        BringWindowToTop(::global_hwnd_settings);
                         SetForegroundWindow(::global_hwnd_settings);
+                        SetActiveWindow(::global_hwnd_settings);
+                        SetFocus(::global_hwnd_settings);
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                 }
@@ -803,6 +806,53 @@ HRESULT OnControllerCreatedSettingsWnd( //
             })
             .Get(),
         &navCompletedToken);
+
+    /* 处理 js 发过来的消息 */
+    webviewSettingsWnd->add_WebMessageReceived(
+        Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+            [hwnd](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                wil::unique_cotaskmem_string message;
+                HRESULT hr = args->TryGetWebMessageAsString(&message);
+                if (SUCCEEDED(hr) && message.get())
+                {
+                    std::wstring msg(message.get());
+                    // 解析 msg，执行相应操作
+                    json::value val = json::parse(wstring_to_string(msg));
+                    std::string type = json::value_to<std::string>(val.at("type"));
+                    /* 使 settings 窗口可拖动 */
+                    if (type == "dragStart")
+                    {
+                        ReleaseCapture();
+                        PostMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                    }
+                    else if (type == "focus")
+                    {
+                        BringWindowToTop(hwnd);
+                        SetForegroundWindow(hwnd);
+                        SetActiveWindow(hwnd);
+                        SetFocus(hwnd);
+                    }
+                    else if (type == "windowControl")
+                    {
+                        std::string value = json::value_to<std::string>(val.at("data"));
+                        if (value == "minimize")
+                        {
+                            ShowWindow(hwnd, SW_MINIMIZE);
+                        }
+                        else if (value == "maximize")
+                        {
+                            ShowWindow(hwnd, SW_MAXIMIZE);
+                        }
+                        else if (value == "close")
+                        {
+                            ShowWindow(hwnd, SW_HIDE);
+                        }
+                    }
+                }
+                return S_OK;
+            })
+            .Get(),
+        nullptr);
 
     /* Debug console */
     // webviewSettingsWindow->OpenDevToolsWindow();
@@ -1088,7 +1138,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         OutputDebugString(fmt::format(L"[msime]: Open settings").c_str());
 #endif
                         ShowWindow(::global_hwnd_settings, SW_RESTORE);
+                        BringWindowToTop(::global_hwnd_settings);
                         SetForegroundWindow(::global_hwnd_settings);
+                        SetActiveWindow(::global_hwnd_settings);
+                        SetFocus(::global_hwnd_settings);
                     }
                 }
 
