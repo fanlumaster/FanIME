@@ -35,7 +35,7 @@
 }
 
 .window-button {
-  width: 40px;
+  width: 42px;
   height: var(--titlebar-height);
   border: none;
   background: transparent;
@@ -97,4 +97,22 @@
   opacity: 1;
   transform: translateX(-50%) translateY(2px);
   transition-delay: 1s;
+}
+
+.resize-hit-active .window-controls {
+  pointer-events: none;
+}
+
+.resize-hit-active .window-button:hover,
+.resize-hit-active .window-button.close:hover,
+.resize-hit-active .window-button:active,
+.resize-hit-active .window-button.close:active {
+  background: transparent;
+  color: inherit;
+}
+
+.resize-hit-active .window-button[data-tooltip]::after {
+  opacity: 0;
+  transform: translateX(-50%);
+  transition-delay: 0s;
 }
