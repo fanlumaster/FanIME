@@ -1,0 +1,100 @@
+.titlebar {
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 12px;
+  /* background: rgba(28, 28, 28, 0.9);
+  border-bottom: 1px solid var(--border-color); */
+  color: var(--text-color);
+  -webkit-app-region: drag;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.window-title {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  opacity: 0.92;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.window-button {
+  width: 40px;
+  height: var(--titlebar-height);
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  color: inherit;
+  position: relative;
+}
+
+.window-icon {
+  width: 9px;
+  height: 10px;
+  display: block;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+.window-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.window-button.close:hover {
+  background: #c42b1c;
+  color: #ffffff;
+}
+
+.window-button:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.window-button.close:active {
+  background: #a72216;
+}
+
+.window-button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 2px);
+  transform: translateX(-50%);
+  padding: 2px 4px;
+  border-radius: 2px;
+  background: rgba(22, 22, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f3f3f3;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  transform-origin: top center;
+  z-index: 10;
+}
+
+.window-button[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+  transition-delay: 1s;
+}

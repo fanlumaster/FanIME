@@ -5,6 +5,7 @@
 
 /* 布局组件 */
 @import './sidebar.css';
+@import './components/titlebar.css';
 @import './components/sections.css';
 
 /* 通用组件 */
