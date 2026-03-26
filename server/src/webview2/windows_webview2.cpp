@@ -825,6 +825,48 @@ HRESULT OnControllerCreatedSettingsWnd( //
                         ReleaseCapture();
                         PostMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
                     }
+                    else if (type == "resizeHitTest" || type == "resizeStart")
+                    {
+                        std::string hit = json::value_to<std::string>(val.at("data"));
+                        int hitTest = HTCLIENT;
+                        if (hit == "left")
+                        {
+                            hitTest = HTLEFT;
+                        }
+                        else if (hit == "right")
+                        {
+                            hitTest = HTRIGHT;
+                        }
+                        else if (hit == "top")
+                        {
+                            hitTest = HTTOP;
+                        }
+                        else if (hit == "bottom")
+                        {
+                            hitTest = HTBOTTOM;
+                        }
+                        else if (hit == "left-top")
+                        {
+                            hitTest = HTTOPLEFT;
+                        }
+                        else if (hit == "right-top")
+                        {
+                            hitTest = HTTOPRIGHT;
+                        }
+                        else if (hit == "left-bottom")
+                        {
+                            hitTest = HTBOTTOMLEFT;
+                        }
+                        else if (hit == "right-bottom")
+                        {
+                            hitTest = HTBOTTOMRIGHT;
+                        }
+                        if (hitTest != HTCLIENT)
+                        {
+                            ReleaseCapture();
+                            PostMessage(hwnd, WM_NCLBUTTONDOWN, hitTest, 0);
+                        }
+                    }
                     else if (type == "focus")
                     {
                         BringWindowToTop(hwnd);

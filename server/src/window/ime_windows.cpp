@@ -169,8 +169,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     //
     // settings 窗口
+    // 这里 dwExStyle 不要用 WS_EX_LAYERED，否则可能会在窗口的底部发生鼠标穿透问题。
     //
-    dwExStyle = WS_EX_LAYERED;                                                   //
+    dwExStyle = 0;                                                               //
     HWND hwnd_settings = CreateWindowEx(                                         //
         dwExStyle,                                                               //
         szWindowClass,                                                           //
@@ -755,29 +756,6 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             return 0;
         }
         return 0;
-    }
-    case WM_NCHITTEST: {
-        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
-        ScreenToClient(hwnd, &pt);
-
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-
-        int width = rc.right - rc.left;
-        int height = rc.bottom - rc.top;
-
-        const int border = 8;
-
-        if (pt.x < border)
-            return HTLEFT;
-        if (pt.x > width - border)
-            return HTRIGHT;
-        if (pt.y < border)
-            return HTTOP;
-        if (pt.y > height - border)
-            return HTBOTTOM;
-
-        return HTCLIENT;
     }
     case WM_CLOSE: {
         // 不销毁窗口，只隐藏
