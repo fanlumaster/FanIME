@@ -6,7 +6,16 @@ import { loadContent, setupSidebar } from './modules/sidebar';
 const RESIZE_BORDER = 4;
 const WINDOW_CONTROLS_RESIZE_BORDER = 2;
 
+const titlebarDragState = {
+  isDraggingFromTitlebar: false
+};
+
+const windowState = {
+  isMaximized: false
+};
+
 async function initializeApp() {
+  setupWindowStateSync();
   setupTitlebarButtons();
   setupTitlebarDrag();
   setupResizeHitTest();
@@ -30,6 +39,46 @@ async function initializeApp() {
   setupSidebar();
 
   container.style.visibility = 'visible';
+}
+
+function setupWindowStateSync(): void {
+  if (!window.chrome?.webview) {
+    return;
+  }
+
+  window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
+    const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
+    if (!payload || typeof payload !== 'object') {
+      return;
+    }
+
+    if (payload.type !== 'windowState') {
+      return;
+    }
+
+    const nextState = payload.data;
+    if (typeof nextState === 'boolean') {
+      windowState.isMaximized = nextState;
+      return;
+    }
+
+    if (typeof nextState === 'string') {
+      windowState.isMaximized = nextState === 'maximized';
+      return;
+    }
+
+    if (nextState && typeof nextState.isMaximized === 'boolean') {
+      windowState.isMaximized = nextState.isMaximized;
+    }
+  });
+}
+
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function setupTitlebarButtons(): void {
@@ -91,6 +140,8 @@ function setupTitlebarDrag(): void {
       return;
     }
 
+    titlebarDragState.isDraggingFromTitlebar = true;
+
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
         JSON.stringify({
@@ -102,16 +153,7 @@ function setupTitlebarDrag(): void {
 }
 
 function setupResizeHitTest(): void {
-  type ResizeHit =
-    | 'left'
-    | 'right'
-    | 'top'
-    | 'bottom'
-    | 'left-top'
-    | 'right-top'
-    | 'left-bottom'
-    | 'right-bottom'
-    | 'client';
+  type ResizeHit = 'top' | 'client';
 
   let lastCursor = '';
   let lastPointer: { clientX: number; clientY: number } | null = null;
@@ -128,38 +170,20 @@ function setupResizeHitTest(): void {
   }
 
   function getHitTest(clientX: number, clientY: number): ResizeHit {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    if (windowState.isMaximized) {
+      return 'client';
+    }
+
     const isInWindowControls = isInWindowControlsArea(clientX, clientY);
     const topBorder = isInWindowControls ? WINDOW_CONTROLS_RESIZE_BORDER : RESIZE_BORDER;
-    const rightBorder = isInWindowControls ? WINDOW_CONTROLS_RESIZE_BORDER : RESIZE_BORDER;
-
-    const onLeft = clientX <= RESIZE_BORDER;
-    const onRight = clientX >= width - rightBorder;
     const onTop = clientY <= topBorder;
-    const onBottom = clientY >= height - RESIZE_BORDER;
-
-    if (onLeft && onTop) return 'left-top';
-    if (onRight && onTop) return 'right-top';
-    if (onLeft && onBottom) return 'left-bottom';
-    if (onRight && onBottom) return 'right-bottom';
-    if (onLeft) return 'left';
-    if (onRight) return 'right';
     if (onTop) return 'top';
-    if (onBottom) return 'bottom';
     return 'client';
   }
 
-  function getCursor(hit: ResizeHit): '' | 'nwse-resize' | 'nesw-resize' | 'ew-resize' | 'ns-resize' {
-    const cursorMap: Record<ResizeHit, '' | 'nwse-resize' | 'nesw-resize' | 'ew-resize' | 'ns-resize'> = {
-      'left-top': 'nwse-resize',
-      'right-bottom': 'nwse-resize',
-      'right-top': 'nesw-resize',
-      'left-bottom': 'nesw-resize',
-      left: 'ew-resize',
-      right: 'ew-resize',
+  function getCursor(hit: ResizeHit): '' | 'ns-resize' {
+    const cursorMap: Record<ResizeHit, '' | 'ns-resize'> = {
       top: 'ns-resize',
-      bottom: 'ns-resize',
       client: ''
     };
 
@@ -189,8 +213,16 @@ function setupResizeHitTest(): void {
 
   function updateCursorFromPoint(clientX: number, clientY: number): void {
     const hit = getHitTest(clientX, clientY);
-    setResizeUiBlocked(hit !== 'client');
-    setCursor(getCursor(hit));
+    const cursor = getCursor(hit);
+
+    if (hit === 'client') {
+      setResizeUiBlocked(false);
+      setCursor('');
+      return;
+    }
+
+    setResizeUiBlocked(true);
+    setCursor(cursor);
   }
 
   document.addEventListener('mousemove', (e: MouseEvent) => {
@@ -217,6 +249,12 @@ function setupResizeHitTest(): void {
   window.addEventListener('mouseup', (e: MouseEvent) => {
     if (e.button !== 0) return;
     lastPointer = { clientX: e.clientX, clientY: e.clientY };
+
+    if (titlebarDragState.isDraggingFromTitlebar) {
+      titlebarDragState.isDraggingFromTitlebar = false;
+      return;
+    }
+
     updateCursorFromPoint(e.clientX, e.clientY);
   });
 
