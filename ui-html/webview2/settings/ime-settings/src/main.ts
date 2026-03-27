@@ -5,6 +5,7 @@ import { loadContent, setupSidebar } from './modules/sidebar';
 
 const RESIZE_BORDER = 4;
 const WINDOW_CONTROLS_RESIZE_BORDER = 2;
+const MAXIMIZE_TOOLTIP_DELAY_MS = 1000;
 
 const titlebarDragState = {
   isDraggingFromTitlebar: false,
@@ -88,6 +89,8 @@ function setupTitlebarButtons(): void {
   const closeBtn = document.getElementById('btn-close');
   const windowControls = document.querySelector<HTMLElement>('.window-controls');
   let minimizeMessageTimer: number | null = null;
+  let maximizeHoverTimer: number | null = null;
+  let maximizeSnapRequested = false;
 
   const postWindowMessage = (value: 'minimize' | 'maximize' | 'close') => {
     if (window.chrome?.webview) {
@@ -100,6 +103,33 @@ function setupTitlebarButtons(): void {
     } else {
       console.warn('[windowControl] webview2 not available:', value);
     }
+  };
+
+  const postSnapLayoutMessage = () => {
+    if (window.chrome?.webview) {
+      window.chrome.webview.postMessage(
+        JSON.stringify({
+          type: 'snapLayout',
+          data: {
+            source: 'maximizeButtonHover'
+          }
+        })
+      );
+    } else {
+      console.warn('[snapLayout] webview2 not available');
+    }
+  };
+
+  const clearMaximizeHoverTimer = () => {
+    if (maximizeHoverTimer !== null) {
+      window.clearTimeout(maximizeHoverTimer);
+      maximizeHoverTimer = null;
+    }
+  };
+
+  const resetMaximizeHoverState = () => {
+    clearMaximizeHoverTimer();
+    maximizeSnapRequested = false;
   };
 
   const restoreWindowControlsHoverState = () => {
@@ -124,7 +154,25 @@ function setupTitlebarButtons(): void {
       minimizeMessageTimer = null;
     }, 100);
   });
-  maximizeBtn?.addEventListener('click', () => postWindowMessage('maximize'));
+  maximizeBtn?.addEventListener('mouseenter', () => {
+    clearMaximizeHoverTimer();
+
+    if (maximizeSnapRequested) {
+      return;
+    }
+
+    maximizeHoverTimer = window.setTimeout(() => {
+      postSnapLayoutMessage();
+      maximizeSnapRequested = true;
+      maximizeHoverTimer = null;
+    }, MAXIMIZE_TOOLTIP_DELAY_MS);
+  });
+  maximizeBtn?.addEventListener('mouseleave', resetMaximizeHoverState);
+  maximizeBtn?.addEventListener('blur', resetMaximizeHoverState);
+  maximizeBtn?.addEventListener('click', () => {
+    resetMaximizeHoverState();
+    postWindowMessage('maximize');
+  });
   closeBtn?.addEventListener('click', () => postWindowMessage('close'));
 }
 
