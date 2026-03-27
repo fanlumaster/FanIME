@@ -171,21 +171,21 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // settings 窗口
     // 这里 dwExStyle 不要用 WS_EX_LAYERED，否则可能会在窗口的底部发生鼠标穿透问题。
     //
-    dwExStyle = 0;                                                               //
-    HWND hwnd_settings = CreateWindowEx(                                         //
-        dwExStyle,                                                               //
-        szWindowClass,                                                           //
-        lpWindowNameSettings,                                                    //
-        WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME, //
-        600,                                                                     // Initial position
-        -20000,                                                                  //
-        (::SETTINGS_WINDOW_WIDTH)*scale,                                         //
-        (::SETTINGS_WINDOW_HEIGHT)*scale,                                        //
-        nullptr,                                                                 //
-        nullptr,                                                                 //
-        hInstance,                                                               //
-        nullptr                                                                  //
-    );                                                                           //
+    dwExStyle = 0;                        //
+    HWND hwnd_settings = CreateWindowEx(  //
+        dwExStyle,                        //
+        szWindowClass,                    //
+        lpWindowNameSettings,             //
+        WS_OVERLAPPEDWINDOW,              //
+        600,                              // Initial position
+        -20000,                           //
+        (::SETTINGS_WINDOW_WIDTH)*scale,  //
+        (::SETTINGS_WINDOW_HEIGHT)*scale, //
+        nullptr,                          //
+        nullptr,                          //
+        hInstance,                        //
+        nullptr                           //
+    );                                    //
     if (!hwnd_settings)
     {
 #ifdef FANY_DEBUG
@@ -195,20 +195,23 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
     ::global_hwnd_settings = hwnd_settings;
     // 设置 settings 窗口的自定义图标
-    HICON hSettingsIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SETTINGS_ICON));
-    HICON hIMEIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IME_ICON));
-    SendMessage(hwnd_settings, WM_SETICON, ICON_SMALL, (LPARAM)hSettingsIcon);
-    SendMessage(hwnd_settings, WM_SETICON, ICON_BIG, (LPARAM)hIMEIcon);
+    // HICON hSettingsIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SETTINGS_ICON));
+    // HICON hIMEIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IME_ICON));
+    // SendMessage(hwnd_settings, WM_SETICON, ICON_SMALL, (LPARAM)hSettingsIcon);
+    // SendMessage(hwnd_settings, WM_SETICON, ICON_BIG, (LPARAM)hIMEIcon);
     BOOL cloak = TRUE;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_CLOAK, &cloak, sizeof(cloak));
     BOOL dark = TRUE;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
 
+    MARGINS margins = {0, 0, 0, 0};
+    DwmExtendFrameIntoClientArea(hwnd_settings, &margins);
+
     DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
 
-    // DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_MAINWINDOW;
-    // DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+    DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_MAINWINDOW;
+    DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
 
     //
     // floating toolbar 窗口
@@ -708,6 +711,24 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     return 0;
 }
 
+int GetTopNcInsetForWindow(HWND hwnd)
+{
+    const UINT dpi = GetDpiForWindow(hwnd);
+    const DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+    const DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+
+    RECT withCaption{0, 0, 0, 0};
+    RECT withoutCaption{0, 0, 0, 0};
+
+    AdjustWindowRectExForDpi(&withCaption, style, FALSE, exStyle, dpi);
+    AdjustWindowRectExForDpi(&withoutCaption, style & ~WS_CAPTION, FALSE, exStyle, dpi);
+
+    const int captionInset = withoutCaption.top - withCaption.top;
+    const int frameInset = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+
+    return captionInset + frameInset;
+}
+
 LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -746,16 +767,23 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         break;
     }
     case WM_NCCALCSIZE: {
-        if (wParam == TRUE)
+        if (wParam)
         {
-            NCCALCSIZE_PARAMS *params = (NCCALCSIZE_PARAMS *)lParam;
+            NCCALCSIZE_PARAMS *params = reinterpret_cast<NCCALCSIZE_PARAMS *>(lParam);
+            const LRESULT defResult = DefWindowProc(hwnd, message, wParam, lParam);
 
-            // 直接使用整个窗口区域
-            params->rgrc[0] = params->rgrc[0];
+            if (!IsZoomed(hwnd))
+            {
+                params->rgrc[0].top -= GetTopNcInsetForWindow(hwnd);
+            }
+            else
+            {
+                params->rgrc[0].top -= GetSystemMetrics(SM_CYCAPTION);
+            }
 
-            return 0;
+            return defResult;
         }
-        return 0;
+        break;
     }
     case WM_CLOSE: {
         // 不销毁窗口，只隐藏
