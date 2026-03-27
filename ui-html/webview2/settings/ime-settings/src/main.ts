@@ -85,6 +85,8 @@ function setupTitlebarButtons(): void {
   const minimizeBtn = document.getElementById('btn-minimize');
   const maximizeBtn = document.getElementById('btn-maximize');
   const closeBtn = document.getElementById('btn-close');
+  const windowControls = document.querySelector<HTMLElement>('.window-controls');
+  let minimizeMessageTimer: number | null = null;
 
   const postWindowMessage = (value: 'minimize' | 'maximize' | 'close') => {
     if (window.chrome?.webview) {
@@ -99,7 +101,28 @@ function setupTitlebarButtons(): void {
     }
   };
 
-  minimizeBtn?.addEventListener('click', () => postWindowMessage('minimize'));
+  const restoreWindowControlsHoverState = () => {
+    windowControls?.classList.remove('window-controls-click-reset');
+  };
+
+  windowControls?.addEventListener('mouseenter', restoreWindowControlsHoverState);
+
+  minimizeBtn?.addEventListener('click', () => {
+    windowControls?.classList.add('window-controls-click-reset');
+
+    if (minimizeBtn instanceof HTMLElement) {
+      minimizeBtn.blur();
+    }
+
+    if (minimizeMessageTimer !== null) {
+      window.clearTimeout(minimizeMessageTimer);
+    }
+
+    minimizeMessageTimer = window.setTimeout(() => {
+      postWindowMessage('minimize');
+      minimizeMessageTimer = null;
+    }, 100);
+  });
   maximizeBtn?.addEventListener('click', () => postWindowMessage('maximize'));
   closeBtn?.addEventListener('click', () => postWindowMessage('close'));
 }

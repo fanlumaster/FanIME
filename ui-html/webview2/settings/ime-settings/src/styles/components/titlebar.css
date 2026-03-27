@@ -99,6 +99,21 @@
   transition-delay: 1s;
 }
 
+.window-controls.window-controls-click-reset .window-button:hover,
+.window-controls.window-controls-click-reset .window-button.close:hover,
+.window-controls.window-controls-click-reset .window-button:active,
+.window-controls.window-controls-click-reset .window-button.close:active {
+  background: transparent;
+  color: inherit;
+}
+
+.window-controls.window-controls-click-reset .window-button[data-tooltip]::after,
+.window-controls.window-controls-click-reset .window-button[data-tooltip]:hover::after {
+  opacity: 0;
+  transform: translateX(-50%);
+  transition-delay: 0s;
+}
+
 .resize-hit-active .window-controls {
   pointer-events: none;
 }
