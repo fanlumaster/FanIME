@@ -7,7 +7,8 @@ const RESIZE_BORDER = 4;
 const WINDOW_CONTROLS_RESIZE_BORDER = 2;
 
 const titlebarDragState = {
-  isDraggingFromTitlebar: false
+  isDraggingFromTitlebar: false,
+  suspendCursorSyncUntilMouseMove: false
 };
 
 const windowState = {
@@ -150,20 +151,25 @@ function setupTitlebarDrag(): void {
       return;
     }
 
-    const activeBorder = isInWindowControlsArea(e.clientX, e.clientY)
-      ? WINDOW_CONTROLS_RESIZE_BORDER
-      : RESIZE_BORDER;
-    const isOnResizeBorder =
-      e.clientX <= RESIZE_BORDER ||
-      e.clientX >= window.innerWidth - activeBorder ||
-      e.clientY <= activeBorder ||
-      e.clientY >= window.innerHeight - RESIZE_BORDER;
+    let isOnResizeBorder = false;
+
+    if (!windowState.isMaximized) {
+      const activeBorder = isInWindowControlsArea(e.clientX, e.clientY)
+        ? WINDOW_CONTROLS_RESIZE_BORDER
+        : RESIZE_BORDER;
+      isOnResizeBorder =
+        e.clientX <= RESIZE_BORDER ||
+        e.clientX >= window.innerWidth - activeBorder ||
+        e.clientY <= activeBorder ||
+        e.clientY >= window.innerHeight - RESIZE_BORDER;
+    }
 
     if (isOnResizeBorder) {
       return;
     }
 
     titlebarDragState.isDraggingFromTitlebar = true;
+    titlebarDragState.suspendCursorSyncUntilMouseMove = true;
 
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
@@ -248,8 +254,14 @@ function setupResizeHitTest(): void {
     setCursor(cursor);
   }
 
+  function clearResizeCursorState(): void {
+    setResizeUiBlocked(false);
+    setCursor('');
+  }
+
   document.addEventListener('mousemove', (e: MouseEvent) => {
     lastPointer = { clientX: e.clientX, clientY: e.clientY };
+    titlebarDragState.suspendCursorSyncUntilMouseMove = false;
 
     updateCursorFromPoint(e.clientX, e.clientY);
   });
@@ -275,6 +287,12 @@ function setupResizeHitTest(): void {
 
     if (titlebarDragState.isDraggingFromTitlebar) {
       titlebarDragState.isDraggingFromTitlebar = false;
+      clearResizeCursorState();
+      return;
+    }
+
+    if (titlebarDragState.suspendCursorSyncUntilMouseMove) {
+      clearResizeCursorState();
       return;
     }
 
@@ -293,6 +311,10 @@ function setupResizeHitTest(): void {
 
   window.addEventListener('resize', () => {
     if (!lastPointer) return;
+    if (titlebarDragState.suspendCursorSyncUntilMouseMove) {
+      clearResizeCursorState();
+      return;
+    }
     updateCursorFromPoint(lastPointer.clientX, lastPointer.clientY);
   });
 }
