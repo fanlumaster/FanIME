@@ -3,6 +3,7 @@
 #include "utils/common_utils.h"
 #include <debugapi.h>
 #include <boost/json.hpp>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <windows.h>
 #include <dwmapi.h>
@@ -802,6 +803,8 @@ HRESULT OnControllerCreatedSettingsWnd( //
                     BOOL cloak = FALSE;
                     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
                 }
+
+                PostSettingsWindowState(hwnd);
                 return S_OK;
             })
             .Get(),
@@ -929,6 +932,24 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
             })                                                                               //
             .Get()                                                                           //
     );                                                                                       //
+}
+
+/**
+ * @brief Post the window state of the settings window, 即，是否最大化了，供 settings 窗口的 js 进行相应的调整
+ *
+ * @param hwnd
+ */
+void PostSettingsWindowState(HWND hwnd)
+{
+    if (!::webviewSettingsWnd)
+    {
+        return;
+    }
+
+    nlohmann::json payload = {{"type", "windowState"}, {"data", {{"isMaximized", IsZoomed(hwnd) != FALSE}}}};
+
+    const std::wstring message = string_to_wstring(payload.dump());
+    ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
 }
 
 /**

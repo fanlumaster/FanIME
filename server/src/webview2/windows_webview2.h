@@ -70,6 +70,7 @@ inline ComPtr<ICoreWebView2Controller2> webviewController2SettingsWnd;
 inline std::wstring HTMLStringSettingsWnd = LR"()";
 
 void InitWebviewSettingsWnd(HWND hwnd);
+void PostSettingsWindowState(HWND hwnd);
 
 //
 // floating toolbar 窗口 webview

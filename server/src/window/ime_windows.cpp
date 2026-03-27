@@ -813,6 +813,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             RECT rect;
             GetClientRect(hwnd, &rect);
             webviewControllerSettingsWnd->put_Bounds(rect);
+            PostSettingsWindowState(hwnd);
         }
         break;
     }
