@@ -3,7 +3,7 @@ import './styles/index.css';
 import { loadHTML, showOnlyCurrentModule } from './utils/common-utils';
 import { loadContent, setupSidebar } from './modules/sidebar';
 
-const RESIZE_BORDER = 6;
+const RESIZE_BORDER = 4;
 const WINDOW_CONTROLS_RESIZE_BORDER = 2;
 
 async function initializeApp() {
