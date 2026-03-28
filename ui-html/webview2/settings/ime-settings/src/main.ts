@@ -328,6 +328,26 @@ function setupTitlebarDrag(): void {
     return;
   }
 
+  let pendingDragStart: { startX: number; startY: number } | null = null;
+  const dragStartThreshold = 2;
+
+  const postWindowMessage = (value: 'maximize' | 'restore') => {
+    if (window.chrome?.webview) {
+      window.chrome.webview.postMessage(
+        JSON.stringify({
+          type: 'windowControl',
+          data: value
+        })
+      );
+    } else {
+      console.warn('[windowControl] webview2 not available:', value);
+    }
+  };
+
+  const clearPendingDragStart = () => {
+    pendingDragStart = null;
+  };
+
   function isInWindowControlsArea(clientX: number, clientY: number): boolean {
     const controls = document.querySelector<HTMLElement>('.window-controls');
     if (!controls) {
@@ -339,6 +359,8 @@ function setupTitlebarDrag(): void {
   }
 
   titlebar.addEventListener('mousedown', (e: MouseEvent) => {
+    if (e.button !== 0) return;
+
     const target = e.target as HTMLElement | null;
     if (target?.closest('.window-controls')) {
       return;
@@ -361,6 +383,26 @@ function setupTitlebarDrag(): void {
       return;
     }
 
+    if (e.detail > 1) {
+      return;
+    }
+
+    clearPendingDragStart();
+    pendingDragStart = { startX: e.clientX, startY: e.clientY };
+  });
+
+  titlebar.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!pendingDragStart || e.buttons !== 1) {
+      return;
+    }
+
+    const deltaX = Math.abs(e.clientX - pendingDragStart.startX);
+    const deltaY = Math.abs(e.clientY - pendingDragStart.startY);
+    if (deltaX + deltaY < dragStartThreshold) {
+      return;
+    }
+
+    pendingDragStart = null;
     titlebarDragState.isDraggingFromTitlebar = true;
     titlebarDragState.suspendCursorSyncUntilMouseMove = true;
 
@@ -370,6 +412,43 @@ function setupTitlebarDrag(): void {
           type: 'dragStart'
         })
       );
+    }
+  });
+
+  titlebar.addEventListener('mouseup', () => {
+    clearPendingDragStart();
+  });
+
+  titlebar.addEventListener('dblclick', (e: MouseEvent) => {
+    if (e.button !== 0) return;
+
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('.window-controls')) {
+      return;
+    }
+
+    clearPendingDragStart();
+
+    let isOnResizeBorder = false;
+    if (!windowState.isMaximized) {
+      const activeBorder = isInWindowControlsArea(e.clientX, e.clientY)
+        ? WINDOW_CONTROLS_RESIZE_BORDER
+        : RESIZE_BORDER;
+      isOnResizeBorder =
+        e.clientX <= RESIZE_BORDER ||
+        e.clientX >= window.innerWidth - activeBorder ||
+        e.clientY <= activeBorder ||
+        e.clientY >= window.innerHeight - RESIZE_BORDER;
+    }
+
+    if (isOnResizeBorder) {
+      return;
+    }
+
+    if (windowState.isMaximized) {
+      postWindowMessage('restore');
+    } else {
+      postWindowMessage('maximize');
     }
   });
 }
