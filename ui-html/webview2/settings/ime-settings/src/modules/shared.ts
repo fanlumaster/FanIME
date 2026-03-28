@@ -47,8 +47,8 @@ export function setupDropdownMenu(
       if (window.chrome?.webview) {
         const htmlItem = item as HTMLElement;
         window.chrome.webview.postMessage(JSON.stringify({
-          action: messageAction,
-          value: htmlItem.dataset.value
+          type: messageAction,
+          data: htmlItem.dataset.value
         }));
       }
 
