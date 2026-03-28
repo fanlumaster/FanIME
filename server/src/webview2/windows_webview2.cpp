@@ -14,6 +14,8 @@
 #include "ipc/ipc.h"
 #include <WebView2EnvironmentOptions.h>
 
+#pragma comment(lib, "dcomp.lib")
+
 namespace json = boost::json;
 
 int boundRightExtra = 1000;
@@ -701,6 +703,41 @@ void InitWebviewMenuWnd(HWND hwnd)
 //
 //
 
+HRESULT EnsureCompositionVisualTreeSettingsWnd(HWND hwnd)
+{
+    if (dcompDeviceSettingsWnd && dcompTargetSettingsWnd && dcompRootVisualSettingsWnd)
+    {
+        return S_OK;
+    }
+
+    HRESULT hr = DCompositionCreateDevice(nullptr, __uuidof(IDCompositionDevice),
+                                          reinterpret_cast<void **>(dcompDeviceSettingsWnd.GetAddressOf()));
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = dcompDeviceSettingsWnd->CreateTargetForHwnd(hwnd, TRUE, &dcompTargetSettingsWnd);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = dcompDeviceSettingsWnd->CreateVisual(&dcompRootVisualSettingsWnd);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    hr = dcompTargetSettingsWnd->SetRoot(dcompRootVisualSettingsWnd.Get());
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    return dcompDeviceSettingsWnd->Commit();
+}
+
 /**
  * @brief Handle settings window webview2 controller creation
  *
@@ -709,10 +746,10 @@ void InitWebviewMenuWnd(HWND hwnd)
  * @param controller
  * @return HRESULT
  */
-HRESULT OnControllerCreatedSettingsWnd( //
-    HWND hwnd,                          //
-    HRESULT result,                     //
-    ICoreWebView2Controller *controller //
+HRESULT OnControllerCreatedSettingsWnd(            //
+    HWND hwnd,                                     //
+    HRESULT result,                                //
+    ICoreWebView2CompositionController *controller //
 )
 {
     if (!controller || FAILED(result))
@@ -724,7 +761,15 @@ HRESULT OnControllerCreatedSettingsWnd( //
     }
 
     /* 给 controller 和 webview 赋值 */
-    webviewControllerSettingsWnd = controller;
+    webviewCompositionControllerSettingsWnd = controller;
+    if (FAILED(webviewCompositionControllerSettingsWnd.As(&webviewControllerSettingsWnd)))
+    {
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"[msime]: Failed to get the base WebView2 controller.").c_str());
+#endif
+        return E_NOINTERFACE;
+    }
+
     webviewControllerSettingsWnd->get_CoreWebView2(webviewSettingsWnd.GetAddressOf());
 
     if (!webviewSettingsWnd)
@@ -765,11 +810,32 @@ HRESULT OnControllerCreatedSettingsWnd( //
     }
 
     // Set transparent background
-    if (SUCCEEDED(controller->QueryInterface(IID_PPV_ARGS(&webviewController2SettingsWnd))))
+    if (SUCCEEDED(webviewControllerSettingsWnd.As(&webviewController2SettingsWnd)))
     {
         COREWEBVIEW2_COLOR backgroundColor = {0, 0, 0, 0};
         webviewController2SettingsWnd->put_DefaultBackgroundColor(backgroundColor);
     }
+
+    const HRESULT compositionResult = EnsureCompositionVisualTreeSettingsWnd(hwnd);
+    if (FAILED(compositionResult))
+    {
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"[msime]: Failed to initialize DirectComposition.").c_str());
+#endif
+        return compositionResult;
+    }
+
+    const HRESULT rootVisualResult =
+        webviewCompositionControllerSettingsWnd->put_RootVisualTarget(dcompRootVisualSettingsWnd.Get());
+    if (FAILED(rootVisualResult))
+    {
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"[msime]: Failed to attach the WebView root visual.").c_str());
+#endif
+        return rootVisualResult;
+    }
+
+    dcompDeviceSettingsWnd->Commit();
 
     // Adjust to window size
     RECT bounds;
@@ -893,6 +959,37 @@ HRESULT OnControllerCreatedSettingsWnd( //
                             ShowWindow(hwnd, SW_HIDE);
                         }
                     }
+                    else if (type == "maximizeButtonRect")
+                    {
+                        try
+                        {
+                            auto &data = val.at("data").as_object();
+                            double x = data.if_contains("x") ? json::value_to<double>(*data.if_contains("x")) : 0.0;
+                            double y = data.if_contains("y") ? json::value_to<double>(*data.if_contains("y")) : 0.0;
+                            double width =
+                                data.if_contains("width") ? json::value_to<double>(*data.if_contains("width")) : 0.0;
+                            double height =
+                                data.if_contains("height") ? json::value_to<double>(*data.if_contains("height")) : 0.0;
+                            double scale =
+                                data.if_contains("dpr") ? json::value_to<double>(*data.if_contains("dpr")) : 0.0;
+
+                            if (scale <= 0.0)
+                            {
+                                scale = static_cast<double>(GetDpiForWindow(hwnd)) / 96.0;
+                            }
+
+                            const int left = static_cast<int>(std::lround(x * scale));
+                            const int top = static_cast<int>(std::lround(y * scale));
+                            const int right = static_cast<int>(std::lround((x + width) * scale));
+                            const int bottom = static_cast<int>(std::lround((y + height) * scale));
+
+                            maximizeButtonRectSettingsWnd = {left, top, right, bottom};
+                            hasMaximizeButtonRectSettingsWnd = true;
+                        }
+                        catch (const std::exception &)
+                        {
+                        }
+                    }
                 }
                 return S_OK;
             })
@@ -923,15 +1020,24 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
         return result;
     }
 
+    ComPtr<ICoreWebView2Environment3> env3;
+    if (FAILED(env->QueryInterface(IID_PPV_ARGS(&env3))) || !env3)
+    {
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"[msime]: Failed to get ICoreWebView2Environment3 for composition.").c_str());
+#endif
+        return E_NOINTERFACE;
+    }
+
     // Create WebView2 controller
-    return env->CreateCoreWebView2Controller(                                                //
-        hwnd,                                                                                //
-        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
-            [hwnd](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {         //
-                return OnControllerCreatedSettingsWnd(hwnd, result, controller);             //
-            })                                                                               //
-            .Get()                                                                           //
-    );                                                                                       //
+    return env3->CreateCoreWebView2CompositionController(                                               //
+        hwnd,                                                                                           //
+        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2CompositionControllerCompletedHandler>( //
+            [hwnd](HRESULT result, ICoreWebView2CompositionController *controller) -> HRESULT {         //
+                return OnControllerCreatedSettingsWnd(hwnd, result, controller);                        //
+            })                                                                                          //
+            .Get()                                                                                      //
+    );                                                                                                  //
 }
 
 /**

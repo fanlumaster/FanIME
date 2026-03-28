@@ -729,6 +729,159 @@ int GetTopNcInsetForWindow(HWND hwnd)
     return captionInset + frameInset;
 }
 
+bool IsPointInMaximizeButtonSettingsWnd(HWND hwnd, POINT screenPoint)
+{
+    if (!hasMaximizeButtonRectSettingsWnd)
+    {
+        return false;
+    }
+
+    POINT clientPoint = screenPoint;
+    ScreenToClient(hwnd, &clientPoint);
+    return PtInRect(&maximizeButtonRectSettingsWnd, clientPoint) != FALSE;
+}
+
+void PostMaximizeButtonEventSettingsWnd(const char *eventName)
+{
+    if (!::webviewSettingsWnd || !eventName)
+    {
+        return;
+    }
+
+    std::string ev(eventName);
+    std::string payload = R"({"type":"maxButtonEvent","data":{"event":")" + ev + R"("}})";
+    const std::wstring message = string_to_wstring(payload);
+    ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
+}
+
+UINT32 GetMouseVirtualKeysSettingsWnd(WPARAM wParam)
+{
+    UINT32 keys = COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_NONE;
+    if (wParam & MK_LBUTTON)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_LEFT_BUTTON;
+    if (wParam & MK_RBUTTON)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_RIGHT_BUTTON;
+    if (wParam & MK_MBUTTON)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_MIDDLE_BUTTON;
+    if (wParam & MK_SHIFT)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_SHIFT;
+    if (wParam & MK_CONTROL)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_CONTROL;
+    if (wParam & MK_XBUTTON1)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_X_BUTTON1;
+    if (wParam & MK_XBUTTON2)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_X_BUTTON2;
+    return keys;
+}
+
+bool ForwardMouseMessageToWebViewSettingsWnd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (!::webviewCompositionControllerSettingsWnd)
+        return false;
+
+    COREWEBVIEW2_MOUSE_EVENT_KIND kind{};
+    UINT32 mouseData = 0;
+    bool handled = true;
+
+    switch (message)
+    {
+    case WM_MOUSEMOVE:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE;
+        break;
+    case WM_LBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN;
+        SetFocus(hwnd);
+        break;
+    case WM_LBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP;
+        break;
+    case WM_LBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK;
+        SetFocus(hwnd);
+        break;
+    case WM_RBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOWN;
+        SetFocus(hwnd);
+        break;
+    case WM_RBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP;
+        break;
+    case WM_RBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOUBLE_CLICK;
+        SetFocus(hwnd);
+        break;
+    case WM_MBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN;
+        SetFocus(hwnd);
+        break;
+    case WM_MBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP;
+        break;
+    case WM_MBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOUBLE_CLICK;
+        SetFocus(hwnd);
+        break;
+    case WM_XBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOWN;
+        mouseData = GET_XBUTTON_WPARAM(wParam);
+        SetFocus(hwnd);
+        break;
+    case WM_XBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_UP;
+        mouseData = GET_XBUTTON_WPARAM(wParam);
+        break;
+    case WM_XBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOUBLE_CLICK;
+        mouseData = GET_XBUTTON_WPARAM(wParam);
+        SetFocus(hwnd);
+        break;
+    case WM_MOUSEWHEEL:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_WHEEL;
+        mouseData = static_cast<UINT32>(GET_WHEEL_DELTA_WPARAM(wParam));
+        break;
+    case WM_MOUSEHWHEEL:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_HORIZONTAL_WHEEL;
+        mouseData = static_cast<UINT32>(GET_WHEEL_DELTA_WPARAM(wParam));
+        break;
+    case WM_MOUSELEAVE:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE;
+        break;
+    default:
+        handled = false;
+        break;
+    }
+
+    if (!handled)
+        return false;
+
+    POINT point{};
+    if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)
+    {
+        point.x = GET_X_LPARAM(lParam);
+        point.y = GET_Y_LPARAM(lParam);
+        ScreenToClient(hwnd, &point);
+    }
+    else
+    {
+        point.x = GET_X_LPARAM(lParam);
+        point.y = GET_Y_LPARAM(lParam);
+    }
+
+    if (message == WM_MOUSEMOVE)
+    {
+        TRACKMOUSEEVENT tme{};
+        tme.cbSize = sizeof(tme);
+        tme.dwFlags = TME_LEAVE;
+        tme.hwndTrack = hwnd;
+        TrackMouseEvent(&tme);
+    }
+
+    ::webviewCompositionControllerSettingsWnd->SendMouseInput(
+        kind, static_cast<COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS>(GetMouseVirtualKeysSettingsWnd(wParam)), mouseData,
+        point);
+    return true;
+}
+
 LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -785,6 +938,112 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         }
         break;
     }
+    case WM_NCHITTEST: {
+        const LRESULT result = DefWindowProcW(hwnd, message, wParam, lParam);
+        if (result == HTCLIENT && hasMaximizeButtonRectSettingsWnd)
+        {
+            POINT screenPoint{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            if (IsPointInMaximizeButtonSettingsWnd(hwnd, screenPoint))
+            {
+                return HTMAXBUTTON;
+            }
+        }
+        return result;
+    }
+    case WM_MOVE:
+    case WM_MOVING:
+    case WM_WINDOWPOSCHANGED:
+        if (::webviewControllerSettingsWnd)
+        {
+            ::webviewControllerSettingsWnd->NotifyParentWindowPositionChanged();
+        }
+        break;
+    case WM_SETFOCUS:
+        if (::webviewControllerSettingsWnd)
+        {
+            ::webviewControllerSettingsWnd->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        }
+        break;
+    case WM_MOUSEMOVE:
+    case WM_MOUSELEAVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_LBUTTONDBLCLK:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_RBUTTONDBLCLK:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MBUTTONDBLCLK:
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP:
+    case WM_XBUTTONDBLCLK:
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL:
+        if (ForwardMouseMessageToWebViewSettingsWnd(hwnd, message, wParam, lParam))
+        {
+            if (message == WM_XBUTTONDOWN || message == WM_XBUTTONUP || message == WM_XBUTTONDBLCLK)
+            {
+                return TRUE;
+            }
+            return 0;
+        }
+        break;
+    case WM_SETCURSOR:
+        if (::webviewCompositionControllerSettingsWnd && LOWORD(lParam) == HTCLIENT)
+        {
+            UINT32 cursorId = 0;
+            if (SUCCEEDED(::webviewCompositionControllerSettingsWnd->get_SystemCursorId(&cursorId)) && cursorId != 0)
+            {
+                SetCursor(LoadCursorW(nullptr, MAKEINTRESOURCEW(cursorId)));
+                return TRUE;
+            }
+        }
+        break;
+    case WM_NCMOUSEMOVE: {
+        POINT screenPoint{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (IsPointInMaximizeButtonSettingsWnd(hwnd, screenPoint))
+        {
+            if (!isMaximizeButtonHoverSettingsWnd)
+            {
+                isMaximizeButtonHoverSettingsWnd = true;
+                PostMaximizeButtonEventSettingsWnd("enter");
+            }
+
+            TRACKMOUSEEVENT tme{};
+            tme.cbSize = sizeof(tme);
+            tme.dwFlags = TME_LEAVE | TME_NONCLIENT;
+            tme.hwndTrack = hwnd;
+            TrackMouseEvent(&tme);
+            return 0;
+        }
+        break;
+    }
+    case WM_NCMOUSELEAVE:
+        if (isMaximizeButtonHoverSettingsWnd)
+        {
+            isMaximizeButtonHoverSettingsWnd = false;
+            PostMaximizeButtonEventSettingsWnd("leave");
+        }
+        break;
+    case WM_NCLBUTTONDOWN: {
+        POINT screenPoint{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (IsPointInMaximizeButtonSettingsWnd(hwnd, screenPoint))
+        {
+            PostMaximizeButtonEventSettingsWnd("down");
+            return 0;
+        }
+        break;
+    }
+    case WM_NCLBUTTONUP: {
+        POINT screenPoint{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (IsPointInMaximizeButtonSettingsWnd(hwnd, screenPoint))
+        {
+            PostMaximizeButtonEventSettingsWnd("up");
+            return 0;
+        }
+        break;
+    }
     case WM_CLOSE: {
         // 不销毁窗口，只隐藏
         ShowWindow(hwnd, SW_HIDE);
@@ -817,11 +1076,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         }
         break;
     }
-    default: {
-        return DefWindowProc(hwnd, message, wParam, lParam);
     }
-    }
-    return 0;
+    return DefWindowProc(hwnd, message, wParam, lParam);
 }
 
 LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
