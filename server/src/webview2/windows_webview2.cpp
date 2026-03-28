@@ -958,6 +958,10 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                         {
                             ShowWindow(hwnd, SW_HIDE);
                         }
+                        else if (value == "restore")
+                        {
+                            ShowWindow(hwnd, SW_RESTORE);
+                        }
                     }
                     else if (type == "maximizeButtonRect")
                     {
