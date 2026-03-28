@@ -101,7 +101,7 @@
 .window-button.host-hover[data-tooltip]::after {
   opacity: 1;
   transform: translateX(-50%) translateY(2px);
-  transition-delay: 1s;
+  transition-delay: 500ms;
 }
 
 .window-controls.window-controls-click-reset .window-button:hover,

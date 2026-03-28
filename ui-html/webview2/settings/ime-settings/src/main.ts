@@ -175,6 +175,7 @@ function setupTitlebarButtons(): void {
       }
 
       if (eventType === 'enter') {
+        windowControls?.classList.remove('window-controls-click-reset');
         maximizeBtn.classList.add('host-hover');
         return;
       }
