@@ -16,6 +16,26 @@ const windowState = {
   isMaximized: false
 };
 
+let onWindowStateChanged: ((isMaximized: boolean) => void) | null = null;
+
+function applyMaximizeRestoreState(): void {
+  const maximizeBtn = document.getElementById('btn-maximize');
+  const restoreBtn = document.getElementById('btn-restore');
+
+  if (!(maximizeBtn instanceof HTMLElement) || !(restoreBtn instanceof HTMLElement)) {
+    return;
+  }
+
+  maximizeBtn.classList.toggle('is-hidden', windowState.isMaximized);
+  restoreBtn.classList.toggle('is-hidden', !windowState.isMaximized);
+}
+
+function setWindowMaximized(isMaximized: boolean): void {
+  windowState.isMaximized = isMaximized;
+  applyMaximizeRestoreState();
+  onWindowStateChanged?.(isMaximized);
+}
+
 async function initializeApp() {
   setupWindowStateSync();
   setupTitlebarButtons();
@@ -60,17 +80,17 @@ function setupWindowStateSync(): void {
 
     const nextState = payload.data;
     if (typeof nextState === 'boolean') {
-      windowState.isMaximized = nextState;
+      setWindowMaximized(nextState);
       return;
     }
 
     if (typeof nextState === 'string') {
-      windowState.isMaximized = nextState === 'maximized';
+      setWindowMaximized(nextState === 'maximized');
       return;
     }
 
     if (nextState && typeof nextState.isMaximized === 'boolean') {
-      windowState.isMaximized = nextState.isMaximized;
+      setWindowMaximized(nextState.isMaximized);
     }
   });
 }
@@ -86,13 +106,14 @@ function safeParseJson(value: string): unknown {
 function setupTitlebarButtons(): void {
   const minimizeBtn = document.getElementById('btn-minimize');
   const maximizeBtn = document.getElementById('btn-maximize');
+  const restoreBtn = document.getElementById('btn-restore');
   const closeBtn = document.getElementById('btn-close');
   const windowControls = document.querySelector<HTMLElement>('.window-controls');
   let minimizeMessageTimer: number | null = null;
   let maximizeHoverTimer: number | null = null;
   let maximizeSnapRequested = false;
 
-  const postWindowMessage = (value: 'minimize' | 'maximize' | 'close') => {
+  const postWindowMessage = (value: 'minimize' | 'maximize' | 'restore' | 'close') => {
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
         JSON.stringify({
@@ -106,6 +127,10 @@ function setupTitlebarButtons(): void {
   };
 
   const postSnapLayoutMessage = () => {
+    if (windowState.isMaximized) {
+      return;
+    }
+
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
         JSON.stringify({
@@ -120,12 +145,27 @@ function setupTitlebarButtons(): void {
     }
   };
 
+  const getActiveMaxButton = (): HTMLElement | null => {
+    if (windowState.isMaximized && restoreBtn instanceof HTMLElement) {
+      return restoreBtn;
+    }
+    if (maximizeBtn instanceof HTMLElement) {
+      return maximizeBtn;
+    }
+    return null;
+  };
+
   const postMaximizeButtonRect = () => {
-    if (!window.chrome?.webview || !(maximizeBtn instanceof HTMLElement)) {
+    if (!window.chrome?.webview) {
       return;
     }
 
-    const rect = maximizeBtn.getBoundingClientRect();
+    const activeBtn = getActiveMaxButton();
+    if (!activeBtn) {
+      return;
+    }
+
+    const rect = activeBtn.getBoundingClientRect();
     window.chrome.webview.postMessage(
       JSON.stringify({
         type: 'maximizeButtonRect',
@@ -158,7 +198,18 @@ function setupTitlebarButtons(): void {
 
   windowControls?.addEventListener('mouseenter', restoreWindowControlsHoverState);
 
-  if (window.chrome?.webview && maximizeBtn instanceof HTMLElement) {
+  onWindowStateChanged = () => {
+    resetMaximizeHoverState();
+    windowControls?.classList.remove('window-controls-click-reset');
+    maximizeBtn?.classList.remove('host-hover', 'host-active');
+    restoreBtn?.classList.remove('host-hover', 'host-active');
+    maximizeBtn?.blur();
+    restoreBtn?.blur();
+    applyMaximizeRestoreState();
+    postMaximizeButtonRect();
+  };
+
+  if (window.chrome?.webview) {
     window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
       const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
       if (!payload || typeof payload !== 'object') {
@@ -174,26 +225,35 @@ function setupTitlebarButtons(): void {
         return;
       }
 
+      const activeBtn = getActiveMaxButton();
+      if (!activeBtn) {
+        return;
+      }
+
       if (eventType === 'enter') {
         windowControls?.classList.remove('window-controls-click-reset');
-        maximizeBtn.classList.add('host-hover');
+        activeBtn.classList.add('host-hover');
         return;
       }
 
       if (eventType === 'leave') {
-        maximizeBtn.classList.remove('host-hover', 'host-active');
+        activeBtn.classList.remove('host-hover', 'host-active');
         return;
       }
 
       if (eventType === 'down') {
-        maximizeBtn.classList.add('host-hover', 'host-active');
+        activeBtn.classList.add('host-hover', 'host-active');
         return;
       }
 
       if (eventType === 'up') {
-        maximizeBtn.classList.remove('host-active');
+        activeBtn.classList.remove('host-active');
         resetMaximizeHoverState();
-        postWindowMessage('maximize');
+        if (windowState.isMaximized) {
+          postWindowMessage('restore');
+        } else {
+          postWindowMessage('maximize');
+        }
       }
     });
   }
@@ -215,6 +275,10 @@ function setupTitlebarButtons(): void {
     }, 100);
   });
   maximizeBtn?.addEventListener('mouseenter', () => {
+    if (windowState.isMaximized) {
+      return;
+    }
+
     clearMaximizeHoverTimer();
 
     if (maximizeSnapRequested) {
@@ -233,16 +297,28 @@ function setupTitlebarButtons(): void {
     resetMaximizeHoverState();
     postWindowMessage('maximize');
   });
+  restoreBtn?.addEventListener('click', () => {
+    resetMaximizeHoverState();
+    postWindowMessage('restore');
+  });
   closeBtn?.addEventListener('click', () => postWindowMessage('close'));
 
   postMaximizeButtonRect();
 
-  if (maximizeBtn instanceof HTMLElement) {
+  if (maximizeBtn instanceof HTMLElement || restoreBtn instanceof HTMLElement) {
     const observer = new ResizeObserver(() => postMaximizeButtonRect());
-    observer.observe(maximizeBtn);
+    if (maximizeBtn instanceof HTMLElement) {
+      observer.observe(maximizeBtn);
+    }
+    if (restoreBtn instanceof HTMLElement) {
+      observer.observe(restoreBtn);
+    }
   }
 
   window.addEventListener('resize', postMaximizeButtonRect);
+
+  applyMaximizeRestoreState();
+  onWindowStateChanged?.(windowState.isMaximized);
 }
 
 function setupTitlebarDrag(): void {

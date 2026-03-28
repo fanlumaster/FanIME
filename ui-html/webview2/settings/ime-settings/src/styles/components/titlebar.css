@@ -47,6 +47,10 @@
   position: relative;
 }
 
+.window-button.is-hidden {
+  display: none;
+}
+
 .window-icon {
   width: 9px;
   height: 10px;
