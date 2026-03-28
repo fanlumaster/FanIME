@@ -715,7 +715,20 @@ void HandleImeKey(HANDLE hEvent)
     ::ReadDataFromNamedPipe(0b000111);
     g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown, Global::Wch);
     GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
-    CloudIme::OnInputChanged(g_dictQuery->get_quanpin());
+    //
+    // 先判断要不要触发云联想
+    // 判断依据：
+    //  - 拼音序列长度是偶数
+    //  - 最后一个字符不是大写字母
+    //
+    auto cur_pinyin_seq_with_cases = g_dictQuery->get_pinyin_sequence_with_cases();
+    if (cur_pinyin_seq_with_cases.length() > 0 &&                                      //
+        cur_pinyin_seq_with_cases.length() % 2 == 0 &&                                 //
+        cur_pinyin_seq_with_cases.at(cur_pinyin_seq_with_cases.length() - 1) <= 'z' && //
+        cur_pinyin_seq_with_cases.at(cur_pinyin_seq_with_cases.length() - 1) >= 'a')
+    {
+        CloudIme::OnInputChanged(g_dictQuery->get_quanpin());
+    }
 
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
