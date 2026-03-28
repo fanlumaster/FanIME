@@ -120,6 +120,26 @@ function setupTitlebarButtons(): void {
     }
   };
 
+  const postMaximizeButtonRect = () => {
+    if (!window.chrome?.webview || !(maximizeBtn instanceof HTMLElement)) {
+      return;
+    }
+
+    const rect = maximizeBtn.getBoundingClientRect();
+    window.chrome.webview.postMessage(
+      JSON.stringify({
+        type: 'maximizeButtonRect',
+        data: {
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+          dpr: window.devicePixelRatio || 1
+        }
+      })
+    );
+  };
+
   const clearMaximizeHoverTimer = () => {
     if (maximizeHoverTimer !== null) {
       window.clearTimeout(maximizeHoverTimer);
@@ -137,6 +157,45 @@ function setupTitlebarButtons(): void {
   };
 
   windowControls?.addEventListener('mouseenter', restoreWindowControlsHoverState);
+
+  if (window.chrome?.webview && maximizeBtn instanceof HTMLElement) {
+    window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
+      const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
+      if (!payload || typeof payload !== 'object') {
+        return;
+      }
+
+      if (payload.type !== 'maxButtonEvent') {
+        return;
+      }
+
+      const eventType = payload.data?.event;
+      if (typeof eventType !== 'string') {
+        return;
+      }
+
+      if (eventType === 'enter') {
+        maximizeBtn.classList.add('host-hover');
+        return;
+      }
+
+      if (eventType === 'leave') {
+        maximizeBtn.classList.remove('host-hover', 'host-active');
+        return;
+      }
+
+      if (eventType === 'down') {
+        maximizeBtn.classList.add('host-hover', 'host-active');
+        return;
+      }
+
+      if (eventType === 'up') {
+        maximizeBtn.classList.remove('host-active');
+        resetMaximizeHoverState();
+        postWindowMessage('maximize');
+      }
+    });
+  }
 
   minimizeBtn?.addEventListener('click', () => {
     windowControls?.classList.add('window-controls-click-reset');
@@ -174,6 +233,15 @@ function setupTitlebarButtons(): void {
     postWindowMessage('maximize');
   });
   closeBtn?.addEventListener('click', () => postWindowMessage('close'));
+
+  postMaximizeButtonRect();
+
+  if (maximizeBtn instanceof HTMLElement) {
+    const observer = new ResizeObserver(() => postMaximizeButtonRect());
+    observer.observe(maximizeBtn);
+  }
+
+  window.addEventListener('resize', postMaximizeButtonRect);
 }
 
 function setupTitlebarDrag(): void {

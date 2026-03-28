@@ -55,20 +55,24 @@
   object-fit: contain;
 }
 
-.window-button:hover {
+.window-button:hover,
+.window-button.host-hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.window-button.close:hover {
+.window-button.close:hover,
+.window-button.close.host-hover {
   background: #c42b1c;
   color: #ffffff;
 }
 
-.window-button:active {
+.window-button:active,
+.window-button.host-active {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.window-button.close:active {
+.window-button.close:active,
+.window-button.close.host-active {
   background: #a72216;
 }
 
@@ -93,7 +97,8 @@
   z-index: 10;
 }
 
-.window-button[data-tooltip]:hover::after {
+.window-button[data-tooltip]:hover::after,
+.window-button.host-hover[data-tooltip]::after {
   opacity: 1;
   transform: translateX(-50%) translateY(2px);
   transition-delay: 1s;
