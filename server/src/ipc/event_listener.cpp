@@ -659,6 +659,8 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
     size_t insert_index = Global::CandidateList.size() >= 1 ? 1 : 0;
     Global::CandidateList.insert(Global::CandidateList.begin() + insert_index, std::make_tuple(pinyin, candidate, 1));
+    // 还需要更新一下 dictionary 中的 cache
+    g_dictQuery->insert_word_to_cached_buffer_series(g_dictQuery->get_pinyin_sequence(), candidate);
 
     Global::ItemTotalCount = static_cast<int>(Global::CandidateList.size());
     Global::PageIndex = 0;
