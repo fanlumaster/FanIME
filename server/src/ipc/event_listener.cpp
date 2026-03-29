@@ -637,6 +637,10 @@ void PrepareCandidateList()
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
 {
     (void)generation;
+
+    // 先清空状态，只需要懒清空 added 标志位即可
+    Global::cloud_candidate.added = false;
+
     if (candidate.empty())
         return;
 
@@ -661,6 +665,10 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     Global::CandidateList.insert(Global::CandidateList.begin() + insert_index, std::make_tuple(pinyin, candidate, 1));
     // 还需要更新一下 dictionary 中的 cache
     g_dictQuery->insert_word_to_cached_buffer_series(g_dictQuery->get_pinyin_sequence(), candidate);
+    // 标记一下，云候选已经被加进来了
+    Global::cloud_candidate.added = true;
+    Global::cloud_candidate.word = candidate;
+    Global::cloud_candidate.pinyin = g_dictQuery->get_pure_pinyin_sequence();
 
     Global::ItemTotalCount = static_cast<int>(Global::CandidateList.size());
     Global::PageIndex = 0;
@@ -992,6 +1000,17 @@ void ProcessSelectionKey(UINT keycode)
                 GlobalIme::preedit_during_creating_word.clear();
                 GlobalIme::is_during_creating_word = false;
             }
+        }
+
+        // 看看云联想出来的词是否需要被插入到数据库
+        if (Global::cloud_candidate.added &&
+            Global::cloud_candidate.word == wstring_to_string(Global::SelectedCandidateString))
+        {
+            g_dictQuery->create_word(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
+            // 清理云联想变量状态
+            Global::cloud_candidate.added = false;
+            Global::cloud_candidate.word.clear();
+            Global::cloud_candidate.pinyin.clear();
         }
 
         if (!isNeedCreateWord)

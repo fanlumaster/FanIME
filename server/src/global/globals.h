@@ -60,6 +60,17 @@ namespace Global
 {
 inline LONG INVALID_Y = -100000;
 inline int MarginTop = 0;
+
+//
+// 云候选
+//
+struct CloudCandidate
+{
+    bool added = false;
+    std::string word;
+    std::string pinyin;
+};
+inline CloudCandidate cloud_candidate;
 } // namespace Global
 
 namespace GlobalSettings
