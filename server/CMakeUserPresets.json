@@ -6,6 +6,12 @@
       "inherits": "vcpkg",
       "generator": "Visual Studio 18 2026",
       "binaryDir": "${sourceDir}/build"
+    },
+    {
+      "name": "default-release",
+      "inherits": "vcpkg-release",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build-release"
     }
   ]
 }

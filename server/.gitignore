@@ -6,3 +6,4 @@ log.*
 /tests/CMakeLists.txt
 /tests/CMakePresets.json
 /.vs
+build-release/
