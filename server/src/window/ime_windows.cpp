@@ -624,6 +624,15 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         break;
     }
 
+    case WM_CLEAR_IME_ENGINE_CACHE: {
+#ifdef FANY_DEBUG
+        OutputDebugString(L"[msime]: Clearing IME engine cache");
+#endif
+        /* 清除候选词缓存 */
+        g_dictQuery->reset_cache();
+        break;
+    }
+
     case WM_DESTROY: {
         PostQuitMessage(0);
         break;

@@ -66,6 +66,14 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         }
 
         //
+        // Ctrl + Shift + Alt + C to clear ime engine cache
+        //
+        if (ctrl && shift && alt && p->vkCode == 'C')
+        {
+            PostMessage(::global_hwnd, WM_CLEAR_IME_ENGINE_CACHE, 0, 0);
+        }
+
+        //
         // Ctrl + Alt + Shift + 1-8 to delete candidate
         //
         if (!::is_global_wnd_cand_shown)
