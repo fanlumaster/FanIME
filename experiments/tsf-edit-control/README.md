@@ -1,77 +1,58 @@
 # TsfEditControl
 
-一个独立的 Win32 TSF 编辑控件工程，当前实现基于 Direct2D / DirectWrite 渲染，并把 TSF 文本输入、组合串绘制、候选框定位和软换行都收进了控件内部。
+一个基于 Win32 TSF 的编辑控件实验工程，使用 Direct2D / DirectWrite 负责绘制。项目里把文本输入、组合串显示、候选框定位和基础编辑逻辑放进了控件本身，demo 只是一个最小宿主。
 
-## 当前能力
+## 功能
 
 - Direct2D / DirectWrite 文本渲染
-- TSF 文本服务接入
+- TSF 输入法接入
 - preedit / display attribute 绘制
 - 候选框位置上报
 - 软换行
-- 基础选区、插入点与鼠标命中
-- 独立 demo 宿主程序
+- 选区、插入点和鼠标命中
+- 独立 demo 程序
 
-## 目录结构
+## 目录
 
-- `include/TsfD2DTextBox.h`
-  当前公开头文件。
-- `src/`
-  控件内部实现与 TSF 支撑代码。
-- `demo/TsfD2DTextBoxDemo.cpp`
-  最小宿主示例。
-- `CMakeLists.txt`
-  顶层工程文件，可直接单独配置。
-- `vcpkg.json`
-  当前依赖清单。
-- `CMakePresets.json`
-  预置的 VS2022 + vcpkg 配置。
-
-## 生成目标
-
-- `TsfEditControl`
-  静态库目标。
-- `TsfD2DTextBox`
-  兼容别名目标，方便旧命名逐步迁移。
-- `TsfEditControlDemo`
-  demo 可执行文件。
+- `include/TsfD2DTextBox.h`：对外头文件
+- `src/`：控件实现和 TSF 相关代码
+- `demo/TsfD2DTextBoxDemo.cpp`：最小示例程序
+- `CMakeLists.txt`：顶层 CMake 配置
+- `CMakePresets.json`：VS2022 + vcpkg preset
+- `vcpkg.json`：依赖声明
 
 ## 构建
 
-如果你已经在本机装好了 vcpkg，并且路径和 preset 里的设置一致，可以直接执行：
+如果本机已经装好了 vcpkg，并且 preset 里的路径配置可用，可以直接执行：
 
 ```powershell
 cmake --preset vcpkg
 cmake --build --preset debug
 ```
 
-生成后的 demo 默认在：
+生成的 demo 默认位于：
 
 ```text
 build/bin/Debug/TsfEditControlDemo.exe
 ```
 
-## 现阶段说明
+## 生成目标
 
-当前对外类型名还是 `TsfD2DTextBox`，这是为了先保持 API 稳定。后续如果你决定正式把它演进成通用 edit 控件，我们可以再一起做一轮命名收口，把：
+- `TsfEditControl`：静态库
+- `TsfD2DTextBox`：兼容旧命名的别名 target
+- `TsfEditControlDemo`：demo 可执行文件
 
-- 文件名
-- 类名
-- CMake target 名
-- demo 名称
+## 命名说明
 
-统一成 `TsfEditControl` 风格。
+对外类型名暂时还是 `TsfD2DTextBox`，主要是为了不动现有接口。工程名和 target 已经改成了 `TsfEditControl`，后面如果要统一命名，再一起收口文件名、类名和 demo 名称。
 
 ## 脚本
 
-`scripts/` 目录里现在提供了几份 PowerShell 脚本：
+`scripts/` 目录提供了几个常用脚本：
 
-- `./scripts/configure.ps1`
-  一键执行 CMake configure。
-- `./scripts/build.ps1`
-  一键配置并编译，默认 `Debug`。
-- `./scripts/run-demo.ps1`
-  一键配置、编译并启动 demo。
+- `./scripts/configure.ps1`：执行 CMake configure
+- `./scripts/build.ps1`：配置并编译，默认 `Debug`
+- `./scripts/run-demo.ps1`：配置、编译并启动 demo
 
 示例：
 
