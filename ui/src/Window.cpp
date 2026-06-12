@@ -19,19 +19,34 @@ Window::~Window() = default;
 
 bool Window::Create()
 {
+    HICON largeIcon = static_cast<HICON>(
+        LoadImageW(instance_, MAKEINTRESOURCEW(101), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0));
+    HICON smallIcon = static_cast<HICON>(LoadImageW(instance_, MAKEINTRESOURCEW(101), IMAGE_ICON,
+                                                    GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
+
     WNDCLASSEXW windowClass = {};
     windowClass.cbSize = sizeof(windowClass);
     windowClass.lpfnWndProc = WindowProc;
     windowClass.hInstance = instance_;
+    windowClass.hIcon = largeIcon;
     windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
     windowClass.hbrBackground = nullptr;
     windowClass.lpszClassName = className_.c_str();
+    windowClass.hIconSm = smallIcon;
     RegisterClassExW(&windowClass);
 
     hwnd_ = CreateWindowExW(0, className_.c_str(), title_.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                             width_, height_, nullptr, nullptr, instance_, this);
     if (hwnd_)
     {
+        if (largeIcon)
+        {
+            SendMessageW(hwnd_, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(largeIcon));
+        }
+        if (smallIcon)
+        {
+            SendMessageW(hwnd_, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(smallIcon));
+        }
         SetTimer(hwnd_, 1, GetCaretBlinkTime(), nullptr);
     }
     return hwnd_ != nullptr;

@@ -74,6 +74,8 @@ add_executable(msimeui-demo WIN32
     demos/msimeui-demo/DemoScene.cpp
     demos/msimeui-demo/DemoScene.h
     demos/msimeui-demo/main.cpp
+    demos/msimeui-demo/msimeui-demo.rc
+    demos/msimeui-demo/resource.h
 )
 
 target_link_libraries(msimeui-demo PRIVATE msimeui)
