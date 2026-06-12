@@ -187,6 +187,13 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_MOUSEWHEEL:
+        if (OnMouseWheel(wParam, lParam))
+        {
+            return 0;
+        }
+        break;
+
     case WM_KEYDOWN:
         if (wParam == VK_ESCAPE && focusedVisual_)
         {
@@ -296,6 +303,18 @@ void Window::OnSize()
     }
 
     InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+bool Window::OnMouseWheel(WPARAM wParam, LPARAM lParam)
+{
+    if (!scene_)
+    {
+        return false;
+    }
+
+    POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    ScreenToClient(hwnd_, &point);
+    return scene_->OnMouseWheel(point, GET_WHEEL_DELTA_WPARAM(wParam), GET_KEYSTATE_WPARAM(wParam));
 }
 
 bool Window::UpdateCursorForClientPoint(const POINT &point)

@@ -15,6 +15,7 @@ class Scene
     void Render(DeviceResources &deviceResources);
     Visual *FindVisualAt(const PointF &point);
     Visual *FindFocusableAt(const PointF &point);
+    bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState);
 
   private:
     std::shared_ptr<Visual> root_;

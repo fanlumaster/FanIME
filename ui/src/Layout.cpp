@@ -89,6 +89,14 @@ bool Visual::OnMouseMove(const POINT &point, WPARAM keyState)
     return false;
 }
 
+bool Visual::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
+{
+    (void)point;
+    (void)delta;
+    (void)keyState;
+    return false;
+}
+
 bool Visual::OnKeyDown(WPARAM key, LPARAM lParam)
 {
     (void)key;
@@ -342,6 +350,132 @@ void WrapPanel::Render(DeviceResources &deviceResources)
     {
         child->Render(deviceResources);
     }
+}
+
+ScrollViewer::ScrollViewer(std::shared_ptr<Visual> content) : content_(std::move(content))
+{
+}
+
+SizeF ScrollViewer::Measure(const SizeF &availableSize)
+{
+    if (!content_)
+    {
+        return availableSize;
+    }
+
+    measuredContent_ = content_->Measure({availableSize.width, 1000000.0f});
+    return availableSize;
+}
+
+void ScrollViewer::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    ClampScrollOffset();
+
+    if (content_)
+    {
+        content_->Arrange({finalRect.x, finalRect.y - scrollOffsetY_, finalRect.width, measuredContent_.height});
+    }
+}
+
+void ScrollViewer::Render(DeviceResources &deviceResources)
+{
+    if (!content_)
+    {
+        return;
+    }
+
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    target->PushAxisAlignedClip(
+        D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
+        D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    content_->Render(deviceResources);
+    target->PopAxisAlignedClip();
+}
+
+void ScrollViewer::Attach(Window *window)
+{
+    Visual::Attach(window);
+    if (content_)
+    {
+        content_->Attach(window);
+    }
+}
+
+Visual *ScrollViewer::FindVisualAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    if (content_)
+    {
+        if (Visual *hit = content_->FindVisualAt(point))
+        {
+            return hit;
+        }
+    }
+
+    return this;
+}
+
+Visual *ScrollViewer::FindFocusableAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    if (content_)
+    {
+        return content_->FindFocusableAt(point);
+    }
+
+    return nullptr;
+}
+
+Visual *ScrollViewer::FindFirstFocusableDescendant()
+{
+    return content_ ? content_->FindFirstFocusableDescendant() : nullptr;
+}
+
+bool ScrollViewer::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
+{
+    (void)keyState;
+
+    if (!window_ || !HitTest(window_->ClientPixelsToDips(point)))
+    {
+        return false;
+    }
+
+    const float maxOffset = std::max(measuredContent_.height - bounds_.height, 0.0f);
+    if (maxOffset <= 0.0f)
+    {
+        return false;
+    }
+
+    scrollOffsetY_ = std::clamp(scrollOffsetY_ - (static_cast<float>(delta) / static_cast<float>(WHEEL_DELTA)) * 72.0f, 0.0f,
+                                maxOffset);
+
+    if (content_)
+    {
+        content_->Arrange({bounds_.x, bounds_.y - scrollOffsetY_, bounds_.width, measuredContent_.height});
+    }
+
+    window_->Invalidate();
+    return true;
+}
+
+void ScrollViewer::ClampScrollOffset()
+{
+    const float maxOffset = std::max(measuredContent_.height - bounds_.height, 0.0f);
+    scrollOffsetY_ = std::clamp(scrollOffsetY_, 0.0f, maxOffset);
 }
 
 Card::Card(Brush brush, float padding) : brush_(brush), padding_(padding)

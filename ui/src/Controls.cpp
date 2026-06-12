@@ -15,6 +15,18 @@ using Microsoft::WRL::ComPtr;
 
 namespace
 {
+IDWriteFactory *GetSharedDWriteFactory()
+{
+    static ComPtr<IDWriteFactory> factory;
+    if (!factory)
+    {
+        DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                            reinterpret_cast<IUnknown **>(factory.GetAddressOf()));
+    }
+
+    return factory.Get();
+}
+
 constexpr float kControlCornerRadius = 12.0f;
 constexpr float kControlPaddingX = 16.0f;
 constexpr float kControlPaddingY = 10.0f;
@@ -155,8 +167,7 @@ void Button::SetOnClick(ClickHandler handler)
 SizeF Button::Measure(const SizeF &availableSize)
 {
     const float textWidth = std::max(availableSize.width - kControlPaddingX * 2.0f, 1.0f);
-    const SizeF measuredText = MeasureText(window_ ? window_->GetDeviceResources().GetDWriteFactory() : nullptr, text_, 16.0f, true,
-                                           textWidth);
+    const SizeF measuredText = MeasureText(GetSharedDWriteFactory(), text_, 16.0f, true, textWidth);
     return {std::min(availableSize.width, measuredText.width + kControlPaddingX * 2.0f),
             std::max(preferredHeight_, measuredText.height + kControlPaddingY * 2.0f)};
 }
@@ -287,8 +298,7 @@ void CheckBox::SetChecked(bool checked)
 SizeF CheckBox::Measure(const SizeF &availableSize)
 {
     const float textWidth = std::max(availableSize.width - kCheckBoxIndicatorSize - 12.0f, 1.0f);
-    const SizeF measuredText = MeasureText(window_ ? window_->GetDeviceResources().GetDWriteFactory() : nullptr, text_, 15.0f, false,
-                                           textWidth);
+    const SizeF measuredText = MeasureText(GetSharedDWriteFactory(), text_, 15.0f, false, textWidth);
     return {std::min(availableSize.width, kCheckBoxIndicatorSize + 12.0f + measuredText.width),
             std::max(28.0f, measuredText.height)};
 }

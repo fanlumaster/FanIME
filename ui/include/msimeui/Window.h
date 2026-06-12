@@ -33,6 +33,7 @@ class Window
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
     void OnPaint();
     void OnSize();
+    bool OnMouseWheel(WPARAM wParam, LPARAM lParam);
     void SetFocusedVisual(Visual *visual);
     bool UpdateCursorForClientPoint(const POINT &point);
 

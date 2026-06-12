@@ -32,6 +32,7 @@ class Visual
     virtual bool OnMouseDown(const POINT &point, WPARAM keyState);
     virtual bool OnMouseUp(const POINT &point, WPARAM keyState);
     virtual bool OnMouseMove(const POINT &point, WPARAM keyState);
+    virtual bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState);
     virtual bool OnKeyDown(WPARAM key, LPARAM lParam);
     virtual bool OnChar(wchar_t ch, LPARAM lParam);
     virtual bool OnTimer(UINT_PTR timerId);
@@ -108,6 +109,28 @@ class WrapPanel : public Panel
     SizeF measured_ = {};
     std::vector<SizeF> measuredChildren_;
     std::vector<RowItem> rowItems_;
+};
+
+class ScrollViewer : public Visual
+{
+  public:
+    explicit ScrollViewer(std::shared_ptr<Visual> content);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState) override;
+
+  private:
+    void ClampScrollOffset();
+
+    std::shared_ptr<Visual> content_;
+    SizeF measuredContent_ = {};
+    float scrollOffsetY_ = 0.0f;
 };
 
 class Card : public Panel

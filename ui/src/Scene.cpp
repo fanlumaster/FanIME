@@ -55,4 +55,9 @@ Visual *Scene::FindFocusableAt(const PointF &point)
 {
     return root_ ? root_->FindFocusableAt(point) : nullptr;
 }
+
+bool Scene::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
+{
+    return root_ ? root_->OnMouseWheel(point, delta, keyState) : false;
+}
 } // namespace msimeui

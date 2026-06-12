@@ -137,7 +137,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     root->AddChild(searchCard);
 
     auto scene = std::make_unique<Scene>();
-    scene->SetRoot(root);
+    scene->SetRoot(std::make_shared<ScrollViewer>(root));
     return scene;
 }
 } // namespace msimeui
