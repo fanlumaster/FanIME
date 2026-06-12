@@ -307,9 +307,9 @@ bool Window::UpdateCursorForClientPoint(const POINT &point)
     }
 
     const PointF dipPoint = ClientPixelsToDips(point);
-    Visual *focusTarget = scene_->FindFocusableAt(dipPoint);
-    SetCursor(LoadCursor(nullptr, focusTarget ? IDC_IBEAM : IDC_ARROW));
-    return focusTarget != nullptr;
+    Visual *target = scene_->FindVisualAt(dipPoint);
+    SetCursor(target ? target->GetCursor() : LoadCursor(nullptr, IDC_ARROW));
+    return target != nullptr;
 }
 
 void Window::SetFocusedVisual(Visual *visual)

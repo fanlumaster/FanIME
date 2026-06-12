@@ -109,6 +109,11 @@ bool Visual::OnTimer(UINT_PTR timerId)
     return false;
 }
 
+HCURSOR Visual::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_ARROW);
+}
+
 const RectF &Visual::GetBounds() const
 {
     return bounds_;
@@ -234,6 +239,111 @@ void StackPanel::Render(DeviceResources &deviceResources)
     }
 }
 
+HorizontalStackPanel::HorizontalStackPanel(float spacing) : spacing_(spacing)
+{
+}
+
+SizeF HorizontalStackPanel::Measure(const SizeF &availableSize)
+{
+    measuredChildren_.clear();
+
+    float width = 0.0f;
+    float height = 0.0f;
+    for (const auto &child : children_)
+    {
+        const SizeF measured = child->Measure(availableSize);
+        measuredChildren_.push_back(measured);
+        width += measured.width;
+        height = std::max(height, measured.height);
+    }
+
+    if (!children_.empty())
+    {
+        width += spacing_ * static_cast<float>(children_.size() - 1);
+    }
+
+    return {std::min(width, availableSize.width), std::min(height, availableSize.height)};
+}
+
+void HorizontalStackPanel::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+
+    float cursorX = finalRect.x;
+    for (size_t index = 0; index < children_.size(); ++index)
+    {
+        const SizeF measured = measuredChildren_[index];
+        children_[index]->Arrange({cursorX, finalRect.y, measured.width, finalRect.height});
+        cursorX += measured.width + spacing_;
+    }
+}
+
+void HorizontalStackPanel::Render(DeviceResources &deviceResources)
+{
+    for (const auto &child : children_)
+    {
+        child->Render(deviceResources);
+    }
+}
+
+WrapPanel::WrapPanel(float spacing, float runSpacing) : spacing_(spacing), runSpacing_(runSpacing)
+{
+}
+
+SizeF WrapPanel::Measure(const SizeF &availableSize)
+{
+    measuredChildren_.clear();
+    rowItems_.clear();
+
+    const float maxWidth = std::max(availableSize.width, 1.0f);
+    float currentX = 0.0f;
+    float currentY = 0.0f;
+    float rowHeight = 0.0f;
+    float measuredWidth = 0.0f;
+
+    for (size_t index = 0; index < children_.size(); ++index)
+    {
+        const SizeF childSize = children_[index]->Measure(availableSize);
+        measuredChildren_.push_back(childSize);
+
+        const bool wrap = currentX > 0.0f && (currentX + childSize.width) > maxWidth;
+        if (wrap)
+        {
+            measuredWidth = std::max(measuredWidth, currentX - spacing_);
+            currentX = 0.0f;
+            currentY += rowHeight + runSpacing_;
+            rowHeight = 0.0f;
+        }
+
+        rowItems_.push_back({index, childSize, currentX, currentY});
+        currentX += childSize.width + spacing_;
+        rowHeight = std::max(rowHeight, childSize.height);
+    }
+
+    measuredWidth = std::max(measuredWidth, currentX > 0.0f ? currentX - spacing_ : 0.0f);
+    measured_ = {std::min(measuredWidth, availableSize.width), std::min(currentY + rowHeight, availableSize.height)};
+    return measured_;
+}
+
+void WrapPanel::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+
+    for (const RowItem &item : rowItems_)
+    {
+        children_[item.childIndex]->Arrange(
+            {finalRect.x + item.x, finalRect.y + item.y, item.size.width, item.size.height});
+    }
+}
+
+void WrapPanel::Render(DeviceResources &deviceResources)
+{
+    for (const auto &child : children_)
+    {
+        child->Render(deviceResources);
+    }
+}
+
 Card::Card(Brush brush, float padding) : brush_(brush), padding_(padding)
 {
 }
@@ -296,6 +406,15 @@ void Card::Render(DeviceResources &deviceResources)
 TextBlock::TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool bold)
     : text_(std::move(text)), fontSize_(fontSize), color_(color), bold_(bold)
 {
+}
+
+void TextBlock::SetText(std::wstring text)
+{
+    text_ = std::move(text);
+    if (window_)
+    {
+        window_->Invalidate();
+    }
 }
 
 SizeF TextBlock::Measure(const SizeF &availableSize)

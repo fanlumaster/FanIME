@@ -15,6 +15,8 @@
 - `msimeui-demo` 示例程序
 - D2D/DWrite 设备资源管理
 - 基础布局和控件树
+- `StackPanel` / `HorizontalStackPanel` / `WrapPanel`
+- `TextBlock` / `Button` / `CheckBox` / `ProgressBar` / `Slider` / `Separator`
 - `TextBox` 输入控件
 
 ## 构建
@@ -82,5 +84,5 @@ build/bin/Debug/msimeui-demo.exe
 ## 后续工作
 
 - 继续完善 `TextBox` 的输入、样式和布局能力
-- 增加按钮、滚动容器、列表和样式系统
+- 增加滚动容器、列表、树、菜单和弹出层
 - 引入资源字典、主题和声明式界面描述

@@ -458,6 +458,11 @@ bool TextBox::OnTimer(UINT_PTR timerId)
     return true;
 }
 
+HCURSOR TextBox::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_IBEAM);
+}
+
 POINT TextBox::ToLocalPoint(const POINT &point) const
 {
     const RECT hostRect = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);

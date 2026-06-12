@@ -20,6 +20,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 add_library(msimeui STATIC
     src/Application.cpp
     src/Brush.cpp
+    src/Controls.cpp
     src/DebugLog.cpp
     src/DeviceResources.cpp
     src/TextBox.cpp

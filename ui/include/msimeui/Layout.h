@@ -4,6 +4,7 @@
 #include "Types.h"
 
 #include <dwrite.h>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,6 +35,7 @@ class Visual
     virtual bool OnKeyDown(WPARAM key, LPARAM lParam);
     virtual bool OnChar(wchar_t ch, LPARAM lParam);
     virtual bool OnTimer(UINT_PTR timerId);
+    virtual HCURSOR GetCursor() const;
 
     const RectF &GetBounds() const;
 
@@ -69,6 +71,45 @@ class StackPanel : public Panel
     std::vector<SizeF> measuredChildren_;
 };
 
+class HorizontalStackPanel : public Panel
+{
+  public:
+    explicit HorizontalStackPanel(float spacing = 0.0f);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+
+  private:
+    float spacing_ = 0.0f;
+    std::vector<SizeF> measuredChildren_;
+};
+
+class WrapPanel : public Panel
+{
+  public:
+    explicit WrapPanel(float spacing = 0.0f, float runSpacing = 0.0f);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+
+  private:
+    struct RowItem
+    {
+        size_t childIndex = 0;
+        SizeF size = {};
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+
+    float spacing_ = 0.0f;
+    float runSpacing_ = 0.0f;
+    SizeF measured_ = {};
+    std::vector<SizeF> measuredChildren_;
+    std::vector<RowItem> rowItems_;
+};
+
 class Card : public Panel
 {
   public:
@@ -88,6 +129,7 @@ class TextBlock : public Visual
 {
   public:
     TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool bold = false);
+    void SetText(std::wstring text);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
