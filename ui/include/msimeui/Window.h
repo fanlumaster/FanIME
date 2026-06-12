@@ -34,6 +34,7 @@ class Window
     void OnPaint();
     void OnSize();
     void SetFocusedVisual(Visual *visual);
+    bool UpdateCursorForClientPoint(const POINT &point);
 
     std::wstring className_;
     std::wstring title_;

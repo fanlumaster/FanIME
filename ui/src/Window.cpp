@@ -175,6 +175,7 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     case WM_MOUSEMOVE:
     {
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        UpdateCursorForClientPoint(point);
         if (capturedVisual_)
         {
             capturedVisual_->OnMouseMove(point, wParam);
@@ -187,6 +188,11 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_KEYDOWN:
+        if (wParam == VK_ESCAPE && focusedVisual_)
+        {
+            SetFocusedVisual(nullptr);
+            return 0;
+        }
         if (focusedVisual_ && focusedVisual_->OnKeyDown(wParam, lParam))
         {
             return 0;
@@ -218,6 +224,17 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         if (focusedVisual_ && focusedVisual_->OnTimer(wParam))
         {
             return 0;
+        }
+        break;
+
+    case WM_SETCURSOR:
+        if (LOWORD(lParam) == HTCLIENT)
+        {
+            POINT point = {};
+            GetCursorPos(&point);
+            ScreenToClient(hwnd_, &point);
+            UpdateCursorForClientPoint(point);
+            return TRUE;
         }
         break;
 
@@ -279,6 +296,20 @@ void Window::OnSize()
     }
 
     InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+bool Window::UpdateCursorForClientPoint(const POINT &point)
+{
+    if (!scene_)
+    {
+        SetCursor(LoadCursor(nullptr, IDC_ARROW));
+        return false;
+    }
+
+    const PointF dipPoint = ClientPixelsToDips(point);
+    Visual *focusTarget = scene_->FindFocusableAt(dipPoint);
+    SetCursor(LoadCursor(nullptr, focusTarget ? IDC_IBEAM : IDC_ARROW));
+    return focusTarget != nullptr;
 }
 
 void Window::SetFocusedVisual(Visual *visual)

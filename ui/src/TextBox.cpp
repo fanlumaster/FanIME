@@ -142,7 +142,7 @@ void TextBox::Render(DeviceResources &deviceResources)
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
                           kTextBoxCornerRadius, kTextBoxCornerRadius);
     target->FillRoundedRectangle(rect, fillBrush.Get());
-    target->DrawRoundedRectangle(rect, strokeBrush.Get(), focused_ ? 2.0f : 1.0f);
+    target->DrawRoundedRectangle(rect, strokeBrush.Get(), 1.0f);
 
     const float paddingDips = window_ ? PixelsToDips(kTextBoxContentPaddingPixels, window_->GetDpi()) : kTextBoxContentPaddingPixels;
     const float contentWidth = std::max(bounds_.width - paddingDips * 2.0f, 0.0f);
@@ -164,6 +164,7 @@ void TextBox::Attach(Window *window)
     {
         editor_->SetWnd(window->GetHandle());
         editor_->SetFont(&font_);
+        editor_->SetCaretVisible(FALSE);
         if (!tsfInitialized_)
         {
             tsfInitialized_ = InitializeTsfTextServices(window->GetInstance()) && editor_->InitTSF();
@@ -219,6 +220,10 @@ void TextBox::OnFocusChanged(bool focused)
     }
 
     focused_ = focused;
+    if (editor_)
+    {
+        editor_->SetCaretVisible(focused_ ? TRUE : FALSE);
+    }
     if (focused_ && editor_ && tsfInitialized_)
     {
         editor_->SetFocusDocumentMgr();
@@ -334,6 +339,9 @@ bool TextBox::OnKeyDown(WPARAM key, LPARAM lParam)
 
     switch (0xff & key)
     {
+    case VK_ESCAPE:
+        return false;
+
     case VK_LEFT:
         if (GetKeyState(VK_SHIFT) & 0x80)
         {

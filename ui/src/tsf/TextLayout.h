@@ -94,6 +94,10 @@ class CTextLayout
     UINT FineFirstEndCharPosInLine(UINT uCurPos, BOOL bFirst);
     void ToggleCaretBlink();
     void ResetCaretBlink();
+    void SetCaretVisible(BOOL fVisible)
+    {
+        _fCaretVisible = fVisible;
+    }
     void SetInterimCaret(BOOL fSet, UINT uPos);
     BOOL IsInterimCaret()
     {

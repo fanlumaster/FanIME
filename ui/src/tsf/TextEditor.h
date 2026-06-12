@@ -70,6 +70,10 @@ class CTextEditor : public CTextContainer
     {
         _layout.ToggleCaretBlink();
     }
+    void SetCaretVisible(BOOL fVisible)
+    {
+        _layout.SetCaretVisible(fVisible);
+    }
 
     void SetInterimCaret(BOOL fSet)
     {
