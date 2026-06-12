@@ -1,0 +1,20 @@
+CompileFlags:
+  Add: [
+      "-std=c++17",
+      "-DUNICODE",
+      "-D_UNICODE",
+      "-DNOMINMAX",
+      "-DWIN32_LEAN_AND_MEAN",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/RelatedProjects/msimeui/include",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/RelatedProjects/msimeui/src",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/RelatedProjects/msimeui/src/tsf",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/RelatedProjects/msimeui/demos/msimeui-demo",
+      "-Wno-unused-includes",
+      "-Wno-microsoft-goto",
+      "-Wno-nonportable-include-path",
+      "-Wno-microsoft-extra-qualification",
+      "-Wno-invalid-token-paste",
+    ]
+
+Diagnostics:
+  UnusedIncludes: None

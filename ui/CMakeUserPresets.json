@@ -1,0 +1,44 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "vcpkg-debug",
+      "displayName": "Visual Studio 2026 + vcpkg (Debug)",
+      "inherits": "vs2026-base",
+      "environment": {
+        "VCPKG_ROOT": "C:/Users/SonnyCalcr/scoop/apps/vcpkg/current"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "C:/Users/SonnyCalcr/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+    {
+      "name": "vcpkg-release",
+      "displayName": "Visual Studio 2026 + vcpkg (Release)",
+      "inherits": "vs2026-base",
+      "environment": {
+        "VCPKG_ROOT": "C:/Users/SonnyCalcr/scoop/apps/vcpkg/current"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "C:/Users/SonnyCalcr/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "vcpkg-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "vcpkg-release",
+      "configuration": "Release"
+    }
+  ]
+}
