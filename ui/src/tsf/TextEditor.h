@@ -57,6 +57,11 @@ class CTextEditor : public CTextContainer
     void SetFont(const LOGFONT *plf);
     void Render(ID2D1HwndRenderTarget *pRenderTarget);
     void UpdateLayout();
+    void NotifyLayoutChange();
+    void SetContentPadding(const RECT &rcPadding)
+    {
+        _rcContentPadding = rcPadding;
+    }
 
     UINT GetSelectionStart()
     {
@@ -128,6 +133,7 @@ class CTextEditor : public CTextContainer
     UINT _nSelEnd;
     HWND _hwnd;
     RECT _rcHost = {};
+    RECT _rcContentPadding = {};
 
     CTextLayout _layout;
     LOGFONT _lfCurrentFont;

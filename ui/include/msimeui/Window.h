@@ -25,6 +25,7 @@ class Window
     SizeF ClientPixelsToDips(const SIZE &size) const;
     RECT DipsToClientPixels(const RectF &rect) const;
     void Invalidate();
+    void Relayout();
 
     void SetScene(std::unique_ptr<Scene> scene);
 

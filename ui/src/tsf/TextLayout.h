@@ -84,7 +84,9 @@ class CTextLayout
     }
 
     BOOL Initialize(IDWriteFactory *pDWriteFactory);
-    BOOL Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY);
+    BOOL Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY,
+                FLOAT paddingLeftPixels = 0.0f, FLOAT paddingTopPixels = 0.0f, FLOAT paddingRightPixels = 0.0f,
+                FLOAT paddingBottomPixels = 0.0f);
     BOOL Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
                 const COMPOSITIONRENDERINFO *pCompositionRenderInfo, UINT nCompositionRenderInfo);
     BOOL RectFromCharPos(UINT nPos, RECT *prc);

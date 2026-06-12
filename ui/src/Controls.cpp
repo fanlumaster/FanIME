@@ -33,6 +33,10 @@ constexpr float kControlPaddingY = 10.0f;
 constexpr float kCheckBoxIndicatorSize = 20.0f;
 constexpr float kSliderTrackHeight = 6.0f;
 constexpr float kSliderThumbRadius = 9.0f;
+constexpr float kListItemCornerRadius = 14.0f;
+constexpr float kTreeIndent = 22.0f;
+constexpr float kTabCornerRadius = 12.0f;
+constexpr float kAccordionCornerRadius = 14.0f;
 
 RectF MakeInsetRect(const RectF &rect, float insetX, float insetY)
 {
@@ -152,6 +156,36 @@ void FillRoundedRect(ID2D1HwndRenderTarget *target, const RectF &bounds, float r
         D2D1::RoundedRect(D2D1::RectF(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height), radius, radius);
     target->FillRoundedRectangle(rounded, fillBrush.Get());
     target->DrawRoundedRectangle(rounded, strokeBrush.Get(), strokeWidth);
+}
+
+void DrawLabel(DeviceResources &deviceResources, const std::wstring &text, float fontSize, bool bold, D2D1_COLOR_F color,
+               const RectF &rect, DWRITE_TEXT_ALIGNMENT alignment, DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment,
+               DWRITE_WORD_WRAPPING wrapping = DWRITE_WORD_WRAPPING_NO_WRAP)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    IDWriteFactory *factory = deviceResources.GetDWriteFactory();
+    if (!target || !factory)
+    {
+        return;
+    }
+
+    ComPtr<IDWriteTextFormat> format;
+    if (FAILED(factory->CreateTextFormat(L"Segoe UI", nullptr,
+                                         bold ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                                         DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, L"",
+                                         format.GetAddressOf())))
+    {
+        return;
+    }
+
+    format->SetWordWrapping(wrapping);
+    format->SetParagraphAlignment(paragraphAlignment);
+    format->SetTextAlignment(alignment);
+
+    ComPtr<ID2D1SolidColorBrush> brush;
+    target->CreateSolidColorBrush(color, brush.GetAddressOf());
+    target->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), format.Get(),
+                      D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), brush.Get());
 }
 } // namespace
 
@@ -625,5 +659,996 @@ void Separator::Render(DeviceResources &deviceResources)
     const float centerY = bounds_.y + bounds_.height * 0.5f;
     target->DrawLine(D2D1::Point2F(bounds_.x, centerY), D2D1::Point2F(bounds_.x + bounds_.width, centerY), brush.Get(),
                      std::max(bounds_.height, 1.0f));
+}
+
+ListView::ListView(float itemHeight) : itemHeight_(itemHeight)
+{
+}
+
+void ListView::AddItem(Item item)
+{
+    items_.push_back(std::move(item));
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void ListView::ClearItems()
+{
+    items_.clear();
+    selectedIndex_ = 0;
+    pressedIndex_ = static_cast<size_t>(-1);
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void ListView::SetOnSelectionChanged(SelectionChangedHandler handler)
+{
+    onSelectionChanged_ = std::move(handler);
+}
+
+void ListView::SetSelectedIndex(size_t index)
+{
+    if (items_.empty())
+    {
+        selectedIndex_ = 0;
+        return;
+    }
+
+    const size_t clamped = std::min(index, items_.size() - 1);
+    if (selectedIndex_ == clamped)
+    {
+        return;
+    }
+
+    selectedIndex_ = clamped;
+    if (onSelectionChanged_)
+    {
+        onSelectionChanged_(selectedIndex_);
+    }
+    if (window_)
+    {
+        window_->Relayout();
+    }
+}
+
+size_t ListView::GetSelectedIndex() const
+{
+    return selectedIndex_;
+}
+
+SizeF ListView::Measure(const SizeF &availableSize)
+{
+    const float height = items_.empty() ? itemHeight_ : itemHeight_ * static_cast<float>(items_.size());
+    return {availableSize.width, std::min(height, availableSize.height)};
+}
+
+void ListView::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+void ListView::Render(DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    for (size_t index = 0; index < items_.size(); ++index)
+    {
+        const float itemY = bounds_.y + itemHeight_ * static_cast<float>(index);
+        const RectF itemRect = {bounds_.x, itemY, bounds_.width, itemHeight_ - 6.0f};
+        const bool selected = index == selectedIndex_;
+        const bool pressed = pressed_ && index == pressedIndex_;
+
+        FillRoundedRect(target, itemRect, kListItemCornerRadius,
+                        pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xFFFFFF)),
+                        selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xD6DCE5), selected || focused_ ? 2.0f : 1.0f);
+
+        const RectF titleRect = {itemRect.x + 16.0f, itemRect.y + 10.0f, std::max(itemRect.width - 120.0f, 0.0f), 22.0f};
+        const RectF subtitleRect = {itemRect.x + 16.0f, itemRect.y + 34.0f, std::max(itemRect.width - 120.0f, 0.0f), 18.0f};
+        DrawLabel(deviceResources, items_[index].title, 15.0f, true, D2D1::ColorF(0x0F172A), titleRect,
+                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        DrawLabel(deviceResources, items_[index].subtitle, 13.0f, false, D2D1::ColorF(0x64748B), subtitleRect,
+                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+
+        if (!items_[index].badge.empty())
+        {
+            const RectF badgeRect = {itemRect.x + itemRect.width - 88.0f, itemRect.y + 18.0f, 72.0f, 28.0f};
+            FillRoundedRect(target, badgeRect, 14.0f, selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xE2E8F0),
+                            selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xCBD5E1), 1.0f);
+            DrawLabel(deviceResources, items_[index].badge, 12.0f, true,
+                      selected ? D2D1::ColorF(0xFFFFFF) : D2D1::ColorF(0x334155), badgeRect,
+                      DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        }
+    }
+}
+
+bool ListView::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool ListView::IsFocusable() const
+{
+    return true;
+}
+
+void ListView::OnFocusChanged(bool focused)
+{
+    focused_ = focused;
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+bool ListView::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const size_t hit = HitTestItem(dipPoint);
+    if (hit == static_cast<size_t>(-1))
+    {
+        return false;
+    }
+
+    pressed_ = true;
+    pressedIndex_ = hit;
+    window_->Invalidate();
+    return true;
+}
+
+bool ListView::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const size_t hit = HitTestItem(dipPoint);
+    const size_t pressedIndex = pressedIndex_;
+    pressed_ = false;
+    pressedIndex_ = static_cast<size_t>(-1);
+
+    if (hit != static_cast<size_t>(-1) && hit == pressedIndex)
+    {
+        SetSelectedIndex(hit);
+    }
+
+    window_->Invalidate();
+    return true;
+}
+
+HCURSOR ListView::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_HAND);
+}
+
+size_t ListView::HitTestItem(const PointF &point) const
+{
+    if (!HitTest(point) || items_.empty())
+    {
+        return static_cast<size_t>(-1);
+    }
+
+    const float relativeY = point.y - bounds_.y;
+    const size_t index = static_cast<size_t>(relativeY / itemHeight_);
+    return index < items_.size() ? index : static_cast<size_t>(-1);
+}
+
+TreeView::TreeView(float itemHeight) : itemHeight_(itemHeight)
+{
+}
+
+void TreeView::AddRoot(Node node)
+{
+    roots_.push_back(std::move(node));
+    BuildVisibleNodes();
+    if (!selectedNode_ && !roots_.empty())
+    {
+        selectedNode_ = &roots_.front();
+    }
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void TreeView::Clear()
+{
+    roots_.clear();
+    visibleNodes_.clear();
+    pressedNode_ = nullptr;
+    selectedNode_ = nullptr;
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void TreeView::SetOnSelectionChanged(SelectionChangedHandler handler)
+{
+    onSelectionChanged_ = std::move(handler);
+}
+
+SizeF TreeView::Measure(const SizeF &availableSize)
+{
+    BuildVisibleNodes();
+    const float height = visibleNodes_.empty() ? itemHeight_ : itemHeight_ * static_cast<float>(visibleNodes_.size());
+    return {availableSize.width, std::min(height, availableSize.height)};
+}
+
+void TreeView::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    for (size_t index = 0; index < visibleNodes_.size(); ++index)
+    {
+        auto &entry = visibleNodes_[index];
+        const float rowY = finalRect.y + itemHeight_ * static_cast<float>(index);
+        entry.rowRect = {finalRect.x, rowY, finalRect.width, itemHeight_ - 6.0f};
+        entry.expanderRect = {finalRect.x + 12.0f + static_cast<float>(entry.depth) * kTreeIndent, rowY + 20.0f, 14.0f, 14.0f};
+    }
+}
+
+void TreeView::Render(DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    ComPtr<ID2D1SolidColorBrush> lineBrush;
+    target->CreateSolidColorBrush(D2D1::ColorF(0xCBD5E1), lineBrush.GetAddressOf());
+
+    for (const auto &entry : visibleNodes_)
+    {
+        const bool selected = entry.node == selectedNode_;
+        const bool pressed = pressed_ && entry.node == pressedNode_;
+        FillRoundedRect(target, entry.rowRect, kListItemCornerRadius,
+                        pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xFFFFFF)),
+                        selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xD6DCE5), selected || focused_ ? 2.0f : 1.0f);
+
+        const float contentX = entry.rowRect.x + 16.0f + static_cast<float>(entry.depth) * kTreeIndent + 20.0f;
+        if (!entry.node->children.empty())
+        {
+            const float centerX = entry.expanderRect.x + entry.expanderRect.width * 0.5f;
+            const float centerY = entry.expanderRect.y + entry.expanderRect.height * 0.5f;
+            if (entry.node->expanded)
+            {
+                target->DrawLine(D2D1::Point2F(centerX - 4.0f, centerY - 1.0f), D2D1::Point2F(centerX, centerY + 3.0f),
+                                 lineBrush.Get(), 1.8f);
+                target->DrawLine(D2D1::Point2F(centerX, centerY + 3.0f), D2D1::Point2F(centerX + 4.0f, centerY - 1.0f),
+                                 lineBrush.Get(), 1.8f);
+            }
+            else
+            {
+                target->DrawLine(D2D1::Point2F(centerX - 2.0f, centerY - 4.0f), D2D1::Point2F(centerX + 2.0f, centerY),
+                                 lineBrush.Get(), 1.8f);
+                target->DrawLine(D2D1::Point2F(centerX + 2.0f, centerY), D2D1::Point2F(centerX - 2.0f, centerY + 4.0f),
+                                 lineBrush.Get(), 1.8f);
+            }
+        }
+
+        const RectF titleRect = {contentX, entry.rowRect.y + 10.0f, std::max(entry.rowRect.width - (contentX - entry.rowRect.x) - 18.0f, 0.0f),
+                                 22.0f};
+        const RectF subtitleRect = {contentX, entry.rowRect.y + 34.0f, std::max(entry.rowRect.width - (contentX - entry.rowRect.x) - 18.0f, 0.0f),
+                                    18.0f};
+        DrawLabel(deviceResources, entry.node->title, 15.0f, true, D2D1::ColorF(0x0F172A), titleRect,
+                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        DrawLabel(deviceResources, entry.node->subtitle, 13.0f, false, D2D1::ColorF(0x64748B), subtitleRect,
+                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+    }
+}
+
+bool TreeView::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool TreeView::IsFocusable() const
+{
+    return true;
+}
+
+void TreeView::OnFocusChanged(bool focused)
+{
+    focused_ = focused;
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+bool TreeView::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    VisibleNode *hit = HitTestVisibleNode(dipPoint);
+    if (!hit)
+    {
+        return false;
+    }
+
+    pressed_ = true;
+    pressedNode_ = hit->node;
+    pressedExpander_ = !hit->node->children.empty() && PointInRect(hit->expanderRect, dipPoint);
+    window_->Invalidate();
+    return true;
+}
+
+bool TreeView::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    VisibleNode *hit = HitTestVisibleNode(dipPoint);
+    Node *pressedNode = pressedNode_;
+    const bool pressedExpander = pressedExpander_;
+    pressed_ = false;
+    pressedNode_ = nullptr;
+    pressedExpander_ = false;
+
+    if (hit && hit->node == pressedNode)
+    {
+        if (pressedExpander && !hit->node->children.empty() && PointInRect(hit->expanderRect, dipPoint))
+        {
+            hit->node->expanded = !hit->node->expanded;
+            BuildVisibleNodes();
+            if (window_)
+            {
+                window_->Relayout();
+            }
+        }
+        else
+        {
+            SelectNode(hit->node);
+        }
+    }
+
+    window_->Invalidate();
+    return true;
+}
+
+HCURSOR TreeView::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_HAND);
+}
+
+void TreeView::BuildVisibleNodes()
+{
+    visibleNodes_.clear();
+    for (auto &root : roots_)
+    {
+        AppendVisibleNodes(root, 0);
+    }
+}
+
+void TreeView::AppendVisibleNodes(Node &node, size_t depth)
+{
+    visibleNodes_.push_back({&node, depth, {}, {}});
+    if (!node.expanded)
+    {
+        return;
+    }
+
+    for (auto &child : node.children)
+    {
+        AppendVisibleNodes(child, depth + 1);
+    }
+}
+
+TreeView::VisibleNode *TreeView::HitTestVisibleNode(const PointF &point)
+{
+    for (auto &entry : visibleNodes_)
+    {
+        if (PointInRect(entry.rowRect, point))
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+const TreeView::VisibleNode *TreeView::HitTestVisibleNode(const PointF &point) const
+{
+    for (const auto &entry : visibleNodes_)
+    {
+        if (PointInRect(entry.rowRect, point))
+        {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+void TreeView::SelectNode(Node *node)
+{
+    if (!node || selectedNode_ == node)
+    {
+        return;
+    }
+
+    selectedNode_ = node;
+    if (onSelectionChanged_)
+    {
+        onSelectionChanged_(selectedNode_->title);
+    }
+}
+
+TabControl::TabControl(float headerHeight) : headerHeight_(headerHeight)
+{
+}
+
+void TabControl::AddTab(std::wstring title, std::shared_ptr<Visual> content)
+{
+    tabs_.push_back({std::move(title), std::move(content)});
+    if (tabs_.back().content && window_)
+    {
+        tabs_.back().content->Attach(window_);
+    }
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void TabControl::ClearTabs()
+{
+    tabs_.clear();
+    headerRects_.clear();
+    selectedIndex_ = 0;
+    pressedIndex_ = static_cast<size_t>(-1);
+    pressed_ = false;
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void TabControl::SetSelectedIndex(size_t index)
+{
+    if (tabs_.empty())
+    {
+        selectedIndex_ = 0;
+        return;
+    }
+
+    const size_t clamped = std::min(index, tabs_.size() - 1);
+    if (selectedIndex_ == clamped)
+    {
+        return;
+    }
+
+    selectedIndex_ = clamped;
+    if (onSelectionChanged_)
+    {
+        onSelectionChanged_(selectedIndex_);
+    }
+    if (window_)
+    {
+        window_->Relayout();
+    }
+}
+
+size_t TabControl::GetSelectedIndex() const
+{
+    return selectedIndex_;
+}
+
+void TabControl::SetOnSelectionChanged(SelectionChangedHandler handler)
+{
+    onSelectionChanged_ = std::move(handler);
+}
+
+SizeF TabControl::Measure(const SizeF &availableSize)
+{
+    float contentHeight = 0.0f;
+    float contentWidth = availableSize.width;
+    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
+    {
+        const SizeF contentSize =
+            tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->MeasureInLayout(
+                {availableSize.width, std::max(availableSize.height - headerHeight_ - 12.0f, 0.0f)});
+        contentHeight = contentSize.height;
+        contentWidth = std::max(contentWidth, contentSize.width);
+    }
+
+    return {std::min(contentWidth, availableSize.width), std::min(headerHeight_ + 12.0f + contentHeight, availableSize.height)};
+}
+
+void TabControl::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    headerRects_.clear();
+
+    float cursorX = finalRect.x;
+    for (const auto &tab : tabs_)
+    {
+        const float textWidth = MeasureText(GetSharedDWriteFactory(), tab.title, 14.0f, true, 400.0f).width;
+        const float tabWidth = std::max(textWidth + 28.0f, 96.0f);
+        headerRects_.push_back({cursorX, finalRect.y, tabWidth, headerHeight_});
+        cursorX += tabWidth + 8.0f;
+    }
+
+    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
+    {
+        tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->ArrangeInLayout(
+            {finalRect.x, finalRect.y + headerHeight_ + 12.0f, finalRect.width,
+             std::max(finalRect.height - headerHeight_ - 12.0f, 0.0f)});
+    }
+}
+
+void TabControl::Render(DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    for (size_t index = 0; index < tabs_.size(); ++index)
+    {
+        const bool selected = index == selectedIndex_;
+        const bool pressed = pressed_ && index == pressedIndex_;
+        FillRoundedRect(target, headerRects_[index], kTabCornerRadius,
+                        pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xF8FAFC)),
+                        selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xCBD5E1), selected ? 2.0f : 1.0f);
+        DrawLabel(deviceResources, tabs_[index].title, 14.0f, true, selected ? D2D1::ColorF(0x1D4ED8) : D2D1::ColorF(0x334155),
+                  headerRects_[index], DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    }
+
+    const RectF contentFrame = {bounds_.x, bounds_.y + headerHeight_ + 8.0f, bounds_.width, std::max(bounds_.height - headerHeight_ - 8.0f, 0.0f)};
+    FillRoundedRect(target, contentFrame, 18.0f, D2D1::ColorF(0xFFFFFF), D2D1::ColorF(0xD6DCE5), 1.0f);
+
+    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
+    {
+        tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->Render(deviceResources);
+    }
+}
+
+void TabControl::Attach(Window *window)
+{
+    Visual::Attach(window);
+    for (auto &tab : tabs_)
+    {
+        if (tab.content)
+        {
+            tab.content->Attach(window);
+        }
+    }
+}
+
+Visual *TabControl::FindVisualAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    if (HitTestHeader(point) != static_cast<size_t>(-1))
+    {
+        return this;
+    }
+
+    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
+    {
+        if (Visual *hit = tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->FindVisualAt(point))
+        {
+            return hit;
+        }
+    }
+
+    return this;
+}
+
+Visual *TabControl::FindFocusableAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
+    {
+        return tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->FindFocusableAt(point);
+    }
+
+    return nullptr;
+}
+
+Visual *TabControl::FindFirstFocusableDescendant()
+{
+    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
+    {
+        return tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->FindFirstFocusableDescendant();
+    }
+
+    return nullptr;
+}
+
+bool TabControl::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool TabControl::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const size_t hit = HitTestHeader(window_->ClientPixelsToDips(point));
+    if (hit == static_cast<size_t>(-1))
+    {
+        return false;
+    }
+
+    pressed_ = true;
+    pressedIndex_ = hit;
+    window_->Invalidate();
+    return true;
+}
+
+bool TabControl::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+
+    const size_t hit = HitTestHeader(window_->ClientPixelsToDips(point));
+    const size_t pressedIndex = pressedIndex_;
+    pressed_ = false;
+    pressedIndex_ = static_cast<size_t>(-1);
+    if (hit != static_cast<size_t>(-1) && hit == pressedIndex)
+    {
+        SetSelectedIndex(hit);
+    }
+
+    window_->Invalidate();
+    return true;
+}
+
+HCURSOR TabControl::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_HAND);
+}
+
+size_t TabControl::HitTestHeader(const PointF &point) const
+{
+    for (size_t index = 0; index < headerRects_.size(); ++index)
+    {
+        if (PointInRect(headerRects_[index], point))
+        {
+            return index;
+        }
+    }
+
+    return static_cast<size_t>(-1);
+}
+
+Accordion::Accordion(float headerHeight) : headerHeight_(headerHeight)
+{
+}
+
+void Accordion::AddSection(std::wstring title, std::shared_ptr<Visual> content, bool expanded)
+{
+    sections_.push_back({std::move(title), std::move(content), expanded});
+    if (!allowMultipleExpanded_ && expanded)
+    {
+        CollapseOtherSections(sections_.size() - 1);
+    }
+    if (sections_.back().content && window_)
+    {
+        sections_.back().content->Attach(window_);
+    }
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void Accordion::ClearSections()
+{
+    sections_.clear();
+    headerRects_.clear();
+    contentRects_.clear();
+    pressed_ = false;
+    pressedIndex_ = static_cast<size_t>(-1);
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void Accordion::SetAllowMultipleExpanded(bool allowMultipleExpanded)
+{
+    allowMultipleExpanded_ = allowMultipleExpanded;
+    if (!allowMultipleExpanded_)
+    {
+        size_t firstExpanded = static_cast<size_t>(-1);
+        for (size_t index = 0; index < sections_.size(); ++index)
+        {
+            if (sections_[index].expanded)
+            {
+                firstExpanded = index;
+                break;
+            }
+        }
+        if (firstExpanded != static_cast<size_t>(-1))
+        {
+            CollapseOtherSections(firstExpanded);
+        }
+    }
+}
+
+SizeF Accordion::Measure(const SizeF &availableSize)
+{
+    float height = 0.0f;
+    float width = availableSize.width;
+    for (const auto &section : sections_)
+    {
+        height += headerHeight_;
+        if (section.expanded && section.content)
+        {
+            const SizeF contentSize = section.content->MeasureInLayout(
+                {availableSize.width, std::max(availableSize.height - headerHeight_, 0.0f)});
+            height += contentSize.height + 8.0f;
+            width = std::max(width, contentSize.width);
+        }
+        height += 8.0f;
+    }
+
+    return {std::min(width, availableSize.width), std::min(height, availableSize.height)};
+}
+
+void Accordion::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    headerRects_.assign(sections_.size(), {});
+    contentRects_.assign(sections_.size(), {});
+
+    float cursorY = finalRect.y;
+    for (size_t index = 0; index < sections_.size(); ++index)
+    {
+        headerRects_[index] = {finalRect.x, cursorY, finalRect.width, headerHeight_};
+        cursorY += headerHeight_;
+        if (sections_[index].expanded && sections_[index].content)
+        {
+            const float contentHeight = sections_[index].content->MeasureInLayout(
+                                            {finalRect.width, std::max(finalRect.height - (cursorY - finalRect.y), 0.0f)})
+                                            .height;
+            contentRects_[index] = {finalRect.x, cursorY + 8.0f, finalRect.width, contentHeight};
+            sections_[index].content->ArrangeInLayout(contentRects_[index]);
+            cursorY += 8.0f + contentHeight;
+        }
+        cursorY += 8.0f;
+    }
+}
+
+void Accordion::Render(DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    ComPtr<ID2D1SolidColorBrush> chevronBrush;
+    target->CreateSolidColorBrush(D2D1::ColorF(0x64748B), chevronBrush.GetAddressOf());
+
+    for (size_t index = 0; index < sections_.size(); ++index)
+    {
+        const bool pressed = pressed_ && index == pressedIndex_;
+        FillRoundedRect(target, headerRects_[index], kAccordionCornerRadius,
+                        pressed ? D2D1::ColorF(0xE0F2FE) : D2D1::ColorF(0xF8FAFC), D2D1::ColorF(0xCBD5E1), 1.0f);
+        DrawLabel(deviceResources, sections_[index].title, 15.0f, true, D2D1::ColorF(0x0F172A), headerRects_[index],
+                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+
+        const float centerX = headerRects_[index].x + headerRects_[index].width - 22.0f;
+        const float centerY = headerRects_[index].y + headerRects_[index].height * 0.5f;
+        if (sections_[index].expanded)
+        {
+            target->DrawLine(D2D1::Point2F(centerX - 4.0f, centerY - 2.0f), D2D1::Point2F(centerX, centerY + 2.0f),
+                             chevronBrush.Get(), 1.8f);
+            target->DrawLine(D2D1::Point2F(centerX, centerY + 2.0f), D2D1::Point2F(centerX + 4.0f, centerY - 2.0f),
+                             chevronBrush.Get(), 1.8f);
+        }
+        else
+        {
+            target->DrawLine(D2D1::Point2F(centerX - 2.0f, centerY - 4.0f), D2D1::Point2F(centerX + 2.0f, centerY),
+                             chevronBrush.Get(), 1.8f);
+            target->DrawLine(D2D1::Point2F(centerX + 2.0f, centerY), D2D1::Point2F(centerX - 2.0f, centerY + 4.0f),
+                             chevronBrush.Get(), 1.8f);
+        }
+
+        if (sections_[index].expanded && sections_[index].content)
+        {
+            sections_[index].content->Render(deviceResources);
+        }
+    }
+}
+
+void Accordion::Attach(Window *window)
+{
+    Visual::Attach(window);
+    for (auto &section : sections_)
+    {
+        if (section.content)
+        {
+            section.content->Attach(window);
+        }
+    }
+}
+
+Visual *Accordion::FindVisualAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    for (size_t index = 0; index < sections_.size(); ++index)
+    {
+        if (PointInRect(headerRects_[index], point))
+        {
+            return this;
+        }
+        if (sections_[index].expanded && sections_[index].content)
+        {
+            if (Visual *hit = sections_[index].content->FindVisualAt(point))
+            {
+                return hit;
+            }
+        }
+    }
+
+    return this;
+}
+
+Visual *Accordion::FindFocusableAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    for (size_t index = 0; index < sections_.size(); ++index)
+    {
+        if (sections_[index].expanded && sections_[index].content)
+        {
+            if (Visual *focusable = sections_[index].content->FindFocusableAt(point))
+            {
+                return focusable;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+Visual *Accordion::FindFirstFocusableDescendant()
+{
+    for (auto &section : sections_)
+    {
+        if (section.expanded && section.content)
+        {
+            if (Visual *focusable = section.content->FindFirstFocusableDescendant())
+            {
+                return focusable;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+bool Accordion::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool Accordion::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const size_t hit = HitTestHeader(window_->ClientPixelsToDips(point));
+    if (hit == static_cast<size_t>(-1))
+    {
+        return false;
+    }
+
+    pressed_ = true;
+    pressedIndex_ = hit;
+    window_->Invalidate();
+    return true;
+}
+
+bool Accordion::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+
+    const size_t hit = HitTestHeader(window_->ClientPixelsToDips(point));
+    const size_t pressedIndex = pressedIndex_;
+    pressed_ = false;
+    pressedIndex_ = static_cast<size_t>(-1);
+
+    if (hit != static_cast<size_t>(-1) && hit == pressedIndex)
+    {
+        const bool willExpand = !sections_[hit].expanded;
+        sections_[hit].expanded = willExpand;
+        if (willExpand && !allowMultipleExpanded_)
+        {
+            CollapseOtherSections(hit);
+        }
+        window_->Relayout();
+    }
+
+    return true;
+}
+
+HCURSOR Accordion::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_HAND);
+}
+
+void Accordion::CollapseOtherSections(size_t keepExpandedIndex)
+{
+    for (size_t index = 0; index < sections_.size(); ++index)
+    {
+        if (index != keepExpandedIndex)
+        {
+            sections_[index].expanded = false;
+        }
+    }
+}
+
+size_t Accordion::HitTestHeader(const PointF &point) const
+{
+    for (size_t index = 0; index < headerRects_.size(); ++index)
+    {
+        if (PointInRect(headerRects_[index], point))
+        {
+            return index;
+        }
+    }
+
+    return static_cast<size_t>(-1);
 }
 } // namespace msimeui

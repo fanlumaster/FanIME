@@ -107,6 +107,20 @@ void Window::Invalidate()
     InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
+void Window::Relayout()
+{
+    if (!hwnd_ || !scene_)
+    {
+        return;
+    }
+
+    RECT rc = {};
+    GetClientRect(hwnd_, &rc);
+    const SIZE pixelSize = {rc.right, rc.bottom};
+    scene_->Layout(ClientPixelsToDips(pixelSize));
+    InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
 void Window::SetScene(std::unique_ptr<Scene> scene)
 {
     scene_ = std::move(scene);

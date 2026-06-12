@@ -25,6 +25,14 @@ struct RectF
     float height = 0.0f;
 };
 
+struct Thickness
+{
+    float left = 0.0f;
+    float top = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+};
+
 inline float PixelsToDips(float value, float dpi)
 {
     return value * 96.0f / (dpi > 0.0f ? dpi : 96.0f);

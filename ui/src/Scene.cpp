@@ -34,8 +34,8 @@ void Scene::Layout(const SizeF &size)
 
     const SizeF innerSize = {std::max(size.width - kScenePaddingDips * 2.0f, 0.0f),
                              std::max(size.height - kScenePaddingDips * 2.0f, 0.0f)};
-    root_->Measure(innerSize);
-    root_->Arrange({kScenePaddingDips, kScenePaddingDips, innerSize.width, innerSize.height});
+    root_->MeasureInLayout(innerSize);
+    root_->ArrangeInLayout({kScenePaddingDips, kScenePaddingDips, innerSize.width, innerSize.height});
 }
 
 void Scene::Render(DeviceResources &deviceResources)

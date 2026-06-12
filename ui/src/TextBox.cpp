@@ -106,12 +106,15 @@ void TextBox::Arrange(const RectF &finalRect)
         DebugLog(log.str());
     }
 
-    RECT rc = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
-    InflateRect(&rc, -static_cast<int>(kTextBoxContentPaddingPixels), -static_cast<int>(kTextBoxContentPaddingPixels));
     if (editor_)
     {
+        RECT rc = ComputeEditorHostRect();
         editor_->SetHostRect(rc);
+        editor_->SetContentPadding({});
         editor_->UpdateLayout();
+        editor_->SetContentPadding(ComputeEditorContentPadding());
+        editor_->UpdateLayout();
+        editor_->NotifyLayoutChange();
     }
 }
 
@@ -144,13 +147,17 @@ void TextBox::Render(DeviceResources &deviceResources)
     target->FillRoundedRectangle(rect, fillBrush.Get());
     target->DrawRoundedRectangle(rect, strokeBrush.Get(), 1.0f);
 
-    const float paddingDips = window_ ? PixelsToDips(kTextBoxContentPaddingPixels, window_->GetDpi()) : kTextBoxContentPaddingPixels;
-    const float contentWidth = std::max(bounds_.width - paddingDips * 2.0f, 0.0f);
-    const float contentHeight = std::max(bounds_.height - paddingDips * 2.0f, 0.0f);
+    RECT hostRectPixels = ComputeEditorHostRect();
+    const RECT boundsPixels = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
+    const float dpi = window_ ? window_->GetDpi() : 96.0f;
+    const float contentOffsetXDips = PixelsToDips(static_cast<float>(hostRectPixels.left - boundsPixels.left), dpi);
+    const float contentOffsetYDips = PixelsToDips(static_cast<float>(hostRectPixels.top - boundsPixels.top), dpi);
+    const float contentWidth = PixelsToDips(static_cast<float>(std::max(hostRectPixels.right - hostRectPixels.left, 0L)), dpi);
+    const float contentHeight = PixelsToDips(static_cast<float>(std::max(hostRectPixels.bottom - hostRectPixels.top, 0L)), dpi);
 
     D2D1_MATRIX_3X2_F oldTransform = {};
     target->GetTransform(&oldTransform);
-    target->SetTransform(D2D1::Matrix3x2F::Translation(bounds_.x + paddingDips, bounds_.y + paddingDips));
+    target->SetTransform(D2D1::Matrix3x2F::Translation(bounds_.x + contentOffsetXDips, bounds_.y + contentOffsetYDips));
     target->PushAxisAlignedClip(D2D1::RectF(0.0f, 0.0f, contentWidth, contentHeight), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     editor_->Render(target);
     target->PopAxisAlignedClip();
@@ -465,9 +472,38 @@ HCURSOR TextBox::GetCursor() const
 
 POINT TextBox::ToLocalPoint(const POINT &point) const
 {
-    const RECT hostRect = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
+    const RECT hostRect = ComputeEditorHostRect();
     POINT local = {point.x - hostRect.left, point.y - hostRect.top};
     return local;
+}
+
+RECT TextBox::ComputeEditorHostRect() const
+{
+    RECT rc = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
+    InflateRect(&rc, -static_cast<int>(kTextBoxContentPaddingPixels), -static_cast<int>(kTextBoxContentPaddingPixels));
+    return rc;
+}
+
+RECT TextBox::ComputeEditorContentPadding() const
+{
+    RECT padding = {};
+    if (!editor_ || preferredHeight_ > 100.0f)
+    {
+        return padding;
+    }
+
+    const RECT hostRect = ComputeEditorHostRect();
+    const LONG contentHeight = std::max<LONG>(hostRect.bottom - hostRect.top, 1);
+    const LONG lineHeight = std::max<LONG>(editor_->GetLineHeight(), 1);
+    if (lineHeight >= contentHeight)
+    {
+        return padding;
+    }
+
+    const LONG verticalInset = (contentHeight - lineHeight) / 2;
+    padding.top = verticalInset;
+    padding.bottom = std::max<LONG>(contentHeight - lineHeight - verticalInset, 0);
+    return padding;
 }
 
 bool TextBox::EnsureInitialized(DeviceResources *deviceResources)

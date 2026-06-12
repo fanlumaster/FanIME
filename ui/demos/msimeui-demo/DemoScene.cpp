@@ -30,16 +30,32 @@ std::unique_ptr<Scene> CreateDemoScene()
         std::make_shared<TextBlock>(L"Framework status: base controls are now interactive and composable.", 15.0f,
                                     D2D1::ColorF(0x0F172A));
     auto featureWrap = std::make_shared<WrapPanel>(10.0f, 10.0f);
-    featureWrap->AddChild(std::make_shared<Button>(L"Direct2D"));
-    featureWrap->AddChild(std::make_shared<Button>(L"TSF Input"));
-    featureWrap->AddChild(std::make_shared<Button>(L"Layout"));
-    featureWrap->AddChild(std::make_shared<Button>(L"Buttons"));
-    featureWrap->AddChild(std::make_shared<Button>(L"Slider"));
-    featureWrap->AddChild(std::make_shared<Button>(L"Progress"));
+    featureWrap->SetHorizontalAlignment(HorizontalAlignment::Leading);
+    auto direct2dChip = std::make_shared<Button>(L"Direct2D");
+    direct2dChip->SetWidth(120.0f);
+    auto tsfChip = std::make_shared<Button>(L"TSF Input");
+    tsfChip->SetWidth(120.0f);
+    auto layoutChip = std::make_shared<Button>(L"Layout");
+    layoutChip->SetWidth(108.0f);
+    auto buttonChip = std::make_shared<Button>(L"Buttons");
+    buttonChip->SetWidth(112.0f);
+    auto sliderChip = std::make_shared<Button>(L"Slider");
+    sliderChip->SetWidth(104.0f);
+    auto progressChip = std::make_shared<Button>(L"Progress");
+    progressChip->SetWidth(114.0f);
+    featureWrap->AddChild(direct2dChip);
+    featureWrap->AddChild(tsfChip);
+    featureWrap->AddChild(layoutChip);
+    featureWrap->AddChild(buttonChip);
+    featureWrap->AddChild(sliderChip);
+    featureWrap->AddChild(progressChip);
 
     auto actionRow = std::make_shared<HorizontalStackPanel>(12.0f);
     auto primaryButton = std::make_shared<Button>(L"Run Interaction Demo", 46.0f);
     auto secondaryButton = std::make_shared<Button>(L"Reset Status", 46.0f);
+    primaryButton->SetWidth(220.0f);
+    secondaryButton->SetWidth(160.0f);
+    secondaryButton->SetMinWidth(140.0f);
     primaryButton->SetOnClick([statusText]() {
         statusText->SetText(L"Interaction check: buttons are dispatching clicks through the visual tree.");
     });
@@ -56,6 +72,20 @@ std::unique_ptr<Scene> CreateDemoScene()
     heroStack->AddChild(featureWrap);
     heroStack->AddChild(statusText);
     heroStack->AddChild(actionRow);
+
+    Brush insetBrush;
+    insetBrush.fill = D2D1::ColorF(0xF8FAFC);
+    insetBrush.stroke = D2D1::ColorF(0xCBD5E1);
+    insetBrush.strokeWidth = 1.0f;
+    insetBrush.radiusX = 16.0f;
+    insetBrush.radiusY = 16.0f;
+
+    auto insetText = std::make_shared<TextBlock>(
+        L"Border is a general-purpose single-child container with fill, stroke and padding. It is lighter-weight than Card for simple callouts.",
+        13.0f, D2D1::ColorF(0x475569));
+    auto insetBorder = std::make_shared<Border>(insetBrush, insetText);
+    insetBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
+    heroStack->AddChild(insetBorder);
     heroCard->AddChild(heroStack);
     root->AddChild(heroCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
@@ -75,6 +105,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     });
 
     auto optionText = std::make_shared<TextBlock>(L"Selection: compact mode is enabled.", 14.0f, D2D1::ColorF(0x475569));
+    optionText->SetMaxWidth(520.0f);
     auto checkboxRow = std::make_shared<HorizontalStackPanel>(18.0f);
     auto compactMode = std::make_shared<CheckBox>(L"Compact layout", true);
     auto diagnostics = std::make_shared<CheckBox>(L"Enable diagnostics", false);
@@ -111,8 +142,269 @@ std::unique_ptr<Scene> CreateDemoScene()
     controlsStack->AddChild(std::make_shared<Separator>(1.0f));
     controlsStack->AddChild(checkboxRow);
     controlsStack->AddChild(optionText);
+
+    auto alignmentNote = std::make_shared<TextBlock>(
+        L"These controls now use shared layout properties like explicit width and per-control margin.",
+        14.0f, D2D1::ColorF(0x64748B));
+    alignmentNote->SetMargin({0.0f, 6.0f, 0.0f, 0.0f});
+    alignmentNote->SetMaxWidth(560.0f);
+    controlsStack->AddChild(alignmentNote);
+
+    auto constraintRow = std::make_shared<HorizontalStackPanel>(12.0f);
+    auto minButton = std::make_shared<Button>(L"Min 150", 40.0f);
+    minButton->SetMinWidth(150.0f);
+    minButton->SetHorizontalAlignment(HorizontalAlignment::Leading);
+    auto boundedButton = std::make_shared<Button>(L"80-140", 40.0f);
+    boundedButton->SetMinWidth(80.0f);
+    boundedButton->SetMaxWidth(140.0f);
+    boundedButton->SetWidth(120.0f);
+    boundedButton->SetHorizontalAlignment(HorizontalAlignment::Leading);
+    constraintRow->AddChild(minButton);
+    constraintRow->AddChild(boundedButton);
+    controlsStack->AddChild(constraintRow);
     controlsCard->AddChild(controlsStack);
     root->AddChild(controlsCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
+    auto alignmentCard = std::make_shared<Card>(surface, 20.0f);
+    auto alignmentStack = std::make_shared<StackPanel>(14.0f);
+    auto centeredRow = std::make_shared<HorizontalStackPanel>(10.0f);
+    centeredRow->SetHorizontalContentAlignment(HorizontalAlignment::Center);
+    centeredRow->SetVerticalContentAlignment(VerticalAlignment::Center);
+    centeredRow->SetHeight(70.0f);
+    centeredRow->AddChild(std::make_shared<Button>(L"Centered", 38.0f));
+    centeredRow->AddChild(std::make_shared<Button>(L"Actions", 38.0f));
+
+    auto trailingColumn = std::make_shared<StackPanel>(8.0f);
+    trailingColumn->SetHorizontalContentAlignment(HorizontalAlignment::Trailing);
+    trailingColumn->SetWidth(320.0f);
+    auto smallA = std::make_shared<Button>(L"Trailing A", 36.0f);
+    smallA->SetWidth(120.0f);
+    auto smallB = std::make_shared<Button>(L"Trailing B", 36.0f);
+    smallB->SetWidth(150.0f);
+    trailingColumn->AddChild(smallA);
+    trailingColumn->AddChild(smallB);
+
+    alignmentStack->AddChild(std::make_shared<TextBlock>(L"Container Alignment", 20.0f, D2D1::ColorF(0x1F2937), true));
+    alignmentStack->AddChild(std::make_shared<TextBlock>(
+        L"Panels can now center or trailing-align whole runs of children, instead of only stretching from the leading edge.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    alignmentStack->AddChild(centeredRow);
+    alignmentStack->AddChild(trailingColumn);
+
+    auto paddingNote = std::make_shared<TextBlock>(
+        L"Container and Border also support shared padding, so content spacing no longer needs to be hardcoded into every specialized control.",
+        14.0f, D2D1::ColorF(0x475569));
+    auto paddingContainer = std::make_shared<Container>(paddingNote);
+    paddingContainer->SetPadding({18.0f, 14.0f, 18.0f, 14.0f});
+    paddingContainer->SetMargin({0.0f, 8.0f, 0.0f, 0.0f});
+    alignmentStack->AddChild(paddingContainer);
+    alignmentCard->AddChild(alignmentStack);
+    root->AddChild(alignmentCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
+    auto gridCard = std::make_shared<Card>(surface, 20.0f);
+    auto gridStack = std::make_shared<StackPanel>(14.0f);
+    auto formGrid = std::make_shared<Grid>();
+    formGrid->AddColumn({GridUnitType::Pixel, 150.0f});
+    formGrid->AddColumn({GridUnitType::Star, 1.0f});
+    formGrid->AddRow({GridUnitType::Auto, 0.0f});
+    formGrid->AddRow({GridUnitType::Auto, 0.0f});
+    formGrid->AddRow({GridUnitType::Auto, 0.0f});
+    formGrid->SetColumnSpacing(14.0f);
+    formGrid->SetRowSpacing(12.0f);
+
+    auto nameLabel = std::make_shared<TextBlock>(L"Project Name", 14.0f, D2D1::ColorF(0x334155), true);
+    nameLabel->SetVerticalAlignment(VerticalAlignment::Center);
+    auto modeLabel = std::make_shared<TextBlock>(L"Input Mode", 14.0f, D2D1::ColorF(0x334155), true);
+    modeLabel->SetVerticalAlignment(VerticalAlignment::Center);
+    auto noteLabel = std::make_shared<TextBlock>(L"Notes", 14.0f, D2D1::ColorF(0x334155), true);
+    noteLabel->SetVerticalAlignment(VerticalAlignment::Leading);
+
+    auto nameBox = std::make_shared<TextBox>(52.0f, L"msimeui demo");
+    auto modeRow = std::make_shared<HorizontalStackPanel>(10.0f);
+    modeRow->SetVerticalContentAlignment(VerticalAlignment::Center);
+    auto modeCore = std::make_shared<CheckBox>(L"Core IME mode", true);
+    auto modeExt = std::make_shared<CheckBox>(L"Extended diagnostics", false);
+    modeRow->AddChild(modeCore);
+    modeRow->AddChild(modeExt);
+    auto noteBorder = std::make_shared<Border>(insetBrush, std::make_shared<TextBlock>(
+                                                               L"Grid is now suitable for forms, property panes, and two-column settings screens.",
+                                                               14.0f, D2D1::ColorF(0x475569)));
+    noteBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
+
+    formGrid->AddChild(nameLabel, 0, 0);
+    formGrid->AddChild(nameBox, 0, 1);
+    formGrid->AddChild(modeLabel, 1, 0);
+    formGrid->AddChild(modeRow, 1, 1);
+    formGrid->AddChild(noteLabel, 2, 0);
+    formGrid->AddChild(noteBorder, 2, 1);
+
+    gridStack->AddChild(std::make_shared<TextBlock>(L"Grid Layout", 20.0f, D2D1::ColorF(0x1F2937), true));
+    gridStack->AddChild(std::make_shared<TextBlock>(
+        L"A simple Auto / Pixel / Star grid is now available for forms, settings panes, and split content layouts.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    gridStack->AddChild(formGrid);
+    gridCard->AddChild(gridStack);
+    root->AddChild(gridCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
+    auto listCard = std::make_shared<Card>(surface, 20.0f);
+    auto listStack = std::make_shared<StackPanel>(14.0f);
+    auto listStatus = std::make_shared<TextBlock>(L"Selected module: Core Input", 14.0f, D2D1::ColorF(0x475569), true);
+    auto listView = std::make_shared<ListView>(72.0f);
+    listView->AddItem({L"Core Input", L"TSF composition, caret handling, and editor bridge", L"Active"});
+    listView->AddItem({L"Layout System", L"Shared sizing, alignment, grid, and scrolling primitives", L"Stable"});
+    listView->AddItem({L"Control Pack", L"Buttons, toggles, sliders, and list interactions", L"New"});
+    listView->SetOnSelectionChanged([listStatus, listView](size_t selectedIndex) {
+        static const wchar_t *names[] = {L"Core Input", L"Layout System", L"Control Pack"};
+        if (selectedIndex < 3)
+        {
+            std::wstring text = L"Selected module: ";
+            text += names[selectedIndex];
+            listStatus->SetText(text);
+        }
+        (void)listView;
+    });
+
+    listStack->AddChild(std::make_shared<TextBlock>(L"ListView", 20.0f, D2D1::ColorF(0x1F2937), true));
+    listStack->AddChild(std::make_shared<TextBlock>(
+        L"A first-pass selectable list control is now available for navigation panes, settings groups, and data summaries.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    listStack->AddChild(listStatus);
+    listStack->AddChild(listView);
+    listCard->AddChild(listStack);
+    root->AddChild(listCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
+    auto treeCard = std::make_shared<Card>(surface, 20.0f);
+    auto treeStack = std::make_shared<StackPanel>(14.0f);
+    auto treeStatus = std::make_shared<TextBlock>(L"Selected node: msimeui", 14.0f, D2D1::ColorF(0x475569), true);
+    auto treeView = std::make_shared<TreeView>(64.0f);
+
+    TreeView::Node rootNode;
+    rootNode.title = L"msimeui";
+    rootNode.subtitle = L"Framework root";
+    rootNode.expanded = true;
+    rootNode.children = {
+        {L"Layout", L"Panels, grid, alignment, and sizing", true, {}},
+        {L"Controls", L"Buttons, inputs, lists, and tree interactions", true,
+         {
+             {L"TextBox", L"TSF-backed text editor control", true, {}},
+             {L"ListView", L"Selectable summary list", true, {}},
+             {L"TreeView", L"Expandable hierarchy view", true, {}},
+         }},
+        {L"Rendering", L"Direct2D and DirectWrite device resources", true, {}},
+    };
+    treeView->AddRoot(std::move(rootNode));
+    treeView->SetOnSelectionChanged([treeStatus](const std::wstring &selectedTitle) {
+        treeStatus->SetText(L"Selected node: " + selectedTitle);
+    });
+
+    treeStack->AddChild(std::make_shared<TextBlock>(L"TreeView", 20.0f, D2D1::ColorF(0x1F2937), true));
+    treeStack->AddChild(std::make_shared<TextBlock>(
+        L"A first-pass hierarchy control is now available for navigation trees, grouped settings, and project/module explorers.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    treeStack->AddChild(treeStatus);
+    treeStack->AddChild(treeView);
+    treeCard->AddChild(treeStack);
+    root->AddChild(treeCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
+    auto tabsCard = std::make_shared<Card>(surface, 20.0f);
+    auto tabsStack = std::make_shared<StackPanel>(14.0f);
+    auto tabStatus = std::make_shared<TextBlock>(L"Active tab: Overview", 14.0f, D2D1::ColorF(0x475569), true);
+    auto tabControl = std::make_shared<TabControl>(46.0f);
+
+    auto overviewPanel = std::make_shared<StackPanel>(10.0f);
+    overviewPanel->AddChild(std::make_shared<TextBlock>(
+        L"This tab groups the framework highlights into a compact summary page.",
+        14.0f, D2D1::ColorF(0x475569)));
+    overviewPanel->AddChild(std::make_shared<Button>(L"Overview Action", 40.0f));
+
+    auto layoutPanel = std::make_shared<StackPanel>(10.0f);
+    layoutPanel->AddChild(std::make_shared<TextBlock>(
+        L"Layout includes stack panels, wrap, scroll, grid, shared sizing, and alignment.",
+        14.0f, D2D1::ColorF(0x475569)));
+    auto layoutBadgeRow = std::make_shared<HorizontalStackPanel>(10.0f);
+    auto gridBadge = std::make_shared<Button>(L"Grid", 38.0f);
+    gridBadge->SetWidth(90.0f);
+    auto scrollBadge = std::make_shared<Button>(L"Scroll", 38.0f);
+    scrollBadge->SetWidth(90.0f);
+    layoutBadgeRow->AddChild(gridBadge);
+    layoutBadgeRow->AddChild(scrollBadge);
+    layoutPanel->AddChild(layoutBadgeRow);
+
+    auto navigationPanel = std::make_shared<StackPanel>(10.0f);
+    navigationPanel->AddChild(std::make_shared<TextBlock>(
+        L"Navigation now includes ListView, TreeView, and this TabControl container.",
+        14.0f, D2D1::ColorF(0x475569)));
+    auto navBorder = std::make_shared<Border>(insetBrush, std::make_shared<TextBlock>(
+                                                              L"Container-style pages can be swapped without rebuilding the visual tree.",
+                                                              13.0f, D2D1::ColorF(0x475569)));
+    navBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
+    navigationPanel->AddChild(navBorder);
+
+    tabControl->AddTab(L"Overview", overviewPanel);
+    tabControl->AddTab(L"Layout", layoutPanel);
+    tabControl->AddTab(L"Navigation", navigationPanel);
+    tabControl->SetHeight(220.0f);
+    tabControl->SetOnSelectionChanged([tabStatus](size_t selectedIndex) {
+        static const wchar_t *names[] = {L"Overview", L"Layout", L"Navigation"};
+        if (selectedIndex < 3)
+        {
+            tabStatus->SetText(std::wstring(L"Active tab: ") + names[selectedIndex]);
+        }
+    });
+
+    tabsStack->AddChild(std::make_shared<TextBlock>(L"TabControl", 20.0f, D2D1::ColorF(0x1F2937), true));
+    tabsStack->AddChild(std::make_shared<TextBlock>(
+        L"A first-pass tab container is now available for settings pages, tool panes, and grouped work areas.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    tabsStack->AddChild(tabStatus);
+    tabsStack->AddChild(tabControl);
+    tabsCard->AddChild(tabsStack);
+    root->AddChild(tabsCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
+    auto accordionCard = std::make_shared<Card>(surface, 20.0f);
+    auto accordionStack = std::make_shared<StackPanel>(14.0f);
+    auto accordion = std::make_shared<Accordion>(46.0f);
+    accordion->SetAllowMultipleExpanded(false);
+
+    auto basicsPanel = std::make_shared<StackPanel>(10.0f);
+    basicsPanel->AddChild(std::make_shared<TextBlock>(
+        L"Basic controls include buttons, checkboxes, sliders, text blocks, and progress indicators.",
+        14.0f, D2D1::ColorF(0x475569)));
+    basicsPanel->AddChild(std::make_shared<Button>(L"Basic Action", 38.0f));
+
+    auto layoutSectionPanel = std::make_shared<StackPanel>(10.0f);
+    layoutSectionPanel->AddChild(std::make_shared<TextBlock>(
+        L"Layout now covers stack, wrap, grid, scrolling, sizing constraints, and container alignment.",
+        14.0f, D2D1::ColorF(0x475569)));
+
+    auto navSectionPanel = std::make_shared<StackPanel>(10.0f);
+    navSectionPanel->AddChild(std::make_shared<TextBlock>(
+        L"Navigation includes ListView, TreeView, and TabControl for higher-level page composition.",
+        14.0f, D2D1::ColorF(0x475569)));
+    auto navSectionBorder = std::make_shared<Border>(insetBrush, std::make_shared<TextBlock>(
+                                                                    L"Accordion is useful when you want one long page with grouped expandable sections instead of switching tabs.",
+                                                                    13.0f, D2D1::ColorF(0x475569)));
+    navSectionBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
+    navSectionPanel->AddChild(navSectionBorder);
+
+    accordion->AddSection(L"Basic Controls", basicsPanel, true);
+    accordion->AddSection(L"Layout System", layoutSectionPanel, false);
+    accordion->AddSection(L"Navigation & Containers", navSectionPanel, false);
+    accordion->SetHeight(280.0f);
+
+    accordionStack->AddChild(std::make_shared<TextBlock>(L"Accordion", 20.0f, D2D1::ColorF(0x1F2937), true));
+    accordionStack->AddChild(std::make_shared<TextBlock>(
+        L"A first-pass accordion container is now available for long settings pages and grouped expandable content areas.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    accordionStack->AddChild(accordion);
+    accordionCard->AddChild(accordionStack);
+    root->AddChild(accordionCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
 
     auto editorCard = std::make_shared<Card>(surface, 20.0f);

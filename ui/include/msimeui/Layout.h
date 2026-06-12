@@ -14,6 +14,35 @@ namespace msimeui
 class DeviceResources;
 class Window;
 
+enum class HorizontalAlignment
+{
+    Stretch,
+    Leading,
+    Center,
+    Trailing,
+};
+
+enum class VerticalAlignment
+{
+    Stretch,
+    Leading,
+    Center,
+    Trailing,
+};
+
+enum class GridUnitType
+{
+    Auto,
+    Pixel,
+    Star,
+};
+
+struct GridLength
+{
+    GridUnitType unitType = GridUnitType::Star;
+    float value = 1.0f;
+};
+
 class Visual
 {
   public:
@@ -38,9 +67,45 @@ class Visual
     virtual bool OnTimer(UINT_PTR timerId);
     virtual HCURSOR GetCursor() const;
 
+    void SetMargin(float uniform);
+    void SetMargin(Thickness margin);
+    const Thickness &GetMargin() const;
+    void SetPadding(float uniform);
+    void SetPadding(Thickness padding);
+    const Thickness &GetPadding() const;
+    void SetWidth(float width);
+    void SetHeight(float height);
+    void SetMinWidth(float width);
+    void SetMinHeight(float height);
+    void SetMaxWidth(float width);
+    void SetMaxHeight(float height);
+    void ClearWidth();
+    void ClearHeight();
+    void ClearMinWidth();
+    void ClearMinHeight();
+    void ClearMaxWidth();
+    void ClearMaxHeight();
+    void SetHorizontalAlignment(HorizontalAlignment alignment);
+    void SetVerticalAlignment(VerticalAlignment alignment);
+    SizeF MeasureInLayout(const SizeF &availableSize);
+    void ArrangeInLayout(const RectF &finalRect);
     const RectF &GetBounds() const;
 
   protected:
+    bool HasExplicitWidth() const;
+    bool HasExplicitHeight() const;
+
+    Thickness margin_ = {};
+    Thickness padding_ = {};
+    float explicitWidth_ = -1.0f;
+    float explicitHeight_ = -1.0f;
+    float minWidth_ = 0.0f;
+    float minHeight_ = 0.0f;
+    float maxWidth_ = -1.0f;
+    float maxHeight_ = -1.0f;
+    HorizontalAlignment horizontalAlignment_ = HorizontalAlignment::Stretch;
+    VerticalAlignment verticalAlignment_ = VerticalAlignment::Leading;
+    SizeF desiredSize_ = {};
     RectF bounds_ = {};
     Window *window_ = nullptr;
 };
@@ -62,6 +127,8 @@ class StackPanel : public Panel
 {
   public:
     explicit StackPanel(float spacing = 0.0f);
+    void SetHorizontalContentAlignment(HorizontalAlignment alignment);
+    void SetVerticalContentAlignment(VerticalAlignment alignment);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -69,13 +136,18 @@ class StackPanel : public Panel
 
   private:
     float spacing_ = 0.0f;
+    HorizontalAlignment horizontalContentAlignment_ = HorizontalAlignment::Stretch;
+    VerticalAlignment verticalContentAlignment_ = VerticalAlignment::Leading;
     std::vector<SizeF> measuredChildren_;
+    SizeF measuredContent_ = {};
 };
 
 class HorizontalStackPanel : public Panel
 {
   public:
     explicit HorizontalStackPanel(float spacing = 0.0f);
+    void SetHorizontalContentAlignment(HorizontalAlignment alignment);
+    void SetVerticalContentAlignment(VerticalAlignment alignment);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -83,7 +155,10 @@ class HorizontalStackPanel : public Panel
 
   private:
     float spacing_ = 0.0f;
+    HorizontalAlignment horizontalContentAlignment_ = HorizontalAlignment::Leading;
+    VerticalAlignment verticalContentAlignment_ = VerticalAlignment::Stretch;
     std::vector<SizeF> measuredChildren_;
+    SizeF measuredContent_ = {};
 };
 
 class WrapPanel : public Panel
@@ -123,14 +198,102 @@ class ScrollViewer : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    bool OnMouseMove(const POINT &point, WPARAM keyState) override;
     bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
 
   private:
     void ClampScrollOffset();
+    RectF GetScrollbarTrackRect() const;
+    RectF GetScrollbarThumbRect() const;
+    bool HasVerticalScrollbar() const;
+    void UpdateContentLayout();
 
     std::shared_ptr<Visual> content_;
     SizeF measuredContent_ = {};
     float scrollOffsetY_ = 0.0f;
+    bool scrollbarDragging_ = false;
+    float scrollbarDragOffsetY_ = 0.0f;
+};
+
+class Grid : public Visual
+{
+  public:
+    struct Cell
+    {
+        size_t row = 0;
+        size_t column = 0;
+        size_t rowSpan = 1;
+        size_t columnSpan = 1;
+    };
+
+    Grid() = default;
+
+    void AddRow(GridLength length);
+    void AddColumn(GridLength length);
+    void AddChild(std::shared_ptr<Visual> child, size_t row, size_t column, size_t rowSpan = 1, size_t columnSpan = 1);
+    void SetRowSpacing(float spacing);
+    void SetColumnSpacing(float spacing);
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+
+  private:
+    struct ChildEntry
+    {
+        std::shared_ptr<Visual> visual;
+        Cell cell;
+        SizeF measured = {};
+    };
+
+    std::vector<float> ResolveTrackSizes(const std::vector<GridLength> &definitions, float spacing, float available,
+                                         bool horizontalAxis);
+
+    std::vector<GridLength> rowDefinitions_;
+    std::vector<GridLength> columnDefinitions_;
+    std::vector<ChildEntry> children_;
+    float rowSpacing_ = 0.0f;
+    float columnSpacing_ = 0.0f;
+    SizeF measuredContent_ = {};
+};
+
+class Container : public Visual
+{
+  public:
+    Container() = default;
+    explicit Container(std::shared_ptr<Visual> child);
+
+    void SetChild(std::shared_ptr<Visual> child);
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+
+  protected:
+    RectF GetContentRect() const;
+    std::shared_ptr<Visual> child_;
+};
+
+class Border : public Container
+{
+  public:
+    Border(Brush brush, std::shared_ptr<Visual> child = nullptr);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+
+  private:
+    Brush brush_;
 };
 
 class Card : public Panel

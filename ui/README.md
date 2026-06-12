@@ -15,9 +15,31 @@
 - `msimeui-demo` 示例程序
 - D2D/DWrite 设备资源管理
 - 基础布局和控件树
-- `StackPanel` / `HorizontalStackPanel` / `WrapPanel`
-- `TextBlock` / `Button` / `CheckBox` / `ProgressBar` / `Slider` / `Separator`
+- 共享布局属性：`margin` / `padding` / 显式尺寸 / `min-max` 约束 / 对齐
+- `StackPanel` / `HorizontalStackPanel` / `WrapPanel` / `ScrollViewer` / `Grid`
+- 通用单子元素容器：`Container` / `Border`
+- `TextBlock` / `Button` / `CheckBox` / `ProgressBar` / `Slider` / `Separator` / `ListView` / `TreeView` / `TabControl` / `Accordion`
+- `Card`
 - `TextBox` 输入控件
+
+## 最近新增
+
+- demo 页面支持滚轮滚动，便于测试长页面和底部控件
+- 基础控件首帧文字测量修复，按钮初始宽度不会再异常撑满
+- 窗口图标已接入 `assets/msimeui.ico`
+- 所有 `Visual` 现支持共享布局属性：
+  `margin`、`padding`、`width/height`、`min/max width/height`、水平/垂直对齐
+- `StackPanel` 和 `HorizontalStackPanel` 现支持内容级对齐
+- 新增通用 `Container` / `Border`，可以在不依赖 `Card` 的情况下组织带内边距和边框的单子元素区域
+- 新增 `Grid` 布局，支持 `Auto` / `Pixel` / `Star` 三种轨道尺寸模式，适合表单、设置页和双栏内容区
+- `ScrollViewer` 现支持可见纵向滚动条，并可通过滚轮和拖拽滚动条滑块进行滚动
+- 新增基础 `ListView`，支持垂直列表项绘制、选中态和点击切换，适合导航列表和设置摘要区
+- 新增基础 `TreeView`，支持层级节点、展开折叠、选中态和点击切换，适合导航树和模块浏览区
+- 新增基础 `TabControl`，支持页签头、选中态和内容区切换，适合设置页、工具面板和分组工作区
+- 新增基础 `Accordion`，支持折叠分组、展开收起和单开/多开模式，适合长设置页和分组内容区
+- 修复了 `TabControl` / `TreeView` / `Accordion` 这类会改变内容结构的控件在切换后未及时重新布局而导致的稳定性问题
+- 修复了单行 `TextBox`（如 demo 中的 Search Box）输入光标和文本区域未垂直居中的问题
+- 修复了单行 `TextBox` 在垂直居中后输入法候选框未同步跟随文本区域下移的问题
 
 ## 构建
 

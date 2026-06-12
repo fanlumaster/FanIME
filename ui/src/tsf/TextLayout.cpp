@@ -77,7 +77,9 @@ BOOL CTextLayout::EnsureTextFormat(const LOGFONT *plf, FLOAT dpiY)
     return TRUE;
 }
 
-BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY)
+BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY,
+                         FLOAT paddingLeftPixels, FLOAT paddingTopPixels, FLOAT paddingRightPixels,
+                         FLOAT paddingBottomPixels)
 {
     Clear();
 
@@ -88,10 +90,10 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
 
     _dpiX = max(dpiX, 1.0f);
     _dpiY = max(dpiY, 1.0f);
-    _paddingLeftDips = PixelsToDipsX(kEditorPaddingPixels);
-    _paddingTopDips = PixelsToDipsY(kEditorPaddingPixels);
-    _paddingRightDips = PixelsToDipsX(kEditorPaddingPixels);
-    _paddingBottomDips = PixelsToDipsY(kEditorPaddingPixels);
+    _paddingLeftDips = PixelsToDipsX(kEditorPaddingPixels + paddingLeftPixels);
+    _paddingTopDips = PixelsToDipsY(kEditorPaddingPixels + paddingTopPixels);
+    _paddingRightDips = PixelsToDipsX(kEditorPaddingPixels + paddingRightPixels);
+    _paddingBottomDips = PixelsToDipsY(kEditorPaddingPixels + paddingBottomPixels);
     _layoutWidth = max(PixelsToDipsX(layoutWidthPixels) - _paddingLeftDips - _paddingRightDips, 1.0f);
 
     const WCHAR *layoutText = psz ? psz : L"";

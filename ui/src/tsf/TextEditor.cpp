@@ -274,7 +274,17 @@ void CTextEditor::UpdateLayout()
 
     const FLOAT dpi = static_cast<FLOAT>(GetDpiForWindow(_hwnd));
     const LONG width = max(_rcHost.right - _rcHost.left, 1L);
-    _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width), dpi, dpi);
+    _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width), dpi, dpi,
+                   static_cast<FLOAT>(_rcContentPadding.left), static_cast<FLOAT>(_rcContentPadding.top),
+                   static_cast<FLOAT>(_rcContentPadding.right), static_cast<FLOAT>(_rcContentPadding.bottom));
+}
+
+void CTextEditor::NotifyLayoutChange()
+{
+    if (_pTextStore)
+    {
+        _pTextStore->OnLayoutChange();
+    }
 }
 
 //----------------------------------------------------------------

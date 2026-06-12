@@ -32,6 +32,8 @@ class TextBox : public Visual
     HCURSOR GetCursor() const override;
 
   private:
+    RECT ComputeEditorHostRect() const;
+    RECT ComputeEditorContentPadding() const;
     POINT ToLocalPoint(const POINT &point) const;
     bool EnsureInitialized(DeviceResources *deviceResources);
     bool AlertMouseSink(const POINT &point, WPARAM keyState);
@@ -171,5 +173,186 @@ class Separator : public Visual
 
   private:
     float height_ = 1.0f;
+};
+
+class ListView : public Visual
+{
+  public:
+    struct Item
+    {
+        std::wstring title;
+        std::wstring subtitle;
+        std::wstring badge;
+    };
+
+    using SelectionChangedHandler = std::function<void(size_t selectedIndex)>;
+
+    explicit ListView(float itemHeight = 68.0f);
+
+    void AddItem(Item item);
+    void ClearItems();
+    void SetOnSelectionChanged(SelectionChangedHandler handler);
+    void SetSelectedIndex(size_t index);
+    size_t GetSelectedIndex() const;
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    bool HitTest(const PointF &point) const override;
+    bool IsFocusable() const override;
+    void OnFocusChanged(bool focused) override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+
+  private:
+    size_t HitTestItem(const PointF &point) const;
+
+    std::vector<Item> items_;
+    float itemHeight_ = 68.0f;
+    bool focused_ = false;
+    bool pressed_ = false;
+    size_t pressedIndex_ = static_cast<size_t>(-1);
+    size_t selectedIndex_ = 0;
+    SelectionChangedHandler onSelectionChanged_;
+};
+
+class TreeView : public Visual
+{
+  public:
+    struct Node
+    {
+        std::wstring title;
+        std::wstring subtitle;
+        bool expanded = true;
+        std::vector<Node> children;
+    };
+
+    using SelectionChangedHandler = std::function<void(const std::wstring &selectedTitle)>;
+
+    explicit TreeView(float itemHeight = 62.0f);
+
+    void AddRoot(Node node);
+    void Clear();
+    void SetOnSelectionChanged(SelectionChangedHandler handler);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    bool HitTest(const PointF &point) const override;
+    bool IsFocusable() const override;
+    void OnFocusChanged(bool focused) override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+
+  private:
+    struct VisibleNode
+    {
+        Node *node = nullptr;
+        size_t depth = 0;
+        RectF rowRect = {};
+        RectF expanderRect = {};
+    };
+
+    void BuildVisibleNodes();
+    void AppendVisibleNodes(Node &node, size_t depth);
+    VisibleNode *HitTestVisibleNode(const PointF &point);
+    const VisibleNode *HitTestVisibleNode(const PointF &point) const;
+    void SelectNode(Node *node);
+
+    std::vector<Node> roots_;
+    std::vector<VisibleNode> visibleNodes_;
+    float itemHeight_ = 62.0f;
+    bool focused_ = false;
+    bool pressed_ = false;
+    Node *pressedNode_ = nullptr;
+    bool pressedExpander_ = false;
+    Node *selectedNode_ = nullptr;
+    SelectionChangedHandler onSelectionChanged_;
+};
+
+class TabControl : public Visual
+{
+  public:
+    struct Tab
+    {
+        std::wstring title;
+        std::shared_ptr<Visual> content;
+    };
+
+    using SelectionChangedHandler = std::function<void(size_t selectedIndex)>;
+
+    explicit TabControl(float headerHeight = 46.0f);
+
+    void AddTab(std::wstring title, std::shared_ptr<Visual> content);
+    void ClearTabs();
+    void SetSelectedIndex(size_t index);
+    size_t GetSelectedIndex() const;
+    void SetOnSelectionChanged(SelectionChangedHandler handler);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    bool HitTest(const PointF &point) const override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+
+  private:
+    size_t HitTestHeader(const PointF &point) const;
+
+    std::vector<Tab> tabs_;
+    std::vector<RectF> headerRects_;
+    float headerHeight_ = 46.0f;
+    size_t selectedIndex_ = 0;
+    bool pressed_ = false;
+    size_t pressedIndex_ = static_cast<size_t>(-1);
+    SelectionChangedHandler onSelectionChanged_;
+};
+
+class Accordion : public Visual
+{
+  public:
+    struct Section
+    {
+        std::wstring title;
+        std::shared_ptr<Visual> content;
+        bool expanded = true;
+    };
+
+    explicit Accordion(float headerHeight = 48.0f);
+
+    void AddSection(std::wstring title, std::shared_ptr<Visual> content, bool expanded = true);
+    void ClearSections();
+    void SetAllowMultipleExpanded(bool allowMultipleExpanded);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    bool HitTest(const PointF &point) const override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+
+  private:
+    void CollapseOtherSections(size_t keepExpandedIndex);
+    size_t HitTestHeader(const PointF &point) const;
+
+    std::vector<Section> sections_;
+    std::vector<RectF> headerRects_;
+    std::vector<RectF> contentRects_;
+    float headerHeight_ = 48.0f;
+    bool allowMultipleExpanded_ = true;
+    bool pressed_ = false;
+    size_t pressedIndex_ = static_cast<size_t>(-1);
 };
 } // namespace msimeui
