@@ -1,5 +1,7 @@
 #include <string>
+#include <sstream>
 #include "TextEditor.h"
+#include "../DebugLog.h"
 
 extern ITfThreadMgr *g_pThreadMgr;
 extern TfClientId g_TfClientId;
@@ -67,14 +69,9 @@ void CTextEditor::MoveSelectionPrev()
 
 BOOL CTextEditor::MoveSelectionAtPoint(POINT pt)
 {
-    BOOL bRet = FALSE;
-    UINT nSel = _layout.CharPosFromPoint(pt);
-    if (nSel != (UINT)-1)
-    {
-        MoveSelection(nSel, nSel);
-        bRet = TRUE;
-    }
-    return bRet;
+    const UINT nSel = _layout.InsertionIndexFromPoint(pt);
+    MoveSelection(nSel, nSel);
+    return TRUE;
 }
 
 //----------------------------------------------------------------
@@ -275,11 +272,9 @@ void CTextEditor::UpdateLayout()
         return;
     }
 
-    RECT rcClient = {};
-    GetClientRect(_hwnd, &rcClient);
     const FLOAT dpi = static_cast<FLOAT>(GetDpiForWindow(_hwnd));
-    _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(max(rcClient.right, 1L)), dpi,
-                   dpi);
+    const LONG width = max(_rcHost.right - _rcHost.left, 1L);
+    _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width), dpi, dpi);
 }
 
 //----------------------------------------------------------------
@@ -312,11 +307,6 @@ BOOL CTextEditor::InitTSF()
     {
         return FALSE;
     }
-
-    ITfDocumentMgr *pDocumentMgrPrev;
-    g_pThreadMgr->AssociateFocus(_hwnd, _pDocumentMgr, &pDocumentMgrPrev);
-    if (pDocumentMgrPrev)
-        pDocumentMgrPrev->Release();
 
     _pTextEditSink = new CTextEditSink(this);
     if (!_pTextEditSink)
@@ -380,8 +370,28 @@ void CTextEditor::SetFocusDocumentMgr()
 {
     if (_pDocumentMgr)
     {
-        // g_pThreadMgr->SetFocus(_pDocumentMgr);
+        const HRESULT hr = g_pThreadMgr->SetFocus(_pDocumentMgr);
+
+        std::ostringstream oss;
+        oss << "CTextEditor::SetFocusDocumentMgr editor=" << this << " docMgr=" << _pDocumentMgr
+            << " hwnd=" << GetWnd() << " hr=0x" << std::hex << static_cast<unsigned long>(hr);
+        msimeui::DebugLog(oss.str());
     }
+}
+
+void CTextEditor::ClearFocusDocumentMgr()
+{
+    if (!_pDocumentMgr)
+    {
+        return;
+    }
+
+    const HRESULT hr = g_pThreadMgr->SetFocus(nullptr);
+
+    std::ostringstream oss;
+    oss << "CTextEditor::ClearFocusDocumentMgr editor=" << this << " docMgr=" << _pDocumentMgr
+        << " hwnd=" << GetWnd() << " hr=0x" << std::hex << static_cast<unsigned long>(hr);
+    msimeui::DebugLog(oss.str());
 }
 
 //----------------------------------------------------------------

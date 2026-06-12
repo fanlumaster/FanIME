@@ -89,6 +89,7 @@ class CTextLayout
                 const COMPOSITIONRENDERINFO *pCompositionRenderInfo, UINT nCompositionRenderInfo);
     BOOL RectFromCharPos(UINT nPos, RECT *prc);
     UINT CharPosFromPoint(POINT pt);
+    UINT InsertionIndexFromPoint(POINT pt);
     UINT ExactCharPosFromPoint(POINT pt);
     UINT FineFirstEndCharPosInLine(UINT uCurPos, BOOL bFirst);
     void ToggleCaretBlink();

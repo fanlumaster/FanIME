@@ -4,15 +4,109 @@
 #include "msimeui/Window.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <wrl/client.h>
 
 namespace msimeui
 {
 using Microsoft::WRL::ComPtr;
 
+namespace
+{
+IDWriteFactory *GetSharedDWriteFactory()
+{
+    static ComPtr<IDWriteFactory> factory;
+    if (!factory)
+    {
+        DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                            reinterpret_cast<IUnknown **>(factory.GetAddressOf()));
+    }
+
+    return factory.Get();
+}
+} // namespace
+
 void Visual::Attach(Window *window)
 {
     window_ = window;
+}
+
+bool Visual::HitTest(const PointF &point) const
+{
+    return point.x >= bounds_.x && point.x < (bounds_.x + bounds_.width) && point.y >= bounds_.y &&
+           point.y < (bounds_.y + bounds_.height);
+}
+
+Visual *Visual::FindVisualAt(const PointF &point)
+{
+    return HitTest(point) ? this : nullptr;
+}
+
+Visual *Visual::FindFocusableAt(const PointF &point)
+{
+    if (HitTest(point) && IsFocusable())
+    {
+        return this;
+    }
+
+    return nullptr;
+}
+
+Visual *Visual::FindFirstFocusableDescendant()
+{
+    return IsFocusable() ? this : nullptr;
+}
+
+bool Visual::IsFocusable() const
+{
+    return false;
+}
+
+void Visual::OnFocusChanged(bool focused)
+{
+    (void)focused;
+}
+
+bool Visual::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)point;
+    (void)keyState;
+    return false;
+}
+
+bool Visual::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)point;
+    (void)keyState;
+    return false;
+}
+
+bool Visual::OnMouseMove(const POINT &point, WPARAM keyState)
+{
+    (void)point;
+    (void)keyState;
+    return false;
+}
+
+bool Visual::OnKeyDown(WPARAM key, LPARAM lParam)
+{
+    (void)key;
+    (void)lParam;
+    return false;
+}
+
+bool Visual::OnChar(wchar_t ch, LPARAM lParam)
+{
+    (void)ch;
+    (void)lParam;
+    return false;
+}
+
+bool Visual::OnTimer(UINT_PTR timerId)
+{
+    (void)timerId;
+    return false;
 }
 
 const RectF &Visual::GetBounds() const
@@ -32,6 +126,65 @@ void Panel::Attach(Window *window)
     {
         child->Attach(window);
     }
+}
+
+Visual *Panel::FindVisualAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    for (auto it = children_.rbegin(); it != children_.rend(); ++it)
+    {
+        if (Visual *hit = (*it)->FindVisualAt(point))
+        {
+            return hit;
+        }
+    }
+
+    return this;
+}
+
+Visual *Panel::FindFocusableAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    for (auto it = children_.rbegin(); it != children_.rend(); ++it)
+    {
+        if (!(*it)->HitTest(point))
+        {
+            continue;
+        }
+
+        if (Visual *focusable = (*it)->FindFocusableAt(point))
+        {
+            return focusable;
+        }
+    }
+
+    return IsFocusable() ? this : nullptr;
+}
+
+Visual *Panel::FindFirstFocusableDescendant()
+{
+    if (IsFocusable())
+    {
+        return this;
+    }
+
+    for (const auto &child : children_)
+    {
+        if (Visual *focusable = child->FindFirstFocusableDescendant())
+        {
+            return focusable;
+        }
+    }
+
+    return nullptr;
 }
 
 StackPanel::StackPanel(float spacing) : spacing_(spacing)
@@ -147,7 +300,49 @@ TextBlock::TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool
 
 SizeF TextBlock::Measure(const SizeF &availableSize)
 {
-    measured_ = {availableSize.width, fontSize_ * 1.8f};
+    const float maxWidth = std::max(availableSize.width, 1.0f);
+    IDWriteFactory *dwriteFactory = GetSharedDWriteFactory();
+    if (!dwriteFactory)
+    {
+        measured_ = {maxWidth, fontSize_ * 1.8f};
+        return measured_;
+    }
+
+    ComPtr<IDWriteTextFormat> format;
+    if (FAILED(dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
+                                               bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                                               DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"",
+                                               format.GetAddressOf())))
+    {
+        measured_ = {maxWidth, fontSize_ * 1.8f};
+        return measured_;
+    }
+
+    format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+
+    ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(dwriteFactory->CreateTextLayout(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), maxWidth,
+                                               std::numeric_limits<float>::max(), layout.GetAddressOf())))
+    {
+        measured_ = {maxWidth, fontSize_ * 1.8f};
+        return measured_;
+    }
+
+    DWRITE_TEXT_METRICS metrics = {};
+    if (FAILED(layout->GetMetrics(&metrics)))
+    {
+        measured_ = {maxWidth, fontSize_ * 1.8f};
+        return measured_;
+    }
+
+    DWRITE_OVERHANG_METRICS overhang = {};
+    layout->GetOverhangMetrics(&overhang);
+
+    const float extraTop = std::max(overhang.top, 0.0f);
+    const float extraBottom = std::max(overhang.bottom, 0.0f);
+    const float measuredHeight = std::ceil(std::max(metrics.height + extraTop + extraBottom + 6.0f, fontSize_ * 1.5f));
+
+    measured_ = {maxWidth, measuredHeight};
     return measured_;
 }
 
@@ -171,11 +366,31 @@ void TextBlock::Render(DeviceResources &deviceResources)
                                     DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"",
                                     format.GetAddressOf());
     format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+    format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
 
     ComPtr<ID2D1SolidColorBrush> brush;
     target->CreateSolidColorBrush(color_, brush.GetAddressOf());
     const auto rect =
         D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height);
     target->DrawTextW(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), rect, brush.Get());
+}
+
+Spacer::Spacer(float height) : height_(height)
+{
+}
+
+SizeF Spacer::Measure(const SizeF &availableSize)
+{
+    return {availableSize.width, height_};
+}
+
+void Spacer::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+void Spacer::Render(DeviceResources &deviceResources)
+{
+    (void)deviceResources;
 }
 } // namespace msimeui

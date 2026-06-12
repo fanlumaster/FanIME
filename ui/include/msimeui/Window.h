@@ -20,6 +20,11 @@ class Window
     HWND GetHandle() const;
     HINSTANCE GetInstance() const;
     DeviceResources &GetDeviceResources();
+    float GetDpi() const;
+    PointF ClientPixelsToDips(const POINT &point) const;
+    SizeF ClientPixelsToDips(const SIZE &size) const;
+    RECT DipsToClientPixels(const RectF &rect) const;
+    void Invalidate();
 
     void SetScene(std::unique_ptr<Scene> scene);
 
@@ -28,6 +33,7 @@ class Window
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
     void OnPaint();
     void OnSize();
+    void SetFocusedVisual(Visual *visual);
 
     std::wstring className_;
     std::wstring title_;
@@ -37,5 +43,7 @@ class Window
     HWND hwnd_ = nullptr;
     DeviceResources deviceResources_;
     std::unique_ptr<Scene> scene_;
+    Visual *focusedVisual_ = nullptr;
+    Visual *capturedVisual_ = nullptr;
 };
 } // namespace msimeui

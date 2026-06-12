@@ -36,4 +36,14 @@ void Scene::Render(DeviceResources &deviceResources)
         root_->Render(deviceResources);
     }
 }
+
+Visual *Scene::FindVisualAt(const PointF &point)
+{
+    return root_ ? root_->FindVisualAt(point) : nullptr;
+}
+
+Visual *Scene::FindFocusableAt(const PointF &point)
+{
+    return root_ ? root_->FindFocusableAt(point) : nullptr;
+}
 } // namespace msimeui

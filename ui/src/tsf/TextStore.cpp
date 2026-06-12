@@ -3,8 +3,10 @@
 #include "TextInputCtrl.h"
 #include "InputScope.h"
 #include "tsattrs.h"
+#include "../DebugLog.h"
 
 #include <algorithm>
+#include <sstream>
 
 using std::max;
 using std::min;
@@ -414,10 +416,14 @@ STDAPI CTextStore::GetTextExt(TsViewCookie vcView, LONG acpStart, LONG acpEnd, R
 {
     RECT rcStart;
     RECT rcEnd;
+    const RECT rcHost = _pEditor->GetHostRect();
 
     if (_pEditor->GetLayout()->RectFromCharPos(acpStart, &rcStart) &&
         _pEditor->GetLayout()->RectFromCharPos(acpEnd, &rcEnd))
     {
+        OffsetRect(&rcStart, rcHost.left, rcHost.top);
+        OffsetRect(&rcEnd, rcHost.left, rcHost.top);
+
         if (rcStart.top == rcEnd.top)
         {
             prc->left = min(rcStart.left, rcEnd.left);
@@ -425,10 +431,8 @@ STDAPI CTextStore::GetTextExt(TsViewCookie vcView, LONG acpStart, LONG acpEnd, R
         }
         else
         {
-            RECT rcClient;
-            GetClientRect(_pEditor->GetWnd(), &rcClient);
-            prc->left = _pEditor->GetLayout()->GetPaddingLeftPixels();
-            prc->right = max(prc->left, rcClient.right - _pEditor->GetLayout()->GetPaddingRightPixels());
+            prc->left = rcHost.left + _pEditor->GetLayout()->GetPaddingLeftPixels();
+            prc->right = max(prc->left, rcHost.right - _pEditor->GetLayout()->GetPaddingRightPixels());
         }
         prc->top = min(rcStart.top, rcEnd.top);
         prc->bottom = max(rcStart.bottom, rcEnd.bottom);
@@ -444,6 +448,13 @@ STDAPI CTextStore::GetTextExt(TsViewCookie vcView, LONG acpStart, LONG acpEnd, R
     ClientToScreen(_pEditor->GetWnd(), (POINT *)&prc->left);
     ClientToScreen(_pEditor->GetWnd(), (POINT *)&prc->right);
     *pfClipped = FALSE;
+
+    std::ostringstream oss;
+    oss << "CTextStore::GetTextExt editor=" << _pEditor << " acpStart=" << acpStart << " acpEnd=" << acpEnd
+        << " hostRect=(" << rcHost.left << "," << rcHost.top << "," << rcHost.right << "," << rcHost.bottom << ")"
+        << " screenRect=(" << prc->left << "," << prc->top << "," << prc->right << "," << prc->bottom << ")";
+    msimeui::DebugLog(oss.str());
+
     return S_OK;
 }
 
@@ -455,9 +466,15 @@ STDAPI CTextStore::GetTextExt(TsViewCookie vcView, LONG acpStart, LONG acpEnd, R
 
 STDAPI CTextStore::GetScreenExt(TsViewCookie vcView, RECT *prc)
 {
-    GetClientRect(_pEditor->GetWnd(), prc);
+    *prc = _pEditor->GetHostRect();
     ClientToScreen(_pEditor->GetWnd(), (POINT *)&prc->left);
     ClientToScreen(_pEditor->GetWnd(), (POINT *)&prc->right);
+
+    std::ostringstream oss;
+    oss << "CTextStore::GetScreenExt editor=" << _pEditor
+        << " screenRect=(" << prc->left << "," << prc->top << "," << prc->right << "," << prc->bottom << ")";
+    msimeui::DebugLog(oss.str());
+
     return S_OK;
 }
 

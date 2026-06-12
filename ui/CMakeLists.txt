@@ -20,8 +20,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 add_library(msimeui STATIC
     src/Application.cpp
     src/Brush.cpp
+    src/DebugLog.cpp
     src/DeviceResources.cpp
-    src/HostedTextBox.cpp
+    src/TextBox.cpp
     src/Layout.cpp
     src/Scene.cpp
     src/Window.cpp
@@ -30,13 +31,12 @@ add_library(msimeui STATIC
     src/tsf/TextContainer.cpp
     src/tsf/TextEditor.cpp
     src/tsf/TextEditSink.cpp
-    src/tsf/TextInputCtrl.cpp
     src/tsf/TextLayout.cpp
     src/tsf/TextStore.cpp
-    src/tsf/TsfD2DTextBox.cpp
     src/tsf/TsfTextServices.cpp
     include/msimeui/Application.h
     include/msimeui/Brush.h
+    src/DebugLog.h
     include/msimeui/Controls.h
     include/msimeui/DeviceResources.h
     include/msimeui/Layout.h
@@ -48,10 +48,8 @@ add_library(msimeui STATIC
     src/tsf/TextContainer.h
     src/tsf/TextEditor.h
     src/tsf/TextEditSink.h
-    src/tsf/TextInputCtrl.h
     src/tsf/TextLayout.h
     src/tsf/TextStore.h
-    src/tsf/TsfD2DTextBox.h
     src/tsf/TsfTextServices.h
 )
 

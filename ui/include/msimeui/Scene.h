@@ -13,6 +13,8 @@ class Scene
     void Attach(Window *window);
     void Layout(const SizeF &size);
     void Render(DeviceResources &deviceResources);
+    Visual *FindVisualAt(const PointF &point);
+    Visual *FindFocusableAt(const PointF &point);
 
   private:
     std::shared_ptr<Visual> root_;

@@ -500,6 +500,78 @@ UINT CTextLayout::CharPosFromPoint(POINT pt)
     return static_cast<UINT>(-1);
 }
 
+UINT CTextLayout::InsertionIndexFromPoint(POINT pt)
+{
+    UINT hit = CharPosFromPoint(pt);
+    if (hit != static_cast<UINT>(-1))
+    {
+        return hit;
+    }
+
+    if (_nLineCnt == 0)
+    {
+        return 0;
+    }
+
+    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x));
+    const FLOAT dipY = PixelsToDipsY(static_cast<FLOAT>(pt.y));
+
+    for (UINT i = 0; i < _nLineCnt; i++)
+    {
+        const LINEINFO &line = _prgLines[i];
+        const FLOAT lineTop = _paddingTopDips + (_lineHeightDips * static_cast<FLOAT>(i));
+        const FLOAT lineBottom = lineTop + _lineHeightDips;
+
+        if (dipY < lineTop || dipY >= lineBottom)
+        {
+            continue;
+        }
+
+        if (line.nCnt == 0)
+        {
+            return line.nPos;
+        }
+
+        const D2D1_RECT_F &first = line.prgCharInfo[0].rc;
+        const D2D1_RECT_F &last = line.prgCharInfo[line.nCnt - 1].rc;
+
+        if (dipX <= first.left)
+        {
+            return line.nPos;
+        }
+
+        if (dipX >= last.right)
+        {
+            return line.nPos + line.nCnt;
+        }
+
+        for (UINT j = 0; j < line.nCnt; j++)
+        {
+            const D2D1_RECT_F &rc = line.prgCharInfo[j].rc;
+            if (dipX < rc.left)
+            {
+                return line.nPos + j;
+            }
+
+            if (dipX <= rc.right)
+            {
+                const FLOAT mid = rc.left + ((rc.right - rc.left) * 0.5f);
+                return line.nPos + j + (dipX >= mid ? 1U : 0U);
+            }
+        }
+
+        return line.nPos + line.nCnt;
+    }
+
+    if (dipY < _paddingTopDips)
+    {
+        return 0;
+    }
+
+    const LINEINFO &lastLine = _prgLines[_nLineCnt - 1];
+    return lastLine.nPos + lastLine.nCnt;
+}
+
 UINT CTextLayout::ExactCharPosFromPoint(POINT pt)
 {
     const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x));

@@ -84,14 +84,23 @@ class CTextEditor : public CTextContainer
     {
         return _hwnd;
     }
+    void SetHostRect(const RECT &rc)
+    {
+        _rcHost = rc;
+    }
+    const RECT &GetHostRect() const
+    {
+        return _rcHost;
+    }
 
     BOOL InitTSF();
     BOOL UninitTSF();
     void SetFocusDocumentMgr();
+    void ClearFocusDocumentMgr();
 
     void InvalidateRect()
     {
-        ::InvalidateRect(_hwnd, NULL, FALSE);
+        ::InvalidateRect(_hwnd, &_rcHost, FALSE);
     }
 
     int GetLineHeight()
@@ -114,6 +123,7 @@ class CTextEditor : public CTextContainer
     UINT _nSelStart;
     UINT _nSelEnd;
     HWND _hwnd;
+    RECT _rcHost = {};
 
     CTextLayout _layout;
     LOGFONT _lfCurrentFont;

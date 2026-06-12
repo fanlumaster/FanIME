@@ -1,8 +1,11 @@
 #include "msimeui/Window.h"
 
 #include "msimeui/Application.h"
+#include "DebugLog.h"
 
 #include <d2d1.h>
+#include <sstream>
+#include <windowsx.h>
 
 namespace msimeui
 {
@@ -27,6 +30,10 @@ bool Window::Create()
 
     hwnd_ = CreateWindowExW(0, className_.c_str(), title_.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                             width_, height_, nullptr, nullptr, instance_, this);
+    if (hwnd_)
+    {
+        SetTimer(hwnd_, 1, GetCaretBlinkTime(), nullptr);
+    }
     return hwnd_ != nullptr;
 }
 
@@ -58,6 +65,31 @@ HINSTANCE Window::GetInstance() const
 DeviceResources &Window::GetDeviceResources()
 {
     return deviceResources_;
+}
+
+float Window::GetDpi() const
+{
+    return hwnd_ ? static_cast<float>(GetDpiForWindow(hwnd_)) : 96.0f;
+}
+
+PointF Window::ClientPixelsToDips(const POINT &point) const
+{
+    return ToDips(point, GetDpi());
+}
+
+SizeF Window::ClientPixelsToDips(const SIZE &size) const
+{
+    return ToDips(size, GetDpi());
+}
+
+RECT Window::DipsToClientPixels(const RectF &rect) const
+{
+    return ToRectPixels(rect, GetDpi());
+}
+
+void Window::Invalidate()
+{
+    InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
 void Window::SetScene(std::unique_ptr<Scene> scene)
@@ -97,6 +129,98 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
+    case WM_LBUTTONDOWN:
+    {
+        const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (scene_)
+        {
+            const PointF dipPoint = ClientPixelsToDips(point);
+            Visual *target = scene_->FindVisualAt(dipPoint);
+            Visual *focusTarget = scene_->FindFocusableAt(dipPoint);
+            Visual *dispatchTarget = focusTarget ? focusTarget : target;
+            {
+                std::ostringstream log;
+                log << "WM_LBUTTONDOWN point=(" << point.x << "," << point.y << ") target=" << target
+                    << " focusTarget=" << focusTarget << " dispatchTarget=" << dispatchTarget;
+                DebugLog(log.str());
+            }
+            if (focusTarget && focusTarget->IsFocusable())
+            {
+                SetFocusedVisual(focusTarget);
+                SetFocus(hwnd_);
+            }
+            capturedVisual_ = dispatchTarget;
+            if (dispatchTarget && dispatchTarget->OnMouseDown(point, wParam))
+            {
+                SetCapture(hwnd_);
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    case WM_LBUTTONUP:
+    {
+        const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        Visual *target = capturedVisual_ ? capturedVisual_ : focusedVisual_;
+        if (target)
+        {
+            target->OnMouseUp(point, wParam);
+        }
+        capturedVisual_ = nullptr;
+        ReleaseCapture();
+        return 0;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (capturedVisual_)
+        {
+            capturedVisual_->OnMouseMove(point, wParam);
+        }
+        else if (focusedVisual_)
+        {
+            focusedVisual_->OnMouseMove(point, wParam);
+        }
+        return 0;
+    }
+
+    case WM_KEYDOWN:
+        if (focusedVisual_ && focusedVisual_->OnKeyDown(wParam, lParam))
+        {
+            return 0;
+        }
+        break;
+
+    case WM_CHAR:
+        if (focusedVisual_ && focusedVisual_->OnChar(static_cast<wchar_t>(wParam), lParam))
+        {
+            return 0;
+        }
+        break;
+
+    case WM_SETFOCUS:
+        if (focusedVisual_)
+        {
+            focusedVisual_->OnFocusChanged(true);
+        }
+        return 0;
+
+    case WM_KILLFOCUS:
+        if (focusedVisual_)
+        {
+            focusedVisual_->OnFocusChanged(false);
+        }
+        return 0;
+
+    case WM_TIMER:
+        if (focusedVisual_ && focusedVisual_->OnTimer(wParam))
+        {
+            return 0;
+        }
+        break;
+
     case WM_SIZE:
         OnSize();
         return 0;
@@ -106,12 +230,15 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_DESTROY:
+        KillTimer(hwnd_, 1);
         PostQuitMessage(0);
         return 0;
 
     default:
         return DefWindowProcW(hwnd_, message, wParam, lParam);
     }
+
+    return DefWindowProcW(hwnd_, message, wParam, lParam);
 }
 
 void Window::OnPaint()
@@ -147,9 +274,39 @@ void Window::OnSize()
 
     if (scene_)
     {
-        scene_->Layout({static_cast<float>(rc.right), static_cast<float>(rc.bottom)});
+        const SIZE pixelSize = {rc.right, rc.bottom};
+        scene_->Layout(ClientPixelsToDips(pixelSize));
     }
 
     InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void Window::SetFocusedVisual(Visual *visual)
+{
+    if (focusedVisual_ == visual)
+    {
+        std::ostringstream log;
+        log << "SetFocusedVisual unchanged visual=" << visual;
+        DebugLog(log.str());
+        return;
+    }
+
+    {
+        std::ostringstream log;
+        log << "SetFocusedVisual old=" << focusedVisual_ << " new=" << visual;
+        DebugLog(log.str());
+    }
+
+    if (focusedVisual_)
+    {
+        focusedVisual_->OnFocusChanged(false);
+    }
+
+    focusedVisual_ = visual;
+
+    if (focusedVisual_ && GetFocus() == hwnd_)
+    {
+        focusedVisual_->OnFocusChanged(true);
+    }
 }
 } // namespace msimeui
