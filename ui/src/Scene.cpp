@@ -3,8 +3,15 @@
 #include "msimeui/DeviceResources.h"
 #include "msimeui/Window.h"
 
+#include <algorithm>
+
 namespace msimeui
 {
+namespace
+{
+constexpr float kScenePaddingDips = 5.0f;
+}
+
 void Scene::SetRoot(std::shared_ptr<Visual> root)
 {
     root_ = std::move(root);
@@ -25,8 +32,10 @@ void Scene::Layout(const SizeF &size)
         return;
     }
 
-    root_->Measure(size);
-    root_->Arrange({0.0f, 0.0f, size.width, size.height});
+    const SizeF innerSize = {std::max(size.width - kScenePaddingDips * 2.0f, 0.0f),
+                             std::max(size.height - kScenePaddingDips * 2.0f, 0.0f)};
+    root_->Measure(innerSize);
+    root_->Arrange({kScenePaddingDips, kScenePaddingDips, innerSize.width, innerSize.height});
 }
 
 void Scene::Render(DeviceResources &deviceResources)

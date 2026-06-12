@@ -8,7 +8,7 @@ using std::min;
 
 namespace
 {
-constexpr FLOAT kEditorPaddingPixels = 3.0f;
+constexpr FLOAT kEditorPaddingPixels = 0.0f;
 constexpr FLOAT kCaretWidthPixels = 2.0f;
 
 float DipsFromLogFontHeight(const LOGFONT *plf, FLOAT dpiY)

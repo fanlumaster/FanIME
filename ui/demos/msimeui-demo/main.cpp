@@ -10,7 +10,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
         return -1;
     }
 
-    msimeui::Window window(L"msimeui.Window", L"msimeui Demo", 1080, 760);
+    msimeui::Window window(L"msimeui.Window", L"msimeui Demo", 1500, 1200);
     if (!window.Create())
     {
         msimeui::Application::Shutdown();

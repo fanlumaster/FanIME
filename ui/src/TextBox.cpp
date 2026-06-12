@@ -21,6 +21,8 @@ using std::min;
 namespace
 {
 constexpr UINT_PTR kCaretTimerId = 1;
+constexpr float kTextBoxCornerRadius = 10.0f;
+constexpr float kTextBoxContentPaddingPixels = 6.0f;
 
 RectF InsetRectF(const RectF &rect, float inset)
 {
@@ -104,7 +106,8 @@ void TextBox::Arrange(const RectF &finalRect)
         DebugLog(log.str());
     }
 
-    const RECT rc = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
+    RECT rc = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
+    InflateRect(&rc, -static_cast<int>(kTextBoxContentPaddingPixels), -static_cast<int>(kTextBoxContentPaddingPixels));
     if (editor_)
     {
         editor_->SetHostRect(rc);
@@ -135,15 +138,20 @@ void TextBox::Render(DeviceResources &deviceResources)
     target->CreateSolidColorBrush(D2D1::ColorF(0xFFFFFF), fillBrush.GetAddressOf());
     target->CreateSolidColorBrush(focused_ ? D2D1::ColorF(0x4C8DFF) : D2D1::ColorF(0xD6DCE5), strokeBrush.GetAddressOf());
 
-    const auto rect = D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
-                                        14.0f, 14.0f);
+    const auto rect =
+        D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
+                          kTextBoxCornerRadius, kTextBoxCornerRadius);
     target->FillRoundedRectangle(rect, fillBrush.Get());
     target->DrawRoundedRectangle(rect, strokeBrush.Get(), focused_ ? 2.0f : 1.0f);
 
+    const float paddingDips = window_ ? PixelsToDips(kTextBoxContentPaddingPixels, window_->GetDpi()) : kTextBoxContentPaddingPixels;
+    const float contentWidth = std::max(bounds_.width - paddingDips * 2.0f, 0.0f);
+    const float contentHeight = std::max(bounds_.height - paddingDips * 2.0f, 0.0f);
+
     D2D1_MATRIX_3X2_F oldTransform = {};
     target->GetTransform(&oldTransform);
-    target->SetTransform(D2D1::Matrix3x2F::Translation(bounds_.x, bounds_.y));
-    target->PushAxisAlignedClip(D2D1::RectF(0.0f, 0.0f, bounds_.width, bounds_.height), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    target->SetTransform(D2D1::Matrix3x2F::Translation(bounds_.x + paddingDips, bounds_.y + paddingDips));
+    target->PushAxisAlignedClip(D2D1::RectF(0.0f, 0.0f, contentWidth, contentHeight), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     editor_->Render(target);
     target->PopAxisAlignedClip();
     target->SetTransform(oldTransform);
@@ -174,7 +182,7 @@ bool TextBox::HitTest(const PointF &point) const
 
     if (preferredHeight_ > 100.0f)
     {
-        hit = PointInRoundedRect(innerRect, 13.0f, point);
+        hit = PointInRoundedRect(innerRect, kTextBoxCornerRadius - 1.0f, point);
     }
     else
     {
