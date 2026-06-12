@@ -80,6 +80,9 @@ HRESULT UninitDisplayAttrbute()
 HRESULT GetDisplayAttributeTrackPropertyRange(TfEditCookie ec, ITfContext *pic, ITfRange *pRange,
                                               ITfReadOnlyProperty **ppProp, CDispAttrProps *pDispAttrProps)
 {
+    UNREFERENCED_PARAMETER(ec);
+    UNREFERENCED_PARAMETER(pRange);
+
     ITfReadOnlyProperty *pProp = NULL;
     HRESULT hr = E_FAIL;
     GUID *pguidProp = NULL;

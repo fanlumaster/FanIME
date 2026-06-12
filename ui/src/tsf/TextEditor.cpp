@@ -475,7 +475,6 @@ void CTextEditor::TerminateCompositionString()
 
 void CTextEditor::AleartMouseSink(POINT pt, DWORD dwBtnState, BOOL *pbEaten)
 {
-    BOOL bRet = FALSE;
     UINT nSel = _layout.ExactCharPosFromPoint(pt);
     if (nSel == (UINT)-1)
     {
