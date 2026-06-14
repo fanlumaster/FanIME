@@ -138,16 +138,19 @@ void TextBox::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    ComPtr<ID2D1SolidColorBrush> fillBrush;
-    ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(theme.surface, fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(focused_ ? theme.primaryFocusStrong : theme.borderStrong, strokeBrush.GetAddressOf());
+    ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(theme.surface);
+    ID2D1SolidColorBrush *strokeBrush =
+        deviceResources.GetSolidColorBrush(focused_ ? theme.primaryFocusStrong : theme.borderStrong);
+    if (!fillBrush || !strokeBrush)
+    {
+        return;
+    }
 
     const auto rect =
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
                           kTextBoxCornerRadius, kTextBoxCornerRadius);
-    target->FillRoundedRectangle(rect, fillBrush.Get());
-    target->DrawRoundedRectangle(rect, strokeBrush.Get(), 1.0f);
+    target->FillRoundedRectangle(rect, fillBrush);
+    target->DrawRoundedRectangle(rect, strokeBrush, 1.0f);
 
     RECT hostRectPixels = ComputeEditorHostRect();
     const RECT boundsPixels = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);

@@ -133,43 +133,45 @@ void DrawTextBlock(DeviceResources &deviceResources, const std::wstring &text, f
                    D2D1_COLOR_F color, const RectF &rect, DWRITE_TEXT_ALIGNMENT textAlignment)
 {
     ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
-    IDWriteFactory *factory = deviceResources.GetDWriteFactory();
-    if (!target || !factory)
+    if (!target)
     {
         return;
     }
 
-    ComPtr<IDWriteTextFormat> format;
-    if (FAILED(factory->CreateTextFormat(L"Segoe UI", nullptr,
-                                         bold ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
-                                         DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, L"",
-                                         format.GetAddressOf())))
+    const Theme &theme = ThemeManager::GetCurrent();
+    IDWriteTextFormat *format = deviceResources.GetTextFormat(theme.uiFontFamily, fontSize,
+                                                              bold ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                                                              textAlignment, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                              DWRITE_WORD_WRAPPING_NO_WRAP);
+    ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(color);
+    if (!format || !brush)
     {
         return;
     }
-
-    format->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
-    format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-    format->SetTextAlignment(textAlignment);
-
-    ComPtr<ID2D1SolidColorBrush> brush;
-    target->CreateSolidColorBrush(color, brush.GetAddressOf());
-    target->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), format.Get(),
-                      D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), brush.Get());
+    target->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), format,
+                      D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), brush);
 }
 
-void FillRoundedRect(ID2D1HwndRenderTarget *target, const RectF &bounds, float radius, D2D1_COLOR_F fill,
+void FillRoundedRect(DeviceResources &deviceResources, const RectF &bounds, float radius, D2D1_COLOR_F fill,
                      D2D1_COLOR_F stroke, float strokeWidth)
 {
-    ComPtr<ID2D1SolidColorBrush> fillBrush;
-    ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(fill, fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(stroke, strokeBrush.GetAddressOf());
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(fill);
+    ID2D1SolidColorBrush *strokeBrush = deviceResources.GetSolidColorBrush(stroke);
+    if (!fillBrush || !strokeBrush)
+    {
+        return;
+    }
 
     const auto rounded =
         D2D1::RoundedRect(D2D1::RectF(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height), radius, radius);
-    target->FillRoundedRectangle(rounded, fillBrush.Get());
-    target->DrawRoundedRectangle(rounded, strokeBrush.Get(), strokeWidth);
+    target->FillRoundedRectangle(rounded, fillBrush);
+    target->DrawRoundedRectangle(rounded, strokeBrush, strokeWidth);
 }
 
 void DrawLabel(DeviceResources &deviceResources, const std::wstring &text, float fontSize, bool bold, D2D1_COLOR_F color,
@@ -177,29 +179,23 @@ void DrawLabel(DeviceResources &deviceResources, const std::wstring &text, float
                DWRITE_WORD_WRAPPING wrapping = DWRITE_WORD_WRAPPING_NO_WRAP)
 {
     ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
-    IDWriteFactory *factory = deviceResources.GetDWriteFactory();
-    if (!target || !factory)
+    if (!target)
     {
         return;
     }
 
-    ComPtr<IDWriteTextFormat> format;
-    if (FAILED(factory->CreateTextFormat(L"Segoe UI", nullptr,
-                                         bold ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
-                                         DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, L"",
-                                         format.GetAddressOf())))
+    const Theme &theme = ThemeManager::GetCurrent();
+    IDWriteTextFormat *format = deviceResources.GetTextFormat(theme.uiFontFamily, fontSize,
+                                                              bold ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                                                              alignment, paragraphAlignment, wrapping);
+    ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(color);
+    if (!format || !brush)
     {
         return;
     }
 
-    format->SetWordWrapping(wrapping);
-    format->SetParagraphAlignment(paragraphAlignment);
-    format->SetTextAlignment(alignment);
-
-    ComPtr<ID2D1SolidColorBrush> brush;
-    target->CreateSolidColorBrush(color, brush.GetAddressOf());
-    target->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), format.Get(),
-                      D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), brush.Get());
+    target->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), format,
+                      D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), brush);
 }
 
 class ComboBoxPopupContent : public Visual
@@ -273,7 +269,7 @@ class ComboBoxPopupContent : public Visual
 
             if (selected || hovered || pressed)
             {
-                FillRoundedRect(target, row, 10.0f,
+                FillRoundedRect(deviceResources, row, 10.0f,
                                 pressed ? theme.primarySoftPressed
                                         : (selected ? theme.primarySoft : theme.surfaceMuted),
                                 selected ? theme.primaryFocus : theme.border, selected ? 1.5f : 1.0f);
@@ -456,7 +452,7 @@ void Popup::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    FillRoundedRect(target, bounds_, 16.0f, theme.surface, theme.borderStrong, 1.0f);
+    FillRoundedRect(deviceResources, bounds_, 16.0f, theme.surface, theme.borderStrong, 1.0f);
     if (child_)
     {
         child_->Render(deviceResources);
@@ -933,7 +929,7 @@ void ComboBox::Render(DeviceResources &deviceResources)
     const Theme &theme = ThemeManager::GetCurrent();
     const D2D1_COLOR_F fill = pressed_ ? theme.surfaceMuted : theme.surface;
     const D2D1_COLOR_F stroke = focused_ || open_ ? theme.primaryFocus : theme.border;
-    FillRoundedRect(target, bounds_, kControlCornerRadius, fill, stroke, focused_ || open_ ? 2.0f : 1.0f);
+    FillRoundedRect(deviceResources, bounds_, kControlCornerRadius, fill, stroke, focused_ || open_ ? 2.0f : 1.0f);
 
     const std::wstring text = GetSelectedText().empty() ? L"Select an option" : GetSelectedText();
     const D2D1_COLOR_F textColor = GetSelectedText().empty() ? theme.textSecondary : theme.textPrimary;
@@ -941,15 +937,18 @@ void ComboBox::Render(DeviceResources &deviceResources)
               {bounds_.x + 16.0f, bounds_.y, std::max(bounds_.width - 44.0f, 0.0f), bounds_.height},
               DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 
-    ComPtr<ID2D1SolidColorBrush> brush;
-    target->CreateSolidColorBrush(theme.textSecondary, brush.GetAddressOf());
+    ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(theme.textSecondary);
+    if (!brush)
+    {
+        return;
+    }
     const float centerX = bounds_.x + bounds_.width - 18.0f;
     const float centerY = bounds_.y + bounds_.height * 0.5f + (open_ ? -1.0f : 1.0f);
     const float direction = open_ ? -1.0f : 1.0f;
     target->DrawLine(D2D1::Point2F(centerX - 5.0f, centerY - 3.0f * direction),
-                     D2D1::Point2F(centerX, centerY + 2.0f * direction), brush.Get(), 1.8f);
+                     D2D1::Point2F(centerX, centerY + 2.0f * direction), brush, 1.8f);
     target->DrawLine(D2D1::Point2F(centerX, centerY + 2.0f * direction),
-                     D2D1::Point2F(centerX + 5.0f, centerY - 3.0f * direction), brush.Get(), 1.8f);
+                     D2D1::Point2F(centerX + 5.0f, centerY - 3.0f * direction), brush, 1.8f);
 }
 
 void ComboBox::Attach(Window *window)
@@ -1102,7 +1101,8 @@ void Button::Render(DeviceResources &deviceResources)
         return;
     }
 
-    FillRoundedRect(target, bounds_, kControlCornerRadius, GetFillColor(), GetStrokeColor(), focused_ ? 2.0f : 1.0f);
+    FillRoundedRect(deviceResources, bounds_, kControlCornerRadius, GetFillColor(), GetStrokeColor(),
+                    focused_ ? 2.0f : 1.0f);
     DrawTextBlock(deviceResources, text_, 16.0f, true, GetTextColor(), bounds_, DWRITE_TEXT_ALIGNMENT_CENTER);
 }
 
@@ -1232,17 +1232,20 @@ void CheckBox::Render(DeviceResources &deviceResources)
     const Theme &theme = ThemeManager::GetCurrent();
     const float indicatorY = bounds_.y + (bounds_.height - kCheckBoxIndicatorSize) * 0.5f;
     const RectF indicator = {bounds_.x, indicatorY, kCheckBoxIndicatorSize, kCheckBoxIndicatorSize};
-    FillRoundedRect(target, indicator, 6.0f, checked_ ? theme.primary : theme.surface,
+    FillRoundedRect(deviceResources, indicator, 6.0f, checked_ ? theme.primary : theme.surface,
                     focused_ ? theme.primaryFocusStrong : theme.border, focused_ ? 2.0f : 1.0f);
 
     if (checked_)
     {
-        ComPtr<ID2D1SolidColorBrush> checkBrush;
-        target->CreateSolidColorBrush(theme.textInverse, checkBrush.GetAddressOf());
+        ID2D1SolidColorBrush *checkBrush = deviceResources.GetSolidColorBrush(theme.textInverse);
+        if (!checkBrush)
+        {
+            return;
+        }
         target->DrawLine(D2D1::Point2F(indicator.x + 5.0f, indicator.y + 11.0f),
-                         D2D1::Point2F(indicator.x + 9.0f, indicator.y + 15.0f), checkBrush.Get(), 2.0f);
+                         D2D1::Point2F(indicator.x + 9.0f, indicator.y + 15.0f), checkBrush, 2.0f);
         target->DrawLine(D2D1::Point2F(indicator.x + 9.0f, indicator.y + 15.0f),
-                         D2D1::Point2F(indicator.x + 15.0f, indicator.y + 6.0f), checkBrush.Get(), 2.0f);
+                         D2D1::Point2F(indicator.x + 15.0f, indicator.y + 6.0f), checkBrush, 2.0f);
     }
 
     const RectF textRect = {indicator.x + indicator.width + 12.0f, bounds_.y, std::max(bounds_.width - indicator.width - 12.0f, 0.0f),
@@ -1340,12 +1343,12 @@ void ProgressBar::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    FillRoundedRect(target, bounds_, preferredHeight_ * 0.5f, theme.track, theme.border, 1.0f);
+    FillRoundedRect(deviceResources, bounds_, preferredHeight_ * 0.5f, theme.track, theme.border, 1.0f);
 
     const RectF fillRect = {bounds_.x, bounds_.y, bounds_.width * value_, bounds_.height};
     if (fillRect.width > 0.0f)
     {
-        FillRoundedRect(target, fillRect, preferredHeight_ * 0.5f, theme.success, theme.success, 1.0f);
+        FillRoundedRect(deviceResources, fillRect, preferredHeight_ * 0.5f, theme.success, theme.success, 1.0f);
     }
 }
 
@@ -1390,25 +1393,27 @@ void Slider::Render(DeviceResources &deviceResources)
 
     const Theme &theme = ThemeManager::GetCurrent();
     const RectF track = {bounds_.x, bounds_.y + (bounds_.height - kSliderTrackHeight) * 0.5f, bounds_.width, kSliderTrackHeight};
-    FillRoundedRect(target, track, kSliderTrackHeight * 0.5f, theme.track, theme.border, 1.0f);
+    FillRoundedRect(deviceResources, track, kSliderTrackHeight * 0.5f, theme.track, theme.border, 1.0f);
 
     const RectF active = {track.x, track.y, track.width * NormalizedValue(), track.height};
     if (active.width > 0.0f)
     {
-        FillRoundedRect(target, active, kSliderTrackHeight * 0.5f, theme.primary, theme.primary, 1.0f);
+        FillRoundedRect(deviceResources, active, kSliderTrackHeight * 0.5f, theme.primary, theme.primary, 1.0f);
     }
 
     const float thumbCenterX = track.x + track.width * NormalizedValue();
     const float thumbCenterY = bounds_.y + bounds_.height * 0.5f;
-    ComPtr<ID2D1SolidColorBrush> fillBrush;
-    ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(theme.surface, fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(focused_ || dragging_ ? theme.primary : theme.thumb,
-                                  strokeBrush.GetAddressOf());
+    ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(theme.surface);
+    ID2D1SolidColorBrush *strokeBrush =
+        deviceResources.GetSolidColorBrush(focused_ || dragging_ ? theme.primary : theme.thumb);
+    if (!fillBrush || !strokeBrush)
+    {
+        return;
+    }
     target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(thumbCenterX, thumbCenterY), kSliderThumbRadius, kSliderThumbRadius),
-                        fillBrush.Get());
+                        fillBrush);
     target->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(thumbCenterX, thumbCenterY), kSliderThumbRadius, kSliderThumbRadius),
-                        strokeBrush.Get(), focused_ || dragging_ ? 2.0f : 1.0f);
+                        strokeBrush, focused_ || dragging_ ? 2.0f : 1.0f);
 }
 
 bool Slider::HitTest(const PointF &point) const
@@ -1521,10 +1526,13 @@ void Separator::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ComPtr<ID2D1SolidColorBrush> brush;
-    target->CreateSolidColorBrush(D2D1::ColorF(0xE2E8F0), brush.GetAddressOf());
+    ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0xE2E8F0));
+    if (!brush)
+    {
+        return;
+    }
     const float centerY = bounds_.y + bounds_.height * 0.5f;
-    target->DrawLine(D2D1::Point2F(bounds_.x, centerY), D2D1::Point2F(bounds_.x + bounds_.width, centerY), brush.Get(),
+    target->DrawLine(D2D1::Point2F(bounds_.x, centerY), D2D1::Point2F(bounds_.x + bounds_.width, centerY), brush,
                      std::max(bounds_.height, 1.0f));
 }
 
@@ -1607,7 +1615,7 @@ void ListView::Render(DeviceResources &deviceResources)
         const bool selected = index == selectedIndex_;
         const bool pressed = pressed_ && index == pressedIndex_;
 
-        FillRoundedRect(target, itemRect, kListItemCornerRadius,
+        FillRoundedRect(deviceResources, itemRect, kListItemCornerRadius,
                         pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xFFFFFF)),
                         selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xD6DCE5), selected || focused_ ? 2.0f : 1.0f);
 
@@ -1621,7 +1629,7 @@ void ListView::Render(DeviceResources &deviceResources)
         if (!items_[index].badge.empty())
         {
             const RectF badgeRect = {itemRect.x + itemRect.width - 88.0f, itemRect.y + 18.0f, 72.0f, 28.0f};
-            FillRoundedRect(target, badgeRect, 14.0f, selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xE2E8F0),
+            FillRoundedRect(deviceResources, badgeRect, 14.0f, selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xE2E8F0),
                             selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xCBD5E1), 1.0f);
             DrawLabel(deviceResources, items_[index].badge, 12.0f, true,
                       selected ? D2D1::ColorF(0xFFFFFF) : D2D1::ColorF(0x334155), badgeRect,
@@ -1763,14 +1771,17 @@ void TreeView::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ComPtr<ID2D1SolidColorBrush> lineBrush;
-    target->CreateSolidColorBrush(D2D1::ColorF(0xCBD5E1), lineBrush.GetAddressOf());
+    ID2D1SolidColorBrush *lineBrush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0xCBD5E1));
+    if (!lineBrush)
+    {
+        return;
+    }
 
     for (const auto &entry : visibleNodes_)
     {
         const bool selected = entry.node == selectedNode_;
         const bool pressed = pressed_ && entry.node == pressedNode_;
-        FillRoundedRect(target, entry.rowRect, kListItemCornerRadius,
+        FillRoundedRect(deviceResources, entry.rowRect, kListItemCornerRadius,
                         pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xFFFFFF)),
                         selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xD6DCE5), selected || focused_ ? 2.0f : 1.0f);
 
@@ -1782,16 +1793,16 @@ void TreeView::Render(DeviceResources &deviceResources)
             if (entry.node->expanded)
             {
                 target->DrawLine(D2D1::Point2F(centerX - 4.0f, centerY - 1.0f), D2D1::Point2F(centerX, centerY + 3.0f),
-                                 lineBrush.Get(), 1.8f);
+                                 lineBrush, 1.8f);
                 target->DrawLine(D2D1::Point2F(centerX, centerY + 3.0f), D2D1::Point2F(centerX + 4.0f, centerY - 1.0f),
-                                 lineBrush.Get(), 1.8f);
+                                 lineBrush, 1.8f);
             }
             else
             {
                 target->DrawLine(D2D1::Point2F(centerX - 2.0f, centerY - 4.0f), D2D1::Point2F(centerX + 2.0f, centerY),
-                                 lineBrush.Get(), 1.8f);
+                                 lineBrush, 1.8f);
                 target->DrawLine(D2D1::Point2F(centerX + 2.0f, centerY), D2D1::Point2F(centerX - 2.0f, centerY + 4.0f),
-                                 lineBrush.Get(), 1.8f);
+                                 lineBrush, 1.8f);
             }
         }
 
@@ -2053,7 +2064,7 @@ void TabControl::Render(DeviceResources &deviceResources)
     {
         const bool selected = index == selectedIndex_;
         const bool pressed = pressed_ && index == pressedIndex_;
-        FillRoundedRect(target, headerRects_[index], kTabCornerRadius,
+        FillRoundedRect(deviceResources, headerRects_[index], kTabCornerRadius,
                         pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xF8FAFC)),
                         selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xCBD5E1), selected ? 2.0f : 1.0f);
         DrawLabel(deviceResources, tabs_[index].title, 14.0f, true, selected ? D2D1::ColorF(0x1D4ED8) : D2D1::ColorF(0x334155),
@@ -2061,7 +2072,7 @@ void TabControl::Render(DeviceResources &deviceResources)
     }
 
     const RectF contentFrame = {bounds_.x, bounds_.y + headerHeight_ + 8.0f, bounds_.width, std::max(bounds_.height - headerHeight_ - 8.0f, 0.0f)};
-    FillRoundedRect(target, contentFrame, 18.0f, D2D1::ColorF(0xFFFFFF), D2D1::ColorF(0xD6DCE5), 1.0f);
+    FillRoundedRect(deviceResources, contentFrame, 18.0f, D2D1::ColorF(0xFFFFFF), D2D1::ColorF(0xD6DCE5), 1.0f);
 
     if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
     {
@@ -2296,13 +2307,16 @@ void Accordion::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ComPtr<ID2D1SolidColorBrush> chevronBrush;
-    target->CreateSolidColorBrush(D2D1::ColorF(0x64748B), chevronBrush.GetAddressOf());
+    ID2D1SolidColorBrush *chevronBrush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0x64748B));
+    if (!chevronBrush)
+    {
+        return;
+    }
 
     for (size_t index = 0; index < sections_.size(); ++index)
     {
         const bool pressed = pressed_ && index == pressedIndex_;
-        FillRoundedRect(target, headerRects_[index], kAccordionCornerRadius,
+        FillRoundedRect(deviceResources, headerRects_[index], kAccordionCornerRadius,
                         pressed ? D2D1::ColorF(0xE0F2FE) : D2D1::ColorF(0xF8FAFC), D2D1::ColorF(0xCBD5E1), 1.0f);
         DrawLabel(deviceResources, sections_[index].title, 15.0f, true, D2D1::ColorF(0x0F172A), headerRects_[index],
                   DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
@@ -2312,16 +2326,16 @@ void Accordion::Render(DeviceResources &deviceResources)
         if (sections_[index].expanded)
         {
             target->DrawLine(D2D1::Point2F(centerX - 4.0f, centerY - 2.0f), D2D1::Point2F(centerX, centerY + 2.0f),
-                             chevronBrush.Get(), 1.8f);
+                             chevronBrush, 1.8f);
             target->DrawLine(D2D1::Point2F(centerX, centerY + 2.0f), D2D1::Point2F(centerX + 4.0f, centerY - 2.0f),
-                             chevronBrush.Get(), 1.8f);
+                             chevronBrush, 1.8f);
         }
         else
         {
             target->DrawLine(D2D1::Point2F(centerX - 2.0f, centerY - 4.0f), D2D1::Point2F(centerX + 2.0f, centerY),
-                             chevronBrush.Get(), 1.8f);
+                             chevronBrush, 1.8f);
             target->DrawLine(D2D1::Point2F(centerX + 2.0f, centerY), D2D1::Point2F(centerX - 2.0f, centerY + 4.0f),
-                             chevronBrush.Get(), 1.8f);
+                             chevronBrush, 1.8f);
         }
 
         if (sections_[index].expanded && sections_[index].content)

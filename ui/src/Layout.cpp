@@ -889,18 +889,20 @@ void ScrollViewer::Render(DeviceResources &deviceResources)
     const RectF trackRect = GetScrollbarTrackRect();
     const RectF thumbRect = GetScrollbarThumbRect();
     const Theme &theme = ThemeManager::GetCurrent();
-    ComPtr<ID2D1SolidColorBrush> trackBrush;
-    ComPtr<ID2D1SolidColorBrush> thumbBrush;
-    target->CreateSolidColorBrush(theme.track, trackBrush.GetAddressOf());
-    target->CreateSolidColorBrush(scrollbarDragging_ ? theme.thumbActive : theme.thumb,
-                                  thumbBrush.GetAddressOf());
+    ID2D1SolidColorBrush *trackBrush = deviceResources.GetSolidColorBrush(theme.track);
+    ID2D1SolidColorBrush *thumbBrush =
+        deviceResources.GetSolidColorBrush(scrollbarDragging_ ? theme.thumbActive : theme.thumb);
+    if (!trackBrush || !thumbBrush)
+    {
+        return;
+    }
 
     const auto trackRounded = D2D1::RoundedRect(
         D2D1::RectF(trackRect.x, trackRect.y, trackRect.x + trackRect.width, trackRect.y + trackRect.height), 4.0f, 4.0f);
     const auto thumbRounded = D2D1::RoundedRect(
         D2D1::RectF(thumbRect.x, thumbRect.y, thumbRect.x + thumbRect.width, thumbRect.y + thumbRect.height), 4.0f, 4.0f);
-    target->FillRoundedRectangle(trackRounded, trackBrush.Get());
-    target->FillRoundedRectangle(thumbRounded, thumbBrush.Get());
+    target->FillRoundedRectangle(trackRounded, trackBrush);
+    target->FillRoundedRectangle(thumbRounded, thumbBrush);
 }
 
 void ScrollViewer::Attach(Window *window)
@@ -1491,16 +1493,18 @@ void Border::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ComPtr<ID2D1SolidColorBrush> fillBrush;
-    ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(brush_.fill, fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(brush_.stroke, strokeBrush.GetAddressOf());
+    ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(brush_.fill);
+    ID2D1SolidColorBrush *strokeBrush = deviceResources.GetSolidColorBrush(brush_.stroke);
+    if (!fillBrush || !strokeBrush)
+    {
+        return;
+    }
 
     const auto roundedRect =
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
                           brush_.radiusX, brush_.radiusY);
-    target->FillRoundedRectangle(roundedRect, fillBrush.Get());
-    target->DrawRoundedRectangle(roundedRect, strokeBrush.Get(), brush_.strokeWidth);
+    target->FillRoundedRectangle(roundedRect, fillBrush);
+    target->DrawRoundedRectangle(roundedRect, strokeBrush, brush_.strokeWidth);
 
     Container::Render(deviceResources);
 }
@@ -1547,16 +1551,18 @@ void Card::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ComPtr<ID2D1SolidColorBrush> fillBrush;
-    ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(brush_.fill, fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(brush_.stroke, strokeBrush.GetAddressOf());
+    ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(brush_.fill);
+    ID2D1SolidColorBrush *strokeBrush = deviceResources.GetSolidColorBrush(brush_.stroke);
+    if (!fillBrush || !strokeBrush)
+    {
+        return;
+    }
 
     const auto roundedRect =
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
                           brush_.radiusX, brush_.radiusY);
-    target->FillRoundedRectangle(roundedRect, fillBrush.Get());
-    target->DrawRoundedRectangle(roundedRect, strokeBrush.Get(), brush_.strokeWidth);
+    target->FillRoundedRectangle(roundedRect, fillBrush);
+    target->DrawRoundedRectangle(roundedRect, strokeBrush, brush_.strokeWidth);
 
     for (const auto &child : children_)
     {
@@ -1631,26 +1637,25 @@ void TextBlock::Arrange(const RectF &finalRect)
 void TextBlock::Render(DeviceResources &deviceResources)
 {
     ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
-    IDWriteFactory *dwriteFactory = deviceResources.GetDWriteFactory();
-    if (!target || !dwriteFactory)
+    if (!target)
     {
         return;
     }
 
-    ComPtr<IDWriteTextFormat> format;
     const Theme &theme = ThemeManager::GetCurrent();
-    dwriteFactory->CreateTextFormat(theme.uiFontFamily.c_str(), nullptr,
-                                    bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
-                                    DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"",
-                                    format.GetAddressOf());
-    format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
-    format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-
-    ComPtr<ID2D1SolidColorBrush> brush;
-    target->CreateSolidColorBrush(color_, brush.GetAddressOf());
+    IDWriteTextFormat *format = deviceResources.GetTextFormat(theme.uiFontFamily, fontSize_,
+                                                              bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                                                              DWRITE_TEXT_ALIGNMENT_LEADING,
+                                                              DWRITE_PARAGRAPH_ALIGNMENT_NEAR,
+                                                              DWRITE_WORD_WRAPPING_WRAP);
+    ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(color_);
+    if (!format || !brush)
+    {
+        return;
+    }
     const auto rect =
         D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height);
-    target->DrawTextW(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), rect, brush.Get());
+    target->DrawTextW(text_.c_str(), static_cast<UINT32>(text_.size()), format, rect, brush);
 }
 
 Spacer::Spacer(float height) : height_(height)
