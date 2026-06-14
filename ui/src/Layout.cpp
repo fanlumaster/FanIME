@@ -1578,7 +1578,15 @@ TextBlock::TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool
 void TextBlock::SetText(std::wstring text)
 {
     text_ = std::move(text);
+    InvalidateTextLayoutCache();
     InvalidateMeasure();
+}
+
+void TextBlock::InvalidateTextLayoutCache()
+{
+    cachedTextLayout_.Reset();
+    cachedFontFamily_.clear();
+    cachedLayoutWidth_ = -1.0f;
 }
 
 SizeF TextBlock::Measure(const SizeF &availableSize)
@@ -1591,35 +1599,41 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
         return measured_;
     }
 
-    ComPtr<IDWriteTextFormat> format;
-    if (FAILED(dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
-                                               bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
-                                               DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"",
-                                               format.GetAddressOf())))
+    const Theme &theme = ThemeManager::GetCurrent();
+    const bool needsLayout = !cachedTextLayout_ || cachedLayoutWidth_ != maxWidth || cachedFontFamily_ != theme.uiFontFamily;
+    if (needsLayout)
     {
-        measured_ = {maxWidth, fontSize_ * 1.8f};
-        return measured_;
-    }
+        ComPtr<IDWriteTextFormat> format;
+        if (FAILED(dwriteFactory->CreateTextFormat(
+                theme.uiFontFamily.c_str(), nullptr, bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"", format.GetAddressOf())))
+        {
+            measured_ = {maxWidth, fontSize_ * 1.8f};
+            return measured_;
+        }
 
-    format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+        format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
 
-    ComPtr<IDWriteTextLayout> layout;
-    if (FAILED(dwriteFactory->CreateTextLayout(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), maxWidth,
-                                               std::numeric_limits<float>::max(), layout.GetAddressOf())))
-    {
-        measured_ = {maxWidth, fontSize_ * 1.8f};
-        return measured_;
+        if (FAILED(dwriteFactory->CreateTextLayout(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), maxWidth,
+                                                   std::numeric_limits<float>::max(), cachedTextLayout_.ReleaseAndGetAddressOf())))
+        {
+            measured_ = {maxWidth, fontSize_ * 1.8f};
+            return measured_;
+        }
+
+        cachedLayoutWidth_ = maxWidth;
+        cachedFontFamily_ = theme.uiFontFamily;
     }
 
     DWRITE_TEXT_METRICS metrics = {};
-    if (FAILED(layout->GetMetrics(&metrics)))
+    if (FAILED(cachedTextLayout_->GetMetrics(&metrics)))
     {
         measured_ = {maxWidth, fontSize_ * 1.8f};
         return measured_;
     }
 
     DWRITE_OVERHANG_METRICS overhang = {};
-    layout->GetOverhangMetrics(&overhang);
+    cachedTextLayout_->GetOverhangMetrics(&overhang);
 
     const float extraTop = std::max(overhang.top, 0.0f);
     const float extraBottom = std::max(overhang.bottom, 0.0f);
@@ -1643,19 +1657,19 @@ void TextBlock::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    IDWriteTextFormat *format = deviceResources.GetTextFormat(theme.uiFontFamily, fontSize_,
-                                                              bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
-                                                              DWRITE_TEXT_ALIGNMENT_LEADING,
-                                                              DWRITE_PARAGRAPH_ALIGNMENT_NEAR,
-                                                              DWRITE_WORD_WRAPPING_WRAP);
+    if (!cachedTextLayout_ || cachedLayoutWidth_ != std::max(bounds_.width, 1.0f) || cachedFontFamily_ != theme.uiFontFamily)
+    {
+        Measure({std::max(bounds_.width, 1.0f), std::max(bounds_.height, 1.0f)});
+    }
+
     ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(color_);
-    if (!format || !brush)
+    if (!cachedTextLayout_ || !brush)
     {
         return;
     }
-    const auto rect =
-        D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height);
-    target->DrawTextW(text_.c_str(), static_cast<UINT32>(text_.size()), format, rect, brush);
+
+    target->DrawTextLayout(D2D1::Point2F(bounds_.x, bounds_.y), cachedTextLayout_.Get(), brush,
+                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 
 Spacer::Spacer(float height) : height_(height)

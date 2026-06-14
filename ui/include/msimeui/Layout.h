@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <wrl/client.h>
 
 namespace msimeui
 {
@@ -353,11 +354,16 @@ class TextBlock : public Visual
     void Render(DeviceResources &deviceResources) override;
 
   private:
+    void InvalidateTextLayoutCache();
+
     std::wstring text_;
     float fontSize_ = 16.0f;
     D2D1_COLOR_F color_ = D2D1::ColorF(0x111111);
     bool bold_ = false;
     SizeF measured_ = {};
+    std::wstring cachedFontFamily_;
+    float cachedLayoutWidth_ = -1.0f;
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> cachedTextLayout_;
 };
 
 class Spacer : public Visual
