@@ -374,46 +374,6 @@ Visual *Scene::FindFocusableAt(const PointF &point)
     return root_ ? root_->FindFocusableAt(point) : nullptr;
 }
 
-Visual *Scene::FindNextFocusable(Visual *current, bool reverse)
-{
-    std::vector<Visual *> focusables;
-    if (!popups_.empty())
-    {
-        if (popups_.back().visual)
-        {
-            popups_.back().visual->AppendFocusableVisuals(focusables);
-        }
-    }
-    else if (root_)
-    {
-        root_->AppendFocusableVisuals(focusables);
-    }
-
-    if (focusables.empty())
-    {
-        return nullptr;
-    }
-
-    auto it = std::find(focusables.begin(), focusables.end(), current);
-    if (it == focusables.end())
-    {
-        return reverse ? focusables.back() : focusables.front();
-    }
-
-    const ptrdiff_t index = std::distance(focusables.begin(), it);
-    if (reverse)
-    {
-        return focusables[(index + static_cast<ptrdiff_t>(focusables.size()) - 1) % static_cast<ptrdiff_t>(focusables.size())];
-    }
-
-    return focusables[(index + 1) % focusables.size()];
-}
-
-bool Scene::HasPopups() const
-{
-    return !popups_.empty();
-}
-
 bool Scene::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
 {
     for (auto it = popups_.rbegin(); it != popups_.rend(); ++it)

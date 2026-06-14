@@ -72,7 +72,6 @@ class Button : public Visual
     void OnFocusChanged(bool focused) override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
-    bool OnKeyDown(WPARAM key, LPARAM lParam) override;
     HCURSOR GetCursor() const override;
 
   protected:
@@ -105,7 +104,6 @@ class Popup : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
-    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     bool HitTest(const PointF &point) const override;
     void LayoutOverlay(const SizeF &viewportSize) override;
 
@@ -130,7 +128,6 @@ class PopupHost : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
-    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     bool HitTest(const PointF &point) const override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
@@ -161,7 +158,6 @@ class ContextMenuHost : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
-    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     bool HitTest(const PointF &point) const override;
     bool OnContextMenu(const POINT &point, WPARAM keyState) override;
     HCURSOR GetCursor() const override;
@@ -200,7 +196,6 @@ class ComboBox : public Visual
     void OnFocusChanged(bool focused) override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
-    bool OnKeyDown(WPARAM key, LPARAM lParam) override;
     HCURSOR GetCursor() const override;
     bool KeepsPopupsOpenOnClick() const override;
 
@@ -222,44 +217,6 @@ class ComboBox : public Visual
     std::shared_ptr<Popup> popup_;
 };
 
-class MenuList : public Visual
-{
-  public:
-    using ItemInvokedHandler = std::function<void(size_t index, const std::wstring &value)>;
-
-    explicit MenuList(float itemHeight = 38.0f);
-
-    void AddItem(std::wstring item);
-    void ClearItems();
-    void SetOnItemInvoked(ItemInvokedHandler handler);
-
-    SizeF Measure(const SizeF &availableSize) override;
-    void Arrange(const RectF &finalRect) override;
-    void Render(DeviceResources &deviceResources) override;
-    bool HitTest(const PointF &point) const override;
-    bool IsFocusable() const override;
-    void OnFocusChanged(bool focused) override;
-    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
-    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
-    bool OnMouseMove(const POINT &point, WPARAM keyState) override;
-    bool OnKeyDown(WPARAM key, LPARAM lParam) override;
-    HCURSOR GetCursor() const override;
-
-  private:
-    size_t HitTestItem(const PointF &point) const;
-    RectF ItemRect(size_t index) const;
-    void MoveSelection(int delta);
-    void InvokeSelected();
-
-    std::vector<std::wstring> items_;
-    float itemHeight_ = 38.0f;
-    bool focused_ = false;
-    size_t selectedIndex_ = 0;
-    size_t hoveredIndex_ = static_cast<size_t>(-1);
-    size_t pressedIndex_ = static_cast<size_t>(-1);
-    ItemInvokedHandler onItemInvoked_;
-};
-
 class CheckBox : public Visual
 {
   public:
@@ -279,7 +236,6 @@ class CheckBox : public Visual
     void OnFocusChanged(bool focused) override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
-    bool OnKeyDown(WPARAM key, LPARAM lParam) override;
     HCURSOR GetCursor() const override;
 
   private:
@@ -479,7 +435,6 @@ class TabControl : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
-    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     bool HitTest(const PointF &point) const override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
@@ -520,7 +475,6 @@ class Accordion : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
-    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     bool HitTest(const PointF &point) const override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;

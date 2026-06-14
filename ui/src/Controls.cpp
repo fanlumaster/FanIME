@@ -358,39 +358,6 @@ class ComboBoxPopupContent : public Visual
         return hovered != static_cast<size_t>(-1);
     }
 
-    bool OnKeyDown(WPARAM key, LPARAM lParam) override
-    {
-        (void)lParam;
-        if (items_.empty())
-        {
-            return false;
-        }
-
-        if (selectedIndex_ == static_cast<size_t>(-1))
-        {
-            selectedIndex_ = 0;
-        }
-
-        if (key == VK_DOWN || key == VK_UP)
-        {
-            const int count = static_cast<int>(items_.size());
-            int index = static_cast<int>(selectedIndex_);
-            index = (index + (key == VK_DOWN ? 1 : -1) + count) % count;
-            selectedIndex_ = static_cast<size_t>(index);
-            hoveredIndex_ = selectedIndex_;
-            InvalidateVisual();
-            return true;
-        }
-
-        if ((key == VK_RETURN || key == VK_SPACE) && onSelect_)
-        {
-            onSelect_(selectedIndex_);
-            return true;
-        }
-
-        return false;
-    }
-
     HCURSOR GetCursor() const override
     {
         return LoadCursor(nullptr, IDC_HAND);
@@ -538,14 +505,6 @@ Visual *Popup::FindFirstFocusableDescendant()
     return child_ ? child_->FindFirstFocusableDescendant() : nullptr;
 }
 
-void Popup::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (child_)
-    {
-        child_->AppendFocusableVisuals(focusables);
-    }
-}
-
 bool Popup::HitTest(const PointF &point) const
 {
     return PointInRect(bounds_, point);
@@ -635,20 +594,13 @@ Visual *PopupHost::FindVisualAt(const PointF &point)
 
 Visual *PopupHost::FindFocusableAt(const PointF &point)
 {
-    return trigger_ ? trigger_->FindFocusableAt(point) : nullptr;
+    (void)point;
+    return nullptr;
 }
 
 Visual *PopupHost::FindFirstFocusableDescendant()
 {
-    return trigger_ ? trigger_->FindFirstFocusableDescendant() : nullptr;
-}
-
-void PopupHost::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (trigger_)
-    {
-        trigger_->AppendFocusableVisuals(focusables);
-    }
+    return nullptr;
 }
 
 bool PopupHost::HitTest(const PointF &point) const
@@ -789,20 +741,13 @@ Visual *ContextMenuHost::FindVisualAt(const PointF &point)
 
 Visual *ContextMenuHost::FindFocusableAt(const PointF &point)
 {
-    return trigger_ ? trigger_->FindFocusableAt(point) : nullptr;
+    (void)point;
+    return nullptr;
 }
 
 Visual *ContextMenuHost::FindFirstFocusableDescendant()
 {
-    return trigger_ ? trigger_->FindFirstFocusableDescendant() : nullptr;
-}
-
-void ContextMenuHost::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (trigger_)
-    {
-        trigger_->AppendFocusableVisuals(focusables);
-    }
+    return nullptr;
 }
 
 bool ContextMenuHost::HitTest(const PointF &point) const
@@ -859,10 +804,6 @@ void ContextMenuHost::OpenPopupAt(const PointF &anchorPoint)
             InvalidateVisual();
         });
         open_ = true;
-        if (Visual *focusable = popup_->FindFirstFocusableDescendant())
-        {
-            window_->FocusVisual(focusable);
-        }
         InvalidateVisual();
     }
 }
@@ -1067,49 +1008,6 @@ bool ComboBox::OnMouseUp(const POINT &point, WPARAM keyState)
     return true;
 }
 
-bool ComboBox::OnKeyDown(WPARAM key, LPARAM lParam)
-{
-    (void)lParam;
-    if (items_.empty())
-    {
-        return false;
-    }
-
-    if (key == VK_RETURN || key == VK_SPACE)
-    {
-        TogglePopup();
-        return true;
-    }
-    if (key == VK_ESCAPE && open_)
-    {
-        ClosePopup();
-        return true;
-    }
-
-    const int delta = key == VK_DOWN ? 1 : (key == VK_UP ? -1 : 0);
-    if (delta == 0)
-    {
-        return false;
-    }
-
-    if (selectedIndex_ == static_cast<size_t>(-1))
-    {
-        selectedIndex_ = 0;
-    }
-    else
-    {
-        const int count = static_cast<int>(items_.size());
-        int index = static_cast<int>(selectedIndex_);
-        index = (index + delta + count) % count;
-        selectedIndex_ = static_cast<size_t>(index);
-    }
-
-    SyncPopupState();
-    NotifySelectionChanged();
-    InvalidateVisual();
-    return true;
-}
-
 HCURSOR ComboBox::GetCursor() const
 {
     return LoadCursor(nullptr, IDC_HAND);
@@ -1183,254 +1081,6 @@ void ComboBox::SyncPopupState()
     }
 }
 
-MenuList::MenuList(float itemHeight) : itemHeight_(itemHeight)
-{
-}
-
-void MenuList::AddItem(std::wstring item)
-{
-    items_.push_back(std::move(item));
-    if (selectedIndex_ >= items_.size())
-    {
-        selectedIndex_ = items_.empty() ? static_cast<size_t>(-1) : 0;
-    }
-    InvalidateMeasure();
-    InvalidateVisual();
-}
-
-void MenuList::ClearItems()
-{
-    items_.clear();
-    selectedIndex_ = static_cast<size_t>(-1);
-    hoveredIndex_ = static_cast<size_t>(-1);
-    pressedIndex_ = static_cast<size_t>(-1);
-    InvalidateMeasure();
-    InvalidateVisual();
-}
-
-void MenuList::SetOnItemInvoked(ItemInvokedHandler handler)
-{
-    onItemInvoked_ = std::move(handler);
-}
-
-SizeF MenuList::Measure(const SizeF &availableSize)
-{
-    float maxWidth = 180.0f;
-    for (const auto &item : items_)
-    {
-        const SizeF measured =
-            MeasureText(GetSharedDWriteFactory(), item, 15.0f, false, std::max(availableSize.width - 28.0f, 1.0f));
-        maxWidth = std::max(maxWidth, measured.width + 28.0f);
-    }
-
-    return {std::min(availableSize.width, maxWidth), itemHeight_ * static_cast<float>(items_.size())};
-}
-
-void MenuList::Arrange(const RectF &finalRect)
-{
-    bounds_ = finalRect;
-}
-
-void MenuList::Render(DeviceResources &deviceResources)
-{
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
-    if (!target)
-    {
-        return;
-    }
-
-    const Theme &theme = ThemeManager::GetCurrent();
-    for (size_t index = 0; index < items_.size(); ++index)
-    {
-        const RectF row = ItemRect(index);
-        const bool selected = index == selectedIndex_;
-        const bool hovered = index == hoveredIndex_;
-        const bool pressed = index == pressedIndex_;
-
-        if (selected || hovered || pressed)
-        {
-            FillRoundedRect(target, row, 10.0f,
-                            pressed ? theme.primarySoftPressed : (selected ? theme.primarySoft : theme.surfaceMuted),
-                            focused_ && selected ? theme.primaryFocusStrong : theme.border,
-                            focused_ && selected ? 1.5f : 1.0f);
-        }
-
-        DrawLabel(deviceResources, items_[index], 15.0f, selected, theme.textPrimary,
-                  {row.x + 14.0f, row.y, std::max(row.width - 28.0f, 0.0f), row.height},
-                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-    }
-}
-
-bool MenuList::HitTest(const PointF &point) const
-{
-    return PointInRect(bounds_, point);
-}
-
-bool MenuList::IsFocusable() const
-{
-    return true;
-}
-
-void MenuList::OnFocusChanged(bool focused)
-{
-    focused_ = focused;
-    InvalidateVisual();
-}
-
-bool MenuList::OnMouseDown(const POINT &point, WPARAM keyState)
-{
-    (void)keyState;
-    if (!window_)
-    {
-        return false;
-    }
-
-    pressedIndex_ = HitTestItem(window_->ClientPixelsToDips(point));
-    if (pressedIndex_ != static_cast<size_t>(-1))
-    {
-        selectedIndex_ = pressedIndex_;
-        hoveredIndex_ = pressedIndex_;
-        InvalidateVisual();
-        return true;
-    }
-    return false;
-}
-
-bool MenuList::OnMouseUp(const POINT &point, WPARAM keyState)
-{
-    (void)keyState;
-    if (!window_)
-    {
-        return false;
-    }
-
-    const size_t pressedIndex = pressedIndex_;
-    pressedIndex_ = static_cast<size_t>(-1);
-    hoveredIndex_ = HitTestItem(window_->ClientPixelsToDips(point));
-    InvalidateVisual();
-
-    if (pressedIndex == static_cast<size_t>(-1) || pressedIndex != hoveredIndex_)
-    {
-        return pressedIndex != static_cast<size_t>(-1);
-    }
-
-    selectedIndex_ = pressedIndex;
-    InvokeSelected();
-    return true;
-}
-
-bool MenuList::OnMouseMove(const POINT &point, WPARAM keyState)
-{
-    (void)keyState;
-    if (!window_)
-    {
-        return false;
-    }
-
-    const size_t hovered = HitTestItem(window_->ClientPixelsToDips(point));
-    if (hovered != hoveredIndex_)
-    {
-        hoveredIndex_ = hovered;
-        if (hovered != static_cast<size_t>(-1))
-        {
-            selectedIndex_ = hovered;
-        }
-        InvalidateVisual();
-    }
-    return hovered != static_cast<size_t>(-1);
-}
-
-bool MenuList::OnKeyDown(WPARAM key, LPARAM lParam)
-{
-    (void)lParam;
-    if (items_.empty())
-    {
-        return false;
-    }
-
-    if (key == VK_DOWN)
-    {
-        MoveSelection(1);
-        return true;
-    }
-    if (key == VK_UP)
-    {
-        MoveSelection(-1);
-        return true;
-    }
-    if (key == VK_HOME)
-    {
-        selectedIndex_ = 0;
-        InvalidateVisual();
-        return true;
-    }
-    if (key == VK_END)
-    {
-        selectedIndex_ = items_.size() - 1;
-        InvalidateVisual();
-        return true;
-    }
-    if (key == VK_RETURN || key == VK_SPACE)
-    {
-        InvokeSelected();
-        return true;
-    }
-
-    return false;
-}
-
-HCURSOR MenuList::GetCursor() const
-{
-    return LoadCursor(nullptr, IDC_HAND);
-}
-
-size_t MenuList::HitTestItem(const PointF &point) const
-{
-    if (!HitTest(point) || items_.empty())
-    {
-        return static_cast<size_t>(-1);
-    }
-
-    const float localY = point.y - bounds_.y;
-    const size_t index = static_cast<size_t>(localY / itemHeight_);
-    return index < items_.size() ? index : static_cast<size_t>(-1);
-}
-
-RectF MenuList::ItemRect(size_t index) const
-{
-    return {bounds_.x, bounds_.y + itemHeight_ * static_cast<float>(index), bounds_.width, itemHeight_};
-}
-
-void MenuList::MoveSelection(int delta)
-{
-    if (items_.empty())
-    {
-        return;
-    }
-
-    if (selectedIndex_ == static_cast<size_t>(-1))
-    {
-        selectedIndex_ = 0;
-    }
-    else
-    {
-        const int count = static_cast<int>(items_.size());
-        int index = static_cast<int>(selectedIndex_);
-        index = (index + delta + count) % count;
-        selectedIndex_ = static_cast<size_t>(index);
-    }
-    hoveredIndex_ = selectedIndex_;
-    InvalidateVisual();
-}
-
-void MenuList::InvokeSelected()
-{
-    if (onItemInvoked_ && selectedIndex_ < items_.size())
-    {
-        onItemInvoked_(selectedIndex_, items_[selectedIndex_]);
-    }
-}
-
 SizeF Button::Measure(const SizeF &availableSize)
 {
     const float textWidth = std::max(availableSize.width - kControlPaddingX * 2.0f, 1.0f);
@@ -1501,17 +1151,6 @@ bool Button::OnMouseUp(const POINT &point, WPARAM keyState)
         OnClick();
     }
     return true;
-}
-
-bool Button::OnKeyDown(WPARAM key, LPARAM lParam)
-{
-    (void)lParam;
-    if (key == VK_RETURN || key == VK_SPACE)
-    {
-        OnClick();
-        return true;
-    }
-    return false;
 }
 
 HCURSOR Button::GetCursor() const
@@ -1658,23 +1297,6 @@ bool CheckBox::OnMouseUp(const POINT &point, WPARAM keyState)
         }
     }
 
-    InvalidateVisual();
-    return true;
-}
-
-bool CheckBox::OnKeyDown(WPARAM key, LPARAM lParam)
-{
-    (void)lParam;
-    if (key != VK_RETURN && key != VK_SPACE)
-    {
-        return false;
-    }
-
-    checked_ = !checked_;
-    if (onChanged_)
-    {
-        onChanged_(checked_);
-    }
     InvalidateVisual();
     return true;
 }
@@ -2507,14 +2129,6 @@ Visual *TabControl::FindFirstFocusableDescendant()
     return nullptr;
 }
 
-void TabControl::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (!tabs_.empty() && tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content)
-    {
-        tabs_[std::min(selectedIndex_, tabs_.size() - 1)].content->AppendFocusableVisuals(focusables);
-    }
-}
-
 bool TabControl::HitTest(const PointF &point) const
 {
     return PointInRect(bounds_, point);
@@ -2789,17 +2403,6 @@ Visual *Accordion::FindFirstFocusableDescendant()
     }
 
     return nullptr;
-}
-
-void Accordion::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    for (auto &section : sections_)
-    {
-        if (section.expanded && section.content)
-        {
-            section.content->AppendFocusableVisuals(focusables);
-        }
-    }
 }
 
 bool Accordion::HitTest(const PointF &point) const

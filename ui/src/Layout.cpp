@@ -209,14 +209,6 @@ bool Visual::KeepsPopupsOpenOnClick() const
     return false;
 }
 
-void Visual::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (IsFocusable())
-    {
-        focusables.push_back(this);
-    }
-}
-
 void Visual::InvalidateMeasure()
 {
     BubbleMeasureInvalidation(this);
@@ -963,36 +955,9 @@ Visual *ScrollViewer::FindFocusableAt(const PointF &point)
     return nullptr;
 }
 
-void Panel::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    for (const auto &child : children_)
-    {
-        if (child)
-        {
-            child->AppendFocusableVisuals(focusables);
-        }
-    }
-    if (IsFocusable())
-    {
-        focusables.push_back(this);
-    }
-}
-
 Visual *ScrollViewer::FindFirstFocusableDescendant()
 {
     return content_ ? content_->FindFirstFocusableDescendant() : nullptr;
-}
-
-void ScrollViewer::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (content_)
-    {
-        content_->AppendFocusableVisuals(focusables);
-    }
-    else if (IsFocusable())
-    {
-        focusables.push_back(this);
-    }
 }
 
 bool ScrollViewer::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -1243,21 +1208,6 @@ Visual *Grid::FindFirstFocusableDescendant()
     return nullptr;
 }
 
-void Grid::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    for (auto &child : children_)
-    {
-        if (child.visual)
-        {
-            child.visual->AppendFocusableVisuals(focusables);
-        }
-    }
-    if (IsFocusable())
-    {
-        focusables.push_back(this);
-    }
-}
-
 SizeF Grid::Measure(const SizeF &availableSize)
 {
     if (rowDefinitions_.empty())
@@ -1466,18 +1416,6 @@ Visual *Container::FindFocusableAt(const PointF &point)
 Visual *Container::FindFirstFocusableDescendant()
 {
     return child_ ? child_->FindFirstFocusableDescendant() : nullptr;
-}
-
-void Container::AppendFocusableVisuals(std::vector<Visual *> &focusables)
-{
-    if (child_)
-    {
-        child_->AppendFocusableVisuals(focusables);
-    }
-    else if (IsFocusable())
-    {
-        focusables.push_back(this);
-    }
 }
 
 SizeF Container::Measure(const SizeF &availableSize)

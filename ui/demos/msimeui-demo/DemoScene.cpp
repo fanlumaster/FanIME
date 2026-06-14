@@ -442,11 +442,15 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto contextMenuPopupStack = std::make_shared<StackPanel>(8.0f);
     contextMenuPopupStack->AddChild(std::make_shared<TextBlock>(L"Canvas Actions", 15.0f, D2D1::ColorF(0x1F2937), true));
-    auto contextMenuList = std::make_shared<MenuList>(38.0f);
-    contextMenuList->AddItem(L"Refresh Preview");
-    contextMenuList->AddItem(L"Inspect Layout");
-    contextMenuList->AddItem(L"Pin as Favorite");
-    contextMenuPopupStack->AddChild(contextMenuList);
+    auto contextMenuRefresh = std::make_shared<Button>(L"Refresh Preview", 38.0f);
+    auto contextMenuInspect = std::make_shared<Button>(L"Inspect Layout", 38.0f);
+    auto contextMenuPin = std::make_shared<Button>(L"Pin as Favorite", 38.0f);
+    contextMenuRefresh->SetWidth(180.0f);
+    contextMenuInspect->SetWidth(180.0f);
+    contextMenuPin->SetWidth(180.0f);
+    contextMenuPopupStack->AddChild(contextMenuRefresh);
+    contextMenuPopupStack->AddChild(contextMenuInspect);
+    contextMenuPopupStack->AddChild(contextMenuPin);
 
     auto contextMenuPopup = std::make_shared<Popup>(contextMenuPopupStack);
     contextMenuPopup->SetMatchAnchorWidth(false);
@@ -455,22 +459,22 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto contextMenuHost = std::make_shared<ContextMenuHost>(contextMenuPreview, contextMenuPopup);
     std::weak_ptr<ContextMenuHost> weakContextMenuHost = contextMenuHost;
-    contextMenuList->SetOnItemInvoked([contextMenuStatus, weakContextMenuHost](size_t selectedIndex, const std::wstring &value) {
-        (void)value;
-        switch (selectedIndex)
+    contextMenuRefresh->SetOnClick([contextMenuStatus, weakContextMenuHost]() {
+        contextMenuStatus->SetText(L"Last action: refresh preview");
+        if (auto host = weakContextMenuHost.lock())
         {
-        case 0:
-            contextMenuStatus->SetText(L"Last action: refresh preview");
-            break;
-        case 1:
-            contextMenuStatus->SetText(L"Last action: inspect layout");
-            break;
-        case 2:
-            contextMenuStatus->SetText(L"Last action: pin as favorite");
-            break;
-        default:
-            break;
+            host->ClosePopup();
         }
+    });
+    contextMenuInspect->SetOnClick([contextMenuStatus, weakContextMenuHost]() {
+        contextMenuStatus->SetText(L"Last action: inspect layout");
+        if (auto host = weakContextMenuHost.lock())
+        {
+            host->ClosePopup();
+        }
+    });
+    contextMenuPin->SetOnClick([contextMenuStatus, weakContextMenuHost]() {
+        contextMenuStatus->SetText(L"Last action: pin as favorite");
         if (auto host = weakContextMenuHost.lock())
         {
             host->ClosePopup();
