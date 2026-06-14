@@ -66,6 +66,9 @@ class Visual
     virtual bool OnChar(wchar_t ch, LPARAM lParam);
     virtual bool OnTimer(UINT_PTR timerId);
     virtual HCURSOR GetCursor() const;
+    void InvalidateMeasure();
+    void InvalidateArrange();
+    void InvalidateVisual();
 
     void SetMargin(float uniform);
     void SetMargin(Thickness margin);

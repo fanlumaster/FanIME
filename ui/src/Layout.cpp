@@ -181,6 +181,30 @@ HCURSOR Visual::GetCursor() const
     return LoadCursor(nullptr, IDC_ARROW);
 }
 
+void Visual::InvalidateMeasure()
+{
+    if (window_)
+    {
+        window_->InvalidateMeasure();
+    }
+}
+
+void Visual::InvalidateArrange()
+{
+    if (window_)
+    {
+        window_->InvalidateArrange();
+    }
+}
+
+void Visual::InvalidateVisual()
+{
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
 void Visual::SetMargin(float uniform)
 {
     SetMargin({uniform, uniform, uniform, uniform});
@@ -189,6 +213,7 @@ void Visual::SetMargin(float uniform)
 void Visual::SetMargin(Thickness margin)
 {
     margin_ = margin;
+    InvalidateMeasure();
 }
 
 const Thickness &Visual::GetMargin() const
@@ -204,6 +229,7 @@ void Visual::SetPadding(float uniform)
 void Visual::SetPadding(Thickness padding)
 {
     padding_ = padding;
+    InvalidateMeasure();
 }
 
 const Thickness &Visual::GetPadding() const
@@ -214,71 +240,85 @@ const Thickness &Visual::GetPadding() const
 void Visual::SetWidth(float width)
 {
     explicitWidth_ = std::max(width, 0.0f);
+    InvalidateMeasure();
 }
 
 void Visual::SetHeight(float height)
 {
     explicitHeight_ = std::max(height, 0.0f);
+    InvalidateMeasure();
 }
 
 void Visual::SetMinWidth(float width)
 {
     minWidth_ = std::max(width, 0.0f);
+    InvalidateMeasure();
 }
 
 void Visual::SetMinHeight(float height)
 {
     minHeight_ = std::max(height, 0.0f);
+    InvalidateMeasure();
 }
 
 void Visual::SetMaxWidth(float width)
 {
     maxWidth_ = width >= 0.0f ? width : -1.0f;
+    InvalidateMeasure();
 }
 
 void Visual::SetMaxHeight(float height)
 {
     maxHeight_ = height >= 0.0f ? height : -1.0f;
+    InvalidateMeasure();
 }
 
 void Visual::ClearWidth()
 {
     explicitWidth_ = -1.0f;
+    InvalidateMeasure();
 }
 
 void Visual::ClearHeight()
 {
     explicitHeight_ = -1.0f;
+    InvalidateMeasure();
 }
 
 void Visual::ClearMinWidth()
 {
     minWidth_ = 0.0f;
+    InvalidateMeasure();
 }
 
 void Visual::ClearMinHeight()
 {
     minHeight_ = 0.0f;
+    InvalidateMeasure();
 }
 
 void Visual::ClearMaxWidth()
 {
     maxWidth_ = -1.0f;
+    InvalidateMeasure();
 }
 
 void Visual::ClearMaxHeight()
 {
     maxHeight_ = -1.0f;
+    InvalidateMeasure();
 }
 
 void Visual::SetHorizontalAlignment(HorizontalAlignment alignment)
 {
     horizontalAlignment_ = alignment;
+    InvalidateArrange();
 }
 
 void Visual::SetVerticalAlignment(VerticalAlignment alignment)
 {
     verticalAlignment_ = alignment;
+    InvalidateArrange();
 }
 
 SizeF Visual::MeasureInLayout(const SizeF &availableSize)
@@ -378,7 +418,12 @@ bool Visual::HasExplicitHeight() const
 
 void Panel::AddChild(std::shared_ptr<Visual> child)
 {
+    if (child && window_)
+    {
+        child->Attach(window_);
+    }
     children_.push_back(std::move(child));
+    InvalidateMeasure();
 }
 
 void Panel::Attach(Window *window)
@@ -907,26 +952,35 @@ void ScrollViewer::UpdateContentLayout()
 void Grid::AddRow(GridLength length)
 {
     rowDefinitions_.push_back(length);
+    InvalidateMeasure();
 }
 
 void Grid::AddColumn(GridLength length)
 {
     columnDefinitions_.push_back(length);
+    InvalidateMeasure();
 }
 
 void Grid::AddChild(std::shared_ptr<Visual> child, size_t row, size_t column, size_t rowSpan, size_t columnSpan)
 {
+    if (child && window_)
+    {
+        child->Attach(window_);
+    }
     children_.push_back({std::move(child), {row, column, std::max<size_t>(rowSpan, 1), std::max<size_t>(columnSpan, 1)}, {}});
+    InvalidateMeasure();
 }
 
 void Grid::SetRowSpacing(float spacing)
 {
     rowSpacing_ = std::max(spacing, 0.0f);
+    InvalidateMeasure();
 }
 
 void Grid::SetColumnSpacing(float spacing)
 {
     columnSpacing_ = std::max(spacing, 0.0f);
+    InvalidateMeasure();
 }
 
 void Grid::Attach(Window *window)
@@ -1152,6 +1206,7 @@ void Container::SetChild(std::shared_ptr<Visual> child)
     {
         child_->Attach(window_);
     }
+    InvalidateMeasure();
 }
 
 void Container::Attach(Window *window)
@@ -1350,10 +1405,7 @@ TextBlock::TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool
 void TextBlock::SetText(std::wstring text)
 {
     text_ = std::move(text);
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 SizeF TextBlock::Measure(const SizeF &availableSize)

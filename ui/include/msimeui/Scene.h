@@ -11,7 +11,11 @@ class Scene
   public:
     void SetRoot(std::shared_ptr<Visual> root);
     void Attach(Window *window);
+    void EnsureLayout(const SizeF &size);
     void Layout(const SizeF &size);
+    void InvalidateMeasure();
+    void InvalidateArrange();
+    void InvalidateVisual();
     void Render(DeviceResources &deviceResources);
     Visual *FindVisualAt(const PointF &point);
     Visual *FindFocusableAt(const PointF &point);
@@ -19,5 +23,10 @@ class Scene
 
   private:
     std::shared_ptr<Visual> root_;
+    Window *window_ = nullptr;
+    SizeF lastLayoutSize_ = {};
+    bool hasLastLayoutSize_ = false;
+    bool measureDirty_ = true;
+    bool arrangeDirty_ = true;
 };
 } // namespace msimeui

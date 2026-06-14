@@ -323,10 +323,7 @@ void CheckBox::SetChecked(bool checked)
     }
 
     checked_ = checked;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 SizeF CheckBox::Measure(const SizeF &availableSize)
@@ -436,10 +433,7 @@ ProgressBar::ProgressBar(float height) : preferredHeight_(height)
 void ProgressBar::SetValue(float value)
 {
     value_ = std::clamp(value, 0.0f, 1.0f);
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 float ProgressBar::GetValue() const
@@ -608,10 +602,7 @@ void Slider::SetValueInternal(float value, bool notify)
 {
     const float oldValue = value_;
     value_ = std::clamp(value, minValue_, maxValue_);
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 
     if (notify && oldValue != value_ && onChanged_)
     {
@@ -668,10 +659,7 @@ ListView::ListView(float itemHeight) : itemHeight_(itemHeight)
 void ListView::AddItem(Item item)
 {
     items_.push_back(std::move(item));
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void ListView::ClearItems()
@@ -679,10 +667,7 @@ void ListView::ClearItems()
     items_.clear();
     selectedIndex_ = 0;
     pressedIndex_ = static_cast<size_t>(-1);
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void ListView::SetOnSelectionChanged(SelectionChangedHandler handler)
@@ -861,10 +846,7 @@ void TreeView::AddRoot(Node node)
     {
         selectedNode_ = &roots_.front();
     }
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void TreeView::Clear()
@@ -873,10 +855,7 @@ void TreeView::Clear()
     visibleNodes_.clear();
     pressedNode_ = nullptr;
     selectedNode_ = nullptr;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void TreeView::SetOnSelectionChanged(SelectionChangedHandler handler)
@@ -1017,10 +996,7 @@ bool TreeView::OnMouseUp(const POINT &point, WPARAM keyState)
         {
             hit->node->expanded = !hit->node->expanded;
             BuildVisibleNodes();
-            if (window_)
-            {
-                window_->Relayout();
-            }
+            InvalidateMeasure();
         }
         else
         {
@@ -1111,10 +1087,7 @@ void TabControl::AddTab(std::wstring title, std::shared_ptr<Visual> content)
     {
         tabs_.back().content->Attach(window_);
     }
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void TabControl::ClearTabs()
@@ -1124,10 +1097,7 @@ void TabControl::ClearTabs()
     selectedIndex_ = 0;
     pressedIndex_ = static_cast<size_t>(-1);
     pressed_ = false;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void TabControl::SetSelectedIndex(size_t index)
@@ -1149,10 +1119,7 @@ void TabControl::SetSelectedIndex(size_t index)
     {
         onSelectionChanged_(selectedIndex_);
     }
-    if (window_)
-    {
-        window_->Relayout();
-    }
+    InvalidateMeasure();
 }
 
 size_t TabControl::GetSelectedIndex() const
@@ -1370,10 +1337,7 @@ void Accordion::AddSection(std::wstring title, std::shared_ptr<Visual> content, 
     {
         sections_.back().content->Attach(window_);
     }
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void Accordion::ClearSections()
@@ -1383,10 +1347,7 @@ void Accordion::ClearSections()
     contentRects_.clear();
     pressed_ = false;
     pressedIndex_ = static_cast<size_t>(-1);
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateMeasure();
 }
 
 void Accordion::SetAllowMultipleExpanded(bool allowMultipleExpanded)
@@ -1408,6 +1369,7 @@ void Accordion::SetAllowMultipleExpanded(bool allowMultipleExpanded)
             CollapseOtherSections(firstExpanded);
         }
     }
+    InvalidateMeasure();
 }
 
 SizeF Accordion::Measure(const SizeF &availableSize)
@@ -1617,7 +1579,7 @@ bool Accordion::OnMouseUp(const POINT &point, WPARAM keyState)
         {
             CollapseOtherSections(hit);
         }
-        window_->Relayout();
+        InvalidateMeasure();
     }
 
     return true;

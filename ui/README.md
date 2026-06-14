@@ -40,6 +40,7 @@
 - 修复了 `TabControl` / `TreeView` / `Accordion` 这类会改变内容结构的控件在切换后未及时重新布局而导致的稳定性问题
 - 修复了单行 `TextBox`（如 demo 中的 Search Box）输入光标和文本区域未垂直居中的问题
 - 修复了单行 `TextBox` 在垂直居中后输入法候选框未同步跟随文本区域下移的问题
+- 新增一版场景级 invalidation 机制：控件现可通过 `InvalidateMeasure` / `InvalidateArrange` / `InvalidateVisual` 统一声明布局或重绘失效，`Scene` / `Window` 会在下一次绘制前自动补做布局，减少到处手动 `Relayout()` 的耦合
 
 ## 构建
 
@@ -105,6 +106,7 @@ build/bin/Debug/msimeui-demo.exe
 
 ## 后续工作
 
+- 继续把场景级 invalidation 细化为局部布局和局部重绘，减少全树重排成本
 - 继续完善 `TextBox` 的输入、样式和布局能力
-- 增加滚动容器、列表、树、菜单和弹出层
+- 增加菜单、弹出层、overlay 和更完整的命中/焦点管理
 - 引入资源字典、主题和声明式界面描述

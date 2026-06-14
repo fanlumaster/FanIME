@@ -107,6 +107,28 @@ void Window::Invalidate()
     InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
+void Window::InvalidateMeasure()
+{
+    if (scene_)
+    {
+        scene_->InvalidateMeasure();
+        return;
+    }
+
+    Invalidate();
+}
+
+void Window::InvalidateArrange()
+{
+    if (scene_)
+    {
+        scene_->InvalidateArrange();
+        return;
+    }
+
+    Invalidate();
+}
+
 void Window::Relayout()
 {
     if (!hwnd_ || !scene_)
@@ -117,7 +139,8 @@ void Window::Relayout()
     RECT rc = {};
     GetClientRect(hwnd_, &rc);
     const SIZE pixelSize = {rc.right, rc.bottom};
-    scene_->Layout(ClientPixelsToDips(pixelSize));
+    scene_->InvalidateMeasure();
+    scene_->EnsureLayout(ClientPixelsToDips(pixelSize));
     InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
@@ -306,6 +329,10 @@ void Window::OnPaint()
         target->Clear(D2D1::ColorF(0xF3F5F8));
         if (scene_)
         {
+            RECT rc = {};
+            GetClientRect(hwnd_, &rc);
+            const SIZE pixelSize = {rc.right, rc.bottom};
+            scene_->EnsureLayout(ClientPixelsToDips(pixelSize));
             scene_->Render(deviceResources_);
         }
 
@@ -328,7 +355,7 @@ void Window::OnSize()
     if (scene_)
     {
         const SIZE pixelSize = {rc.right, rc.bottom};
-        scene_->Layout(ClientPixelsToDips(pixelSize));
+        scene_->EnsureLayout(ClientPixelsToDips(pixelSize));
     }
 
     InvalidateRect(hwnd_, nullptr, FALSE);
