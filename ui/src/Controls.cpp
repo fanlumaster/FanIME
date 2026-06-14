@@ -45,6 +45,19 @@ RectF MakeInsetRect(const RectF &rect, float insetX, float insetY)
             std::max(rect.height - insetY * 2.0f, 0.0f)};
 }
 
+SizeF DeflateSizeLocal(const SizeF &size, const Thickness &thickness)
+{
+    return {std::max(size.width - thickness.left - thickness.right, 0.0f),
+            std::max(size.height - thickness.top - thickness.bottom, 0.0f)};
+}
+
+RectF DeflateRectLocal(const RectF &rect, const Thickness &thickness)
+{
+    return {rect.x + thickness.left, rect.y + thickness.top,
+            std::max(rect.width - thickness.left - thickness.right, 0.0f),
+            std::max(rect.height - thickness.top - thickness.bottom, 0.0f)};
+}
+
 bool PointInRect(const RectF &rect, const PointF &point)
 {
     return point.x >= rect.x && point.x <= (rect.x + rect.width) && point.y >= rect.y &&
@@ -197,6 +210,300 @@ Button::Button(std::wstring text, float height) : text_(std::move(text)), prefer
 void Button::SetOnClick(ClickHandler handler)
 {
     onClick_ = std::move(handler);
+}
+
+Popup::Popup(std::shared_ptr<Visual> child) : child_(std::move(child))
+{
+    AdoptChild(child_);
+    SetPadding({12.0f, 12.0f, 12.0f, 12.0f});
+}
+
+void Popup::SetAnchorRect(const RectF &anchorRect)
+{
+    anchorRect_ = anchorRect;
+}
+
+void Popup::SetPlacement(PopupPlacement placement)
+{
+    placement_ = placement;
+}
+
+void Popup::SetOffset(float x, float y)
+{
+    offsetX_ = x;
+    offsetY_ = y;
+}
+
+void Popup::SetMatchAnchorWidth(bool matchAnchorWidth)
+{
+    matchAnchorWidth_ = matchAnchorWidth;
+}
+
+SizeF Popup::Measure(const SizeF &availableSize)
+{
+    const SizeF inner = DeflateSizeLocal(availableSize, padding_);
+    if (!child_)
+    {
+        return {padding_.left + padding_.right, padding_.top + padding_.bottom};
+    }
+
+    const SizeF childSize = child_->MeasureInLayout(inner);
+    return {childSize.width + padding_.left + padding_.right, childSize.height + padding_.top + padding_.bottom};
+}
+
+void Popup::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    if (child_)
+    {
+        child_->ArrangeInLayout(DeflateRectLocal(bounds_, padding_));
+    }
+}
+
+void Popup::Render(DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    const Theme &theme = ThemeManager::GetCurrent();
+    FillRoundedRect(target, bounds_, 16.0f, theme.surface, theme.borderStrong, 1.0f);
+    if (child_)
+    {
+        child_->Render(deviceResources);
+    }
+}
+
+void Popup::Attach(Window *window)
+{
+    Visual::Attach(window);
+    if (child_)
+    {
+        child_->Attach(window);
+    }
+}
+
+Visual *Popup::FindVisualAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    if (child_)
+    {
+        if (Visual *hit = child_->FindVisualAt(point))
+        {
+            return hit;
+        }
+    }
+
+    return this;
+}
+
+Visual *Popup::FindFocusableAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+
+    return child_ ? child_->FindFocusableAt(point) : nullptr;
+}
+
+Visual *Popup::FindFirstFocusableDescendant()
+{
+    return child_ ? child_->FindFirstFocusableDescendant() : nullptr;
+}
+
+bool Popup::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+void Popup::LayoutOverlay(const SizeF &viewportSize)
+{
+    const SizeF available = {std::max(viewportSize.width - 24.0f, 0.0f), std::max(viewportSize.height - 24.0f, 0.0f)};
+    const SizeF measured = MeasureInLayout(available);
+    const float width = matchAnchorWidth_ ? std::max(measured.width, anchorRect_.width) : measured.width;
+    const float height = measured.height;
+
+    float x = anchorRect_.x + offsetX_;
+    if (x + width > viewportSize.width - 8.0f)
+    {
+        x = std::max(viewportSize.width - width - 8.0f, 8.0f);
+    }
+
+    float y = placement_ == PopupPlacement::AboveLeading ? (anchorRect_.y - height - offsetY_)
+                                                         : (anchorRect_.y + anchorRect_.height + offsetY_);
+    if (placement_ == PopupPlacement::AboveLeading && y < 8.0f)
+    {
+        y = anchorRect_.y + anchorRect_.height + offsetY_;
+    }
+    if (placement_ == PopupPlacement::BelowLeading && y + height > viewportSize.height - 8.0f)
+    {
+        const float aboveY = anchorRect_.y - height - offsetY_;
+        if (aboveY >= 8.0f)
+        {
+            y = aboveY;
+        }
+    }
+
+    y = std::clamp(y, 8.0f, std::max(viewportSize.height - height - 8.0f, 8.0f));
+    ArrangeInLayout({x, y, width, height});
+}
+
+PopupHost::PopupHost(std::shared_ptr<Visual> trigger, std::shared_ptr<Popup> popup)
+    : trigger_(std::move(trigger)), popup_(std::move(popup))
+{
+    AdoptChild(trigger_);
+}
+
+SizeF PopupHost::Measure(const SizeF &availableSize)
+{
+    return trigger_ ? trigger_->MeasureInLayout(availableSize) : SizeF {};
+}
+
+void PopupHost::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    if (trigger_)
+    {
+        trigger_->ArrangeInLayout(finalRect);
+    }
+    if (popup_)
+    {
+        popup_->SetAnchorRect(bounds_);
+    }
+}
+
+void PopupHost::Render(DeviceResources &deviceResources)
+{
+    if (trigger_)
+    {
+        trigger_->Render(deviceResources);
+    }
+}
+
+void PopupHost::Attach(Window *window)
+{
+    Visual::Attach(window);
+    if (trigger_)
+    {
+        trigger_->Attach(window);
+    }
+    if (popup_)
+    {
+        popup_->Attach(window);
+    }
+}
+
+Visual *PopupHost::FindVisualAt(const PointF &point)
+{
+    return HitTest(point) ? this : nullptr;
+}
+
+Visual *PopupHost::FindFocusableAt(const PointF &point)
+{
+    (void)point;
+    return nullptr;
+}
+
+Visual *PopupHost::FindFirstFocusableDescendant()
+{
+    return nullptr;
+}
+
+bool PopupHost::HitTest(const PointF &point) const
+{
+    return trigger_ ? trigger_->HitTest(point) : false;
+}
+
+bool PopupHost::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    pressed_ = HitTest(window_->ClientPixelsToDips(point));
+    return pressed_;
+}
+
+bool PopupHost::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+
+    const bool shouldToggle = HitTest(window_->ClientPixelsToDips(point));
+    pressed_ = false;
+    if (shouldToggle)
+    {
+        TogglePopup();
+    }
+    return true;
+}
+
+HCURSOR PopupHost::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_HAND);
+}
+
+bool PopupHost::KeepsPopupsOpenOnClick() const
+{
+    return true;
+}
+
+void PopupHost::OpenPopup()
+{
+    if (open_ || !window_ || !popup_)
+    {
+        return;
+    }
+
+    popup_->SetAnchorRect(bounds_);
+    if (Scene *scene = window_->GetScene())
+    {
+        scene->AddPopup(popup_, [this]() { open_ = false; });
+        open_ = true;
+    }
+}
+
+void PopupHost::ClosePopup()
+{
+    if (!open_ || !window_ || !popup_)
+    {
+        return;
+    }
+
+    if (Scene *scene = window_->GetScene())
+    {
+        scene->RemovePopup(popup_.get(), false);
+    }
+    open_ = false;
+}
+
+void PopupHost::TogglePopup()
+{
+    if (open_)
+    {
+        ClosePopup();
+    }
+    else
+    {
+        OpenPopup();
+    }
+}
+
+bool PopupHost::IsOpen() const
+{
+    return open_;
 }
 
 SizeF Button::Measure(const SizeF &availableSize)

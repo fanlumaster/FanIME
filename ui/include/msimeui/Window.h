@@ -19,6 +19,7 @@ class Window
 
     HWND GetHandle() const;
     HINSTANCE GetInstance() const;
+    Scene *GetScene() const;
     DeviceResources &GetDeviceResources();
     float GetDpi() const;
     PointF ClientPixelsToDips(const POINT &point) const;

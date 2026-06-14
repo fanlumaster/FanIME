@@ -10,6 +10,12 @@ class CTextEditor;
 
 namespace msimeui
 {
+enum class PopupPlacement
+{
+    BelowLeading,
+    AboveLeading,
+};
+
 class TextBox : public Visual
 {
   public:
@@ -78,6 +84,65 @@ class Button : public Visual
     bool focused_ = false;
     bool pressed_ = false;
     ClickHandler onClick_;
+};
+
+class Popup : public Visual
+{
+  public:
+    explicit Popup(std::shared_ptr<Visual> child);
+
+    void SetAnchorRect(const RectF &anchorRect);
+    void SetPlacement(PopupPlacement placement);
+    void SetOffset(float x, float y);
+    void SetMatchAnchorWidth(bool matchAnchorWidth);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    bool HitTest(const PointF &point) const override;
+    void LayoutOverlay(const SizeF &viewportSize) override;
+
+  private:
+    std::shared_ptr<Visual> child_;
+    RectF anchorRect_ = {};
+    PopupPlacement placement_ = PopupPlacement::BelowLeading;
+    float offsetX_ = 0.0f;
+    float offsetY_ = 8.0f;
+    bool matchAnchorWidth_ = true;
+};
+
+class PopupHost : public Visual
+{
+  public:
+    PopupHost(std::shared_ptr<Visual> trigger, std::shared_ptr<Popup> popup);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    bool HitTest(const PointF &point) const override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+    bool KeepsPopupsOpenOnClick() const override;
+
+    void OpenPopup();
+    void ClosePopup();
+    void TogglePopup();
+    bool IsOpen() const;
+
+  private:
+    std::shared_ptr<Visual> trigger_;
+    std::shared_ptr<Popup> popup_;
+    bool pressed_ = false;
+    bool open_ = false;
 };
 
 class CheckBox : public Visual

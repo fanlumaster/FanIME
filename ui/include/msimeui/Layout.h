@@ -68,6 +68,8 @@ class Visual
     virtual bool OnChar(wchar_t ch, LPARAM lParam);
     virtual bool OnTimer(UINT_PTR timerId);
     virtual HCURSOR GetCursor() const;
+    virtual void LayoutOverlay(const SizeF &viewportSize);
+    virtual bool KeepsPopupsOpenOnClick() const;
     void InvalidateMeasure();
     void InvalidateArrange();
     void InvalidateVisual();

@@ -78,6 +78,11 @@ HINSTANCE Window::GetInstance() const
     return instance_;
 }
 
+Scene *Window::GetScene() const
+{
+    return scene_.get();
+}
+
 DeviceResources &Window::GetDeviceResources()
 {
     return deviceResources_;
@@ -229,6 +234,9 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
             const PointF dipPoint = ClientPixelsToDips(point);
             Visual *target = scene_->FindVisualAt(dipPoint);
             Visual *focusTarget = scene_->FindFocusableAt(dipPoint);
+            scene_->DismissPopupsForClick(dipPoint, target);
+            target = scene_->FindVisualAt(dipPoint);
+            focusTarget = scene_->FindFocusableAt(dipPoint);
             Visual *dispatchTarget = focusTarget ? focusTarget : target;
             {
                 std::ostringstream log;

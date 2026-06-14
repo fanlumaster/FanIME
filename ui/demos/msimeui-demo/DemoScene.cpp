@@ -367,6 +367,42 @@ std::unique_ptr<Scene> CreateDemoScene()
     root->AddChild(tabsCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
 
+    auto popupCard = std::make_shared<Card>(surface, 20.0f);
+    auto popupStack = std::make_shared<StackPanel>(14.0f);
+    auto popupStatus = std::make_shared<TextBlock>(L"Popup status: closed", 14.0f, D2D1::ColorF(0x475569), true);
+    auto popupTrigger = std::make_shared<Button>(L"Open Quick Actions", 44.0f);
+    popupTrigger->SetWidth(200.0f);
+
+    auto popupContent = std::make_shared<StackPanel>(10.0f);
+    popupContent->AddChild(std::make_shared<TextBlock>(L"Quick Actions", 16.0f, D2D1::ColorF(0x1F2937), true));
+    popupContent->AddChild(std::make_shared<TextBlock>(
+        L"This popup is rendered as a scene-level overlay. It sits above the normal visual tree and closes on outside click.",
+        13.0f, D2D1::ColorF(0x64748B)));
+    auto popupActionA = std::make_shared<Button>(L"Mark Stable", 38.0f);
+    auto popupActionB = std::make_shared<Button>(L"Mark Experimental", 38.0f);
+    popupActionA->SetWidth(160.0f);
+    popupActionB->SetWidth(190.0f);
+    popupActionA->SetOnClick([popupStatus]() { popupStatus->SetText(L"Popup status: marked stable"); });
+    popupActionB->SetOnClick([popupStatus]() { popupStatus->SetText(L"Popup status: marked experimental"); });
+    popupContent->AddChild(popupActionA);
+    popupContent->AddChild(popupActionB);
+
+    auto popup = std::make_shared<Popup>(popupContent);
+    popup->SetMatchAnchorWidth(false);
+    popup->SetWidth(300.0f);
+
+    auto popupHost = std::make_shared<PopupHost>(popupTrigger, popup);
+
+    popupStack->AddChild(std::make_shared<TextBlock>(L"PopupHost / Popup", 20.0f, D2D1::ColorF(0x1F2937), true));
+    popupStack->AddChild(std::make_shared<TextBlock>(
+        L"A first overlay path is now available for menus, quick actions, tooltips, and future combo-box style interactions.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    popupStack->AddChild(popupStatus);
+    popupStack->AddChild(popupHost);
+    popupCard->AddChild(popupStack);
+    root->AddChild(popupCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
     auto accordionCard = std::make_shared<Card>(surface, 20.0f);
     auto accordionStack = std::make_shared<StackPanel>(14.0f);
     auto accordion = std::make_shared<Accordion>(46.0f);

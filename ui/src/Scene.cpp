@@ -99,6 +99,13 @@ void Scene::Attach(Window *window)
     {
         root_->Attach(window);
     }
+    for (auto &popup : popups_)
+    {
+        if (popup.visual)
+        {
+            popup.visual->Attach(window);
+        }
+    }
 }
 
 void Scene::EnsureLayout(const SizeF &size)
@@ -156,6 +163,106 @@ void Scene::Layout(const SizeF &size)
     arrangeDirty_ = false;
     measureDirtySource_ = nullptr;
     arrangeDirtyRoot_ = nullptr;
+
+    for (auto &popup : popups_)
+    {
+        if (popup.visual)
+        {
+            popup.visual->LayoutOverlay(size);
+        }
+    }
+}
+
+void Scene::AddPopup(std::shared_ptr<Visual> popup, std::function<void()> onClose)
+{
+    if (!popup)
+    {
+        return;
+    }
+
+    for (const auto &entry : popups_)
+    {
+        if (entry.visual == popup)
+        {
+            return;
+        }
+    }
+
+    if (window_)
+    {
+        popup->Attach(window_);
+    }
+    popups_.push_back({std::move(popup), std::move(onClose)});
+    arrangeDirty_ = true;
+    InvalidateVisual();
+}
+
+void Scene::RemovePopup(Visual *popup, bool notify)
+{
+    if (!popup)
+    {
+        return;
+    }
+
+    auto it = std::find_if(popups_.begin(), popups_.end(), [popup](const PopupEntry &entry) { return entry.visual.get() == popup; });
+    if (it == popups_.end())
+    {
+        return;
+    }
+
+    std::function<void()> onClose = std::move(it->onClose);
+    popups_.erase(it);
+    if (notify && onClose)
+    {
+        onClose();
+    }
+    InvalidateVisual();
+}
+
+void Scene::ClearPopups(bool notify)
+{
+    if (popups_.empty())
+    {
+        return;
+    }
+
+    auto popups = std::move(popups_);
+    popups_.clear();
+    if (notify)
+    {
+        for (auto &entry : popups)
+        {
+            if (entry.onClose)
+            {
+                entry.onClose();
+            }
+        }
+    }
+    InvalidateVisual();
+}
+
+bool Scene::DismissPopupsForClick(const PointF &point, Visual *target)
+{
+    if (popups_.empty())
+    {
+        return false;
+    }
+
+    if (target && target->KeepsPopupsOpenOnClick())
+    {
+        return false;
+    }
+
+    for (auto it = popups_.rbegin(); it != popups_.rend(); ++it)
+    {
+        if (it->visual && it->visual->HitTest(point))
+        {
+            return false;
+        }
+    }
+
+    ClearPopups(true);
+    return true;
 }
 
 void Scene::InvalidateMeasure()
@@ -228,20 +335,54 @@ void Scene::Render(DeviceResources &deviceResources)
     {
         root_->Render(deviceResources);
     }
+    for (const auto &popup : popups_)
+    {
+        if (popup.visual)
+        {
+            popup.visual->Render(deviceResources);
+        }
+    }
 }
 
 Visual *Scene::FindVisualAt(const PointF &point)
 {
+    for (auto it = popups_.rbegin(); it != popups_.rend(); ++it)
+    {
+        if (it->visual)
+        {
+            if (Visual *hit = it->visual->FindVisualAt(point))
+            {
+                return hit;
+            }
+        }
+    }
     return root_ ? root_->FindVisualAt(point) : nullptr;
 }
 
 Visual *Scene::FindFocusableAt(const PointF &point)
 {
+    for (auto it = popups_.rbegin(); it != popups_.rend(); ++it)
+    {
+        if (it->visual)
+        {
+            if (Visual *focusable = it->visual->FindFocusableAt(point))
+            {
+                return focusable;
+            }
+        }
+    }
     return root_ ? root_->FindFocusableAt(point) : nullptr;
 }
 
 bool Scene::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
 {
+    for (auto it = popups_.rbegin(); it != popups_.rend(); ++it)
+    {
+        if (it->visual && it->visual->OnMouseWheel(point, delta, keyState))
+        {
+            return true;
+        }
+    }
     return root_ ? root_->OnMouseWheel(point, delta, keyState) : false;
 }
 } // namespace msimeui

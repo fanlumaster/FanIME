@@ -192,6 +192,16 @@ HCURSOR Visual::GetCursor() const
     return LoadCursor(nullptr, IDC_ARROW);
 }
 
+void Visual::LayoutOverlay(const SizeF &viewportSize)
+{
+    (void)viewportSize;
+}
+
+bool Visual::KeepsPopupsOpenOnClick() const
+{
+    return false;
+}
+
 void Visual::InvalidateMeasure()
 {
     BubbleMeasureInvalidation(this);
