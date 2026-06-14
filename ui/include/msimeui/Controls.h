@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 class CTextEditor;
 
@@ -143,6 +144,50 @@ class PopupHost : public Visual
     std::shared_ptr<Popup> popup_;
     bool pressed_ = false;
     bool open_ = false;
+};
+
+class ComboBox : public Visual
+{
+  public:
+    using SelectionChangedHandler = std::function<void(size_t selectedIndex, const std::wstring &value)>;
+
+    explicit ComboBox(float height = 44.0f);
+
+    void AddItem(std::wstring item);
+    void ClearItems();
+    void SetSelectedIndex(size_t index);
+    size_t GetSelectedIndex() const;
+    const std::wstring &GetSelectedText() const;
+    void SetOnSelectionChanged(SelectionChangedHandler handler);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    bool HitTest(const PointF &point) const override;
+    bool IsFocusable() const override;
+    void OnFocusChanged(bool focused) override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+    bool KeepsPopupsOpenOnClick() const override;
+
+  private:
+    void OpenPopup();
+    void ClosePopup();
+    void TogglePopup();
+    void NotifySelectionChanged();
+    void SyncPopupState();
+
+    std::vector<std::wstring> items_;
+    float preferredHeight_ = 44.0f;
+    bool focused_ = false;
+    bool pressed_ = false;
+    bool open_ = false;
+    size_t selectedIndex_ = static_cast<size_t>(-1);
+    SelectionChangedHandler onSelectionChanged_;
+    std::shared_ptr<Visual> popupContent_;
+    std::shared_ptr<Popup> popup_;
 };
 
 class CheckBox : public Visual

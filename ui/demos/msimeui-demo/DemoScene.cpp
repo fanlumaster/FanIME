@@ -403,6 +403,31 @@ std::unique_ptr<Scene> CreateDemoScene()
     root->AddChild(popupCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
 
+    auto comboCard = std::make_shared<Card>(surface, 20.0f);
+    auto comboStack = std::make_shared<StackPanel>(14.0f);
+    auto comboStatus =
+        std::make_shared<TextBlock>(L"Current mode: Core IME", 14.0f, D2D1::ColorF(0x475569), true);
+    auto comboBox = std::make_shared<ComboBox>(46.0f);
+    comboBox->SetWidth(260.0f);
+    comboBox->AddItem(L"Core IME");
+    comboBox->AddItem(L"Diagnostics");
+    comboBox->AddItem(L"Popup Overlay");
+    comboBox->AddItem(L"Experimental Theme");
+    comboBox->SetOnSelectionChanged([comboStatus](size_t selectedIndex, const std::wstring &value) {
+        (void)selectedIndex;
+        comboStatus->SetText(L"Current mode: " + value);
+    });
+
+    comboStack->AddChild(std::make_shared<TextBlock>(L"ComboBox", 20.0f, D2D1::ColorF(0x1F2937), true));
+    comboStack->AddChild(std::make_shared<TextBlock>(
+        L"The first drop-down selector is now built on top of the overlay popup path, so selection controls can expand outside normal layout bounds.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    comboStack->AddChild(comboStatus);
+    comboStack->AddChild(comboBox);
+    comboCard->AddChild(comboStack);
+    root->AddChild(comboCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
     auto accordionCard = std::make_shared<Card>(surface, 20.0f);
     auto accordionStack = std::make_shared<StackPanel>(14.0f);
     auto accordion = std::make_shared<Accordion>(46.0f);
