@@ -71,6 +71,7 @@ class Visual
     virtual HCURSOR GetCursor() const;
     virtual void LayoutOverlay(const SizeF &viewportSize);
     virtual bool KeepsPopupsOpenOnClick() const;
+    virtual void AppendFocusableVisuals(std::vector<Visual *> &focusables);
     void InvalidateMeasure();
     void InvalidateArrange();
     void InvalidateVisual();
@@ -148,6 +149,7 @@ class Panel : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
+    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
 
   protected:
     std::vector<std::shared_ptr<Visual>> children_;
@@ -228,6 +230,7 @@ class ScrollViewer : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
+    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
     bool OnMouseMove(const POINT &point, WPARAM keyState) override;
@@ -271,6 +274,7 @@ class Grid : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
+    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
     void Render(DeviceResources &deviceResources) override;
@@ -305,6 +309,7 @@ class Container : public Visual
     Visual *FindVisualAt(const PointF &point) override;
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
+    void AppendFocusableVisuals(std::vector<Visual *> &focusables) override;
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
     void Render(DeviceResources &deviceResources) override;

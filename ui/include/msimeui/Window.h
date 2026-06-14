@@ -32,6 +32,7 @@ class Window
     void InvalidateArrange();
     void InvalidateArrange(Visual *source);
     void Relayout();
+    void FocusVisual(Visual *visual);
 
     void SetScene(std::unique_ptr<Scene> scene);
 

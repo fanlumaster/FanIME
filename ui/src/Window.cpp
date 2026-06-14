@@ -189,6 +189,15 @@ void Window::Relayout()
     InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
+void Window::FocusVisual(Visual *visual)
+{
+    SetFocusedVisual(visual);
+    if (hwnd_)
+    {
+        SetFocus(hwnd_);
+    }
+}
+
 void Window::SetScene(std::unique_ptr<Scene> scene)
 {
     scene_ = std::move(scene);
@@ -312,8 +321,21 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_KEYDOWN:
+        if (wParam == VK_TAB && scene_)
+        {
+            const bool reverse = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+            if (Visual *next = scene_->FindNextFocusable(focusedVisual_, reverse))
+            {
+                FocusVisual(next);
+                return 0;
+            }
+        }
         if (wParam == VK_ESCAPE && focusedVisual_)
         {
+            if (scene_ && scene_->HasPopups())
+            {
+                scene_->ClearPopups(true);
+            }
             SetFocusedVisual(nullptr);
             return 0;
         }

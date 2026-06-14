@@ -33,6 +33,8 @@ class Scene
     void Render(DeviceResources &deviceResources);
     Visual *FindVisualAt(const PointF &point);
     Visual *FindFocusableAt(const PointF &point);
+    Visual *FindNextFocusable(Visual *current, bool reverse);
+    bool HasPopups() const;
     bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState);
 
   private:
