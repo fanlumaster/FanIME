@@ -42,6 +42,13 @@
 - 修复了单行 `TextBox` 在垂直居中后输入法候选框未同步跟随文本区域下移的问题
 - 新增一版场景级 invalidation 机制：控件现可通过 `InvalidateMeasure` / `InvalidateArrange` / `InvalidateVisual` 统一声明布局或重绘失效，`Scene` / `Window` 会在下一次绘制前自动补做布局，减少到处手动 `Relayout()` 的耦合
 - 补充了控件树父子关系和冒泡式失效传播：容器在收养子控件时会建立 parent 链，子控件的布局/重绘失效会先沿控件树向上汇聚，再交给根场景统一处理，为后续做局部布局优化打基础
+- 在 `Visual` 基类中加入了 `MeasureInLayout` / `ArrangeInLayout` 缓存：当 available size 和 final rect 没变化且控件未标脏时，会直接复用上次布局结果，减少重复测量和排列
+- `Window` 新增了按矩形区域失效的入口，`Visual::InvalidateVisual()` 现在会优先刷新自身边界区域；按钮、列表、树、页签、折叠面板和 `TextBox` 等常见交互控件已开始接入局部重绘
+- 继续收敛高频整窗刷新：`CheckBox` 已切到控件级失效，`ScrollViewer` 的拖拽滚动条和滚轮滚动现在会优先刷新自身视口区域，而不是默认请求整窗重绘
+- `Scene::Layout` 现会区分 `measure dirty` 和 `arrange dirty`：仅排列脏时会直接复用上一轮测量结果，只执行 `Arrange`，避免每次布局都无条件重测整棵树
+- 新增一版真正参与布局调度的 `arrange subtree dirty`：`Visual::InvalidateArrange()` 现在会把源控件一路上传到 `Scene`，`Scene` 会记录需要重排的最小公共祖先；在无需重测时，会优先只重排那一支子树，而不是整棵根树
+- 进一步补上 `measure dirty` 的源追踪：`Scene` 现在会记录测量脏源，并在条件允许时优先按脏路径重测，再结合 `Visual` 的布局缓存尽量跳过无关分支
+- 新增最小主题系统 `Theme / ThemeManager`：窗口背景、按钮、复选框、进度条、滑块、滚动条、`TextBlock` 字体和 `TextBox` 的部分视觉令牌已开始迁移到统一主题入口，便于后续做换肤和样式集中管理
 
 ## 构建
 
@@ -109,6 +116,7 @@ build/bin/Debug/msimeui-demo.exe
 
 - 继续把场景级 invalidation 细化为局部布局和局部重绘，减少全树重排成本
 - 基于现有 parent 链继续引入更细粒度的 subtree dirty 标记和可缓存测量结果
+- 为高频交互控件继续补局部重绘区域计算，而不是默认整窗 `InvalidateRect`
 - 继续完善 `TextBox` 的输入、样式和布局能力
 - 增加菜单、弹出层、overlay 和更完整的命中/焦点管理
 - 引入资源字典、主题和声明式界面描述

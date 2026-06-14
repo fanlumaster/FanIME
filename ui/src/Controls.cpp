@@ -1,6 +1,7 @@
 #include "msimeui/Controls.h"
 
 #include "msimeui/DeviceResources.h"
+#include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 
 #include <algorithm>
@@ -236,10 +237,7 @@ bool Button::IsFocusable() const
 void Button::OnFocusChanged(bool focused)
 {
     focused_ = focused;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 bool Button::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -251,7 +249,7 @@ bool Button::OnMouseDown(const POINT &point, WPARAM keyState)
     }
 
     pressed_ = HitTest(window_->ClientPixelsToDips(point));
-    window_->Invalidate();
+    InvalidateVisual();
     return pressed_;
 }
 
@@ -265,7 +263,7 @@ bool Button::OnMouseUp(const POINT &point, WPARAM keyState)
 
     const bool shouldClick = HitTest(window_->ClientPixelsToDips(point));
     pressed_ = false;
-    window_->Invalidate();
+    InvalidateVisual();
     if (shouldClick)
     {
         OnClick();
@@ -288,17 +286,19 @@ void Button::OnClick()
 
 D2D1_COLOR_F Button::GetFillColor() const
 {
-    return pressed_ ? D2D1::ColorF(0x1D4ED8) : D2D1::ColorF(0x2563EB);
+    const Theme &theme = ThemeManager::GetCurrent();
+    return pressed_ ? theme.primaryPressed : theme.primary;
 }
 
 D2D1_COLOR_F Button::GetStrokeColor() const
 {
-    return focused_ ? D2D1::ColorF(0x93C5FD) : D2D1::ColorF(0x1D4ED8);
+    const Theme &theme = ThemeManager::GetCurrent();
+    return focused_ ? theme.primaryFocus : theme.primaryPressed;
 }
 
 D2D1_COLOR_F Button::GetTextColor() const
 {
-    return D2D1::ColorF(0xFFFFFF);
+    return ThemeManager::GetCurrent().textInverse;
 }
 
 CheckBox::CheckBox(std::wstring text, bool checked) : text_(std::move(text)), checked_(checked)
@@ -347,15 +347,16 @@ void CheckBox::Render(DeviceResources &deviceResources)
         return;
     }
 
+    const Theme &theme = ThemeManager::GetCurrent();
     const float indicatorY = bounds_.y + (bounds_.height - kCheckBoxIndicatorSize) * 0.5f;
     const RectF indicator = {bounds_.x, indicatorY, kCheckBoxIndicatorSize, kCheckBoxIndicatorSize};
-    FillRoundedRect(target, indicator, 6.0f, checked_ ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xFFFFFF),
-                    focused_ ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xCBD5E1), focused_ ? 2.0f : 1.0f);
+    FillRoundedRect(target, indicator, 6.0f, checked_ ? theme.primary : theme.surface,
+                    focused_ ? theme.primaryFocusStrong : theme.border, focused_ ? 2.0f : 1.0f);
 
     if (checked_)
     {
         ComPtr<ID2D1SolidColorBrush> checkBrush;
-        target->CreateSolidColorBrush(D2D1::ColorF(0xFFFFFF), checkBrush.GetAddressOf());
+        target->CreateSolidColorBrush(theme.textInverse, checkBrush.GetAddressOf());
         target->DrawLine(D2D1::Point2F(indicator.x + 5.0f, indicator.y + 11.0f),
                          D2D1::Point2F(indicator.x + 9.0f, indicator.y + 15.0f), checkBrush.Get(), 2.0f);
         target->DrawLine(D2D1::Point2F(indicator.x + 9.0f, indicator.y + 15.0f),
@@ -364,7 +365,7 @@ void CheckBox::Render(DeviceResources &deviceResources)
 
     const RectF textRect = {indicator.x + indicator.width + 12.0f, bounds_.y, std::max(bounds_.width - indicator.width - 12.0f, 0.0f),
                             bounds_.height};
-    DrawTextBlock(deviceResources, text_, 15.0f, false, D2D1::ColorF(0x1F2937), textRect, DWRITE_TEXT_ALIGNMENT_LEADING);
+    DrawTextBlock(deviceResources, text_, 15.0f, false, theme.textPrimary, textRect, DWRITE_TEXT_ALIGNMENT_LEADING);
 }
 
 bool CheckBox::HitTest(const PointF &point) const
@@ -380,10 +381,7 @@ bool CheckBox::IsFocusable() const
 void CheckBox::OnFocusChanged(bool focused)
 {
     focused_ = focused;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 bool CheckBox::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -417,7 +415,7 @@ bool CheckBox::OnMouseUp(const POINT &point, WPARAM keyState)
         }
     }
 
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -459,12 +457,13 @@ void ProgressBar::Render(DeviceResources &deviceResources)
         return;
     }
 
-    FillRoundedRect(target, bounds_, preferredHeight_ * 0.5f, D2D1::ColorF(0xE2E8F0), D2D1::ColorF(0xCBD5E1), 1.0f);
+    const Theme &theme = ThemeManager::GetCurrent();
+    FillRoundedRect(target, bounds_, preferredHeight_ * 0.5f, theme.track, theme.border, 1.0f);
 
     const RectF fillRect = {bounds_.x, bounds_.y, bounds_.width * value_, bounds_.height};
     if (fillRect.width > 0.0f)
     {
-        FillRoundedRect(target, fillRect, preferredHeight_ * 0.5f, D2D1::ColorF(0x22C55E), D2D1::ColorF(0x22C55E), 1.0f);
+        FillRoundedRect(target, fillRect, preferredHeight_ * 0.5f, theme.success, theme.success, 1.0f);
     }
 }
 
@@ -507,21 +506,22 @@ void Slider::Render(DeviceResources &deviceResources)
         return;
     }
 
+    const Theme &theme = ThemeManager::GetCurrent();
     const RectF track = {bounds_.x, bounds_.y + (bounds_.height - kSliderTrackHeight) * 0.5f, bounds_.width, kSliderTrackHeight};
-    FillRoundedRect(target, track, kSliderTrackHeight * 0.5f, D2D1::ColorF(0xE2E8F0), D2D1::ColorF(0xCBD5E1), 1.0f);
+    FillRoundedRect(target, track, kSliderTrackHeight * 0.5f, theme.track, theme.border, 1.0f);
 
     const RectF active = {track.x, track.y, track.width * NormalizedValue(), track.height};
     if (active.width > 0.0f)
     {
-        FillRoundedRect(target, active, kSliderTrackHeight * 0.5f, D2D1::ColorF(0x2563EB), D2D1::ColorF(0x2563EB), 1.0f);
+        FillRoundedRect(target, active, kSliderTrackHeight * 0.5f, theme.primary, theme.primary, 1.0f);
     }
 
     const float thumbCenterX = track.x + track.width * NormalizedValue();
     const float thumbCenterY = bounds_.y + bounds_.height * 0.5f;
     ComPtr<ID2D1SolidColorBrush> fillBrush;
     ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(D2D1::ColorF(0xFFFFFF), fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(focused_ || dragging_ ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0x94A3B8),
+    target->CreateSolidColorBrush(theme.surface, fillBrush.GetAddressOf());
+    target->CreateSolidColorBrush(focused_ || dragging_ ? theme.primary : theme.thumb,
                                   strokeBrush.GetAddressOf());
     target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(thumbCenterX, thumbCenterY), kSliderThumbRadius, kSliderThumbRadius),
                         fillBrush.Get());
@@ -542,10 +542,7 @@ bool Slider::IsFocusable() const
 void Slider::OnFocusChanged(bool focused)
 {
     focused_ = focused;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 bool Slider::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -565,10 +562,7 @@ bool Slider::OnMouseUp(const POINT &point, WPARAM keyState)
 
     UpdateFromPoint(point, true);
     dragging_ = false;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
     return true;
 }
 
@@ -767,10 +761,7 @@ bool ListView::IsFocusable() const
 void ListView::OnFocusChanged(bool focused)
 {
     focused_ = focused;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 bool ListView::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -790,7 +781,7 @@ bool ListView::OnMouseDown(const POINT &point, WPARAM keyState)
 
     pressed_ = true;
     pressedIndex_ = hit;
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -813,7 +804,7 @@ bool ListView::OnMouseUp(const POINT &point, WPARAM keyState)
         SetSelectedIndex(hit);
     }
 
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -946,10 +937,7 @@ bool TreeView::IsFocusable() const
 void TreeView::OnFocusChanged(bool focused)
 {
     focused_ = focused;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 bool TreeView::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -970,7 +958,7 @@ bool TreeView::OnMouseDown(const POINT &point, WPARAM keyState)
     pressed_ = true;
     pressedNode_ = hit->node;
     pressedExpander_ = !hit->node->children.empty() && PointInRect(hit->expanderRect, dipPoint);
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -1004,7 +992,7 @@ bool TreeView::OnMouseUp(const POINT &point, WPARAM keyState)
         }
     }
 
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -1280,7 +1268,7 @@ bool TabControl::OnMouseDown(const POINT &point, WPARAM keyState)
 
     pressed_ = true;
     pressedIndex_ = hit;
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -1301,7 +1289,7 @@ bool TabControl::OnMouseUp(const POINT &point, WPARAM keyState)
         SetSelectedIndex(hit);
     }
 
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -1556,7 +1544,7 @@ bool Accordion::OnMouseDown(const POINT &point, WPARAM keyState)
 
     pressed_ = true;
     pressedIndex_ = hit;
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 

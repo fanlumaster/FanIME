@@ -1,6 +1,7 @@
 #include "msimeui/Window.h"
 
 #include "msimeui/Application.h"
+#include "msimeui/Theme.h"
 #include "DebugLog.h"
 
 #include <d2d1.h>
@@ -107,6 +108,23 @@ void Window::Invalidate()
     InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
+void Window::Invalidate(const RectF &rect)
+{
+    if (!hwnd_)
+    {
+        return;
+    }
+
+    if (rect.width <= 0.0f || rect.height <= 0.0f)
+    {
+        Invalidate();
+        return;
+    }
+
+    RECT pixelRect = DipsToClientPixels(rect);
+    InvalidateRect(hwnd_, &pixelRect, FALSE);
+}
+
 void Window::InvalidateMeasure()
 {
     if (scene_)
@@ -118,11 +136,33 @@ void Window::InvalidateMeasure()
     Invalidate();
 }
 
+void Window::InvalidateMeasure(Visual *source)
+{
+    if (scene_)
+    {
+        scene_->InvalidateMeasure(source);
+        return;
+    }
+
+    Invalidate();
+}
+
 void Window::InvalidateArrange()
 {
     if (scene_)
     {
         scene_->InvalidateArrange();
+        return;
+    }
+
+    Invalidate();
+}
+
+void Window::InvalidateArrange(Visual *source)
+{
+    if (scene_)
+    {
+        scene_->InvalidateArrange(source);
         return;
     }
 
@@ -326,7 +366,7 @@ void Window::OnPaint()
     {
         ID2D1HwndRenderTarget *target = deviceResources_.GetRenderTarget();
         target->BeginDraw();
-        target->Clear(D2D1::ColorF(0xF3F5F8));
+        target->Clear(ThemeManager::GetCurrent().windowBackground);
         if (scene_)
         {
             RECT rc = {};

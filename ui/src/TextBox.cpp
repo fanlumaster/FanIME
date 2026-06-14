@@ -2,6 +2,7 @@
 
 #include "DebugLog.h"
 #include "msimeui/DeviceResources.h"
+#include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 
 #include "TextEditor.h"
@@ -75,7 +76,7 @@ TextBox::TextBox(float height, std::wstring placeholder) : preferredHeight_(heig
     HFONT defaultFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
     GetObject(defaultFont, sizeof(LOGFONT), &font_);
     font_.lfHeight = -27;
-    wcscpy_s(font_.lfFaceName, LF_FACESIZE, L"Noto Sans SC");
+    wcscpy_s(font_.lfFaceName, LF_FACESIZE, ThemeManager::GetCurrent().textInputFontFamily.c_str());
 }
 
 TextBox::~TextBox()
@@ -136,10 +137,11 @@ void TextBox::Render(DeviceResources &deviceResources)
         return;
     }
 
+    const Theme &theme = ThemeManager::GetCurrent();
     ComPtr<ID2D1SolidColorBrush> fillBrush;
     ComPtr<ID2D1SolidColorBrush> strokeBrush;
-    target->CreateSolidColorBrush(D2D1::ColorF(0xFFFFFF), fillBrush.GetAddressOf());
-    target->CreateSolidColorBrush(focused_ ? D2D1::ColorF(0x4C8DFF) : D2D1::ColorF(0xD6DCE5), strokeBrush.GetAddressOf());
+    target->CreateSolidColorBrush(theme.surface, fillBrush.GetAddressOf());
+    target->CreateSolidColorBrush(focused_ ? theme.primaryFocusStrong : theme.borderStrong, strokeBrush.GetAddressOf());
 
     const auto rect =
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
@@ -236,10 +238,7 @@ void TextBox::OnFocusChanged(bool focused)
         editor_->SetFocusDocumentMgr();
     }
 
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    InvalidateVisual();
 }
 
 bool TextBox::OnMouseDown(const POINT &point, WPARAM keyState)
@@ -268,7 +267,7 @@ bool TextBox::OnMouseDown(const POINT &point, WPARAM keyState)
     if (editor_->MoveSelectionAtPoint(local))
     {
         dragSelectionStart_ = editor_->GetSelectionStart();
-        window_->Invalidate();
+        InvalidateVisual();
         std::ostringstream log;
         log << "TextBox::OnMouseDown selection moved dragStart=" << dragSelectionStart_;
         DebugLog(log.str());
@@ -300,7 +299,7 @@ bool TextBox::OnMouseUp(const POINT &point, WPARAM keyState)
         const UINT newStart = editor_->GetSelectionStart();
         const UINT newEnd = editor_->GetSelectionEnd();
         editor_->MoveSelection(min(selectionStart, newStart), max(selectionEnd, newEnd));
-        window_->Invalidate();
+        InvalidateVisual();
     }
     dragSelectionStart_ = static_cast<UINT>(-1);
     return true;
@@ -326,7 +325,7 @@ bool TextBox::OnMouseMove(const POINT &point, WPARAM keyState)
             const UINT newStart = editor_->GetSelectionStart();
             const UINT newEnd = editor_->GetSelectionEnd();
             editor_->MoveSelection(min(dragSelectionStart_, newStart), max(dragSelectionStart_, newEnd));
-            window_->Invalidate();
+            InvalidateVisual();
         }
     }
     return true;
@@ -424,7 +423,7 @@ bool TextBox::OnKeyDown(WPARAM key, LPARAM lParam)
         return false;
     }
 
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -449,7 +448,7 @@ bool TextBox::OnChar(wchar_t ch, LPARAM lParam)
 
     wchar_t buffer[2] = {ch, L'\0'};
     editor_->InsertAtSelection(buffer);
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 
@@ -461,7 +460,7 @@ bool TextBox::OnTimer(UINT_PTR timerId)
     }
 
     editor_->BlinkCaret();
-    window_->Invalidate();
+    InvalidateVisual();
     return true;
 }
 

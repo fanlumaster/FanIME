@@ -1,6 +1,7 @@
 #include "msimeui/Layout.h"
 
 #include "msimeui/DeviceResources.h"
+#include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 
 #include <algorithm>
@@ -83,6 +84,16 @@ bool PointInRect(const RectF &rect, const PointF &point)
 {
     return point.x >= rect.x && point.x <= (rect.x + rect.width) && point.y >= rect.y &&
            point.y <= (rect.y + rect.height);
+}
+
+bool IsSameSize(const SizeF &lhs, const SizeF &rhs)
+{
+    return lhs.width == rhs.width && lhs.height == rhs.height;
+}
+
+bool IsSameRect(const RectF &lhs, const RectF &rhs)
+{
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width && lhs.height == rhs.height;
 }
 } // namespace
 
@@ -183,43 +194,26 @@ HCURSOR Visual::GetCursor() const
 
 void Visual::InvalidateMeasure()
 {
-    if (parent_)
-    {
-        parent_->InvalidateMeasure();
-        return;
-    }
-
-    if (window_)
-    {
-        window_->InvalidateMeasure();
-    }
+    BubbleMeasureInvalidation(this);
 }
 
 void Visual::InvalidateArrange()
 {
-    if (parent_)
-    {
-        parent_->InvalidateArrange();
-        return;
-    }
-
-    if (window_)
-    {
-        window_->InvalidateArrange();
-    }
+    BubbleArrangeInvalidation(this);
 }
 
 void Visual::InvalidateVisual()
 {
-    if (parent_)
-    {
-        parent_->InvalidateVisual();
-        return;
-    }
-
     if (window_)
     {
-        window_->Invalidate();
+        if (bounds_.width > 0.0f && bounds_.height > 0.0f)
+        {
+            window_->Invalidate(bounds_);
+        }
+        else
+        {
+            window_->Invalidate();
+        }
     }
 }
 
@@ -341,6 +335,11 @@ void Visual::SetVerticalAlignment(VerticalAlignment alignment)
 
 SizeF Visual::MeasureInLayout(const SizeF &availableSize)
 {
+    if (IsMeasureCacheValid(availableSize))
+    {
+        return measuredOuterSize_;
+    }
+
     const SizeF innerAvailable = DeflateSize(availableSize, margin_);
     desiredSize_ = Measure(innerAvailable);
     if (HasExplicitWidth())
@@ -357,11 +356,21 @@ SizeF Visual::MeasureInLayout(const SizeF &availableSize)
     desiredSize_.width = std::min(desiredSize_.width, innerAvailable.width);
     desiredSize_.height = std::min(desiredSize_.height, innerAvailable.height);
 
-    return {desiredSize_.width + margin_.left + margin_.right, desiredSize_.height + margin_.top + margin_.bottom};
+    measuredOuterSize_ = {desiredSize_.width + margin_.left + margin_.right,
+                          desiredSize_.height + margin_.top + margin_.bottom};
+    lastMeasureAvailableSize_ = availableSize;
+    measureDirty_ = false;
+    hasMeasureCache_ = true;
+    return measuredOuterSize_;
 }
 
 void Visual::ArrangeInLayout(const RectF &finalRect)
 {
+    if (IsArrangeCacheValid(finalRect))
+    {
+        return;
+    }
+
     const RectF innerRect = DeflateRect(finalRect, margin_);
 
     float arrangedWidth = desiredSize_.width;
@@ -417,11 +426,88 @@ void Visual::ArrangeInLayout(const RectF &finalRect)
     }
 
     Arrange({arrangedX, arrangedY, std::max(arrangedWidth, 0.0f), std::max(arrangedHeight, 0.0f)});
+    lastArrangeRect_ = finalRect;
+    arrangeDirty_ = false;
+    hasArrangeCache_ = true;
 }
 
 const RectF &Visual::GetBounds() const
 {
     return bounds_;
+}
+
+bool Visual::HasMeasureSlot() const
+{
+    return hasMeasureCache_;
+}
+
+bool Visual::HasArrangeSlot() const
+{
+    return hasArrangeCache_;
+}
+
+const SizeF &Visual::GetLastMeasureAvailableSize() const
+{
+    return lastMeasureAvailableSize_;
+}
+
+Visual *Visual::GetParentVisual() const
+{
+    return parent_;
+}
+
+void Visual::BubbleMeasureInvalidation(Visual *source)
+{
+    MarkMeasureDirty();
+    if (parent_)
+    {
+        parent_->BubbleMeasureInvalidation(source);
+        return;
+    }
+
+    if (window_)
+    {
+        window_->InvalidateMeasure(source);
+    }
+}
+
+void Visual::BubbleArrangeInvalidation(Visual *source)
+{
+    MarkArrangeDirty();
+    if (parent_)
+    {
+        parent_->BubbleArrangeInvalidation(source);
+        return;
+    }
+
+    if (window_)
+    {
+        window_->InvalidateArrange(source);
+    }
+}
+
+void Visual::MarkMeasureDirty()
+{
+    measureDirty_ = true;
+    arrangeDirty_ = true;
+    hasMeasureCache_ = false;
+    hasArrangeCache_ = false;
+}
+
+void Visual::MarkArrangeDirty()
+{
+    arrangeDirty_ = true;
+    hasArrangeCache_ = false;
+}
+
+bool Visual::IsMeasureCacheValid(const SizeF &availableSize) const
+{
+    return hasMeasureCache_ && !measureDirty_ && IsSameSize(lastMeasureAvailableSize_, availableSize);
+}
+
+bool Visual::IsArrangeCacheValid(const RectF &finalRect) const
+{
+    return hasArrangeCache_ && !arrangeDirty_ && IsSameRect(lastArrangeRect_, finalRect);
 }
 
 bool Visual::HasExplicitWidth() const
@@ -785,10 +871,11 @@ void ScrollViewer::Render(DeviceResources &deviceResources)
 
     const RectF trackRect = GetScrollbarTrackRect();
     const RectF thumbRect = GetScrollbarThumbRect();
+    const Theme &theme = ThemeManager::GetCurrent();
     ComPtr<ID2D1SolidColorBrush> trackBrush;
     ComPtr<ID2D1SolidColorBrush> thumbBrush;
-    target->CreateSolidColorBrush(D2D1::ColorF(0xE2E8F0, 0.9f), trackBrush.GetAddressOf());
-    target->CreateSolidColorBrush(D2D1::ColorF(scrollbarDragging_ ? 0x64748B : 0x94A3B8, 0.95f),
+    target->CreateSolidColorBrush(theme.track, trackBrush.GetAddressOf());
+    target->CreateSolidColorBrush(scrollbarDragging_ ? theme.thumbActive : theme.thumb,
                                   thumbBrush.GetAddressOf());
 
     const auto trackRounded = D2D1::RoundedRect(
@@ -885,7 +972,7 @@ bool ScrollViewer::OnMouseDown(const POINT &point, WPARAM keyState)
     scrollOffsetY_ = ratio * std::max(measuredContent_.height - bounds_.height, 0.0f);
     ClampScrollOffset();
     UpdateContentLayout();
-    window_->Invalidate();
+    RefreshViewport();
     return true;
 }
 
@@ -899,10 +986,7 @@ bool ScrollViewer::OnMouseUp(const POINT &point, WPARAM keyState)
     }
 
     scrollbarDragging_ = false;
-    if (window_)
-    {
-        window_->Invalidate();
-    }
+    RefreshViewport();
     return true;
 }
 
@@ -923,7 +1007,7 @@ bool ScrollViewer::OnMouseMove(const POINT &point, WPARAM keyState)
     scrollOffsetY_ = ratio * std::max(measuredContent_.height - bounds_.height, 0.0f);
     ClampScrollOffset();
     UpdateContentLayout();
-    window_->Invalidate();
+    RefreshViewport();
     return true;
 }
 
@@ -945,7 +1029,7 @@ bool ScrollViewer::OnMouseWheel(const POINT &point, short delta, WPARAM keyState
     scrollOffsetY_ = std::clamp(scrollOffsetY_ - (static_cast<float>(delta) / static_cast<float>(WHEEL_DELTA)) * 72.0f, 0.0f,
                                 maxOffset);
     UpdateContentLayout();
-    window_->Invalidate();
+    RefreshViewport();
     return true;
 }
 
@@ -963,6 +1047,17 @@ void ScrollViewer::ClampScrollOffset()
 {
     const float maxOffset = std::max(measuredContent_.height - bounds_.height, 0.0f);
     scrollOffsetY_ = std::clamp(scrollOffsetY_, 0.0f, maxOffset);
+}
+
+void ScrollViewer::RefreshViewport()
+{
+    if (window_ && bounds_.width > 0.0f && bounds_.height > 0.0f)
+    {
+        window_->Invalidate(bounds_);
+        return;
+    }
+
+    InvalidateVisual();
 }
 
 RectF ScrollViewer::GetScrollbarTrackRect() const
@@ -1526,7 +1621,8 @@ void TextBlock::Render(DeviceResources &deviceResources)
     }
 
     ComPtr<IDWriteTextFormat> format;
-    dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
+    const Theme &theme = ThemeManager::GetCurrent();
+    dwriteFactory->CreateTextFormat(theme.uiFontFamily.c_str(), nullptr,
                                     bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
                                     DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"",
                                     format.GetAddressOf());

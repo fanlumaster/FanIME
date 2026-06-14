@@ -12,6 +12,7 @@
 namespace msimeui
 {
 class DeviceResources;
+class Scene;
 class Window;
 
 enum class HorizontalAlignment
@@ -46,6 +47,7 @@ struct GridLength
 class Visual
 {
   public:
+    friend class Scene;
     virtual ~Visual() = default;
 
     virtual SizeF Measure(const SizeF &availableSize) = 0;
@@ -93,8 +95,18 @@ class Visual
     SizeF MeasureInLayout(const SizeF &availableSize);
     void ArrangeInLayout(const RectF &finalRect);
     const RectF &GetBounds() const;
+    bool HasMeasureSlot() const;
+    bool HasArrangeSlot() const;
+    const SizeF &GetLastMeasureAvailableSize() const;
+    Visual *GetParentVisual() const;
 
   protected:
+    void BubbleMeasureInvalidation(Visual *source);
+    void BubbleArrangeInvalidation(Visual *source);
+    void MarkMeasureDirty();
+    void MarkArrangeDirty();
+    bool IsMeasureCacheValid(const SizeF &availableSize) const;
+    bool IsArrangeCacheValid(const RectF &finalRect) const;
     void AdoptChild(const std::shared_ptr<Visual> &child);
     void ReleaseChild(const std::shared_ptr<Visual> &child);
     bool HasExplicitWidth() const;
@@ -113,9 +125,16 @@ class Visual
     HorizontalAlignment horizontalAlignment_ = HorizontalAlignment::Stretch;
     VerticalAlignment verticalAlignment_ = VerticalAlignment::Leading;
     SizeF desiredSize_ = {};
+    SizeF measuredOuterSize_ = {};
+    SizeF lastMeasureAvailableSize_ = {};
     RectF bounds_ = {};
+    RectF lastArrangeRect_ = {};
     Visual *parent_ = nullptr;
     Window *window_ = nullptr;
+    bool measureDirty_ = true;
+    bool arrangeDirty_ = true;
+    bool hasMeasureCache_ = false;
+    bool hasArrangeCache_ = false;
 };
 
 class Panel : public Visual
@@ -213,6 +232,7 @@ class ScrollViewer : public Visual
     HCURSOR GetCursor() const override;
 
   private:
+    void RefreshViewport();
     void ClampScrollOffset();
     RectF GetScrollbarTrackRect() const;
     RectF GetScrollbarThumbRect() const;

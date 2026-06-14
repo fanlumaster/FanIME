@@ -26,6 +26,7 @@ add_library(msimeui STATIC
     src/TextBox.cpp
     src/Layout.cpp
     src/Scene.cpp
+    src/Theme.cpp
     src/Window.cpp
     src/WindowClass.cpp
     src/tsf/DisplayAttribute.cpp
@@ -42,6 +43,7 @@ add_library(msimeui STATIC
     include/msimeui/DeviceResources.h
     include/msimeui/Layout.h
     include/msimeui/Scene.h
+    include/msimeui/Theme.h
     include/msimeui/Types.h
     include/msimeui/Window.h
     src/tsf/DisplayAttribute.h

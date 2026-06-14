@@ -10,6 +10,73 @@ namespace msimeui
 namespace
 {
 constexpr float kScenePaddingDips = 5.0f;
+
+Visual *FindCommonAncestor(Visual *lhs, Visual *rhs)
+{
+    if (!lhs)
+    {
+        return rhs;
+    }
+    if (!rhs)
+    {
+        return lhs;
+    }
+    if (lhs == rhs)
+    {
+        return lhs;
+    }
+
+    for (Visual *left = lhs; left; left = left->GetParentVisual())
+    {
+        for (Visual *right = rhs; right; right = right->GetParentVisual())
+        {
+            if (left == right)
+            {
+                return left;
+            }
+        }
+    }
+
+    return lhs;
+}
+
+bool RemeasureDirtyPath(Visual *source, Visual *root)
+{
+    if (!source || !root)
+    {
+        return false;
+    }
+
+    std::vector<Visual *> path;
+    for (Visual *current = source; current; current = current->GetParentVisual())
+    {
+        path.push_back(current);
+        if (current == root)
+        {
+            break;
+        }
+    }
+
+    if (path.empty() || path.back() != root)
+    {
+        return false;
+    }
+
+    for (Visual *current : path)
+    {
+        if (!current->HasMeasureSlot())
+        {
+            return false;
+        }
+    }
+
+    for (Visual *current : path)
+    {
+        current->MeasureInLayout(current->GetLastMeasureAvailableSize());
+    }
+
+    return true;
+}
 }
 
 void Scene::SetRoot(std::shared_ptr<Visual> root)
@@ -21,6 +88,8 @@ void Scene::SetRoot(std::shared_ptr<Visual> root)
     }
     measureDirty_ = true;
     arrangeDirty_ = true;
+    measureDirtySource_ = root_.get();
+    arrangeDirtyRoot_ = root_.get();
 }
 
 void Scene::Attach(Window *window)
@@ -43,35 +112,105 @@ void Scene::EnsureLayout(const SizeF &size)
 
 void Scene::Layout(const SizeF &size)
 {
+    const bool sizeChanged = !hasLastLayoutSize_ || lastLayoutSize_.width != size.width || lastLayoutSize_.height != size.height;
+    const bool needsMeasure = sizeChanged || measureDirty_ || !hasLastLayoutSize_;
+    const bool needsArrange = needsMeasure || sizeChanged || arrangeDirty_ || !hasLastLayoutSize_;
+
     if (!root_)
     {
         lastLayoutSize_ = size;
         hasLastLayoutSize_ = true;
         measureDirty_ = false;
         arrangeDirty_ = false;
+        measureDirtySource_ = nullptr;
+        arrangeDirtyRoot_ = nullptr;
         return;
     }
 
     const SizeF innerSize = {std::max(size.width - kScenePaddingDips * 2.0f, 0.0f),
                              std::max(size.height - kScenePaddingDips * 2.0f, 0.0f)};
-    root_->MeasureInLayout(innerSize);
-    root_->ArrangeInLayout({kScenePaddingDips, kScenePaddingDips, innerSize.width, innerSize.height});
+    if (needsMeasure)
+    {
+        const bool canUseDirtyPath = !sizeChanged && measureDirtySource_ && measureDirtySource_ != root_.get();
+        if (!canUseDirtyPath || !RemeasureDirtyPath(measureDirtySource_, root_.get()))
+        {
+            root_->MeasureInLayout(innerSize);
+        }
+    }
+    if (needsArrange)
+    {
+        const RectF rootSlot = {kScenePaddingDips, kScenePaddingDips, innerSize.width, innerSize.height};
+        if (!needsMeasure && !sizeChanged && arrangeDirtyRoot_ && arrangeDirtyRoot_ != root_.get() &&
+            arrangeDirtyRoot_->HasArrangeSlot())
+        {
+            arrangeDirtyRoot_->ArrangeInLayout(arrangeDirtyRoot_->lastArrangeRect_);
+        }
+        else
+        {
+            root_->ArrangeInLayout(rootSlot);
+        }
+    }
     lastLayoutSize_ = size;
     hasLastLayoutSize_ = true;
     measureDirty_ = false;
     arrangeDirty_ = false;
+    measureDirtySource_ = nullptr;
+    arrangeDirtyRoot_ = nullptr;
 }
 
 void Scene::InvalidateMeasure()
 {
     measureDirty_ = true;
     arrangeDirty_ = true;
+    measureDirtySource_ = root_.get();
+    arrangeDirtyRoot_ = root_.get();
+    InvalidateVisual();
+}
+
+void Scene::InvalidateMeasure(Visual *source)
+{
+    measureDirty_ = true;
+    arrangeDirty_ = true;
+    if (!source || !root_)
+    {
+        measureDirtySource_ = root_.get();
+        arrangeDirtyRoot_ = root_.get();
+    }
+    else if (!measureDirtySource_)
+    {
+        measureDirtySource_ = source;
+        arrangeDirtyRoot_ = source;
+    }
+    else
+    {
+        measureDirtySource_ = FindCommonAncestor(measureDirtySource_, source);
+        arrangeDirtyRoot_ = FindCommonAncestor(arrangeDirtyRoot_, source);
+    }
     InvalidateVisual();
 }
 
 void Scene::InvalidateArrange()
 {
     arrangeDirty_ = true;
+    arrangeDirtyRoot_ = root_.get();
+    InvalidateVisual();
+}
+
+void Scene::InvalidateArrange(Visual *source)
+{
+    arrangeDirty_ = true;
+    if (!source || !root_)
+    {
+        arrangeDirtyRoot_ = root_.get();
+    }
+    else if (!arrangeDirtyRoot_)
+    {
+        arrangeDirtyRoot_ = source;
+    }
+    else
+    {
+        arrangeDirtyRoot_ = FindCommonAncestor(arrangeDirtyRoot_, source);
+    }
     InvalidateVisual();
 }
 
