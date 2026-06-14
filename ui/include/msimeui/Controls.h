@@ -146,6 +146,33 @@ class PopupHost : public Visual
     bool open_ = false;
 };
 
+class ContextMenuHost : public Visual
+{
+  public:
+    ContextMenuHost(std::shared_ptr<Visual> trigger, std::shared_ptr<Popup> popup);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    void Attach(Window *window) override;
+    Visual *FindVisualAt(const PointF &point) override;
+    Visual *FindFocusableAt(const PointF &point) override;
+    Visual *FindFirstFocusableDescendant() override;
+    bool HitTest(const PointF &point) const override;
+    bool OnContextMenu(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+    bool KeepsPopupsOpenOnClick() const override;
+
+    void OpenPopupAt(const PointF &anchorPoint);
+    void ClosePopup();
+    bool IsOpen() const;
+
+  private:
+    std::shared_ptr<Visual> trigger_;
+    std::shared_ptr<Popup> popup_;
+    bool open_ = false;
+};
+
 class ComboBox : public Visual
 {
   public:

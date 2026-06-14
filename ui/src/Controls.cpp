@@ -693,6 +693,141 @@ bool PopupHost::IsOpen() const
     return open_;
 }
 
+ContextMenuHost::ContextMenuHost(std::shared_ptr<Visual> trigger, std::shared_ptr<Popup> popup)
+    : trigger_(std::move(trigger)), popup_(std::move(popup))
+{
+    AdoptChild(trigger_);
+}
+
+SizeF ContextMenuHost::Measure(const SizeF &availableSize)
+{
+    return trigger_ ? trigger_->MeasureInLayout(availableSize) : SizeF {};
+}
+
+void ContextMenuHost::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    if (trigger_)
+    {
+        trigger_->ArrangeInLayout(finalRect);
+    }
+}
+
+void ContextMenuHost::Render(DeviceResources &deviceResources)
+{
+    if (trigger_)
+    {
+        trigger_->Render(deviceResources);
+    }
+}
+
+void ContextMenuHost::Attach(Window *window)
+{
+    Visual::Attach(window);
+    if (trigger_)
+    {
+        trigger_->Attach(window);
+    }
+    if (popup_)
+    {
+        popup_->Attach(window);
+    }
+}
+
+Visual *ContextMenuHost::FindVisualAt(const PointF &point)
+{
+    return HitTest(point) ? this : nullptr;
+}
+
+Visual *ContextMenuHost::FindFocusableAt(const PointF &point)
+{
+    (void)point;
+    return nullptr;
+}
+
+Visual *ContextMenuHost::FindFirstFocusableDescendant()
+{
+    return nullptr;
+}
+
+bool ContextMenuHost::HitTest(const PointF &point) const
+{
+    return trigger_ ? trigger_->HitTest(point) : false;
+}
+
+bool ContextMenuHost::OnContextMenu(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    if (!HitTest(dipPoint))
+    {
+        return false;
+    }
+
+    OpenPopupAt(dipPoint);
+    return true;
+}
+
+HCURSOR ContextMenuHost::GetCursor() const
+{
+    return trigger_ ? trigger_->GetCursor() : LoadCursor(nullptr, IDC_ARROW);
+}
+
+bool ContextMenuHost::KeepsPopupsOpenOnClick() const
+{
+    return true;
+}
+
+void ContextMenuHost::OpenPopupAt(const PointF &anchorPoint)
+{
+    if (!window_ || !popup_)
+    {
+        return;
+    }
+
+    if (Scene *scene = window_->GetScene())
+    {
+        if (open_)
+        {
+            scene->RemovePopup(popup_.get(), false);
+            open_ = false;
+        }
+
+        popup_->SetAnchorRect({anchorPoint.x, anchorPoint.y, 1.0f, 1.0f});
+        scene->AddPopup(popup_, [this]() {
+            open_ = false;
+            InvalidateVisual();
+        });
+        open_ = true;
+        InvalidateVisual();
+    }
+}
+
+void ContextMenuHost::ClosePopup()
+{
+    if (!open_ || !window_ || !popup_)
+    {
+        return;
+    }
+
+    if (Scene *scene = window_->GetScene())
+    {
+        scene->RemovePopup(popup_.get(), false);
+    }
+    open_ = false;
+    InvalidateVisual();
+}
+
+bool ContextMenuHost::IsOpen() const
+{
+    return open_;
+}
+
 ComboBox::ComboBox(float height) : preferredHeight_(height)
 {
     auto popupContent = std::make_shared<ComboBoxPopupContent>(40.0f);

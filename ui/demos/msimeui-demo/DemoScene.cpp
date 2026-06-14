@@ -428,6 +428,69 @@ std::unique_ptr<Scene> CreateDemoScene()
     root->AddChild(comboCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
 
+    auto contextMenuCard = std::make_shared<Card>(surface, 20.0f);
+    auto contextMenuStack = std::make_shared<StackPanel>(14.0f);
+    auto contextMenuStatus =
+        std::make_shared<TextBlock>(L"Last action: none", 14.0f, D2D1::ColorF(0x475569), true);
+
+    auto contextMenuPreviewText = std::make_shared<TextBlock>(
+        L"Right-click this surface to open a context menu. This is the first step toward file-tree menus, list item actions, and editor command menus.",
+        14.0f, D2D1::ColorF(0x475569));
+    auto contextMenuPreview = std::make_shared<Border>(insetBrush, contextMenuPreviewText);
+    contextMenuPreview->SetPadding({16.0f, 18.0f, 16.0f, 18.0f});
+    contextMenuPreview->SetHeight(92.0f);
+
+    auto contextMenuPopupStack = std::make_shared<StackPanel>(8.0f);
+    contextMenuPopupStack->AddChild(std::make_shared<TextBlock>(L"Canvas Actions", 15.0f, D2D1::ColorF(0x1F2937), true));
+    auto contextMenuRefresh = std::make_shared<Button>(L"Refresh Preview", 38.0f);
+    auto contextMenuInspect = std::make_shared<Button>(L"Inspect Layout", 38.0f);
+    auto contextMenuPin = std::make_shared<Button>(L"Pin as Favorite", 38.0f);
+    contextMenuRefresh->SetWidth(180.0f);
+    contextMenuInspect->SetWidth(180.0f);
+    contextMenuPin->SetWidth(180.0f);
+    contextMenuPopupStack->AddChild(contextMenuRefresh);
+    contextMenuPopupStack->AddChild(contextMenuInspect);
+    contextMenuPopupStack->AddChild(contextMenuPin);
+
+    auto contextMenuPopup = std::make_shared<Popup>(contextMenuPopupStack);
+    contextMenuPopup->SetMatchAnchorWidth(false);
+    contextMenuPopup->SetWidth(220.0f);
+    contextMenuPopup->SetOffset(0.0f, 4.0f);
+
+    auto contextMenuHost = std::make_shared<ContextMenuHost>(contextMenuPreview, contextMenuPopup);
+    std::weak_ptr<ContextMenuHost> weakContextMenuHost = contextMenuHost;
+    contextMenuRefresh->SetOnClick([contextMenuStatus, weakContextMenuHost]() {
+        contextMenuStatus->SetText(L"Last action: refresh preview");
+        if (auto host = weakContextMenuHost.lock())
+        {
+            host->ClosePopup();
+        }
+    });
+    contextMenuInspect->SetOnClick([contextMenuStatus, weakContextMenuHost]() {
+        contextMenuStatus->SetText(L"Last action: inspect layout");
+        if (auto host = weakContextMenuHost.lock())
+        {
+            host->ClosePopup();
+        }
+    });
+    contextMenuPin->SetOnClick([contextMenuStatus, weakContextMenuHost]() {
+        contextMenuStatus->SetText(L"Last action: pin as favorite");
+        if (auto host = weakContextMenuHost.lock())
+        {
+            host->ClosePopup();
+        }
+    });
+
+    contextMenuStack->AddChild(std::make_shared<TextBlock>(L"ContextMenuHost", 20.0f, D2D1::ColorF(0x1F2937), true));
+    contextMenuStack->AddChild(std::make_shared<TextBlock>(
+        L"Right-click menus can now reuse the same scene overlay layer, so command lists no longer need to stay inside normal layout bounds.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    contextMenuStack->AddChild(contextMenuStatus);
+    contextMenuStack->AddChild(contextMenuHost);
+    contextMenuCard->AddChild(contextMenuStack);
+    root->AddChild(contextMenuCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
     auto accordionCard = std::make_shared<Card>(surface, 20.0f);
     auto accordionStack = std::make_shared<StackPanel>(14.0f);
     auto accordion = std::make_shared<Accordion>(46.0f);

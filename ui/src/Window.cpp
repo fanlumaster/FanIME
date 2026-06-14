@@ -272,6 +272,23 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
+    case WM_RBUTTONUP:
+    {
+        const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (scene_)
+        {
+            const PointF dipPoint = ClientPixelsToDips(point);
+            Visual *target = scene_->FindVisualAt(dipPoint);
+            scene_->DismissPopupsForClick(dipPoint, target);
+            target = scene_->FindVisualAt(dipPoint);
+            if (target && target->OnContextMenu(point, wParam))
+            {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     case WM_MOUSEMOVE:
     {
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};

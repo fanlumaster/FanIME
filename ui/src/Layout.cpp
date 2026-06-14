@@ -159,6 +159,13 @@ bool Visual::OnMouseMove(const POINT &point, WPARAM keyState)
     return false;
 }
 
+bool Visual::OnContextMenu(const POINT &point, WPARAM keyState)
+{
+    (void)point;
+    (void)keyState;
+    return false;
+}
+
 bool Visual::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
 {
     (void)point;

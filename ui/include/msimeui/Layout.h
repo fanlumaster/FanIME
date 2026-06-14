@@ -63,6 +63,7 @@ class Visual
     virtual bool OnMouseDown(const POINT &point, WPARAM keyState);
     virtual bool OnMouseUp(const POINT &point, WPARAM keyState);
     virtual bool OnMouseMove(const POINT &point, WPARAM keyState);
+    virtual bool OnContextMenu(const POINT &point, WPARAM keyState);
     virtual bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState);
     virtual bool OnKeyDown(WPARAM key, LPARAM lParam);
     virtual bool OnChar(wchar_t ch, LPARAM lParam);

@@ -20,6 +20,7 @@
 - 通用单子元素容器：`Container` / `Border`
 - `TextBlock` / `Button` / `CheckBox` / `ProgressBar` / `Slider` / `Separator` / `ListView` / `TreeView` / `TabControl` / `Accordion`
 - `ComboBox`
+- `ContextMenuHost`
 - `Card`
 - `TextBox` 输入控件
 
@@ -52,6 +53,7 @@
 - 新增最小主题系统 `Theme / ThemeManager`：窗口背景、按钮、复选框、进度条、滑块、滚动条、`TextBlock` 字体和 `TextBox` 的部分视觉令牌已开始迁移到统一主题入口，便于后续做换肤和样式集中管理
 - 新增第一版 `PopupHost / Popup` 弹出层系统：`Scene` 现可管理 overlay popup，支持高于主视觉树的渲染顺序、命中测试、滚轮路由、窗口重排后的重新定位，以及点击空白区域自动关闭；demo 已加入一个快速操作弹出层示例
 - 新增第一版 `ComboBox`：基于新的 overlay popup 系统实现下拉选择，支持展开/收起、点击项选中、当前值回写，以及点击空白区域自动关闭；demo 已加入可交互示例
+- 新增第一版 `ContextMenuHost`：窗口现可分发右键上下文菜单事件，控件可在鼠标位置弹出 scene overlay 菜单，并支持点击菜单项执行动作、点击空白区域自动关闭；demo 已加入右键菜单示例
 
 ## 构建
 
