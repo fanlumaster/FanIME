@@ -1082,16 +1082,17 @@ TabControl::TabControl(float headerHeight) : headerHeight_(headerHeight)
 
 void TabControl::AddTab(std::wstring title, std::shared_ptr<Visual> content)
 {
+    AdoptChild(content);
     tabs_.push_back({std::move(title), std::move(content)});
-    if (tabs_.back().content && window_)
-    {
-        tabs_.back().content->Attach(window_);
-    }
     InvalidateMeasure();
 }
 
 void TabControl::ClearTabs()
 {
+    for (auto &tab : tabs_)
+    {
+        ReleaseChild(tab.content);
+    }
     tabs_.clear();
     headerRects_.clear();
     selectedIndex_ = 0;
@@ -1328,20 +1329,21 @@ Accordion::Accordion(float headerHeight) : headerHeight_(headerHeight)
 
 void Accordion::AddSection(std::wstring title, std::shared_ptr<Visual> content, bool expanded)
 {
+    AdoptChild(content);
     sections_.push_back({std::move(title), std::move(content), expanded});
     if (!allowMultipleExpanded_ && expanded)
     {
         CollapseOtherSections(sections_.size() - 1);
-    }
-    if (sections_.back().content && window_)
-    {
-        sections_.back().content->Attach(window_);
     }
     InvalidateMeasure();
 }
 
 void Accordion::ClearSections()
 {
+    for (auto &section : sections_)
+    {
+        ReleaseChild(section.content);
+    }
     sections_.clear();
     headerRects_.clear();
     contentRects_.clear();

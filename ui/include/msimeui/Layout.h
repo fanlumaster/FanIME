@@ -95,8 +95,12 @@ class Visual
     const RectF &GetBounds() const;
 
   protected:
+    void AdoptChild(const std::shared_ptr<Visual> &child);
+    void ReleaseChild(const std::shared_ptr<Visual> &child);
     bool HasExplicitWidth() const;
     bool HasExplicitHeight() const;
+    void SetParent(Visual *parent);
+    Visual *GetParent() const;
 
     Thickness margin_ = {};
     Thickness padding_ = {};
@@ -110,6 +114,7 @@ class Visual
     VerticalAlignment verticalAlignment_ = VerticalAlignment::Leading;
     SizeF desiredSize_ = {};
     RectF bounds_ = {};
+    Visual *parent_ = nullptr;
     Window *window_ = nullptr;
 };
 

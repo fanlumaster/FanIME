@@ -183,6 +183,12 @@ HCURSOR Visual::GetCursor() const
 
 void Visual::InvalidateMeasure()
 {
+    if (parent_)
+    {
+        parent_->InvalidateMeasure();
+        return;
+    }
+
     if (window_)
     {
         window_->InvalidateMeasure();
@@ -191,6 +197,12 @@ void Visual::InvalidateMeasure()
 
 void Visual::InvalidateArrange()
 {
+    if (parent_)
+    {
+        parent_->InvalidateArrange();
+        return;
+    }
+
     if (window_)
     {
         window_->InvalidateArrange();
@@ -199,6 +211,12 @@ void Visual::InvalidateArrange()
 
 void Visual::InvalidateVisual()
 {
+    if (parent_)
+    {
+        parent_->InvalidateVisual();
+        return;
+    }
+
     if (window_)
     {
         window_->Invalidate();
@@ -411,17 +429,51 @@ bool Visual::HasExplicitWidth() const
     return explicitWidth_ >= 0.0f;
 }
 
+void Visual::AdoptChild(const std::shared_ptr<Visual> &child)
+{
+    if (!child)
+    {
+        return;
+    }
+
+    child->SetParent(this);
+    if (window_)
+    {
+        child->Attach(window_);
+    }
+}
+
+void Visual::ReleaseChild(const std::shared_ptr<Visual> &child)
+{
+    if (child && child->GetParent() == this)
+    {
+        child->SetParent(nullptr);
+    }
+}
+
 bool Visual::HasExplicitHeight() const
 {
     return explicitHeight_ >= 0.0f;
 }
 
+void Visual::SetParent(Visual *parent)
+{
+    parent_ = parent;
+}
+
+Visual *Visual::GetParent() const
+{
+    return parent_;
+}
+
 void Panel::AddChild(std::shared_ptr<Visual> child)
 {
-    if (child && window_)
+    if (!child)
     {
-        child->Attach(window_);
+        return;
     }
+
+    AdoptChild(child);
     children_.push_back(std::move(child));
     InvalidateMeasure();
 }
@@ -686,6 +738,7 @@ void WrapPanel::Render(DeviceResources &deviceResources)
 
 ScrollViewer::ScrollViewer(std::shared_ptr<Visual> content) : content_(std::move(content))
 {
+    AdoptChild(content_);
 }
 
 SizeF ScrollViewer::Measure(const SizeF &availableSize)
@@ -963,10 +1016,12 @@ void Grid::AddColumn(GridLength length)
 
 void Grid::AddChild(std::shared_ptr<Visual> child, size_t row, size_t column, size_t rowSpan, size_t columnSpan)
 {
-    if (child && window_)
+    if (!child)
     {
-        child->Attach(window_);
+        return;
     }
+
+    AdoptChild(child);
     children_.push_back({std::move(child), {row, column, std::max<size_t>(rowSpan, 1), std::max<size_t>(columnSpan, 1)}, {}});
     InvalidateMeasure();
 }
@@ -1197,15 +1252,15 @@ std::vector<float> Grid::ResolveTrackSizes(const std::vector<GridLength> &defini
 
 Container::Container(std::shared_ptr<Visual> child) : child_(std::move(child))
 {
+    AdoptChild(child_);
 }
 
 void Container::SetChild(std::shared_ptr<Visual> child)
 {
+    ReleaseChild(child_);
+
     child_ = std::move(child);
-    if (child_ && window_)
-    {
-        child_->Attach(window_);
-    }
+    AdoptChild(child_);
     InvalidateMeasure();
 }
 
