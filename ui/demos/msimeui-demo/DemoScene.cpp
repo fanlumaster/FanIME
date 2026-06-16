@@ -536,7 +536,6 @@ std::unique_ptr<Scene> CreateDemoScene()
     accordion->AddSection(L"Basic Controls", basicsPanel, true);
     accordion->AddSection(L"Layout System", layoutSectionPanel, false);
     accordion->AddSection(L"Navigation & Containers", navSectionPanel, false);
-    accordion->SetHeight(280.0f);
 
     accordionStack->AddChild(std::make_shared<TextBlock>(L"Accordion", 20.0f, D2D1::ColorF(0x1F2937), true));
     accordionStack->AddChild(std::make_shared<TextBlock>(
