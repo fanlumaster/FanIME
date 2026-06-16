@@ -671,7 +671,17 @@ void CTextLayout::EnsureCaretVisible(UINT nPos)
     }
     else
     {
-        const FLOAT maxNeededScroll = max(caretRight - visibleRight, 0.0f);
+        FLOAT contentRight = _paddingLeftDips;
+        if (_nLineCnt > 0)
+        {
+            const LINEINFO &lastLine = _prgLines[_nLineCnt - 1];
+            if (lastLine.nCnt > 0)
+            {
+                contentRight = lastLine.prgCharInfo[lastLine.nCnt - 1].rc.right;
+            }
+        }
+
+        const FLOAT maxNeededScroll = max(contentRight - visibleRight, 0.0f);
         if (_horizontalScrollDips > maxNeededScroll)
         {
             _horizontalScrollDips = maxNeededScroll;
