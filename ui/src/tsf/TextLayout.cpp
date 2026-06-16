@@ -384,10 +384,11 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
 
     if ((nSelStart == nSelEnd) && (_fInterimCaret || _fCaretVisible))
     {
+        const FLOAT caretWidth = PixelsToDipsX(kCaretWidthPixels);
+        const FLOAT caretLeft = _rcCaret.left - (caretWidth * 0.5f);
+        const FLOAT caretRight = caretLeft + caretWidth;
         pRenderTarget->FillRectangle(
-            D2D1::RectF(_rcCaret.left, _rcCaret.top,
-                        max(_rcCaret.right, _rcCaret.left + PixelsToDipsX(kCaretWidthPixels)),
-                         _rcCaret.bottom),
+            D2D1::RectF(caretLeft, _rcCaret.top, max(caretRight, caretLeft + caretWidth), _rcCaret.bottom),
             pCaretBrush);
     }
 
