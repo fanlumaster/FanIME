@@ -38,6 +38,7 @@ constexpr float kListItemCornerRadius = 14.0f;
 constexpr float kTreeIndent = 22.0f;
 constexpr float kTabCornerRadius = 12.0f;
 constexpr float kAccordionCornerRadius = 14.0f;
+constexpr float kAccordionHeaderHorizontalPadding = 20.0f;
 constexpr float kComboBoxItemGap = 6.0f;
 
 RectF MakeInsetRect(const RectF &rect, float insetX, float insetY)
@@ -2508,7 +2509,10 @@ void Accordion::Render(DeviceResources &deviceResources)
         const bool pressed = pressed_ && index == pressedIndex_;
         FillRoundedRect(deviceResources, headerRects_[index], kAccordionCornerRadius,
                         pressed ? D2D1::ColorF(0xE0F2FE) : D2D1::ColorF(0xF8FAFC), D2D1::ColorF(0xCBD5E1), 1.0f);
-        DrawLabel(deviceResources, sections_[index].title, 15.0f, true, D2D1::ColorF(0x0F172A), headerRects_[index],
+        RectF titleRect = headerRects_[index];
+        titleRect.x += kAccordionHeaderHorizontalPadding;
+        titleRect.width = std::max(0.0f, titleRect.width - kAccordionHeaderHorizontalPadding - 36.0f);
+        DrawLabel(deviceResources, sections_[index].title, 15.0f, true, D2D1::ColorF(0x0F172A), titleRect,
                   DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 
         const float centerX = headerRects_[index].x + headerRects_[index].width - 22.0f;
