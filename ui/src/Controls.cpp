@@ -1933,8 +1933,11 @@ void TreeView::Arrange(const RectF &finalRect)
     {
         auto &entry = visibleNodes_[index];
         const float rowY = finalRect.y + itemHeight_ * static_cast<float>(index);
-        entry.rowRect = {finalRect.x, rowY, finalRect.width, itemHeight_ - 6.0f};
-        entry.expanderRect = {finalRect.x + 12.0f + static_cast<float>(entry.depth) * kTreeIndent, rowY + 20.0f, 14.0f, 14.0f};
+        const float rowInset = static_cast<float>(entry.depth) * kTreeIndent;
+        const float rowX = finalRect.x + rowInset;
+        const float rowWidth = std::max(finalRect.width - rowInset, 0.0f);
+        entry.rowRect = {rowX, rowY, rowWidth, itemHeight_ - 6.0f};
+        entry.expanderRect = {rowX + 12.0f, rowY + 20.0f, 14.0f, 14.0f};
     }
 }
 
@@ -1961,7 +1964,7 @@ void TreeView::Render(DeviceResources &deviceResources)
                         pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xFFFFFF)),
                         selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xD6DCE5), selected || focused_ ? 2.0f : 1.0f);
 
-        const float contentX = entry.rowRect.x + 16.0f + static_cast<float>(entry.depth) * kTreeIndent + 20.0f;
+        const float contentX = entry.rowRect.x + 36.0f;
         if (!entry.node->children.empty())
         {
             const float centerX = entry.expanderRect.x + entry.expanderRect.width * 0.5f;
