@@ -259,7 +259,6 @@ void CTextEditor::Render(ID2D1HwndRenderTarget *pRenderTarget)
         return;
     }
 
-    UpdateLayout();
     _layout.Render(pRenderTarget, GetTextBuffer(), GetTextLength(), _nSelStart, _nSelEnd, _pCompositionRenderInfo,
                    _nCompositionRenderInfo);
 }
