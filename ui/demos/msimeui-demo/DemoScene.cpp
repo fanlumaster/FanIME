@@ -151,6 +151,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     controlsStack->AddChild(alignmentNote);
 
     auto constraintRow = std::make_shared<HorizontalStackPanel>(12.0f);
+    constraintRow->SetMargin({0.0f, 10.0f, 0.0f, 0.0f});
     auto minButton = std::make_shared<Button>(L"Min 150", 40.0f);
     minButton->SetMinWidth(150.0f);
     minButton->SetHorizontalAlignment(HorizontalAlignment::Leading);
