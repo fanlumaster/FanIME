@@ -1082,9 +1082,7 @@ void ScrollViewer::RefreshViewport()
 RectF ScrollViewer::GetScrollbarTrackRect() const
 {
     constexpr float kScrollbarWidth = 10.0f;
-    constexpr float kScrollbarInset = 6.0f;
-    return {bounds_.x + bounds_.width - kScrollbarWidth - kScrollbarInset, bounds_.y + kScrollbarInset, kScrollbarWidth,
-            std::max(bounds_.height - kScrollbarInset * 2.0f, 0.0f)};
+    return {bounds_.x + bounds_.width - kScrollbarWidth, bounds_.y, kScrollbarWidth, std::max(bounds_.height, 0.0f)};
 }
 
 RectF ScrollViewer::GetScrollbarThumbRect() const
