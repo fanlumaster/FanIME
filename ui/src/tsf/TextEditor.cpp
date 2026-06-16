@@ -1,5 +1,6 @@
 #include <string>
 #include <sstream>
+#include <cwctype>
 #include "TextEditor.h"
 #include "../DebugLog.h"
 
@@ -237,6 +238,53 @@ BOOL CTextEditor::DeleteSelection()
     _pTextStore->OnTextChange(_nSelStart, nSelOldEnd, _nSelStart);
     _pTextStore->OnSelectionChange();
 
+    return TRUE;
+}
+
+BOOL CTextEditor::DeletePreviousWord()
+{
+    if (_nSelStart != _nSelEnd)
+    {
+        return DeleteSelection();
+    }
+
+    if (_nSelStart == 0 || !GetTextBuffer())
+    {
+        return TRUE;
+    }
+
+    UINT deleteStart = _nSelStart;
+    const WCHAR *text = GetTextBuffer();
+
+    while (deleteStart > 0 && iswspace(text[deleteStart - 1]))
+    {
+        deleteStart--;
+    }
+
+    while (deleteStart > 0 && !iswspace(text[deleteStart - 1]))
+    {
+        deleteStart--;
+    }
+
+    if (deleteStart == _nSelStart)
+    {
+        return TRUE;
+    }
+
+    const ULONG oldSelectionEnd = _nSelEnd;
+    if (!RemoveText(deleteStart, _nSelStart - deleteStart))
+    {
+        return FALSE;
+    }
+
+    _nSelStart = deleteStart;
+    _nSelEnd = deleteStart;
+    _layout.ResetCaretBlink();
+    UpdateLayout();
+    _layout.EnsureCaretVisible(_nSelEnd);
+
+    _pTextStore->OnTextChange(deleteStart, oldSelectionEnd, deleteStart);
+    _pTextStore->OnSelectionChange();
     return TRUE;
 }
 

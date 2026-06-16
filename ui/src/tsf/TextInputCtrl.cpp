@@ -352,6 +352,7 @@ void CTextInputCtrl::OnSize()
 
 void CTextInputCtrl::OnKeyDown(WPARAM wParam, LPARAM lParam)
 {
+    const bool ctrlPressed = (GetKeyState(VK_CONTROL) & 0x80) != 0;
     UINT nSelStart;
     UINT nSelEnd;
     switch (0xff & wParam)
@@ -426,7 +427,14 @@ void CTextInputCtrl::OnKeyDown(WPARAM wParam, LPARAM lParam)
         nSelEnd = _editor.GetSelectionEnd();
         if (nSelStart == nSelEnd)
         {
-            _editor.DeleteAtSelection(TRUE);
+            if (ctrlPressed)
+            {
+                _editor.DeletePreviousWord();
+            }
+            else
+            {
+                _editor.DeleteAtSelection(TRUE);
+            }
         }
         else
         {

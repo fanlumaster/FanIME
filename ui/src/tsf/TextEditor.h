@@ -48,6 +48,7 @@ class CTextEditor : public CTextContainer
     BOOL InsertAtSelection(LPCWSTR psz);
     BOOL DeleteAtSelection(BOOL fBack);
     BOOL DeleteSelection();
+    BOOL DeletePreviousWord();
     void SelectAll();
     bool HasSelection() const
     {

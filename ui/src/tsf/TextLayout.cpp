@@ -159,6 +159,7 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
     }
 
     UINT32 textPos = 0;
+    FLOAT lineTopDips = _paddingTopDips;
     _nLineHeight = 0;
     _lineHeightDips = 0.0f;
 
@@ -171,8 +172,10 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
         const UINT32 visibleLength = usesPlaceholder ? 0U : (lineLength - lineMetrics[i].newlineLength);
         line.nPos = textPos;
         line.nCnt = visibleLength;
+        line.top = lineTopDips;
 
         const FLOAT lineHeightDips = max(lineMetrics[i].height, 1.0f);
+        line.bottom = lineTopDips + lineHeightDips;
         _lineHeightDips = max(_lineHeightDips, lineHeightDips);
         _nLineHeight = max(_nLineHeight, static_cast<int>(DipsToPixelsY(lineHeightDips)));
 
@@ -215,6 +218,7 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
         }
 
         textPos += lineLength;
+        lineTopDips = line.bottom;
     }
 
     LocalFree(lineMetrics);
@@ -301,6 +305,11 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
 
                 if (hasSelectionRect)
                 {
+                    if (!_singleLine)
+                    {
+                        selectionRect.top = line.top;
+                        selectionRect.bottom = line.bottom;
+                    }
                     pRenderTarget->FillRectangle(
                         D2D1::RectF(selectionRect.left - scrollX, selectionRect.top, selectionRect.right - scrollX,
                                     selectionRect.bottom),

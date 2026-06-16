@@ -537,7 +537,14 @@ bool TextBox::OnKeyDown(WPARAM key, LPARAM lParam)
         selectionEnd = editor_->GetSelectionEnd();
         if (selectionStart == selectionEnd)
         {
-            editor_->DeleteAtSelection(TRUE);
+            if (ctrlPressed)
+            {
+                editor_->DeletePreviousWord();
+            }
+            else
+            {
+                editor_->DeleteAtSelection(TRUE);
+            }
         }
         else
         {

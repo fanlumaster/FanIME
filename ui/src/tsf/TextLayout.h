@@ -37,6 +37,8 @@ typedef struct
 {
     UINT nPos;
     UINT nCnt;
+    FLOAT top;
+    FLOAT bottom;
     CHARINFO *prgCharInfo;
 } LINEINFO;
 
