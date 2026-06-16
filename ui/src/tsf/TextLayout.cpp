@@ -10,6 +10,7 @@ namespace
 {
 constexpr FLOAT kEditorPaddingPixels = 0.0f;
 constexpr FLOAT kCaretWidthPixels = 2.0f;
+constexpr FLOAT kCaretVisualLeftBiasPixels = 0.5f;
 
 float DipsFromLogFontHeight(const LOGFONT *plf, FLOAT dpiY)
 {
@@ -385,7 +386,7 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
     if ((nSelStart == nSelEnd) && (_fInterimCaret || _fCaretVisible))
     {
         const FLOAT caretWidth = PixelsToDipsX(kCaretWidthPixels);
-        const FLOAT caretLeft = _rcCaret.left - (caretWidth * 0.5f);
+        const FLOAT caretLeft = _rcCaret.left - (caretWidth * 0.5f) - PixelsToDipsX(kCaretVisualLeftBiasPixels);
         const FLOAT caretRight = caretLeft + caretWidth;
         pRenderTarget->FillRectangle(
             D2D1::RectF(caretLeft, _rcCaret.top, max(caretRight, caretLeft + caretWidth), _rcCaret.bottom),
