@@ -358,6 +358,11 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
 
                 if (hasUnderlineRect && composition.da.lsStyle != TF_LS_NONE)
                 {
+                    if (_singleLine)
+                    {
+                        underlineRect.left -= _horizontalScrollDips;
+                        underlineRect.right -= _horizontalScrollDips;
+                    }
                     const BOOL bClause = composition.nEnd <= static_cast<int>(line.nPos + line.nCnt);
                     DrawUnderline(pRenderTarget, &composition.da, underlineRect, bClause);
                 }
