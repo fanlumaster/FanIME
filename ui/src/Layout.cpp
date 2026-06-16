@@ -1054,11 +1054,6 @@ bool ScrollViewer::OnMouseWheel(const POINT &point, short delta, WPARAM keyState
 
 HCURSOR ScrollViewer::GetCursor() const
 {
-    if (HasVerticalScrollbar())
-    {
-        return LoadCursor(nullptr, IDC_HAND);
-    }
-
     return Visual::GetCursor();
 }
 
