@@ -9,12 +9,16 @@ namespace msimeui
 std::unique_ptr<Scene> CreateDemoScene()
 {
     auto root = std::make_shared<StackPanel>(0.0f);
-    root->AddChild(std::make_shared<Spacer>(28.0f));
-    root->AddChild(std::make_shared<TextBlock>(L"msimeui", 34.0f, D2D1::ColorF(0x111827), true));
+    root->AddChild(std::make_shared<Spacer>(14.0f));
+    auto appTitle = std::make_shared<TextBlock>(L"msimeui", 34.0f, D2D1::ColorF(0x111827), true);
+    appTitle->SetHorizontalAlignment(HorizontalAlignment::Center);
+    root->AddChild(appTitle);
     root->AddChild(std::make_shared<Spacer>(12.0f));
-    root->AddChild(
+    auto appSubtitle =
         std::make_shared<TextBlock>(L"A retained-mode Win32 GUI framework with Direct2D / DirectWrite and in-tree TSF.",
-                                    16.0f, D2D1::ColorF(0x5B6472)));
+                                    16.0f, D2D1::ColorF(0x5B6472));
+    appSubtitle->SetHorizontalAlignment(HorizontalAlignment::Center);
+    root->AddChild(appSubtitle);
     root->AddChild(std::make_shared<Spacer>(36.0f));
 
     Brush surface;
