@@ -394,7 +394,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto popupActionB = std::make_shared<Button>(L"Mark Experimental", 38.0f);
     popupActionA->SetWidth(160.0f);
     popupActionB->SetWidth(190.0f);
-    popupActionA->SetMargin({0.0f, 8.0f, 0.0f, 0.0f});
+    popupActionA->SetMargin({0.0f, 16.0f, 0.0f, 0.0f});
     popupActionA->SetHorizontalAlignment(HorizontalAlignment::Leading);
     popupActionB->SetHorizontalAlignment(HorizontalAlignment::Leading);
     popupActionA->SetOnClick([popupStatus]() { popupStatus->SetText(L"Popup status: marked stable"); });
