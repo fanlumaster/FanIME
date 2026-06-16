@@ -318,10 +318,16 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto tabControl = std::make_shared<TabControl>(46.0f);
 
     auto overviewPanel = std::make_shared<StackPanel>(10.0f);
-    overviewPanel->AddChild(std::make_shared<TextBlock>(
+    overviewPanel->SetPadding({16.0f, 16.0f, 16.0f, 16.0f});
+    auto overviewText = std::make_shared<TextBlock>(
         L"This tab groups the framework highlights into a compact summary page.",
-        14.0f, D2D1::ColorF(0x475569)));
-    overviewPanel->AddChild(std::make_shared<Button>(L"Overview Action", 40.0f));
+        14.0f, D2D1::ColorF(0x475569));
+    overviewText->SetMargin({0.0f, 0.0f, 0.0f, 4.0f});
+    auto overviewAction = std::make_shared<Button>(L"Overview Action", 40.0f);
+    overviewAction->SetWidth(220.0f);
+    overviewAction->SetHorizontalAlignment(HorizontalAlignment::Leading);
+    overviewPanel->AddChild(overviewText);
+    overviewPanel->AddChild(overviewAction);
 
     auto layoutPanel = std::make_shared<StackPanel>(10.0f);
     layoutPanel->AddChild(std::make_shared<TextBlock>(
