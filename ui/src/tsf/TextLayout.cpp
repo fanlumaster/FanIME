@@ -497,6 +497,7 @@ BOOL CTextLayout::RectFromCharPosDipsRaw(UINT nPos, D2D1_RECT_F *prc)
         }
 
         *prc = _prgLines[i].prgCharInfo[nPos - _prgLines[i].nPos].rc;
+        prc->right = prc->left;
         return TRUE;
     }
 
