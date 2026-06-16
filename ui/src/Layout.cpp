@@ -1590,6 +1590,18 @@ void TextBlock::SetText(std::wstring text)
     InvalidateMeasure();
 }
 
+void TextBlock::SetTextAlignment(DWRITE_TEXT_ALIGNMENT alignment)
+{
+    if (textAlignment_ == alignment)
+    {
+        return;
+    }
+
+    textAlignment_ = alignment;
+    InvalidateTextLayoutCache();
+    InvalidateVisual();
+}
+
 void TextBlock::InvalidateTextLayoutCache()
 {
     cachedTextLayout_.Reset();
@@ -1621,6 +1633,7 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
         }
 
         format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+        format->SetTextAlignment(textAlignment_);
 
         if (FAILED(dwriteFactory->CreateTextLayout(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), maxWidth,
                                                    std::numeric_limits<float>::max(), cachedTextLayout_.ReleaseAndGetAddressOf())))

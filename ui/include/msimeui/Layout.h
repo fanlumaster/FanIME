@@ -348,6 +348,7 @@ class TextBlock : public Visual
   public:
     TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool bold = false);
     void SetText(std::wstring text);
+    void SetTextAlignment(DWRITE_TEXT_ALIGNMENT alignment);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -360,6 +361,7 @@ class TextBlock : public Visual
     float fontSize_ = 16.0f;
     D2D1_COLOR_F color_ = D2D1::ColorF(0x111111);
     bool bold_ = false;
+    DWRITE_TEXT_ALIGNMENT textAlignment_ = DWRITE_TEXT_ALIGNMENT_LEADING;
     SizeF measured_ = {};
     std::wstring cachedFontFamily_;
     float cachedLayoutWidth_ = -1.0f;

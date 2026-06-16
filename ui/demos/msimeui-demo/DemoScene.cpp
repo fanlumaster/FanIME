@@ -11,11 +11,14 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto root = std::make_shared<StackPanel>(0.0f);
     root->AddChild(std::make_shared<Spacer>(14.0f));
     auto appHeader = std::make_shared<StackPanel>(12.0f);
-    appHeader->SetHorizontalContentAlignment(HorizontalAlignment::Center);
-    appHeader->AddChild(std::make_shared<TextBlock>(L"msimeui", 34.0f, D2D1::ColorF(0x111827), true));
-    appHeader->AddChild(
+    auto appTitle = std::make_shared<TextBlock>(L"msimeui", 34.0f, D2D1::ColorF(0x111827), true);
+    appTitle->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+    auto appSubtitle =
         std::make_shared<TextBlock>(L"A retained-mode Win32 GUI framework with Direct2D / DirectWrite and in-tree TSF.",
-                                    16.0f, D2D1::ColorF(0x5B6472)));
+                                    16.0f, D2D1::ColorF(0x5B6472));
+    appSubtitle->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+    appHeader->AddChild(appTitle);
+    appHeader->AddChild(appSubtitle);
     root->AddChild(appHeader);
     root->AddChild(std::make_shared<Spacer>(36.0f));
 
