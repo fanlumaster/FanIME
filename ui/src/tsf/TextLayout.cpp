@@ -279,12 +279,32 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
 
             if (nSelStartInLine != nSelEndInLine)
             {
+                D2D1_RECT_F selectionRect = {};
+                BOOL hasSelectionRect = FALSE;
+                const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
                 for (UINT j = nSelStartInLine; j < nSelEndInLine; j++)
                 {
                     const D2D1_RECT_F &rc = line.prgCharInfo[j].rc;
-                    const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
-                    pRenderTarget->FillRectangle(D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX, rc.bottom),
-                                                 pSelectionBrush);
+                    if (!hasSelectionRect)
+                    {
+                        selectionRect = rc;
+                        hasSelectionRect = TRUE;
+                    }
+                    else
+                    {
+                        selectionRect.left = min(selectionRect.left, rc.left);
+                        selectionRect.top = min(selectionRect.top, rc.top);
+                        selectionRect.right = max(selectionRect.right, rc.right);
+                        selectionRect.bottom = max(selectionRect.bottom, rc.bottom);
+                    }
+                }
+
+                if (hasSelectionRect)
+                {
+                    pRenderTarget->FillRectangle(
+                        D2D1::RectF(selectionRect.left - scrollX, selectionRect.top, selectionRect.right - scrollX,
+                                    selectionRect.bottom),
+                        pSelectionBrush);
                 }
             }
         }
