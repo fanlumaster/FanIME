@@ -38,6 +38,7 @@ constexpr float kListItemCornerRadius = 14.0f;
 constexpr float kTreeIndent = 22.0f;
 constexpr float kTabCornerRadius = 12.0f;
 constexpr float kAccordionCornerRadius = 14.0f;
+constexpr float kComboBoxItemGap = 6.0f;
 
 RectF MakeInsetRect(const RectF &rect, float insetX, float insetY)
 {
@@ -275,7 +276,13 @@ class ComboBoxPopupContent : public Visual
             maxWidth = std::max(maxWidth, measured.width + 28.0f);
         }
 
-        return {std::min(availableSize.width, maxWidth), itemHeight_ * static_cast<float>(items_.size())};
+        if (items_.empty())
+        {
+            return {std::min(availableSize.width, maxWidth), 0.0f};
+        }
+
+        return {std::min(availableSize.width, maxWidth),
+                itemHeight_ * static_cast<float>(items_.size()) + kComboBoxItemGap * static_cast<float>(items_.size() - 1)};
     }
 
     void Arrange(const RectF &finalRect) override
@@ -394,7 +401,7 @@ class ComboBoxPopupContent : public Visual
   private:
     RectF ItemRect(size_t index) const
     {
-        return {bounds_.x, bounds_.y + itemHeight_ * static_cast<float>(index), bounds_.width, itemHeight_};
+        return {bounds_.x, bounds_.y + (itemHeight_ + kComboBoxItemGap) * static_cast<float>(index), bounds_.width, itemHeight_};
     }
 
     size_t HitTestItem(const PointF &point) const
@@ -405,7 +412,13 @@ class ComboBoxPopupContent : public Visual
         }
 
         const float localY = point.y - bounds_.y;
-        const size_t index = static_cast<size_t>(localY / itemHeight_);
+        const float stride = itemHeight_ + kComboBoxItemGap;
+        const size_t index = static_cast<size_t>(localY / stride);
+        const float withinItem = localY - stride * static_cast<float>(index);
+        if (withinItem > itemHeight_)
+        {
+            return static_cast<size_t>(-1);
+        }
         return index < items_.size() ? index : static_cast<size_t>(-1);
     }
 
