@@ -24,6 +24,7 @@ namespace
 constexpr UINT_PTR kCaretTimerId = 1;
 constexpr float kTextBoxCornerRadius = 10.0f;
 constexpr float kTextBoxContentPaddingPixels = 6.0f;
+constexpr LONG kSingleLineTextHorizontalInsetPixels = 6;
 
 RectF InsetRectF(const RectF &rect, float inset)
 {
@@ -497,6 +498,8 @@ RECT TextBox::ComputeEditorContentPadding() const
     const RECT hostRect = ComputeEditorHostRect();
     const LONG contentHeight = std::max<LONG>(hostRect.bottom - hostRect.top, 1);
     const LONG lineHeight = std::max<LONG>(editor_->GetLineHeight(), 1);
+    padding.left = kSingleLineTextHorizontalInsetPixels;
+    padding.right = kSingleLineTextHorizontalInsetPixels;
     if (lineHeight >= contentHeight)
     {
         return padding;
