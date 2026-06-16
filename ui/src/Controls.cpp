@@ -262,6 +262,13 @@ class ComboBoxPopupContent : public Visual
         InvalidateVisual();
     }
 
+    void SetHighlightedIndex(size_t index)
+    {
+        hoveredIndex_ = index < items_.size() ? index : static_cast<size_t>(-1);
+        pressedIndex_ = static_cast<size_t>(-1);
+        InvalidateVisual();
+    }
+
     void SetOnSelect(SelectHandler handler)
     {
         onSelect_ = std::move(handler);
@@ -1075,6 +1082,11 @@ void ComboBox::OpenPopup()
     if (open_ || !window_ || !popup_ || items_.empty())
     {
         return;
+    }
+
+    if (const auto popupContent = std::dynamic_pointer_cast<ComboBoxPopupContent>(popupContent_))
+    {
+        popupContent->SetHighlightedIndex(selectedIndex_);
     }
 
     popup_->SetAnchorRect(bounds_);
