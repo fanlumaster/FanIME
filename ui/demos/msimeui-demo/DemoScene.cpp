@@ -382,14 +382,20 @@ std::unique_ptr<Scene> CreateDemoScene()
     popupTrigger->SetWidth(200.0f);
 
     auto popupContent = std::make_shared<StackPanel>(10.0f);
+    popupContent->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
     popupContent->AddChild(std::make_shared<TextBlock>(L"Quick Actions", 16.0f, D2D1::ColorF(0x1F2937), true));
-    popupContent->AddChild(std::make_shared<TextBlock>(
+    auto popupDescription = std::make_shared<TextBlock>(
         L"This popup is rendered as a scene-level overlay. It sits above the normal visual tree and closes on outside click.",
-        13.0f, D2D1::ColorF(0x64748B)));
+        13.0f, D2D1::ColorF(0x64748B));
+    popupDescription->SetMaxWidth(240.0f);
+    popupDescription->SetMargin({0.0f, 2.0f, 0.0f, 6.0f});
+    popupContent->AddChild(popupDescription);
     auto popupActionA = std::make_shared<Button>(L"Mark Stable", 38.0f);
     auto popupActionB = std::make_shared<Button>(L"Mark Experimental", 38.0f);
     popupActionA->SetWidth(160.0f);
     popupActionB->SetWidth(190.0f);
+    popupActionA->SetHorizontalAlignment(HorizontalAlignment::Leading);
+    popupActionB->SetHorizontalAlignment(HorizontalAlignment::Leading);
     popupActionA->SetOnClick([popupStatus]() { popupStatus->SetText(L"Popup status: marked stable"); });
     popupActionB->SetOnClick([popupStatus]() { popupStatus->SetText(L"Popup status: marked experimental"); });
     popupContent->AddChild(popupActionA);
@@ -398,6 +404,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto popup = std::make_shared<Popup>(popupContent);
     popup->SetMatchAnchorWidth(false);
     popup->SetWidth(300.0f);
+    popup->SetPadding({18.0f, 18.0f, 18.0f, 18.0f});
 
     auto popupHost = std::make_shared<PopupHost>(popupTrigger, popup);
 

@@ -1114,6 +1114,14 @@ void ScrollViewer::UpdateContentLayout()
     const float scrollbarReserve = HasVerticalScrollbar() ? 20.0f : 0.0f;
     content_->ArrangeInLayout(
         {bounds_.x, bounds_.y - scrollOffsetY_, std::max(bounds_.width - scrollbarReserve, 0.0f), measuredContent_.height});
+
+    if (window_)
+    {
+        if (Scene *scene = window_->GetScene())
+        {
+            scene->RelayoutPopups();
+        }
+    }
 }
 
 void Grid::AddRow(GridLength length)

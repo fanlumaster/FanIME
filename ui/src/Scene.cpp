@@ -265,6 +265,24 @@ bool Scene::DismissPopupsForClick(const PointF &point, Visual *target)
     return true;
 }
 
+void Scene::RelayoutPopups()
+{
+    if (!hasLastLayoutSize_)
+    {
+        return;
+    }
+
+    for (auto &popup : popups_)
+    {
+        if (popup.visual)
+        {
+            popup.visual->LayoutOverlay(lastLayoutSize_);
+        }
+    }
+
+    InvalidateVisual();
+}
+
 void Scene::InvalidateMeasure()
 {
     measureDirty_ = true;

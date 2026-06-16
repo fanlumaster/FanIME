@@ -25,6 +25,7 @@ class Scene
     void RemovePopup(Visual *popup, bool notify = true);
     void ClearPopups(bool notify = true);
     bool DismissPopupsForClick(const PointF &point, Visual *target);
+    void RelayoutPopups();
     void InvalidateMeasure();
     void InvalidateMeasure(Visual *source);
     void InvalidateArrange();
