@@ -510,7 +510,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto accordionCard = std::make_shared<Card>(surface, 20.0f);
     auto accordionStack = std::make_shared<StackPanel>(14.0f);
     auto accordion = std::make_shared<Accordion>(46.0f);
-    accordion->SetAllowMultipleExpanded(false);
+    accordion->SetAllowMultipleExpanded(true);
 
     auto basicsPanel = std::make_shared<StackPanel>(10.0f);
     basicsPanel->AddChild(std::make_shared<TextBlock>(
