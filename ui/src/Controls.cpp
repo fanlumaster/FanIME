@@ -894,6 +894,7 @@ ComboBox::ComboBox(float height) : preferredHeight_(height)
         }
 
         selectedIndex_ = index;
+        SyncPopupState();
         NotifySelectionChanged();
         ClosePopup();
         InvalidateVisual();
