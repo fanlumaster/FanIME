@@ -36,6 +36,10 @@ constexpr float kSliderTrackHeight = 6.0f;
 constexpr float kSliderThumbRadius = 9.0f;
 constexpr float kListItemCornerRadius = 14.0f;
 constexpr float kTreeIndent = 22.0f;
+constexpr float kTreeRowLeadingPadding = 8.0f;
+constexpr float kTreeGuideLineOffset = 15.0f;
+constexpr float kTreeExpanderSize = 14.0f;
+constexpr float kTreeTextGapAfterExpander = 10.0f;
 constexpr float kTabCornerRadius = 12.0f;
 constexpr float kAccordionCornerRadius = 14.0f;
 constexpr float kAccordionHeaderHorizontalPadding = 20.0f;
@@ -1937,7 +1941,7 @@ void TreeView::Arrange(const RectF &finalRect)
         const float rowX = finalRect.x + rowInset;
         const float rowWidth = std::max(finalRect.width - rowInset, 0.0f);
         entry.rowRect = {rowX, rowY, rowWidth, itemHeight_ - 6.0f};
-        entry.expanderRect = {rowX + 12.0f, rowY + 20.0f, 14.0f, 14.0f};
+        entry.expanderRect = {rowX + kTreeRowLeadingPadding, rowY + 20.0f, kTreeExpanderSize, kTreeExpanderSize};
     }
 }
 
@@ -1969,7 +1973,7 @@ void TreeView::Render(DeviceResources &deviceResources)
         const float rowBottom = entry.rowRect.y + entry.rowRect.height + 3.0f;
         for (size_t ancestorDepth = 0; ancestorDepth < entry.depth; ++ancestorDepth)
         {
-            const float guideX = bounds_.x + 19.0f + static_cast<float>(ancestorDepth) * kTreeIndent;
+            const float guideX = bounds_.x + kTreeGuideLineOffset + static_cast<float>(ancestorDepth) * kTreeIndent;
             target->DrawLine(D2D1::Point2F(guideX, rowTop), D2D1::Point2F(guideX, rowBottom), lineBrush, 1.2f);
         }
 
@@ -1995,7 +1999,7 @@ void TreeView::Render(DeviceResources &deviceResources)
             }
         }
 
-        const float contentX = entry.rowRect.x + 36.0f;
+        const float contentX = entry.rowRect.x + kTreeRowLeadingPadding + kTreeExpanderSize + kTreeTextGapAfterExpander;
         if (!entry.node->children.empty())
         {
             const float centerX = entry.expanderRect.x + entry.expanderRect.width * 0.5f;
