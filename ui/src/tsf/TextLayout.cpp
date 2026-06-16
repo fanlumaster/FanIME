@@ -655,7 +655,8 @@ void CTextLayout::EnsureCaretVisible(UINT nPos)
     const FLOAT visibleLeft = _paddingLeftDips;
     const FLOAT visibleRight = _paddingLeftDips + _layoutWidth;
     const FLOAT displayLeft = rawCaret.left - _horizontalScrollDips;
-    const FLOAT displayRight = max(rawCaret.right, rawCaret.left + caretWidth) - _horizontalScrollDips;
+    const FLOAT caretRight = max(rawCaret.right, rawCaret.left + caretWidth);
+    const FLOAT displayRight = caretRight - _horizontalScrollDips;
 
     if (displayLeft < visibleLeft)
     {
@@ -663,7 +664,15 @@ void CTextLayout::EnsureCaretVisible(UINT nPos)
     }
     else if (displayRight > visibleRight)
     {
-        _horizontalScrollDips = max(max(rawCaret.right, rawCaret.left + caretWidth) - visibleRight, 0.0f);
+        _horizontalScrollDips = max(caretRight - visibleRight, 0.0f);
+    }
+    else
+    {
+        const FLOAT maxNeededScroll = max(caretRight - visibleRight, 0.0f);
+        if (_horizontalScrollDips > maxNeededScroll)
+        {
+            _horizontalScrollDips = maxNeededScroll;
+        }
     }
 }
 
