@@ -347,6 +347,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     layoutBadgeRow->AddChild(gridBadge);
     layoutBadgeRow->AddChild(scrollBadge);
     layoutPanel->AddChild(layoutBadgeRow);
+    auto layoutContent = std::make_shared<Container>(layoutPanel);
+    layoutContent->SetPadding({16.0f, 16.0f, 16.0f, 16.0f});
 
     auto navigationPanel = std::make_shared<StackPanel>(10.0f);
     navigationPanel->AddChild(std::make_shared<TextBlock>(
@@ -357,10 +359,12 @@ std::unique_ptr<Scene> CreateDemoScene()
                                                               13.0f, D2D1::ColorF(0x475569)));
     navBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
     navigationPanel->AddChild(navBorder);
+    auto navigationContent = std::make_shared<Container>(navigationPanel);
+    navigationContent->SetPadding({16.0f, 16.0f, 16.0f, 16.0f});
 
     tabControl->AddTab(L"Overview", overviewContent);
-    tabControl->AddTab(L"Layout", layoutPanel);
-    tabControl->AddTab(L"Navigation", navigationPanel);
+    tabControl->AddTab(L"Layout", layoutContent);
+    tabControl->AddTab(L"Navigation", navigationContent);
     tabControl->SetHeight(220.0f);
     tabControl->SetOnSelectionChanged([tabStatus](size_t selectedIndex) {
         static const wchar_t *names[] = {L"Overview", L"Layout", L"Navigation"};
