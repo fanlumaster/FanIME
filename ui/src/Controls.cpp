@@ -1956,13 +1956,44 @@ void TreeView::Render(DeviceResources &deviceResources)
         return;
     }
 
-    for (auto &entry : visibleNodes_)
+    for (size_t index = 0; index < visibleNodes_.size(); ++index)
     {
+        auto &entry = visibleNodes_[index];
         const bool selected = entry.node == selectedNode_;
         const bool pressed = pressed_ && entry.node == pressedNode_;
         FillRoundedRect(deviceResources, entry.rowRect, kListItemCornerRadius,
                         pressed ? D2D1::ColorF(0xDBEAFE) : (selected ? D2D1::ColorF(0xEFF6FF) : D2D1::ColorF(0xFFFFFF)),
                         selected ? D2D1::ColorF(0x60A5FA) : D2D1::ColorF(0xD6DCE5), selected || focused_ ? 2.0f : 1.0f);
+
+        const float rowTop = entry.rowRect.y - 3.0f;
+        const float rowBottom = entry.rowRect.y + entry.rowRect.height + 3.0f;
+        for (size_t ancestorDepth = 0; ancestorDepth < entry.depth; ++ancestorDepth)
+        {
+            const float guideX = bounds_.x + 19.0f + static_cast<float>(ancestorDepth) * kTreeIndent;
+            target->DrawLine(D2D1::Point2F(guideX, rowTop), D2D1::Point2F(guideX, rowBottom), lineBrush, 1.2f);
+        }
+
+        if (entry.node->expanded && !entry.node->children.empty())
+        {
+            size_t lastDescendantIndex = index;
+            for (size_t next = index + 1; next < visibleNodes_.size(); ++next)
+            {
+                if (visibleNodes_[next].depth <= entry.depth)
+                {
+                    break;
+                }
+                lastDescendantIndex = next;
+            }
+
+            if (lastDescendantIndex > index)
+            {
+                const float guideX = entry.expanderRect.x + entry.expanderRect.width * 0.5f;
+                const float guideTop = entry.expanderRect.y + entry.expanderRect.height * 0.5f + 6.0f;
+                const float guideBottom = visibleNodes_[lastDescendantIndex].rowRect.y +
+                                          visibleNodes_[lastDescendantIndex].rowRect.height + 3.0f;
+                target->DrawLine(D2D1::Point2F(guideX, guideTop), D2D1::Point2F(guideX, guideBottom), lineBrush, 1.2f);
+            }
+        }
 
         const float contentX = entry.rowRect.x + 36.0f;
         if (!entry.node->children.empty())
