@@ -129,6 +129,38 @@ SizeF MeasureText(IDWriteFactory *factory, const std::wstring &text, float fontS
     return {std::ceil(metrics.widthIncludingTrailingWhitespace), std::ceil(metrics.height)};
 }
 
+ComPtr<IDWriteTextLayout> CreateCachedTextLayout(IDWriteFactory *factory, const std::wstring &fontFamily,
+                                                 const std::wstring &text, float fontSize, DWRITE_FONT_WEIGHT fontWeight,
+                                                 float width, float height, DWRITE_TEXT_ALIGNMENT textAlignment,
+                                                 DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment,
+                                                 DWRITE_WORD_WRAPPING wordWrapping)
+{
+    ComPtr<IDWriteTextLayout> layout;
+    if (!factory)
+    {
+        return layout;
+    }
+
+    ComPtr<IDWriteTextFormat> format;
+    if (FAILED(factory->CreateTextFormat(fontFamily.c_str(), nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL,
+                                         DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", format.GetAddressOf())))
+    {
+        return layout;
+    }
+
+    format->SetTextAlignment(textAlignment);
+    format->SetParagraphAlignment(paragraphAlignment);
+    format->SetWordWrapping(wordWrapping);
+
+    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format.Get(), width, height,
+                                         layout.GetAddressOf())))
+    {
+        layout.Reset();
+    }
+
+    return layout;
+}
+
 void DrawTextBlock(DeviceResources &deviceResources, const std::wstring &text, float fontSize, bool bold,
                    D2D1_COLOR_F color, const RectF &rect, DWRITE_TEXT_ALIGNMENT textAlignment)
 {
@@ -393,6 +425,13 @@ Button::Button(std::wstring text, float height) : text_(std::move(text)), prefer
 void Button::SetOnClick(ClickHandler handler)
 {
     onClick_ = std::move(handler);
+}
+
+void Button::InvalidateTextLayoutCache()
+{
+    cachedTextLayout_.Reset();
+    cachedFontFamily_.clear();
+    cachedLayoutWidth_ = -1.0f;
 }
 
 Popup::Popup(std::shared_ptr<Visual> child) : child_(std::move(child))
@@ -1083,7 +1122,27 @@ void ComboBox::SyncPopupState()
 SizeF Button::Measure(const SizeF &availableSize)
 {
     const float textWidth = std::max(availableSize.width - kControlPaddingX * 2.0f, 1.0f);
-    const SizeF measuredText = MeasureText(GetSharedDWriteFactory(), text_, 16.0f, true, textWidth);
+    const Theme &theme = ThemeManager::GetCurrent();
+    if (!cachedTextLayout_ || cachedLayoutWidth_ != textWidth || cachedFontFamily_ != theme.uiFontFamily)
+    {
+        cachedTextLayout_ = CreateCachedTextLayout(GetSharedDWriteFactory(), theme.uiFontFamily, text_, 16.0f,
+                                                   DWRITE_FONT_WEIGHT_SEMI_BOLD, textWidth, preferredHeight_,
+                                                   DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                   DWRITE_WORD_WRAPPING_NO_WRAP);
+        cachedLayoutWidth_ = textWidth;
+        cachedFontFamily_ = theme.uiFontFamily;
+    }
+
+    SizeF measuredText = MeasureText(GetSharedDWriteFactory(), text_, 16.0f, true, textWidth);
+    if (cachedTextLayout_)
+    {
+        DWRITE_TEXT_METRICS metrics = {};
+        if (SUCCEEDED(cachedTextLayout_->GetMetrics(&metrics)))
+        {
+            measuredText = {std::ceil(metrics.widthIncludingTrailingWhitespace), std::ceil(metrics.height)};
+        }
+    }
+
     return {std::min(availableSize.width, measuredText.width + kControlPaddingX * 2.0f),
             std::max(preferredHeight_, measuredText.height + kControlPaddingY * 2.0f)};
 }
@@ -1103,7 +1162,27 @@ void Button::Render(DeviceResources &deviceResources)
 
     FillRoundedRect(deviceResources, bounds_, kControlCornerRadius, GetFillColor(), GetStrokeColor(),
                     focused_ ? 2.0f : 1.0f);
-    DrawTextBlock(deviceResources, text_, 16.0f, true, GetTextColor(), bounds_, DWRITE_TEXT_ALIGNMENT_CENTER);
+
+    const Theme &theme = ThemeManager::GetCurrent();
+    const float textWidth = std::max(bounds_.width - kControlPaddingX * 2.0f, 1.0f);
+    if (!cachedTextLayout_ || cachedLayoutWidth_ != textWidth || cachedFontFamily_ != theme.uiFontFamily)
+    {
+        cachedTextLayout_ = CreateCachedTextLayout(deviceResources.GetDWriteFactory(), theme.uiFontFamily, text_, 16.0f,
+                                                   DWRITE_FONT_WEIGHT_SEMI_BOLD, textWidth, bounds_.height,
+                                                   DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                   DWRITE_WORD_WRAPPING_NO_WRAP);
+        cachedLayoutWidth_ = textWidth;
+        cachedFontFamily_ = theme.uiFontFamily;
+    }
+
+    ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(GetTextColor());
+    if (!cachedTextLayout_ || !brush)
+    {
+        return;
+    }
+
+    target->DrawTextLayout(D2D1::Point2F(bounds_.x + kControlPaddingX, bounds_.y), cachedTextLayout_.Get(), brush,
+                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 
 bool Button::HitTest(const PointF &point) const
@@ -1540,15 +1619,22 @@ ListView::ListView(float itemHeight) : itemHeight_(itemHeight)
 {
 }
 
+void ListView::InvalidateLayoutCache()
+{
+    layoutCache_.clear();
+}
+
 void ListView::AddItem(Item item)
 {
     items_.push_back(std::move(item));
+    layoutCache_.push_back({});
     InvalidateMeasure();
 }
 
 void ListView::ClearItems()
 {
     items_.clear();
+    InvalidateLayoutCache();
     selectedIndex_ = 0;
     pressedIndex_ = static_cast<size_t>(-1);
     InvalidateMeasure();
@@ -1603,11 +1689,18 @@ void ListView::Arrange(const RectF &finalRect)
 void ListView::Render(DeviceResources &deviceResources)
 {
     ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
-    if (!target)
+    IDWriteFactory *factory = deviceResources.GetDWriteFactory();
+    if (!target || !factory)
     {
         return;
     }
 
+    if (layoutCache_.size() != items_.size())
+    {
+        layoutCache_.resize(items_.size());
+    }
+
+    const Theme &theme = ThemeManager::GetCurrent();
     for (size_t index = 0; index < items_.size(); ++index)
     {
         const float itemY = bounds_.y + itemHeight_ * static_cast<float>(index);
@@ -1621,19 +1714,61 @@ void ListView::Render(DeviceResources &deviceResources)
 
         const RectF titleRect = {itemRect.x + 16.0f, itemRect.y + 10.0f, std::max(itemRect.width - 120.0f, 0.0f), 22.0f};
         const RectF subtitleRect = {itemRect.x + 16.0f, itemRect.y + 34.0f, std::max(itemRect.width - 120.0f, 0.0f), 18.0f};
-        DrawLabel(deviceResources, items_[index].title, 15.0f, true, D2D1::ColorF(0x0F172A), titleRect,
-                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-        DrawLabel(deviceResources, items_[index].subtitle, 13.0f, false, D2D1::ColorF(0x64748B), subtitleRect,
-                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        auto &cache = layoutCache_[index];
+        if (cache.fontFamily != theme.uiFontFamily || cache.titleWidth != titleRect.width)
+        {
+            cache.titleLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].title, 15.0f,
+                                                       DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(titleRect.width, 1.0f),
+                                                       std::max(titleRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
+                                                       DWRITE_PARAGRAPH_ALIGNMENT_NEAR, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.titleWidth = titleRect.width;
+            cache.fontFamily = theme.uiFontFamily;
+        }
+        if (cache.fontFamily != theme.uiFontFamily || cache.subtitleWidth != subtitleRect.width)
+        {
+            cache.subtitleLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].subtitle, 13.0f,
+                                                          DWRITE_FONT_WEIGHT_NORMAL, std::max(subtitleRect.width, 1.0f),
+                                                          std::max(subtitleRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
+                                                          DWRITE_PARAGRAPH_ALIGNMENT_NEAR, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.subtitleWidth = subtitleRect.width;
+            cache.fontFamily = theme.uiFontFamily;
+        }
+
+        ID2D1SolidColorBrush *titleBrush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0x0F172A));
+        ID2D1SolidColorBrush *subtitleBrush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0x64748B));
+        if (cache.titleLayout && titleBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(titleRect.x, titleRect.y), cache.titleLayout.Get(), titleBrush,
+                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        if (cache.subtitleLayout && subtitleBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(subtitleRect.x, subtitleRect.y), cache.subtitleLayout.Get(),
+                                   subtitleBrush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
 
         if (!items_[index].badge.empty())
         {
             const RectF badgeRect = {itemRect.x + itemRect.width - 88.0f, itemRect.y + 18.0f, 72.0f, 28.0f};
             FillRoundedRect(deviceResources, badgeRect, 14.0f, selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xE2E8F0),
                             selected ? D2D1::ColorF(0x2563EB) : D2D1::ColorF(0xCBD5E1), 1.0f);
-            DrawLabel(deviceResources, items_[index].badge, 12.0f, true,
-                      selected ? D2D1::ColorF(0xFFFFFF) : D2D1::ColorF(0x334155), badgeRect,
-                      DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+            if (cache.fontFamily != theme.uiFontFamily || cache.badgeWidth != badgeRect.width)
+            {
+                cache.badgeLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].badge, 12.0f,
+                                                           DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(badgeRect.width, 1.0f),
+                                                           std::max(badgeRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_CENTER,
+                                                           DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+                cache.badgeWidth = badgeRect.width;
+                cache.fontFamily = theme.uiFontFamily;
+            }
+
+            ID2D1SolidColorBrush *badgeBrush =
+                deviceResources.GetSolidColorBrush(selected ? D2D1::ColorF(0xFFFFFF) : D2D1::ColorF(0x334155));
+            if (cache.badgeLayout && badgeBrush)
+            {
+                target->DrawTextLayout(D2D1::Point2F(badgeRect.x, badgeRect.y), cache.badgeLayout.Get(), badgeBrush,
+                                       D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            }
         }
     }
 }
@@ -1719,6 +1854,18 @@ TreeView::TreeView(float itemHeight) : itemHeight_(itemHeight)
 {
 }
 
+void TreeView::InvalidateLayoutCache()
+{
+    for (auto &entry : visibleNodes_)
+    {
+        entry.titleLayout.Reset();
+        entry.subtitleLayout.Reset();
+        entry.titleWidth = -1.0f;
+        entry.subtitleWidth = -1.0f;
+        entry.fontFamily.clear();
+    }
+}
+
 void TreeView::AddRoot(Node node)
 {
     roots_.push_back(std::move(node));
@@ -1734,6 +1881,7 @@ void TreeView::Clear()
 {
     roots_.clear();
     visibleNodes_.clear();
+    InvalidateLayoutCache();
     pressedNode_ = nullptr;
     selectedNode_ = nullptr;
     InvalidateMeasure();
@@ -1766,7 +1914,8 @@ void TreeView::Arrange(const RectF &finalRect)
 void TreeView::Render(DeviceResources &deviceResources)
 {
     ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
-    if (!target)
+    IDWriteFactory *factory = deviceResources.GetDWriteFactory();
+    if (!target || !factory)
     {
         return;
     }
@@ -1777,7 +1926,7 @@ void TreeView::Render(DeviceResources &deviceResources)
         return;
     }
 
-    for (const auto &entry : visibleNodes_)
+    for (auto &entry : visibleNodes_)
     {
         const bool selected = entry.node == selectedNode_;
         const bool pressed = pressed_ && entry.node == pressedNode_;
@@ -1810,10 +1959,38 @@ void TreeView::Render(DeviceResources &deviceResources)
                                  22.0f};
         const RectF subtitleRect = {contentX, entry.rowRect.y + 34.0f, std::max(entry.rowRect.width - (contentX - entry.rowRect.x) - 18.0f, 0.0f),
                                     18.0f};
-        DrawLabel(deviceResources, entry.node->title, 15.0f, true, D2D1::ColorF(0x0F172A), titleRect,
-                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-        DrawLabel(deviceResources, entry.node->subtitle, 13.0f, false, D2D1::ColorF(0x64748B), subtitleRect,
-                  DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        const Theme &theme = ThemeManager::GetCurrent();
+        if (entry.fontFamily != theme.uiFontFamily || entry.titleWidth != titleRect.width)
+        {
+            entry.titleLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, entry.node->title, 15.0f,
+                                                       DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(titleRect.width, 1.0f),
+                                                       std::max(titleRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
+                                                       DWRITE_PARAGRAPH_ALIGNMENT_NEAR, DWRITE_WORD_WRAPPING_NO_WRAP);
+            entry.titleWidth = titleRect.width;
+            entry.fontFamily = theme.uiFontFamily;
+        }
+        if (entry.fontFamily != theme.uiFontFamily || entry.subtitleWidth != subtitleRect.width)
+        {
+            entry.subtitleLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, entry.node->subtitle, 13.0f,
+                                                          DWRITE_FONT_WEIGHT_NORMAL, std::max(subtitleRect.width, 1.0f),
+                                                          std::max(subtitleRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
+                                                          DWRITE_PARAGRAPH_ALIGNMENT_NEAR, DWRITE_WORD_WRAPPING_NO_WRAP);
+            entry.subtitleWidth = subtitleRect.width;
+            entry.fontFamily = theme.uiFontFamily;
+        }
+
+        ID2D1SolidColorBrush *titleBrush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0x0F172A));
+        ID2D1SolidColorBrush *subtitleBrush = deviceResources.GetSolidColorBrush(D2D1::ColorF(0x64748B));
+        if (entry.titleLayout && titleBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(titleRect.x, titleRect.y), entry.titleLayout.Get(), titleBrush,
+                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        if (entry.subtitleLayout && subtitleBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(subtitleRect.x, subtitleRect.y), entry.subtitleLayout.Get(),
+                                   subtitleBrush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
     }
 }
 

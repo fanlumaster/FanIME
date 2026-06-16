@@ -56,6 +56,7 @@
 - 新增第一版 `ContextMenuHost`：窗口现可分发右键上下文菜单事件，控件可在鼠标位置弹出 scene overlay 菜单，并支持点击菜单项执行动作、点击空白区域自动关闭；demo 已加入右键菜单示例
 - 新增第一版渲染对象缓存：`DeviceResources` 现会缓存常用 `SolidColorBrush` 和 `TextFormat`，公共文本/圆角矩形绘制 helper、`TextBlock`、`TextBox`、滚动条、`Border` / `Card` 以及多种基础控件已切到缓存路径，减少每帧重复创建 D2D / DWrite 对象的开销
 - `TextBlock` 现进一步复用自身的 `IDWriteTextLayout`：同一段文本在宽度和主题字体未变化时，会复用上一轮排版结果，测量和渲染不再各自重复创建文本布局对象
+- `Button` / `ListView` / `TreeView` 现也开始缓存各自高频文本的 `IDWriteTextLayout`，减少按钮标题、列表项标题/副标题/徽标，以及树节点标题/副标题在重复绘制时的文本排版开销
 
 ## 构建
 

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <wrl/client.h>
 
 class CTextEditor;
 
@@ -75,6 +76,8 @@ class Button : public Visual
     HCURSOR GetCursor() const override;
 
   protected:
+    void InvalidateTextLayoutCache();
+
     virtual void OnClick();
     virtual D2D1_COLOR_F GetFillColor() const;
     virtual D2D1_COLOR_F GetStrokeColor() const;
@@ -85,6 +88,9 @@ class Button : public Visual
     bool focused_ = false;
     bool pressed_ = false;
     ClickHandler onClick_;
+    std::wstring cachedFontFamily_;
+    float cachedLayoutWidth_ = -1.0f;
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> cachedTextLayout_;
 };
 
 class Popup : public Visual
@@ -343,9 +349,22 @@ class ListView : public Visual
     HCURSOR GetCursor() const override;
 
   private:
+    struct ItemLayoutCache
+    {
+        float titleWidth = -1.0f;
+        float subtitleWidth = -1.0f;
+        float badgeWidth = -1.0f;
+        std::wstring fontFamily;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> titleLayout;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> subtitleLayout;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> badgeLayout;
+    };
+
+    void InvalidateLayoutCache();
     size_t HitTestItem(const PointF &point) const;
 
     std::vector<Item> items_;
+    std::vector<ItemLayoutCache> layoutCache_;
     float itemHeight_ = 68.0f;
     bool focused_ = false;
     bool pressed_ = false;
@@ -390,10 +409,16 @@ class TreeView : public Visual
         size_t depth = 0;
         RectF rowRect = {};
         RectF expanderRect = {};
+        float titleWidth = -1.0f;
+        float subtitleWidth = -1.0f;
+        std::wstring fontFamily;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> titleLayout;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> subtitleLayout;
     };
 
     void BuildVisibleNodes();
     void AppendVisibleNodes(Node &node, size_t depth);
+    void InvalidateLayoutCache();
     VisibleNode *HitTestVisibleNode(const PointF &point);
     const VisibleNode *HitTestVisibleNode(const PointF &point) const;
     void SelectNode(Node *node);
