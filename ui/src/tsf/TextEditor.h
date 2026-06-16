@@ -4,6 +4,7 @@
 #include "TextContainer.h"
 #include "TextStore.h"
 #include "TextEditSink.h"
+#include <string>
 
 //----------------------------------------------------------------
 //
@@ -47,6 +48,12 @@ class CTextEditor : public CTextContainer
     BOOL InsertAtSelection(LPCWSTR psz);
     BOOL DeleteAtSelection(BOOL fBack);
     BOOL DeleteSelection();
+    void SelectAll();
+    bool HasSelection() const
+    {
+        return _nSelStart != _nSelEnd;
+    }
+    std::wstring GetSelectedText() const;
 
     void MoveSelectionNext();
     void MoveSelectionPrev();

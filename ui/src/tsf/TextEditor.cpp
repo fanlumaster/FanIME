@@ -29,6 +29,23 @@ void CTextEditor::MoveSelection(UINT nSelStart, UINT nSelEnd)
     _pTextStore->OnSelectionChange();
 }
 
+void CTextEditor::SelectAll()
+{
+    MoveSelection(0, GetTextLength());
+}
+
+std::wstring CTextEditor::GetSelectedText() const
+{
+    const UINT selectionStart = min(_nSelStart, _nSelEnd);
+    const UINT selectionEnd = max(_nSelStart, _nSelEnd);
+    if (selectionStart == selectionEnd || !GetTextBuffer())
+    {
+        return {};
+    }
+
+    return std::wstring(GetTextBuffer() + selectionStart, GetTextBuffer() + selectionEnd);
+}
+
 //----------------------------------------------------------------
 //
 //

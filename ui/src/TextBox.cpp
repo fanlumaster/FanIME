@@ -69,6 +69,82 @@ bool PointInRoundedRect(const RectF &rect, float radius, const PointF &point)
     const float dy = point.y - centerY;
     return (dx * dx + dy * dy) <= (clampedRadius * clampedRadius);
 }
+
+bool IsCtrlPressed()
+{
+    return (GetKeyState(VK_CONTROL) & 0x80) != 0;
+}
+
+bool CopyTextToClipboard(HWND hwnd, const std::wstring &text)
+{
+    if (!hwnd || !OpenClipboard(hwnd))
+    {
+        return false;
+    }
+
+    const auto closeClipboard = []()
+    {
+        CloseClipboard();
+    };
+
+    EmptyClipboard();
+
+    const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
+    HGLOBAL global = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (!global)
+    {
+        closeClipboard();
+        return false;
+    }
+
+    void *buffer = GlobalLock(global);
+    if (!buffer)
+    {
+        GlobalFree(global);
+        closeClipboard();
+        return false;
+    }
+
+    memcpy(buffer, text.c_str(), bytes);
+    GlobalUnlock(global);
+
+    if (!SetClipboardData(CF_UNICODETEXT, global))
+    {
+        GlobalFree(global);
+        closeClipboard();
+        return false;
+    }
+
+    closeClipboard();
+    return true;
+}
+
+std::wstring ReadClipboardText(HWND hwnd)
+{
+    if (!hwnd || !OpenClipboard(hwnd))
+    {
+        return {};
+    }
+
+    HANDLE data = GetClipboardData(CF_UNICODETEXT);
+    if (!data)
+    {
+        CloseClipboard();
+        return {};
+    }
+
+    const wchar_t *buffer = static_cast<const wchar_t *>(GlobalLock(data));
+    if (!buffer)
+    {
+        CloseClipboard();
+        return {};
+    }
+
+    std::wstring text(buffer);
+    GlobalUnlock(data);
+    CloseClipboard();
+    return text;
+}
 }
 
 TextBox::TextBox(float height, std::wstring placeholder) : preferredHeight_(height), placeholder_(std::move(placeholder))
@@ -348,6 +424,50 @@ bool TextBox::OnKeyDown(WPARAM key, LPARAM lParam)
 
     UINT selectionStart = 0;
     UINT selectionEnd = 0;
+    const bool ctrlPressed = IsCtrlPressed();
+
+    if (ctrlPressed)
+    {
+        switch (0xff & key)
+        {
+        case 'A':
+            editor_->SelectAll();
+            InvalidateVisual();
+            return true;
+
+        case 'C':
+            if (editor_->HasSelection())
+            {
+                CopyTextToClipboard(window_ ? window_->GetHandle() : nullptr, editor_->GetSelectedText());
+            }
+            return true;
+
+        case 'X':
+            if (editor_->HasSelection())
+            {
+                if (CopyTextToClipboard(window_ ? window_->GetHandle() : nullptr, editor_->GetSelectedText()))
+                {
+                    editor_->DeleteSelection();
+                    InvalidateVisual();
+                }
+            }
+            return true;
+
+        case 'V':
+        {
+            std::wstring clipboardText = ReadClipboardText(window_ ? window_->GetHandle() : nullptr);
+            if (!clipboardText.empty())
+            {
+                editor_->InsertAtSelection(clipboardText.c_str());
+                InvalidateVisual();
+            }
+            return true;
+        }
+
+        default:
+            break;
+        }
+    }
 
     switch (0xff & key)
     {
@@ -442,14 +562,9 @@ bool TextBox::OnChar(wchar_t ch, LPARAM lParam)
         return false;
     }
 
-    switch (ch)
+    if (ch < 0x20)
     {
-    case 0x08:
-    case 0x0a:
-    case 0x0d:
         return true;
-    default:
-        break;
     }
 
     wchar_t buffer[2] = {ch, L'\0'};

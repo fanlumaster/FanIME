@@ -36,6 +36,10 @@ class CTextContainer
     {
         return _psz;
     }
+    const WCHAR *GetTextBuffer() const
+    {
+        return _psz;
+    }
 
   private:
     BOOL EnsureBuffer(UINT nNewTextSize);
