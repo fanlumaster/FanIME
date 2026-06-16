@@ -190,6 +190,7 @@ LRESULT CALLBACK CTextInputCtrl::s_WndProc(HWND hwnd, UINT message, WPARAM wPara
         {
         case 0x08:
         case 0x0a:
+        case 0x7f:
             return 0;
         default:
             break;

@@ -569,7 +569,7 @@ bool TextBox::OnChar(wchar_t ch, LPARAM lParam)
         return false;
     }
 
-    if (ch < 0x20)
+    if (ch < 0x20 || ch == 0x7F)
     {
         return true;
     }
