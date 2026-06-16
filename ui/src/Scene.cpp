@@ -9,8 +9,6 @@ namespace msimeui
 {
 namespace
 {
-constexpr float kScenePaddingDips = 5.0f;
-
 Visual *FindCommonAncestor(Visual *lhs, Visual *rhs)
 {
     if (!lhs)
@@ -134,8 +132,7 @@ void Scene::Layout(const SizeF &size)
         return;
     }
 
-    const SizeF innerSize = {std::max(size.width - kScenePaddingDips * 2.0f, 0.0f),
-                             std::max(size.height - kScenePaddingDips * 2.0f, 0.0f)};
+    const SizeF innerSize = size;
     if (needsMeasure)
     {
         const bool canUseDirtyPath = !sizeChanged && measureDirtySource_ && measureDirtySource_ != root_.get();
@@ -146,7 +143,7 @@ void Scene::Layout(const SizeF &size)
     }
     if (needsArrange)
     {
-        const RectF rootSlot = {kScenePaddingDips, kScenePaddingDips, innerSize.width, innerSize.height};
+        const RectF rootSlot = {0.0f, 0.0f, innerSize.width, innerSize.height};
         if (!needsMeasure && !sizeChanged && arrangeDirtyRoot_ && arrangeDirtyRoot_ != root_.get() &&
             arrangeDirtyRoot_->HasArrangeSlot())
         {
