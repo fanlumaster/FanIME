@@ -25,6 +25,7 @@ constexpr UINT_PTR kCaretTimerId = 1;
 constexpr float kTextBoxCornerRadius = 10.0f;
 constexpr float kTextBoxContentPaddingPixels = 6.0f;
 constexpr LONG kSingleLineTextHorizontalInsetPixels = 6;
+constexpr LONG kMultiLineTextHorizontalInsetPixels = 4;
 
 RectF InsetRectF(const RectF &rect, float inset)
 {
@@ -490,8 +491,15 @@ RECT TextBox::ComputeEditorHostRect() const
 RECT TextBox::ComputeEditorContentPadding() const
 {
     RECT padding = {};
-    if (!editor_ || preferredHeight_ > 100.0f)
+    if (!editor_)
     {
+        return padding;
+    }
+
+    if (preferredHeight_ > 100.0f)
+    {
+        padding.left = kMultiLineTextHorizontalInsetPixels;
+        padding.right = kMultiLineTextHorizontalInsetPixels;
         return padding;
     }
 
