@@ -62,6 +62,10 @@ class CTextEditor : public CTextContainer
     {
         _rcContentPadding = rcPadding;
     }
+    void SetSingleLine(BOOL singleLine)
+    {
+        _singleLine = singleLine;
+    }
 
     UINT GetSelectionStart()
     {
@@ -134,6 +138,7 @@ class CTextEditor : public CTextContainer
     HWND _hwnd;
     RECT _rcHost = {};
     RECT _rcContentPadding = {};
+    BOOL _singleLine = FALSE;
 
     CTextLayout _layout;
     LOGFONT _lfCurrentFont;

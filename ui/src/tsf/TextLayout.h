@@ -67,6 +67,8 @@ class CTextLayout
         _paddingTopDips = 0.0f;
         _paddingRightDips = 0.0f;
         _paddingBottomDips = 0.0f;
+        _horizontalScrollDips = 0.0f;
+        _singleLine = FALSE;
         _rcCaret = D2D1::RectF();
     }
 
@@ -86,7 +88,7 @@ class CTextLayout
     BOOL Initialize(IDWriteFactory *pDWriteFactory);
     BOOL Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY,
                 FLOAT paddingLeftPixels = 0.0f, FLOAT paddingTopPixels = 0.0f, FLOAT paddingRightPixels = 0.0f,
-                FLOAT paddingBottomPixels = 0.0f);
+                FLOAT paddingBottomPixels = 0.0f, BOOL singleLine = FALSE);
     BOOL Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
                 const COMPOSITIONRENDERINFO *pCompositionRenderInfo, UINT nCompositionRenderInfo);
     BOOL RectFromCharPos(UINT nPos, RECT *prc);
@@ -94,6 +96,7 @@ class CTextLayout
     UINT InsertionIndexFromPoint(POINT pt);
     UINT ExactCharPosFromPoint(POINT pt);
     UINT FineFirstEndCharPosInLine(UINT uCurPos, BOOL bFirst);
+    void EnsureCaretVisible(UINT nPos);
     void ToggleCaretBlink();
     void ResetCaretBlink();
     void SetCaretVisible(BOOL fVisible)
@@ -130,6 +133,7 @@ class CTextLayout
   private:
     BOOL EnsureTextFormat(const LOGFONT *plf, FLOAT dpiY);
     BOOL RectFromCharPosDips(UINT nPos, D2D1_RECT_F *prc);
+    BOOL RectFromCharPosDipsRaw(UINT nPos, D2D1_RECT_F *prc);
     FLOAT PixelsToDipsX(FLOAT value) const;
     FLOAT PixelsToDipsY(FLOAT value) const;
     LONG DipsToPixelsX(FLOAT value) const;
@@ -152,6 +156,8 @@ class CTextLayout
     FLOAT _paddingTopDips;
     FLOAT _paddingRightDips;
     FLOAT _paddingBottomDips;
+    FLOAT _horizontalScrollDips;
+    BOOL _singleLine;
 
     LINEINFO *_prgLines;
     UINT _nLineCnt;

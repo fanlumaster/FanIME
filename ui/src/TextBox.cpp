@@ -113,6 +113,7 @@ void TextBox::Arrange(const RectF &finalRect)
     {
         RECT rc = ComputeEditorHostRect();
         editor_->SetHostRect(rc);
+        editor_->SetSingleLine(preferredHeight_ <= 100.0f ? TRUE : FALSE);
         editor_->SetContentPadding({});
         editor_->UpdateLayout();
         editor_->SetContentPadding(ComputeEditorContentPadding());

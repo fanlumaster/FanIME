@@ -24,6 +24,7 @@ void CTextEditor::MoveSelection(UINT nSelStart, UINT nSelEnd)
     _nSelStart = nSelStart;
     _nSelEnd = nSelEnd;
     _layout.ResetCaretBlink();
+    _layout.EnsureCaretVisible(_nSelEnd);
 
     _pTextStore->OnSelectionChange();
 }
@@ -149,6 +150,7 @@ BOOL CTextEditor::InsertAtSelection(LPCWSTR psz)
     _nSelEnd = _nSelStart;
     _layout.ResetCaretBlink();
     UpdateLayout();
+    _layout.EnsureCaretVisible(_nSelEnd);
 
     _pTextStore->OnTextChange(_nSelStart, lOldSelEnd, _nSelEnd);
     _pTextStore->OnSelectionChange();
@@ -177,6 +179,7 @@ BOOL CTextEditor::DeleteAtSelection(BOOL fBack)
 
         _layout.ResetCaretBlink();
         UpdateLayout();
+        _layout.EnsureCaretVisible(_nSelEnd);
         _pTextStore->OnTextChange(_nSelEnd, _nSelEnd + 1, _nSelEnd);
     }
 
@@ -189,6 +192,7 @@ BOOL CTextEditor::DeleteAtSelection(BOOL fBack)
         _nSelEnd = _nSelStart;
         _layout.ResetCaretBlink();
         UpdateLayout();
+        _layout.EnsureCaretVisible(_nSelEnd);
 
         _pTextStore->OnTextChange(_nSelStart, _nSelStart + 1, _nSelStart);
         _pTextStore->OnSelectionChange();
@@ -211,6 +215,7 @@ BOOL CTextEditor::DeleteSelection()
     _nSelEnd = _nSelStart;
     _layout.ResetCaretBlink();
     UpdateLayout();
+    _layout.EnsureCaretVisible(_nSelEnd);
 
     _pTextStore->OnTextChange(_nSelStart, nSelOldEnd, _nSelStart);
     _pTextStore->OnSelectionChange();
@@ -276,7 +281,8 @@ void CTextEditor::UpdateLayout()
     const LONG width = max(_rcHost.right - _rcHost.left, 1L);
     _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width), dpi, dpi,
                    static_cast<FLOAT>(_rcContentPadding.left), static_cast<FLOAT>(_rcContentPadding.top),
-                   static_cast<FLOAT>(_rcContentPadding.right), static_cast<FLOAT>(_rcContentPadding.bottom));
+                   static_cast<FLOAT>(_rcContentPadding.right), static_cast<FLOAT>(_rcContentPadding.bottom), _singleLine);
+    _layout.EnsureCaretVisible(_nSelEnd);
 }
 
 void CTextEditor::NotifyLayoutChange()

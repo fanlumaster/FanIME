@@ -79,7 +79,7 @@ BOOL CTextLayout::EnsureTextFormat(const LOGFONT *plf, FLOAT dpiY)
 
 BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY,
                          FLOAT paddingLeftPixels, FLOAT paddingTopPixels, FLOAT paddingRightPixels,
-                         FLOAT paddingBottomPixels)
+                         FLOAT paddingBottomPixels, BOOL singleLine)
 {
     Clear();
 
@@ -94,6 +94,7 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
     _paddingTopDips = PixelsToDipsY(kEditorPaddingPixels + paddingTopPixels);
     _paddingRightDips = PixelsToDipsX(kEditorPaddingPixels + paddingRightPixels);
     _paddingBottomDips = PixelsToDipsY(kEditorPaddingPixels + paddingBottomPixels);
+    _singleLine = singleLine;
     _layoutWidth = max(PixelsToDipsX(layoutWidthPixels) - _paddingLeftDips - _paddingRightDips, 1.0f);
 
     const WCHAR *layoutText = psz ? psz : L"";
@@ -112,7 +113,7 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
         return FALSE;
     }
 
-    _pTextLayout->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+    _pTextLayout->SetWordWrapping(_singleLine ? DWRITE_WORD_WRAPPING_NO_WRAP : DWRITE_WORD_WRAPPING_WRAP);
 
     DWRITE_TEXT_METRICS textMetrics = {};
     if (FAILED(_pTextLayout->GetMetrics(&textMetrics)))
@@ -280,7 +281,9 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
                 for (UINT j = nSelStartInLine; j < nSelEndInLine; j++)
                 {
                     const D2D1_RECT_F &rc = line.prgCharInfo[j].rc;
-                    pRenderTarget->FillRectangle(D2D1::RectF(rc.left, rc.top, rc.right, rc.bottom), pSelectionBrush);
+                    const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
+                    pRenderTarget->FillRectangle(D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX, rc.bottom),
+                                                 pSelectionBrush);
                 }
             }
         }
@@ -288,7 +291,9 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
 
     if (_pTextLayout && nCnt > 0)
     {
-        pRenderTarget->DrawTextLayout(D2D1::Point2F(_paddingLeftDips, _paddingTopDips), _pTextLayout, pTextBrush,
+        pRenderTarget->DrawTextLayout(D2D1::Point2F(_paddingLeftDips - (_singleLine ? _horizontalScrollDips : 0.0f),
+                                                    _paddingTopDips),
+                                      _pTextLayout, pTextBrush,
                                       D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
     }
 
@@ -318,7 +323,9 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
                     if (composition.da.crBk.type != TF_CT_NONE)
                     {
                         pCompositionBrush->SetColor(GetAttributeColor(&composition.da.crBk, GetSysColor(COLOR_WINDOW)));
-                        pRenderTarget->FillRectangle(D2D1::RectF(rc.left, rc.top, rc.right, rc.bottom), pCompositionBrush);
+                        const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
+                        pRenderTarget->FillRectangle(D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX, rc.bottom),
+                                                     pCompositionBrush);
                     }
 
                     WCHAR ch = psz[line.nPos + k];
@@ -329,8 +336,9 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
                     }
 
                     pCompositionBrush->SetColor(compositionTextColor);
+                    const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
                     pRenderTarget->DrawTextW(&ch, 1, _pTextFormat,
-                                             D2D1::RectF(rc.left, rc.top, rc.right + PixelsToDipsX(2.0f), rc.bottom),
+                                             D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX + PixelsToDipsX(2.0f), rc.bottom),
                                              pCompositionBrush, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
                                              DWRITE_MEASURING_MODE_NATURAL);
 
@@ -434,6 +442,21 @@ BOOL CTextLayout::RectFromCharPos(UINT nPos, RECT *prc)
 
 BOOL CTextLayout::RectFromCharPosDips(UINT nPos, D2D1_RECT_F *prc)
 {
+    if (!RectFromCharPosDipsRaw(nPos, prc))
+    {
+        return FALSE;
+    }
+
+    if (_singleLine)
+    {
+        prc->left -= _horizontalScrollDips;
+        prc->right -= _horizontalScrollDips;
+    }
+    return TRUE;
+}
+
+BOOL CTextLayout::RectFromCharPosDipsRaw(UINT nPos, D2D1_RECT_F *prc)
+{
     *prc = D2D1::RectF();
 
     if ((_nLineCnt > 0) && (_prgLines[0].nCnt == 0))
@@ -481,7 +504,7 @@ BOOL CTextLayout::RectFromCharPosDips(UINT nPos, D2D1_RECT_F *prc)
 
 UINT CTextLayout::CharPosFromPoint(POINT pt)
 {
-    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x));
+    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x)) + (_singleLine ? _horizontalScrollDips : 0.0f);
     const FLOAT dipY = PixelsToDipsY(static_cast<FLOAT>(pt.y));
     for (UINT i = 0; i < _nLineCnt; i++)
     {
@@ -515,7 +538,7 @@ UINT CTextLayout::InsertionIndexFromPoint(POINT pt)
         return 0;
     }
 
-    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x));
+    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x)) + (_singleLine ? _horizontalScrollDips : 0.0f);
     const FLOAT dipY = PixelsToDipsY(static_cast<FLOAT>(pt.y));
 
     for (UINT i = 0; i < _nLineCnt; i++)
@@ -576,7 +599,7 @@ UINT CTextLayout::InsertionIndexFromPoint(POINT pt)
 
 UINT CTextLayout::ExactCharPosFromPoint(POINT pt)
 {
-    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x));
+    const FLOAT dipX = PixelsToDipsX(static_cast<FLOAT>(pt.x)) + (_singleLine ? _horizontalScrollDips : 0.0f);
     const FLOAT dipY = PixelsToDipsY(static_cast<FLOAT>(pt.y));
     for (UINT i = 0; i < _nLineCnt; i++)
     {
@@ -607,6 +630,36 @@ UINT CTextLayout::FineFirstEndCharPosInLine(UINT uCurPos, BOOL bFirst)
         }
     }
     return static_cast<UINT>(-1);
+}
+
+void CTextLayout::EnsureCaretVisible(UINT nPos)
+{
+    if (!_singleLine)
+    {
+        _horizontalScrollDips = 0.0f;
+        return;
+    }
+
+    D2D1_RECT_F rawCaret = {};
+    if (!RectFromCharPosDipsRaw(nPos, &rawCaret))
+    {
+        return;
+    }
+
+    const FLOAT caretWidth = PixelsToDipsX(kCaretWidthPixels);
+    const FLOAT visibleLeft = _paddingLeftDips;
+    const FLOAT visibleRight = _paddingLeftDips + _layoutWidth;
+    const FLOAT displayLeft = rawCaret.left - _horizontalScrollDips;
+    const FLOAT displayRight = max(rawCaret.right, rawCaret.left + caretWidth) - _horizontalScrollDips;
+
+    if (displayLeft < visibleLeft)
+    {
+        _horizontalScrollDips = max(rawCaret.left - visibleLeft, 0.0f);
+    }
+    else if (displayRight > visibleRight)
+    {
+        _horizontalScrollDips = max(max(rawCaret.right, rawCaret.left + caretWidth) - visibleRight, 0.0f);
+    }
 }
 
 void CTextLayout::Clear()
