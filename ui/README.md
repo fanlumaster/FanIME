@@ -103,6 +103,7 @@
 - `CandidateList` 现支持基础键盘导航：弹层打开后会自动把焦点落到首个可聚焦内容上，候选列表可用 `Up/Down`、`Left/Right`、`Home/End`、`PageUp/PageDown` 切换高亮项
 - demo 中的候选窗预览继续补上了底部分页/状态提示区，用来预演候选页码、当前高亮项和键盘操作提示的布局结构
 - `Window` 新增公开的 `FocusVisual` 入口，方便 popup、候选窗、上下文菜单这类 overlay 内容在弹出后主动把焦点切到内部可交互控件
+- 修复了 demo 候选窗预览里的中文候选词乱码问题：示例候选词改为稳定的 Unicode 码点写法，同时 `CandidateList` 的主词排版切到 `textInputFontFamily`，更贴近真实输入法文字渲染路径
 
 ## 构建
 

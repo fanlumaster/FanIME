@@ -2080,14 +2080,14 @@ void CandidateList::Render(DeviceResources &deviceResources)
             cache.labelWidth = labelRect.width;
             cache.fontFamily = theme.uiFontFamily;
         }
-        if (cache.fontFamily != theme.uiFontFamily || cache.textWidth != textRect.width)
+        if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].text, 16.0f,
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 16.0f,
                                                       DWRITE_FONT_WEIGHT_NORMAL, std::max(textRect.width, 1.0f),
                                                       std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.textWidth = textRect.width;
-            cache.fontFamily = theme.uiFontFamily;
+            cache.fontFamily = theme.textInputFontFamily;
         }
         if (cache.fontFamily != theme.uiFontFamily || cache.annotationWidth != annotationRect.width)
         {
