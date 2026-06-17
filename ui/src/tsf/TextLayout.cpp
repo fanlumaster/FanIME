@@ -23,6 +23,18 @@ float DipsFromLogFontHeight(const LOGFONT *plf, FLOAT dpiY)
     const FLOAT pixels = static_cast<FLOAT>(abs(logicalHeight));
     return pixels * 96.0f / max(dpiY, 1.0f);
 }
+
+FLOAT FloorToPixelAlignedDips(FLOAT valueDips, FLOAT dpi)
+{
+    const FLOAT safeDpi = max(dpi, 1.0f);
+    return std::floor((valueDips * safeDpi) / 96.0f) * 96.0f / safeDpi;
+}
+
+FLOAT CeilToPixelAlignedDips(FLOAT valueDips, FLOAT dpi)
+{
+    const FLOAT safeDpi = max(dpi, 1.0f);
+    return std::ceil((valueDips * safeDpi) / 96.0f) * 96.0f / safeDpi;
+}
 } // namespace
 
 BOOL CTextLayout::Initialize(IDWriteFactory *pDWriteFactory)
@@ -307,8 +319,8 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
                 {
                     if (!_singleLine)
                     {
-                        selectionRect.top = line.top;
-                        selectionRect.bottom = line.bottom;
+                        selectionRect.top = FloorToPixelAlignedDips(line.top, _dpiY);
+                        selectionRect.bottom = CeilToPixelAlignedDips(line.bottom, _dpiY);
                     }
                     pRenderTarget->FillRectangle(
                         D2D1::RectF(selectionRect.left - scrollX, selectionRect.top, selectionRect.right - scrollX,
