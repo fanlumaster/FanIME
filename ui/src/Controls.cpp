@@ -44,6 +44,7 @@ constexpr float kTabCornerRadius = 12.0f;
 constexpr float kAccordionCornerRadius = 14.0f;
 constexpr float kAccordionHeaderHorizontalPadding = 20.0f;
 constexpr float kComboBoxItemGap = 6.0f;
+constexpr float kCandidateItemGap = 4.0f;
 
 RectF MakeInsetRect(const RectF &rect, float insetX, float insetY)
 {
@@ -210,6 +211,45 @@ void FillRoundedRect(DeviceResources &deviceResources, const RectF &bounds, floa
         D2D1::RoundedRect(D2D1::RectF(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height), radius, radius);
     target->FillRoundedRectangle(rounded, fillBrush);
     target->DrawRoundedRectangle(rounded, strokeBrush, strokeWidth);
+}
+
+void DrawPopupShadow(DeviceResources &deviceResources, const RectF &bounds, float radius)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    struct ShadowLayer
+    {
+        float spread;
+        float offsetY;
+        float alpha;
+    };
+
+    static constexpr ShadowLayer kLayers[] = {
+        {2.0f, 2.0f, 0.10f},
+        {6.0f, 6.0f, 0.06f},
+        {11.0f, 12.0f, 0.03f},
+    };
+
+    for (const ShadowLayer &layer : kLayers)
+    {
+        const RectF shadowRect = {bounds.x - layer.spread, bounds.y - layer.spread + layer.offsetY,
+                                  bounds.width + layer.spread * 2.0f, bounds.height + layer.spread * 2.0f};
+        const D2D1_COLOR_F shadowColor = D2D1::ColorF(0x000000, layer.alpha);
+        ID2D1SolidColorBrush *shadowBrush = deviceResources.GetSolidColorBrush(shadowColor);
+        if (!shadowBrush)
+        {
+            continue;
+        }
+
+        const auto rounded = D2D1::RoundedRect(
+            D2D1::RectF(shadowRect.x, shadowRect.y, shadowRect.x + shadowRect.width, shadowRect.y + shadowRect.height),
+            radius + layer.spread, radius + layer.spread);
+        target->FillRoundedRectangle(rounded, shadowBrush);
+    }
 }
 
 void DrawLabel(DeviceResources &deviceResources, const std::wstring &text, float fontSize, bool bold, D2D1_COLOR_F color,
@@ -486,6 +526,30 @@ void Popup::SetMatchAnchorWidth(bool matchAnchorWidth)
     matchAnchorWidth_ = matchAnchorWidth;
 }
 
+void Popup::SetBackgroundFill(const D2D1_COLOR_F &fill)
+{
+    backgroundFill_ = fill;
+    InvalidateVisual();
+}
+
+void Popup::SetBorderColor(const D2D1_COLOR_F &border)
+{
+    borderColor_ = border;
+    InvalidateVisual();
+}
+
+void Popup::SetCornerRadius(float radius)
+{
+    cornerRadius_ = std::max(radius, 0.0f);
+    InvalidateVisual();
+}
+
+void Popup::SetShadowEnabled(bool enabled)
+{
+    shadowEnabled_ = enabled;
+    InvalidateVisual();
+}
+
 SizeF Popup::Measure(const SizeF &availableSize)
 {
     const SizeF inner = DeflateSizeLocal(availableSize, padding_);
@@ -515,8 +579,12 @@ void Popup::Render(DeviceResources &deviceResources)
         return;
     }
 
-    const Theme &theme = ThemeManager::GetCurrent();
-    FillRoundedRect(deviceResources, bounds_, 16.0f, theme.surface, theme.borderStrong, 1.0f);
+    if (shadowEnabled_)
+    {
+        DrawPopupShadow(deviceResources, bounds_, cornerRadius_);
+    }
+
+    FillRoundedRect(deviceResources, bounds_, cornerRadius_, backgroundFill_, borderColor_, 1.0f);
     if (child_)
     {
         child_->Render(deviceResources);
@@ -1879,6 +1947,253 @@ size_t ListView::HitTestItem(const PointF &point) const
     const float relativeY = point.y - bounds_.y;
     const size_t index = static_cast<size_t>(relativeY / itemHeight_);
     return index < items_.size() ? index : static_cast<size_t>(-1);
+}
+
+CandidateList::CandidateList(float itemHeight) : itemHeight_(itemHeight)
+{
+}
+
+void CandidateList::InvalidateLayoutCache()
+{
+    layoutCache_.clear();
+}
+
+void CandidateList::AddItem(Item item)
+{
+    items_.push_back(std::move(item));
+    layoutCache_.push_back({});
+    InvalidateMeasure();
+}
+
+void CandidateList::ClearItems()
+{
+    items_.clear();
+    InvalidateLayoutCache();
+    selectedIndex_ = 0;
+    pressedIndex_ = static_cast<size_t>(-1);
+    InvalidateMeasure();
+}
+
+void CandidateList::SetSelectedIndex(size_t index)
+{
+    if (items_.empty())
+    {
+        selectedIndex_ = 0;
+        return;
+    }
+
+    const size_t clamped = std::min(index, items_.size() - 1);
+    if (selectedIndex_ == clamped)
+    {
+        return;
+    }
+
+    selectedIndex_ = clamped;
+    if (onSelectionChanged_)
+    {
+        onSelectionChanged_(selectedIndex_);
+    }
+    InvalidateVisual();
+}
+
+size_t CandidateList::GetSelectedIndex() const
+{
+    return selectedIndex_;
+}
+
+void CandidateList::SetOnSelectionChanged(SelectionChangedHandler handler)
+{
+    onSelectionChanged_ = std::move(handler);
+}
+
+SizeF CandidateList::Measure(const SizeF &availableSize)
+{
+    const float gapCount = items_.empty() ? 0.0f : static_cast<float>(items_.size() - 1);
+    const float height = items_.empty() ? itemHeight_ : itemHeight_ * static_cast<float>(items_.size()) + kCandidateItemGap * gapCount;
+    return {availableSize.width, std::min(height, availableSize.height)};
+}
+
+void CandidateList::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+void CandidateList::Render(DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    IDWriteFactory *factory = deviceResources.GetDWriteFactory();
+    if (!target || !factory)
+    {
+        return;
+    }
+
+    if (layoutCache_.size() != items_.size())
+    {
+        layoutCache_.resize(items_.size());
+    }
+
+    const Theme &theme = ThemeManager::GetCurrent();
+    const D2D1_COLOR_F rowFill = D2D1::ColorF(0x2E2E2E);
+    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x3D3D3D);
+    const D2D1_COLOR_F rowStroke = D2D1::ColorF(0x3A3A3A);
+    const D2D1_COLOR_F rowStrokeSelected = D2D1::ColorF(0x4F8EF7);
+    const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3B3B3B);
+    const D2D1_COLOR_F labelColor = D2D1::ColorF(0xA8A8A8);
+    const D2D1_COLOR_F labelColorSelected = D2D1::ColorF(0x7EA8FF);
+    const D2D1_COLOR_F textColor = D2D1::ColorF(0xF3F4F6);
+    const D2D1_COLOR_F annotationColor = D2D1::ColorF(0xD1D5DB);
+
+    for (size_t index = 0; index < items_.size(); ++index)
+    {
+        const float itemY = bounds_.y + (itemHeight_ + kCandidateItemGap) * static_cast<float>(index);
+        const RectF itemRect = {bounds_.x, itemY, bounds_.width, itemHeight_};
+        const bool selected = index == selectedIndex_;
+        const bool pressed = pressed_ && index == pressedIndex_;
+
+        FillRoundedRect(deviceResources, itemRect, 10.0f,
+                        pressed ? rowFillPressed : (selected ? rowFillSelected : rowFill),
+                        selected ? rowStrokeSelected : rowStroke, selected ? 1.5f : 1.0f);
+
+        const RectF labelRect = {itemRect.x + 12.0f, itemRect.y, 24.0f, itemRect.height};
+        const RectF textRect = {itemRect.x + 38.0f, itemRect.y, std::max(itemRect.width - 118.0f, 0.0f), itemRect.height};
+        const RectF annotationRect = {itemRect.x + itemRect.width - 72.0f, itemRect.y, 60.0f, itemRect.height};
+
+        auto &cache = layoutCache_[index];
+        if (cache.fontFamily != theme.uiFontFamily || cache.labelWidth != labelRect.width)
+        {
+            cache.labelLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].label, 14.0f,
+                                                       DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(labelRect.width, 1.0f),
+                                                       std::max(labelRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_CENTER,
+                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.labelWidth = labelRect.width;
+            cache.fontFamily = theme.uiFontFamily;
+        }
+        if (cache.fontFamily != theme.uiFontFamily || cache.textWidth != textRect.width)
+        {
+            cache.textLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].text, 16.0f,
+                                                      DWRITE_FONT_WEIGHT_NORMAL, std::max(textRect.width, 1.0f),
+                                                      std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
+                                                      DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.textWidth = textRect.width;
+            cache.fontFamily = theme.uiFontFamily;
+        }
+        if (cache.fontFamily != theme.uiFontFamily || cache.annotationWidth != annotationRect.width)
+        {
+            cache.annotationLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].annotation, 13.0f,
+                                                            DWRITE_FONT_WEIGHT_SEMI_BOLD,
+                                                            std::max(annotationRect.width, 1.0f),
+                                                            std::max(annotationRect.height, 1.0f),
+                                                            DWRITE_TEXT_ALIGNMENT_TRAILING,
+                                                            DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                            DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.annotationWidth = annotationRect.width;
+            cache.fontFamily = theme.uiFontFamily;
+        }
+
+        ID2D1SolidColorBrush *labelBrush =
+            deviceResources.GetSolidColorBrush(selected ? labelColorSelected : labelColor);
+        ID2D1SolidColorBrush *textBrush = deviceResources.GetSolidColorBrush(textColor);
+        ID2D1SolidColorBrush *annotationBrush = deviceResources.GetSolidColorBrush(annotationColor);
+        if (cache.labelLayout && labelBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(labelRect.x, labelRect.y), cache.labelLayout.Get(), labelBrush,
+                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        if (cache.textLayout && textBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(textRect.x, textRect.y), cache.textLayout.Get(), textBrush,
+                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        if (!items_[index].annotation.empty() && cache.annotationLayout && annotationBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(annotationRect.x, annotationRect.y), cache.annotationLayout.Get(),
+                                   annotationBrush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+    }
+}
+
+bool CandidateList::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool CandidateList::IsFocusable() const
+{
+    return true;
+}
+
+void CandidateList::OnFocusChanged(bool focused)
+{
+    focused_ = focused;
+    InvalidateVisual();
+}
+
+bool CandidateList::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const size_t hit = HitTestItem(dipPoint);
+    if (hit == static_cast<size_t>(-1))
+    {
+        return false;
+    }
+
+    pressed_ = true;
+    pressedIndex_ = hit;
+    InvalidateVisual();
+    return true;
+}
+
+bool CandidateList::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const size_t hit = HitTestItem(dipPoint);
+    const size_t pressedIndex = pressedIndex_;
+    pressed_ = false;
+    pressedIndex_ = static_cast<size_t>(-1);
+
+    if (hit != static_cast<size_t>(-1) && hit == pressedIndex)
+    {
+        SetSelectedIndex(hit);
+    }
+
+    InvalidateVisual();
+    return true;
+}
+
+HCURSOR CandidateList::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_HAND);
+}
+
+size_t CandidateList::HitTestItem(const PointF &point) const
+{
+    if (!HitTest(point) || items_.empty())
+    {
+        return static_cast<size_t>(-1);
+    }
+
+    const float stride = itemHeight_ + kCandidateItemGap;
+    const float relativeY = point.y - bounds_.y;
+    const size_t index = static_cast<size_t>(relativeY / stride);
+    if (index >= items_.size())
+    {
+        return static_cast<size_t>(-1);
+    }
+
+    const float rowTop = stride * static_cast<float>(index);
+    return relativeY <= rowTop + itemHeight_ ? index : static_cast<size_t>(-1);
 }
 
 TreeView::TreeView(float itemHeight) : itemHeight_(itemHeight)

@@ -453,6 +453,61 @@ std::unique_ptr<Scene> CreateDemoScene()
     root->AddChild(comboCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
 
+    auto candidateCard = std::make_shared<Card>(surface, 20.0f);
+    auto candidateStack = std::make_shared<StackPanel>(14.0f);
+    auto candidateStatus =
+        std::make_shared<TextBlock>(L"Selected candidate: 1 你(rX)", 14.0f, D2D1::ColorF(0x475569), true);
+    auto candidateTrigger = std::make_shared<Button>(L"Open Candidate Preview", 44.0f);
+    candidateTrigger->SetWidth(220.0f);
+
+    auto candidatePopupStack = std::make_shared<StackPanel>(10.0f);
+    candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
+    candidatePopupStack->AddChild(std::make_shared<TextBlock>(L"ni", 20.0f, D2D1::ColorF(0xFFFFFF), true));
+
+    auto candidateList = std::make_shared<CandidateList>(38.0f);
+    candidateList->SetWidth(252.0f);
+    candidateList->AddItem({L"1", L"你", L"(rX)"});
+    candidateList->AddItem({L"2", L"尼", L"(uV)"});
+    candidateList->AddItem({L"3", L"妮", L"(nV)"});
+    candidateList->AddItem({L"4", L"泥", L"(dV)"});
+    candidateList->AddItem({L"5", L"逆", L"(zQ)"});
+    candidateList->AddItem({L"6", L"拟", L"(fR)"});
+    candidateList->AddItem({L"7", L"腻", L"(oD)"});
+    candidateList->AddItem({L"8", L"倪", L"(rE)"});
+    candidateList->SetOnSelectionChanged([candidateStatus](size_t selectedIndex) {
+        static const wchar_t *labels[] = {L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8"};
+        static const wchar_t *texts[] = {L"你", L"尼", L"妮", L"泥", L"逆", L"拟", L"腻", L"倪"};
+        static const wchar_t *annotations[] = {L"(rX)", L"(uV)", L"(nV)", L"(dV)", L"(zQ)", L"(fR)", L"(oD)", L"(rE)"};
+        if (selectedIndex < 8)
+        {
+            candidateStatus->SetText(std::wstring(L"Selected candidate: ") + labels[selectedIndex] + L" " +
+                                     texts[selectedIndex] + annotations[selectedIndex]);
+        }
+    });
+    candidatePopupStack->AddChild(candidateList);
+
+    auto candidatePopup = std::make_shared<Popup>(candidatePopupStack);
+    candidatePopup->SetMatchAnchorWidth(false);
+    candidatePopup->SetWidth(272.0f);
+    candidatePopup->SetPadding({10.0f, 10.0f, 10.0f, 10.0f});
+    candidatePopup->SetBackgroundFill(D2D1::ColorF(0x242424));
+    candidatePopup->SetBorderColor(D2D1::ColorF(0x474747));
+    candidatePopup->SetCornerRadius(12.0f);
+    candidatePopup->SetShadowEnabled(true);
+    candidatePopup->SetOffset(0.0f, 6.0f);
+
+    auto candidateHost = std::make_shared<PopupHost>(candidateTrigger, candidatePopup);
+
+    candidateStack->AddChild(std::make_shared<TextBlock>(L"Candidate Window Target", 20.0f, D2D1::ColorF(0x1F2937), true));
+    candidateStack->AddChild(std::make_shared<TextBlock>(
+        L"This is the first candidate-window-oriented preview for replacing the WebView2 IME candidate popup with native retained-mode rendering.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    candidateStack->AddChild(candidateStatus);
+    candidateStack->AddChild(candidateHost);
+    candidateCard->AddChild(candidateStack);
+    root->AddChild(candidateCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
     auto contextMenuCard = std::make_shared<Card>(surface, 20.0f);
     auto contextMenuStack = std::make_shared<StackPanel>(14.0f);
     auto contextMenuStatus =

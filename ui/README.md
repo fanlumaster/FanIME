@@ -20,6 +20,7 @@
 - 通用单子元素容器：`Container` / `Border`
 - `TextBlock` / `Button` / `CheckBox` / `ProgressBar` / `Slider` / `Separator` / `ListView` / `TreeView` / `TabControl` / `Accordion`
 - `ComboBox`
+- `CandidateList`
 - `ContextMenuHost`
 - `Card`
 - `TextBox` 输入控件
@@ -96,6 +97,9 @@
 - 调整了 demo 窗口的启动位置：现在会按主屏工作区居中创建，而不是沿用系统默认位置
 - 进一步修正了多行 `TextBox` 的跨行选区接缝：选区背景的上下边界现在会贴齐像素网格，减少高亮行之间残留的细线
 - 调整了 `ScrollViewer` 的滚动条悬浮反馈：鼠标移到滚动条轨道上时 thumb 就会立即切到高亮色，不再等到按下拖动后才变色
+- 新增第一版面向输入法候选窗的 `CandidateList`：支持紧凑候选项、序号/主词/注解三段式排版、选中态切换，适合作为 WebView2 候选框的原生替代基础控件
+- `Popup` 现支持自定义背景色、边框色、圆角半径和轻量阴影，便于构建深色候选窗、悬浮工具条弹层等更贴近输入法场景的 overlay UI
+- demo 新增 `Candidate Window Target` 示例：使用深色 `Popup` + `CandidateList` 组合出一版接近输入法候选窗形态的候选层预览，作为后续替换 `MetasequoiaImeServer` WebView2 候选框的起点
 
 ## 构建
 

@@ -102,6 +102,10 @@ class Popup : public Visual
     void SetPlacement(PopupPlacement placement);
     void SetOffset(float x, float y);
     void SetMatchAnchorWidth(bool matchAnchorWidth);
+    void SetBackgroundFill(const D2D1_COLOR_F &fill);
+    void SetBorderColor(const D2D1_COLOR_F &border);
+    void SetCornerRadius(float radius);
+    void SetShadowEnabled(bool enabled);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -120,6 +124,10 @@ class Popup : public Visual
     float offsetX_ = 0.0f;
     float offsetY_ = 8.0f;
     bool matchAnchorWidth_ = true;
+    D2D1_COLOR_F backgroundFill_ = D2D1::ColorF(0xFFFFFF);
+    D2D1_COLOR_F borderColor_ = D2D1::ColorF(0xD6DCE5);
+    float cornerRadius_ = 16.0f;
+    bool shadowEnabled_ = false;
 };
 
 class PopupHost : public Visual
@@ -366,6 +374,61 @@ class ListView : public Visual
     std::vector<Item> items_;
     std::vector<ItemLayoutCache> layoutCache_;
     float itemHeight_ = 68.0f;
+    bool focused_ = false;
+    bool pressed_ = false;
+    size_t pressedIndex_ = static_cast<size_t>(-1);
+    size_t selectedIndex_ = 0;
+    SelectionChangedHandler onSelectionChanged_;
+};
+
+class CandidateList : public Visual
+{
+  public:
+    struct Item
+    {
+        std::wstring label;
+        std::wstring text;
+        std::wstring annotation;
+    };
+
+    using SelectionChangedHandler = std::function<void(size_t selectedIndex)>;
+
+    explicit CandidateList(float itemHeight = 40.0f);
+
+    void AddItem(Item item);
+    void ClearItems();
+    void SetSelectedIndex(size_t index);
+    size_t GetSelectedIndex() const;
+    void SetOnSelectionChanged(SelectionChangedHandler handler);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    bool HitTest(const PointF &point) const override;
+    bool IsFocusable() const override;
+    void OnFocusChanged(bool focused) override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    HCURSOR GetCursor() const override;
+
+  private:
+    struct ItemLayoutCache
+    {
+        float labelWidth = -1.0f;
+        float textWidth = -1.0f;
+        float annotationWidth = -1.0f;
+        std::wstring fontFamily;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> labelLayout;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> textLayout;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> annotationLayout;
+    };
+
+    void InvalidateLayoutCache();
+    size_t HitTestItem(const PointF &point) const;
+
+    std::vector<Item> items_;
+    std::vector<ItemLayoutCache> layoutCache_;
+    float itemHeight_ = 40.0f;
     bool focused_ = false;
     bool pressed_ = false;
     size_t pressedIndex_ = static_cast<size_t>(-1);
