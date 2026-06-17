@@ -2062,17 +2062,17 @@ void CandidateList::Render(DeviceResources &deviceResources)
         if (selected || pressed)
         {
             const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
-            FillRoundedRect(deviceResources, itemRect, 8.0f, fill, fill, 0.0f);
+            FillRoundedRect(deviceResources, itemRect, 7.0f, fill, fill, 0.0f);
 
-            const RectF selectedBar = {itemRect.x + 3.0f, itemRect.y + 6.0f, 3.0f, std::max(itemRect.height - 12.0f, 0.0f)};
-            FillRoundedRect(deviceResources, selectedBar, 1.5f, selectedBarColor, selectedBarColor, 0.0f);
+            const RectF selectedBar = {itemRect.x + 2.0f, itemRect.y + 7.0f, 2.0f, std::max(itemRect.height - 14.0f, 0.0f)};
+            FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
-        const float labelWidth = 18.0f;
-        const float labelLeading = 10.0f;
+        const float labelWidth = 16.0f;
+        const float labelLeading = 13.0f;
         const float annotationWidth = 36.0f;
-        const float annotationTrailing = 10.0f;
-        const float textGap = 6.0f;
+        const float annotationTrailing = 9.0f;
+        const float textGap = 7.0f;
         const RectF labelRect = {itemRect.x + labelLeading, itemRect.y, labelWidth, itemRect.height};
         const RectF annotationRect = {itemRect.x + itemRect.width - annotationWidth - annotationTrailing, itemRect.y,
                                       annotationWidth, itemRect.height};
