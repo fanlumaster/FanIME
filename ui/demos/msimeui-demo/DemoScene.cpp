@@ -464,8 +464,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
     candidatePopupStack->AddChild(std::make_shared<TextBlock>(L"ni", 20.0f, D2D1::ColorF(0xFFFFFF), true));
 
-    auto candidateList = std::make_shared<CandidateList>(38.0f);
-    candidateList->SetWidth(252.0f);
+    auto candidateList = std::make_shared<CandidateList>(30.0f);
+    candidateList->SetWidth(124.0f);
     candidateList->AddItem({L"1", L"\x4F60", L"(rX)"});
     candidateList->AddItem({L"2", L"\x5C3C", L"(uV)"});
     candidateList->AddItem({L"3", L"\x59AE", L"(nV)"});
@@ -474,9 +474,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     candidateList->AddItem({L"6", L"\x62DF", L"(fR)"});
     candidateList->AddItem({L"7", L"\x817B", L"(oD)"});
     candidateList->AddItem({L"8", L"\x502A", L"(rE)"});
-    auto candidateFooter = std::make_shared<TextBlock>(L"Page 1/3    Up/Down to move", 12.0f, D2D1::ColorF(0x9CA3AF));
-    candidateFooter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-    candidateList->SetOnSelectionChanged([candidateStatus, candidateFooter](size_t selectedIndex) {
+    candidateList->SetOnSelectionChanged([candidateStatus](size_t selectedIndex) {
         static const wchar_t *labels[] = {L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8"};
         static const wchar_t *texts[] = {L"\x4F60", L"\x5C3C", L"\x59AE", L"\x6CE5", L"\x9006", L"\x62DF", L"\x817B", L"\x502A"};
         static const wchar_t *annotations[] = {L"(rX)", L"(uV)", L"(nV)", L"(dV)", L"(zQ)", L"(fR)", L"(oD)", L"(rE)"};
@@ -484,19 +482,14 @@ std::unique_ptr<Scene> CreateDemoScene()
         {
             candidateStatus->SetText(std::wstring(L"Selected candidate: ") + labels[selectedIndex] + L" " +
                                      texts[selectedIndex] + annotations[selectedIndex]);
-            candidateFooter->SetText(std::wstring(L"Page 1/3    Active: ") + labels[selectedIndex] + L" " +
-                                     texts[selectedIndex] + L"    Up/Down to move");
         }
     });
     candidatePopupStack->AddChild(candidateList);
-    auto candidateFooterContainer = std::make_shared<Container>(candidateFooter);
-    candidateFooterContainer->SetPadding({0.0f, 2.0f, 0.0f, 0.0f});
-    candidatePopupStack->AddChild(candidateFooterContainer);
 
     auto candidatePopup = std::make_shared<Popup>(candidatePopupStack);
     candidatePopup->SetMatchAnchorWidth(false);
-    candidatePopup->SetWidth(272.0f);
-    candidatePopup->SetPadding({10.0f, 10.0f, 10.0f, 10.0f});
+    candidatePopup->SetWidth(136.0f);
+    candidatePopup->SetPadding({8.0f, 8.0f, 8.0f, 8.0f});
     candidatePopup->SetBackgroundFill(D2D1::ColorF(0x242424));
     candidatePopup->SetBorderColor(D2D1::ColorF(0x474747));
     candidatePopup->SetCornerRadius(12.0f);
