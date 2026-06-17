@@ -53,6 +53,7 @@ class Window
     DeviceResources deviceResources_;
     std::unique_ptr<Scene> scene_;
     Visual *focusedVisual_ = nullptr;
+    Visual *hoveredVisual_ = nullptr;
     Visual *capturedVisual_ = nullptr;
 };
 } // namespace msimeui

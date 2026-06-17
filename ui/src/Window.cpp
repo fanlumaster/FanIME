@@ -321,9 +321,31 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         UpdateCursorForClientPoint(point);
+        Visual *hoverTarget = nullptr;
+        if (scene_)
+        {
+            hoverTarget = scene_->FindVisualAt(ClientPixelsToDips(point));
+        }
+        if (hoveredVisual_ != hoverTarget)
+        {
+            if (hoveredVisual_)
+            {
+                hoveredVisual_->OnMouseLeave();
+            }
+            hoveredVisual_ = hoverTarget;
+            if (hoveredVisual_)
+            {
+                hoveredVisual_->OnMouseEnter();
+            }
+        }
+
         if (capturedVisual_)
         {
             capturedVisual_->OnMouseMove(point, wParam);
+        }
+        else if (hoverTarget && hoverTarget->OnMouseMove(point, wParam))
+        {
+            return 0;
         }
         else if (focusedVisual_)
         {

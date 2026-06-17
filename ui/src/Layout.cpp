@@ -159,6 +159,14 @@ bool Visual::OnMouseMove(const POINT &point, WPARAM keyState)
     return false;
 }
 
+void Visual::OnMouseEnter()
+{
+}
+
+void Visual::OnMouseLeave()
+{
+}
+
 bool Visual::OnContextMenu(const POINT &point, WPARAM keyState)
 {
     (void)point;
@@ -891,7 +899,7 @@ void ScrollViewer::Render(DeviceResources &deviceResources)
     const Theme &theme = ThemeManager::GetCurrent();
     ID2D1SolidColorBrush *trackBrush = deviceResources.GetSolidColorBrush(theme.track);
     ID2D1SolidColorBrush *thumbBrush =
-        deviceResources.GetSolidColorBrush(scrollbarDragging_ ? theme.thumbActive : theme.thumb);
+        deviceResources.GetSolidColorBrush((scrollbarDragging_ || scrollbarHovered_) ? theme.thumbActive : theme.thumb);
     if (!trackBrush || !thumbBrush)
     {
         return;
@@ -1011,12 +1019,24 @@ bool ScrollViewer::OnMouseUp(const POINT &point, WPARAM keyState)
 
 bool ScrollViewer::OnMouseMove(const POINT &point, WPARAM keyState)
 {
-    if (!scrollbarDragging_ || !(keyState & MK_LBUTTON) || !window_ || !HasVerticalScrollbar())
+    if (!window_ || !HasVerticalScrollbar())
     {
         return false;
     }
 
     const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const bool hovered = PointInRect(GetScrollbarTrackRect(), dipPoint);
+    if (scrollbarHovered_ != hovered)
+    {
+        scrollbarHovered_ = hovered;
+        RefreshViewport();
+    }
+
+    if (!scrollbarDragging_ || !(keyState & MK_LBUTTON))
+    {
+        return hovered;
+    }
+
     const RectF trackRect = GetScrollbarTrackRect();
     const RectF thumbRect = GetScrollbarThumbRect();
     const float trackTravel = std::max(trackRect.height - thumbRect.height, 1.0f);
@@ -1055,6 +1075,29 @@ bool ScrollViewer::OnMouseWheel(const POINT &point, short delta, WPARAM keyState
 HCURSOR ScrollViewer::GetCursor() const
 {
     return Visual::GetCursor();
+}
+
+void ScrollViewer::OnMouseEnter()
+{
+    if (!HasVerticalScrollbar())
+    {
+        return;
+    }
+
+    if (!scrollbarHovered_)
+    {
+        scrollbarHovered_ = true;
+        RefreshViewport();
+    }
+}
+
+void ScrollViewer::OnMouseLeave()
+{
+    if (scrollbarHovered_)
+    {
+        scrollbarHovered_ = false;
+        RefreshViewport();
+    }
 }
 
 void ScrollViewer::ClampScrollOffset()

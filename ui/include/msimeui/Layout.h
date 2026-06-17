@@ -64,6 +64,8 @@ class Visual
     virtual bool OnMouseDown(const POINT &point, WPARAM keyState);
     virtual bool OnMouseUp(const POINT &point, WPARAM keyState);
     virtual bool OnMouseMove(const POINT &point, WPARAM keyState);
+    virtual void OnMouseEnter();
+    virtual void OnMouseLeave();
     virtual bool OnContextMenu(const POINT &point, WPARAM keyState);
     virtual bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState);
     virtual bool OnKeyDown(WPARAM key, LPARAM lParam);
@@ -232,6 +234,8 @@ class ScrollViewer : public Visual
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
     bool OnMouseMove(const POINT &point, WPARAM keyState) override;
+    void OnMouseEnter() override;
+    void OnMouseLeave() override;
     bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState) override;
     HCURSOR GetCursor() const override;
 
@@ -246,6 +250,7 @@ class ScrollViewer : public Visual
     std::shared_ptr<Visual> content_;
     SizeF measuredContent_ = {};
     float scrollOffsetY_ = 0.0f;
+    bool scrollbarHovered_ = false;
     bool scrollbarDragging_ = false;
     float scrollbarDragOffsetY_ = 0.0f;
 };
