@@ -4,12 +4,39 @@
 #include "msimeui/Theme.h"
 #include "DebugLog.h"
 
+#include <algorithm>
 #include <d2d1.h>
 #include <sstream>
 #include <windowsx.h>
 
 namespace msimeui
 {
+namespace
+{
+POINT GetCenteredWindowOrigin(int windowWidth, int windowHeight)
+{
+    POINT origin = {CW_USEDEFAULT, CW_USEDEFAULT};
+
+    MONITORINFO monitorInfo = {};
+    monitorInfo.cbSize = sizeof(monitorInfo);
+    const HMONITOR monitor = MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY);
+    if (!monitor || !GetMonitorInfoW(monitor, &monitorInfo))
+    {
+        return origin;
+    }
+
+    const RECT &workArea = monitorInfo.rcWork;
+    const int workWidth = std::max(static_cast<int>(workArea.right - workArea.left), 0);
+    const int workHeight = std::max(static_cast<int>(workArea.bottom - workArea.top), 0);
+    const int clampedWidth = std::min(std::max(windowWidth, 0), workWidth);
+    const int clampedHeight = std::min(std::max(windowHeight, 0), workHeight);
+
+    origin.x = workArea.left + std::max((workWidth - clampedWidth) / 2, 0);
+    origin.y = workArea.top + std::max((workHeight - clampedHeight) / 2, 0);
+    return origin;
+}
+} // namespace
+
 Window::Window(std::wstring className, std::wstring title, int width, int height)
     : className_(std::move(className)), title_(std::move(title)), width_(width), height_(height),
       instance_(GetModuleHandleW(nullptr))
@@ -36,8 +63,9 @@ bool Window::Create()
     windowClass.hIconSm = smallIcon;
     RegisterClassExW(&windowClass);
 
-    hwnd_ = CreateWindowExW(0, className_.c_str(), title_.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
-                            width_, height_, nullptr, nullptr, instance_, this);
+    const POINT origin = GetCenteredWindowOrigin(width_, height_);
+    hwnd_ = CreateWindowExW(0, className_.c_str(), title_.c_str(), WS_OVERLAPPEDWINDOW, origin.x, origin.y, width_, height_,
+                            nullptr, nullptr, instance_, this);
     if (hwnd_)
     {
         if (largeIcon)
