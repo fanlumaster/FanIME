@@ -44,7 +44,7 @@ constexpr float kTabCornerRadius = 12.0f;
 constexpr float kAccordionCornerRadius = 14.0f;
 constexpr float kAccordionHeaderHorizontalPadding = 20.0f;
 constexpr float kComboBoxItemGap = 6.0f;
-constexpr float kCandidateItemGap = 4.0f;
+constexpr float kCandidateItemGap = 1.0f;
 
 RectF MakeInsetRect(const RectF &rect, float insetX, float insetY)
 {
@@ -2045,15 +2045,12 @@ void CandidateList::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    const D2D1_COLOR_F rowFill = D2D1::ColorF(0x2E2E2E);
-    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x3D3D3D);
-    const D2D1_COLOR_F rowStroke = D2D1::ColorF(0x3A3A3A);
-    const D2D1_COLOR_F rowStrokeSelected = D2D1::ColorF(0x4F8EF7);
-    const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3B3B3B);
-    const D2D1_COLOR_F labelColor = D2D1::ColorF(0xA8A8A8);
-    const D2D1_COLOR_F labelColorSelected = D2D1::ColorF(0x7EA8FF);
+    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x323232);
+    const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3A3A3A);
+    const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7C83FF);
+    const D2D1_COLOR_F labelColor = D2D1::ColorF(0x9C9C9C);
     const D2D1_COLOR_F textColor = D2D1::ColorF(0xF3F4F6);
-    const D2D1_COLOR_F annotationColor = D2D1::ColorF(0xD1D5DB);
+    const D2D1_COLOR_F annotationColor = D2D1::ColorF(0xD7D7D7);
 
     for (size_t index = 0; index < items_.size(); ++index)
     {
@@ -2062,9 +2059,14 @@ void CandidateList::Render(DeviceResources &deviceResources)
         const bool selected = index == selectedIndex_;
         const bool pressed = pressed_ && index == pressedIndex_;
 
-        FillRoundedRect(deviceResources, itemRect, 10.0f,
-                        pressed ? rowFillPressed : (selected ? rowFillSelected : rowFill),
-                        selected ? rowStrokeSelected : rowStroke, selected ? 1.5f : 1.0f);
+        if (selected || pressed)
+        {
+            const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
+            FillRoundedRect(deviceResources, itemRect, 8.0f, fill, fill, 0.0f);
+
+            const RectF selectedBar = {itemRect.x + 3.0f, itemRect.y + 6.0f, 3.0f, std::max(itemRect.height - 12.0f, 0.0f)};
+            FillRoundedRect(deviceResources, selectedBar, 1.5f, selectedBarColor, selectedBarColor, 0.0f);
+        }
 
         const float labelWidth = 18.0f;
         const float labelLeading = 10.0f;
@@ -2111,7 +2113,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
 
         ID2D1SolidColorBrush *labelBrush =
-            deviceResources.GetSolidColorBrush(selected ? labelColorSelected : labelColor);
+            deviceResources.GetSolidColorBrush(labelColor);
         ID2D1SolidColorBrush *textBrush = deviceResources.GetSolidColorBrush(textColor);
         ID2D1SolidColorBrush *annotationBrush = deviceResources.GetSolidColorBrush(annotationColor);
         if (cache.labelLayout && labelBrush)
