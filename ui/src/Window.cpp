@@ -502,6 +502,11 @@ bool Window::UpdateCursorForClientPoint(const POINT &point)
     return target != nullptr;
 }
 
+void Window::FocusVisual(Visual *visual)
+{
+    SetFocusedVisual(visual);
+}
+
 void Window::SetFocusedVisual(Visual *visual)
 {
     if (focusedVisual_ == visual)

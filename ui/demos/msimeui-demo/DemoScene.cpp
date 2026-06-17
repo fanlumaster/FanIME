@@ -474,7 +474,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     candidateList->AddItem({L"6", L"拟", L"(fR)"});
     candidateList->AddItem({L"7", L"腻", L"(oD)"});
     candidateList->AddItem({L"8", L"倪", L"(rE)"});
-    candidateList->SetOnSelectionChanged([candidateStatus](size_t selectedIndex) {
+    auto candidateFooter = std::make_shared<TextBlock>(L"Page 1/3    Up/Down to move", 12.0f, D2D1::ColorF(0x9CA3AF));
+    candidateFooter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+    candidateList->SetOnSelectionChanged([candidateStatus, candidateFooter](size_t selectedIndex) {
         static const wchar_t *labels[] = {L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8"};
         static const wchar_t *texts[] = {L"你", L"尼", L"妮", L"泥", L"逆", L"拟", L"腻", L"倪"};
         static const wchar_t *annotations[] = {L"(rX)", L"(uV)", L"(nV)", L"(dV)", L"(zQ)", L"(fR)", L"(oD)", L"(rE)"};
@@ -482,9 +484,14 @@ std::unique_ptr<Scene> CreateDemoScene()
         {
             candidateStatus->SetText(std::wstring(L"Selected candidate: ") + labels[selectedIndex] + L" " +
                                      texts[selectedIndex] + annotations[selectedIndex]);
+            candidateFooter->SetText(std::wstring(L"Page 1/3    Active: ") + labels[selectedIndex] + L" " +
+                                     texts[selectedIndex] + L"    Up/Down to move");
         }
     });
     candidatePopupStack->AddChild(candidateList);
+    auto candidateFooterContainer = std::make_shared<Container>(candidateFooter);
+    candidateFooterContainer->SetPadding({0.0f, 2.0f, 0.0f, 0.0f});
+    candidatePopupStack->AddChild(candidateFooterContainer);
 
     auto candidatePopup = std::make_shared<Popup>(candidatePopupStack);
     candidatePopup->SetMatchAnchorWidth(false);

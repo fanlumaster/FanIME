@@ -787,6 +787,10 @@ void PopupHost::OpenPopup()
     {
         scene->AddPopup(popup_, [this]() { open_ = false; });
         open_ = true;
+        if (Visual *focusTarget = popup_->FindFirstFocusableDescendant())
+        {
+            window_->FocusVisual(focusTarget);
+        }
     }
 }
 
@@ -932,6 +936,10 @@ void ContextMenuHost::OpenPopupAt(const PointF &anchorPoint)
             InvalidateVisual();
         });
         open_ = true;
+        if (Visual *focusTarget = popup_->FindFirstFocusableDescendant())
+        {
+            window_->FocusVisual(focusTarget);
+        }
         InvalidateVisual();
     }
 }
@@ -1170,6 +1178,10 @@ void ComboBox::OpenPopup()
             InvalidateVisual();
         });
         open_ = true;
+        if (Visual *focusTarget = popup_->FindFirstFocusableDescendant())
+        {
+            window_->FocusVisual(focusTarget);
+        }
         InvalidateVisual();
     }
 }
@@ -2169,6 +2181,45 @@ bool CandidateList::OnMouseUp(const POINT &point, WPARAM keyState)
     }
 
     InvalidateVisual();
+    return true;
+}
+
+bool CandidateList::OnKeyDown(WPARAM key, LPARAM lParam)
+{
+    (void)lParam;
+    if (items_.empty())
+    {
+        return false;
+    }
+
+    size_t nextIndex = selectedIndex_;
+    switch (key)
+    {
+    case VK_UP:
+    case VK_LEFT:
+        nextIndex = selectedIndex_ > 0 ? selectedIndex_ - 1 : 0;
+        break;
+    case VK_DOWN:
+    case VK_RIGHT:
+        nextIndex = std::min(selectedIndex_ + 1, items_.size() - 1);
+        break;
+    case VK_HOME:
+        nextIndex = 0;
+        break;
+    case VK_END:
+        nextIndex = items_.size() - 1;
+        break;
+    case VK_PRIOR:
+        nextIndex = selectedIndex_ > 5 ? selectedIndex_ - 5 : 0;
+        break;
+    case VK_NEXT:
+        nextIndex = std::min(selectedIndex_ + 5, items_.size() - 1);
+        break;
+    default:
+        return false;
+    }
+
+    SetSelectedIndex(nextIndex);
     return true;
 }
 

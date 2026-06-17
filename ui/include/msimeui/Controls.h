@@ -409,6 +409,7 @@ class CandidateList : public Visual
     void OnFocusChanged(bool focused) override;
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    bool OnKeyDown(WPARAM key, LPARAM lParam) override;
     HCURSOR GetCursor() const override;
 
   private:
