@@ -2066,9 +2066,17 @@ void CandidateList::Render(DeviceResources &deviceResources)
                         pressed ? rowFillPressed : (selected ? rowFillSelected : rowFill),
                         selected ? rowStrokeSelected : rowStroke, selected ? 1.5f : 1.0f);
 
-        const RectF labelRect = {itemRect.x + 12.0f, itemRect.y, 24.0f, itemRect.height};
-        const RectF textRect = {itemRect.x + 38.0f, itemRect.y, std::max(itemRect.width - 118.0f, 0.0f), itemRect.height};
-        const RectF annotationRect = {itemRect.x + itemRect.width - 72.0f, itemRect.y, 60.0f, itemRect.height};
+        const float labelWidth = 18.0f;
+        const float labelLeading = 10.0f;
+        const float annotationWidth = 36.0f;
+        const float annotationTrailing = 10.0f;
+        const float textGap = 6.0f;
+        const RectF labelRect = {itemRect.x + labelLeading, itemRect.y, labelWidth, itemRect.height};
+        const RectF annotationRect = {itemRect.x + itemRect.width - annotationWidth - annotationTrailing, itemRect.y,
+                                      annotationWidth, itemRect.height};
+        const float textX = labelRect.x + labelRect.width + textGap;
+        const float textRight = annotationRect.x - textGap;
+        const RectF textRect = {textX, itemRect.y, std::max(textRight - textX, 0.0f), itemRect.height};
 
         auto &cache = layoutCache_[index];
         if (cache.fontFamily != theme.uiFontFamily || cache.labelWidth != labelRect.width)
