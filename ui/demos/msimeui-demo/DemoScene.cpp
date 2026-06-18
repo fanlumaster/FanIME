@@ -462,11 +462,11 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto candidatePopupStack = std::make_shared<StackPanel>(0.0f);
     candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
-    auto candidatePinyin = std::make_shared<TextBlock>(L"ni", 17.0f, D2D1::ColorF(0xFFFFFF), false);
+    auto candidatePinyin = std::make_shared<TextBlock>(L"ni", 16.0f, D2D1::ColorF(0xFFFFFF), false);
     candidatePinyin->SetMargin({0.0f, 0.0f, 0.0f, 1.0f});
     candidatePopupStack->AddChild(candidatePinyin);
 
-    auto candidateList = std::make_shared<CandidateList>(28.0f);
+    auto candidateList = std::make_shared<CandidateList>(27.0f);
     candidateList->SetWidth(124.0f);
     candidateList->AddItem({L"1", L"\x4F60", L"(rX)"});
     candidateList->AddItem({L"2", L"\x5C3C", L"(uV)"});
