@@ -463,7 +463,7 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto candidatePopupStack = std::make_shared<StackPanel>(0.0f);
     candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
     auto candidatePinyin = std::make_shared<TextBlock>(L"ni", 16.0f, D2D1::ColorF(0xFFFFFF), false);
-    candidatePinyin->SetMargin({0.0f, 0.0f, 0.0f, 1.0f});
+    candidatePinyin->SetMargin({0.0f, 0.0f, 0.0f, 0.0f});
     candidatePopupStack->AddChild(candidatePinyin);
 
     auto candidateList = std::make_shared<CandidateList>(27.0f);
@@ -491,10 +491,10 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto candidatePopup = std::make_shared<Popup>(candidatePopupStack);
     candidatePopup->SetMatchAnchorWidth(false);
     candidatePopup->SetWidth(136.0f);
-    candidatePopup->SetPadding({8.0f, 2.0f, 8.0f, 4.0f});
+    candidatePopup->SetPadding({8.0f, 1.0f, 8.0f, 3.0f});
     candidatePopup->SetBackgroundFill(D2D1::ColorF(0x242424));
-    candidatePopup->SetBorderColor(D2D1::ColorF(0x474747));
-    candidatePopup->SetCornerRadius(12.0f);
+    candidatePopup->SetBorderColor(D2D1::ColorF(0x3B3B3B));
+    candidatePopup->SetCornerRadius(10.0f);
     candidatePopup->SetShadowEnabled(true);
     candidatePopup->SetOffset(0.0f, 6.0f);
 

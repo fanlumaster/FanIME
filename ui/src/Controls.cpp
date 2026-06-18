@@ -229,9 +229,9 @@ void DrawPopupShadow(DeviceResources &deviceResources, const RectF &bounds, floa
     };
 
     static constexpr ShadowLayer kLayers[] = {
-        {2.0f, 2.0f, 0.10f},
-        {6.0f, 6.0f, 0.06f},
-        {11.0f, 12.0f, 0.03f},
+        {1.0f, 1.0f, 0.08f},
+        {4.0f, 4.0f, 0.045f},
+        {8.0f, 9.0f, 0.02f},
     };
 
     for (const ShadowLayer &layer : kLayers)
@@ -2045,7 +2045,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x323232);
+    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x313131);
     const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3A3A3A);
     const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7C83FF);
     const D2D1_COLOR_F labelColor = D2D1::ColorF(0xA6A6A6);
@@ -2062,11 +2062,11 @@ void CandidateList::Render(DeviceResources &deviceResources)
         if (selected || pressed)
         {
             const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
-            const RectF selectedRect = {itemRect.x + 1.0f, itemRect.y + 1.0f, std::max(itemRect.width - 2.0f, 0.0f),
-                                        std::max(itemRect.height - 2.0f, 0.0f)};
-            FillRoundedRect(deviceResources, selectedRect, 6.0f, fill, fill, 0.0f);
+            const RectF selectedRect = {itemRect.x + 1.0f, itemRect.y + 2.0f, std::max(itemRect.width - 2.0f, 0.0f),
+                                        std::max(itemRect.height - 4.0f, 0.0f)};
+            FillRoundedRect(deviceResources, selectedRect, 5.0f, fill, fill, 0.0f);
 
-            const RectF selectedBar = {itemRect.x + 3.0f, itemRect.y + 7.0f, 2.0f, std::max(itemRect.height - 14.0f, 0.0f)};
+            const RectF selectedBar = {itemRect.x + 3.0f, itemRect.y + 8.0f, 2.0f, std::max(itemRect.height - 16.0f, 0.0f)};
             FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
