@@ -1,11 +1,253 @@
 #include <string>
 #include <sstream>
 #include <cwctype>
+#include <filesystem>
+#include <fstream>
+#include <mutex>
+#include <string_view>
+#include <unordered_set>
+#include <vector>
+#include <windows.h>
 #include "TextEditor.h"
 #include "../DebugLog.h"
 
 extern ITfThreadMgr *g_pThreadMgr;
 extern TfClientId g_TfClientId;
+
+namespace
+{
+std::wstring Utf8ToWide(const std::string &text)
+{
+    if (text.empty())
+    {
+        return {};
+    }
+
+    const int length = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
+    if (length <= 0)
+    {
+        return {};
+    }
+
+    std::wstring result(static_cast<size_t>(length), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), result.data(), length);
+    return result;
+}
+
+std::filesystem::path FindDictionaryPath()
+{
+    wchar_t modulePath[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+
+    std::vector<std::filesystem::path> roots;
+    roots.emplace_back(std::filesystem::current_path());
+    roots.emplace_back(std::filesystem::path(modulePath).parent_path());
+
+    for (const auto &root : roots)
+    {
+        for (auto current = root; !current.empty(); current = current.parent_path())
+        {
+            const auto candidate = current / "assets" / "dict.txt";
+            if (std::filesystem::exists(candidate))
+            {
+                return candidate;
+            }
+
+            if (current == current.root_path())
+            {
+                break;
+            }
+        }
+    }
+
+    return {};
+}
+
+struct WordDictionary
+{
+    std::unordered_set<std::wstring> entries;
+    size_t maxWordLength = 1;
+};
+
+const WordDictionary &GetWordDictionary()
+{
+    static WordDictionary dictionary;
+    static std::once_flag once;
+    std::call_once(once, []() {
+        const auto path = FindDictionaryPath();
+        if (path.empty())
+        {
+            msimeui::DebugLog("Word dictionary not found, Ctrl+Backspace/Delete will fall back to char/token boundaries");
+            return;
+        }
+
+        std::ifstream stream(path, std::ios::binary);
+        if (!stream)
+        {
+            msimeui::DebugLog("Failed to open word dictionary");
+            return;
+        }
+
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            if (!line.empty() && line.back() == '\r')
+            {
+                line.pop_back();
+            }
+
+            const std::wstring word = Utf8ToWide(line);
+            if (word.empty())
+            {
+                continue;
+            }
+
+            dictionary.maxWordLength = std::max(dictionary.maxWordLength, word.size());
+            dictionary.entries.insert(word);
+        }
+
+        std::ostringstream log;
+        log << "Loaded word dictionary entries=" << dictionary.entries.size()
+            << " maxWordLength=" << dictionary.maxWordLength;
+        msimeui::DebugLog(log.str());
+    });
+
+    return dictionary;
+}
+
+bool IsAsciiWordChar(wchar_t ch)
+{
+    return (ch >= L'0' && ch <= L'9') || (ch >= L'a' && ch <= L'z') || (ch >= L'A' && ch <= L'Z') || ch == L'_';
+}
+
+bool IsCjkLikeChar(wchar_t ch)
+{
+    return ch >= 0x2E80;
+}
+
+bool IsDeletablePunctuation(wchar_t ch)
+{
+    return !std::iswspace(ch) && !IsAsciiWordChar(ch) && !IsCjkLikeChar(ch);
+}
+
+UINT FindPreviousWordStart(std::wstring_view text, UINT caret)
+{
+    if (caret == 0 || text.empty())
+    {
+        return caret;
+    }
+
+    UINT cursor = caret;
+    while (cursor > 0 && std::iswspace(text[cursor - 1]))
+    {
+        cursor--;
+    }
+    if (cursor == 0)
+    {
+        return 0;
+    }
+
+    const wchar_t previous = text[cursor - 1];
+    if (IsAsciiWordChar(previous))
+    {
+        UINT start = cursor;
+        while (start > 0 && IsAsciiWordChar(text[start - 1]))
+        {
+            start--;
+        }
+        return start;
+    }
+
+    if (IsDeletablePunctuation(previous))
+    {
+        UINT start = cursor;
+        while (start > 0 && IsDeletablePunctuation(text[start - 1]))
+        {
+            start--;
+        }
+        return start;
+    }
+
+    const WordDictionary &dictionary = GetWordDictionary();
+    const UINT earliest = cursor > dictionary.maxWordLength ? cursor - static_cast<UINT>(dictionary.maxWordLength) : 0;
+    UINT bestStart = cursor - 1;
+    size_t bestLength = 1;
+    for (UINT start = earliest; start < cursor; ++start)
+    {
+        const size_t length = static_cast<size_t>(cursor - start);
+        if (length <= bestLength)
+        {
+            continue;
+        }
+
+        if (dictionary.entries.find(std::wstring(text.substr(start, length))) != dictionary.entries.end())
+        {
+            bestStart = start;
+            bestLength = length;
+        }
+    }
+    return bestStart;
+}
+
+UINT FindNextWordEnd(std::wstring_view text, UINT caret)
+{
+    if (caret >= text.size())
+    {
+        return caret;
+    }
+
+    UINT cursor = caret;
+    while (cursor < text.size() && std::iswspace(text[cursor]))
+    {
+        cursor++;
+    }
+    if (cursor >= text.size())
+    {
+        return static_cast<UINT>(text.size());
+    }
+
+    const wchar_t current = text[cursor];
+    if (IsAsciiWordChar(current))
+    {
+        UINT end = cursor;
+        while (end < text.size() && IsAsciiWordChar(text[end]))
+        {
+            end++;
+        }
+        return end;
+    }
+
+    if (IsDeletablePunctuation(current))
+    {
+        UINT end = cursor;
+        while (end < text.size() && IsDeletablePunctuation(text[end]))
+        {
+            end++;
+        }
+        return end;
+    }
+
+    const WordDictionary &dictionary = GetWordDictionary();
+    const UINT latest = std::min<UINT>(static_cast<UINT>(text.size()), cursor + static_cast<UINT>(dictionary.maxWordLength));
+    UINT bestEnd = cursor + 1;
+    size_t bestLength = 1;
+    for (UINT end = cursor + 1; end <= latest; ++end)
+    {
+        const size_t length = static_cast<size_t>(end - cursor);
+        if (length <= bestLength)
+        {
+            continue;
+        }
+
+        if (dictionary.entries.find(std::wstring(text.substr(cursor, length))) != dictionary.entries.end())
+        {
+            bestEnd = end;
+            bestLength = length;
+        }
+    }
+    return bestEnd;
+}
+}
 
 //----------------------------------------------------------------
 //
@@ -253,18 +495,8 @@ BOOL CTextEditor::DeletePreviousWord()
         return TRUE;
     }
 
-    UINT deleteStart = _nSelStart;
-    const WCHAR *text = GetTextBuffer();
-
-    while (deleteStart > 0 && iswspace(text[deleteStart - 1]))
-    {
-        deleteStart--;
-    }
-
-    while (deleteStart > 0 && !iswspace(text[deleteStart - 1]))
-    {
-        deleteStart--;
-    }
+    const std::wstring_view text(GetTextBuffer(), GetTextLength());
+    const UINT deleteStart = FindPreviousWordStart(text, _nSelStart);
 
     if (deleteStart == _nSelStart)
     {
@@ -284,6 +516,40 @@ BOOL CTextEditor::DeletePreviousWord()
     _layout.EnsureCaretVisible(_nSelEnd);
 
     _pTextStore->OnTextChange(deleteStart, oldSelectionEnd, deleteStart);
+    _pTextStore->OnSelectionChange();
+    return TRUE;
+}
+
+BOOL CTextEditor::DeleteNextWord()
+{
+    if (_nSelStart != _nSelEnd)
+    {
+        return DeleteSelection();
+    }
+
+    if (!GetTextBuffer() || _nSelEnd >= GetTextLength())
+    {
+        return TRUE;
+    }
+
+    const std::wstring_view text(GetTextBuffer(), GetTextLength());
+    const UINT deleteEnd = FindNextWordEnd(text, _nSelEnd);
+    if (deleteEnd == _nSelEnd)
+    {
+        return TRUE;
+    }
+
+    const ULONG oldSelectionEnd = _nSelEnd;
+    if (!RemoveText(_nSelEnd, deleteEnd - _nSelEnd))
+    {
+        return FALSE;
+    }
+
+    _layout.ResetCaretBlink();
+    UpdateLayout();
+    _layout.EnsureCaretVisible(_nSelEnd);
+
+    _pTextStore->OnTextChange(_nSelEnd, oldSelectionEnd + (deleteEnd - _nSelEnd), _nSelEnd);
     _pTextStore->OnSelectionChange();
     return TRUE;
 }

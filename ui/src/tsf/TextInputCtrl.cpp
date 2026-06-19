@@ -414,7 +414,14 @@ void CTextInputCtrl::OnKeyDown(WPARAM wParam, LPARAM lParam)
         nSelEnd = _editor.GetSelectionEnd();
         if (nSelStart == nSelEnd)
         {
-            _editor.DeleteAtSelection(FALSE);
+            if (ctrlPressed)
+            {
+                _editor.DeleteNextWord();
+            }
+            else
+            {
+                _editor.DeleteAtSelection(FALSE);
+            }
         }
         else
         {

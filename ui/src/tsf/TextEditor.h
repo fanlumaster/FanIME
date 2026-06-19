@@ -49,6 +49,7 @@ class CTextEditor : public CTextContainer
     BOOL DeleteAtSelection(BOOL fBack);
     BOOL DeleteSelection();
     BOOL DeletePreviousWord();
+    BOOL DeleteNextWord();
     void SelectAll();
     bool HasSelection() const
     {
