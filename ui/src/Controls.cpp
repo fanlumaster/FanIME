@@ -2045,7 +2045,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x343434);
+    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x353535);
     const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x404040);
     const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7B79FF);
     const D2D1_COLOR_F labelColor = D2D1::ColorF(0xACACAC);
@@ -2062,9 +2062,9 @@ void CandidateList::Render(DeviceResources &deviceResources)
         if (selected || pressed)
         {
             const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
-            const RectF selectedRect = {itemRect.x + 4.0f, itemRect.y + 3.0f, std::max(itemRect.width - 8.0f, 0.0f),
+            const RectF selectedRect = {itemRect.x + 3.5f, itemRect.y + 3.0f, std::max(itemRect.width - 7.0f, 0.0f),
                                         std::max(itemRect.height - 6.0f, 0.0f)};
-            FillRoundedRect(deviceResources, selectedRect, 4.0f, fill, fill, 0.0f);
+            FillRoundedRect(deviceResources, selectedRect, 3.5f, fill, fill, 0.0f);
 
             const float selectedLeft = selectedRect.x;
             const float barWidth = 2.0f;
@@ -2073,12 +2073,12 @@ void CandidateList::Render(DeviceResources &deviceResources)
             FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
-        const float labelX = itemRect.x + 14.0f;
-        const float textX = itemRect.x + 29.0f;
-        const float annotationX = itemRect.x + 46.0f;
-        const RectF labelRect = {labelX, itemRect.y, 10.0f, itemRect.height};
-        const RectF textRect = {textX, itemRect.y, 15.0f, itemRect.height};
-        const RectF annotationRect = {annotationX, itemRect.y, std::max(itemRect.width - (annotationX - itemRect.x) - 8.0f, 0.0f),
+        const float labelX = itemRect.x + 13.0f;
+        const float textX = itemRect.x + 23.0f;
+        const float annotationX = itemRect.x + 40.0f;
+        const RectF labelRect = {labelX, itemRect.y, 9.0f, itemRect.height};
+        const RectF textRect = {textX, itemRect.y, 14.0f, itemRect.height};
+        const RectF annotationRect = {annotationX, itemRect.y, std::max(itemRect.width - (annotationX - itemRect.x) - 7.0f, 0.0f),
                                       itemRect.height};
 
         auto &cache = layoutCache_[index];
@@ -2093,7 +2093,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 14.2f,
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 14.0f,
                                                       DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(textRect.width, 1.0f),
                                                       std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
