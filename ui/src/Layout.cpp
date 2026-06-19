@@ -1657,13 +1657,20 @@ void TextBlock::InvalidateTextLayoutCache()
     cachedLayoutWidth_ = -1.0f;
 }
 
+void TextBlock::SetTextLayoutPadding(Thickness padding)
+{
+    textLayoutPadding_ = padding;
+    InvalidateTextLayoutCache();
+    InvalidateMeasure();
+}
+
 SizeF TextBlock::Measure(const SizeF &availableSize)
 {
     const float maxWidth = std::max(availableSize.width, 1.0f);
     IDWriteFactory *dwriteFactory = GetSharedDWriteFactory();
     if (!dwriteFactory)
     {
-        measured_ = {maxWidth, fontSize_ * 1.8f};
+        measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
         return measured_;
     }
 
@@ -1677,7 +1684,7 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
                 fontFamily.c_str(), nullptr, bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
                 DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"", format.GetAddressOf())))
         {
-            measured_ = {maxWidth, fontSize_ * 1.8f};
+            measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
             return measured_;
         }
 
@@ -1687,7 +1694,7 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
         if (FAILED(dwriteFactory->CreateTextLayout(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), maxWidth,
                                                    std::numeric_limits<float>::max(), cachedTextLayout_.ReleaseAndGetAddressOf())))
         {
-            measured_ = {maxWidth, fontSize_ * 1.8f};
+            measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
             return measured_;
         }
 
@@ -1698,7 +1705,7 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
     DWRITE_TEXT_METRICS metrics = {};
     if (FAILED(cachedTextLayout_->GetMetrics(&metrics)))
     {
-        measured_ = {maxWidth, fontSize_ * 1.8f};
+        measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
         return measured_;
     }
 
@@ -1707,7 +1714,10 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
 
     const float extraTop = std::max(overhang.top, 0.0f);
     const float extraBottom = std::max(overhang.bottom, 0.0f);
-    const float measuredHeight = std::ceil(std::max(metrics.height + extraTop + extraBottom + 6.0f, fontSize_ * 1.5f));
+    const float paddedHeight =
+        metrics.height + extraTop + extraBottom + textLayoutPadding_.top + textLayoutPadding_.bottom;
+    const float minimumHeight = fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom;
+    const float measuredHeight = std::ceil(std::max(paddedHeight, minimumHeight));
 
     measured_ = {maxWidth, measuredHeight};
     return measured_;
@@ -1739,7 +1749,8 @@ void TextBlock::Render(DeviceResources &deviceResources)
         return;
     }
 
-    target->DrawTextLayout(D2D1::Point2F(bounds_.x, bounds_.y), cachedTextLayout_.Get(), brush,
+    target->DrawTextLayout(D2D1::Point2F(bounds_.x + textLayoutPadding_.left, bounds_.y + textLayoutPadding_.top),
+                           cachedTextLayout_.Get(), brush,
                            D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 

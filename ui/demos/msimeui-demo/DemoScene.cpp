@@ -464,7 +464,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
     auto candidatePinyin = std::make_shared<TextBlock>(L"ni", 15.2f, D2D1::ColorF(0xFFFFFF), false);
     candidatePinyin->SetFontFamily(L"Noto Sans SC");
-    candidatePinyin->SetMargin({12.0f, -2.0f, 0.0f, 2.0f});
+    candidatePinyin->SetTextLayoutPadding({0.0f, 0.0f, 0.0f, 0.0f});
+    candidatePinyin->SetMargin({12.0f, 0.0f, 0.0f, 2.0f});
     candidatePopupStack->AddChild(candidatePinyin);
 
     auto candidateList = std::make_shared<CandidateList>(25.0f);

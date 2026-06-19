@@ -355,6 +355,7 @@ class TextBlock : public Visual
     void SetText(std::wstring text);
     void SetTextAlignment(DWRITE_TEXT_ALIGNMENT alignment);
     void SetFontFamily(std::wstring fontFamily);
+    void SetTextLayoutPadding(Thickness padding);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -369,6 +370,7 @@ class TextBlock : public Visual
     bool bold_ = false;
     DWRITE_TEXT_ALIGNMENT textAlignment_ = DWRITE_TEXT_ALIGNMENT_LEADING;
     std::wstring fontFamilyOverride_;
+    Thickness textLayoutPadding_ = {0.0f, 3.0f, 0.0f, 3.0f};
     SizeF measured_ = {};
     std::wstring cachedFontFamily_;
     float cachedLayoutWidth_ = -1.0f;
