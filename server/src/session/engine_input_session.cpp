@@ -1,5 +1,7 @@
 #include "engine_input_session.h"
 
+#include "config/ime_config.h"
+
 EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme_type)
 {
 }
@@ -68,6 +70,10 @@ const std::string &EngineInputSession::get_pinyin_segmentation() const
 
 std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
 {
+    if (is_shuangpin() && GetConfiguredShuangpinPreeditMode() == "shuangpin")
+    {
+        return request().raw_input;
+    }
     return request().segmentation;
 }
 

@@ -53,9 +53,13 @@ candidate_window_layout = "vertical"
 #   engine + shuangpin -> 使用新版引擎双拼会话
 #   engine + quanpin   -> 使用新版引擎全拼会话
 #   任意 backend + wubi -> 当前暂不支持
-session_backend = "engine"
+session_backend = "legacy"
 # 输入方案，可选："quanpin", "shuangpin", "wubi"
 schema = "shuangpin"
+# engine + shuangpin 时的 preedit 显示方式，可选："quanpin", "shuangpin"
+#   quanpin   -> 预编辑显示转换后的全拼分词
+#   shuangpin -> 预编辑显示原始双拼输入串
+shuangpin_preedit_mode = "shuangpin"
 # 双拼方案，可选："xiaohe", "ziranma"
 shuangpin_schema = "xiaohe"
 # 五笔方案，可选："wubi86", "wubi98"
