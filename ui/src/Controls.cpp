@@ -2237,7 +2237,7 @@ bool CandidateList::OnKeyDown(WPARAM key, LPARAM lParam)
 
 HCURSOR CandidateList::GetCursor() const
 {
-    return LoadCursor(nullptr, IDC_HAND);
+    return LoadCursor(nullptr, IDC_ARROW);
 }
 
 size_t CandidateList::HitTestItem(const PointF &point) const
