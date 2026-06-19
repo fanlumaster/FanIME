@@ -738,25 +738,31 @@ bool PopupHost::HitTest(const PointF &point) const
 
 bool PopupHost::OnMouseDown(const POINT &point, WPARAM keyState)
 {
-    (void)keyState;
     if (!window_)
     {
         return false;
     }
 
     pressed_ = HitTest(window_->ClientPixelsToDips(point));
+    if (pressed_ && trigger_)
+    {
+        trigger_->OnMouseDown(point, keyState);
+    }
     return pressed_;
 }
 
 bool PopupHost::OnMouseUp(const POINT &point, WPARAM keyState)
 {
-    (void)keyState;
     if (!window_ || !pressed_)
     {
         return false;
     }
 
     const bool shouldToggle = HitTest(window_->ClientPixelsToDips(point));
+    if (trigger_)
+    {
+        trigger_->OnMouseUp(point, keyState);
+    }
     pressed_ = false;
     if (shouldToggle)
     {
