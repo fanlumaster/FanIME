@@ -1,4 +1,11 @@
 #
+# Settings page
+# 设置页面
+#
+[settings_page]
+theme = "dark"
+
+#
 # General
 # 通用
 #
@@ -23,6 +30,8 @@ clean_mode = false
 theme_mode = "dark"
 # 字体
 font = "Noto Sans SC"
+# 缺省字体，如果系统中没有找到指定字体，则使用缺省字体
+default_font = "Microsoft YaHei"
 # 字体大小
 font_size = 14
 # 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9, 10
@@ -90,23 +99,25 @@ skin_name = "default"
 # 语音输入
 voice_input = true
 
-
 #
 # Soft Keyboard
 # 屏幕键盘
 #
 [soft_keyboard]
-
+theme_mode = "dark"
+background_img = "" # 默认是空，没有背景图片
 
 #
 # Utility
 # 实用功能
 #
 [utility]
-
+clipboard_history = "false"
+study_english_word = "false" # 背单词功能，开启后可以在候选项旁边显示英文
 
 #
 # AI Assistant
 # AI 辅助
 #
 [ai_assistant]
+enable = "false"
