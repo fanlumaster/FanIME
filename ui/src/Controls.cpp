@@ -998,6 +998,7 @@ ComboBox::ComboBox(float height) : preferredHeight_(height)
     popup_ = std::make_shared<Popup>(popupContent_);
     popup_->SetPlacement(PopupPlacement::BelowLeading);
     popup_->SetOffset(0.0f, 6.0f);
+    popup_->SetConstrainToViewport(false);
 }
 
 void ComboBox::AddItem(std::wstring item)
