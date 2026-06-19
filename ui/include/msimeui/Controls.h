@@ -102,6 +102,7 @@ class Popup : public Visual
     void SetPlacement(PopupPlacement placement);
     void SetOffset(float x, float y);
     void SetMatchAnchorWidth(bool matchAnchorWidth);
+    void SetConstrainToViewport(bool constrainToViewport);
     void SetBackgroundFill(const D2D1_COLOR_F &fill);
     void SetBorderColor(const D2D1_COLOR_F &border);
     void SetCornerRadius(float radius);
@@ -124,6 +125,7 @@ class Popup : public Visual
     float offsetX_ = 0.0f;
     float offsetY_ = 8.0f;
     bool matchAnchorWidth_ = true;
+    bool constrainToViewport_ = true;
     D2D1_COLOR_F backgroundFill_ = D2D1::ColorF(0xFFFFFF);
     D2D1_COLOR_F borderColor_ = D2D1::ColorF(0xD6DCE5);
     float cornerRadius_ = 16.0f;

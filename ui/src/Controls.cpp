@@ -526,6 +526,11 @@ void Popup::SetMatchAnchorWidth(bool matchAnchorWidth)
     matchAnchorWidth_ = matchAnchorWidth;
 }
 
+void Popup::SetConstrainToViewport(bool constrainToViewport)
+{
+    constrainToViewport_ = constrainToViewport;
+}
+
 void Popup::SetBackgroundFill(const D2D1_COLOR_F &fill)
 {
     backgroundFill_ = fill;
@@ -646,18 +651,18 @@ void Popup::LayoutOverlay(const SizeF &viewportSize)
     const float height = measured.height;
 
     float x = anchorRect_.x + offsetX_;
-    if (x + width > viewportSize.width - 8.0f)
+    if (constrainToViewport_ && x + width > viewportSize.width - 8.0f)
     {
         x = std::max(viewportSize.width - width - 8.0f, 8.0f);
     }
 
     float y = placement_ == PopupPlacement::AboveLeading ? (anchorRect_.y - height - offsetY_)
                                                          : (anchorRect_.y + anchorRect_.height + offsetY_);
-    if (placement_ == PopupPlacement::AboveLeading && y < 8.0f)
+    if (constrainToViewport_ && placement_ == PopupPlacement::AboveLeading && y < 8.0f)
     {
         y = anchorRect_.y + anchorRect_.height + offsetY_;
     }
-    if (placement_ == PopupPlacement::BelowLeading && y + height > viewportSize.height - 8.0f)
+    if (constrainToViewport_ && placement_ == PopupPlacement::BelowLeading && y + height > viewportSize.height - 8.0f)
     {
         const float aboveY = anchorRect_.y - height - offsetY_;
         if (aboveY >= 8.0f)
@@ -666,7 +671,10 @@ void Popup::LayoutOverlay(const SizeF &viewportSize)
         }
     }
 
-    y = std::clamp(y, 8.0f, std::max(viewportSize.height - height - 8.0f, 8.0f));
+    if (constrainToViewport_)
+    {
+        y = std::clamp(y, 8.0f, std::max(viewportSize.height - height - 8.0f, 8.0f));
+    }
     ArrangeInLayout({x, y, width, height});
 }
 

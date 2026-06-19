@@ -413,6 +413,7 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto popup = std::make_shared<Popup>(popupContent);
     popup->SetMatchAnchorWidth(false);
+    popup->SetConstrainToViewport(false);
     popup->SetWidth(300.0f);
     popup->SetPadding({18.0f, 18.0f, 18.0f, 18.0f});
 
@@ -503,6 +504,7 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto candidatePopup = std::make_shared<Popup>(candidatePopupStack);
     candidatePopup->SetMatchAnchorWidth(false);
+    candidatePopup->SetConstrainToViewport(false);
     candidatePopup->SetWidth(118.0f);
     candidatePopup->SetPadding({5.0f, 2.0f, 5.0f, 2.0f});
     candidatePopup->SetBackgroundFill(D2D1::ColorF(0x252525));
