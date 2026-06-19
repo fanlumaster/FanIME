@@ -2045,6 +2045,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
+    const D2D1_COLOR_F rowFillHover = D2D1::ColorF(0x343434);
     const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x353535);
     const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x404040);
     const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7B79FF);
@@ -2057,21 +2058,25 @@ void CandidateList::Render(DeviceResources &deviceResources)
         const float itemY = bounds_.y + (itemHeight_ + kCandidateItemGap) * static_cast<float>(index);
         const RectF itemRect = {bounds_.x, itemY, bounds_.width, itemHeight_};
         const bool selected = index == selectedIndex_;
+        const bool hovered = index == hoveredIndex_;
         const bool pressed = pressed_ && index == pressedIndex_;
 
-        if (selected || pressed)
+        if (selected || pressed || (hovered && !selected))
         {
-            const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
+            const D2D1_COLOR_F fill = pressed ? rowFillPressed : (selected ? rowFillSelected : rowFillHover);
             const RectF selectedRect = {itemRect.x + 1.5f, itemRect.y + 1.5f, std::max(itemRect.width - 3.0f, 0.0f),
                                         std::max(itemRect.height - 3.0f, 0.0f)};
             FillRoundedRect(deviceResources, selectedRect, 3.5f, fill, fill, 0.0f);
 
-            const float selectedLeft = selectedRect.x;
-            const float barWidth = 3.0f;
-            const float barHeight = std::max(selectedRect.height * 0.5f, 0.0f);
-            const float barY = selectedRect.y + std::max((selectedRect.height - barHeight) * 0.5f, 0.0f);
-            const RectF selectedBar = {selectedLeft - barWidth * 0.5f, barY, barWidth, barHeight};
-            FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
+            if (selected || pressed)
+            {
+                const float selectedLeft = selectedRect.x;
+                const float barWidth = 3.0f;
+                const float barHeight = std::max(selectedRect.height * 0.5f, 0.0f);
+                const float barY = selectedRect.y + std::max((selectedRect.height - barHeight) * 0.5f, 0.0f);
+                const RectF selectedBar = {selectedLeft - barWidth * 0.5f, barY, barWidth, barHeight};
+                FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
+            }
         }
 
         const float labelX = itemRect.x + 12.0f;
@@ -2194,6 +2199,37 @@ bool CandidateList::OnMouseUp(const POINT &point, WPARAM keyState)
 
     InvalidateVisual();
     return true;
+}
+
+bool CandidateList::OnMouseMove(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const size_t hit = HitTestItem(dipPoint);
+    if (hoveredIndex_ == hit)
+    {
+        return hit != static_cast<size_t>(-1);
+    }
+
+    hoveredIndex_ = hit;
+    InvalidateVisual();
+    return hit != static_cast<size_t>(-1);
+}
+
+void CandidateList::OnMouseLeave()
+{
+    if (hoveredIndex_ == static_cast<size_t>(-1))
+    {
+        return;
+    }
+
+    hoveredIndex_ = static_cast<size_t>(-1);
+    InvalidateVisual();
 }
 
 bool CandidateList::OnKeyDown(WPARAM key, LPARAM lParam)
