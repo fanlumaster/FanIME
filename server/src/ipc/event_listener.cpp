@@ -33,12 +33,10 @@ namespace
 std::string BuildCurrentCandidatePage()
 {
     auto &ui = Global::candidate_ui;
-    ui.page_words.clear();
-    ui.selected_text = L"";
+    ui.clear_page();
 
-    const int start = ui.page_index * ui.page_size;
-    const int remaining = ui.item_total_count - start;
-    const int loop = std::max(0, std::min(ui.page_size, remaining));
+    const int start = ui.current_page_start();
+    const int loop = ui.current_page_count();
 
     int maxCount = 0;
     std::string candidate_string;
@@ -640,15 +638,14 @@ void PrepareCandidateList()
     ::ReadDataFromNamedPipe(0b111111);
     auto &ui = Global::candidate_ui;
     std::string pinyin = wstring_to_string(Global::PinyinString);
-    ui.items = g_inputSession->get_candidates();
+    auto items = g_inputSession->get_candidates();
 
-    if (ui.items.empty())
+    if (items.empty())
     {
-        ui.items.push_back(std::make_tuple(pinyin, pinyin, 1));
+        items.push_back(std::make_tuple(pinyin, pinyin, 1));
     }
 
-    ui.page_index = 0;
-    ui.item_total_count = static_cast<int>(ui.items.size());
+    ui.set_items(std::move(items));
     RefreshCandidatePageUi(false);
 }
 
@@ -690,6 +687,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
     Global::candidate_ui.item_total_count = static_cast<int>(Global::candidate_ui.items.size());
     Global::candidate_ui.page_index = 0;
+    Global::candidate_ui.clear_page();
     RefreshCandidatePageUi(true);
 }
 
@@ -816,7 +814,7 @@ void HandleImeKey(HANDLE hEvent)
               && (Global::ModifiersDown >> 0 & 1u)) //
              )                                      // Page previous
     {
-        if (Global::candidate_ui.page_index > 0)
+        if (Global::candidate_ui.has_prev_page())
         {
             Global::candidate_ui.page_index--;
             RefreshCandidatePageUi(true);
@@ -827,8 +825,7 @@ void HandleImeKey(HANDLE hEvent)
               !(Global::ModifiersDown >> 0 & 1u)) //
              )                                    // Page next
     {
-        if (Global::candidate_ui.page_index <
-            (Global::candidate_ui.item_total_count - 1) / Global::candidate_ui.page_size)
+        if (Global::candidate_ui.has_next_page())
         {
             Global::candidate_ui.page_index++;
             RefreshCandidatePageUi(true);

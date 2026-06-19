@@ -60,6 +60,12 @@ struct CompositionState
     std::string segmented_pinyin;
     CreatingWordState creating_word;
 
+    void clear()
+    {
+        segmented_pinyin.clear();
+        creating_word.clear();
+    }
+
     void clear_creating_word()
     {
         creating_word.clear();
@@ -92,6 +98,47 @@ struct CandidateUiState
     int cur_page_max_word_len = 2;
     int cur_page_item_cnt = 8;
     bool is_num_out_of_range = false;
+
+    void set_items(std::vector<CandidateWordItem> new_items)
+    {
+        items = std::move(new_items);
+        item_total_count = static_cast<int>(items.size());
+        page_index = 0;
+        clear_page();
+    }
+
+    void clear_page()
+    {
+        page_words.clear();
+        selected_text.clear();
+        cur_page_item_cnt = 0;
+        cur_page_max_word_len = 2;
+    }
+
+    int current_page_start() const
+    {
+        return page_index * page_size;
+    }
+
+    int current_page_count() const
+    {
+        const int remaining = item_total_count - current_page_start();
+        if (remaining <= 0)
+        {
+            return 0;
+        }
+        return remaining < page_size ? remaining : page_size;
+    }
+
+    bool has_prev_page() const
+    {
+        return page_index > 0;
+    }
+
+    bool has_next_page() const
+    {
+        return page_index < (item_total_count - 1) / page_size;
+    }
 };
 inline CandidateUiState candidate_ui;
 
