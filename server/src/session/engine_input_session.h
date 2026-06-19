@@ -1,12 +1,12 @@
 #pragma once
 
 #include "input_session.h"
-#include <memory>
+#include "MetasequoiaImeEngine/core/ime_session.h"
 
-class ShuangpinInputSession : public IInputSession
+class EngineInputSession : public IInputSession
 {
   public:
-    ShuangpinInputSession();
+    explicit EngineInputSession(SchemeType scheme_type = SchemeType::Shuangpin);
 
     void handle_key(UINT vk, UINT modifiers_down, WCHAR wch) override;
     void recompute_candidates() override;
@@ -41,5 +41,9 @@ class ShuangpinInputSession : public IInputSession
                                                        const SelectionTransition &selection_transition) const override;
 
   private:
-    std::unique_ptr<DictionaryUlPb> dictionary_;
+    [[noreturn]] void throw_legacy_unsupported(const char *method) const;
+    const QueryRequest &request() const;
+
+  private:
+    ImeSession session_;
 };

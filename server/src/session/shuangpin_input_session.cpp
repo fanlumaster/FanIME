@@ -1,5 +1,6 @@
 #include "shuangpin_input_session.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
+#include <stdexcept>
 
 ShuangpinInputSession::ShuangpinInputSession() : dictionary_(std::make_unique<DictionaryUlPb>())
 {
@@ -13,6 +14,20 @@ void ShuangpinInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
 void ShuangpinInputSession::recompute_candidates()
 {
     dictionary_->handleVkCode(0, 0);
+}
+
+SchemeType ShuangpinInputSession::current_scheme_type() const
+{
+    return SchemeType::Shuangpin;
+}
+
+void ShuangpinInputSession::switch_scheme(SchemeType scheme_type)
+{
+    if (scheme_type != SchemeType::Shuangpin)
+    {
+        throw std::logic_error("ShuangpinInputSession only supports SchemeType::Shuangpin");
+    }
+    dictionary_->reset_state();
 }
 
 void ShuangpinInputSession::reset_state()
@@ -75,22 +90,22 @@ void ShuangpinInputSession::set_pinyin_sequence_with_cases(const std::string &pi
     dictionary_->set_pinyin_sequence_with_cases(pinyin_sequence);
 }
 
-int ShuangpinInputSession::create_word(std::string pinyin, std::string word)
+int ShuangpinInputSession::store_user_phrase(std::string pinyin, std::string word)
 {
     return dictionary_->create_word(std::move(pinyin), std::move(word));
 }
 
-int ShuangpinInputSession::update_weight_by_pinyin_and_word(std::string pinyin, std::string word)
+int ShuangpinInputSession::pin_candidate(std::string pinyin, std::string word)
 {
     return dictionary_->update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
-int ShuangpinInputSession::delete_by_pinyin_and_word(std::string pinyin, std::string word)
+int ShuangpinInputSession::remove_candidate(std::string pinyin, std::string word)
 {
     return dictionary_->delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
-int ShuangpinInputSession::insert_word_to_cached_buffer_series(const std::string &pinyin, const std::string &word)
+int ShuangpinInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word)
 {
     return dictionary_->insert_word_to_cached_buffer_series(pinyin, word);
 }

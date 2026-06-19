@@ -679,7 +679,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     size_t insert_index = Global::candidate_ui.items.size() >= 1 ? 1 : 0;
     Global::candidate_ui.items.insert(Global::candidate_ui.items.begin() + insert_index, std::make_tuple(pinyin, candidate, 1));
     // 还需要更新一下 dictionary 中的 cache
-    g_inputSession->insert_word_to_cached_buffer_series(cloud_query_state.cache_key, candidate);
+    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate);
     // 标记一下，云候选已经被加进来了
     Global::cloud_candidate.added = true;
     Global::cloud_candidate.word = candidate;
@@ -911,8 +911,8 @@ void ProcessSelectionKey(UINT keycode)
                 /* TODO:
                  * 这里应该再开一个线程给造词使用，然后这里就只用发送，不应使这里的行为卡顿哪怕只有一点点 */
                 /* 暂时就先直接在这里向词库插入数据吧 */
-                g_inputSession->create_word(GlobalIme::composition.creating_word.pinyin,
-                                            GlobalIme::composition.creating_word.word);
+                g_inputSession->store_user_phrase(GlobalIme::composition.creating_word.pinyin,
+                                                  GlobalIme::composition.creating_word.word);
 
                 /* 清理 */
                 GlobalIme::composition.clear_creating_word();
@@ -923,7 +923,7 @@ void ProcessSelectionKey(UINT keycode)
         if (Global::cloud_candidate.added &&
             Global::cloud_candidate.word == wstring_to_string(Global::candidate_ui.selected_text))
         {
-            g_inputSession->create_word(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
+            g_inputSession->store_user_phrase(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
             // 清理云联想变量状态
             Global::cloud_candidate.added = false;
             Global::cloud_candidate.word.clear();
@@ -946,7 +946,7 @@ void ProcessSelectionKey(UINT keycode)
             //
             // 更新权重，并且清理缓存，否则更新后的权重在当前运行的输入法中不会生效
             //
-            g_inputSession->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+            g_inputSession->pin_candidate(curWordPinyin, curWord);
             g_inputSession->reset_cache();
         }
     }

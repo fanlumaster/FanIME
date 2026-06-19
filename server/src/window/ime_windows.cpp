@@ -576,7 +576,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         std::string curWordPinyin = std::get<0>(curWordItem);
 
         /* 调整条目 weight，一次到顶 */
-        g_inputSession->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+        g_inputSession->pin_candidate(curWordPinyin, curWord);
         /* 刷新候选窗列表 */
         g_inputSession->reset_cache();
         g_inputSession->recompute_candidates();
@@ -613,7 +613,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
 
         /* 删除条目 */
-        g_inputSession->delete_by_pinyin_and_word(curWordPinyin, curWord);
+        g_inputSession->remove_candidate(curWordPinyin, curWord);
         /* 刷新候选窗列表 */
         g_inputSession->reset_cache();
         g_inputSession->recompute_candidates();

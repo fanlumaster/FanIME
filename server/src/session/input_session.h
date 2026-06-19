@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MetasequoiaImeEngine/core/scheme_type.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
 #include <Windows.h>
 #include <string>
@@ -38,6 +39,8 @@ class IInputSession
 
     virtual void handle_key(UINT vk, UINT modifiers_down, WCHAR wch) = 0;
     virtual void recompute_candidates() = 0;
+    virtual SchemeType current_scheme_type() const = 0;
+    virtual void switch_scheme(SchemeType scheme_type) = 0;
 
     virtual void reset_state() = 0;
     virtual void reset_cache() = 0;
@@ -55,10 +58,10 @@ class IInputSession
     virtual void set_pinyin_sequence(const std::string &pinyin_sequence) = 0;
     virtual void set_pinyin_sequence_with_cases(const std::string &pinyin_sequence) = 0;
 
-    virtual int create_word(std::string pinyin, std::string word) = 0;
-    virtual int update_weight_by_pinyin_and_word(std::string pinyin, std::string word) = 0;
-    virtual int delete_by_pinyin_and_word(std::string pinyin, std::string word) = 0;
-    virtual int insert_word_to_cached_buffer_series(const std::string &pinyin, const std::string &word) = 0;
+    virtual int store_user_phrase(std::string pinyin, std::string word) = 0;
+    virtual int pin_candidate(std::string pinyin, std::string word) = 0;
+    virtual int remove_candidate(std::string pinyin, std::string word) = 0;
+    virtual int cache_dynamic_candidate(const std::string &pinyin, const std::string &word) = 0;
     virtual SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin) = 0;
     virtual CloudQueryState get_cloud_query_state() const = 0;
     virtual CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
