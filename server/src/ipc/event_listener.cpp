@@ -586,7 +586,7 @@ void PrepareCandidateList()
 {
     ::ReadDataFromNamedPipe(0b111111);
     std::string pinyin = wstring_to_string(Global::PinyinString);
-    Global::CandidateList = g_dictQuery->get_cur_candiate_list();
+    Global::CandidateList = g_inputSession->get_candidates();
 
     if (Global::CandidateList.empty())
     {
@@ -647,7 +647,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     if (GlobalIme::is_during_creating_word)
         return;
 
-    std::string current_pinyin = g_dictQuery->get_quanpin();
+    std::string current_pinyin = g_inputSession->get_quanpin();
     if (current_pinyin.empty() || current_pinyin != pinyin)
         return;
 
@@ -664,11 +664,11 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     size_t insert_index = Global::CandidateList.size() >= 1 ? 1 : 0;
     Global::CandidateList.insert(Global::CandidateList.begin() + insert_index, std::make_tuple(pinyin, candidate, 1));
     // 还需要更新一下 dictionary 中的 cache
-    g_dictQuery->insert_word_to_cached_buffer_series(g_dictQuery->get_pinyin_sequence(), candidate);
+    g_inputSession->insert_word_to_cached_buffer_series(g_inputSession->get_pinyin_sequence(), candidate);
     // 标记一下，云候选已经被加进来了
     Global::cloud_candidate.added = true;
     Global::cloud_candidate.word = candidate;
-    Global::cloud_candidate.pinyin = g_dictQuery->get_pure_pinyin_sequence();
+    Global::cloud_candidate.pinyin = g_inputSession->get_pure_pinyin_sequence();
 
     Global::ItemTotalCount = static_cast<int>(Global::CandidateList.size());
     Global::PageIndex = 0;
@@ -723,21 +723,21 @@ void HandleImeKey(HANDLE hEvent)
     /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
      * 等等，然后再在下面处理其中的特殊的按键 */
     ::ReadDataFromNamedPipe(0b000111);
-    g_dictQuery->handleVkCode(Global::Keycode, Global::ModifiersDown, Global::Wch);
-    GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
+    g_inputSession->handle_key(Global::Keycode, Global::ModifiersDown, Global::Wch);
+    GlobalIme::pinyin_seq = g_inputSession->get_pinyin_segmentation_with_cases();
     //
     // 先判断要不要触发云联想
     // 判断依据：
     //  - 拼音序列长度是偶数
     //  - 最后一个字符不是大写字母
     //
-    auto cur_pinyin_seq_with_cases = g_dictQuery->get_pinyin_sequence_with_cases();
+    auto cur_pinyin_seq_with_cases = g_inputSession->get_pinyin_sequence_with_cases();
     if (cur_pinyin_seq_with_cases.length() > 0 &&                                      //
         cur_pinyin_seq_with_cases.length() % 2 == 0 &&                                 //
         cur_pinyin_seq_with_cases.at(cur_pinyin_seq_with_cases.length() - 1) <= 'z' && //
         cur_pinyin_seq_with_cases.at(cur_pinyin_seq_with_cases.length() - 1) >= 'a')
     {
-        CloudIme::OnInputChanged(g_dictQuery->get_quanpin());
+        CloudIme::OnInputChanged(g_inputSession->get_quanpin());
     }
 
     //
@@ -767,7 +767,7 @@ void HandleImeKey(HANDLE hEvent)
     {
         if (GlobalSettings::getTsfPreeditStyle() == "pinyin")
         {
-            if (!g_dictQuery->get_pinyin_sequence().empty())
+            if (!g_inputSession->get_pinyin_sequence().empty())
             {
                 std::wstring preedit = GetPreedit();
                 Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
@@ -900,7 +900,7 @@ void ClearState()
 {
     CloudIme::Clear();
     /* Clear dict engine state */
-    g_dictQuery->reset_state();
+    g_inputSession->reset_state();
     /* 造词的状态也要清理 */
     GlobalIme::word_for_creating_word.clear();
     GlobalIme::pinyin_for_creating_word.clear();
@@ -933,11 +933,11 @@ void ProcessSelectionKey(UINT keycode)
             Global::CandidateList[index + Global::PageIndex * Global::CountOfOnePage];
         std::string curWord = std::get<1>(curWordItem);
         std::string curWordPinyin = std::get<0>(curWordItem);
-        std::string curFullPurePinyin = g_dictQuery->get_pure_pinyin_sequence();
-        std::string curFullPinyinWithCases = g_dictQuery->get_pure_pinyin_sequence();
+        std::string curFullPurePinyin = g_inputSession->get_pure_pinyin_sequence();
+        std::string curFullPinyinWithCases = g_inputSession->get_pure_pinyin_sequence();
         bool isNeedCreateWord = false;
         isNeedCreateWord =
-            curWordPinyin.size() < curFullPurePinyin.size() && g_dictQuery->is_all_complete_pure_pinyin();
+            curWordPinyin.size() < curFullPurePinyin.size() && g_inputSession->is_all_complete_pure_pinyin();
         if (isNeedCreateWord)
         { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit
              拼音的纯拼音版本(去除辅助码)的每一个分词都是完整的拼音 */
@@ -951,10 +951,10 @@ void ProcessSelectionKey(UINT keycode)
                 curWordPinyin.size(), curFullPinyinWithCases.size() - curWordPinyin.size());
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::NeedToCreateWord;
 
-            g_dictQuery->set_pinyin_sequence(restPinyinSeq);
-            g_dictQuery->set_pinyin_sequence_with_cases(restPinyinSeqWithCases);
-            g_dictQuery->handleVkCode(0, 0);
-            GlobalIme::pinyin_seq = g_dictQuery->get_pinyin_segmentation_with_cases();
+            g_inputSession->set_pinyin_sequence(restPinyinSeq);
+            g_inputSession->set_pinyin_sequence_with_cases(restPinyinSeqWithCases);
+            g_inputSession->recompute_candidates();
+            GlobalIme::pinyin_seq = g_inputSession->get_pinyin_segmentation_with_cases();
 
             PrepareCandidateList();
         }
@@ -972,7 +972,7 @@ void ProcessSelectionKey(UINT keycode)
             }
             GlobalIme::word_for_creating_word += curWord;
             GlobalIme::preedit_during_creating_word =
-                GlobalIme::word_for_creating_word + g_dictQuery->get_pinyin_segmentation();
+                GlobalIme::word_for_creating_word + g_inputSession->get_pinyin_segmentation();
             /* 更新一下中间态的造词时 tsf 端所需的数据 */
             Global::SelectedCandidateString =
                 string_to_wstring(GlobalIme::pinyin_for_creating_word + "," + GlobalIme::word_for_creating_word);
@@ -992,7 +992,7 @@ void ProcessSelectionKey(UINT keycode)
                 /* TODO:
                  * 这里应该再开一个线程给造词使用，然后这里就只用发送，不应使这里的行为卡顿哪怕只有一点点 */
                 /* 暂时就先直接在这里向词库插入数据吧 */
-                g_dictQuery->create_word(GlobalIme::pinyin_for_creating_word, GlobalIme::word_for_creating_word);
+                g_inputSession->create_word(GlobalIme::pinyin_for_creating_word, GlobalIme::word_for_creating_word);
 
                 /* 清理 */
                 GlobalIme::word_for_creating_word.clear();
@@ -1006,7 +1006,7 @@ void ProcessSelectionKey(UINT keycode)
         if (Global::cloud_candidate.added &&
             Global::cloud_candidate.word == wstring_to_string(Global::SelectedCandidateString))
         {
-            g_dictQuery->create_word(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
+            g_inputSession->create_word(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
             // 清理云联想变量状态
             Global::cloud_candidate.added = false;
             Global::cloud_candidate.word.clear();
@@ -1015,7 +1015,7 @@ void ProcessSelectionKey(UINT keycode)
 
         if (!isNeedCreateWord)
         {
-            g_dictQuery->reset_state();
+            g_inputSession->reset_state();
         }
         else
         {
@@ -1029,8 +1029,8 @@ void ProcessSelectionKey(UINT keycode)
             //
             // 更新权重，并且清理缓存，否则更新后的权重在当前运行的输入法中不会生效
             //
-            g_dictQuery->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
-            g_dictQuery->reset_cache();
+            g_inputSession->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+            g_inputSession->reset_cache();
         }
     }
     else

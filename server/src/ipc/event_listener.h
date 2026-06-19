@@ -8,11 +8,11 @@
 #include <queue>
 #include <atomic>
 #include <cstdint>
-#include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
+#include "session/input_session.h"
 
 inline std::condition_variable pipe_queueCv;
 inline std::atomic_bool pipe_running = true;
-inline std::shared_ptr<DictionaryUlPb> g_dictQuery;
+inline std::shared_ptr<IInputSession> g_inputSession;
 
 namespace FanyNamedPipe
 {

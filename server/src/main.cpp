@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <fmt/xchar.h>
 #include "cloud/cloud_ime.h"
+#include "session/shuangpin_input_session.h"
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -38,7 +39,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     ::InitIpc();
     ::InitNamedPipe();
-    g_dictQuery = std::make_shared<DictionaryUlPb>();
+    g_inputSession = std::make_shared<ShuangpinInputSession>();
 
     RegisterCandidateWindowMessage();
 

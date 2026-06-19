@@ -494,7 +494,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     /* Clear dictionary buffer cache */
     case WM_CLS_DICT_CACHE: {
-        g_dictQuery->reset_cache();
+        g_inputSession->reset_cache();
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Cleared dictionary buffer cache.").c_str());
 #endif
@@ -576,10 +576,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         std::string curWordPinyin = std::get<0>(curWordItem);
 
         /* 调整条目 weight，一次到顶 */
-        g_dictQuery->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
+        g_inputSession->update_weight_by_pinyin_and_word(curWordPinyin, curWord);
         /* 刷新候选窗列表 */
-        g_dictQuery->reset_cache();
-        g_dictQuery->handleVkCode(0, 0); // 重新查一次
+        g_inputSession->reset_cache();
+        g_inputSession->recompute_candidates();
         /* 刷新窗口 */
         FanyNamedPipe::PrepareCandidateList();
         PostMessage(hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
@@ -613,10 +613,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
 
         /* 删除条目 */
-        g_dictQuery->delete_by_pinyin_and_word(curWordPinyin, curWord);
+        g_inputSession->delete_by_pinyin_and_word(curWordPinyin, curWord);
         /* 刷新候选窗列表 */
-        g_dictQuery->reset_cache();
-        g_dictQuery->handleVkCode(0, 0); // 重新查一次
+        g_inputSession->reset_cache();
+        g_inputSession->recompute_candidates();
         /* 刷新窗口 */
         FanyNamedPipe::PrepareCandidateList();
         PostMessage(hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
@@ -629,7 +629,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         OutputDebugString(L"[msime]: Clearing IME engine cache");
 #endif
         /* 清除候选词缓存 */
-        g_dictQuery->reset_cache();
+        g_inputSession->reset_cache();
         break;
     }
 
