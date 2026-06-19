@@ -2073,18 +2073,18 @@ void CandidateList::Render(DeviceResources &deviceResources)
             FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
-        const float labelX = itemRect.x + 13.0f;
-        const float textX = itemRect.x + 23.0f;
-        const float annotationX = itemRect.x + 40.0f;
-        const RectF labelRect = {labelX, itemRect.y, 9.0f, itemRect.height};
-        const RectF textRect = {textX, itemRect.y, 14.0f, itemRect.height};
+        const float labelX = itemRect.x + 13.5f;
+        const float textX = itemRect.x + 24.5f;
+        const float annotationX = itemRect.x + 43.5f;
+        const RectF labelRect = {labelX, itemRect.y, 9.5f, itemRect.height};
+        const RectF textRect = {textX, itemRect.y, 15.5f, itemRect.height};
         const RectF annotationRect = {annotationX, itemRect.y, std::max(itemRect.width - (annotationX - itemRect.x) - 7.0f, 0.0f),
                                       itemRect.height};
 
         auto &cache = layoutCache_[index];
         if (cache.fontFamily != theme.uiFontFamily || cache.labelWidth != labelRect.width)
         {
-            cache.labelLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].label, 10.5f,
+            cache.labelLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].label, 11.0f,
                                                        DWRITE_FONT_WEIGHT_NORMAL, std::max(labelRect.width, 1.0f),
                                                        std::max(labelRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                        DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
@@ -2093,7 +2093,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 14.0f,
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 15.2f,
                                                       DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(textRect.width, 1.0f),
                                                       std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
@@ -2102,7 +2102,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
         if (cache.fontFamily != theme.uiFontFamily || cache.annotationWidth != annotationRect.width)
         {
-            cache.annotationLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].annotation, 10.5f,
+            cache.annotationLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].annotation, 11.0f,
                                                             DWRITE_FONT_WEIGHT_NORMAL,
                                                             std::max(annotationRect.width, 1.0f),
                                                             std::max(annotationRect.height, 1.0f),
