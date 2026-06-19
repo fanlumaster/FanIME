@@ -1,7 +1,7 @@
 #include <fmt/core.h>
 #include <sqlite3.h>
 #include "fmt/base.h"
-#include "MetasequoiaImeEngine/shuangpin/dictionary.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
 #include <chrono>
 
 int main(int argc, char *argv[])

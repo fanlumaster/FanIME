@@ -8,7 +8,7 @@
 #include <queue>
 #include <atomic>
 #include <cstdint>
-#include "MetasequoiaImeEngine/shuangpin/dictionary.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
 
 inline std::condition_variable pipe_queueCv;
 inline std::atomic_bool pipe_running = true;

@@ -32,8 +32,10 @@ set(MY_EXECUTABLE_NAME "imetest")
 set(
     SOURCE_FILES
     "./src/test_shuangpin.cpp"
-    "../MetasequoiaImeEngine/shuangpin/dictionary.cpp"
-    "../MetasequoiaImeEngine/shuangpin/pinyin_utils.cpp"
+    "../MetasequoiaImeEngine/common/string_utils.cpp"
+    "../MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.cpp"
+    "../MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
+    "../MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
     # Google IME
     "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
     "../MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"

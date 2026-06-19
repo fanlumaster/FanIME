@@ -19,7 +19,7 @@
 #include "fmt/xchar.h"
 #include <utf8.h>
 #include "global/globals.h"
-#include "MetasequoiaImeEngine/shuangpin/pinyin_utils.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
@@ -613,7 +613,7 @@ void PrepareCandidateList()
             Global::SelectedCandidateString = string_to_wstring(word);
         }
 
-        candidate_string += word + PinyinUtil::compute_helpcodes(word);
+        candidate_string += word + ShuangpinUtil::compute_helpcodes(word);
         int size = utf8::distance(word.begin(), word.end());
         maxCount = std::max(maxCount, size);
 
@@ -688,7 +688,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
             Global::SelectedCandidateString = string_to_wstring(word);
         }
 
-        candidate_string += word + PinyinUtil::compute_helpcodes(word);
+        candidate_string += word + ShuangpinUtil::compute_helpcodes(word);
         int size = utf8::distance(word.begin(), word.end());
         maxCount = std::max(maxCount, size);
 
@@ -850,7 +850,7 @@ void HandleImeKey(HANDLE hEvent)
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                candidate_string += word + PinyinUtil::compute_helpcodes(word);
+                candidate_string += word + ShuangpinUtil::compute_helpcodes(word);
                 Global::CandidateWordList.push_back(string_to_wstring(word));
                 if (i < loop - 1)
                 {
@@ -883,7 +883,7 @@ void HandleImeKey(HANDLE hEvent)
                 {
                     Global::SelectedCandidateString = string_to_wstring(word);
                 }
-                candidate_string += word + PinyinUtil::compute_helpcodes(word);
+                candidate_string += word + ShuangpinUtil::compute_helpcodes(word);
                 Global::CandidateWordList.push_back(string_to_wstring(word));
                 if (i < loop - 1)
                 {
@@ -976,7 +976,7 @@ void ProcessSelectionKey(UINT keycode)
             /* 更新一下中间态的造词时 tsf 端所需的数据 */
             Global::SelectedCandidateString =
                 string_to_wstring(GlobalIme::pinyin_for_creating_word + "," + GlobalIme::word_for_creating_word);
-            if (PinyinUtil::cnt_han_chars(GlobalIme::word_for_creating_word) * 2 ==
+            if (ShuangpinUtil::cnt_han_chars(GlobalIme::word_for_creating_word) * 2 ==
                 GlobalIme::pinyin_for_creating_word.size())
             { /* 最终的造词 */
 #ifdef FANY_DEBUG

@@ -70,9 +70,10 @@ set(SRC_FILES
 )
 
 set(SRC_FILES_IME_ENGINE
-    "./MetasequoiaImeEngine/shuangpin/common_utils.cpp"
-    "./MetasequoiaImeEngine/shuangpin/dictionary.cpp"
-    "./MetasequoiaImeEngine/shuangpin/pinyin_utils.cpp"
+    "./MetasequoiaImeEngine/common/string_utils.cpp"
+    "./MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.cpp"
+    "./MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
+    "./MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
 )
 
 set(SRC_FILES_GOOGLEIME
