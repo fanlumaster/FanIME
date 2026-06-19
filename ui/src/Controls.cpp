@@ -1271,8 +1271,7 @@ void Button::Render(DeviceResources &deviceResources)
         return;
     }
 
-    FillRoundedRect(deviceResources, bounds_, kControlCornerRadius, GetFillColor(), GetStrokeColor(),
-                    focused_ ? 2.0f : 1.0f);
+    FillRoundedRect(deviceResources, bounds_, kControlCornerRadius, GetFillColor(), GetStrokeColor(), 1.0f);
 
     const Theme &theme = ThemeManager::GetCurrent();
     const float textWidth = std::max(bounds_.width - kControlPaddingX * 2.0f, 1.0f);
@@ -1365,7 +1364,7 @@ D2D1_COLOR_F Button::GetFillColor() const
 D2D1_COLOR_F Button::GetStrokeColor() const
 {
     const Theme &theme = ThemeManager::GetCurrent();
-    return focused_ ? theme.primaryFocus : theme.primaryPressed;
+    return theme.primaryPressed;
 }
 
 D2D1_COLOR_F Button::GetTextColor() const
