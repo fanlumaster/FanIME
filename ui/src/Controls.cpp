@@ -2062,8 +2062,8 @@ void CandidateList::Render(DeviceResources &deviceResources)
         if (selected || pressed)
         {
             const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
-            const RectF selectedRect = {itemRect.x + 2.5f, itemRect.y + 2.0f, std::max(itemRect.width - 5.0f, 0.0f),
-                                        std::max(itemRect.height - 4.0f, 0.0f)};
+            const RectF selectedRect = {itemRect.x + 1.5f, itemRect.y + 1.5f, std::max(itemRect.width - 3.0f, 0.0f),
+                                        std::max(itemRect.height - 3.0f, 0.0f)};
             FillRoundedRect(deviceResources, selectedRect, 3.5f, fill, fill, 0.0f);
 
             const float selectedLeft = selectedRect.x;
@@ -2093,7 +2093,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 15.0f,
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 16.0f,
                                                       DWRITE_FONT_WEIGHT_NORMAL, std::max(textRect.width, 1.0f),
                                                       std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
