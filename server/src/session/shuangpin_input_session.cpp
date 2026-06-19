@@ -1,4 +1,5 @@
 #include "shuangpin_input_session.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
 
 ShuangpinInputSession::ShuangpinInputSession() : dictionary_(std::make_unique<DictionaryUlPb>())
 {
@@ -92,4 +93,65 @@ int ShuangpinInputSession::delete_by_pinyin_and_word(std::string pinyin, std::st
 int ShuangpinInputSession::insert_word_to_cached_buffer_series(const std::string &pinyin, const std::string &word)
 {
     return dictionary_->insert_word_to_cached_buffer_series(pinyin, word);
+}
+
+IInputSession::SelectionTransition
+ShuangpinInputSession::advance_composition_after_selection(const std::string &selected_pinyin)
+{
+    SelectionTransition transition;
+    transition.full_pure_pinyin = dictionary_->get_pure_pinyin_sequence();
+
+    transition.continues_composition =
+        selected_pinyin.size() < transition.full_pure_pinyin.size() && dictionary_->is_all_complete_pure_pinyin();
+
+    if (transition.continues_composition)
+    {
+        const std::string &cur_full_pinyin_with_cases = dictionary_->get_pure_pinyin_sequence();
+        const std::string rest_pinyin_seq =
+            transition.full_pure_pinyin.substr(selected_pinyin.size(), transition.full_pure_pinyin.size() - selected_pinyin.size());
+        const std::string rest_pinyin_seq_with_cases = cur_full_pinyin_with_cases.substr(
+            selected_pinyin.size(), cur_full_pinyin_with_cases.size() - selected_pinyin.size());
+
+        dictionary_->set_pinyin_sequence(rest_pinyin_seq);
+        dictionary_->set_pinyin_sequence_with_cases(rest_pinyin_seq_with_cases);
+        dictionary_->handleVkCode(0, 0);
+    }
+
+    transition.current_segmentation = dictionary_->get_pinyin_segmentation();
+    transition.current_segmentation_with_cases = dictionary_->get_pinyin_segmentation_with_cases();
+    return transition;
+}
+
+IInputSession::CloudQueryState ShuangpinInputSession::get_cloud_query_state() const
+{
+    CloudQueryState state;
+    const auto &pinyin_with_cases = dictionary_->get_pinyin_sequence_with_cases();
+    if (!pinyin_with_cases.empty() && pinyin_with_cases.size() % 2 == 0)
+    {
+        const char last = pinyin_with_cases.back();
+        state.should_query = last >= 'a' && last <= 'z';
+    }
+
+    if (state.should_query)
+    {
+        state.query_text = dictionary_->get_quanpin();
+    }
+
+    state.cache_key = dictionary_->get_pinyin_sequence();
+    state.committed_pinyin = dictionary_->get_pure_pinyin_sequence();
+    return state;
+}
+
+IInputSession::CreatingWordProgress
+ShuangpinInputSession::update_creating_word_progress(const std::string &current_pinyin,
+                                                     const std::string &current_word,
+                                                     const std::string &selected_word,
+                                                     const SelectionTransition &selection_transition) const
+{
+    CreatingWordProgress progress;
+    progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
+    progress.word = current_word + selected_word;
+    progress.preedit = progress.word + selection_transition.current_segmentation;
+    progress.completed = ShuangpinUtil::cnt_han_chars(progress.word) * 2 == progress.pinyin.size();
+    return progress;
 }

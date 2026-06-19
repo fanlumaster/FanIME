@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include <unordered_set>
+#include <tuple>
+#include <vector>
 #include <windows.h>
 
 namespace GlobalIme
@@ -37,18 +39,34 @@ inline std::unordered_set<WCHAR> PUNC_SET = {
     L'?'   //
 };
 
-//
-// 拼音分词
-//
-inline std::string pinyin_seq = "";
+struct CreatingWordState
+{
+    std::string preedit;
+    std::string pinyin;
+    std::string word;
+    bool active = false;
 
-//
-// 给造词使用
-//
-inline std::string preedit_during_creating_word = "";
-inline std::string pinyin_for_creating_word = "";
-inline std::string word_for_creating_word = "";
-inline bool is_during_creating_word = false;
+    void clear()
+    {
+        preedit.clear();
+        pinyin.clear();
+        word.clear();
+        active = false;
+    }
+};
+
+struct CompositionState
+{
+    std::string segmented_pinyin;
+    CreatingWordState creating_word;
+
+    void clear_creating_word()
+    {
+        creating_word.clear();
+    }
+};
+
+inline CompositionState composition;
 } // namespace GlobalIme
 
 namespace CandidateUi
@@ -60,6 +78,22 @@ namespace Global
 {
 inline LONG INVALID_Y = -100000;
 inline int MarginTop = 0;
+
+using CandidateWordItem = std::tuple<std::string, std::string, int>;
+
+struct CandidateUiState
+{
+    std::vector<CandidateWordItem> items;
+    std::vector<std::wstring> page_words;
+    std::wstring selected_text = L"";
+    int page_size = 8;
+    int page_index = 0;
+    int item_total_count = 0;
+    int cur_page_max_word_len = 2;
+    int cur_page_item_cnt = 8;
+    bool is_num_out_of_range = false;
+};
+inline CandidateUiState candidate_ui;
 
 //
 // 云候选

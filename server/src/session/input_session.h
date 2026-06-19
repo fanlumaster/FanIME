@@ -10,6 +10,30 @@ class IInputSession
   public:
     using WordItem = DictionaryUlPb::WordItem;
 
+    struct SelectionTransition
+    {
+        bool continues_composition = false;
+        std::string full_pure_pinyin;
+        std::string current_segmentation;
+        std::string current_segmentation_with_cases;
+    };
+
+    struct CloudQueryState
+    {
+        bool should_query = false;
+        std::string query_text;
+        std::string cache_key;
+        std::string committed_pinyin;
+    };
+
+    struct CreatingWordProgress
+    {
+        std::string pinyin;
+        std::string word;
+        std::string preedit;
+        bool completed = false;
+    };
+
     virtual ~IInputSession() = default;
 
     virtual void handle_key(UINT vk, UINT modifiers_down, WCHAR wch) = 0;
@@ -35,4 +59,10 @@ class IInputSession
     virtual int update_weight_by_pinyin_and_word(std::string pinyin, std::string word) = 0;
     virtual int delete_by_pinyin_and_word(std::string pinyin, std::string word) = 0;
     virtual int insert_word_to_cached_buffer_series(const std::string &pinyin, const std::string &word) = 0;
+    virtual SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin) = 0;
+    virtual CloudQueryState get_cloud_query_state() const = 0;
+    virtual CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
+                                                               const std::string &current_word,
+                                                               const std::string &selected_word,
+                                                               const SelectionTransition &selection_transition) const = 0;
 };

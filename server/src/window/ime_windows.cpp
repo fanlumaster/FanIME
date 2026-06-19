@@ -507,7 +507,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to commit candidate {}", one_based).c_str());
 #endif
-        if (one_based > Global::CandidateWordList.size())
+        if (one_based > Global::candidate_ui.page_words.size())
         {
             break;
         }
@@ -561,7 +561,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to pin to top candidate {}", one_based).c_str());
 #endif
-        if (one_based > Global::CandidateWordList.size())
+        if (one_based > Global::candidate_ui.page_words.size())
         {
             break;
         }
@@ -571,7 +571,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         //
         /* 先取出拼音和汉字 */
         DictionaryUlPb::WordItem curWordItem =
-            Global::CandidateList[zero_based + Global::PageIndex * Global::CountOfOnePage];
+            Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
         std::string curWord = std::get<1>(curWordItem);
         std::string curWordPinyin = std::get<0>(curWordItem);
 
@@ -593,7 +593,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to delete candidate {}", one_based).c_str());
 #endif
-        if (one_based > Global::CandidateWordList.size())
+        if (one_based > Global::candidate_ui.page_words.size())
         {
             break;
         }
@@ -603,7 +603,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         //
         /* 先取出拼音和汉字 */
         DictionaryUlPb::WordItem curWordItem =
-            Global::CandidateList[zero_based + Global::PageIndex * Global::CountOfOnePage];
+            Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
         std::string curWord = std::get<1>(curWordItem);
         std::string curWordPinyin = std::get<0>(curWordItem);
         // 单字不删除，静默无任何操作来处理

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
 #include <Windows.h>
 #include <string>
 #include <vector>
@@ -169,18 +168,6 @@ inline int Point[2] = {100, 100};
 inline int PinyinLength = 0;
 inline std::wstring PinyinString = L"";
 inline std::wstring CandidateString = L"";
-
-inline std::vector<DictionaryUlPb::WordItem> CandidateList; // 所有的候选条目列表
-inline std::vector<std::wstring> CandidateWordList;         // 当前页的候选字符串列表
-inline std::wstring SelectedCandidateString = L"";
-
-inline int CountOfOnePage = 8;
-inline int PageIndex = 0;
-inline int ItemTotalCount = 0;
-/* For the use of adjusting candidate */
-inline int CurPageMaxWordLen = 2;
-inline int CurPageItemCnt = 8;
-inline bool IsNumOutofRange = 0;
 
 namespace DataFromServerMsgType
 {

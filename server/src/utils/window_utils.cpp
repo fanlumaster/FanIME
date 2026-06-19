@@ -143,7 +143,7 @@ int AdjustCandidateWindowPosition(                  //
     if (properPos->second + height > coordinates.bottom)
     {
         properPos->second = properPos->second - height - 30 - 2;
-        if (Global::CandidateWordList.size() < Global::CountOfOnePage)
+        if (Global::candidate_ui.page_words.size() < static_cast<size_t>(Global::candidate_ui.page_size))
         {
             // MoveContainerBottom(webview, MaxContainerHeight - containerSize.second);
             Global::MarginTop = MaxContainerHeight - containerSize.second;

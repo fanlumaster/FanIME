@@ -31,6 +31,12 @@ class ShuangpinInputSession : public IInputSession
     int update_weight_by_pinyin_and_word(std::string pinyin, std::string word) override;
     int delete_by_pinyin_and_word(std::string pinyin, std::string word) override;
     int insert_word_to_cached_buffer_series(const std::string &pinyin, const std::string &word) override;
+    SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin) override;
+    CloudQueryState get_cloud_query_state() const override;
+    CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
+                                                       const std::string &current_word,
+                                                       const std::string &selected_word,
+                                                       const SelectionTransition &selection_transition) const override;
 
   private:
     std::unique_ptr<DictionaryUlPb> dictionary_;
