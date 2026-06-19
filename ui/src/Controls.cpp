@@ -2062,8 +2062,8 @@ void CandidateList::Render(DeviceResources &deviceResources)
         if (selected || pressed)
         {
             const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
-            const RectF selectedRect = {itemRect.x + 3.5f, itemRect.y + 3.0f, std::max(itemRect.width - 7.0f, 0.0f),
-                                        std::max(itemRect.height - 6.0f, 0.0f)};
+            const RectF selectedRect = {itemRect.x + 2.5f, itemRect.y + 2.0f, std::max(itemRect.width - 5.0f, 0.0f),
+                                        std::max(itemRect.height - 4.0f, 0.0f)};
             FillRoundedRect(deviceResources, selectedRect, 3.5f, fill, fill, 0.0f);
 
             const float selectedLeft = selectedRect.x;
@@ -2073,23 +2073,23 @@ void CandidateList::Render(DeviceResources &deviceResources)
             FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
-        const float labelX = itemRect.x + 13.5f;
-        const float textX = itemRect.x + 24.5f;
-        const float annotationX = itemRect.x + 43.5f;
-        const RectF labelRect = {labelX, itemRect.y, 9.5f, itemRect.height};
-        const RectF textRect = {textX, itemRect.y, 15.5f, itemRect.height};
+        const float labelX = itemRect.x + 12.0f;
+        const float textX = itemRect.x + 22.0f;
+        const float annotationX = itemRect.x + 40.5f;
+        const RectF labelRect = {labelX, itemRect.y, 9.0f, itemRect.height};
+        const RectF textRect = {textX, itemRect.y, 16.0f, itemRect.height};
         const RectF annotationRect = {annotationX, itemRect.y, std::max(itemRect.width - (annotationX - itemRect.x) - 7.0f, 0.0f),
                                       itemRect.height};
 
         auto &cache = layoutCache_[index];
-        if (cache.fontFamily != theme.uiFontFamily || cache.labelWidth != labelRect.width)
+        if (cache.fontFamily != theme.textInputFontFamily || cache.labelWidth != labelRect.width)
         {
-            cache.labelLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].label, 11.0f,
+            cache.labelLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].label, 11.0f,
                                                        DWRITE_FONT_WEIGHT_NORMAL, std::max(labelRect.width, 1.0f),
                                                        std::max(labelRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                        DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.labelWidth = labelRect.width;
-            cache.fontFamily = theme.uiFontFamily;
+            cache.fontFamily = theme.textInputFontFamily;
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
@@ -2100,9 +2100,9 @@ void CandidateList::Render(DeviceResources &deviceResources)
             cache.textWidth = textRect.width;
             cache.fontFamily = theme.textInputFontFamily;
         }
-        if (cache.fontFamily != theme.uiFontFamily || cache.annotationWidth != annotationRect.width)
+        if (cache.fontFamily != theme.textInputFontFamily || cache.annotationWidth != annotationRect.width)
         {
-            cache.annotationLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].annotation, 11.0f,
+            cache.annotationLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].annotation, 11.0f,
                                                             DWRITE_FONT_WEIGHT_NORMAL,
                                                             std::max(annotationRect.width, 1.0f),
                                                             std::max(annotationRect.height, 1.0f),
@@ -2110,7 +2110,7 @@ void CandidateList::Render(DeviceResources &deviceResources)
                                                             DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
                                                             DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.annotationWidth = annotationRect.width;
-            cache.fontFamily = theme.uiFontFamily;
+            cache.fontFamily = theme.textInputFontFamily;
         }
 
         ID2D1SolidColorBrush *labelBrush =

@@ -1638,6 +1638,18 @@ void TextBlock::SetTextAlignment(DWRITE_TEXT_ALIGNMENT alignment)
     InvalidateVisual();
 }
 
+void TextBlock::SetFontFamily(std::wstring fontFamily)
+{
+    if (fontFamilyOverride_ == fontFamily)
+    {
+        return;
+    }
+
+    fontFamilyOverride_ = std::move(fontFamily);
+    InvalidateTextLayoutCache();
+    InvalidateMeasure();
+}
+
 void TextBlock::InvalidateTextLayoutCache()
 {
     cachedTextLayout_.Reset();
@@ -1656,12 +1668,13 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    const bool needsLayout = !cachedTextLayout_ || cachedLayoutWidth_ != maxWidth || cachedFontFamily_ != theme.uiFontFamily;
+    const std::wstring &fontFamily = fontFamilyOverride_.empty() ? theme.uiFontFamily : fontFamilyOverride_;
+    const bool needsLayout = !cachedTextLayout_ || cachedLayoutWidth_ != maxWidth || cachedFontFamily_ != fontFamily;
     if (needsLayout)
     {
         ComPtr<IDWriteTextFormat> format;
         if (FAILED(dwriteFactory->CreateTextFormat(
-                theme.uiFontFamily.c_str(), nullptr, bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                fontFamily.c_str(), nullptr, bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
                 DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"", format.GetAddressOf())))
         {
             measured_ = {maxWidth, fontSize_ * 1.8f};
@@ -1679,7 +1692,7 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
         }
 
         cachedLayoutWidth_ = maxWidth;
-        cachedFontFamily_ = theme.uiFontFamily;
+        cachedFontFamily_ = fontFamily;
     }
 
     DWRITE_TEXT_METRICS metrics = {};
@@ -1714,7 +1727,8 @@ void TextBlock::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    if (!cachedTextLayout_ || cachedLayoutWidth_ != std::max(bounds_.width, 1.0f) || cachedFontFamily_ != theme.uiFontFamily)
+    const std::wstring &fontFamily = fontFamilyOverride_.empty() ? theme.uiFontFamily : fontFamilyOverride_;
+    if (!cachedTextLayout_ || cachedLayoutWidth_ != std::max(bounds_.width, 1.0f) || cachedFontFamily_ != fontFamily)
     {
         Measure({std::max(bounds_.width, 1.0f), std::max(bounds_.height, 1.0f)});
     }
