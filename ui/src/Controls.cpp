@@ -2093,8 +2093,8 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 15.2f,
-                                                      DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(textRect.width, 1.0f),
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 15.0f,
+                                                      DWRITE_FONT_WEIGHT_NORMAL, std::max(textRect.width, 1.0f),
                                                       std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.textWidth = textRect.width;
