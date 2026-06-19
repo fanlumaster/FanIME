@@ -2045,12 +2045,12 @@ void CandidateList::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x313131);
-    const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3A3A3A);
-    const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7C83FF);
-    const D2D1_COLOR_F labelColor = D2D1::ColorF(0xA6A6A6);
-    const D2D1_COLOR_F textColor = D2D1::ColorF(0xF3F4F6);
-    const D2D1_COLOR_F annotationColor = D2D1::ColorF(0xCFCFCF);
+    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x343434);
+    const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3F3F3F);
+    const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7B79FF);
+    const D2D1_COLOR_F labelColor = D2D1::ColorF(0xA8A8A8);
+    const D2D1_COLOR_F textColor = D2D1::ColorF(0xF5F5F5);
+    const D2D1_COLOR_F annotationColor = D2D1::ColorF(0xD7D7D7);
 
     for (size_t index = 0; index < items_.size(); ++index)
     {
@@ -2062,40 +2062,36 @@ void CandidateList::Render(DeviceResources &deviceResources)
         if (selected || pressed)
         {
             const D2D1_COLOR_F fill = pressed ? rowFillPressed : rowFillSelected;
-            const RectF selectedRect = {itemRect.x + 1.0f, itemRect.y + 2.0f, std::max(itemRect.width - 2.0f, 0.0f),
-                                        std::max(itemRect.height - 4.0f, 0.0f)};
-            FillRoundedRect(deviceResources, selectedRect, 5.0f, fill, fill, 0.0f);
+            const RectF selectedRect = {itemRect.x + 5.0f, itemRect.y + 3.0f, std::max(itemRect.width - 10.0f, 0.0f),
+                                        std::max(itemRect.height - 6.0f, 0.0f)};
+            FillRoundedRect(deviceResources, selectedRect, 4.0f, fill, fill, 0.0f);
 
-            const RectF selectedBar = {itemRect.x + 3.0f, itemRect.y + 8.0f, 2.0f, std::max(itemRect.height - 16.0f, 0.0f)};
+            const RectF selectedBar = {itemRect.x + 7.0f, itemRect.y + 8.0f, 2.0f, std::max(itemRect.height - 16.0f, 0.0f)};
             FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
-        const float labelWidth = 16.0f;
-        const float labelLeading = 13.0f;
-        const float annotationWidth = 36.0f;
-        const float annotationTrailing = 9.0f;
-        const float textGap = 7.0f;
-        const RectF labelRect = {itemRect.x + labelLeading, itemRect.y, labelWidth, itemRect.height};
-        const RectF annotationRect = {itemRect.x + itemRect.width - annotationWidth - annotationTrailing, itemRect.y,
-                                      annotationWidth, itemRect.height};
-        const float textX = labelRect.x + labelRect.width + textGap;
-        const float textRight = annotationRect.x - textGap;
-        const RectF textRect = {textX, itemRect.y, std::max(textRight - textX, 0.0f), itemRect.height};
+        const float labelX = itemRect.x + 16.0f;
+        const float textX = itemRect.x + 35.0f;
+        const float annotationX = itemRect.x + 53.0f;
+        const RectF labelRect = {labelX, itemRect.y, 12.0f, itemRect.height};
+        const RectF textRect = {textX, itemRect.y, 18.0f, itemRect.height};
+        const RectF annotationRect = {annotationX, itemRect.y, std::max(itemRect.width - (annotationX - itemRect.x) - 10.0f, 0.0f),
+                                      itemRect.height};
 
         auto &cache = layoutCache_[index];
         if (cache.fontFamily != theme.uiFontFamily || cache.labelWidth != labelRect.width)
         {
-            cache.labelLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].label, 11.5f,
+            cache.labelLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].label, 10.8f,
                                                        DWRITE_FONT_WEIGHT_NORMAL, std::max(labelRect.width, 1.0f),
-                                                       std::max(labelRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_CENTER,
+                                                       std::max(labelRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                        DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.labelWidth = labelRect.width;
             cache.fontFamily = theme.uiFontFamily;
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 14.5f,
-                                                      DWRITE_FONT_WEIGHT_NORMAL, std::max(textRect.width, 1.0f),
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 14.8f,
+                                                      DWRITE_FONT_WEIGHT_SEMI_BOLD, std::max(textRect.width, 1.0f),
                                                       std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.textWidth = textRect.width;
@@ -2103,11 +2099,11 @@ void CandidateList::Render(DeviceResources &deviceResources)
         }
         if (cache.fontFamily != theme.uiFontFamily || cache.annotationWidth != annotationRect.width)
         {
-            cache.annotationLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].annotation, 11.5f,
+            cache.annotationLayout = CreateCachedTextLayout(factory, theme.uiFontFamily, items_[index].annotation, 10.8f,
                                                             DWRITE_FONT_WEIGHT_NORMAL,
                                                             std::max(annotationRect.width, 1.0f),
                                                             std::max(annotationRect.height, 1.0f),
-                                                            DWRITE_TEXT_ALIGNMENT_TRAILING,
+                                                            DWRITE_TEXT_ALIGNMENT_LEADING,
                                                             DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
                                                             DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.annotationWidth = annotationRect.width;
