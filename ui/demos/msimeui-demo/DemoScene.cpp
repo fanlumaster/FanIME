@@ -462,11 +462,20 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto candidatePopupStack = std::make_shared<StackPanel>(0.0f);
     candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
+    auto candidateHeader = std::make_shared<HorizontalStackPanel>(2.0f);
+    candidateHeader->SetVerticalContentAlignment(VerticalAlignment::Center);
+    candidateHeader->SetMargin({12.0f, 0.0f, 0.0f, 0.0f});
     auto candidatePinyin = std::make_shared<TextBlock>(L"ni", 15.2f, D2D1::ColorF(0xFFFFFF), false);
     candidatePinyin->SetFontFamily(L"Noto Sans SC");
     candidatePinyin->SetTextLayoutPadding({0.0f, 0.0f, 0.0f, 0.0f});
-    candidatePinyin->SetMargin({12.0f, 0.0f, 0.0f, 0.0f});
-    candidatePopupStack->AddChild(candidatePinyin);
+    auto candidateCaret = std::make_shared<Border>(
+        Brush{D2D1::ColorF(0x7B79FF), D2D1::ColorF(0x7B79FF), 0.0f, 0.0f, 0.0f});
+    candidateCaret->SetWidth(2.0f);
+    candidateCaret->SetHeight(18.0f);
+    candidateCaret->SetMargin({0.0f, 1.0f, 0.0f, 0.0f});
+    candidateHeader->AddChild(candidatePinyin);
+    candidateHeader->AddChild(candidateCaret);
+    candidatePopupStack->AddChild(candidateHeader);
 
     auto candidateList = std::make_shared<CandidateList>(25.0f);
     candidateList->SetWidth(108.0f);
