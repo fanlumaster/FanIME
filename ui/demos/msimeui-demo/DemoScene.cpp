@@ -462,7 +462,7 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto candidatePopupStack = std::make_shared<StackPanel>(0.0f);
     candidatePopupStack->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
-    auto candidateHeader = std::make_shared<HorizontalStackPanel>(2.0f);
+    auto candidateHeader = std::make_shared<HorizontalStackPanel>(1.0f);
     candidateHeader->SetVerticalContentAlignment(VerticalAlignment::Center);
     candidateHeader->SetMargin({12.0f, 0.0f, 0.0f, 0.0f});
     candidateHeader->SetWidth(26.0f);
