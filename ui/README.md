@@ -102,6 +102,7 @@
 - demo 新增 `Candidate Window Target` 示例：使用深色 `Popup` + `CandidateList` 组合出一版接近输入法候选窗形态的候选层预览，作为后续替换 `MetasequoiaImeServer` WebView2 候选框的起点
 - 继续收紧候选窗顶部标题区：压缩 `ni` 上方留白，并把拼音与首个候选项之间的距离调整到更接近参考图
 - `TextBlock` 新增可调的文本布局内边距，候选窗顶部拼音标题已切换到紧凑测量模式，去掉了默认文本行高带来的额外顶部空白
+- 候选窗 demo 中的顶部拼音 `ni` 再向下微调 `3px`，方便继续贴近参考图的标题基线位置
 - `CandidateList` 现支持基础键盘导航：弹层打开后会自动把焦点落到首个可聚焦内容上，候选列表可用 `Up/Down`、`Left/Right`、`Home/End`、`PageUp/PageDown` 切换高亮项
 - demo 中的候选窗预览继续补上了底部分页/状态提示区，用来预演候选页码、当前高亮项和键盘操作提示的布局结构
 - `Window` 新增公开的 `FocusVisual` 入口，方便 popup、候选窗、上下文菜单这类 overlay 内容在弹出后主动把焦点切到内部可交互控件
