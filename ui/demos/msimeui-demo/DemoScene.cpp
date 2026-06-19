@@ -465,11 +465,11 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto candidateHeader = std::make_shared<HorizontalStackPanel>(1.0f);
     candidateHeader->SetVerticalContentAlignment(VerticalAlignment::Center);
     candidateHeader->SetMargin({12.0f, 0.0f, 0.0f, 0.0f});
-    candidateHeader->SetWidth(26.0f);
+    candidateHeader->SetWidth(20.0f);
     auto candidatePinyin = std::make_shared<TextBlock>(L"ni", 15.2f, D2D1::ColorF(0xFFFFFF), false);
     candidatePinyin->SetFontFamily(L"Noto Sans SC");
     candidatePinyin->SetTextLayoutPadding({0.0f, 0.0f, 0.0f, 0.0f});
-    candidatePinyin->SetWidth(18.0f);
+    candidatePinyin->SetWidth(14.0f);
     auto candidateCaret = std::make_shared<Border>(
         Brush{D2D1::ColorF(0x7B79FF), D2D1::ColorF(0x7B79FF), 0.0f, 0.0f, 0.0f});
     candidateCaret->SetWidth(2.0f);
