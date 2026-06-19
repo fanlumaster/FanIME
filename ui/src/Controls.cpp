@@ -2067,9 +2067,10 @@ void CandidateList::Render(DeviceResources &deviceResources)
             FillRoundedRect(deviceResources, selectedRect, 3.5f, fill, fill, 0.0f);
 
             const float selectedLeft = selectedRect.x;
-            const float barWidth = 2.0f;
-            const RectF selectedBar = {selectedLeft - barWidth * 0.5f, itemRect.y + 8.0f, barWidth,
-                                       std::max(itemRect.height - 16.0f, 0.0f)};
+            const float barWidth = 3.0f;
+            const float barHeight = std::max(selectedRect.height * 0.5f, 0.0f);
+            const float barY = selectedRect.y + std::max((selectedRect.height - barHeight) * 0.5f, 0.0f);
+            const RectF selectedBar = {selectedLeft - barWidth * 0.5f, barY, barWidth, barHeight};
             FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
         }
 
