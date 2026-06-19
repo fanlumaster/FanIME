@@ -59,6 +59,8 @@ set(SRC_FILES
     "./src/session/engine_input_session.cpp"
     "./src/session/engine_input_session.h"
     "./src/session/input_session.h"
+    "./src/session/session_factory.cpp"
+    "./src/session/session_factory.h"
     "./src/session/shuangpin_input_session.cpp"
     "./src/session/shuangpin_input_session.h"
     "./src/utils/common_utils.cpp"

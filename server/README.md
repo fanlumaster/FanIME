@@ -45,6 +45,15 @@ Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\MetasequoiaImeT
 New-Item -ItemType SymbolicLink -Path "$env:LOCALAPPDATA\MetasequoiaImeTsf\config.toml" -Target ".\assets\config\config.toml"
 ```
 
+e.g.
+
+```powershell
+cd MetasequoiaImeServer
+python .\scripts\prepare_env.py
+Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
+New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\MetasequoiaImeTsf\config.toml" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeServer\assets\config\config.toml"
+```
+
 Then, build and run,
 
 ```powershell

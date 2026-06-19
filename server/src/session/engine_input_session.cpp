@@ -1,7 +1,5 @@
 #include "engine_input_session.h"
 
-#include <stdexcept>
-
 EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme_type)
 {
 }
@@ -33,7 +31,9 @@ void EngineInputSession::reset_state()
 
 void EngineInputSession::reset_cache()
 {
-    // The engine-level session does not expose provider cache invalidation yet.
+    session_.reset_cache();
+    shuangpin_dictionary_.reset_cache();
+    quanpin_engine_.reset_cache();
 }
 
 const std::vector<IInputSession::WordItem> &EngineInputSession::get_candidates() const
@@ -84,52 +84,64 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
 void EngineInputSession::set_pinyin_sequence(const std::string &pinyin_sequence)
 {
     (void)pinyin_sequence;
-    throw_legacy_unsupported("set_pinyin_sequence");
 }
 
 void EngineInputSession::set_pinyin_sequence_with_cases(const std::string &pinyin_sequence)
 {
     (void)pinyin_sequence;
-    throw_legacy_unsupported("set_pinyin_sequence_with_cases");
 }
 
 int EngineInputSession::store_user_phrase(std::string pinyin, std::string word)
 {
-    (void)pinyin;
-    (void)word;
-    throw_legacy_unsupported("store_user_phrase");
+    if (is_shuangpin())
+    {
+        return shuangpin_dictionary_.create_word(std::move(pinyin), std::move(word));
+    }
+    return quanpin_engine_.create_word(std::move(pinyin), std::move(word));
 }
 
 int EngineInputSession::pin_candidate(std::string pinyin, std::string word)
 {
-    (void)pinyin;
-    (void)word;
-    throw_legacy_unsupported("pin_candidate");
+    if (is_shuangpin())
+    {
+        return shuangpin_dictionary_.update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
+    }
+    return quanpin_engine_.update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
 int EngineInputSession::remove_candidate(std::string pinyin, std::string word)
 {
-    (void)pinyin;
-    (void)word;
-    throw_legacy_unsupported("remove_candidate");
+    if (is_shuangpin())
+    {
+        return shuangpin_dictionary_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
+    }
+    return quanpin_engine_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
 int EngineInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word)
 {
-    (void)pinyin;
-    (void)word;
-    throw_legacy_unsupported("cache_dynamic_candidate");
+    if (is_shuangpin())
+    {
+        return shuangpin_dictionary_.insert_word_to_cached_buffer_series(pinyin, word);
+    }
+    return 0;
 }
 
 IInputSession::SelectionTransition EngineInputSession::advance_composition_after_selection(const std::string &selected_pinyin)
 {
     (void)selected_pinyin;
-    throw_legacy_unsupported("advance_composition_after_selection");
+    SelectionTransition transition;
+    transition.full_pure_pinyin = request().normalized_input;
+    transition.current_segmentation = request().segmentation;
+    transition.current_segmentation_with_cases = request().segmentation;
+    transition.continues_composition = false;
+    return transition;
 }
 
 IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
+    state.should_query = !request().normalized_input.empty();
     state.query_text = request().normalized_input;
     state.cache_key = request().raw_input;
     state.committed_pinyin = request().normalized_input;
@@ -142,14 +154,15 @@ EngineInputSession::update_creating_word_progress(const std::string &current_pin
                                                   const std::string &selected_word,
                                                   const SelectionTransition &selection_transition) const
 {
-    (void)current_pinyin;
-    (void)current_word;
-    (void)selected_word;
-    (void)selection_transition;
-    throw_legacy_unsupported("update_creating_word_progress");
+    CreatingWordProgress progress;
+    progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
+    progress.word = current_word + selected_word;
+    progress.preedit = progress.word + selection_transition.current_segmentation;
+    progress.completed = false;
+    return progress;
 }
 
-[[noreturn]] void EngineInputSession::throw_legacy_unsupported(const char *method) const
+bool EngineInputSession::is_shuangpin() const
 {
-    throw std::logic_error(std::string("EngineInputSession does not support legacy method: ") + method);
+    return current_scheme_type() == SchemeType::Shuangpin;
 }

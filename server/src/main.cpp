@@ -7,8 +7,27 @@
 #include "config/ime_config.h"
 #include <windows.h>
 #include <fmt/xchar.h>
+#include <spdlog/spdlog.h>
 #include "cloud/cloud_ime.h"
-#include "session/shuangpin_input_session.h"
+#include "session/session_factory.h"
+
+namespace
+{
+const char *SchemeTypeToString(SchemeType scheme_type)
+{
+    switch (scheme_type)
+    {
+    case SchemeType::Quanpin:
+        return "quanpin";
+    case SchemeType::Shuangpin:
+        return "shuangpin";
+    case SchemeType::Wubi:
+        return "wubi";
+    default:
+        return "unknown";
+    }
+}
+} // namespace
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -39,7 +58,17 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     ::InitIpc();
     ::InitNamedPipe();
-    g_inputSession = std::make_shared<ShuangpinInputSession>();
+    g_inputSession = CreateInputSessionFromConfig();
+    const std::string configured_backend = DescribeConfiguredInputSessionBackendFromConfig();
+    const std::string effective_backend = DescribeEffectiveInputSessionBackendFromConfig();
+    const std::string session_summary = fmt::format(
+        "Input session backend configured={}, effective={}, scheme={}",
+        configured_backend.empty() ? "legacy" : configured_backend, effective_backend,
+        SchemeTypeToString(g_inputSession->current_scheme_type()));
+    spdlog::info(session_summary);
+#ifdef FANY_DEBUG
+    OutputDebugString(fmt::format(L"[msime]: {}", string_to_wstring(session_summary)).c_str());
+#endif
 
     RegisterCandidateWindowMessage();
 

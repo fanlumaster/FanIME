@@ -2,6 +2,7 @@
 
 #include "input_session.h"
 #include "MetasequoiaImeEngine/core/ime_session.h"
+#include "MetasequoiaImeEngine/quanpin/engine.h"
 
 class EngineInputSession : public IInputSession
 {
@@ -41,9 +42,11 @@ class EngineInputSession : public IInputSession
                                                        const SelectionTransition &selection_transition) const override;
 
   private:
-    [[noreturn]] void throw_legacy_unsupported(const char *method) const;
     const QueryRequest &request() const;
+    bool is_shuangpin() const;
 
   private:
     ImeSession session_;
+    DictionaryUlPb shuangpin_dictionary_;
+    QuanpinEngine quanpin_engine_;
 };
