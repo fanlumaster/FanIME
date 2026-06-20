@@ -8,3 +8,4 @@ void InitImeConfig();
 const std::string &GetConfiguredSessionBackend();
 SchemeType GetConfiguredInputScheme();
 const std::string &GetConfiguredShuangpinPreeditMode();
+bool GetConfiguredShuangpinHelpcodeEnabled();

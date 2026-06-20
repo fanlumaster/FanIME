@@ -9,6 +9,7 @@ namespace
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
 std::string g_shuangpin_preedit_mode = "quanpin";
+bool g_shuangpin_helpcode_enabled = true;
 
 SchemeType ParseScheme(const std::string &value)
 {
@@ -47,6 +48,7 @@ void InitImeConfig()
         g_session_backend = tbl["input"]["session_backend"].value_or(std::string("legacy"));
         g_input_scheme = ParseScheme(tbl["input"]["schema"].value_or(std::string("shuangpin")));
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
+        g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
 
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: page_size = {}", page_size).c_str());
@@ -66,6 +68,9 @@ void InitImeConfig()
         OutputDebugString(fmt::format(L"[msime]: shuangpin_preedit_mode = {}",
                                       string_to_wstring(g_shuangpin_preedit_mode))
                               .c_str());
+#endif
+#ifdef FANY_DEBUG
+        OutputDebugString(fmt::format(L"[msime]: shuangpin_helpcode = {}", g_shuangpin_helpcode_enabled).c_str());
 #endif
     }
     catch (const toml::parse_error &err)
@@ -89,4 +94,9 @@ SchemeType GetConfiguredInputScheme()
 const std::string &GetConfiguredShuangpinPreeditMode()
 {
     return g_shuangpin_preedit_mode;
+}
+
+bool GetConfiguredShuangpinHelpcodeEnabled()
+{
+    return g_shuangpin_helpcode_enabled;
 }

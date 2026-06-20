@@ -4,6 +4,7 @@
 
 EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme_type)
 {
+    session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
 }
 
 void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
