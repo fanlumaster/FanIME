@@ -111,8 +111,10 @@ int ShuangpinInputSession::cache_dynamic_candidate(const std::string &pinyin, co
 }
 
 IInputSession::SelectionTransition
-ShuangpinInputSession::advance_composition_after_selection(const std::string &selected_pinyin)
+ShuangpinInputSession::advance_composition_after_selection(const std::string &selected_pinyin,
+                                                           const std::string &selected_word)
 {
+    (void)selected_word;
     SelectionTransition transition;
     transition.full_pure_pinyin = dictionary_->get_pure_pinyin_sequence();
 

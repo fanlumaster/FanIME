@@ -867,7 +867,7 @@ void ProcessSelectionKey(UINT keycode)
             Global::candidate_ui.items[index + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
         std::string curWord = std::get<1>(curWordItem);
         std::string curWordPinyin = std::get<0>(curWordItem);
-        auto selection_transition = g_inputSession->advance_composition_after_selection(curWordPinyin);
+        auto selection_transition = g_inputSession->advance_composition_after_selection(curWordPinyin, curWord);
         const bool isNeedCreateWord = selection_transition.continues_composition;
         if (isNeedCreateWord)
         { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit
@@ -913,6 +913,7 @@ void ProcessSelectionKey(UINT keycode)
                 /* 暂时就先直接在这里向词库插入数据吧 */
                 g_inputSession->store_user_phrase(GlobalIme::composition.creating_word.pinyin,
                                                   GlobalIme::composition.creating_word.word);
+                g_inputSession->reset_cache();
 
                 /* 清理 */
                 GlobalIme::composition.clear_creating_word();
@@ -924,6 +925,7 @@ void ProcessSelectionKey(UINT keycode)
             Global::cloud_candidate.word == wstring_to_string(Global::candidate_ui.selected_text))
         {
             g_inputSession->store_user_phrase(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
+            g_inputSession->reset_cache();
             // 清理云联想变量状态
             Global::cloud_candidate.added = false;
             Global::cloud_candidate.word.clear();
