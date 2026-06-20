@@ -259,6 +259,25 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
+    if (is_shuangpin())
+    {
+        const auto &pinyin_with_cases = get_pinyin_sequence_with_cases();
+        if (!pinyin_with_cases.empty() && pinyin_with_cases.size() % 2 == 0)
+        {
+            const char last = pinyin_with_cases.back();
+            state.should_query = last >= 'a' && last <= 'z';
+        }
+
+        if (state.should_query)
+        {
+            state.query_text = request().normalized_input;
+        }
+
+        state.cache_key = request().raw_input;
+        state.committed_pinyin = request().normalized_input;
+        return state;
+    }
+
     state.should_query = !request().normalized_input.empty();
     state.query_text = request().normalized_input;
     state.cache_key = request().raw_input;
