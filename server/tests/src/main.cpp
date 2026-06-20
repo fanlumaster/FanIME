@@ -1,67 +1,49 @@
+#include <exception>
 #include <fmt/core.h>
-#include <iostream>
-#include <sqlite3.h>
+#include "tests/includes/test_framework.h"
 
-int main(int argc, char *argv[])
+namespace test
 {
-    std::cout << "This is a code template project for Windows cpp!" << '\n';
-    fmt::print("Hello World from fmt!!\n");
+std::vector<TestCase> &registry()
+{
+    static std::vector<TestCase> tests;
+    return tests;
+}
 
-    sqlite3 *db = nullptr;
-    char *errMsg = nullptr;
+Registrar::Registrar(const char *name, std::function<void()> fn)
+{
+    registry().push_back({name, std::move(fn)});
+}
+} // namespace test
 
-    // Create or open database
-    if (sqlite3_open("test.db", &db) != SQLITE_OK)
+int main()
+{
+    int failures = 0;
+    for (const auto &test_case : test::registry())
     {
-        std::cerr << "Cannot open database: " << sqlite3_errmsg(db) << std::endl;
-        return 1;
-    }
-
-    // Create table
-    const char *createTableSQL = "CREATE TABLE IF NOT EXISTS users ("
-                                 "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                                 "name TEXT NOT NULL,"
-                                 "age INTEGER);";
-
-    if (sqlite3_exec(db, createTableSQL, nullptr, nullptr, &errMsg) != SQLITE_OK)
-    {
-        std::cerr << "Failed to create table: " << errMsg << std::endl;
-        sqlite3_free(errMsg);
-        sqlite3_close(db);
-        return 1;
-    }
-
-    // Insert data
-    const char *insertSQL = "INSERT INTO users (name, age) VALUES ('Alice', 25);";
-    if (sqlite3_exec(db, insertSQL, nullptr, nullptr, &errMsg) != SQLITE_OK)
-    {
-        std::cerr << "Failed to insert data: " << errMsg << std::endl;
-        sqlite3_free(errMsg);
-        sqlite3_close(db);
-        return 1;
-    }
-
-    // Query data
-    const char *querySQL = "SELECT id, name, age FROM users;";
-    auto callback = [](void *, int argc, char **argv, char **colName) -> int {
-        for (int i = 0; i < argc; ++i)
+        try
         {
-            std::cout << colName[i] << ": " << (argv[i] ? argv[i] : "NULL") << " | ";
+            test_case.fn();
+            fmt::print("[PASS] {}\n", test_case.name);
         }
-        std::cout << "\n";
-        return 0;
-    };
+        catch (const std::exception &ex)
+        {
+            ++failures;
+            fmt::print(stderr, "[FAIL] {}: {}\n", test_case.name, ex.what());
+        }
+        catch (...)
+        {
+            ++failures;
+            fmt::print(stderr, "[FAIL] {}: unknown exception\n", test_case.name);
+        }
+    }
 
-    if (sqlite3_exec(db, querySQL, callback, nullptr, &errMsg) != SQLITE_OK)
+    if (failures > 0)
     {
-        std::cerr << "Failed to query data: " << errMsg << std::endl;
-        sqlite3_free(errMsg);
-        sqlite3_close(db);
+        fmt::print(stderr, "{} test(s) failed\n", failures);
         return 1;
     }
 
-    // Close database
-    sqlite3_close(db);
-    std::cout << "All done.\n";
+    fmt::print("{} test(s) passed\n", test::registry().size());
     return 0;
 }

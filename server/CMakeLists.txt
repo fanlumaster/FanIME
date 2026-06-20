@@ -5,6 +5,8 @@ set(PROJECT_NAME "MetasequoiaImeServer")
 cmake_policy(SET CMP0167 NEW)
 project(${PROJECT_NAME} VERSION 1.0)
 
+include(CTest)
+
 # Boost
 set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
 set (Boost_USE_STATIC_LIBS ON)
@@ -146,3 +148,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         $<$<CONFIG:Release>:${WEBVIEW2_VCPKG_ROOT}/bin/WebView2Loader.dll>
         $<TARGET_FILE_DIR:${PROJECT_NAME}>
 )
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

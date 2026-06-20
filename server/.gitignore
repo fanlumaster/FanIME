@@ -1,9 +1,10 @@
 build/
+Testing/
 log.*
 # /.clangd
 # /CMakeLists.txt
 # /CMakePresets.json
-/tests/CMakeLists.txt
-/tests/CMakePresets.json
+# /tests/CMakeLists.txt
+# /tests/CMakePresets.json
 /.vs
 build-release/
