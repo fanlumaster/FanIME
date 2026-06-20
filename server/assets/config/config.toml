@@ -53,7 +53,8 @@ candidate_window_layout = "vertical"
 #   engine + quanpin   -> 使用新版引擎全拼会话
 #   任意 backend + wubi -> 当前暂不支持
 # 会话后端，可选："legacy", "engine"
-session_backend = "engine"
+# session_backend = "engine"
+session_backend = "legacy"
 # 输入方案，可选："quanpin", "shuangpin", "wubi"
 schema = "shuangpin"
 # engine + shuangpin 时的 preedit 显示方式，可选："quanpin", "shuangpin"

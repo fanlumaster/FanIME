@@ -55,7 +55,7 @@ const std::string &EngineInputSession::get_pinyin_sequence() const
 
 const std::string &EngineInputSession::get_pinyin_sequence_with_cases() const
 {
-    return request().raw_input;
+    return request().raw_input_with_cases.empty() ? request().raw_input : request().raw_input_with_cases;
 }
 
 const std::string &EngineInputSession::get_pure_pinyin_sequence() const
