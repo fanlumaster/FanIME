@@ -46,14 +46,14 @@ candidate_window_layout = "vertical"
 # 输入
 #
 [input]
-# 会话后端，可选："legacy", "engine"
 # 组合说明：
 #   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
 #   legacy + quanpin   -> 自动切换为新版引擎全拼会话
 #   engine + shuangpin -> 使用新版引擎双拼会话
 #   engine + quanpin   -> 使用新版引擎全拼会话
 #   任意 backend + wubi -> 当前暂不支持
-session_backend = "legacy"
+# 会话后端，可选："legacy", "engine"
+session_backend = "engine"
 # 输入方案，可选："quanpin", "shuangpin", "wubi"
 schema = "shuangpin"
 # engine + shuangpin 时的 preedit 显示方式，可选："quanpin", "shuangpin"

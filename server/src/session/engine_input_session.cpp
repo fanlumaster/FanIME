@@ -65,16 +65,16 @@ const std::string &EngineInputSession::get_pure_pinyin_sequence() const
 
 const std::string &EngineInputSession::get_pinyin_segmentation() const
 {
-    return request().segmentation;
+    return request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
 }
 
 std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
 {
     if (is_shuangpin() && GetConfiguredShuangpinPreeditMode() == "shuangpin")
     {
-        return request().raw_input;
+        return request().raw_segmentation.empty() ? request().raw_input : request().raw_segmentation;
     }
-    return request().segmentation;
+    return request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
 }
 
 std::string EngineInputSession::get_quanpin() const
@@ -138,8 +138,9 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     (void)selected_pinyin;
     SelectionTransition transition;
     transition.full_pure_pinyin = request().normalized_input;
-    transition.current_segmentation = request().segmentation;
-    transition.current_segmentation_with_cases = request().segmentation;
+    transition.current_segmentation =
+        request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
+    transition.current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
     transition.continues_composition = false;
     return transition;
 }
