@@ -67,6 +67,20 @@ If you want to build and run in **one step**, run the following command,
 .\scripts\llaunch.ps1
 ```
 
+## Developer Shortcuts
+
+The server process includes a few built-in global shortcuts that are useful during development:
+
+- `Ctrl + Shift + Alt + T`
+  - terminate `MetasequoiaImeServer` immediately
+- `Ctrl + Shift + Alt + R`
+  - restart `MetasequoiaImeServer`
+- `Ctrl + Shift + Alt + C`
+  - clear IME engine cache
+- `Ctrl + Shift + Alt + 1` to `Ctrl + Shift + Alt + 8`
+  - delete candidate `1` to `8` from the current candidate window
+  - this only works while the candidate window is visible
+
 ## Screenshots
 
 ![](https://i.postimg.cc/c402J3KR/image.png)
