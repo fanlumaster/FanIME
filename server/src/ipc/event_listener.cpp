@@ -24,6 +24,16 @@
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
 
+#ifdef FANY_IPC_DEBUG
+#define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
+#define FANY_IPC_LOGW(message) OutputDebugString((message).c_str())
+#define FANY_IPC_LOGF(...) OutputDebugString(fmt::format(__VA_ARGS__).c_str())
+#else
+#define FANY_IPC_LOG_RAW(message) ((void)0)
+#define FANY_IPC_LOGW(message) ((void)0)
+#define FANY_IPC_LOGF(...) ((void)0)
+#endif
+
 static UINT s_ime_switch_keycode = 0;
 static UINT s_double_single_byte_switch_keycode = 0;
 static UINT s_punc_switch_keycode = 0;
@@ -76,6 +86,36 @@ void RefreshCandidatePageUi(bool show_window)
     {
         PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
     }
+}
+
+void LogPipeConnectResult(const wchar_t *pipe_name, BOOL connected)
+{
+    const DWORD gle = connected ? ERROR_SUCCESS : GetLastError();
+    if (connected)
+    {
+        FANY_IPC_LOGF(L"[msime]: [ipc] {} connected", pipe_name);
+    }
+    else
+    {
+        FANY_IPC_LOGF(L"[msime]: [ipc] {} ConnectNamedPipe returned false: gle={}", pipe_name, gle);
+    }
+}
+
+void LogPipeReadFailure(const wchar_t *pipe_name, DWORD bytes_read)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] {} ReadFile failed or returned empty: gle={}, bytes_read={}", pipe_name,
+                  GetLastError(), bytes_read);
+}
+
+void LogPipeDisconnect(const wchar_t *pipe_name)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] {} disconnected", pipe_name);
+}
+
+void LogPipeEvent(const wchar_t *pipe_name, UINT event_type, UINT keycode, WCHAR wch, UINT modifiers_down)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] {} event: type={}, keycode={}, wch={}, modifiers={}", pipe_name, event_type,
+                  keycode, static_cast<unsigned int>(wch), modifiers_down);
 }
 } // namespace
 
@@ -262,6 +302,7 @@ void EventListenerLoopThread()
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Main pipe connected: {}", connected).c_str());
 #endif
+        LogPipeConnectResult(L"main-pipe", connected);
         ::mainConnected = connected;
         if (connected)
         {
@@ -278,7 +319,7 @@ void EventListenerLoopThread()
                 );
                 if (!readResult || bytesRead == 0) // Disconnected or error
                 {
-                    // TODO: Log
+                    LogPipeReadFailure(L"main-pipe", bytesRead);
 
                     // We alse need to disconnect toTsf named pipe
                     if (::toTsfConnected)
@@ -306,6 +347,8 @@ void EventListenerLoopThread()
                 }
 
                 // Event handle
+                LogPipeEvent(L"main-pipe", namedpipeData.event_type, namedpipeData.keycode, namedpipeData.wch,
+                             namedpipeData.modifiers_down);
                 switch (namedpipeData.event_type)
                 {
                 case 0: { // FanyImeKeyEvent
@@ -363,6 +406,7 @@ void EventListenerLoopThread()
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Main pipe disconnected");
 #endif
+        LogPipeDisconnect(L"main-pipe");
         DisconnectNamedPipe(hPipe);
     }
 
@@ -399,6 +443,7 @@ void ToTsfPipeEventListenerLoopThread()
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: ToTsf Pipe connected: {}", connected).c_str());
 #endif
+        LogPipeConnectResult(L"to-tsf-pipe", connected);
         if (connected)
         {
             // Wait for event to write data to tsf
@@ -440,6 +485,7 @@ void ToTsfPipeEventListenerLoopThread()
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: ToTsf Pipe disconnected");
 #endif
+        LogPipeDisconnect(L"to-tsf-pipe");
         DisconnectNamedPipe(hToTsfPipe);
     }
     ::CloseToTsfNamedPipe();
@@ -470,6 +516,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
         ::toTsfWorkerThreadConnected = false; // 重置
         BOOL connected = ConnectNamedPipe(hToTsfWorkerThreadPipe, NULL);
         ::toTsfWorkerThreadConnected = connected;
+        LogPipeConnectResult(L"to-tsf-worker-pipe", connected);
         if (connected)
         {
 #ifdef FANY_DEBUG
@@ -561,6 +608,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe disconnected");
 #endif
+        LogPipeDisconnect(L"to-tsf-worker-pipe");
         DisconnectNamedPipe(hToTsfWorkerThreadPipe);
     }
     ::CloseToTsfWorkerThreadNamedPipe();
@@ -573,6 +621,7 @@ void AuxPipeEventListenerLoopThread()
         // OutputDebugString(L"[msime]: Aux Pipe starts to wait");
         BOOL connected = ConnectNamedPipe(hAuxPipe, NULL);
         // OutputDebugString(fmt::format(L"[msime]: Aux Pipe connected: {}", connected).c_str());
+        LogPipeConnectResult(L"aux-pipe", connected);
         if (connected)
         {
             wchar_t buffer[128] = {0};
@@ -586,11 +635,12 @@ void AuxPipeEventListenerLoopThread()
             );
             if (!readResult || bytesRead == 0) // Disconnected or error
             {
-                // TODO: Log
+                LogPipeReadFailure(L"aux-pipe", bytesRead);
             }
             else
             {
                 std::wstring message(buffer, bytesRead / sizeof(wchar_t));
+                FANY_IPC_LOGF(L"[msime]: [ipc] aux-pipe message: {}", message);
 
                 if (message == L"kill")
                 {
@@ -628,6 +678,7 @@ void AuxPipeEventListenerLoopThread()
             // TODO:
         }
         // OutputDebugString(L"[msime]: Aux Pipe disconnected");
+        LogPipeDisconnect(L"aux-pipe");
         DisconnectNamedPipe(hAuxPipe);
     }
     ::CloseAuxNamedPipe();

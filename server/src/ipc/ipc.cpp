@@ -10,6 +10,14 @@
 #include "utils/common_utils.h"
 #include "fmt/xchar.h"
 
+#ifdef FANY_IPC_DEBUG
+#define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
+#define FANY_IPC_LOGF(...) OutputDebugString(fmt::format(__VA_ARGS__).c_str())
+#else
+#define FANY_IPC_LOG_RAW(message) ((void)0)
+#define FANY_IPC_LOGF(...) ((void)0)
+#endif
+
 #define LOW_INTEGRITY_SDDL_SACL                                                                                        \
     SDDL_SACL                                                                                                          \
     SDDL_DELIMINATOR                                                                                                   \
@@ -68,6 +76,20 @@ static bool canUseSharedMemory = true;
 static bool canUseNamedPipe = true;
 
 static struct FanyImeNamedpipeDataToTsf namedpipeDataToTsf = {};
+
+namespace
+{
+void LogPipeWriteFailure(const wchar_t *pipe_name, UINT msg_type, DWORD bytes_written, DWORD expected_bytes)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] WriteFile failed on {}: gle={}, msg_type={}, bytes_written={}, expected_bytes={}",
+                  pipe_name, GetLastError(), msg_type, bytes_written, expected_bytes);
+}
+
+void LogPipeDisconnected(const wchar_t *pipe_name, UINT msg_type)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] Attempted to write to disconnected pipe {}: msg_type={}", pipe_name, msg_type);
+}
+} // namespace
 
 int InitIpc()
 {
@@ -238,12 +260,14 @@ int InitNamedPipe()
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateNamedPipe failed: {}", GetLastError()).c_str());
 #endif
+        FANY_IPC_LOGF(L"[msime]: [ipc] CreateNamedPipe failed for main pipe: gle={}", GetLastError());
     }
     else
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe created successfully");
 #endif
+        FANY_IPC_LOG_RAW(L"[msime]: [ipc] Main named pipe created");
     }
 
     if (hAuxPipe == INVALID_HANDLE_VALUE)
@@ -251,12 +275,14 @@ int InitNamedPipe()
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateNamedPipe aux pipe failed: {}", GetLastError()).c_str());
 #endif
+        FANY_IPC_LOGF(L"[msime]: [ipc] CreateNamedPipe failed for aux pipe: gle={}", GetLastError());
     }
     else
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe aux pipe created successfully");
 #endif
+        FANY_IPC_LOG_RAW(L"[msime]: [ipc] Aux named pipe created");
     }
 
     if (hToTsfPipe == INVALID_HANDLE_VALUE)
@@ -264,12 +290,14 @@ int InitNamedPipe()
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: CreateNamedPipe to tsf pipe failed: {}", GetLastError()).c_str());
 #endif
+        FANY_IPC_LOGF(L"[msime]: [ipc] CreateNamedPipe failed for to-tsf pipe: gle={}", GetLastError());
     }
     else
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe to tsf pipe created successfully");
 #endif
+        FANY_IPC_LOG_RAW(L"[msime]: [ipc] To-tsf named pipe created");
     }
 
     if (hToTsfWorkerThreadPipe == INVALID_HANDLE_VALUE)
@@ -277,12 +305,14 @@ int InitNamedPipe()
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"CreateNamedPipe to tsf worker thread pipe failed: {}", GetLastError()).c_str());
 #endif
+        FANY_IPC_LOGF(L"[msime]: [ipc] CreateNamedPipe failed for to-tsf-worker pipe: gle={}", GetLastError());
     }
     else
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Named pipe to tsf worker thread pipe created successfully");
 #endif
+        FANY_IPC_LOG_RAW(L"[msime]: [ipc] To-tsf-worker named pipe created");
     }
 
     //
@@ -557,6 +587,7 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: SendToTsfViaNamedpipe Pipe disconnected");
 #endif
+        LogPipeDisconnected(L"to-tsf", msg_type);
         return;
     }
     DWORD bytesWritten = 0;
@@ -579,6 +610,7 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
                                       GetLastError(), bytesWritten)
                               .c_str());
 #endif
+        LogPipeWriteFailure(L"to-tsf", msg_type, bytesWritten, sizeof(namedpipeDataToTsf));
     }
 }
 
@@ -590,6 +622,7 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: SendToTsfWorkerThreadViaNamedpipe Pipe disconnected");
 #endif
+        LogPipeDisconnected(L"to-tsf-worker", msg_type);
         return;
     }
     DWORD bytesWritten = 0;
@@ -613,5 +646,6 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
                         GetLastError(), bytesWritten)
                 .c_str());
 #endif
+        LogPipeWriteFailure(L"to-tsf-worker", msg_type, bytesWritten, sizeof(namedpipeDataToTsfWorkerThread));
     }
 }

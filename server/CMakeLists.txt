@@ -32,6 +32,7 @@ add_definitions(
 
 # add_definitions(
 #     /DFANY_DEBUG=1
+#     /DFANY_IPC_DEBUG=1
 # )
 
 # For utf8cpp, make it use C++11 and later
