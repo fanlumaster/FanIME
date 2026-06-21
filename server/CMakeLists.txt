@@ -92,6 +92,7 @@ set(SRC_FILES_IME_ENGINE
     "./MetasequoiaImeEngine/quanpin/engine.cpp"
     "./MetasequoiaImeEngine/quanpin/quanpin_dictionary.cpp"
     "./MetasequoiaImeEngine/quanpin/quanpin_query.cpp"
+    "./MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
     "./MetasequoiaImeEngine/schemes/quanpin_scheme.cpp"
     "./MetasequoiaImeEngine/schemes/shuangpin_scheme.cpp"
     "./MetasequoiaImeEngine/shuangpin/engine.cpp"

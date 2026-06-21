@@ -16,6 +16,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/pinyin_candidate_provider.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/engine.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_dictionary.cpp"
+    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/schemes/shuangpin_scheme.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/schemes/quanpin_scheme.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_query.cpp"

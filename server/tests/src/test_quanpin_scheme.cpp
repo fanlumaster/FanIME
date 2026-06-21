@@ -1,6 +1,7 @@
 #include "tests/includes/test_framework.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/schemes/quanpin_scheme.h"
 
 namespace
@@ -114,6 +115,16 @@ TEST_CASE(QuanpinCompletePinyinInputDetectionMatchesHelpcodesRequirement)
     REQUIRE(quanpin::is_complete_pinyin_input("xi'te'le"));
     REQUIRE(!quanpin::is_complete_pinyin_input("xitel"));
     REQUIRE(!quanpin::is_complete_pinyin_input("xi'tel"));
+}
+
+TEST_CASE(QuanpinHelpcodeDetectionUsesSharedUtilsRules)
+{
+    REQUIRE_EQ(quanpin::detect_active_helpcode_length("xitelea", "xiteleA"), static_cast<size_t>(1));
+    REQUIRE_EQ(quanpin::detect_active_helpcode_length("xiteleaa", "xiteleAA"), static_cast<size_t>(2));
+    REQUIRE_EQ(quanpin::detect_active_helpcode_length("xitelr", "xitelR"), static_cast<size_t>(0));
+    REQUIRE_EQ(quanpin::strip_active_helpcodes("xitelea", "xiteleA"), std::string("xitele"));
+    REQUIRE_EQ(quanpin::strip_active_helpcodes("xiteleaa", "xiteleAA"), std::string("xitele"));
+    REQUIRE_EQ(quanpin::strip_active_helpcodes("xitelr", "xitelR"), std::string("xitelr"));
 }
 
 TEST_CASE(QuanpinPreeditPreservesTypedCaseEvenWhenHelpcodesDoNotApply)

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include "config/ime_config.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
-#include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
 
@@ -47,23 +47,8 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
 
 bool HasActiveQuanpinHelpcode(const QueryRequest &request)
 {
-    if (!request.enable_shuangpin_helpcode || request.raw_input.empty())
-    {
-        return false;
-    }
-
-    const auto &raw_input_with_cases = request.raw_input_with_cases.empty() ? request.raw_input : request.raw_input_with_cases;
-    if (HelpcodeUtils::is_quanpin_double_help_mode(raw_input_with_cases) && request.raw_input.size() >= 2)
-    {
-        return quanpin::is_complete_pinyin_input(request.raw_input.substr(0, request.raw_input.size() - 2));
-    }
-
-    if (HelpcodeUtils::is_quanpin_single_help_mode(raw_input_with_cases) && !request.raw_input.empty())
-    {
-        return quanpin::is_complete_pinyin_input(request.raw_input.substr(0, request.raw_input.size() - 1));
-    }
-
-    return false;
+    return request.enable_shuangpin_helpcode &&
+           quanpin::detect_active_helpcode_length(request.raw_input, request.raw_input_with_cases) > 0;
 }
 } // namespace
 
