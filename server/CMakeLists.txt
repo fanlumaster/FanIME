@@ -84,6 +84,7 @@ set(SRC_FILES
 )
 
 set(SRC_FILES_IME_ENGINE
+    "./MetasequoiaImeEngine/common/helpcode_utils.cpp"
     "./MetasequoiaImeEngine/common/string_utils.cpp"
     "./MetasequoiaImeEngine/core/ime_session.cpp"
     "./MetasequoiaImeEngine/providers/provider_registry.cpp"

@@ -1,5 +1,5 @@
 #include "shuangpin_input_session.h"
-#include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
+#include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include <stdexcept>
 
 ShuangpinInputSession::ShuangpinInputSession() : dictionary_(std::make_unique<DictionaryUlPb>())
@@ -169,6 +169,6 @@ ShuangpinInputSession::update_creating_word_progress(const std::string &current_
     progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
     progress.word = current_word + selected_word;
     progress.preedit = progress.word + selection_transition.current_segmentation;
-    progress.completed = ShuangpinUtil::cnt_han_chars(progress.word) * 2 == progress.pinyin.size();
+    progress.completed = HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size();
     return progress;
 }

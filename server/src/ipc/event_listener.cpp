@@ -19,7 +19,7 @@
 #include "fmt/xchar.h"
 #include <utf8.h>
 #include "global/globals.h"
-#include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
+#include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
@@ -61,7 +61,7 @@ std::string BuildCurrentCandidatePage()
             ui.selected_text = string_to_wstring(word);
         }
 
-        candidate_string += word + ShuangpinUtil::compute_helpcodes(word);
+        candidate_string += word + HelpcodeUtils::compute_helpcodes(word);
         maxCount = std::max(maxCount, static_cast<int>(utf8::distance(word.begin(), word.end())));
         ui.page_words.push_back(string_to_wstring(word));
         if (i < loop - 1)

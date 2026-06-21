@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include "config/ime_config.h"
+#include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
 
@@ -126,6 +127,10 @@ std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
     {
         return request().raw_segmentation.empty() ? request().raw_input : request().raw_segmentation;
     }
+    if (current_scheme_type() == SchemeType::Quanpin)
+    {
+        return request().raw_segmentation.empty() ? request().raw_input_with_cases : request().raw_segmentation;
+    }
     return request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
 }
 
@@ -198,7 +203,7 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request());
-        const size_t word_pinyin_length = ShuangpinUtil::cnt_han_chars(selected_word) * 2;
+        const size_t word_pinyin_length = HelpcodeUtils::count_han_chars(selected_word) * 2;
         const size_t total_input_length = base.raw_input.size();
 
         transition.full_pure_pinyin =
@@ -296,7 +301,7 @@ EngineInputSession::update_creating_word_progress(const std::string &current_pin
     progress.word = current_word + selected_word;
     progress.preedit = progress.word + selection_transition.current_segmentation;
     progress.completed =
-        is_shuangpin() ? ShuangpinUtil::cnt_han_chars(progress.word) * 2 == progress.pinyin.size() : false;
+        is_shuangpin() ? HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size() : false;
     return progress;
 }
 

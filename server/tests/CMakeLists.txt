@@ -9,6 +9,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"
     "${CMAKE_SOURCE_DIR}/src/session/engine_input_session.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/common_utils.cpp"
+    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/common/helpcode_utils.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/core/ime_session.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/common/string_utils.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/provider_registry.cpp"

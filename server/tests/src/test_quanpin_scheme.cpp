@@ -1,4 +1,5 @@
 #include "tests/includes/test_framework.h"
+#include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/schemes/quanpin_scheme.h"
 
 namespace
@@ -33,4 +34,57 @@ TEST_CASE(QuanpinSchemeApostropheIsPreservedInRawInput)
     REQUIRE(request.valid);
     REQUIRE_EQ(request.raw_input, std::string("x'i"));
     REQUIRE_EQ(request.normalized_input, std::string("xi"));
+}
+
+TEST_CASE(QuanpinSchemePreservesUppercaseRawInputForHelpcodes)
+{
+    QuanpinScheme scheme;
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, 'I', L'i');
+    InputKey(scheme, 'T', L't');
+    InputKey(scheme, 'E', L'e');
+    InputKey(scheme, 'L', L'l');
+    InputKey(scheme, 'E', L'e');
+    InputKey(scheme, 'A', L'A', 1);
+    InputKey(scheme, 'A', L'A', 1);
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.raw_input_with_cases, std::string("xiteleAA"));
+    REQUIRE_EQ(request.raw_input, std::string("xiteleaa"));
+    REQUIRE_EQ(request.normalized_input, std::string("xitele"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'le'AA"));
+}
+
+TEST_CASE(QuanpinDoubleHelpModeRecognizesTrailingUppercaseLetters)
+{
+    REQUIRE(HelpcodeUtils::is_quanpin_double_help_mode("xiteleAA"));
+    REQUIRE(!HelpcodeUtils::is_quanpin_double_help_mode("xiteleaA"));
+    REQUIRE(!HelpcodeUtils::is_quanpin_double_help_mode("xiteleaa"));
+}
+
+TEST_CASE(QuanpinSchemePreservesUppercaseRawInputForSingleHelpcode)
+{
+    QuanpinScheme scheme;
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, 'I', L'i');
+    InputKey(scheme, 'T', L't');
+    InputKey(scheme, 'E', L'e');
+    InputKey(scheme, 'L', L'l');
+    InputKey(scheme, 'E', L'e');
+    InputKey(scheme, 'A', L'A', 1);
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.raw_input_with_cases, std::string("xiteleA"));
+    REQUIRE_EQ(request.raw_input, std::string("xitelea"));
+    REQUIRE_EQ(request.normalized_input, std::string("xitele"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'le'A"));
+}
+
+TEST_CASE(QuanpinSingleHelpModeRecognizesTrailingUppercaseLetter)
+{
+    REQUIRE(HelpcodeUtils::is_quanpin_single_help_mode("xiteleA"));
+    REQUIRE(!HelpcodeUtils::is_quanpin_single_help_mode("xiteleAA"));
+    REQUIRE(!HelpcodeUtils::is_quanpin_single_help_mode("xitelea"));
 }
