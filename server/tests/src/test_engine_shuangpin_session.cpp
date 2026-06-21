@@ -100,3 +100,35 @@ TEST_CASE(EngineQuanpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
     state = session.get_cloud_query_state();
     REQUIRE(state.should_query);
 }
+
+TEST_CASE(EngineQuanpinSessionContinuesCompositionForCreatingWord)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "xitele");
+
+    const auto transition = session.advance_composition_after_selection("xi", "西");
+    REQUIRE(transition.continues_composition);
+    REQUIRE_EQ(session.get_pinyin_sequence(), std::string("tele"));
+    REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("te'le"));
+}
+
+TEST_CASE(EngineQuanpinSessionCompletesCreatingWordProgress)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "xitele");
+
+    const auto first_transition = session.advance_composition_after_selection("xi", "西");
+    const auto first_progress = session.update_creating_word_progress("", "", "西", first_transition);
+    REQUIRE(!first_progress.completed);
+    REQUIRE_EQ(first_progress.pinyin, std::string("xitele"));
+    REQUIRE_EQ(first_progress.word, std::string("西"));
+    REQUIRE_EQ(first_progress.preedit, std::string("西te'le"));
+
+    const auto second_transition = session.advance_composition_after_selection("te'le", "特乐");
+    REQUIRE(!second_transition.continues_composition);
+    const auto second_progress =
+        session.update_creating_word_progress(first_progress.pinyin, first_progress.word, "特乐", second_transition);
+    REQUIRE(second_progress.completed);
+    REQUIRE_EQ(second_progress.pinyin, std::string("xitele"));
+    REQUIRE_EQ(second_progress.word, std::string("西特乐"));
+}

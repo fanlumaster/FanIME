@@ -9,6 +9,35 @@
 
 namespace
 {
+std::string remove_delimiters(const std::string &segmented)
+{
+    std::string normalized;
+    normalized.reserve(segmented.size());
+    for (const char ch : segmented)
+    {
+        if (ch != '\'')
+        {
+            normalized.push_back(ch);
+        }
+    }
+    return normalized;
+}
+
+size_t raw_length_for_normalized_prefix(const std::string &raw_input, size_t normalized_length)
+{
+    size_t raw_length = 0;
+    size_t normalized_count = 0;
+    while (raw_length < raw_input.size() && normalized_count < normalized_length)
+    {
+        if (raw_input[raw_length] != '\'')
+        {
+            ++normalized_count;
+        }
+        ++raw_length;
+    }
+    return raw_length;
+}
+
 struct ShuangpinCompositionBase
 {
     std::string raw_input;
@@ -154,7 +183,9 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
         return !base.raw_input.empty() &&
                ShuangpinUtil::is_all_complete_pinyin(base.raw_input, shuangpin::segment_input(base.raw_input));
     }
-    return false;
+    const auto &segmentation =
+        request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
+    return !segmentation.empty() && quanpin::is_complete_pinyin_input(segmentation);
 }
 
 void EngineInputSession::set_pinyin_sequence(const std::string &pinyin_sequence)
@@ -262,9 +293,37 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     }
 
     transition.full_pure_pinyin = request().normalized_input;
-    transition.current_segmentation =
+    const std::string current_segmentation =
         request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
-    transition.current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
+    const std::string current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
+    const std::string selected_pure_pinyin = remove_delimiters(selected_pinyin);
+
+    size_t consumed_raw_length = 0;
+    if (!selected_pinyin.empty() && current_segmentation_with_cases.rfind(selected_pinyin, 0) == 0)
+    {
+        consumed_raw_length = selected_pinyin.size();
+    }
+    else
+    {
+        consumed_raw_length = raw_length_for_normalized_prefix(request().raw_input_with_cases, selected_pure_pinyin.size());
+    }
+
+    transition.continues_composition =
+        !selected_pure_pinyin.empty() && selected_pure_pinyin.size() < transition.full_pure_pinyin.size() &&
+        is_all_complete_pure_pinyin();
+
+    if (transition.continues_composition)
+    {
+        const std::string rest_raw_input = request().raw_input.substr(consumed_raw_length);
+        const std::string rest_raw_input_with_cases = request().raw_input_with_cases.substr(consumed_raw_length);
+        session_.replace_quanpin_raw_input(rest_raw_input, rest_raw_input_with_cases);
+        transition.current_segmentation = get_pinyin_segmentation();
+        transition.current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
+        return transition;
+    }
+
+    transition.current_segmentation = current_segmentation;
+    transition.current_segmentation_with_cases = current_segmentation_with_cases;
     return transition;
 }
 
@@ -315,8 +374,14 @@ EngineInputSession::update_creating_word_progress(const std::string &current_pin
     progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
     progress.word = current_word + selected_word;
     progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
-    progress.completed =
-        is_shuangpin() ? HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size() : false;
+    if (is_shuangpin())
+    {
+        progress.completed = HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size();
+        return progress;
+    }
+
+    const auto cuts = quanpin::cut_pinyin_by_mode(progress.pinyin, "correction");
+    progress.completed = !cuts.empty() && cuts.front().size() == HelpcodeUtils::count_han_chars(progress.word);
     return progress;
 }
 
