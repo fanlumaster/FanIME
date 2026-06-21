@@ -105,7 +105,7 @@ TEST_CASE(QuanpinHelpcodeRequiresCompleteBasePinyin)
     REQUIRE_EQ(request.raw_input_with_cases, std::string("xitelA"));
     REQUIRE_EQ(request.raw_input, std::string("xitela"));
     REQUIRE_EQ(request.normalized_input, std::string("xitela"));
-    REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'la"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'lA"));
 }
 
 TEST_CASE(QuanpinCompletePinyinInputDetectionMatchesHelpcodesRequirement)

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "config/ime_config.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
 
@@ -42,6 +43,27 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
     }
 
     return base;
+}
+
+bool HasActiveQuanpinHelpcode(const QueryRequest &request)
+{
+    if (!request.enable_shuangpin_helpcode || request.raw_input.empty())
+    {
+        return false;
+    }
+
+    const auto &raw_input_with_cases = request.raw_input_with_cases.empty() ? request.raw_input : request.raw_input_with_cases;
+    if (HelpcodeUtils::is_quanpin_double_help_mode(raw_input_with_cases) && request.raw_input.size() >= 2)
+    {
+        return quanpin::is_complete_pinyin_input(request.raw_input.substr(0, request.raw_input.size() - 2));
+    }
+
+    if (HelpcodeUtils::is_quanpin_single_help_mode(raw_input_with_cases) && !request.raw_input.empty())
+    {
+        return quanpin::is_complete_pinyin_input(request.raw_input.substr(0, request.raw_input.size() - 1));
+    }
+
+    return false;
 }
 } // namespace
 
@@ -264,8 +286,16 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
+    state.cache_key = request().raw_input;
+    state.committed_pinyin = request().normalized_input;
+
     if (is_shuangpin())
     {
+        if (ResolveShuangpinCompositionBase(request()).helpcode_length > 0)
+        {
+            return state;
+        }
+
         const auto &pinyin_with_cases = get_pinyin_sequence_with_cases();
         if (!pinyin_with_cases.empty() && pinyin_with_cases.size() % 2 == 0)
         {
@@ -277,16 +307,16 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
         {
             state.query_text = request().normalized_input;
         }
+        return state;
+    }
 
-        state.cache_key = request().raw_input;
-        state.committed_pinyin = request().normalized_input;
+    if (HasActiveQuanpinHelpcode(request()))
+    {
         return state;
     }
 
     state.should_query = !request().normalized_input.empty();
     state.query_text = request().normalized_input;
-    state.cache_key = request().raw_input;
-    state.committed_pinyin = request().normalized_input;
     return state;
 }
 

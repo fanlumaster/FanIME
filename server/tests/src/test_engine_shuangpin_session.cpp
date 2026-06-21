@@ -67,3 +67,36 @@ TEST_CASE(EngineShuangpinSessionCloudQueryMatchesLegacyTiming)
     state = session.get_cloud_query_state();
     REQUIRE(!state.should_query);
 }
+
+TEST_CASE(EngineShuangpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+
+    InputLetters(session, "xitelea");
+    auto state = session.get_cloud_query_state();
+    REQUIRE(!state.should_query);
+
+    session.reset_state();
+    InputLetters(session, "xiteleaA");
+    state = session.get_cloud_query_state();
+    REQUIRE(!state.should_query);
+}
+
+TEST_CASE(EngineQuanpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+
+    InputLetters(session, "xiteleA");
+    auto state = session.get_cloud_query_state();
+    REQUIRE(!state.should_query);
+
+    session.reset_state();
+    InputLetters(session, "xiteleAA");
+    state = session.get_cloud_query_state();
+    REQUIRE(!state.should_query);
+
+    session.reset_state();
+    InputLetters(session, "xitelR");
+    state = session.get_cloud_query_state();
+    REQUIRE(state.should_query);
+}

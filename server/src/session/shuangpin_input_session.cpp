@@ -1,6 +1,40 @@
 #include "shuangpin_input_session.h"
+#include "config/ime_config.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
 #include <stdexcept>
+
+namespace
+{
+bool HasActiveShuangpinHelpcode(const ShuangpinInputSession &session)
+{
+    if (!GetConfiguredShuangpinHelpcodeEnabled())
+    {
+        return false;
+    }
+
+    const auto &raw_input = session.get_pinyin_sequence();
+    const auto &raw_input_with_cases = session.get_pinyin_sequence_with_cases();
+    if (raw_input.empty())
+    {
+        return false;
+    }
+
+    if (ShuangpinUtil::IsFullHelpMode(raw_input_with_cases) && raw_input.size() >= 2)
+    {
+        return true;
+    }
+
+    if (raw_input.size() % 2 == 1 && raw_input.size() > 1)
+    {
+        const std::string pure_raw_input = raw_input.substr(0, raw_input.size() - 1);
+        const std::string pure_segmentation = ShuangpinUtil::pinyin_segmentation(pure_raw_input);
+        return ShuangpinUtil::is_all_complete_pinyin(pure_raw_input, pure_segmentation);
+    }
+
+    return false;
+}
+} // namespace
 
 ShuangpinInputSession::ShuangpinInputSession() : dictionary_(std::make_unique<DictionaryUlPb>())
 {
@@ -142,6 +176,14 @@ ShuangpinInputSession::advance_composition_after_selection(const std::string &se
 IInputSession::CloudQueryState ShuangpinInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
+    state.cache_key = dictionary_->get_pinyin_sequence();
+    state.committed_pinyin = dictionary_->get_pure_pinyin_sequence();
+
+    if (HasActiveShuangpinHelpcode(*this))
+    {
+        return state;
+    }
+
     const auto &pinyin_with_cases = dictionary_->get_pinyin_sequence_with_cases();
     if (!pinyin_with_cases.empty() && pinyin_with_cases.size() % 2 == 0)
     {
@@ -153,9 +195,6 @@ IInputSession::CloudQueryState ShuangpinInputSession::get_cloud_query_state() co
     {
         state.query_text = dictionary_->get_quanpin();
     }
-
-    state.cache_key = dictionary_->get_pinyin_sequence();
-    state.committed_pinyin = dictionary_->get_pure_pinyin_sequence();
     return state;
 }
 
