@@ -299,7 +299,7 @@ EngineInputSession::update_creating_word_progress(const std::string &current_pin
     CreatingWordProgress progress;
     progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
     progress.word = current_word + selected_word;
-    progress.preedit = progress.word + selection_transition.current_segmentation;
+    progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
     progress.completed =
         is_shuangpin() ? HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size() : false;
     return progress;

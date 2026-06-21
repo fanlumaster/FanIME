@@ -168,7 +168,7 @@ ShuangpinInputSession::update_creating_word_progress(const std::string &current_
     CreatingWordProgress progress;
     progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
     progress.word = current_word + selected_word;
-    progress.preedit = progress.word + selection_transition.current_segmentation;
+    progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
     progress.completed = HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size();
     return progress;
 }

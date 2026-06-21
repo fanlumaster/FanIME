@@ -1,5 +1,6 @@
 #include "tests/includes/test_framework.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/schemes/quanpin_scheme.h"
 
 namespace
@@ -87,4 +88,47 @@ TEST_CASE(QuanpinSingleHelpModeRecognizesTrailingUppercaseLetter)
     REQUIRE(HelpcodeUtils::is_quanpin_single_help_mode("xiteleA"));
     REQUIRE(!HelpcodeUtils::is_quanpin_single_help_mode("xiteleAA"));
     REQUIRE(!HelpcodeUtils::is_quanpin_single_help_mode("xitelea"));
+}
+
+TEST_CASE(QuanpinHelpcodeRequiresCompleteBasePinyin)
+{
+    QuanpinScheme scheme;
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, 'I', L'i');
+    InputKey(scheme, 'T', L't');
+    InputKey(scheme, 'E', L'e');
+    InputKey(scheme, 'L', L'l');
+    InputKey(scheme, 'A', L'A', 1);
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.raw_input_with_cases, std::string("xitelA"));
+    REQUIRE_EQ(request.raw_input, std::string("xitela"));
+    REQUIRE_EQ(request.normalized_input, std::string("xitela"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'la"));
+}
+
+TEST_CASE(QuanpinCompletePinyinInputDetectionMatchesHelpcodesRequirement)
+{
+    REQUIRE(quanpin::is_complete_pinyin_input("xitele"));
+    REQUIRE(quanpin::is_complete_pinyin_input("xi'te'le"));
+    REQUIRE(!quanpin::is_complete_pinyin_input("xitel"));
+    REQUIRE(!quanpin::is_complete_pinyin_input("xi'tel"));
+}
+
+TEST_CASE(QuanpinPreeditPreservesTypedCaseEvenWhenHelpcodesDoNotApply)
+{
+    QuanpinScheme scheme;
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, 'I', L'i');
+    InputKey(scheme, 'T', L't');
+    InputKey(scheme, 'E', L'e');
+    InputKey(scheme, 'L', L'l');
+    InputKey(scheme, 'R', L'R', 1);
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.raw_input_with_cases, std::string("xitelR"));
+    REQUIRE_EQ(request.raw_input, std::string("xitelr"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'l'R"));
 }
