@@ -132,3 +132,19 @@ TEST_CASE(EngineQuanpinSessionCompletesCreatingWordProgress)
     REQUIRE_EQ(second_progress.pinyin, std::string("xitele"));
     REQUIRE_EQ(second_progress.word, std::string("西特乐"));
 }
+
+TEST_CASE(EngineQuanpinSessionContinuesCompositionAfterMultiSyllableSelection)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "zhengxianghuafen");
+
+    const auto transition = session.advance_composition_after_selection("zheng'xiang", "正向");
+    REQUIRE(transition.continues_composition);
+    REQUIRE_EQ(session.get_pinyin_sequence(), std::string("huafen"));
+    REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("hua'fen"));
+
+    const auto progress = session.update_creating_word_progress("", "", "正向", transition);
+    REQUIRE_EQ(progress.pinyin, std::string("zhengxianghuafen"));
+    REQUIRE_EQ(progress.word, std::string("正向"));
+    REQUIRE_EQ(progress.preedit, std::string("正向hua'fen"));
+}

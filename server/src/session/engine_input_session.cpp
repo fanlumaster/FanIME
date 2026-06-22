@@ -298,15 +298,7 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     const std::string current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
     const std::string selected_pure_pinyin = remove_delimiters(selected_pinyin);
 
-    size_t consumed_raw_length = 0;
-    if (!selected_pinyin.empty() && current_segmentation_with_cases.rfind(selected_pinyin, 0) == 0)
-    {
-        consumed_raw_length = selected_pinyin.size();
-    }
-    else
-    {
-        consumed_raw_length = raw_length_for_normalized_prefix(request().raw_input_with_cases, selected_pure_pinyin.size());
-    }
+    size_t consumed_raw_length = raw_length_for_normalized_prefix(request().raw_input_with_cases, selected_pure_pinyin.size());
 
     transition.continues_composition =
         !selected_pure_pinyin.empty() && selected_pure_pinyin.size() < transition.full_pure_pinyin.size() &&

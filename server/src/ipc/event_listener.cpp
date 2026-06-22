@@ -40,6 +40,11 @@ static UINT s_punc_switch_keycode = 0;
 
 namespace
 {
+std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases, const std::string &current_word)
+{
+    return string_to_wstring(remaining_raw_input_with_cases + "\t" + current_word);
+}
+
 std::string BuildCurrentCandidatePage()
 {
     auto &ui = Global::candidate_ui;
@@ -945,9 +950,8 @@ void ProcessSelectionKey(UINT keycode)
             GlobalIme::composition.creating_word.word = creating_word_progress.word;
             GlobalIme::composition.creating_word.preedit = creating_word_progress.preedit;
             /* 更新一下中间态的造词时 tsf 端所需的数据 */
-            Global::candidate_ui.selected_text =
-                string_to_wstring(GlobalIme::composition.creating_word.pinyin + "," +
-                                  GlobalIme::composition.creating_word.word);
+            Global::candidate_ui.selected_text = BuildCreateWordPipePayload(
+                g_inputSession->get_pinyin_sequence_with_cases(), GlobalIme::composition.creating_word.word);
             if (creating_word_progress.completed)
             { /* 最终的造词 */
 #ifdef FANY_DEBUG
