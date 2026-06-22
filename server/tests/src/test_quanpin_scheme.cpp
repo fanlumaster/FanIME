@@ -127,6 +127,13 @@ TEST_CASE(QuanpinHelpcodeDetectionUsesSharedUtilsRules)
     REQUIRE_EQ(quanpin::strip_active_helpcodes("xitelr", "xitelR"), std::string("xitelr"));
 }
 
+TEST_CASE(QuanpinCorrectionPrefersFewerSegments)
+{
+    const auto cuts = quanpin::cut_pinyin_by_mode("keneng", "correction");
+    REQUIRE(!cuts.empty());
+    REQUIRE_EQ(quanpin::join_segments(cuts.front()), std::string("ke'neng"));
+}
+
 TEST_CASE(QuanpinPreeditPreservesTypedCaseEvenWhenHelpcodesDoNotApply)
 {
     QuanpinScheme scheme;
