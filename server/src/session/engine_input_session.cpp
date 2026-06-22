@@ -297,8 +297,13 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
         request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
     const std::string current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
     const std::string selected_pure_pinyin = remove_delimiters(selected_pinyin);
+    const std::string raw_input_without_helpcodes =
+        quanpin::strip_active_helpcodes(request().raw_input, request().raw_input_with_cases);
+    const std::string raw_input_with_cases_without_helpcodes =
+        quanpin::strip_active_helpcodes_with_cases(request().raw_input, request().raw_input_with_cases);
 
-    size_t consumed_raw_length = raw_length_for_normalized_prefix(request().raw_input_with_cases, selected_pure_pinyin.size());
+    size_t consumed_raw_length =
+        raw_length_for_normalized_prefix(raw_input_with_cases_without_helpcodes, selected_pure_pinyin.size());
 
     transition.continues_composition =
         !selected_pure_pinyin.empty() && selected_pure_pinyin.size() < transition.full_pure_pinyin.size() &&
@@ -306,8 +311,9 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 
     if (transition.continues_composition)
     {
-        const std::string rest_raw_input = request().raw_input.substr(consumed_raw_length);
-        const std::string rest_raw_input_with_cases = request().raw_input_with_cases.substr(consumed_raw_length);
+        const std::string rest_raw_input = raw_input_without_helpcodes.substr(consumed_raw_length);
+        const std::string rest_raw_input_with_cases =
+            raw_input_with_cases_without_helpcodes.substr(consumed_raw_length);
         session_.replace_quanpin_raw_input(rest_raw_input, rest_raw_input_with_cases);
         transition.current_segmentation = get_pinyin_segmentation();
         transition.current_segmentation_with_cases = get_pinyin_segmentation_with_cases();

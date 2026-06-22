@@ -148,3 +148,20 @@ TEST_CASE(EngineQuanpinSessionContinuesCompositionAfterMultiSyllableSelection)
     REQUIRE_EQ(progress.word, std::string("正向"));
     REQUIRE_EQ(progress.preedit, std::string("正向hua'fen"));
 }
+
+TEST_CASE(EngineQuanpinSessionContinuesCompositionWithoutRetainingHelpcodes)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "nishuoneNV");
+
+    const auto transition = session.advance_composition_after_selection("ni'shuo", "你说");
+    REQUIRE(transition.continues_composition);
+    REQUIRE_EQ(session.get_pinyin_sequence(), std::string("ne"));
+    REQUIRE_EQ(session.get_pinyin_sequence_with_cases(), std::string("ne"));
+    REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("ne"));
+
+    const auto progress = session.update_creating_word_progress("", "", "你说", transition);
+    REQUIRE_EQ(progress.pinyin, std::string("nishuone"));
+    REQUIRE_EQ(progress.word, std::string("你说"));
+    REQUIRE_EQ(progress.preedit, std::string("你说ne"));
+}
