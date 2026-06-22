@@ -79,6 +79,21 @@ bool HasActiveQuanpinHelpcode(const QueryRequest &request)
     return request.enable_shuangpin_helpcode &&
            quanpin::detect_active_helpcode_length(request.raw_input, request.raw_input_with_cases) > 0;
 }
+
+std::string ResolveShuangpinCloudCacheKey(const QueryRequest &request)
+{
+    const auto base = ResolveShuangpinCompositionBase(request);
+    if (base.helpcode_length > 0 && base.raw_input.size() >= base.helpcode_length)
+    {
+        return base.raw_input.substr(0, base.raw_input.size() - base.helpcode_length);
+    }
+    return base.raw_input;
+}
+
+std::string ResolveQuanpinCloudCacheKey(const QueryRequest &request)
+{
+    return quanpin::strip_active_helpcodes(request.raw_input, request.raw_input_with_cases);
+}
 } // namespace
 
 EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme_type)
@@ -200,38 +215,24 @@ void EngineInputSession::set_pinyin_sequence_with_cases(const std::string &pinyi
 
 int EngineInputSession::store_user_phrase(std::string pinyin, std::string word)
 {
-    if (is_shuangpin())
-    {
-        return shuangpin_dictionary_.create_word(std::move(pinyin), std::move(word));
-    }
-    return quanpin_engine_.create_word(std::move(pinyin), std::move(word));
+    return session_.create_word(std::move(pinyin), std::move(word));
 }
 
 int EngineInputSession::pin_candidate(std::string pinyin, std::string word)
 {
-    if (is_shuangpin())
-    {
-        return shuangpin_dictionary_.update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
-    }
-    return quanpin_engine_.update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
+    return session_.update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
 int EngineInputSession::remove_candidate(std::string pinyin, std::string word)
 {
-    if (is_shuangpin())
-    {
-        return shuangpin_dictionary_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
-    }
-    return quanpin_engine_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
+    return session_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
 int EngineInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word)
 {
-    if (is_shuangpin())
-    {
-        return shuangpin_dictionary_.insert_word_to_cached_buffer_series(pinyin, word);
-    }
-    return 0;
+    const int cache_result = session_.cache_dynamic_candidate(pinyin, word);
+    (void)session_.cache_dynamic_candidate_for_current_request(word);
+    return cache_result;
 }
 
 IInputSession::SelectionTransition EngineInputSession::advance_composition_after_selection(
@@ -328,35 +329,43 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
-    state.cache_key = request().raw_input;
     state.committed_pinyin = request().normalized_input;
 
     if (is_shuangpin())
     {
-        if (ResolveShuangpinCompositionBase(request()).helpcode_length > 0)
+        const auto base = ResolveShuangpinCompositionBase(request());
+        state.cache_key = ResolveShuangpinCloudCacheKey(request());
+
+        if (base.helpcode_length > 0)
         {
             return state;
         }
 
-        const auto &pinyin_with_cases = get_pinyin_sequence_with_cases();
-        if (!pinyin_with_cases.empty() && pinyin_with_cases.size() % 2 == 0)
+        const std::string base_input_with_cases =
+            base.helpcode_length > 0 && base.raw_input_with_cases.size() >= base.helpcode_length
+                ? base.raw_input_with_cases.substr(0, base.raw_input_with_cases.size() - base.helpcode_length)
+                : base.raw_input_with_cases;
+
+        if (!base_input_with_cases.empty() && base_input_with_cases.size() % 2 == 0)
         {
-            const char last = pinyin_with_cases.back();
+            const char last = base_input_with_cases.back();
             state.should_query = last >= 'a' && last <= 'z';
         }
 
         if (state.should_query)
         {
-            state.query_text = request().normalized_input;
+            state.query_text = shuangpin::normalize_input(state.cache_key);
         }
         return state;
     }
 
     if (HasActiveQuanpinHelpcode(request()))
     {
+        state.cache_key = ResolveQuanpinCloudCacheKey(request());
         return state;
     }
 
+    state.cache_key = ResolveQuanpinCloudCacheKey(request());
     state.should_query = !request().normalized_input.empty();
     state.query_text = request().normalized_input;
     return state;

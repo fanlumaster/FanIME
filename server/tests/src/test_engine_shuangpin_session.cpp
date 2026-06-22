@@ -1,5 +1,6 @@
 #include "tests/includes/test_framework.h"
 #include "src/session/engine_input_session.h"
+#include <algorithm>
 
 namespace
 {
@@ -61,6 +62,7 @@ TEST_CASE(EngineShuangpinSessionCloudQueryMatchesLegacyTiming)
     InputLetters(session, "xiA");
     state = session.get_cloud_query_state();
     REQUIRE(!state.should_query);
+    REQUIRE_EQ(state.cache_key, std::string("xi"));
 
     session.reset_state();
     InputLetters(session, "xI");
@@ -75,11 +77,13 @@ TEST_CASE(EngineShuangpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
     InputLetters(session, "xitelea");
     auto state = session.get_cloud_query_state();
     REQUIRE(!state.should_query);
+    REQUIRE_EQ(state.cache_key, std::string("xitele"));
 
     session.reset_state();
     InputLetters(session, "xiteleaA");
     state = session.get_cloud_query_state();
     REQUIRE(!state.should_query);
+    REQUIRE_EQ(state.cache_key, std::string("xitele"));
 }
 
 TEST_CASE(EngineQuanpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
@@ -89,11 +93,13 @@ TEST_CASE(EngineQuanpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
     InputLetters(session, "xiteleA");
     auto state = session.get_cloud_query_state();
     REQUIRE(!state.should_query);
+    REQUIRE_EQ(state.cache_key, std::string("xitele"));
 
     session.reset_state();
     InputLetters(session, "xiteleAA");
     state = session.get_cloud_query_state();
     REQUIRE(!state.should_query);
+    REQUIRE_EQ(state.cache_key, std::string("xitele"));
 
     session.reset_state();
     InputLetters(session, "xitelR");
@@ -164,4 +170,40 @@ TEST_CASE(EngineQuanpinSessionContinuesCompositionWithoutRetainingHelpcodes)
     REQUIRE_EQ(progress.pinyin, std::string("nishuone"));
     REQUIRE_EQ(progress.word, std::string("你说"));
     REQUIRE_EQ(progress.preedit, std::string("你说ne"));
+}
+
+TEST_CASE(EngineShuangpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "xitele");
+
+    const auto state = session.get_cloud_query_state();
+    REQUIRE(state.should_query);
+
+    session.cache_dynamic_candidate(state.cache_key, "云词");
+    InputLetters(session, "a");
+
+    const auto &candidates = session.get_candidates();
+    const auto found = std::find_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+        return std::get<1>(item) == "云词";
+    });
+    REQUIRE(found != candidates.end());
+}
+
+TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "xitele");
+
+    const auto state = session.get_cloud_query_state();
+    REQUIRE(state.should_query);
+
+    session.cache_dynamic_candidate(state.cache_key, "云词");
+    InputLetters(session, "A");
+
+    const auto &candidates = session.get_candidates();
+    const auto found = std::find_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+        return std::get<1>(item) == "云词";
+    });
+    REQUIRE(found != candidates.end());
 }
