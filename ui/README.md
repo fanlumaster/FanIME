@@ -199,6 +199,7 @@ build/bin/Debug/msimeui-demo.exe
 
 ## 后续工作
 
+- 输入框要支持 Ctrl + Z 和 Ctrl + Y 的撤销和恢复这些功能
 - 继续把场景级 invalidation 细化为局部布局和局部重绘，减少全树重排成本
 - 基于现有 parent 链继续引入更细粒度的 subtree dirty 标记和可缓存测量结果
 - 为高频交互控件继续补局部重绘区域计算，而不是默认整窗 `InvalidateRect`
