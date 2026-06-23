@@ -150,3 +150,44 @@ TEST_CASE(QuanpinPreeditPreservesTypedCaseEvenWhenHelpcodesDoNotApply)
     REQUIRE_EQ(request.raw_input, std::string("xitelr"));
     REQUIRE_EQ(request.raw_segmentation, std::string("xi'te'l'R"));
 }
+
+TEST_CASE(QuanpinSparsePinyinFallbackSegmentsAreGenerated)
+{
+    {
+        const auto fallbacks = quanpin::sparse_pinyin_fallback_segments(quanpin::Segments{"dia"});
+        REQUIRE_EQ(fallbacks.size(), static_cast<size_t>(2));
+        REQUIRE_EQ(quanpin::join_segments(fallbacks[0]), std::string("di'a"));
+        REQUIRE_EQ(quanpin::join_segments(fallbacks[1]), std::string("di"));
+    }
+
+    {
+        const auto fallbacks = quanpin::sparse_pinyin_fallback_segments(quanpin::Segments{"biang"});
+        REQUIRE_EQ(fallbacks.size(), static_cast<size_t>(2));
+        REQUIRE_EQ(quanpin::join_segments(fallbacks[0]), std::string("bi'ang"));
+        REQUIRE_EQ(quanpin::join_segments(fallbacks[1]), std::string("bi"));
+    }
+
+    {
+        const auto fallbacks = quanpin::sparse_pinyin_fallback_segments(quanpin::Segments{"gei"});
+        REQUIRE_EQ(fallbacks.size(), static_cast<size_t>(1));
+        REQUIRE_EQ(quanpin::join_segments(fallbacks[0]), std::string("ge"));
+    }
+
+    {
+        const auto fallbacks = quanpin::sparse_pinyin_fallback_segments(quanpin::Segments{"yo"});
+        REQUIRE_EQ(fallbacks.size(), static_cast<size_t>(1));
+        REQUIRE_EQ(quanpin::join_segments(fallbacks[0]), std::string("y"));
+    }
+}
+
+TEST_CASE(QuanpinSparsePinyinFallbackSegmentsPreserveSuffixSegments)
+{
+    const auto fallbacks = quanpin::sparse_pinyin_fallback_segments(quanpin::Segments{"gei", "wo"});
+    REQUIRE_EQ(fallbacks.size(), static_cast<size_t>(1));
+    REQUIRE_EQ(quanpin::join_segments(fallbacks[0]), std::string("ge"));
+
+    const auto dia_fallbacks = quanpin::sparse_pinyin_fallback_segments(quanpin::Segments{"dia", "wo"});
+    REQUIRE_EQ(dia_fallbacks.size(), static_cast<size_t>(2));
+    REQUIRE_EQ(quanpin::join_segments(dia_fallbacks[0]), std::string("di'a'wo"));
+    REQUIRE_EQ(quanpin::join_segments(dia_fallbacks[1]), std::string("di"));
+}
