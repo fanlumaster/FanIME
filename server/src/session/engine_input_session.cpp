@@ -42,6 +42,8 @@ struct ShuangpinCompositionBase
 {
     std::string raw_input;
     std::string raw_input_with_cases;
+    std::string effective_raw_input;
+    std::string effective_raw_input_with_cases;
     size_t helpcode_length = 0;
 };
 
@@ -49,23 +51,24 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
 {
     ShuangpinCompositionBase base{request.raw_input,
                                   request.raw_input_with_cases.empty() ? request.raw_input : request.raw_input_with_cases};
+    base.effective_raw_input = shuangpin::remove_manual_delimiters(base.raw_input);
+    base.effective_raw_input_with_cases = shuangpin::remove_manual_delimiters(base.raw_input_with_cases);
 
-    if (!request.enable_shuangpin_helpcode || request.raw_input.empty())
+    if (!request.enable_shuangpin_helpcode || base.effective_raw_input.empty())
     {
         return base;
     }
 
-    if (ShuangpinUtil::IsFullHelpMode(base.raw_input_with_cases) && base.raw_input.size() >= 2)
+    if (ShuangpinUtil::IsFullHelpMode(base.effective_raw_input_with_cases) && base.effective_raw_input.size() >= 2)
     {
         base.helpcode_length = 2;
         return base;
     }
 
-    if (base.raw_input.size() % 2 == 1 && base.raw_input.size() > 1)
+    if (base.effective_raw_input.size() % 2 == 1 && base.effective_raw_input.size() > 1)
     {
-        const std::string pure_raw_input = base.raw_input.substr(0, base.raw_input.size() - 1);
-        const std::string pure_segmentation = shuangpin::segment_input(pure_raw_input);
-        if (ShuangpinUtil::is_all_complete_pinyin(pure_raw_input, pure_segmentation))
+        const std::string pure_raw_input = base.effective_raw_input.substr(0, base.effective_raw_input.size() - 1);
+        if (shuangpin::is_complete_input(pure_raw_input))
         {
             base.helpcode_length = 1;
         }
@@ -83,9 +86,10 @@ bool HasActiveQuanpinHelpcode(const QueryRequest &request)
 std::string ResolveShuangpinCloudCacheKey(const QueryRequest &request)
 {
     const auto base = ResolveShuangpinCompositionBase(request);
-    if (base.helpcode_length > 0 && base.raw_input.size() >= base.helpcode_length)
+    if (base.helpcode_length > 0 && base.effective_raw_input.size() >= base.helpcode_length)
     {
-        return base.raw_input.substr(0, base.raw_input.size() - base.helpcode_length);
+        return base.raw_input.substr(
+            0, raw_length_for_normalized_prefix(base.raw_input, base.effective_raw_input.size() - base.helpcode_length));
     }
     return base.raw_input;
 }
@@ -176,13 +180,25 @@ std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
 {
     if (is_shuangpin() && GetConfiguredShuangpinPreeditMode() == "shuangpin")
     {
-        return request().raw_segmentation.empty() ? request().raw_input : request().raw_segmentation;
+        std::string preedit = request().raw_segmentation.empty() ? request().raw_input : request().raw_segmentation;
+        if (!request().raw_input_with_cases.empty() && request().raw_input_with_cases.back() == '\'' &&
+            (preedit.empty() || preedit.back() != '\''))
+        {
+            preedit.push_back('\'');
+        }
+        return preedit;
     }
     if (current_scheme_type() == SchemeType::Quanpin)
     {
         return request().raw_segmentation.empty() ? request().raw_input_with_cases : request().raw_segmentation;
     }
-    return request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
+    std::string preedit = request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
+    if (!request().raw_input_with_cases.empty() && request().raw_input_with_cases.back() == '\'' &&
+        (preedit.empty() || preedit.back() != '\''))
+    {
+        preedit.push_back('\'');
+    }
+    return preedit;
 }
 
 std::string EngineInputSession::get_quanpin() const
@@ -195,8 +211,12 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request());
-        return !base.raw_input.empty() &&
-               ShuangpinUtil::is_all_complete_pinyin(base.raw_input, shuangpin::segment_input(base.raw_input));
+        if (base.helpcode_length > 0 && base.effective_raw_input.size() >= base.helpcode_length)
+        {
+            return shuangpin::is_complete_input(base.raw_input.substr(
+                0, raw_length_for_normalized_prefix(base.raw_input, base.effective_raw_input.size() - base.helpcode_length)));
+        }
+        return shuangpin::is_complete_input(base.raw_input);
     }
     const auto &segmentation =
         request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
@@ -243,14 +263,14 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     {
         const auto base = ResolveShuangpinCompositionBase(request());
         const size_t word_pinyin_length = HelpcodeUtils::count_han_chars(selected_word) * 2;
-        const size_t total_input_length = base.raw_input.size();
+        const size_t total_input_length = base.effective_raw_input.size();
 
         transition.full_pure_pinyin =
             base.helpcode_length > 0 && total_input_length >= base.helpcode_length
-                ? base.raw_input.substr(0, total_input_length - base.helpcode_length)
-                : base.raw_input;
+                ? base.effective_raw_input.substr(0, total_input_length - base.helpcode_length)
+                : base.effective_raw_input;
 
-        size_t consumed_length = selected_pinyin.size();
+        size_t consumed_length = remove_delimiters(selected_pinyin).size();
         if (base.helpcode_length > 0)
         {
             const size_t required_length = word_pinyin_length + base.helpcode_length;
@@ -259,19 +279,20 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 
             if (transition.continues_composition)
             {
-                const size_t remaining_length = total_input_length - word_pinyin_length - base.helpcode_length;
-                const std::string rest_pinyin_sequence = base.raw_input.substr(word_pinyin_length, remaining_length);
+                const size_t rest_start = raw_length_for_normalized_prefix(base.raw_input_with_cases, word_pinyin_length);
+                const size_t rest_end = raw_length_for_normalized_prefix(
+                    base.raw_input_with_cases, total_input_length - base.helpcode_length);
+                const std::string rest_pinyin_sequence = base.raw_input.substr(rest_start, rest_end - rest_start);
                 const std::string rest_pinyin_sequence_with_cases =
-                    base.raw_input_with_cases.substr(word_pinyin_length, remaining_length);
+                    base.raw_input_with_cases.substr(rest_start, rest_end - rest_start);
                 session_.replace_shuangpin_raw_input(rest_pinyin_sequence, rest_pinyin_sequence_with_cases);
             }
         }
         else
         {
-            if (consumed_length == 0 || consumed_length > base.raw_input.size() ||
-                base.raw_input.rfind(selected_pinyin, 0) != 0)
+            if (consumed_length == 0 || consumed_length > base.effective_raw_input.size())
             {
-                consumed_length = (std::min)(word_pinyin_length, base.raw_input.size());
+                consumed_length = (std::min)(word_pinyin_length, base.effective_raw_input.size());
             }
 
             transition.continues_composition =
@@ -279,11 +300,11 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 
             if (transition.continues_composition)
             {
+                const size_t consumed_raw_length = raw_length_for_normalized_prefix(base.raw_input_with_cases, consumed_length);
                 const std::string rest_pinyin_sequence =
-                    transition.full_pure_pinyin.substr(consumed_length,
-                                                       transition.full_pure_pinyin.size() - consumed_length);
+                    base.raw_input.substr(consumed_raw_length, base.raw_input.size() - consumed_raw_length);
                 const std::string rest_pinyin_sequence_with_cases = base.raw_input_with_cases.substr(
-                    consumed_length, base.raw_input_with_cases.size() - consumed_length);
+                    consumed_raw_length, base.raw_input_with_cases.size() - consumed_raw_length);
                 session_.replace_shuangpin_raw_input(rest_pinyin_sequence, rest_pinyin_sequence_with_cases);
             }
         }
@@ -342,9 +363,9 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
         }
 
         const std::string base_input_with_cases =
-            base.helpcode_length > 0 && base.raw_input_with_cases.size() >= base.helpcode_length
-                ? base.raw_input_with_cases.substr(0, base.raw_input_with_cases.size() - base.helpcode_length)
-                : base.raw_input_with_cases;
+            base.helpcode_length > 0 && base.effective_raw_input_with_cases.size() >= base.helpcode_length
+                ? base.effective_raw_input_with_cases.substr(0, base.effective_raw_input_with_cases.size() - base.helpcode_length)
+                : base.effective_raw_input_with_cases;
 
         if (!base_input_with_cases.empty() && base_input_with_cases.size() % 2 == 0)
         {
@@ -354,7 +375,7 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 
         if (state.should_query)
         {
-            state.query_text = shuangpin::normalize_input(state.cache_key);
+            state.query_text = shuangpin::normalize_input_with_delimiters(state.cache_key);
         }
         return state;
     }

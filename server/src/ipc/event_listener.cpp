@@ -81,6 +81,11 @@ bool IsCommitWithFirstCandidatePunctuation(WCHAR wch)
     return kCommitWithFirstCandidatePunctuation.find(wch) != kCommitWithFirstCandidatePunctuation.end();
 }
 
+bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
+{
+    return keycode == VK_OEM_7 && wch == L'\'' && g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
+}
+
 bool IsSelectionKey(UINT keycode)
 {
     return keycode == VK_SPACE || (keycode >= '0' && keycode <= '9');
@@ -820,7 +825,9 @@ void HandleImeKey(HANDLE hEvent)
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
     ::ReadDataFromNamedPipe(0b000111);
 
-    const bool is_commit_with_first_candidate_punctuation = IsCommitWithFirstCandidatePunctuation(Global::Wch);
+    const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
+    const bool is_commit_with_first_candidate_punctuation =
+        !is_manual_pinyin_separator && IsCommitWithFirstCandidatePunctuation(Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
     const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool should_forward_key_to_session =
@@ -848,7 +855,7 @@ void HandleImeKey(HANDLE hEvent)
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
     //
-    if (Global::Keycode >= 'A' && Global::Keycode <= 'Z')
+    if ((Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator)
     {
         if (GlobalSettings::getTsfPreeditStyle() == "pinyin")
         {
