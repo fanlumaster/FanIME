@@ -40,9 +40,68 @@ static UINT s_punc_switch_keycode = 0;
 
 namespace
 {
+std::string BuildCurrentCandidatePage();
+
 std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases, const std::string &current_word)
 {
     return string_to_wstring(remaining_raw_input_with_cases + "\t" + current_word);
+}
+
+bool IsCommitWithFirstCandidatePunctuation(WCHAR wch)
+{
+    static const std::unordered_set<WCHAR> kCommitWithFirstCandidatePunctuation = {
+        L'`',  //
+        L'!',  //
+        L'@',  //
+        L'#',  //
+        L'$',  //
+        L'%',  //
+        L'^',  //
+        L'&',  //
+        L'*',  //
+        L'(',  //
+        L')',  //
+        L'-',  //
+        L'_',  //
+        L'=',  //
+        L'+',  //
+        L'[',  //
+        L']',  //
+        L'\\', //
+        L';',  //
+        L':',  //
+        L'\'', //
+        L'"',  //
+        L',',  //
+        L'<',  //
+        L'.',  //
+        L'>',  //
+        L'?'   //
+    };
+    return kCommitWithFirstCandidatePunctuation.find(wch) != kCommitWithFirstCandidatePunctuation.end();
+}
+
+bool IsSelectionKey(UINT keycode)
+{
+    return keycode == VK_SPACE || (keycode >= '0' && keycode <= '9');
+}
+
+bool IsPagingKey(UINT keycode)
+{
+    return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB;
+}
+
+void EnsureCandidatePageReady()
+{
+    if (!Global::candidate_ui.page_words.empty())
+    {
+        return;
+    }
+    if (Global::candidate_ui.items.empty())
+    {
+        return;
+    }
+    BuildCurrentCandidatePage();
 }
 
 std::string BuildCurrentCandidatePage()
@@ -759,10 +818,20 @@ void HandleImeKey(HANDLE hEvent)
 {
     /* 先清理一下状态 */
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
+    ::ReadDataFromNamedPipe(0b000111);
+
+    const bool is_commit_with_first_candidate_punctuation = IsCommitWithFirstCandidatePunctuation(Global::Wch);
+    const bool is_selection_key = IsSelectionKey(Global::Keycode);
+    const bool is_paging_key = IsPagingKey(Global::Keycode);
+    const bool should_forward_key_to_session =
+        !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key;
+
     /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
      * 等等，然后再在下面处理其中的特殊的按键 */
-    ::ReadDataFromNamedPipe(0b000111);
-    g_inputSession->handle_key(Global::Keycode, Global::ModifiersDown, Global::Wch);
+    if (should_forward_key_to_session)
+    {
+        g_inputSession->handle_key(Global::Keycode, Global::ModifiersDown, Global::Wch);
+    }
     GlobalIme::composition.segmented_pinyin = g_inputSession->get_pinyin_segmentation_with_cases();
     //
     // 先判断要不要触发云联想
@@ -826,9 +895,10 @@ void HandleImeKey(HANDLE hEvent)
     //  - 数字，会上屏相应序号对应的候选项
     //
     /* 1. Punctuations */
-    if (GlobalIme::PUNC_SET.find(Global::Wch) != GlobalIme::PUNC_SET.end())
+    if (is_commit_with_first_candidate_punctuation)
     {
         Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
+        EnsureCandidatePageReady();
 
         if (!Global::candidate_ui.page_words.empty())
         { /* 防止第一次直接输入标点时触发数组下标访问越界 */
@@ -846,9 +916,6 @@ void HandleImeKey(HANDLE hEvent)
             OutputDebugString(L"[msime]: SetEvent failed");
 #endif
         }
-
-        /* 清理状态 */
-        ClearState();
     }
     //
     // 空格和数字键可能会触发造词，如果数字键上屏的汉字字符串所对应的拼音比实际的拼音要短的话，
@@ -907,16 +974,19 @@ void ProcessSelectionKey(UINT keycode)
     static bool isNeedUpdateWeight = false;
     isNeedUpdateWeight = false;
 
-    if (keycode == VK_SPACE || keycode - '0' <= Global::candidate_ui.page_words.size())
+    EnsureCandidatePageReady();
+
+    const bool is_space = keycode == VK_SPACE;
+    const bool is_digit_selection = keycode >= '1' && keycode <= '9';
+    const int index = is_space ? 0 : static_cast<int>(keycode - '1');
+    const bool is_valid_selection =
+        (is_space || is_digit_selection) && index >= 0 &&
+        static_cast<size_t>(index) < Global::candidate_ui.page_words.size();
+
+    if (is_valid_selection)
     {
-        int index = 0;
-        if (keycode == VK_SPACE)
+        if (!is_space)
         {
-            index = 0;
-        }
-        else
-        {
-            index = keycode - '1';
             isNeedUpdateWeight = true;
         }
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
