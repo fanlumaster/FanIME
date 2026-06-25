@@ -350,12 +350,12 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
-    state.committed_pinyin = request().normalized_input;
 
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request());
         state.cache_key = ResolveShuangpinCloudCacheKey(request());
+        state.committed_pinyin = shuangpin::remove_manual_delimiters(state.cache_key);
 
         if (base.helpcode_length > 0)
         {
@@ -379,6 +379,8 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
         }
         return state;
     }
+
+    state.committed_pinyin = request().normalized_input;
 
     if (HasActiveQuanpinHelpcode(request()))
     {

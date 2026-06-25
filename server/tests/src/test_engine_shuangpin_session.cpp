@@ -86,6 +86,19 @@ TEST_CASE(EngineShuangpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
     REQUIRE_EQ(state.cache_key, std::string("xitele"));
 }
 
+TEST_CASE(EngineShuangpinSessionCloudCommitUsesRawShuangpinSequence)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+
+    InputLetters(session, "vh");
+    const auto state = session.get_cloud_query_state();
+
+    REQUIRE(state.should_query);
+    REQUIRE_EQ(state.query_text, std::string("zhang"));
+    REQUIRE_EQ(state.cache_key, std::string("vh"));
+    REQUIRE_EQ(state.committed_pinyin, std::string("vh"));
+}
+
 TEST_CASE(EngineQuanpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
 {
     EngineInputSession session(SchemeType::Quanpin);
