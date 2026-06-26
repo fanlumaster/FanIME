@@ -47,8 +47,13 @@ std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_w
     return string_to_wstring(remaining_raw_input_with_cases + "\t" + current_word);
 }
 
-bool IsCommitWithFirstCandidatePunctuation(WCHAR wch)
+bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wch)
 {
+    if (keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB)
+    {
+        return false;
+    }
+
     static const std::unordered_set<WCHAR> kCommitWithFirstCandidatePunctuation = {
         L'`',  //
         L'!',  //
@@ -61,10 +66,6 @@ bool IsCommitWithFirstCandidatePunctuation(WCHAR wch)
         L'*',  //
         L'(',  //
         L')',  //
-        L'-',  //
-        L'_',  //
-        L'=',  //
-        L'+',  //
         L'[',  //
         L']',  //
         L'\\', //
@@ -825,11 +826,11 @@ void HandleImeKey(HANDLE hEvent)
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
     ::ReadDataFromNamedPipe(0b000111);
 
+    const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
     const bool is_commit_with_first_candidate_punctuation =
-        !is_manual_pinyin_separator && IsCommitWithFirstCandidatePunctuation(Global::Wch);
+        !is_manual_pinyin_separator && IsCommitWithFirstCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
-    const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool should_forward_key_to_session =
         !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key;
 
