@@ -1058,14 +1058,14 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         ShowWindow(hwnd, SW_HIDE);
         return 0;
     }
-    case WM_ERASEBKGND: { // Make the background dark
-        // HDC hdc = (HDC)wParam;
-        // RECT rc;
-        // GetClientRect(hwnd, &rc);
+    case WM_ERASEBKGND: {
+        HDC hdc = reinterpret_cast<HDC>(wParam);
+        RECT rc;
+        GetClientRect(hwnd, &rc);
 
-        // HBRUSH darkBrush = CreateSolidBrush(RGB(32, 32, 32));
-        // FillRect(hdc, &rc, darkBrush);
-        // DeleteObject(darkBrush);
+        HBRUSH darkBrush = CreateSolidBrush(RGB(32, 32, 32));
+        FillRect(hdc, &rc, darkBrush);
+        DeleteObject(darkBrush);
         return 1;
     }
     case WM_GETMINMAXINFO: {
