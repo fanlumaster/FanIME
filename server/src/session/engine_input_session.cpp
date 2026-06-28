@@ -103,6 +103,7 @@ std::string ResolveQuanpinCloudCacheKey(const QueryRequest &request)
 EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme_type)
 {
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
+    session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
 }
 
 void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
