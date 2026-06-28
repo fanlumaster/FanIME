@@ -23,6 +23,7 @@
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
+#include "config/ime_config.h"
 
 #ifdef FANY_IPC_DEBUG
 #define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
@@ -114,7 +115,9 @@ std::string BuildCurrentCandidatePage()
 {
     auto &ui = Global::candidate_ui;
     ui.clear_page();
-    const bool uppercase_all_helpcodes = g_inputSession->current_scheme_type() == SchemeType::Quanpin;
+    const SchemeType current_scheme = g_inputSession->current_scheme_type();
+    const bool uppercase_all_helpcodes = current_scheme == SchemeType::Quanpin;
+    const bool show_helpcodes = current_scheme != SchemeType::Shuangpin || GetConfiguredShuangpinHelpcodeEnabled();
 
     const int start = ui.current_page_start();
     const int loop = ui.current_page_count();
@@ -132,7 +135,11 @@ std::string BuildCurrentCandidatePage()
             ui.selected_text = string_to_wstring(word);
         }
 
-        candidate_string += word + HelpcodeUtils::compute_helpcodes(word, uppercase_all_helpcodes);
+        candidate_string += word;
+        if (show_helpcodes)
+        {
+            candidate_string += HelpcodeUtils::compute_helpcodes(word, uppercase_all_helpcodes);
+        }
         maxCount = std::max(maxCount, static_cast<int>(utf8::distance(word.begin(), word.end())));
         ui.page_words.push_back(string_to_wstring(word));
         if (i < loop - 1)
