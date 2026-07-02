@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -91,6 +92,7 @@ struct FanyImeSharedMemoryData
 struct FanyImeNamedpipeData
 {
     UINT event_type;
+    uint64_t client_id = 0;
     UINT keycode; // VkCode
     WCHAR wch;    // Unicode character converted from vkcode
     UINT modifiers_down = 0;
@@ -113,6 +115,34 @@ struct FanyImeNamedpipeDataToTsf
 };
 
 inline FanyImeNamedpipeData namedpipeData;
+
+namespace FanyImePipeEventType
+{
+constexpr UINT KeyEvent = 0;
+constexpr UINT HideCandidateWnd = 1;
+constexpr UINT ShowCandidateWnd = 2;
+constexpr UINT MoveCandidateWnd = 3;
+constexpr UINT LangbarRightClick = 4;
+constexpr UINT ClientHello = 10;
+constexpr UINT ClientActivated = 11;
+constexpr UINT ClientDeactivated = 12;
+constexpr UINT IMESwitch = 7;
+constexpr UINT PuncSwitch = 8;
+constexpr UINT DoubleSingleByteSwitch = 9;
+} // namespace FanyImePipeEventType
+
+namespace FanyImePipeRole
+{
+constexpr UINT Main = 0;
+constexpr UINT ToTsf = 1;
+constexpr UINT ToTsfWorkerThread = 2;
+} // namespace FanyImePipeRole
+
+struct FanyImePipeHello
+{
+    uint64_t client_id = 0;
+    UINT pipe_role = 0;
+};
 
 //
 // Data sent to tsf worker thread
@@ -137,6 +167,10 @@ int InitIpc();
 int CloseIpc();
 int InitNamedPipe();
 int CloseNamedPipe();
+HANDLE CreateMainNamedPipeInstance();
+HANDLE CreateAuxNamedPipeInstance();
+HANDLE CreateToTsfNamedPipeInstance();
+HANDLE CreateToTsfWorkerThreadNamedPipeInstance();
 int OpenToTsfNamedPipe();
 int CloseToTsfNamedPipe();
 int OpenToTsfWorkerThreadNamedPipe();
@@ -156,6 +190,13 @@ int WriteDataToSharedMemory(              //
 */
 int ReadDataFromSharedMemory(UINT read_flag);
 int ReadDataFromNamedPipe(UINT read_flag);
+void RegisterMainPipeClient(uint64_t client_id, HANDLE pipe);
+void RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe);
+void RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe);
+void UnregisterPipeClientHandle(uint64_t client_id, UINT pipe_role, HANDLE pipe);
+void ActivatePipeClient(uint64_t client_id);
+void DeactivatePipeClient(uint64_t client_id);
+bool IsActivePipeClient(uint64_t client_id);
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 

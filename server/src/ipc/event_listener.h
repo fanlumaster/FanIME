@@ -24,5 +24,6 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread();
 
 void PrepareCandidateList();
 void ProcessSelectionKey(UINT keycode);
+void SendCurrentDataToActiveTsf();
 void EnqueueCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 } // namespace FanyNamedPipe

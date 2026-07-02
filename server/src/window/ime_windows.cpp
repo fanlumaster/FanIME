@@ -516,41 +516,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         UINT keycode = '0' + one_based;
         FanyNamedPipe::ProcessSelectionKey(keycode);
 
-        /* 触发事件，将候选词数据写入管道 */
-        HANDLE hEventWritePipe = OpenEvent(      //
-            EVENT_MODIFY_STATE,                  //
-            FALSE,                               //
-            FANY_IME_EVENT_PIPE_ARRAY[0].c_str() //
-        );                                       //
-        if (hEventWritePipe)
-        {
-            SetEvent(hEventWritePipe);
-            CloseHandle(hEventWritePipe);
-        }
-        else
-        {
-#ifdef FANY_DEBUG
-            OutputDebugString(L"[msime]: Failed to open event for writing candidate word");
-#endif
-        }
+        FanyNamedPipe::SendCurrentDataToActiveTsf();
 
-        /* 触发事件，发送消息到 tsf worker thread */
-        HANDLE hEventSendMsgToTsfWorkerThread = OpenEvent(            //
-            EVENT_MODIFY_STATE,                                       //
-            FALSE,                                                    //
-            FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[7].c_str() // CommitCandidate
-        );                                                            //
-        if (hEventSendMsgToTsfWorkerThread)
-        {
-            SetEvent(hEventSendMsgToTsfWorkerThread);
-            CloseHandle(hEventSendMsgToTsfWorkerThread);
-        }
-        else
-        {
-#ifdef FANY_DEBUG
-            OutputDebugString(L"[msime]: Failed to open event for sending message to tsf worker thread");
-#endif
-        }
+        SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate, L"");
 
         break;
     }

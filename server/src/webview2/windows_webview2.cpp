@@ -1205,32 +1205,16 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to CN").c_str());
 #endif
-                            HANDLE hEvent = OpenEvent(                                    //
-                                EVENT_MODIFY_STATE,                                       //
-                                FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[1].c_str() // SwitchToCn
-                            );                                                            //
-                            if (hEvent)
-                            {
-                                SetEvent(hEvent);
-                                CloseHandle(hEvent);
-                            }
+                            SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn,
+                                                              L"");
                         }
                         else if (mode == "en") // Change to EN
                         {
 #ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to EN").c_str());
 #endif
-                            HANDLE hEvent = OpenEvent(                                    //
-                                EVENT_MODIFY_STATE,                                       //
-                                FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[0].c_str() // SwitchToEn
-                            );                                                            //
-                            if (hEvent)
-                            {
-                                SetEvent(hEvent);
-                                CloseHandle(hEvent);
-                            }
+                            SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn,
+                                                              L"");
                         }
                     }
                     else if (type == "changeCharMode")
@@ -1241,32 +1225,16 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to fullwidth").c_str());
 #endif
-                            HANDLE hEvent = OpenEvent(                                    //
-                                EVENT_MODIFY_STATE,                                       //
-                                FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[5].c_str() // SwitchToFullwidth
-                            );                                                            //
-                            if (hEvent)
-                            {
-                                SetEvent(hEvent);
-                                CloseHandle(hEvent);
-                            }
+                            SendToTsfWorkerThreadViaNamedpipe(
+                                Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth, L"");
                         }
                         else if (mode == "halfwidth")
                         {
 #ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to halfwidth").c_str());
 #endif
-                            HANDLE hEvent = OpenEvent(                                    //
-                                EVENT_MODIFY_STATE,                                       //
-                                FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[6].c_str() // SwitchToHalfwidth
-                            );                                                            //
-                            if (hEvent)
-                            {
-                                SetEvent(hEvent);
-                                CloseHandle(hEvent);
-                            }
+                            SendToTsfWorkerThreadViaNamedpipe(
+                                Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth, L"");
                         }
                     }
                     else if (type == "changePuncMode")
@@ -1277,32 +1245,16 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to puncEn").c_str());
 #endif
-                            HANDLE hEvent = OpenEvent(                                    //
-                                EVENT_MODIFY_STATE,                                       //
-                                FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[3].c_str() // SwitchToPuncEn
-                            );                                                            //
-                            if (hEvent)
-                            {
-                                SetEvent(hEvent);
-                                CloseHandle(hEvent);
-                            }
+                            SendToTsfWorkerThreadViaNamedpipe(
+                                Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn, L"");
                         }
                         else if (mode == "puncCn")
                         {
 #ifdef FANY_DEBUG
                             OutputDebugString(fmt::format(L"[msime]: Change to puncCn").c_str());
 #endif
-                            HANDLE hEvent = OpenEvent(                                    //
-                                EVENT_MODIFY_STATE,                                       //
-                                FALSE,                                                    //
-                                FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[4].c_str() // SwitchToPuncCn
-                            );                                                            //
-                            if (hEvent)
-                            {
-                                SetEvent(hEvent);
-                                CloseHandle(hEvent);
-                            }
+                            SendToTsfWorkerThreadViaNamedpipe(
+                                Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn, L"");
                         }
                     }
                     else if (type == "openSettings")

@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 #include <cstdint>
+#include <thread>
 #include "Ipc.h"
 #include "defines/defines.h"
 #include "ipc.h"
@@ -198,6 +199,23 @@ void LogPipeEvent(const wchar_t *pipe_name, UINT event_type, UINT keycode, WCHAR
     FANY_IPC_LOGF(L"[msime]: [ipc] {} event: type={}, keycode={}, wch={}, modifiers={}", pipe_name, event_type,
                   keycode, static_cast<unsigned int>(wch), modifiers_down);
 }
+
+bool WaitForPipeClient(HANDLE pipe)
+{
+    BOOL connected = ConnectNamedPipe(pipe, NULL);
+    if (connected)
+    {
+        return true;
+    }
+    return GetLastError() == ERROR_PIPE_CONNECTED;
+}
+
+bool ReadPipeHello(HANDLE pipe, FanyImePipeHello &hello)
+{
+    DWORD bytesRead = 0;
+    BOOL readResult = ReadFile(pipe, &hello, sizeof(hello), &bytesRead, NULL);
+    return readResult && bytesRead == sizeof(hello) && hello.client_id != 0;
+}
 } // namespace
 
 namespace FanyNamedPipe
@@ -227,27 +245,15 @@ std::queue<Task> taskQueue;
 std::mutex queueMutex;
 
 void PrepareCandidateList();
-void HandleImeKey(HANDLE hEvent);
+void HandleImeKey();
 void ClearState();
 void ProcessSelectionKey(UINT keycode);
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
+void MainPipeClientThread(HANDLE clientPipe);
+void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole);
 
 void WorkerThread()
 {
-    HANDLE hEvent = OpenEvent(               //
-        EVENT_MODIFY_STATE,                  //
-        FALSE,                               //
-        FANY_IME_EVENT_PIPE_ARRAY[0].c_str() //
-    );                                       //
-
-    if (!hEvent)
-    {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: FanyImeTimeToWritePipeEvent OpenEvent failed");
-#endif
-    }
-
     while (pipe_running)
     {
         Task task;
@@ -285,7 +291,7 @@ void WorkerThread()
         }
 
         case TaskType::ImeKeyEvent: {
-            HandleImeKey(hEvent);
+            HandleImeKey();
             break;
         }
 
@@ -317,7 +323,6 @@ void WorkerThread()
         }
     }
 
-    CloseHandle(hEvent);
 }
 
 void EnqueueTask(TaskType type)
@@ -343,356 +348,249 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
     pipe_queueCv.notify_one();
 }
 
+void SendCurrentDataToActiveTsf()
+{
+    const UINT msg_type = Global::MsgTypeToTsf;
+    SendToTsfViaNamedpipe(msg_type, ::Global::candidate_ui.selected_text);
+    if (msg_type == Global::DataFromServerMsgType::Normal)
+    {
+        ClearState();
+    }
+}
+
 void EventListenerLoopThread()
 {
-    HANDLE hCancelToTsfPipeConnectEvent = OpenEvent( //
-        EVENT_MODIFY_STATE,                          //
-        FALSE,                                       //
-        FANY_IME_EVENT_PIPE_ARRAY[1].c_str()         // FanyImeCancelToWritePipeEvent
-    );                                               //
-
-    HANDLE hCancelToTsfWorkerThreadPipeConnectEvent = OpenEvent(  //
-        EVENT_MODIFY_STATE,                                       //
-        FALSE,                                                    //
-        FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[2].c_str() // To Tsf Worker Thread Cancel event
-    );                                                            //
-
-    if (!hCancelToTsfPipeConnectEvent)
-    {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: FanyImeCancelToWritePipeEvent OpenEvent failed");
-#endif
-    }
-
-    if (!hCancelToTsfWorkerThreadPipeConnectEvent)
-    {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: To Tsf Worker Thread Cancel event OpenEvent failed");
-#endif
-    }
+    HANDLE listeningPipe = hPipe;
+    hPipe = INVALID_HANDLE_VALUE;
 
     while (true)
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Main pipe starts to wait");
 #endif
-        ::mainConnected = false; // 重置
-        BOOL connected = ConnectNamedPipe(hPipe, NULL);
-#ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Main pipe connected: {}", connected).c_str());
-#endif
+        if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+        {
+            listeningPipe = CreateMainNamedPipeInstance();
+            if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+            {
+                FANY_IPC_LOGF(L"[msime]: [ipc] failed to create next main-pipe instance: gle={}", GetLastError());
+                Sleep(50);
+                continue;
+            }
+        }
+
+        BOOL connected = WaitForPipeClient(listeningPipe);
         LogPipeConnectResult(L"main-pipe", connected);
-        ::mainConnected = connected;
         if (connected)
         {
-            while (true)
-            {
-
-                DWORD bytesRead = 0;
-                BOOL readResult = ReadFile( //
-                    hPipe,                  //
-                    &namedpipeData,         //
-                    sizeof(namedpipeData),  //
-                    &bytesRead,             //
-                    NULL                    //
-                );
-                if (!readResult || bytesRead == 0) // Disconnected or error
-                {
-                    LogPipeReadFailure(L"main-pipe", bytesRead);
-
-                    // We alse need to disconnect toTsf named pipe
-                    if (::toTsfConnected)
-                    {
-                        // DisconnectNamedPipe toTsf hPipe
-                        if (!SetEvent(hCancelToTsfPipeConnectEvent))
-                        {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-                            OutputDebugString(L"[msime]: hCancelToTsfPipeConnectEvent SetEvent failed");
-#endif
-                        }
-                    }
-                    if (::toTsfWorkerThreadConnected)
-                    {
-                        if (!SetEvent(hCancelToTsfWorkerThreadPipeConnectEvent))
-                        {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-                            OutputDebugString(L"[msime]: hCancelToTsfWorkerThreadPipeConnectEvent SetEvent failed");
-#endif
-                        }
-                    }
-                    break;
-                }
-
-                // Event handle
-                LogPipeEvent(L"main-pipe", namedpipeData.event_type, namedpipeData.keycode, namedpipeData.wch,
-                             namedpipeData.modifiers_down);
-                switch (namedpipeData.event_type)
-                {
-                case 0: { // FanyImeKeyEvent
-                    EnqueueTask(TaskType::ImeKeyEvent);
-                    break;
-                }
-
-                case 1: { // FanyHideCandidateWndEvent
-                    EnqueueTask(TaskType::HideCandidate);
-                    break;
-                }
-
-                case 2: { // FanyShowCandidateWndEvent
-                    EnqueueTask(TaskType::ShowCandidate);
-                    break;
-                }
-
-                case 3: { // FanyMoveCandidateWndEvent
-                    EnqueueTask(TaskType::MoveCandidate);
-                    break;
-                }
-
-                case 4: { // FanyLangbarRightClickEvent
-                    EnqueueTask(TaskType::LangbarRightClick);
-                    break;
-                }
-
-                case 7: { // FanyIMESwitchEvent
-                    EnqueueTask(TaskType::IMESwitch);
-                    ::ReadDataFromNamedPipe(0b000001);
-                    s_ime_switch_keycode = Global::Keycode;
-                    break;
-                }
-
-                case 8: { // FanyPuncSwitchEvent
-                    EnqueueTask(TaskType::PuncSwitch);
-                    ::ReadDataFromNamedPipe(0b000001);
-                    s_punc_switch_keycode = Global::Keycode;
-                    break;
-                }
-
-                case 9: { // FanyDoubleSingleByteSwitchEvent
-                    EnqueueTask(TaskType::DoubleSingleByteSwitch);
-                    ::ReadDataFromNamedPipe(0b000001);
-                    s_double_single_byte_switch_keycode = Global::Keycode;
-                    break;
-                }
-                }
-            }
+            HANDLE clientPipe = listeningPipe;
+            listeningPipe = CreateMainNamedPipeInstance();
+            std::thread(MainPipeClientThread, clientPipe).detach();
         }
         else
         {
-            // TODO:
+            CloseHandle(listeningPipe);
+            listeningPipe = INVALID_HANDLE_VALUE;
         }
-#ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: Main pipe disconnected");
-#endif
-        LogPipeDisconnect(L"main-pipe");
-        DisconnectNamedPipe(hPipe);
+    }
+}
+
+void MainPipeClientThread(HANDLE clientPipe)
+{
+    uint64_t clientId = 0;
+    while (true)
+    {
+        FanyImeNamedpipeData pipeData = {};
+        DWORD bytesRead = 0;
+        BOOL readResult = ReadFile(clientPipe, &pipeData, sizeof(pipeData), &bytesRead, NULL);
+        if (!readResult || bytesRead == 0)
+        {
+            LogPipeReadFailure(L"main-pipe", bytesRead);
+            break;
+        }
+
+        clientId = pipeData.client_id;
+        if (pipeData.event_type == FanyImePipeEventType::ClientHello)
+        {
+            RegisterMainPipeClient(clientId, clientPipe);
+            continue;
+        }
+        if (pipeData.event_type == FanyImePipeEventType::ClientActivated)
+        {
+            RegisterMainPipeClient(clientId, clientPipe);
+            ActivatePipeClient(clientId);
+            continue;
+        }
+        if (pipeData.event_type == FanyImePipeEventType::ClientDeactivated)
+        {
+            DeactivatePipeClient(clientId);
+            continue;
+        }
+
+        if (!IsActivePipeClient(clientId))
+        {
+            FANY_IPC_LOGF(L"[msime]: [ipc] ignored inactive main-pipe event: client_id={}, type={}", clientId,
+                          pipeData.event_type);
+            continue;
+        }
+
+        namedpipeData = pipeData;
+        LogPipeEvent(L"main-pipe", namedpipeData.event_type, namedpipeData.keycode, namedpipeData.wch,
+                     namedpipeData.modifiers_down);
+        switch (namedpipeData.event_type)
+        {
+        case FanyImePipeEventType::KeyEvent: {
+            EnqueueTask(TaskType::ImeKeyEvent);
+            break;
+        }
+
+        case FanyImePipeEventType::HideCandidateWnd: {
+            EnqueueTask(TaskType::HideCandidate);
+            break;
+        }
+
+        case FanyImePipeEventType::ShowCandidateWnd: {
+            EnqueueTask(TaskType::ShowCandidate);
+            break;
+        }
+
+        case FanyImePipeEventType::MoveCandidateWnd: {
+            EnqueueTask(TaskType::MoveCandidate);
+            break;
+        }
+
+        case FanyImePipeEventType::LangbarRightClick: {
+            EnqueueTask(TaskType::LangbarRightClick);
+            break;
+        }
+
+        case FanyImePipeEventType::IMESwitch: {
+            EnqueueTask(TaskType::IMESwitch);
+            ::ReadDataFromNamedPipe(0b000001);
+            s_ime_switch_keycode = Global::Keycode;
+            break;
+        }
+
+        case FanyImePipeEventType::PuncSwitch: {
+            EnqueueTask(TaskType::PuncSwitch);
+            ::ReadDataFromNamedPipe(0b000001);
+            s_punc_switch_keycode = Global::Keycode;
+            break;
+        }
+
+        case FanyImePipeEventType::DoubleSingleByteSwitch: {
+            EnqueueTask(TaskType::DoubleSingleByteSwitch);
+            ::ReadDataFromNamedPipe(0b000001);
+            s_double_single_byte_switch_keycode = Global::Keycode;
+            break;
+        }
+        }
     }
 
-    pipe_running = false;
-    pipe_queueCv.notify_one();
-    ::CloseNamedPipe();
+    UnregisterPipeClientHandle(clientId, FanyImePipeRole::Main, clientPipe);
+    LogPipeDisconnect(L"main-pipe");
+    DisconnectNamedPipe(clientPipe);
+    CloseHandle(clientPipe);
 }
 
 void ToTsfPipeEventListenerLoopThread()
 {
-    // Open events here
-    std::vector<HANDLE> hPipeEvents(FANY_IME_EVENT_PIPE_ARRAY.size());
-    int numEvents = FANY_IME_EVENT_PIPE_ARRAY.size();
-    for (int i = 0; i < FANY_IME_EVENT_PIPE_ARRAY.size(); ++i)
-    {
-        hPipeEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_PIPE_ARRAY[i].c_str());
-        if (!hPipeEvents[i])
-        {
-            for (int j = 0; j < i; ++j)
-            {
-                CloseHandle(hPipeEvents[j]);
-            }
-        }
-    }
-
+    HANDLE listeningPipe = hToTsfPipe;
+    hToTsfPipe = INVALID_HANDLE_VALUE;
     while (true)
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: ToTsf Pipe starts to wait");
 #endif
-        ::toTsfConnected = false; // 重置
-        BOOL connected = ConnectNamedPipe(hToTsfPipe, NULL);
-        ::toTsfConnected = connected;
+        if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+        {
+            listeningPipe = CreateToTsfNamedPipeInstance();
+            if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+            {
+                FANY_IPC_LOGF(L"[msime]: [ipc] failed to create next to-tsf-pipe instance: gle={}", GetLastError());
+                Sleep(50);
+                continue;
+            }
+        }
+
+        BOOL connected = WaitForPipeClient(listeningPipe);
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: ToTsf Pipe connected: {}", connected).c_str());
 #endif
         LogPipeConnectResult(L"to-tsf-pipe", connected);
         if (connected)
         {
-            // Wait for event to write data to tsf
-            while (true)
-            {
-                bool isBreakWhile = false;
-                DWORD result = WaitForMultipleObjects(numEvents, hPipeEvents.data(), FALSE, INFINITE);
-                if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + numEvents)
-                {
-                    int eventIndex = result - WAIT_OBJECT_0;
-                    switch (eventIndex)
-                    {
-                    case 0: { // FanyImeTimeToWritePipeEvent
-                        // Write data to tsf via named pipe
-                        UINT msg_type = Global::MsgTypeToTsf;
-                        SendToTsfViaNamedpipe(msg_type, ::Global::candidate_ui.selected_text);
-                        if (msg_type == Global::DataFromServerMsgType::Normal)
-                        {
-                            ClearState();
-                        }
-                        break;
-                    }
-                    case 1: { // FanyImeCancelToWritePipeEvent: Cancel event
-                        isBreakWhile = true;
-                        break;
-                    }
-                    }
-                }
-                if (isBreakWhile)
-                {
-                    break;
-                }
-            }
+            HANDLE clientPipe = listeningPipe;
+            listeningPipe = CreateToTsfNamedPipeInstance();
+            std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsf).detach();
         }
         else
         {
-            // TODO:
+            CloseHandle(listeningPipe);
+            listeningPipe = INVALID_HANDLE_VALUE;
         }
-#ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: ToTsf Pipe disconnected");
-#endif
-        LogPipeDisconnect(L"to-tsf-pipe");
-        DisconnectNamedPipe(hToTsfPipe);
     }
-    ::CloseToTsfNamedPipe();
 }
 
 void ToTsfWorkerThreadPipeEventListenerLoopThread()
 {
-    // Open events here
-    std::vector<HANDLE> hPipeEvents(FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size());
-    int numEvents = FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size();
-    for (int i = 0; i < FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size(); ++i)
-    {
-        hPipeEvents[i] = OpenEventW(SYNCHRONIZE, FALSE, FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[i].c_str());
-        if (!hPipeEvents[i])
-        {
-            for (int j = 0; j < i; ++j)
-            {
-                CloseHandle(hPipeEvents[j]);
-            }
-        }
-    }
-
+    HANDLE listeningPipe = hToTsfWorkerThreadPipe;
+    hToTsfWorkerThreadPipe = INVALID_HANDLE_VALUE;
     while (true)
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe starts to wait");
 #endif
-        ::toTsfWorkerThreadConnected = false; // 重置
-        BOOL connected = ConnectNamedPipe(hToTsfWorkerThreadPipe, NULL);
-        ::toTsfWorkerThreadConnected = connected;
+        if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+        {
+            listeningPipe = CreateToTsfWorkerThreadNamedPipeInstance();
+            if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+            {
+                FANY_IPC_LOGF(L"[msime]: [ipc] failed to create next to-tsf-worker-pipe instance: gle={}",
+                              GetLastError());
+                Sleep(50);
+                continue;
+            }
+        }
+
+        BOOL connected = WaitForPipeClient(listeningPipe);
         LogPipeConnectResult(L"to-tsf-worker-pipe", connected);
         if (connected)
         {
 #ifdef FANY_DEBUG
             OutputDebugString(fmt::format(L"[msime]: ToTsf Worker Thread Pipe connected: {}", connected).c_str());
 #endif
-            // Wait for event to write data to tsf
-            while (true)
-            {
-                bool isBreakWhile = false;
-                DWORD result = WaitForMultipleObjects(numEvents, hPipeEvents.data(), FALSE, INFINITE);
-                if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + numEvents)
-                {
-                    int eventIndex = result - WAIT_OBJECT_0;
-                    switch (eventIndex)
-                    {
-                    case 0: { // SwitchToEn
-// Write data to tsf via named pipe
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to EN").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    case 1: { // SwitchToCn
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to CN").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    case 2: { // ToTsfWorkerThreadCancelEvent
-                        isBreakWhile = true;
-                        break;
-                    }
-                    case 3: { // SwitchToPuncEn
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Punc EN").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    case 4: { // SwitchToPuncCn
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Punc CN").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    case 5: { // SwitchToFullwidth
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Fullwidth").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    case 6: { // SwitchToHalfwidth
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Switch to Halfwidth").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    case 7: { // CommitCandidate
-#ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Named Pipe Commit Candidate").c_str());
-#endif
-                        UINT msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate;
-                        SendToTsfWorkerThreadViaNamedpipe(msg_type, L"");
-                        break;
-                    }
-                    }
-                }
-                if (isBreakWhile)
-                {
-                    break;
-                }
-            }
+            HANDLE clientPipe = listeningPipe;
+            listeningPipe = CreateToTsfWorkerThreadNamedPipeInstance();
+            std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsfWorkerThread).detach();
         }
         else
         {
-            // TODO:
+            CloseHandle(listeningPipe);
+            listeningPipe = INVALID_HANDLE_VALUE;
         }
-#ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe disconnected");
-#endif
-        LogPipeDisconnect(L"to-tsf-worker-pipe");
-        DisconnectNamedPipe(hToTsfWorkerThreadPipe);
     }
-    ::CloseToTsfWorkerThreadNamedPipe();
+}
+
+void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
+{
+    FanyImePipeHello hello = {};
+    if (!ReadPipeHello(clientPipe, hello))
+    {
+        LogPipeReadFailure(pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe", 0);
+        DisconnectNamedPipe(clientPipe);
+        CloseHandle(clientPipe);
+        return;
+    }
+
+    if (pipeRole == FanyImePipeRole::ToTsf)
+    {
+        RegisterToTsfPipeClient(hello.client_id, clientPipe);
+    }
+    else if (pipeRole == FanyImePipeRole::ToTsfWorkerThread)
+    {
+        RegisterToTsfWorkerThreadPipeClient(hello.client_id, clientPipe);
+    }
 }
 
 void AuxPipeEventListenerLoopThread()
@@ -828,9 +726,8 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
  *
  * 调频、造词也都在这里处理。
  *
- * @param hEvent
  */
-void HandleImeKey(HANDLE hEvent)
+void HandleImeKey()
 {
     /* 先清理一下状态 */
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
@@ -873,13 +770,7 @@ void HandleImeKey(HANDLE hEvent)
             std::wstring preedit = GetPreedit();
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
             Global::candidate_ui.selected_text = preedit;
-            if (!SetEvent(hEvent))
-            {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-                OutputDebugString(L"[msime]: SetEvent failed");
-#endif
-            }
+            SendCurrentDataToActiveTsf();
         }
     }
 
@@ -895,13 +786,7 @@ void HandleImeKey(HANDLE hEvent)
                 std::wstring preedit = GetPreedit();
                 Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
                 Global::candidate_ui.selected_text = preedit;
-                if (!SetEvent(hEvent))
-                {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-                    OutputDebugString(L"[msime]: SetEvent failed");
-#endif
-                }
+                SendCurrentDataToActiveTsf();
             }
         }
     }
@@ -927,13 +812,7 @@ void HandleImeKey(HANDLE hEvent)
             Global::candidate_ui.selected_text = L"";
         }
 
-        if (!SetEvent(hEvent))
-        {
-// TODO: Error handling
-#ifdef FANY_DEBUG
-            OutputDebugString(L"[msime]: SetEvent failed");
-#endif
-        }
+        SendCurrentDataToActiveTsf();
     }
     //
     // 空格和数字键可能会触发造词，如果数字键上屏的汉字字符串所对应的拼音比实际的拼音要短的话，
@@ -943,13 +822,7 @@ void HandleImeKey(HANDLE hEvent)
     else if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
     {
         ProcessSelectionKey(Global::Keycode);
-        if (!SetEvent(hEvent))
-        { /* 触发事件，将候选词数据写入管道 */
-// TODO: Error handling
-#ifdef FANY_DEBUG
-            OutputDebugString(L"[msime]: SetEvent failed");
-#endif
-        }
+        SendCurrentDataToActiveTsf();
     }
     else if (Global::Keycode == VK_OEM_MINUS ||     //
              (Global::Keycode == VK_TAB             //

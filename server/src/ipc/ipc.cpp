@@ -2,10 +2,13 @@
 #include <debugapi.h>
 #include <handleapi.h>
 #include <minwindef.h>
+#include <atomic>
 #include <winbase.h>
 #include <winnt.h>
 #include <AclAPI.h>
 #include <Sddl.h>
+#include <mutex>
+#include <unordered_map>
 #include "ipc.h"
 #include "utils/common_utils.h"
 #include "fmt/xchar.h"
@@ -79,6 +82,23 @@ static struct FanyImeNamedpipeDataToTsf namedpipeDataToTsf = {};
 
 namespace
 {
+struct PipeClientSession
+{
+    HANDLE main_pipe = INVALID_HANDLE_VALUE;
+    HANDLE to_tsf_pipe = INVALID_HANDLE_VALUE;
+    HANDLE to_tsf_worker_thread_pipe = INVALID_HANDLE_VALUE;
+};
+
+std::mutex g_pipe_clients_mutex;
+std::unordered_map<uint64_t, PipeClientSession> g_pipe_clients;
+std::atomic<uint64_t> g_active_pipe_client_id = 0;
+
+struct ActivePipeTarget
+{
+    uint64_t client_id = 0;
+    HANDLE pipe = INVALID_HANDLE_VALUE;
+};
+
 void LogPipeWriteFailure(const wchar_t *pipe_name, UINT msg_type, DWORD bytes_written, DWORD expected_bytes)
 {
     FANY_IPC_LOGF(L"[msime]: [ipc] WriteFile failed on {}: gle={}, msg_type={}, bytes_written={}, expected_bytes={}",
@@ -88,6 +108,62 @@ void LogPipeWriteFailure(const wchar_t *pipe_name, UINT msg_type, DWORD bytes_wr
 void LogPipeDisconnected(const wchar_t *pipe_name, UINT msg_type)
 {
     FANY_IPC_LOGF(L"[msime]: [ipc] Attempted to write to disconnected pipe {}: msg_type={}", pipe_name, msg_type);
+}
+
+HANDLE CreateNamedPipeInstance(const wchar_t *pipe_name, DWORD out_buffer_size, DWORD in_buffer_size)
+{
+    PSECURITY_DESCRIPTOR pd = nullptr;
+    SECURITY_ATTRIBUTES sa = {};
+    ConvertStringSecurityDescriptorToSecurityDescriptor(
+        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
+            ALL_APP_PACKAGES_FILE_ACCESS,
+        SDDL_REVISION_1, &pd, NULL);
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = pd;
+    sa.bInheritHandle = TRUE;
+
+    HANDLE pipe = CreateNamedPipe( //
+        pipe_name,                 //
+        PIPE_ACCESS_DUPLEX,        //
+        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+        PIPE_UNLIMITED_INSTANCES, //
+        out_buffer_size,          //
+        in_buffer_size,           //
+        0,                        //
+        &sa                       //
+    );
+
+    if (pd)
+    {
+        LocalFree(pd);
+    }
+    return pipe;
+}
+
+ActivePipeTarget FindActivePipe(UINT pipe_role)
+{
+    const uint64_t active_client_id = g_active_pipe_client_id.load();
+    if (active_client_id == 0)
+    {
+        return {};
+    }
+
+    std::lock_guard lock(g_pipe_clients_mutex);
+    auto it = g_pipe_clients.find(active_client_id);
+    if (it == g_pipe_clients.end())
+    {
+        return {};
+    }
+
+    if (pipe_role == FanyImePipeRole::ToTsf)
+    {
+        return {active_client_id, it->second.to_tsf_pipe};
+    }
+    if (pipe_role == FanyImePipeRole::ToTsfWorkerThread)
+    {
+        return {active_client_id, it->second.to_tsf_worker_thread_pipe};
+    }
+    return {};
 }
 } // namespace
 
@@ -180,80 +256,49 @@ int InitIpc()
     return 0;
 }
 
+HANDLE CreateMainNamedPipeInstance()
+{
+    return CreateNamedPipeInstance(FANY_IME_NAMED_PIPE, BUFFER_SIZE, BUFFER_SIZE);
+}
+
+HANDLE CreateAuxNamedPipeInstance()
+{
+    return CreateNamedPipeInstance(FANY_IME_AUX_NAMED_PIPE, 128, 128);
+}
+
+HANDLE CreateToTsfNamedPipeInstance()
+{
+    return CreateNamedPipeInstance(FANY_IME_TO_TSF_NAMED_PIPE, sizeof(FanyImeNamedpipeDataToTsf),
+                                   sizeof(FanyImeNamedpipeDataToTsf));
+}
+
+HANDLE CreateToTsfWorkerThreadNamedPipeInstance()
+{
+    return CreateNamedPipeInstance(FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,
+                                   sizeof(FanyImeNamedpipeDataToTsfWorkerThread),
+                                   sizeof(FanyImeNamedpipeDataToTsfWorkerThread));
+}
+
 //
 // We also create events for thread-communication here
 //
 int InitNamedPipe()
 {
-    // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
-    PSECURITY_DESCRIPTOR pd;
-    SECURITY_ATTRIBUTES sa;
-    ConvertStringSecurityDescriptorToSecurityDescriptor(
-        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
-            ALL_APP_PACKAGES_FILE_ACCESS,
-        SDDL_REVISION_1, &pd, NULL);
-    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-    sa.lpSecurityDescriptor = pd;
-    sa.bInheritHandle = TRUE;
     //
     // Named Pipe
     //
 
     // Nmaedpipe for IME communication
-    hPipe = CreateNamedPipe(        //
-        FANY_IME_NAMED_PIPE,        // pipe name
-        PIPE_ACCESS_DUPLEX,         // read/write access
-        PIPE_TYPE_MESSAGE           // message type pipe
-            | PIPE_READMODE_MESSAGE // message-read mode
-            | PIPE_WAIT,            // blocking mode
-        PIPE_UNLIMITED_INSTANCES,   // max instances
-        BUFFER_SIZE,                // output buffer size
-        BUFFER_SIZE,                // input buffer size
-        0,                          // client time-out
-        &sa                         // security attribute, for UWP/Metro apps
-    );
+    hPipe = CreateMainNamedPipeInstance();
 
     // Nmaedpipe for reconnecting main pipe
-    hAuxPipe = CreateNamedPipe(     //
-        FANY_IME_AUX_NAMED_PIPE,    // pipe name
-        PIPE_ACCESS_DUPLEX,         // read/write access
-        PIPE_TYPE_MESSAGE           // message type pipe
-            | PIPE_READMODE_MESSAGE // message-read mode
-            | PIPE_WAIT,            // blocking mode
-        PIPE_UNLIMITED_INSTANCES,   // max instances
-        128,                        // output buffer size
-        128,                        // input buffer size
-        0,                          // client time-out
-        &sa                         // security attribute, for UWP/Metro apps
-    );
+    hAuxPipe = CreateAuxNamedPipeInstance();
 
     // Namedpipe for passing data from this process to TSF process
-    hToTsfPipe = CreateNamedPipe(                 //
-        FANY_IME_TO_TSF_NAMED_PIPE,               // pipe name
-        PIPE_ACCESS_DUPLEX,                       // read/write access
-        PIPE_TYPE_MESSAGE                         // message type pipe
-            | PIPE_READMODE_MESSAGE               // message-read mode
-            | PIPE_WAIT,                          // blocking mode
-        PIPE_UNLIMITED_INSTANCES,                 // max instances
-        sizeof(struct FanyImeNamedpipeDataToTsf), // output buffer size
-        sizeof(struct FanyImeNamedpipeDataToTsf), // input buffer size
-        0,                                        // client time-out
-        &sa                                       // security attribute, for UWP/Metro apps
-    );
+    hToTsfPipe = CreateToTsfNamedPipeInstance();
 
     // Namedpipe for sending msg to TSF side
-    hToTsfWorkerThreadPipe = CreateNamedPipe(                 //
-        FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,             // pipe name
-        PIPE_ACCESS_DUPLEX,                                   // read/write access
-        PIPE_TYPE_MESSAGE                                     // message type pipe
-            | PIPE_READMODE_MESSAGE                           // message-read mode
-            | PIPE_WAIT,                                      // blocking mode
-        PIPE_UNLIMITED_INSTANCES,                             // max instances
-        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // output buffer size
-        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // input buffer size
-        0,                                                    // client time-out
-        &sa                                                   // security attribute, for UWP/Metro apps
-    );
+    hToTsfWorkerThreadPipe = CreateToTsfWorkerThreadNamedPipeInstance();
 
     if (hPipe == INVALID_HANDLE_VALUE)
     {
@@ -402,44 +447,23 @@ int CloseNamedPipe()
     if (hPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hPipe);
+        hPipe = INVALID_HANDLE_VALUE;
     }
     return 0;
 }
 
 int OpenToTsfNamedPipe()
 {
-    // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
-    PSECURITY_DESCRIPTOR pd;
-    SECURITY_ATTRIBUTES sa;
-    ConvertStringSecurityDescriptorToSecurityDescriptor(
-        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
-            ALL_APP_PACKAGES_FILE_ACCESS,
-        SDDL_REVISION_1, &pd, NULL);
-    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-    sa.lpSecurityDescriptor = pd;
-    sa.bInheritHandle = TRUE;
-
-    // Namedpipe for passing data from this process to TSF process
-    hToTsfPipe = CreateNamedPipe(                 //
-        FANY_IME_TO_TSF_NAMED_PIPE,               // pipe name
-        PIPE_ACCESS_DUPLEX,                       // read/write access
-        PIPE_TYPE_MESSAGE                         // message type pipe
-            | PIPE_READMODE_MESSAGE               // message-read mode
-            | PIPE_WAIT,                          // blocking mode
-        PIPE_UNLIMITED_INSTANCES,                 // max instances
-        sizeof(struct FanyImeNamedpipeDataToTsf), // output buffer size
-        sizeof(struct FanyImeNamedpipeDataToTsf), // input buffer size
-        0,                                        // client time-out
-        &sa                                       // security attribute, for UWP/Metro apps
-    );
+    hToTsfPipe = CreateToTsfNamedPipeInstance();
     return 0;
 }
 
 int CloseToTsfNamedPipe()
 {
-    if (hAuxPipe != INVALID_HANDLE_VALUE)
+    if (hToTsfPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hToTsfPipe);
+        hToTsfPipe = INVALID_HANDLE_VALUE;
     }
     return 0;
 }
@@ -449,35 +473,14 @@ int CloseAuxNamedPipe()
     if (hAuxPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hAuxPipe);
+        hAuxPipe = INVALID_HANDLE_VALUE;
     }
     return 0;
 }
 
 int OpenToTsfWorkerThreadNamedPipe()
 {
-    // https://hcyue.me/2018/01/13/Windows 输入法的 metro 应用兼容性改造/
-    PSECURITY_DESCRIPTOR pd;
-    SECURITY_ATTRIBUTES sa;
-    ConvertStringSecurityDescriptorToSecurityDescriptor(
-        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
-            ALL_APP_PACKAGES_FILE_ACCESS,
-        SDDL_REVISION_1, &pd, NULL);
-    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-    sa.lpSecurityDescriptor = pd;
-    sa.bInheritHandle = TRUE;
-
-    hToTsfWorkerThreadPipe = CreateNamedPipe(                 //
-        FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,             // pipe name
-        PIPE_ACCESS_DUPLEX,                                   // read/write access
-        PIPE_TYPE_MESSAGE                                     // message type pipe
-            | PIPE_READMODE_MESSAGE                           // message-read mode
-            | PIPE_WAIT,                                      // blocking mode
-        PIPE_UNLIMITED_INSTANCES,                             // max instances
-        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // output buffer size
-        sizeof(struct FanyImeNamedpipeDataToTsfWorkerThread), // input buffer size
-        0,                                                    // client time-out
-        &sa                                                   // security attribute, for UWP/Metro apps
-    );
+    hToTsfWorkerThreadPipe = CreateToTsfWorkerThreadNamedPipeInstance();
     return 0;
 }
 
@@ -486,8 +489,115 @@ int CloseToTsfWorkerThreadNamedPipe()
     if (hToTsfWorkerThreadPipe != INVALID_HANDLE_VALUE)
     {
         CloseHandle(hToTsfWorkerThreadPipe);
+        hToTsfWorkerThreadPipe = INVALID_HANDLE_VALUE;
     }
     return 0;
+}
+
+void RegisterMainPipeClient(uint64_t client_id, HANDLE pipe)
+{
+    if (client_id == 0)
+    {
+        return;
+    }
+
+    std::lock_guard lock(g_pipe_clients_mutex);
+    g_pipe_clients[client_id].main_pipe = pipe;
+}
+
+void RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe)
+{
+    if (client_id == 0)
+    {
+        return;
+    }
+
+    std::lock_guard lock(g_pipe_clients_mutex);
+    g_pipe_clients[client_id].to_tsf_pipe = pipe;
+}
+
+void RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe)
+{
+    if (client_id == 0)
+    {
+        return;
+    }
+
+    std::lock_guard lock(g_pipe_clients_mutex);
+    g_pipe_clients[client_id].to_tsf_worker_thread_pipe = pipe;
+}
+
+void UnregisterPipeClientHandle(uint64_t client_id, UINT pipe_role, HANDLE pipe)
+{
+    if (client_id == 0)
+    {
+        return;
+    }
+
+    std::lock_guard lock(g_pipe_clients_mutex);
+    auto it = g_pipe_clients.find(client_id);
+    if (it == g_pipe_clients.end())
+    {
+        return;
+    }
+
+    if (pipe_role == FanyImePipeRole::Main && it->second.main_pipe == pipe)
+    {
+        it->second.main_pipe = INVALID_HANDLE_VALUE;
+        if (it->second.to_tsf_pipe != INVALID_HANDLE_VALUE)
+        {
+            DisconnectNamedPipe(it->second.to_tsf_pipe);
+            CloseHandle(it->second.to_tsf_pipe);
+            it->second.to_tsf_pipe = INVALID_HANDLE_VALUE;
+        }
+        if (it->second.to_tsf_worker_thread_pipe != INVALID_HANDLE_VALUE)
+        {
+            DisconnectNamedPipe(it->second.to_tsf_worker_thread_pipe);
+            CloseHandle(it->second.to_tsf_worker_thread_pipe);
+            it->second.to_tsf_worker_thread_pipe = INVALID_HANDLE_VALUE;
+        }
+    }
+    else if (pipe_role == FanyImePipeRole::ToTsf && it->second.to_tsf_pipe == pipe)
+    {
+        it->second.to_tsf_pipe = INVALID_HANDLE_VALUE;
+    }
+    else if (pipe_role == FanyImePipeRole::ToTsfWorkerThread && it->second.to_tsf_worker_thread_pipe == pipe)
+    {
+        it->second.to_tsf_worker_thread_pipe = INVALID_HANDLE_VALUE;
+    }
+
+    if (g_active_pipe_client_id.load() == client_id && it->second.main_pipe == INVALID_HANDLE_VALUE)
+    {
+        g_active_pipe_client_id.store(0);
+    }
+
+    if (it->second.main_pipe == INVALID_HANDLE_VALUE && it->second.to_tsf_pipe == INVALID_HANDLE_VALUE &&
+        it->second.to_tsf_worker_thread_pipe == INVALID_HANDLE_VALUE)
+    {
+        g_pipe_clients.erase(it);
+    }
+}
+
+void ActivatePipeClient(uint64_t client_id)
+{
+    if (client_id != 0)
+    {
+        g_active_pipe_client_id.store(client_id);
+    }
+}
+
+void DeactivatePipeClient(uint64_t client_id)
+{
+    if (client_id != 0)
+    {
+        uint64_t expected = client_id;
+        g_active_pipe_client_id.compare_exchange_strong(expected, 0);
+    }
+}
+
+bool IsActivePipeClient(uint64_t client_id)
+{
+    return client_id != 0 && g_active_pipe_client_id.load() == client_id;
 }
 
 int WriteDataToSharedMemory(              //
@@ -581,7 +691,8 @@ int ReadDataFromNamedPipe(UINT read_flag)
 
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
 {
-    if (!hToTsfPipe || hToTsfPipe == INVALID_HANDLE_VALUE)
+    ActivePipeTarget target = FindActivePipe(FanyImePipeRole::ToTsf);
+    if (!target.pipe || target.pipe == INVALID_HANDLE_VALUE)
     {
 // TODO: Error handling
 #ifdef FANY_DEBUG
@@ -596,7 +707,7 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
     wcscpy_s(namedpipeDataToTsf.candidate_string, pipeData.c_str());
 
     BOOL ret = WriteFile(           //
-        hToTsfPipe,                 //
+        target.pipe,                //
         &namedpipeDataToTsf,        //
         sizeof(namedpipeDataToTsf), //
         &bytesWritten,              //
@@ -611,12 +722,16 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
                               .c_str());
 #endif
         LogPipeWriteFailure(L"to-tsf", msg_type, bytesWritten, sizeof(namedpipeDataToTsf));
+        UnregisterPipeClientHandle(target.client_id, FanyImePipeRole::ToTsf, target.pipe);
+        DisconnectNamedPipe(target.pipe);
+        CloseHandle(target.pipe);
     }
 }
 
 void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
 {
-    if (!hToTsfWorkerThreadPipe || hToTsfWorkerThreadPipe == INVALID_HANDLE_VALUE)
+    ActivePipeTarget target = FindActivePipe(FanyImePipeRole::ToTsfWorkerThread);
+    if (!target.pipe || target.pipe == INVALID_HANDLE_VALUE)
     {
 // TODO: Error handling
 #ifdef FANY_DEBUG
@@ -631,7 +746,7 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
     wcscpy_s(namedpipeDataToTsfWorkerThread.data, pipeData.c_str());
 
     BOOL ret = WriteFile(                       //
-        hToTsfWorkerThreadPipe,                 //
+        target.pipe,                            //
         &namedpipeDataToTsfWorkerThread,        //
         sizeof(namedpipeDataToTsfWorkerThread), //
         &bytesWritten,                          //
@@ -647,5 +762,8 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
                 .c_str());
 #endif
         LogPipeWriteFailure(L"to-tsf-worker", msg_type, bytesWritten, sizeof(namedpipeDataToTsfWorkerThread));
+        UnregisterPipeClientHandle(target.client_id, FanyImePipeRole::ToTsfWorkerThread, target.pipe);
+        DisconnectNamedPipe(target.pipe);
+        CloseHandle(target.pipe);
     }
 }
