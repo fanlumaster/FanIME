@@ -518,7 +518,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
         FanyNamedPipe::SendCurrentDataToActiveTsf();
 
-        SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate, L"");
+        SendToTsfWorkerThreadViaNamedpipe(
+            Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate,
+            Global::MsgTypeToTsf == Global::DataFromServerMsgType::Normal ? Global::candidate_ui.selected_text : L"");
 
         break;
     }
