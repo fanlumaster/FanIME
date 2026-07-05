@@ -231,6 +231,8 @@ enum class TaskType
     PuncSwitch,
     DoubleSingleByteSwitch,
     ApplyCloudCandidate,
+    StoreUserPhrase,
+    PinCandidate,
 };
 
 struct Task
@@ -239,6 +241,8 @@ struct Task
     std::string cloud_candidate;
     std::string cloud_pinyin;
     uint64_t cloud_generation = 0;
+    std::string session_pinyin;
+    std::string session_word;
 };
 
 std::queue<Task> taskQueue;
@@ -249,6 +253,8 @@ void HandleImeKey();
 void ClearState();
 void ProcessSelectionKey(UINT keycode);
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
+void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word);
+void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
 void MainPipeClientThread(HANDLE clientPipe);
 void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole);
 
@@ -320,6 +326,18 @@ void WorkerThread()
             ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation);
             break;
         }
+
+        case TaskType::StoreUserPhrase: {
+            g_inputSession->store_user_phrase(task.session_pinyin, task.session_word);
+            g_inputSession->reset_cache();
+            break;
+        }
+
+        case TaskType::PinCandidate: {
+            g_inputSession->pin_candidate(task.session_pinyin, task.session_word);
+            g_inputSession->reset_cache();
+            break;
+        }
         }
     }
 
@@ -343,6 +361,32 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
         task.cloud_candidate = candidate;
         task.cloud_pinyin = pinyin;
         task.cloud_generation = generation;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::StoreUserPhrase;
+        task.session_pinyin = pinyin;
+        task.session_word = word;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::PinCandidate;
+        task.session_pinyin = pinyin;
+        task.session_word = word;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -925,12 +969,9 @@ void ProcessSelectionKey(UINT keycode)
                 /* 更新一下被选中的候选项 */
                 Global::candidate_ui.selected_text = string_to_wstring(GlobalIme::composition.creating_word.word);
 
-                /* TODO:
-                 * 这里应该再开一个线程给造词使用，然后这里就只用发送，不应使这里的行为卡顿哪怕只有一点点 */
-                /* 暂时就先直接在这里向词库插入数据吧 */
-                g_inputSession->store_user_phrase(GlobalIme::composition.creating_word.pinyin,
-                                                  GlobalIme::composition.creating_word.word);
-                g_inputSession->reset_cache();
+                // 这里异步处理，不然有可能会阻塞住 TSF 端读取 pipe 导致超时
+                EnqueueStoreUserPhraseTask(GlobalIme::composition.creating_word.pinyin,
+                                           GlobalIme::composition.creating_word.word);
 
                 /* 清理 */
                 GlobalIme::composition.clear_creating_word();
@@ -941,8 +982,7 @@ void ProcessSelectionKey(UINT keycode)
         if (Global::cloud_candidate.added &&
             Global::cloud_candidate.word == wstring_to_string(Global::candidate_ui.selected_text))
         {
-            g_inputSession->store_user_phrase(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
-            g_inputSession->reset_cache();
+            EnqueueStoreUserPhraseTask(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
             // 清理云联想变量状态
             Global::cloud_candidate.added = false;
             Global::cloud_candidate.word.clear();
@@ -962,11 +1002,7 @@ void ProcessSelectionKey(UINT keycode)
 
         if (isNeedUpdateWeight)
         {
-            //
-            // 更新权重，并且清理缓存，否则更新后的权重在当前运行的输入法中不会生效
-            //
-            g_inputSession->pin_candidate(curWordPinyin, curWord);
-            g_inputSession->reset_cache();
+            EnqueuePinCandidateTask(curWordPinyin, curWord);
         }
     }
     else
