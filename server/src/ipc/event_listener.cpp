@@ -36,10 +36,6 @@
 #define FANY_IPC_LOGF(...) ((void)0)
 #endif
 
-static UINT s_ime_switch_keycode = 0;
-static UINT s_double_single_byte_switch_keycode = 0;
-static UINT s_punc_switch_keycode = 0;
-
 namespace
 {
 std::string BuildCurrentCandidatePage();
@@ -238,6 +234,8 @@ enum class TaskType
 struct Task
 {
     TaskType type;
+    bool has_pipe_data = false;
+    FanyImeNamedpipeData pipe_data = {};
     std::string cloud_candidate;
     std::string cloud_pinyin;
     uint64_t cloud_generation = 0;
@@ -270,6 +268,11 @@ void WorkerThread()
                 break;
             task = taskQueue.front();
             taskQueue.pop();
+        }
+
+        if (task.has_pipe_data)
+        {
+            namedpipeData = task.pipe_data;
         }
 
         switch (task.type)
@@ -308,17 +311,17 @@ void WorkerThread()
         }
 
         case TaskType::IMESwitch: {
-            PostMessage(::global_hwnd, WM_IMESWITCH, s_ime_switch_keycode, 0);
+            PostMessage(::global_hwnd, WM_IMESWITCH, task.pipe_data.keycode, 0);
             break;
         }
 
         case TaskType::PuncSwitch: {
-            PostMessage(::global_hwnd, WM_PUNCSWITCH, s_punc_switch_keycode, 0);
+            PostMessage(::global_hwnd, WM_PUNCSWITCH, task.pipe_data.keycode, 0);
             break;
         }
 
         case TaskType::DoubleSingleByteSwitch: {
-            PostMessage(::global_hwnd, WM_DOUBLESINGLEBYTESWITCH, s_double_single_byte_switch_keycode, 0);
+            PostMessage(::global_hwnd, WM_DOUBLESINGLEBYTESWITCH, task.pipe_data.keycode, 0);
             break;
         }
 
@@ -343,11 +346,15 @@ void WorkerThread()
 
 }
 
-void EnqueueTask(TaskType type)
+void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData)
 {
     {
         std::lock_guard lock(queueMutex);
-        taskQueue.push({type});
+        Task task;
+        task.type = type;
+        task.has_pipe_data = true;
+        task.pipe_data = pipeData;
+        taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
 }
@@ -478,54 +485,46 @@ void MainPipeClientThread(HANDLE clientPipe)
             continue;
         }
 
-        namedpipeData = pipeData;
-        LogPipeEvent(L"main-pipe", namedpipeData.event_type, namedpipeData.keycode, namedpipeData.wch,
-                     namedpipeData.modifiers_down);
-        switch (namedpipeData.event_type)
+        LogPipeEvent(L"main-pipe", pipeData.event_type, pipeData.keycode, pipeData.wch, pipeData.modifiers_down);
+        switch (pipeData.event_type)
         {
         case FanyImePipeEventType::KeyEvent: {
-            EnqueueTask(TaskType::ImeKeyEvent);
+            EnqueueTask(TaskType::ImeKeyEvent, pipeData);
             break;
         }
 
         case FanyImePipeEventType::HideCandidateWnd: {
-            EnqueueTask(TaskType::HideCandidate);
+            EnqueueTask(TaskType::HideCandidate, pipeData);
             break;
         }
 
         case FanyImePipeEventType::ShowCandidateWnd: {
-            EnqueueTask(TaskType::ShowCandidate);
+            EnqueueTask(TaskType::ShowCandidate, pipeData);
             break;
         }
 
         case FanyImePipeEventType::MoveCandidateWnd: {
-            EnqueueTask(TaskType::MoveCandidate);
+            EnqueueTask(TaskType::MoveCandidate, pipeData);
             break;
         }
 
         case FanyImePipeEventType::LangbarRightClick: {
-            EnqueueTask(TaskType::LangbarRightClick);
+            EnqueueTask(TaskType::LangbarRightClick, pipeData);
             break;
         }
 
         case FanyImePipeEventType::IMESwitch: {
-            EnqueueTask(TaskType::IMESwitch);
-            ::ReadDataFromNamedPipe(0b000001);
-            s_ime_switch_keycode = Global::Keycode;
+            EnqueueTask(TaskType::IMESwitch, pipeData);
             break;
         }
 
         case FanyImePipeEventType::PuncSwitch: {
-            EnqueueTask(TaskType::PuncSwitch);
-            ::ReadDataFromNamedPipe(0b000001);
-            s_punc_switch_keycode = Global::Keycode;
+            EnqueueTask(TaskType::PuncSwitch, pipeData);
             break;
         }
 
         case FanyImePipeEventType::DoubleSingleByteSwitch: {
-            EnqueueTask(TaskType::DoubleSingleByteSwitch);
-            ::ReadDataFromNamedPipe(0b000001);
-            s_double_single_byte_switch_keycode = Global::Keycode;
+            EnqueueTask(TaskType::DoubleSingleByteSwitch, pipeData);
             break;
         }
         }
