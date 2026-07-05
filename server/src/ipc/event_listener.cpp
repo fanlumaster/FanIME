@@ -229,6 +229,7 @@ enum class TaskType
     ApplyCloudCandidate,
     StoreUserPhrase,
     PinCandidate,
+    ClientDeactivated,
 };
 
 struct Task
@@ -339,6 +340,12 @@ void WorkerThread()
         case TaskType::PinCandidate: {
             g_inputSession->pin_candidate(task.session_pinyin, task.session_word);
             g_inputSession->reset_cache();
+            break;
+        }
+
+        case TaskType::ClientDeactivated: {
+            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            ClearState();
             break;
         }
         }
@@ -474,6 +481,10 @@ void MainPipeClientThread(HANDLE clientPipe)
         }
         if (pipeData.event_type == FanyImePipeEventType::ClientDeactivated)
         {
+            if (IsActivePipeClient(clientId))
+            {
+                EnqueueTask(TaskType::ClientDeactivated, pipeData);
+            }
             DeactivatePipeClient(clientId);
             continue;
         }
@@ -617,10 +628,11 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
 
 void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
 {
+    const wchar_t *pipeName = pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe";
     FanyImePipeHello hello = {};
     if (!ReadPipeHello(clientPipe, hello))
     {
-        LogPipeReadFailure(pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe", 0);
+        LogPipeReadFailure(pipeName, 0);
         DisconnectNamedPipe(clientPipe);
         CloseHandle(clientPipe);
         return;
@@ -634,6 +646,23 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
     {
         RegisterToTsfWorkerThreadPipeClient(hello.client_id, clientPipe);
     }
+
+    while (true)
+    {
+        BYTE buffer = 0;
+        DWORD bytesRead = 0;
+        BOOL readResult = ReadFile(clientPipe, &buffer, sizeof(buffer), &bytesRead, NULL);
+        if (!readResult || bytesRead == 0)
+        {
+            LogPipeReadFailure(pipeName, bytesRead);
+            break;
+        }
+    }
+
+    UnregisterPipeClientHandle(hello.client_id, pipeRole, clientPipe);
+    LogPipeDisconnect(pipeName);
+    DisconnectNamedPipe(clientPipe);
+    CloseHandle(clientPipe);
 }
 
 void AuxPipeEventListenerLoopThread()
