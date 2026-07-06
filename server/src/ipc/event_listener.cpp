@@ -196,6 +196,18 @@ void LogPipeEvent(const wchar_t *pipe_name, UINT event_type, UINT keycode, WCHAR
                   keycode, static_cast<unsigned int>(wch), modifiers_down);
 }
 
+void LogClientLifecycle(const wchar_t *phase, uint64_t client_id, UINT event_type)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] client lifecycle: phase={}, client_id={}, event_type={}", phase, client_id,
+                  event_type);
+}
+
+void LogClientRouting(uint64_t client_id, UINT event_type, bool is_active)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] client routing: client_id={}, event_type={}, is_active={}", client_id, event_type,
+                  is_active);
+}
+
 bool WaitForPipeClient(HANDLE pipe)
 {
     BOOL connected = ConnectNamedPipe(pipe, NULL);
@@ -409,6 +421,7 @@ void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word)
 void SendCurrentDataToActiveTsf()
 {
     const UINT msg_type = Global::MsgTypeToTsf;
+    FANY_IPC_LOGF(L"[msime]: [ipc] send-current-data: msg_type={}, text={}", msg_type, ::Global::candidate_ui.selected_text);
     SendToTsfViaNamedpipe(msg_type, ::Global::candidate_ui.selected_text);
     if (msg_type == Global::DataFromServerMsgType::Normal)
     {
@@ -470,17 +483,20 @@ void MainPipeClientThread(HANDLE clientPipe)
         clientId = pipeData.client_id;
         if (pipeData.event_type == FanyImePipeEventType::ClientHello)
         {
+            LogClientLifecycle(L"hello", clientId, pipeData.event_type);
             RegisterMainPipeClient(clientId, clientPipe);
             continue;
         }
         if (pipeData.event_type == FanyImePipeEventType::ClientActivated)
         {
+            LogClientLifecycle(L"activated", clientId, pipeData.event_type);
             RegisterMainPipeClient(clientId, clientPipe);
             ActivatePipeClient(clientId);
             continue;
         }
         if (pipeData.event_type == FanyImePipeEventType::ClientDeactivated)
         {
+            LogClientLifecycle(L"deactivated", clientId, pipeData.event_type);
             if (IsActivePipeClient(clientId))
             {
                 EnqueueTask(TaskType::ClientDeactivated, pipeData);
@@ -489,7 +505,9 @@ void MainPipeClientThread(HANDLE clientPipe)
             continue;
         }
 
-        if (!IsActivePipeClient(clientId))
+        const bool isActiveClient = IsActivePipeClient(clientId);
+        LogClientRouting(clientId, pipeData.event_type, isActiveClient);
+        if (!isActiveClient)
         {
             FANY_IPC_LOGF(L"[msime]: [ipc] ignored inactive main-pipe event: client_id={}, type={}", clientId,
                           pipeData.event_type);
@@ -628,11 +646,10 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
 
 void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
 {
-    const wchar_t *pipeName = pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe";
     FanyImePipeHello hello = {};
     if (!ReadPipeHello(clientPipe, hello))
     {
-        LogPipeReadFailure(pipeName, 0);
+        LogPipeReadFailure(pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe", 0);
         DisconnectNamedPipe(clientPipe);
         CloseHandle(clientPipe);
         return;
@@ -646,23 +663,6 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
     {
         RegisterToTsfWorkerThreadPipeClient(hello.client_id, clientPipe);
     }
-
-    while (true)
-    {
-        BYTE buffer = 0;
-        DWORD bytesRead = 0;
-        BOOL readResult = ReadFile(clientPipe, &buffer, sizeof(buffer), &bytesRead, NULL);
-        if (!readResult || bytesRead == 0)
-        {
-            LogPipeReadFailure(pipeName, bytesRead);
-            break;
-        }
-    }
-
-    UnregisterPipeClientHandle(hello.client_id, pipeRole, clientPipe);
-    LogPipeDisconnect(pipeName);
-    DisconnectNamedPipe(clientPipe);
-    CloseHandle(clientPipe);
 }
 
 void AuxPipeEventListenerLoopThread()

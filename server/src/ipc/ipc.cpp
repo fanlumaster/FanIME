@@ -110,6 +110,12 @@ void LogPipeDisconnected(const wchar_t *pipe_name, UINT msg_type)
     FANY_IPC_LOGF(L"[msime]: [ipc] Attempted to write to disconnected pipe {}: msg_type={}", pipe_name, msg_type);
 }
 
+void LogPipeWriteTarget(const wchar_t *pipe_name, uint64_t client_id, UINT msg_type, const std::wstring &payload)
+{
+    FANY_IPC_LOGF(L"[msime]: [ipc] write target: pipe={}, client_id={}, msg_type={}, payload={}", pipe_name, client_id,
+                  msg_type, payload);
+}
+
 HANDLE CreateNamedPipeInstance(const wchar_t *pipe_name, DWORD out_buffer_size, DWORD in_buffer_size)
 {
     PSECURITY_DESCRIPTOR pd = nullptr;
@@ -547,11 +553,13 @@ void UnregisterPipeClientHandle(uint64_t client_id, UINT pipe_role, HANDLE pipe)
         if (it->second.to_tsf_pipe != INVALID_HANDLE_VALUE)
         {
             DisconnectNamedPipe(it->second.to_tsf_pipe);
+            CloseHandle(it->second.to_tsf_pipe);
             it->second.to_tsf_pipe = INVALID_HANDLE_VALUE;
         }
         if (it->second.to_tsf_worker_thread_pipe != INVALID_HANDLE_VALUE)
         {
             DisconnectNamedPipe(it->second.to_tsf_worker_thread_pipe);
+            CloseHandle(it->second.to_tsf_worker_thread_pipe);
             it->second.to_tsf_worker_thread_pipe = INVALID_HANDLE_VALUE;
         }
     }
@@ -703,6 +711,7 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
 
     namedpipeDataToTsf.msg_type = msg_type;
     wcscpy_s(namedpipeDataToTsf.candidate_string, pipeData.c_str());
+    LogPipeWriteTarget(L"to-tsf", target.client_id, msg_type, pipeData);
 
     BOOL ret = WriteFile(           //
         target.pipe,                //
@@ -722,6 +731,7 @@ void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
         LogPipeWriteFailure(L"to-tsf", msg_type, bytesWritten, sizeof(namedpipeDataToTsf));
         UnregisterPipeClientHandle(target.client_id, FanyImePipeRole::ToTsf, target.pipe);
         DisconnectNamedPipe(target.pipe);
+        CloseHandle(target.pipe);
     }
 }
 
@@ -741,6 +751,7 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
 
     namedpipeDataToTsfWorkerThread.msg_type = msg_type;
     wcscpy_s(namedpipeDataToTsfWorkerThread.data, pipeData.c_str());
+    LogPipeWriteTarget(L"to-tsf-worker", target.client_id, msg_type, pipeData);
 
     BOOL ret = WriteFile(                       //
         target.pipe,                            //
@@ -761,5 +772,6 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
         LogPipeWriteFailure(L"to-tsf-worker", msg_type, bytesWritten, sizeof(namedpipeDataToTsfWorkerThread));
         UnregisterPipeClientHandle(target.client_id, FanyImePipeRole::ToTsfWorkerThread, target.pipe);
         DisconnectNamedPipe(target.pipe);
+        CloseHandle(target.pipe);
     }
 }
