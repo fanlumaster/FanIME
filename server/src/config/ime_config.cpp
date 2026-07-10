@@ -15,6 +15,7 @@ SchemeType g_input_scheme = SchemeType::Shuangpin;
 std::string g_shuangpin_preedit_mode = "quanpin";
 bool g_shuangpin_helpcode_enabled = true;
 bool g_quanpin_helpcode_enabled = true;
+bool g_floating_toolbar_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
@@ -153,6 +154,7 @@ bool LoadImeConfig()
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
+        g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         const std::string layout =
             tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
@@ -166,6 +168,46 @@ bool LoadImeConfig()
 #endif
         return false;
     }
+}
+
+bool WriteConfiguredValue(const std::string &section, const std::string &key, const std::string &replacement)
+{
+    std::ifstream input(g_config_path, std::ios::binary);
+    if (!input)
+    {
+        return false;
+    }
+    std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    input.close();
+
+    if (!ReplaceTomlValuePreservingFormatting(text, section, key, replacement))
+    {
+        return false;
+    }
+
+    try
+    {
+        (void)toml::parse(text);
+    }
+    catch (const toml::parse_error &)
+    {
+        return false;
+    }
+
+    std::ofstream output(g_config_path, std::ios::binary | std::ios::trunc);
+    if (!output)
+    {
+        return false;
+    }
+    output.write(text.data(), static_cast<std::streamsize>(text.size()));
+    output.close();
+    if (!output)
+    {
+        return false;
+    }
+
+    RememberConfigWriteTime();
+    return true;
 }
 
 SchemeType ParseScheme(const std::string &value)
@@ -252,6 +294,21 @@ bool GetConfiguredQuanpinHelpcodeEnabled()
     return g_quanpin_helpcode_enabled;
 }
 
+bool GetConfiguredFloatingToolbarEnabled()
+{
+    return g_floating_toolbar_enabled;
+}
+
+bool SetConfiguredFloatingToolbarEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "floating_toolbar", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_floating_toolbar_enabled = enabled;
+    return true;
+}
+
 const std::string &GetConfiguredCandidateWindowLayout()
 {
     return g_candidate_window_layout;
@@ -264,42 +321,10 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout)
         return false;
     }
 
-    std::ifstream input(g_config_path, std::ios::binary);
-    if (!input)
+    if (!WriteConfiguredValue("appearance", "candidate_window_layout", EscapeTomlBasicString(layout)))
     {
         return false;
     }
-    std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    input.close();
-
-    if (!ReplaceTomlValuePreservingFormatting(text, "appearance", "candidate_window_layout",
-                                              EscapeTomlBasicString(layout)))
-    {
-        return false;
-    }
-
-    try
-    {
-        (void)toml::parse(text);
-    }
-    catch (const toml::parse_error &)
-    {
-        return false;
-    }
-
-    std::ofstream output(g_config_path, std::ios::binary | std::ios::trunc);
-    if (!output)
-    {
-        return false;
-    }
-    output.write(text.data(), static_cast<std::streamsize>(text.size()));
-    output.close();
-    if (!output)
-    {
-        return false;
-    }
-
     g_candidate_window_layout = layout;
-    RememberConfigWriteTime();
     return true;
 }

@@ -21,6 +21,7 @@
 namespace json = boost::json;
 
 int FineTuneWindow(HWND hwnd);
+void ApplyConfiguredFloatingToolbarVisibility();
 
 int boundRightExtra = 1000;
 int boundBottomExtra = 1000;
@@ -633,34 +634,10 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     if (type == "floatingToggle")
                     {
                         bool needShown = json::value_to<bool>(val.at("data"));
-                        if (needShown)
+                        if (SetConfiguredFloatingToolbarEnabled(needShown))
                         {
-                            /**
-                             * @brief 显示 ftb 的时候，当 menu 和 ftb 部分交叠在一起时不应因为 z-order 的原因而带来闪烁
-                             *
-                             */
-                            SetLayeredWindowAttributes( //
-                                ::global_hwnd_ftb,
-                                0, // 不用 color key
-                                0, // Alpha = 0（完全透明）
-                                LWA_ALPHA);
-                            SetWindowPos(          //
-                                ::global_hwnd_ftb, //
-                                HWND_TOPMOST,      //
-                                0,                 //
-                                0,                 //
-                                0,                 //
-                                0,                 //
-                                SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOMOVE);
-                            SetLayeredWindowAttributes( //
-                                ::global_hwnd_ftb,      //
-                                0,                      //
-                                255,                    // 恢复完全不透明
-                                LWA_ALPHA);
-                        }
-                        else
-                        {
-                            ShowWindow(::global_hwnd_ftb, SW_HIDE);
+                            ApplyConfiguredFloatingToolbarVisibility();
+                            PostSettingsConfig();
                         }
                     }
                     else if (type == "settings")
@@ -1038,12 +1015,23 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                         {
                             const auto &data = val.at("data").as_object();
                             const std::string path = json::value_to<std::string>(data.at("path"));
-                            const std::string value = json::value_to<std::string>(data.at("value"));
-                            if (path == "appearance.candidate_window_layout" &&
-                                SetConfiguredCandidateWindowLayout(value))
+                            if (path == "appearance.candidate_window_layout")
                             {
-                                ApplyConfiguredCandidateWindowLayout();
-                                PostSettingsConfig();
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCandidateWindowLayout(value))
+                                {
+                                    ApplyConfiguredCandidateWindowLayout();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "general.floating_toolbar")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredFloatingToolbarEnabled(value))
+                                {
+                                    ApplyConfiguredFloatingToolbarVisibility();
+                                    PostSettingsConfig();
+                                }
                             }
                         }
                         catch (const std::exception &)
@@ -1127,7 +1115,8 @@ void PostSettingsConfig()
 
     nlohmann::json payload = {
         {"type", "configSnapshot"},
-        {"data", {{"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}}}}};
+        {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()}}},
+                  {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}}}}};
     const std::wstring message = string_to_wstring(payload.dump());
     ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
 }

@@ -35,6 +35,23 @@ constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
 
+namespace
+{
+bool g_is_ime_active = true;
+}
+
+void ApplyConfiguredFloatingToolbarVisibility()
+{
+    if (!::global_hwnd_ftb)
+    {
+        return;
+    }
+    const HWND foreground = GetForegroundWindow();
+    const bool fullscreen = foreground && CheckFullscreen(foreground);
+    const bool should_show = GetConfiguredFloatingToolbarEnabled() && g_is_ime_active && !fullscreen;
+    ShowWindow(::global_hwnd_ftb, should_show ? SW_SHOWNA : SW_HIDE);
+}
+
 LRESULT RegisterCandidateWindowMessage()
 {
 
@@ -252,7 +269,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     ShowWindow(hwnd_menu, SW_SHOW);
     ShowWindow(hwnd_settings, SW_SHOWMINIMIZED);
     ShowWindow(hwnd_settings, SW_RESTORE);
-    ShowWindow(hwnd_ftb, SW_SHOW);
+    ShowWindow(hwnd_ftb, GetConfiguredFloatingToolbarEnabled() ? SW_SHOW : SW_HIDE);
     UpdateWindow(hwnd_cand);
     UpdateWindow(hwnd_menu);
     UpdateWindow(hwnd_settings);
@@ -401,13 +418,15 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_IMEACTIVATE)
     {
-        ShowWindow(::global_hwnd_ftb, SW_SHOW);
+        g_is_ime_active = true;
+        ApplyConfiguredFloatingToolbarVisibility();
         return 0;
     }
 
     if (message == WM_IMEDEACTIVATE)
     {
-        ShowWindow(::global_hwnd_ftb, SW_HIDE);
+        g_is_ime_active = false;
+        ApplyConfiguredFloatingToolbarVisibility();
         return 0;
     }
 
@@ -873,11 +892,16 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         if (wParam == TIMER_ID_CONFIG_SYNC)
         {
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
+            const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             if (ReloadImeConfigIfChanged())
             {
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                 {
                     ApplyConfiguredCandidateWindowLayout();
+                }
+                if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
+                {
+                    ApplyConfiguredFloatingToolbarVisibility();
                 }
                 PostSettingsConfig();
             }

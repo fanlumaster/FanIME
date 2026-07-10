@@ -1,4 +1,6 @@
 #include "window_hook.h"
+#include "config/ime_config.h"
+#include "ime_windows.h"
 #include "utils/webview_utils.h"
 #include "defines/globals.h"
 #include "defines/defines.h"
@@ -159,7 +161,7 @@ void OnWinEvent(HWND hwnd)
     {
         if (g_isHiddenDueToFullscreen)
         {
-            ShowWindow(::global_hwnd_ftb, SW_SHOW);
+            ApplyConfiguredFloatingToolbarVisibility();
             g_isHiddenDueToFullscreen = false;
         }
     }

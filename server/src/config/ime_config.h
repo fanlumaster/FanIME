@@ -13,5 +13,7 @@ SchemeType GetConfiguredInputScheme();
 const std::string &GetConfiguredShuangpinPreeditMode();
 bool GetConfiguredShuangpinHelpcodeEnabled();
 bool GetConfiguredQuanpinHelpcodeEnabled();
+bool GetConfiguredFloatingToolbarEnabled();
+bool SetConfiguredFloatingToolbarEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
