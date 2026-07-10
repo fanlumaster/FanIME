@@ -1,4 +1,5 @@
 #include "global/globals.h"
+#include "config/ime_config.h"
 #include "ipc/ipc.h"
 #include "ime_windows.h"
 #include "defines/defines.h"
@@ -29,6 +30,7 @@ constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 3;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
 constexpr UINT_PTR TIMER_ID_CHECK_TSF_TO_HIDE_FTB = 5;
 constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 6;
+constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
@@ -277,6 +279,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
     /* 调整 settings 窗口 position，顺便置顶 */
     SetTimer(hwnd_settings, TIMER_ID_MOVE_WEBVIEW_SETTINGS, 200, nullptr);
+    /* 监听文本配置文件变化，并同步到 settings 和运行中的候选框 */
+    SetTimer(hwnd_settings, TIMER_ID_CONFIG_SYNC, 300, nullptr);
 
     /* 调整 floating toolbar 窗口 position，顺便置顶 */
     SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
@@ -866,7 +870,19 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     switch (message)
     {
     case WM_TIMER: {
-        if (wParam == TIMER_ID_MOVE_WEBVIEW_SETTINGS)
+        if (wParam == TIMER_ID_CONFIG_SYNC)
+        {
+            const std::string previous_layout = GetConfiguredCandidateWindowLayout();
+            if (ReloadImeConfigIfChanged())
+            {
+                if (previous_layout != GetConfiguredCandidateWindowLayout())
+                {
+                    ApplyConfiguredCandidateWindowLayout();
+                }
+                PostSettingsConfig();
+            }
+        }
+        else if (wParam == TIMER_ID_MOVE_WEBVIEW_SETTINGS)
         {
             KillTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_SETTINGS);
             if (::webviewSettingsWnd)

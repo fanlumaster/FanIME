@@ -43,6 +43,7 @@ inline std::wstring MeasureStringCandWnd = LR"()";
 inline std::wstring StrCandWnd = L"";
 
 int PrepareHtmlForWnds();
+bool ApplyConfiguredCandidateWindowLayout();
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
@@ -80,6 +81,7 @@ inline std::wstring HTMLStringSettingsWnd = LR"()";
 
 void InitWebviewSettingsWnd(HWND hwnd);
 void PostSettingsWindowState(HWND hwnd);
+void PostSettingsConfig();
 
 //
 // floating toolbar 窗口 webview

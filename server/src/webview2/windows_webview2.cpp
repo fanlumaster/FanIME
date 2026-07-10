@@ -1,6 +1,8 @@
 #include "windows_webview2.h"
+#include "config/ime_config.h"
 #include "defines/globals.h"
 #include "utils/common_utils.h"
+#include "utils/ime_utils.h"
 #include <debugapi.h>
 #include <boost/json.hpp>
 #include <nlohmann/json.hpp>
@@ -17,6 +19,8 @@
 #pragma comment(lib, "dcomp.lib")
 
 namespace json = boost::json;
+
+int FineTuneWindow(HWND hwnd);
 
 int boundRightExtra = 1000;
 int boundBottomExtra = 1000;
@@ -81,20 +85,21 @@ int PrepareHtmlForWnds()
     //
     // 候选窗口
     //
-    std::wstring htmlCandWnd = L"/html/webview2/candwnd/vertical_candidate_window_dark.html";
-    std::wstring bodyHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark.html";
-    std::wstring measureHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark_measure.html";
-    bool isHorizontal = false;
-    bool isNormal = true;
+    const bool isHorizontal = GetConfiguredCandidateWindowLayout() == "horizontal";
+    std::wstring htmlCandWnd;
+    std::wstring bodyHtmlCandWnd;
+    std::wstring measureHtmlCandWnd;
     if (isHorizontal)
     {
-        htmlCandWnd = L"/html/candwnd/horizontal_candidate_window_dark.html";
-        bodyHtmlCandWnd = L"/html/candwnd/body/horizontal_candidate_window_dark.html";
-        if (isNormal)
-        {
-            htmlCandWnd = L"/html/candwnd/horizontal_candidate_window_dark_normal.html";
-            bodyHtmlCandWnd = L"/html/candwnd/body/horizontal_candidate_window_dark_normal.html";
-        }
+        htmlCandWnd = L"/html/webview2/candwnd/horizontal_candidate_window_dark.html";
+        bodyHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark.html";
+        measureHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark_measure.html";
+    }
+    else
+    {
+        htmlCandWnd = L"/html/webview2/candwnd/vertical_candidate_window_dark.html";
+        bodyHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark.html";
+        measureHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark_measure.html";
     }
 
     std::wstring entireHtmlPathCandWnd = assetPath + htmlCandWnd;
@@ -129,6 +134,18 @@ int PrepareHtmlForWnds()
     ::HTMLStringFtbWnd = ReadHtmlFile(entireHtmlPathFtbWnd);
 
     return 0;
+}
+
+bool ApplyConfiguredCandidateWindowLayout()
+{
+    // PrepareHtmlForWnds also refreshes the other small-window templates. They are
+    // cheap local reads and keeping this in one place prevents the paths drifting.
+    PrepareHtmlForWnds();
+    if (!webviewCandWnd || HTMLStringCandWnd.empty())
+    {
+        return false;
+    }
+    return SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str()));
 }
 
 //
@@ -422,6 +439,22 @@ HRESULT OnControllerCreatedCandWnd(     //
 #endif
                         return S_OK;
                     }
+                }
+                return S_OK;
+            })
+            .Get(),
+        nullptr);
+
+    webviewCandWnd->add_NavigationCompleted(
+        Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+            [hwnd](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
+                BOOL success = FALSE;
+                args->get_IsSuccess(&success);
+                if (success && ::is_global_wnd_cand_shown)
+                {
+                    std::wstring str = GetPreedit() + L"," + Global::CandidateString;
+                    InflateMeasureDivCandWnd(str);
+                    FineTuneWindow(hwnd);
                 }
                 return S_OK;
             })
@@ -871,6 +904,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                 }
 
                 PostSettingsWindowState(hwnd);
+                PostSettingsConfig();
                 return S_OK;
             })
             .Get(),
@@ -994,6 +1028,28 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                         {
                         }
                     }
+                    else if (type == "configRequest")
+                    {
+                        PostSettingsConfig();
+                    }
+                    else if (type == "configUpdate")
+                    {
+                        try
+                        {
+                            const auto &data = val.at("data").as_object();
+                            const std::string path = json::value_to<std::string>(data.at("path"));
+                            const std::string value = json::value_to<std::string>(data.at("value"));
+                            if (path == "appearance.candidate_window_layout" &&
+                                SetConfiguredCandidateWindowLayout(value))
+                            {
+                                ApplyConfiguredCandidateWindowLayout();
+                                PostSettingsConfig();
+                            }
+                        }
+                        catch (const std::exception &)
+                        {
+                        }
+                    }
                 }
                 return S_OK;
             })
@@ -1058,6 +1114,20 @@ void PostSettingsWindowState(HWND hwnd)
 
     nlohmann::json payload = {{"type", "windowState"}, {"data", {{"isMaximized", IsZoomed(hwnd) != FALSE}}}};
 
+    const std::wstring message = string_to_wstring(payload.dump());
+    ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
+}
+
+void PostSettingsConfig()
+{
+    if (!::webviewSettingsWnd)
+    {
+        return;
+    }
+
+    nlohmann::json payload = {
+        {"type", "configSnapshot"},
+        {"data", {{"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}}}}};
     const std::wstring message = string_to_wstring(payload.dump());
     ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
 }
