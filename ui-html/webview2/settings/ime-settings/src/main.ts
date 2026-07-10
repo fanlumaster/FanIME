@@ -2,6 +2,7 @@ import './styles/index.css';
 
 import { loadHTML, showOnlyCurrentModule } from './utils/common-utils';
 import { loadContent, setupSidebar } from './modules/sidebar';
+import { setupConfigSync } from './modules/config-sync';
 
 const RESIZE_BORDER = 4;
 const WINDOW_CONTROLS_RESIZE_BORDER = 2;
@@ -54,6 +55,7 @@ async function initializeApp() {
   await loadContent('appearance');
   await loadContent('input');
   await loadContent('helpcode');
+  setupConfigSync();
 
   // 加载默认内容(通用设置)，初始化功能
   // 隐藏其他的分区

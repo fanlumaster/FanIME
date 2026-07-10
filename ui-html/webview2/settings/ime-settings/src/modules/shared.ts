@@ -38,13 +38,22 @@ export function setupDropdownMenu(
           break;
         case 'changeCandidateArrange':
           const htmlItem = item as HTMLElement;
-          setArrange(htmlItem.dataset.value);
+          applyCandidateArrange(htmlItem.dataset.value);
           break;
         default:
           break;
       }
 
-      if (window.chrome?.webview) {
+      if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {
+        const htmlItem = item as HTMLElement;
+        window.chrome.webview.postMessage(JSON.stringify({
+          type: 'configUpdate',
+          data: {
+            path: 'appearance.candidate_window_layout',
+            value: htmlItem.dataset.value
+          }
+        }));
+      } else if (window.chrome?.webview) {
         const htmlItem = item as HTMLElement;
         window.chrome.webview.postMessage(JSON.stringify({
           type: messageAction,
@@ -66,7 +75,7 @@ export function setupDropdownMenu(
 }
 
 // 切换按钮功能
-export function setupToggleButton(btnId: string): void {
+export function setupToggleButton(btnId: string, onChanged?: (active: boolean) => void): void {
   const toggle = document.getElementById(btnId);
   if (!toggle) {
     console.warn(`Toggle button not found: ${btnId}`);
@@ -75,13 +84,24 @@ export function setupToggleButton(btnId: string): void {
 
   toggle.addEventListener('click', () => {
     toggle.classList.toggle('active');
+    onChanged?.(toggle.classList.contains('active'));
   });
 }
 
-function setArrange(value: string | undefined): void {
-  console.log(value);
-  const wnd_h = document.getElementById('candidate-wnd-h')!;
-  wnd_h.style.display = value === 'horizontal' ? 'flex' : 'none';
-  const wnd_v = document.getElementById('candidate-wnd-v')!;
-  wnd_v.style.display = value === 'vertical' ? 'flex' : 'none';
+export function applyToggleState(btnId: string, active: boolean): void {
+  document.getElementById(btnId)?.classList.toggle('active', active);
+}
+
+export function applyCandidateArrange(value: string | undefined): void {
+  if (value !== 'horizontal' && value !== 'vertical') {
+    return;
+  }
+
+  const wnd_h = document.getElementById('candidate-wnd-h');
+  const wnd_v = document.getElementById('candidate-wnd-v');
+  const label = document.querySelector<HTMLElement>('#arrangeBtn span');
+
+  if (wnd_h) wnd_h.style.display = value === 'horizontal' ? 'flex' : 'none';
+  if (wnd_v) wnd_v.style.display = value === 'vertical' ? 'flex' : 'none';
+  if (label) label.textContent = value === 'horizontal' ? '横向' : '纵向';
 }
