@@ -22,6 +22,8 @@ namespace json = boost::json;
 
 int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
+bool ActivateSettingsWindow(HWND hwnd);
+void RequestSettingsWindowActivation(HWND hwnd);
 
 int boundRightExtra = 1000;
 int boundBottomExtra = 1000;
@@ -642,11 +644,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     }
                     else if (type == "settings")
                     {
-                        ShowWindow(::global_hwnd_settings, SW_RESTORE);
-                        BringWindowToTop(::global_hwnd_settings);
-                        SetForegroundWindow(::global_hwnd_settings);
-                        SetActiveWindow(::global_hwnd_settings);
-                        SetFocus(::global_hwnd_settings);
+                        RequestSettingsWindowActivation(::global_hwnd_settings);
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                 }
@@ -819,10 +817,12 @@ HRESULT OnControllerCreatedSettingsWnd(            //
         );                                                      //
     }
 
-    // Set transparent background
+    // The settings page is fully opaque. Keeping the composition surface
+    // transparent makes DWM briefly expose the host backdrop on input-driven
+    // WebView repaints, which looks like the window/taskbar is flashing.
     if (SUCCEEDED(webviewControllerSettingsWnd.As(&webviewController2SettingsWnd)))
     {
-        COREWEBVIEW2_COLOR backgroundColor = {0, 0, 0, 0};
+        COREWEBVIEW2_COLOR backgroundColor = {255, 32, 32, 32};
         webviewController2SettingsWnd->put_DefaultBackgroundColor(backgroundColor);
     }
 
@@ -949,10 +949,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                     }
                     else if (type == "focus")
                     {
-                        BringWindowToTop(hwnd);
-                        SetForegroundWindow(hwnd);
-                        SetActiveWindow(hwnd);
-                        SetFocus(hwnd);
+                        RequestSettingsWindowActivation(hwnd);
                     }
                     else if (type == "windowControl")
                     {
@@ -1321,11 +1318,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
                         OutputDebugString(fmt::format(L"[msime]: Open settings").c_str());
 #endif
-                        ShowWindow(::global_hwnd_settings, SW_RESTORE);
-                        BringWindowToTop(::global_hwnd_settings);
-                        SetForegroundWindow(::global_hwnd_settings);
-                        SetActiveWindow(::global_hwnd_settings);
-                        SetFocus(::global_hwnd_settings);
+                        RequestSettingsWindowActivation(::global_hwnd_settings);
                     }
                 }
 

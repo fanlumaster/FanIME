@@ -31,6 +31,8 @@ constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
 constexpr UINT_PTR TIMER_ID_CHECK_TSF_TO_HIDE_FTB = 5;
 constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 6;
 constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
+constexpr UINT_PTR TIMER_ID_SETTINGS_ACTIVATION_RETRY = 8;
+constexpr UINT WM_ACTIVATE_SETTINGS_WINDOW = WM_APP + 110;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
@@ -38,6 +40,78 @@ int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
 namespace
 {
 bool g_is_ime_active = true;
+int g_settings_activation_retries_remaining = 0;
+
+void ScheduleSettingsWindowActivation(HWND hwnd)
+{
+    // Mouse activation and Alt+Tab complete asynchronously. A foreground
+    // change can therefore overwrite a single SetForegroundWindow call made
+    // while handling the click. Retry only for a short bounded interval and
+    // stop immediately once Windows confirms this HWND as foreground.
+    g_settings_activation_retries_remaining = 6;
+    PostMessage(hwnd, WM_ACTIVATE_SETTINGS_WINDOW, 0, 0);
+    SetTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY, 50, nullptr);
+}
+}
+
+bool ActivateSettingsWindow(HWND hwnd)
+{
+    if (!IsWindow(hwnd))
+    {
+        return false;
+    }
+
+    if (IsIconic(hwnd))
+    {
+        ShowWindow(hwnd, SW_RESTORE);
+    }
+    else
+    {
+        ShowWindow(hwnd, SW_SHOW);
+    }
+
+    const HWND foreground = GetForegroundWindow();
+    const DWORD current_thread = GetCurrentThreadId();
+    const DWORD foreground_thread =
+        foreground ? GetWindowThreadProcessId(foreground, nullptr) : 0;
+    const bool should_attach_input = foreground_thread != 0 && foreground_thread != current_thread;
+    bool input_attached = false;
+
+    if (should_attach_input)
+    {
+        input_attached = AttachThreadInput(current_thread, foreground_thread, TRUE) != FALSE;
+    }
+
+    BringWindowToTop(hwnd);
+    SetForegroundWindow(hwnd);
+
+    if (input_attached)
+    {
+        AttachThreadInput(current_thread, foreground_thread, FALSE);
+    }
+
+    // Set thread-local active/focus state only after the temporary input queue
+    // attachment has been removed. Otherwise detaching can restore ownership
+    // to the previously foreground thread after several app switches.
+    if (GetForegroundWindow() != hwnd)
+    {
+        SetForegroundWindow(hwnd);
+    }
+    SetActiveWindow(hwnd);
+    SetFocus(hwnd);
+
+    return GetForegroundWindow() == hwnd;
+}
+
+void RequestSettingsWindowActivation(HWND hwnd)
+{
+    if (!IsWindow(hwnd))
+    {
+        return;
+    }
+
+    ShowWindow(hwnd, IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
+    ScheduleSettingsWindowActivation(hwnd);
 }
 
 void ApplyConfiguredFloatingToolbarVisibility()
@@ -229,7 +303,11 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
 
-    DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_MAINWINDOW;
+    // The WebView covers the entire client area with an opaque background.
+    // A second DWM system backdrop underneath it can be recomposed on every
+    // input frame and make the window/taskbar look as if it briefly toggled.
+    // This does not participate in HTMAXBUTTON or Snap Layouts.
+    DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_NONE;
     DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
 
     //
@@ -792,41 +870,34 @@ bool ForwardMouseMessageToWebViewSettingsWnd(HWND hwnd, UINT message, WPARAM wPa
         break;
     case WM_LBUTTONDOWN:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN;
-        SetFocus(hwnd);
         break;
     case WM_LBUTTONUP:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP;
         break;
     case WM_LBUTTONDBLCLK:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK;
-        SetFocus(hwnd);
         break;
     case WM_RBUTTONDOWN:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOWN;
-        SetFocus(hwnd);
         break;
     case WM_RBUTTONUP:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP;
         break;
     case WM_RBUTTONDBLCLK:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOUBLE_CLICK;
-        SetFocus(hwnd);
         break;
     case WM_MBUTTONDOWN:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN;
-        SetFocus(hwnd);
         break;
     case WM_MBUTTONUP:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP;
         break;
     case WM_MBUTTONDBLCLK:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOUBLE_CLICK;
-        SetFocus(hwnd);
         break;
     case WM_XBUTTONDOWN:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOWN;
         mouseData = GET_XBUTTON_WPARAM(wParam);
-        SetFocus(hwnd);
         break;
     case WM_XBUTTONUP:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_UP;
@@ -835,7 +906,6 @@ bool ForwardMouseMessageToWebViewSettingsWnd(HWND hwnd, UINT message, WPARAM wPa
     case WM_XBUTTONDBLCLK:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOUBLE_CLICK;
         mouseData = GET_XBUTTON_WPARAM(wParam);
-        SetFocus(hwnd);
         break;
     case WM_MOUSEWHEEL:
         kind = COREWEBVIEW2_MOUSE_EVENT_KIND_WHEEL;
@@ -888,8 +958,58 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
 {
     switch (message)
     {
+    case WM_ACTIVATE_SETTINGS_WINDOW:
+        ActivateSettingsWindow(hwnd);
+        return 0;
+    case WM_MOUSEACTIVATE:
+        // Let Windows finish its native mouse-activation sequence first. Doing
+        // SetForegroundWindow/SetFocus synchronously from inside
+        // WM_MOUSEACTIVATE can be overwritten by the remaining default click
+        // processing. Reassert host + WebView focus on the next queue turn.
+        ScheduleSettingsWindowActivation(hwnd);
+        return MA_ACTIVATE;
+    case WM_ACTIVATE: {
+        const LRESULT result = DefWindowProc(hwnd, message, wParam, lParam);
+        if (LOWORD(wParam) != WA_INACTIVE)
+        {
+            // Restoring from the taskbar or switching back from another app
+            // activates the top-level HWND without necessarily producing a new
+            // WM_SETFOCUS. Re-establish both the host and Composition WebView
+            // focus only on that real activation transition.
+            if (GetFocus() != hwnd)
+            {
+                SetFocus(hwnd);
+            }
+            else if (::webviewControllerSettingsWnd)
+            {
+                ::webviewControllerSettingsWnd->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+            }
+        }
+        return result;
+    }
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xFFF0) == SC_RESTORE)
+        {
+            const LRESULT result = DefWindowProc(hwnd, message, wParam, lParam);
+            ScheduleSettingsWindowActivation(hwnd);
+            return result;
+        }
+        break;
     case WM_TIMER: {
-        if (wParam == TIMER_ID_CONFIG_SYNC)
+        if (wParam == TIMER_ID_SETTINGS_ACTIVATION_RETRY)
+        {
+            if (GetForegroundWindow() == hwnd || g_settings_activation_retries_remaining <= 0)
+            {
+                g_settings_activation_retries_remaining = 0;
+                KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
+            }
+            else
+            {
+                --g_settings_activation_retries_remaining;
+                PostMessage(hwnd, WM_ACTIVATE_SETTINGS_WINDOW, 0, 0);
+            }
+        }
+        else if (wParam == TIMER_ID_CONFIG_SYNC)
         {
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
@@ -971,7 +1091,6 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     }
     case WM_MOVE:
     case WM_MOVING:
-    case WM_WINDOWPOSCHANGED:
         if (::webviewControllerSettingsWnd)
         {
             ::webviewControllerSettingsWnd->NotifyParentWindowPositionChanged();
