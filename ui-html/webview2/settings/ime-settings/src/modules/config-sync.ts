@@ -23,6 +23,18 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
+    if (typeof payload.data?.helpcode?.show_sp_helpcode_in_candidate_window === 'boolean') {
+      applyToggleState(
+        'showShuangpinHelpcodeToggleBtn',
+        payload.data.helpcode.show_sp_helpcode_in_candidate_window
+      );
+    }
+    if (typeof payload.data?.helpcode?.show_qp_helpcode_in_candidate_window === 'boolean') {
+      applyToggleState(
+        'showQuanpinHelpcodeToggleBtn',
+        payload.data.helpcode.show_qp_helpcode_in_candidate_window
+      );
+    }
   });
 
   window.chrome.webview.postMessage(JSON.stringify({ type: 'configRequest' }));
