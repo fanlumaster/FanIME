@@ -1038,6 +1038,22 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "helpcode.shuangpin_helpcode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredShuangpinHelpcodeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "helpcode.quanpin_helpcode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredQuanpinHelpcodeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "helpcode.show_qp_helpcode_in_candidate_window")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1131,7 +1147,9 @@ void PostSettingsConfig()
         {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
                   {"helpcode",
-                   {{"show_sp_helpcode_in_candidate_window",
+                   {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
+                    {"quanpin_helpcode", GetConfiguredQuanpinHelpcodeEnabled()},
+                    {"show_sp_helpcode_in_candidate_window",
                      GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
                     {"show_qp_helpcode_in_candidate_window",
                      GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};

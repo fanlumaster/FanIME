@@ -39,7 +39,7 @@ page_size = 8
 # 候选窗口跟随光标
 candidate_window_follow_cursor = true
 # 候选窗口排列方式，可选："vertical", "horizontal"
-candidate_window_layout = "vertical"
+candidate_window_layout = "horizontal"
 
 #
 # Input
@@ -73,11 +73,11 @@ wubi_schema = "wubi86"
 #
 [helpcode]
 # 双拼辅助码
-shuangpin_helpcode = true
+shuangpin_helpcode = false
 # 双拼辅助码方案，可选："lantian", "ziranma"
 shuangpin_helpcode_schema = "lantian"
 # 是否在候选窗口中显示双拼辅助码
-show_sp_helpcode_in_candidate_window = false
+show_sp_helpcode_in_candidate_window = true
 # 全拼辅助码
 quanpin_helpcode = true
 # 全拼辅助码方案，可选："lantian", "ziranma"

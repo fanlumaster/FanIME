@@ -295,9 +295,29 @@ bool GetConfiguredShuangpinHelpcodeEnabled()
     return g_shuangpin_helpcode_enabled;
 }
 
+bool SetConfiguredShuangpinHelpcodeEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("helpcode", "shuangpin_helpcode", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_shuangpin_helpcode_enabled = enabled;
+    return true;
+}
+
 bool GetConfiguredQuanpinHelpcodeEnabled()
 {
     return g_quanpin_helpcode_enabled;
+}
+
+bool SetConfiguredQuanpinHelpcodeEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("helpcode", "quanpin_helpcode", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_quanpin_helpcode_enabled = enabled;
+    return true;
 }
 
 bool GetConfiguredShowShuangpinHelpcodeInCandidateWindow()

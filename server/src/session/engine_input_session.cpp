@@ -108,11 +108,15 @@ EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme
 
 void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
 {
+    session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
+    session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
     session_.handle_key(vk, modifiers_down, wch);
 }
 
 void EngineInputSession::recompute_candidates()
 {
+    session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
+    session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
     if (is_shuangpin() && (!pending_pinyin_sequence_.empty() || !pending_pinyin_sequence_with_cases_.empty()))
     {
         apply_pending_shuangpin_sequence();
