@@ -2,6 +2,7 @@
 #include "defines/globals.h"
 #include "ipc/ipc.h"
 #include "webview_utils.h"
+#include <cmath>
 #include <utility>
 #include <winuser.h>
 #include <dwmapi.h>
@@ -115,18 +116,13 @@ int AdjustCandidateWindowPosition(                  //
 )
 {
     Global::MarginTop = 0;
-    static int MaxContainerHeight = ::DEFAULT_WINDOW_HEIGHT;
-    if (containerSize.second > MaxContainerHeight)
-    {
-        MaxContainerHeight = containerSize.second;
-    }
 
     properPos->first = point->x;
     properPos->second = point->y + 3;
     MonitorCoordinates coordinates = GetMonitorCoordinates();
     FLOAT scale = GetForegroundWindowScale();
     int width = containerSize.first * scale;
-    int height = ::DEFAULT_WINDOW_HEIGHT * scale;
+    int height = static_cast<int>(std::ceil(containerSize.second * scale));
     if (properPos->first < coordinates.left)
     {
         properPos->first = coordinates.left + 2;
@@ -143,11 +139,6 @@ int AdjustCandidateWindowPosition(                  //
     if (properPos->second + height > coordinates.bottom)
     {
         properPos->second = properPos->second - height - 30 - 2;
-        if (Global::candidate_ui.page_words.size() < static_cast<size_t>(Global::candidate_ui.page_size))
-        {
-            // MoveContainerBottom(webview, MaxContainerHeight - containerSize.second);
-            Global::MarginTop = MaxContainerHeight - containerSize.second;
-        }
     }
     return 0;
 }
