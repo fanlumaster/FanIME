@@ -962,6 +962,11 @@ void ProcessSelectionKey(UINT keycode)
             Global::candidate_ui.items[index + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
+        std::string cloudCommittedPinyin;
+        if (curWordItem.source == CandidateSource::CloudSuggestion)
+        {
+            cloudCommittedPinyin = g_inputSession->get_cloud_query_state().committed_pinyin;
+        }
         auto selection_transition = g_inputSession->advance_composition_after_selection(curWordPinyin, curWord);
         const bool isNeedCreateWord = selection_transition.continues_composition;
         if (isNeedCreateWord)
@@ -1012,9 +1017,9 @@ void ProcessSelectionKey(UINT keycode)
         }
 
         // 看看云联想出来的词是否需要被插入到数据库
-        if (curWordItem.source == CandidateSource::CloudSuggestion && Global::cloud_candidate.added)
+        if (curWordItem.source == CandidateSource::CloudSuggestion && !cloudCommittedPinyin.empty())
         {
-            EnqueueStoreUserPhraseTask(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
+            EnqueueStoreUserPhraseTask(cloudCommittedPinyin, curWord);
             // 清理云联想变量状态
             Global::cloud_candidate.added = false;
             Global::cloud_candidate.word.clear();
