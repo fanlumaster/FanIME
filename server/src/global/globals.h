@@ -4,6 +4,7 @@
 #include <tuple>
 #include <vector>
 #include <windows.h>
+#include "MetasequoiaImeEngine/core/word_item.h"
 
 namespace GlobalIme
 {
@@ -85,7 +86,7 @@ namespace Global
 inline LONG INVALID_Y = -100000;
 inline int MarginTop = 0;
 
-using CandidateWordItem = std::tuple<std::string, std::string, int>;
+using CandidateWordItem = WordItem;
 
 struct CandidateUiState
 {

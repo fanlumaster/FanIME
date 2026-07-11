@@ -198,9 +198,10 @@ TEST_CASE(EngineShuangpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuer
 
     const auto &candidates = session.get_candidates();
     const auto found = std::find_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
-        return std::get<1>(item) == "云词";
+        return item.word == "云词";
     });
     REQUIRE(found != candidates.end());
+    REQUIRE(found->source == CandidateSource::CloudSuggestion);
 }
 
 TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
@@ -216,7 +217,8 @@ TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
 
     const auto &candidates = session.get_candidates();
     const auto found = std::find_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
-        return std::get<1>(item) == "云词";
+        return item.word == "云词";
     });
     REQUIRE(found != candidates.end());
+    REQUIRE(found->source == CandidateSource::CloudSuggestion);
 }

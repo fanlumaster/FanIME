@@ -126,21 +126,25 @@ std::string BuildCurrentCandidatePage()
     std::string candidate_string;
     for (int i = 0; i < loop; i++)
     {
-        auto &[pinyin, word, weight] = ui.items[start + i];
-        (void)pinyin;
-        (void)weight;
+        const auto &item = ui.items[start + i];
+        const auto &word = item.word;
 
         if (i == 0)
         {
             ui.selected_text = string_to_wstring(word);
         }
 
-        candidate_string += word;
+        std::string display_word = word;
         if (show_helpcodes)
         {
-            candidate_string += HelpcodeUtils::compute_helpcodes(word, uppercase_all_helpcodes);
+            display_word += HelpcodeUtils::compute_helpcodes(word, uppercase_all_helpcodes);
         }
-        maxCount = std::max(maxCount, static_cast<int>(utf8::distance(word.begin(), word.end())));
+        if (item.source == CandidateSource::CloudSuggestion)
+        {
+            display_word += " ☁️";
+        }
+        candidate_string += display_word;
+        maxCount = std::max(maxCount, static_cast<int>(utf8::distance(display_word.begin(), display_word.end())));
         ui.page_words.push_back(string_to_wstring(word));
         if (i < loop - 1)
         {
@@ -744,7 +748,7 @@ void PrepareCandidateList()
 
     if (items.empty())
     {
-        items.push_back(std::make_tuple(pinyin, pinyin, 1));
+        items.emplace_back(pinyin, pinyin, 1, CandidateSource::Fallback);
     }
 
     ui.set_items(std::move(items));
@@ -774,12 +778,13 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     // 找一下看云候选词在当前候选列表里有没有，如果没有就插到第二位，如果有就不处理。就不需要判断字词的数量大于 2
     // 的时候才插入云候选项了。
     auto dup_it = std::find_if(Global::candidate_ui.items.begin(), Global::candidate_ui.items.end(),
-                               [&](const DictionaryUlPb::WordItem &item) { return std::get<1>(item) == candidate; });
+                               [&](const DictionaryUlPb::WordItem &item) { return item.word == candidate; });
     if (dup_it != Global::candidate_ui.items.end())
         return;
 
     size_t insert_index = Global::candidate_ui.items.size() >= 1 ? 1 : 0;
-    Global::candidate_ui.items.insert(Global::candidate_ui.items.begin() + insert_index, std::make_tuple(pinyin, candidate, 1));
+    Global::candidate_ui.items.insert(Global::candidate_ui.items.begin() + insert_index,
+                                      WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
     // 还需要更新一下 dictionary 中的 cache
     g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate);
     // 标记一下，云候选已经被加进来了
@@ -955,8 +960,8 @@ void ProcessSelectionKey(UINT keycode)
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
         DictionaryUlPb::WordItem curWordItem =
             Global::candidate_ui.items[index + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
-        std::string curWord = std::get<1>(curWordItem);
-        std::string curWordPinyin = std::get<0>(curWordItem);
+        std::string curWord = curWordItem.word;
+        std::string curWordPinyin = curWordItem.pinyin;
         auto selection_transition = g_inputSession->advance_composition_after_selection(curWordPinyin, curWord);
         const bool isNeedCreateWord = selection_transition.continues_composition;
         if (isNeedCreateWord)
@@ -1007,8 +1012,7 @@ void ProcessSelectionKey(UINT keycode)
         }
 
         // 看看云联想出来的词是否需要被插入到数据库
-        if (Global::cloud_candidate.added &&
-            Global::cloud_candidate.word == wstring_to_string(Global::candidate_ui.selected_text))
+        if (curWordItem.source == CandidateSource::CloudSuggestion && Global::cloud_candidate.added)
         {
             EnqueueStoreUserPhraseTask(Global::cloud_candidate.pinyin, Global::cloud_candidate.word);
             // 清理云联想变量状态

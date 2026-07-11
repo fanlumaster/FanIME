@@ -643,8 +643,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         /* 先取出拼音和汉字 */
         DictionaryUlPb::WordItem curWordItem =
             Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
-        std::string curWord = std::get<1>(curWordItem);
-        std::string curWordPinyin = std::get<0>(curWordItem);
+        std::string curWord = curWordItem.word;
+        std::string curWordPinyin = curWordItem.pinyin;
 
         /* 调整条目 weight，一次到顶 */
         g_inputSession->pin_candidate(curWordPinyin, curWord);
@@ -675,8 +675,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         /* 先取出拼音和汉字 */
         DictionaryUlPb::WordItem curWordItem =
             Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
-        std::string curWord = std::get<1>(curWordItem);
-        std::string curWordPinyin = std::get<0>(curWordItem);
+        std::string curWord = curWordItem.word;
+        std::string curWordPinyin = curWordItem.pinyin;
         // 单字不删除，静默无任何操作来处理
         if (utf8::distance(curWord.begin(), curWord.end()) == 1)
         {
