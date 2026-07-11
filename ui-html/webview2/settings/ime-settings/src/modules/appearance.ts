@@ -1,4 +1,4 @@
-import { setupDropdownMenu, setupToggleButton } from './shared';
+import { setupDropdownMenu } from './shared';
 import { loadHTML } from '../utils/common-utils';
 
 export async function setupAppearance() {
@@ -14,7 +14,4 @@ export async function setupAppearance() {
 
   // 候选项排列方式
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');
-
-  // 是否显示双拼键位提示图片
-  setupToggleButton('auxSpPicToggleBtn');
 }
