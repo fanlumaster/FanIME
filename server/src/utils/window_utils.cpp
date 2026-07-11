@@ -1,4 +1,5 @@
 #include "window_utils.h"
+#include "config/ime_config.h"
 #include "defines/globals.h"
 #include "ipc/ipc.h"
 #include "webview_utils.h"
@@ -117,12 +118,20 @@ int AdjustCandidateWindowPosition(                  //
 {
     Global::MarginTop = 0;
 
+    const bool is_vertical = GetConfiguredCandidateWindowLayout() == "vertical";
+    static double max_vertical_container_height = ::DEFAULT_WINDOW_HEIGHT;
+    if (is_vertical && containerSize.second > max_vertical_container_height)
+    {
+        max_vertical_container_height = containerSize.second;
+    }
+
     properPos->first = point->x;
     properPos->second = point->y + 3;
     MonitorCoordinates coordinates = GetMonitorCoordinates();
     FLOAT scale = GetForegroundWindowScale();
     int width = containerSize.first * scale;
-    int height = static_cast<int>(std::ceil(containerSize.second * scale));
+    const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
+    const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));
     if (properPos->first < coordinates.left)
     {
         properPos->first = coordinates.left + 2;
@@ -136,9 +145,13 @@ int AdjustCandidateWindowPosition(                  //
         properPos->first = coordinates.right - width - 2;
     }
 
-    if (properPos->second + height > coordinates.bottom)
+    if (properPos->second + boundary_height > coordinates.bottom)
     {
-        properPos->second = properPos->second - height - 30 - 2;
+        properPos->second = properPos->second - boundary_height - 30 - 2;
+        if (is_vertical && containerSize.second < max_vertical_container_height)
+        {
+            Global::MarginTop = static_cast<int>(std::ceil(max_vertical_container_height - containerSize.second));
+        }
     }
     return 0;
 }
