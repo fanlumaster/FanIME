@@ -1030,6 +1030,22 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "helpcode.show_sp_helpcode_in_candidate_window")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredShowShuangpinHelpcodeInCandidateWindow(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "helpcode.show_qp_helpcode_in_candidate_window")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredShowQuanpinHelpcodeInCandidateWindow(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                         }
                         catch (const std::exception &)
                         {
@@ -1113,7 +1129,12 @@ void PostSettingsConfig()
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()}}},
-                  {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}}}}};
+                  {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
+                  {"helpcode",
+                   {{"show_sp_helpcode_in_candidate_window",
+                     GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
+                    {"show_qp_helpcode_in_candidate_window",
+                     GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
     const std::wstring message = string_to_wstring(payload.dump());
     ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
 }

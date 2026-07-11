@@ -15,6 +15,8 @@ SchemeType g_input_scheme = SchemeType::Shuangpin;
 std::string g_shuangpin_preedit_mode = "quanpin";
 bool g_shuangpin_helpcode_enabled = true;
 bool g_quanpin_helpcode_enabled = true;
+bool g_show_shuangpin_helpcode_in_candidate_window = true;
+bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::filesystem::path g_config_path;
@@ -154,6 +156,10 @@ bool LoadImeConfig()
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
+        g_show_shuangpin_helpcode_in_candidate_window =
+            tbl["helpcode"]["show_sp_helpcode_in_candidate_window"].value_or(true);
+        g_show_quanpin_helpcode_in_candidate_window =
+            tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         const std::string layout =
             tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
@@ -292,6 +298,36 @@ bool GetConfiguredShuangpinHelpcodeEnabled()
 bool GetConfiguredQuanpinHelpcodeEnabled()
 {
     return g_quanpin_helpcode_enabled;
+}
+
+bool GetConfiguredShowShuangpinHelpcodeInCandidateWindow()
+{
+    return g_show_shuangpin_helpcode_in_candidate_window;
+}
+
+bool SetConfiguredShowShuangpinHelpcodeInCandidateWindow(bool enabled)
+{
+    if (!WriteConfiguredValue("helpcode", "show_sp_helpcode_in_candidate_window", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_show_shuangpin_helpcode_in_candidate_window = enabled;
+    return true;
+}
+
+bool GetConfiguredShowQuanpinHelpcodeInCandidateWindow()
+{
+    return g_show_quanpin_helpcode_in_candidate_window;
+}
+
+bool SetConfiguredShowQuanpinHelpcodeInCandidateWindow(bool enabled)
+{
+    if (!WriteConfiguredValue("helpcode", "show_qp_helpcode_in_candidate_window", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_show_quanpin_helpcode_in_candidate_window = enabled;
+    return true;
 }
 
 bool GetConfiguredFloatingToolbarEnabled()

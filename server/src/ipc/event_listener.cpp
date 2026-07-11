@@ -115,8 +115,10 @@ std::string BuildCurrentCandidatePage()
     const SchemeType current_scheme = g_inputSession->current_scheme_type();
     const bool uppercase_all_helpcodes = current_scheme == SchemeType::Quanpin;
     const bool show_helpcodes =
-        (current_scheme == SchemeType::Shuangpin && GetConfiguredShuangpinHelpcodeEnabled()) ||
-        (current_scheme == SchemeType::Quanpin && GetConfiguredQuanpinHelpcodeEnabled()) ||
+        (current_scheme == SchemeType::Shuangpin && GetConfiguredShuangpinHelpcodeEnabled() &&
+         GetConfiguredShowShuangpinHelpcodeInCandidateWindow()) ||
+        (current_scheme == SchemeType::Quanpin && GetConfiguredQuanpinHelpcodeEnabled() &&
+         GetConfiguredShowQuanpinHelpcodeInCandidateWindow()) ||
         (current_scheme != SchemeType::Shuangpin && current_scheme != SchemeType::Quanpin);
 
     const int start = ui.current_page_start();
