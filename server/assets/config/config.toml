@@ -76,10 +76,14 @@ wubi_schema = "wubi86"
 shuangpin_helpcode = true
 # 双拼辅助码方案，可选："lantian", "ziranma"
 shuangpin_helpcode_schema = "lantian"
+# 是否在候选窗口中显示双拼辅助码
+show_sp_helpcode_in_candidate_window = true
 # 全拼辅助码
 quanpin_helpcode = true
 # 全拼辅助码方案，可选："lantian", "ziranma"
 quanpin_helpcode_schema = "lantian"
+# 是否在候选窗口中显示全拼辅助码
+show_qp_helpcode_in_candidate_window = true
 
 #
 # Keybindings
