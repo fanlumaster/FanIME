@@ -29,6 +29,12 @@ export function setupConfigSync(): void {
         payload.data.helpcode.show_sp_helpcode_in_candidate_window
       );
     }
+    if (typeof payload.data?.helpcode?.shuangpin_helpcode === 'boolean') {
+      applyToggleState('shuangpinHelpcodeToggleBtn', payload.data.helpcode.shuangpin_helpcode);
+    }
+    if (typeof payload.data?.helpcode?.quanpin_helpcode === 'boolean') {
+      applyToggleState('quanpinHelpcodeToggleBtn', payload.data.helpcode.quanpin_helpcode);
+    }
     if (typeof payload.data?.helpcode?.show_qp_helpcode_in_candidate_window === 'boolean') {
       applyToggleState(
         'showQuanpinHelpcodeToggleBtn',

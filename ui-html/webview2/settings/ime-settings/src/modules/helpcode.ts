@@ -9,10 +9,14 @@ export function setupHelpcode(): void {
   setupDropdownMenu('quanpinHelpcodeSchemeBtn', 'quanpinHelpcodeSchemeMenu', 'changeQuanpinScheme', true);
 
   // 双拼辅助码开关
-  setupToggleButton('shuangpinHelpcodeToggleBtn');
+  setupToggleButton('shuangpinHelpcodeToggleBtn', (active) => {
+    updateConfig('helpcode.shuangpin_helpcode', active);
+  });
 
   // 全拼辅助码开关
-  setupToggleButton('quanpinHelpcodeToggleBtn');
+  setupToggleButton('quanpinHelpcodeToggleBtn', (active) => {
+    updateConfig('helpcode.quanpin_helpcode', active);
+  });
 
   // 是否在候选窗口中显示双拼辅助码
   setupToggleButton('showShuangpinHelpcodeToggleBtn', (active) => {
