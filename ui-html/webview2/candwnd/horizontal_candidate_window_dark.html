@@ -126,6 +126,37 @@
   <script>
     let a = false;
     document.addEventListener('DOMContentLoaded', function () {
+      document.addEventListener('click', function (e) {
+        if (e.button !== 0) {
+          return;
+        }
+
+        if (!(e.target instanceof Element)) {
+          return;
+        }
+
+        const candElement = e.target.closest('.cand');
+        if (!candElement) {
+          return;
+        }
+
+        const container = document.getElementById('realContainer');
+        if (!container) {
+          return;
+        }
+        const candidates = Array.from(container.querySelectorAll('.cand'));
+        const candIndex = candidates.indexOf(candElement) + 1;
+        if (candIndex <= 0) {
+          return;
+        }
+
+        try {
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: candIndex }));
+        } catch (error) {
+          console.error('Failed to send candidate click:', error);
+        }
+      });
+
       document.addEventListener('mousemove', function () {
         if (a === true) {
           const container = document.getElementById('realContainer');
