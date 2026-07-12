@@ -31,6 +31,18 @@ export function setupConfigSync(): void {
       const checkbox = document.getElementById('pagingTabCheckbox') as HTMLInputElement | null;
       if (checkbox) checkbox.checked = payload.data.general.paging_tab;
     }
+    if (typeof payload.data?.general?.paging_comma_period === 'boolean') {
+      const checkbox = document.getElementById('pagingCommaPeriodCheckbox') as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = payload.data.general.paging_comma_period;
+    }
+    if (typeof payload.data?.general?.paging_page_up_down === 'boolean') {
+      const checkbox = document.getElementById('pagingPageUpDownCheckbox') as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = payload.data.general.paging_page_up_down;
+    }
+    if (typeof payload.data?.general?.candidate_arrow_navigation === 'boolean') {
+      const checkbox = document.getElementById('candidateArrowNavigationCheckbox') as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = payload.data.general.candidate_arrow_navigation;
+    }
     if (typeof payload.data?.helpcode?.show_sp_helpcode_in_candidate_window === 'boolean') {
       applyToggleState(
         'showShuangpinHelpcodeToggleBtn',

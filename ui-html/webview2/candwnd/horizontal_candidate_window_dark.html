@@ -171,6 +171,30 @@
       const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
     }
+
+    window.SetCandidateSelection = function (index) {
+      const candidates = document.querySelectorAll('#realContainer .cand');
+      candidates.forEach((candidate) => candidate.classList.remove('first'));
+      if (index >= 0 && index < candidates.length) {
+        candidates[index].classList.add('first');
+      }
+    }
+
+    window.SetPreeditCaret = function () {
+      const preedit = document.querySelector('#realContainer .pinyin .text');
+      if (!preedit) return;
+      const marker = '\uE000';
+      const text = preedit.textContent || '';
+      const index = text.indexOf(marker);
+      const cleanText = text.replace(marker, '');
+      const caretIndex = index >= 0 ? index : cleanText.length;
+      preedit.textContent = '';
+      preedit.append(document.createTextNode(cleanText.slice(0, caretIndex)));
+      const caret = document.createElement('span');
+      caret.className = 'cursor';
+      preedit.append(caret);
+      preedit.append(document.createTextNode(cleanText.slice(caretIndex)));
+    }
   </script>
 </head>
 

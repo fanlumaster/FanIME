@@ -21,8 +21,14 @@ function setupPageOptions(): void {
       const target = e.target as HTMLInputElement;
       if (target.value === 'minus') {
         updateConfig('general.paging_minus_equal', target.checked);
+      } else if (target.value === 'comma') {
+        updateConfig('general.paging_comma_period', target.checked);
       } else if (target.value === 'tab') {
         updateConfig('general.paging_tab', target.checked);
+      } else if (target.value === 'page') {
+        updateConfig('general.paging_page_up_down', target.checked);
+      } else if (target.value === 'arrow') {
+        updateConfig('general.candidate_arrow_navigation', target.checked);
       }
     });
   });
