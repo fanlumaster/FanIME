@@ -14,8 +14,12 @@ theme = "dark"
 floating_toolbar = true
 # Emoji
 enable_emoji = true
-# 翻页方式，可选："-/=", ",/.", "Shift+Tab/Tab"
-paging_mode = "-/="
+# 翻页方式
+paging_minus_equal = true
+paging_comma_period = false
+paging_tab = true
+paging_page_up_down = true
+candidate_arrow_navigation = true
 # 中英混输
 cn_en_mixed_input = false
 # 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。
@@ -39,7 +43,7 @@ page_size = 8
 # 候选窗口跟随光标
 candidate_window_follow_cursor = true
 # 候选窗口排列方式，可选："vertical", "horizontal"
-candidate_window_layout = "horizontal"
+candidate_window_layout = "vertical"
 
 #
 # Input
@@ -73,7 +77,7 @@ wubi_schema = "wubi86"
 #
 [helpcode]
 # 双拼辅助码
-shuangpin_helpcode = false
+shuangpin_helpcode = true
 # 双拼辅助码方案，可选："lantian", "ziranma"
 shuangpin_helpcode_schema = "lantian"
 # 是否在候选窗口中显示双拼辅助码

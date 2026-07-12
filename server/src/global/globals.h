@@ -59,11 +59,15 @@ struct CreatingWordState
 struct CompositionState
 {
     std::string segmented_pinyin;
+    std::string raw_input_with_cases;
+    size_t caret_position = 0;
     CreatingWordState creating_word;
 
     void clear()
     {
         segmented_pinyin.clear();
+        raw_input_with_cases.clear();
+        caret_position = 0;
         creating_word.clear();
     }
 
@@ -95,6 +99,7 @@ struct CandidateUiState
     std::wstring selected_text = L"";
     int page_size = 8;
     int page_index = 0;
+    int selected_index_in_page = 0;
     int item_total_count = 0;
     int cur_page_max_word_len = 2;
     int cur_page_item_cnt = 8;
@@ -105,6 +110,7 @@ struct CandidateUiState
         items = std::move(new_items);
         item_total_count = static_cast<int>(items.size());
         page_index = 0;
+        selected_index_in_page = 0;
         clear_page();
     }
 
@@ -114,6 +120,28 @@ struct CandidateUiState
         selected_text.clear();
         cur_page_item_cnt = 0;
         cur_page_max_word_len = 2;
+    }
+
+    void select_first_on_page()
+    {
+        selected_index_in_page = 0;
+    }
+
+    bool move_selection(int offset)
+    {
+        const int count = current_page_count();
+        if (count <= 0)
+        {
+            selected_index_in_page = 0;
+            return false;
+        }
+        const int next = selected_index_in_page + offset;
+        if (next < 0 || next >= count)
+        {
+            return false;
+        }
+        selected_index_in_page = next;
+        return true;
     }
 
     int current_page_start() const

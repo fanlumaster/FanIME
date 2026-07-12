@@ -216,6 +216,11 @@ constexpr UINT Normal = 0;
 constexpr UINT OutofRange = 1;
 constexpr UINT NeedToCreateWord = 2;
 constexpr UINT Preedit = 3;
+constexpr UINT NavigationIgnored = 4;
+constexpr UINT MoveSelectionPrevious = 5;
+constexpr UINT MoveSelectionNext = 6;
+constexpr UINT MovePagePrevious = 7;
+constexpr UINT MovePageNext = 8;
 } // namespace DataFromServerMsgType
 
 inline UINT MsgTypeToTsf = DataFromServerMsgType::Normal; // 默认为 Normal
@@ -229,6 +234,7 @@ constexpr UINT SwitchToPuncCn = 3;
 constexpr UINT SwitchToFullwidth = 4;
 constexpr UINT SwitchToHalfwidth = 5;
 constexpr UINT CommitCandidate = 6;
+constexpr UINT PagingCommaPeriodChanged = 7;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

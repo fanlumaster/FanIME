@@ -71,6 +71,10 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
         script.append(std::to_wstring(Global::MarginTop));
         script.append(L"px\";\n");
         script.append(L"}\n");
+        script.append(L"if (window.SetCandidateSelection) { window.SetCandidateSelection(");
+        script.append(std::to_wstring(Global::candidate_ui.selected_index_in_page));
+        script.append(L"); }\n");
+        script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
 
         // OutputDebugString(fmt::format(L"[msime]: UpdateHtmlContentWithJavaScript: {}", script).c_str());
 
@@ -247,6 +251,7 @@ void InflateCandWnd(std::wstring &str)
 
 void InflateMeasureDivCandWnd(std::wstring &str)
 {
+    str.erase(std::remove(str.begin(), str.end(), L'\uE000'), str.end());
     std::wstringstream wss(str);
     std::wstring token;
     std::vector<std::wstring> words;
@@ -455,7 +460,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                 args->get_IsSuccess(&success);
                 if (success && ::is_global_wnd_cand_shown)
                 {
-                    std::wstring str = GetPreedit() + L"," + Global::CandidateString;
+                    std::wstring str = GetPreeditWithCaretMarker() + L"," + Global::CandidateString;
                     InflateMeasureDivCandWnd(str);
                     FineTuneWindow(hwnd);
                 }
@@ -1046,6 +1051,33 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.paging_comma_period")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPagingCommaPeriodEnabled(value))
+                                {
+                                    SendToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
+                                        value ? L"1" : L"0");
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "general.paging_page_up_down")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPagingPageUpDownEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "general.candidate_arrow_navigation")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCandidateArrowNavigationEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "helpcode.show_sp_helpcode_in_candidate_window")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1162,7 +1194,10 @@ void PostSettingsConfig()
         {"type", "configSnapshot"},
         {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
-                                {"paging_tab", GetConfiguredPagingTabEnabled()}}},
+                                {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
+                                {"paging_tab", GetConfiguredPagingTabEnabled()},
+                                {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
+                                {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},

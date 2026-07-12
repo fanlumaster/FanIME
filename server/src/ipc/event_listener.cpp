@@ -51,6 +51,13 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wc
     {
         return false;
     }
+    const bool has_active_composition =
+        g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
+    if ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled() &&
+        has_active_composition)
+    {
+        return false;
+    }
 
     static const std::unordered_set<WCHAR> kCommitWithFirstCandidatePunctuation = {
         L'`',  //
@@ -92,7 +99,79 @@ bool IsSelectionKey(UINT keycode)
 
 bool IsPagingKey(UINT keycode)
 {
-    return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB;
+    return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB || keycode == VK_PRIOR ||
+           keycode == VK_NEXT || keycode == VK_LEFT || keycode == VK_RIGHT || keycode == VK_UP || keycode == VK_DOWN ||
+           ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled());
+}
+
+bool IsCandidateNavigationKey(UINT keycode)
+{
+    return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_OEM_COMMA ||
+           keycode == VK_OEM_PERIOD || keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT ||
+           keycode == VK_UP || keycode == VK_DOWN;
+}
+
+bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
+{
+    std::string raw = g_inputSession->get_pinyin_sequence_with_cases();
+    auto &composition = GlobalIme::composition;
+    if (composition.raw_input_with_cases != raw && composition.caret_position == 0 && !raw.empty())
+    {
+        composition.caret_position = raw.size();
+    }
+    composition.caret_position = std::min(composition.caret_position, raw.size());
+
+    if (keycode == VK_LEFT)
+    {
+        if (composition.caret_position > 0)
+        {
+            --composition.caret_position;
+        }
+        return true;
+    }
+    if (keycode == VK_RIGHT)
+    {
+        if (composition.caret_position < raw.size())
+        {
+            ++composition.caret_position;
+        }
+        return true;
+    }
+
+    if (keycode == VK_BACK)
+    {
+        if (composition.caret_position > 0)
+        {
+            raw.erase(composition.caret_position - 1, 1);
+            --composition.caret_position;
+        }
+    }
+    else
+    {
+        char input = 0;
+        if (keycode >= 'A' && keycode <= 'Z')
+        {
+            input = wch >= L'A' && wch <= L'Z' || wch >= L'a' && wch <= L'z'
+                        ? static_cast<char>(wch)
+                        : static_cast<char>(keycode + ('a' - 'A'));
+        }
+        else if (keycode == VK_OEM_7 && wch == L'\'')
+        {
+            input = '\'';
+        }
+        else
+        {
+            return false;
+        }
+        raw.insert(raw.begin() + static_cast<std::ptrdiff_t>(composition.caret_position), input);
+        ++composition.caret_position;
+    }
+
+    g_inputSession->set_pinyin_sequence(raw);
+    g_inputSession->set_pinyin_sequence_with_cases(raw);
+    g_inputSession->recompute_candidates();
+    composition.raw_input_with_cases = raw;
+    return true;
 }
 
 void EnsureCandidatePageReady()
@@ -131,11 +210,6 @@ std::string BuildCurrentCandidatePage()
         const auto &item = ui.items[start + i];
         const auto &word = item.word;
 
-        if (i == 0)
-        {
-            ui.selected_text = string_to_wstring(word);
-        }
-
         std::string display_word = word;
         if (show_helpcodes)
         {
@@ -159,6 +233,11 @@ std::string BuildCurrentCandidatePage()
         ui.cur_page_max_word_len = maxCount;
     }
     ui.cur_page_item_cnt = loop;
+    if (!ui.page_words.empty())
+    {
+        ui.selected_index_in_page = std::clamp(ui.selected_index_in_page, 0, loop - 1);
+        ui.selected_text = ui.page_words[ui.selected_index_in_page];
+    }
     return candidate_string;
 }
 
@@ -668,6 +747,11 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
     else if (pipeRole == FanyImePipeRole::ToTsfWorkerThread)
     {
         RegisterToTsfWorkerThreadPipeClient(hello.client_id, clientPipe);
+        FanyImeNamedpipeDataToTsfWorkerThread settingsData{};
+        settingsData.msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged;
+        wcscpy_s(settingsData.data, GetConfiguredPagingCommaPeriodEnabled() ? L"1" : L"0");
+        DWORD bytesWritten = 0;
+        WriteFile(clientPipe, &settingsData, sizeof(settingsData), &bytesWritten, nullptr);
     }
 }
 
@@ -796,6 +880,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
     Global::candidate_ui.item_total_count = static_cast<int>(Global::candidate_ui.items.size());
     Global::candidate_ui.page_index = 0;
+    Global::candidate_ui.select_first_on_page();
     Global::candidate_ui.clear_page();
     RefreshCandidatePageUi(true);
 }
@@ -817,16 +902,47 @@ void HandleImeKey()
     const bool is_commit_with_first_candidate_punctuation =
         !is_manual_pinyin_separator && IsCommitWithFirstCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
+    const bool is_composition_edit_key = Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT ||
+                                         Global::Keycode == VK_BACK ||
+                                         (Global::Keycode >= 'A' && Global::Keycode <= 'Z') ||
+                                         is_manual_pinyin_separator;
     const bool should_forward_key_to_session =
-        !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key;
+        !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key && !is_composition_edit_key;
+
+    // Punctuation needs a synchronous first-candidate response on the TSF pipe.
+    // Reply before cloud-query and candidate recomputation work so the TSF-side
+    // timeout sentinel keeps its original meaning instead of masking latency here.
+    if (is_commit_with_first_candidate_punctuation)
+    {
+        Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
+        const bool has_active_composition =
+            g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
+        if (has_active_composition)
+        {
+            EnsureCandidatePageReady();
+            Global::candidate_ui.selected_text =
+                Global::candidate_ui.page_words.empty() ? L"" : Global::candidate_ui.page_words[0];
+            SendCurrentDataToActiveTsf();
+        }
+        else
+        {
+            ClearState();
+        }
+        return;
+    }
 
     /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
      * 等等，然后再在下面处理其中的特殊的按键 */
-    if (should_forward_key_to_session)
+    if (is_composition_edit_key)
+    {
+        ApplyCompositionEditKey(Global::Keycode, Global::Wch);
+    }
+    else if (should_forward_key_to_session)
     {
         g_inputSession->handle_key(Global::Keycode, Global::ModifiersDown, Global::Wch);
     }
     GlobalIme::composition.segmented_pinyin = g_inputSession->get_pinyin_segmentation_with_cases();
+    GlobalIme::composition.raw_input_with_cases = g_inputSession->get_pinyin_sequence_with_cases();
     //
     // 先判断要不要触发云联想
     // 判断依据：
@@ -877,52 +993,89 @@ void HandleImeKey()
     //  - 数字，会上屏相应序号对应的候选项
     //
     /* 1. Punctuations */
-    if (is_commit_with_first_candidate_punctuation)
-    {
-        Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
-        EnsureCandidatePageReady();
-
-        if (!Global::candidate_ui.page_words.empty())
-        { /* 防止第一次直接输入标点时触发数组下标访问越界 */
-            Global::candidate_ui.selected_text = Global::candidate_ui.page_words[0];
-        }
-        else
-        {
-            Global::candidate_ui.selected_text = L"";
-        }
-
-        SendCurrentDataToActiveTsf();
-    }
     //
     // 空格和数字键可能会触发造词，如果数字键上屏的汉字字符串所对应的拼音比实际的拼音要短的话，
     // 那么，就可能会触发造词事件，那么，就要适时改变候选框的状态
     //
     /* 2. VK_SPACE, 3. Digits */
-    else if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
+    if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
     {
         ProcessSelectionKey(Global::Keycode);
         SendCurrentDataToActiveTsf();
     }
-    else if ((Global::Keycode == VK_OEM_MINUS && GetConfiguredPagingMinusEqualEnabled()) || //
-             (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled()                  //
-              && (Global::ModifiersDown >> 0 & 1u)) //
-             )                                      // Page previous
+    else if (Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT)
     {
-        if (Global::candidate_ui.has_prev_page())
-        {
-            Global::candidate_ui.page_index--;
-            RefreshCandidatePageUi(true);
-        }
+        RefreshCandidatePageUi(true);
     }
-    else if ((Global::Keycode == VK_OEM_PLUS && GetConfiguredPagingMinusEqualEnabled()) || //
-             (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled()                 //
-              &&                                                                          //
-              !(Global::ModifiersDown >> 0 & 1u)) //
-             )                                    // Page next
+    else if (IsCandidateNavigationKey(Global::Keycode))
     {
-        if (Global::candidate_ui.has_next_page())
+        auto &ui = Global::candidate_ui;
+        UINT result = Global::DataFromServerMsgType::NavigationIgnored;
+        bool refresh = false;
+
+        const auto move_page = [&](int offset, UINT response_type) {
+            result = response_type;
+            if (offset < 0 ? ui.has_prev_page() : ui.has_next_page())
+            {
+                ui.page_index += offset;
+                refresh = true;
+            }
+        };
+        const auto move_selection = [&](int offset, UINT response_type) {
+            result = response_type;
+            if (ui.move_selection(offset))
+            {
+                refresh = true;
+            }
+        };
+
+        const bool shift_down = (Global::ModifiersDown & 0b00000001u) != 0;
+        if (Global::Keycode == VK_OEM_MINUS && GetConfiguredPagingMinusEqualEnabled())
         {
-            Global::candidate_ui.page_index++;
+            move_page(-1, Global::DataFromServerMsgType::MovePagePrevious);
+        }
+        else if (Global::Keycode == VK_OEM_PLUS && GetConfiguredPagingMinusEqualEnabled())
+        {
+            move_page(1, Global::DataFromServerMsgType::MovePageNext);
+        }
+        else if (Global::Keycode == VK_OEM_COMMA && GetConfiguredPagingCommaPeriodEnabled())
+        {
+            move_page(-1, Global::DataFromServerMsgType::MovePagePrevious);
+        }
+        else if (Global::Keycode == VK_OEM_PERIOD && GetConfiguredPagingCommaPeriodEnabled())
+        {
+            move_page(1, Global::DataFromServerMsgType::MovePageNext);
+        }
+        else if (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled())
+        {
+            move_page(shift_down ? -1 : 1, shift_down ? Global::DataFromServerMsgType::MovePagePrevious
+                                                     : Global::DataFromServerMsgType::MovePageNext);
+        }
+        else if (Global::Keycode == VK_PRIOR && GetConfiguredPagingPageUpDownEnabled())
+        {
+            move_page(-1, Global::DataFromServerMsgType::MovePagePrevious);
+        }
+        else if (Global::Keycode == VK_NEXT && GetConfiguredPagingPageUpDownEnabled())
+        {
+            move_page(1, Global::DataFromServerMsgType::MovePageNext);
+        }
+        else if (GetConfiguredCandidateArrowNavigationEnabled() &&
+                 (Global::Keycode == VK_UP || Global::Keycode == VK_DOWN))
+        {
+            if (Global::Keycode == VK_UP)
+            {
+                move_selection(-1, Global::DataFromServerMsgType::MoveSelectionPrevious);
+            }
+            else
+            {
+                move_selection(1, Global::DataFromServerMsgType::MoveSelectionNext);
+            }
+        }
+
+        Global::MsgTypeToTsf = result;
+        SendCurrentDataToActiveTsf();
+        if (refresh)
+        {
             RefreshCandidatePageUi(true);
         }
     }
@@ -934,7 +1087,7 @@ void ClearState()
     /* Clear dict engine state */
     g_inputSession->reset_state();
     /* 造词的状态也要清理 */
-    GlobalIme::composition.clear_creating_word();
+    GlobalIme::composition.clear();
 }
 
 void ProcessSelectionKey(UINT keycode)
@@ -949,7 +1102,7 @@ void ProcessSelectionKey(UINT keycode)
 
     const bool is_space = keycode == VK_SPACE;
     const bool is_digit_selection = keycode >= '1' && keycode <= '9';
-    const int index = is_space ? 0 : static_cast<int>(keycode - '1');
+    const int index = is_space ? Global::candidate_ui.selected_index_in_page : static_cast<int>(keycode - '1');
     const bool is_valid_selection =
         (is_space || is_digit_selection) && index >= 0 &&
         static_cast<size_t>(index) < Global::candidate_ui.page_words.size();
@@ -1032,6 +1185,8 @@ void ProcessSelectionKey(UINT keycode)
         if (!isNeedCreateWord)
         {
             g_inputSession->reset_state();
+            GlobalIme::composition.caret_position = 0;
+            GlobalIme::composition.raw_input_with_cases.clear();
         }
         else
         {

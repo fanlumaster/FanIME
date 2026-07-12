@@ -19,7 +19,10 @@ bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
 bool g_paging_minus_equal_enabled = true;
+bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
+bool g_paging_page_up_down_enabled = true;
+bool g_candidate_arrow_navigation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
@@ -202,8 +205,12 @@ bool LoadImeConfig()
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled = tbl["general"]["paging_minus_equal"].value_or(
             !legacy_paging_mode || *legacy_paging_mode == "-/=");
+        g_paging_comma_period_enabled = tbl["general"]["paging_comma_period"].value_or(
+            legacy_paging_mode && *legacy_paging_mode == ",/.");
         g_paging_tab_enabled = tbl["general"]["paging_tab"].value_or(
             legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
+        g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
+        g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         const std::string layout =
             tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
@@ -436,6 +443,51 @@ bool SetConfiguredPagingTabEnabled(bool enabled)
         return false;
     }
     g_paging_tab_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredPagingCommaPeriodEnabled()
+{
+    return g_paging_comma_period_enabled;
+}
+
+bool SetConfiguredPagingCommaPeriodEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "paging_comma_period", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_paging_comma_period_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredPagingPageUpDownEnabled()
+{
+    return g_paging_page_up_down_enabled;
+}
+
+bool SetConfiguredPagingPageUpDownEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "paging_page_up_down", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_paging_page_up_down_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredCandidateArrowNavigationEnabled()
+{
+    return g_candidate_arrow_navigation_enabled;
+}
+
+bool SetConfiguredCandidateArrowNavigationEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "candidate_arrow_navigation", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_candidate_arrow_navigation_enabled = enabled;
     return true;
 }
 

@@ -452,7 +452,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     {
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring preedit = GetPreedit();
+        std::wstring preedit = GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
         InflateMeasureDivCandWnd(str);
 
@@ -1297,7 +1297,7 @@ int FineTuneWindow(HWND hwnd)
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
         }
 
-        std::wstring preedit = GetPreedit();
+        std::wstring preedit = GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
         InflateCandWnd(str);
 
