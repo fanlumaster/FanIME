@@ -1030,6 +1030,22 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.paging_minus_equal")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPagingMinusEqualEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "general.paging_tab")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPagingTabEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "helpcode.show_sp_helpcode_in_candidate_window")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1144,7 +1160,9 @@ void PostSettingsConfig()
 
     nlohmann::json payload = {
         {"type", "configSnapshot"},
-        {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()}}},
+        {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+                                {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
+                                {"paging_tab", GetConfiguredPagingTabEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},

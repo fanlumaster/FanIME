@@ -903,8 +903,8 @@ void HandleImeKey()
         ProcessSelectionKey(Global::Keycode);
         SendCurrentDataToActiveTsf();
     }
-    else if (Global::Keycode == VK_OEM_MINUS ||     //
-             (Global::Keycode == VK_TAB             //
+    else if ((Global::Keycode == VK_OEM_MINUS && GetConfiguredPagingMinusEqualEnabled()) || //
+             (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled()                  //
               && (Global::ModifiersDown >> 0 & 1u)) //
              )                                      // Page previous
     {
@@ -914,8 +914,9 @@ void HandleImeKey()
             RefreshCandidatePageUi(true);
         }
     }
-    else if (Global::Keycode == VK_OEM_PLUS ||    //
-             (Global::Keycode == VK_TAB &&        //
+    else if ((Global::Keycode == VK_OEM_PLUS && GetConfiguredPagingMinusEqualEnabled()) || //
+             (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled()                 //
+              &&                                                                          //
               !(Global::ModifiersDown >> 0 & 1u)) //
              )                                    // Page next
     {

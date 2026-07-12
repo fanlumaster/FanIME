@@ -18,6 +18,8 @@ bool g_quanpin_helpcode_enabled = true;
 bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
+bool g_paging_minus_equal_enabled = true;
+bool g_paging_tab_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
@@ -133,6 +135,42 @@ bool ReplaceTomlValuePreservingFormatting(std::string &text, const std::string &
     return false;
 }
 
+bool InsertTomlValuePreservingFormatting(std::string &text, const std::string &section, const std::string &key,
+                                         const std::string &value)
+{
+    const std::string section_header = "[" + section + "]";
+    const size_t section_begin = text.find(section_header);
+    if (section_begin == std::string::npos)
+    {
+        return false;
+    }
+
+    const size_t section_line_end = text.find('\n', section_begin + section_header.size());
+    if (section_line_end == std::string::npos)
+    {
+        text.append("\n" + key + " = " + value + "\n");
+        return true;
+    }
+
+    size_t insert_pos = text.find("\n[", section_line_end);
+    if (insert_pos == std::string::npos)
+    {
+        insert_pos = text.size();
+        if (!text.empty() && text.back() != '\n')
+        {
+            text.push_back('\n');
+            insert_pos = text.size();
+        }
+    }
+    else
+    {
+        ++insert_pos;
+    }
+
+    text.insert(insert_pos, key + " = " + value + "\n");
+    return true;
+}
+
 void RememberConfigWriteTime()
 {
     std::error_code error;
@@ -161,6 +199,11 @@ bool LoadImeConfig()
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
+        const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
+        g_paging_minus_equal_enabled = tbl["general"]["paging_minus_equal"].value_or(
+            !legacy_paging_mode || *legacy_paging_mode == "-/=");
+        g_paging_tab_enabled = tbl["general"]["paging_tab"].value_or(
+            legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         const std::string layout =
             tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
@@ -186,7 +229,8 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
     std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
     input.close();
 
-    if (!ReplaceTomlValuePreservingFormatting(text, section, key, replacement))
+    if (!ReplaceTomlValuePreservingFormatting(text, section, key, replacement) &&
+        !InsertTomlValuePreservingFormatting(text, section, key, replacement))
     {
         return false;
     }
@@ -362,6 +406,36 @@ bool SetConfiguredFloatingToolbarEnabled(bool enabled)
         return false;
     }
     g_floating_toolbar_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredPagingMinusEqualEnabled()
+{
+    return g_paging_minus_equal_enabled;
+}
+
+bool SetConfiguredPagingMinusEqualEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "paging_minus_equal", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_paging_minus_equal_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredPagingTabEnabled()
+{
+    return g_paging_tab_enabled;
+}
+
+bool SetConfiguredPagingTabEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "paging_tab", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_paging_tab_enabled = enabled;
     return true;
 }
 
