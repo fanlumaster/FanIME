@@ -23,6 +23,14 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
+    if (typeof payload.data?.general?.paging_minus_equal === 'boolean') {
+      const checkbox = document.getElementById('pagingMinusEqualCheckbox') as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = payload.data.general.paging_minus_equal;
+    }
+    if (typeof payload.data?.general?.paging_tab === 'boolean') {
+      const checkbox = document.getElementById('pagingTabCheckbox') as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = payload.data.general.paging_tab;
+    }
     if (typeof payload.data?.helpcode?.show_sp_helpcode_in_candidate_window === 'boolean') {
       applyToggleState(
         'showShuangpinHelpcodeToggleBtn',

@@ -19,7 +19,10 @@ function setupPageOptions(): void {
   checkboxes.forEach((checkbox: Element) => {
     checkbox.addEventListener('change', (e: Event) => {
       const target = e.target as HTMLInputElement;
-      if (target.checked) {
+      if (target.value === 'minus') {
+        updateConfig('general.paging_minus_equal', target.checked);
+      } else if (target.value === 'tab') {
+        updateConfig('general.paging_tab', target.checked);
       }
     });
   });
