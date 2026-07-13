@@ -1,4 +1,5 @@
 import { applyCandidateArrange, applyToggleState } from './shared';
+import { applyInputConfig } from './input';
 
 function safeParseJson(value: string): unknown {
   try {
@@ -20,6 +21,11 @@ export function setupConfigSync(): void {
     }
 
     applyCandidateArrange(payload.data?.appearance?.candidate_window_layout);
+    applyInputConfig(
+      payload.data?.input?.schema,
+      payload.data?.input?.shuangpin_schema,
+      payload.data?.input?.wubi_schema
+    );
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }

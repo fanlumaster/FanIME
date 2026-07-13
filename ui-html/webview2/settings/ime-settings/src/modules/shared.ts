@@ -3,7 +3,8 @@ export function setupDropdownMenu(
   btnId: string,
   menuId: string,
   messageAction: string,
-  useStopPropagation: boolean = false
+  useStopPropagation: boolean = false,
+  configPath?: string
 ): void {
   const btn = document.getElementById(btnId);
   const menu = document.getElementById(menuId);
@@ -44,7 +45,16 @@ export function setupDropdownMenu(
           break;
       }
 
-      if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {
+      if (window.chrome?.webview && configPath) {
+        const htmlItem = item as HTMLElement;
+        window.chrome.webview.postMessage(JSON.stringify({
+          type: 'configUpdate',
+          data: {
+            path: configPath,
+            value: htmlItem.dataset.value
+          }
+        }));
+      } else if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {
         const htmlItem = item as HTMLElement;
         window.chrome.webview.postMessage(JSON.stringify({
           type: 'configUpdate',
@@ -72,6 +82,18 @@ export function setupDropdownMenu(
       menu.classList.remove('open');
     }
   });
+}
+
+export function applyDropdownValue(btnId: string, menuId: string, value: string | undefined): void {
+  if (!value) {
+    return;
+  }
+
+  const btnLabel = document.querySelector<HTMLElement>(`#${btnId} span`);
+  const item = document.querySelector<HTMLElement>(`#${menuId} .dropdown-item[data-value="${value}"]`);
+  if (btnLabel && item) {
+    btnLabel.textContent = item.textContent;
+  }
 }
 
 // 切换按钮功能

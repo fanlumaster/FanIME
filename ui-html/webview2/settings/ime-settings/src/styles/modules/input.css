@@ -13,7 +13,18 @@
   justify-content: space-between;
 }
 
+.wubi-option-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
 .shuangpin-scheme-arrow {
+  width: 16px;
+  height: 16px;
+}
+
+.wubi-scheme-arrow {
   width: 16px;
   height: 16px;
 }
@@ -23,11 +34,25 @@
   min-width: 110px;
 }
 
+.dropdown-toggle-wubi-scheme {
+  padding: 4px 6px 4px 9px;
+  min-width: 110px;
+}
+
 .shuangpin-scheme-dropdown-menu {
   min-width: 110px;
 }
 
+.wubi-scheme-dropdown-menu {
+  min-width: 110px;
+}
+
 .shuangpin-scheme-dropdown-menu div {
+  font-size: 14px;
+  color: #ccc;
+}
+
+.wubi-scheme-dropdown-menu div {
   font-size: 14px;
   color: #ccc;
 }
