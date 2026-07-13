@@ -52,6 +52,12 @@ void ScheduleSettingsWindowActivation(HWND hwnd)
     PostMessage(hwnd, WM_ACTIVATE_SETTINGS_WINDOW, 0, 0);
     SetTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY, 50, nullptr);
 }
+
+void CancelSettingsWindowActivation(HWND hwnd)
+{
+    g_settings_activation_retries_remaining = 0;
+    KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
+}
 }
 
 bool ActivateSettingsWindow(HWND hwnd)
@@ -962,10 +968,9 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     switch (message)
     {
     case WM_ACTIVATE_SETTINGS_WINDOW:
-        if (!IsWindowVisible(hwnd))
+        if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
         {
-            g_settings_activation_retries_remaining = 0;
-            KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
+            CancelSettingsWindowActivation(hwnd);
             return 0;
         }
         ActivateSettingsWindow(hwnd);
@@ -999,6 +1004,10 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         return result;
     }
     case WM_SYSCOMMAND:
+        if ((wParam & 0xFFF0) == SC_MINIMIZE)
+        {
+            CancelSettingsWindowActivation(hwnd);
+        }
         if ((wParam & 0xFFF0) == SC_RESTORE)
         {
             const LRESULT result = DefWindowProc(hwnd, message, wParam, lParam);
@@ -1009,11 +1018,10 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     case WM_TIMER: {
         if (wParam == TIMER_ID_SETTINGS_ACTIVATION_RETRY)
         {
-            if (!IsWindowVisible(hwnd) || GetForegroundWindow() == hwnd ||
+            if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || GetForegroundWindow() == hwnd ||
                 g_settings_activation_retries_remaining <= 0)
             {
-                g_settings_activation_retries_remaining = 0;
-                KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
+                CancelSettingsWindowActivation(hwnd);
             }
             else
             {
@@ -1226,6 +1234,10 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         return 0;
     }
     case WM_SIZE: {
+        if (wParam == SIZE_MINIMIZED)
+        {
+            CancelSettingsWindowActivation(hwnd);
+        }
         if (::webviewControllerSettingsWnd)
         {
             RECT rect;
