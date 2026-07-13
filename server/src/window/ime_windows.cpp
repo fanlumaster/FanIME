@@ -287,56 +287,6 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     ::global_hwnd_menu = hwnd_menu;
 
     //
-    // settings 窗口
-    // 这里 dwExStyle 不要用 WS_EX_LAYERED，否则可能会在窗口的底部发生鼠标穿透问题。
-    //
-    dwExStyle = 0;                        //
-    HWND hwnd_settings = CreateWindowEx(  //
-        dwExStyle,                        //
-        szWindowClass,                    //
-        lpWindowNameSettings,             //
-        WS_OVERLAPPEDWINDOW,              //
-        600,                              // Initial position
-        -20000,                           //
-        (::SETTINGS_WINDOW_WIDTH)*scale,  //
-        (::SETTINGS_WINDOW_HEIGHT)*scale, //
-        nullptr,                          //
-        nullptr,                          //
-        hInstance,                        //
-        nullptr                           //
-    );                                    //
-    if (!hwnd_settings)
-    {
-#ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for settings failed!").c_str());
-#endif
-        return 1;
-    }
-    ::global_hwnd_settings = hwnd_settings;
-    // 设置 settings 窗口的自定义图标
-    // HICON hSettingsIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SETTINGS_ICON));
-    // HICON hIMEIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IME_ICON));
-    // SendMessage(hwnd_settings, WM_SETICON, ICON_SMALL, (LPARAM)hSettingsIcon);
-    // SendMessage(hwnd_settings, WM_SETICON, ICON_BIG, (LPARAM)hIMEIcon);
-    BOOL cloak = TRUE;
-    DwmSetWindowAttribute(hwnd_settings, DWMWA_CLOAK, &cloak, sizeof(cloak));
-    BOOL dark = TRUE;
-    DwmSetWindowAttribute(hwnd_settings, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
-
-    MARGINS margins = {0, 0, 0, 0};
-    DwmExtendFrameIntoClientArea(hwnd_settings, &margins);
-
-    DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
-    DwmSetWindowAttribute(hwnd_settings, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
-
-    // The WebView covers the entire client area with an opaque background.
-    // A second DWM system backdrop underneath it can be recomposed on every
-    // input frame and make the window/taskbar look as if it briefly toggled.
-    // This does not participate in HTMAXBUTTON or Snap Layouts.
-    DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_NONE;
-    DwmSetWindowAttribute(hwnd_settings, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
-
-    //
     // floating toolbar 窗口
     //
     dwExStyle = WS_EX_LAYERED |                              //
@@ -371,12 +321,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     ShowWindow(hwnd_cand, SW_SHOW);
     ShowWindow(hwnd_menu, SW_SHOW);
-    ShowWindow(hwnd_settings, SW_SHOWMINIMIZED);
-    ShowWindow(hwnd_settings, SW_RESTORE);
     ShowWindow(hwnd_ftb, GetConfiguredFloatingToolbarEnabled() ? SW_SHOW : SW_HIDE);
     UpdateWindow(hwnd_cand);
     UpdateWindow(hwnd_menu);
-    UpdateWindow(hwnd_settings);
     UpdateWindow(hwnd_ftb);
 
     //
@@ -387,8 +334,6 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     InitWebviewCandWnd(hwnd_cand);
     /* 托盘语言区右键菜单窗口 */
     InitWebviewMenuWnd(hwnd_menu);
-    /* settings 窗口 */
-    InitWebviewSettingsWnd(hwnd_settings);
     /* flaoting toolbar 窗口 */
     InitWebviewFtbWnd(hwnd_ftb);
 
@@ -398,10 +343,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     /* 调整菜单窗口 size，顺便置顶 */
     SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW_MENU, 200, nullptr);
 
-    /* 调整 settings 窗口 position，顺便置顶 */
-    SetTimer(hwnd_settings, TIMER_ID_MOVE_WEBVIEW_SETTINGS, 200, nullptr);
-    /* 监听文本配置文件变化，并同步到 settings 和运行中的候选框 */
-    SetTimer(hwnd_settings, TIMER_ID_CONFIG_SYNC, 300, nullptr);
+    /* 监听文本配置文件变化，并同步到运行中的候选框。Settings 已是独立进程。 */
+    SetTimer(hwnd_cand, TIMER_ID_CONFIG_SYNC, 300, nullptr);
 
     /* 调整 floating toolbar 窗口 position，顺便置顶 */
     SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
@@ -455,12 +398,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (hwnd == ::global_hwnd_menu)
     {
         return WndProcMenuWindow(hwnd, message, wParam, lParam);
-    }
-
-    /* settings 窗口 */
-    if (hwnd == ::global_hwnd_settings)
-    {
-        return WndProcSettingsWindow(hwnd, message, wParam, lParam);
     }
 
     /* floating toolbar 窗口 */
@@ -602,6 +539,28 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             {
                 SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND, 100, nullptr);
                 break;
+            }
+        }
+        else if (wParam == TIMER_ID_CONFIG_SYNC)
+        {
+            const SchemeType previous_input_scheme = GetConfiguredInputScheme();
+            const std::string previous_layout = GetConfiguredCandidateWindowLayout();
+            const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
+            const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
+            if (ReloadImeConfigIfChanged())
+            {
+                if (previous_input_scheme != GetConfiguredInputScheme())
+                    ApplyConfiguredInputScheme();
+                if (previous_layout != GetConfiguredCandidateWindowLayout())
+                    ApplyConfiguredCandidateWindowLayout();
+                if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
+                    ApplyConfiguredFloatingToolbarVisibility();
+                if (previous_comma_period != GetConfiguredPagingCommaPeriodEnabled())
+                {
+                    SendToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
+                        GetConfiguredPagingCommaPeriodEnabled() ? L"1" : L"0");
+                }
             }
         }
         break;

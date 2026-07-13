@@ -29,6 +29,34 @@ std::string g_candidate_window_layout = "vertical";
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
 
+class ConfigFileLock
+{
+  public:
+    ConfigFileLock()
+    {
+        handle_ = CreateMutexW(nullptr, FALSE, L"Local\\MetasequoiaIme.ConfigFile");
+        if (handle_)
+        {
+            const DWORD result = WaitForSingleObject(handle_, 5000);
+            locked_ = result == WAIT_OBJECT_0 || result == WAIT_ABANDONED;
+        }
+    }
+
+    ~ConfigFileLock()
+    {
+        if (locked_)
+            ReleaseMutex(handle_);
+        if (handle_)
+            CloseHandle(handle_);
+    }
+
+    explicit operator bool() const { return locked_; }
+
+  private:
+    HANDLE handle_ = nullptr;
+    bool locked_ = false;
+};
+
 SchemeType ParseScheme(const std::string &value);
 
 std::string Trim(std::string value)
@@ -188,6 +216,9 @@ void RememberConfigWriteTime()
 
 bool LoadImeConfig()
 {
+    ConfigFileLock lock;
+    if (!lock)
+        return false;
     try
     {
         auto tbl = toml::parse_file(g_config_path.string());
@@ -231,6 +262,9 @@ bool LoadImeConfig()
 
 bool WriteConfiguredValue(const std::string &section, const std::string &key, const std::string &replacement)
 {
+    ConfigFileLock lock;
+    if (!lock)
+        return false;
     std::ifstream input(g_config_path, std::ios::binary);
     if (!input)
     {

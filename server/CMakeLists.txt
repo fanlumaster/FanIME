@@ -59,6 +59,8 @@ set(SRC_FILES
     "./src/log/fanylog.h"
     "./src/resource/resource.h"
     "./src/resource/resource.rc"
+    "./src/settings/settings_launcher.cpp"
+    "./src/settings/settings_launcher.h"
     "./src/session/engine_input_session.cpp"
     "./src/session/engine_input_session.h"
     "./src/session/input_session.h"
@@ -144,6 +146,39 @@ set(WEBVIEW2_LOADER_DEBUG "${WEBVIEW2_VCPKG_ROOT}/debug/lib/WebView2Loader.dll.l
 target_link_libraries(${PROJECT_NAME} PRIVATE
     $<$<CONFIG:Debug>:${WEBVIEW2_LOADER_DEBUG}>
     $<$<CONFIG:Release>:${WEBVIEW2_LOADER_RELEASE}>
+)
+
+set(SETTINGS_EXECUTABLE_NAME "MetasequoiaImeSettings")
+add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
+    "./src/settings/settings_app.cpp"
+    "./src/config/ime_config.cpp"
+    "./src/config/ime_config.h"
+    "./src/utils/common_utils.cpp"
+    "./src/utils/common_utils.h"
+    "./src/resource/resource.rc"
+)
+target_include_directories(${SETTINGS_EXECUTABLE_NAME}
+    PRIVATE
+    "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+)
+target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
+    fmt::fmt
+    Boost::locale
+    Boost::json
+    nlohmann_json::nlohmann_json
+    dwmapi
+    dcomp
+    $<$<CONFIG:Debug>:${WEBVIEW2_LOADER_DEBUG}>
+    $<$<CONFIG:Release>:${WEBVIEW2_LOADER_RELEASE}>
+)
+# The server launches the settings executable from the same output directory.
+# Building the server target alone must therefore also produce Settings.
+add_dependencies(${PROJECT_NAME} ${SETTINGS_EXECUTABLE_NAME})
+add_custom_command(TARGET ${SETTINGS_EXECUTABLE_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<$<CONFIG:Debug>:${WEBVIEW2_VCPKG_ROOT}/debug/bin/WebView2Loader.dll>
+        $<$<CONFIG:Release>:${WEBVIEW2_VCPKG_ROOT}/bin/WebView2Loader.dll>
+        $<TARGET_FILE_DIR:${SETTINGS_EXECUTABLE_NAME}>
 )
 
 # Ensure the loader DLL is next to the executable

@@ -14,6 +14,7 @@
 #include "global/globals.h"
 #include "fmt/xchar.h"
 #include "ipc/ipc.h"
+#include "settings/settings_launcher.h"
 #include <WebView2EnvironmentOptions.h>
 
 #pragma comment(lib, "dcomp.lib")
@@ -23,8 +24,6 @@ namespace json = boost::json;
 int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
 void ApplyConfiguredInputScheme();
-bool ActivateSettingsWindow(HWND hwnd);
-void RequestSettingsWindowActivation(HWND hwnd);
 
 int boundRightExtra = 1000;
 int boundBottomExtra = 1000;
@@ -650,7 +649,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     }
                     else if (type == "settings")
                     {
-                        RequestSettingsWindowActivation(::global_hwnd_settings);
+                        OpenSettingsApplication();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                 }
@@ -955,7 +954,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                     }
                     else if (type == "focus")
                     {
-                        RequestSettingsWindowActivation(hwnd);
+                        SetFocus(hwnd);
                     }
                     else if (type == "windowControl")
                     {
@@ -1439,7 +1438,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
                         OutputDebugString(fmt::format(L"[msime]: Open settings").c_str());
 #endif
-                        RequestSettingsWindowActivation(::global_hwnd_settings);
+                        OpenSettingsApplication();
                     }
                 }
 
