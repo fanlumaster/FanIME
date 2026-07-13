@@ -22,6 +22,7 @@ namespace json = boost::json;
 
 int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
+void ApplyConfiguredInputScheme();
 bool ActivateSettingsWindow(HWND hwnd);
 void RequestSettingsWindowActivation(HWND hwnd);
 
@@ -1017,7 +1018,32 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                         {
                             const auto &data = val.at("data").as_object();
                             const std::string path = json::value_to<std::string>(data.at("path"));
-                            if (path == "appearance.candidate_window_layout")
+                            if (path == "input.schema")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredInputScheme(value))
+                                {
+                                    ApplyConfiguredInputScheme();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "input.shuangpin_schema")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredShuangpinSchema(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "input.wubi_schema")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredWubiSchema(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.candidate_window_layout")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredCandidateWindowLayout(value))
@@ -1192,7 +1218,10 @@ void PostSettingsConfig()
 
     nlohmann::json payload = {
         {"type", "configSnapshot"},
-        {"data", {{"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+        {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
+                                {"shuangpin_schema", GetConfiguredShuangpinSchema()},
+                                {"wubi_schema", GetConfiguredWubiSchema()}}},
+                  {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
                                 {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
                                 {"paging_tab", GetConfiguredPagingTabEnabled()},

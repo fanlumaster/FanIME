@@ -17,6 +17,7 @@
 #include <dwmapi.h>
 #include "utils/window_utils.h"
 #include "ipc/event_listener.h"
+#include "session/session_factory.h"
 #include "utils/ime_utils.h"
 #include "window_hook.h"
 #include <windowsx.h>
@@ -133,6 +134,22 @@ void ApplyConfiguredFloatingToolbarVisibility()
     const bool fullscreen = foreground && CheckFullscreen(foreground);
     const bool should_show = GetConfiguredFloatingToolbarEnabled() && g_is_ime_active && !fullscreen;
     ShowWindow(::global_hwnd_ftb, should_show ? SW_SHOWNA : SW_HIDE);
+}
+
+void ApplyConfiguredInputScheme()
+{
+    if (!g_inputSession || g_inputSession->current_scheme_type() == GetConfiguredInputScheme())
+    {
+        return;
+    }
+
+    FanyNamedPipe::ClearState();
+    g_inputSession = CreateInputSessionFromConfig();
+    Global::candidate_ui.set_items({});
+    if (::global_hwnd)
+    {
+        ShowWindow(::global_hwnd, SW_HIDE);
+    }
 }
 
 LRESULT RegisterCandidateWindowMessage()
@@ -1031,10 +1048,15 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         }
         else if (wParam == TIMER_ID_CONFIG_SYNC)
         {
+            const SchemeType previous_input_scheme = GetConfiguredInputScheme();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             if (ReloadImeConfigIfChanged())
             {
+                if (previous_input_scheme != GetConfiguredInputScheme())
+                {
+                    ApplyConfiguredInputScheme();
+                }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                 {
                     ApplyConfiguredCandidateWindowLayout();

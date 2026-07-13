@@ -23,6 +23,7 @@ void ToTsfPipeEventListenerLoopThread();
 void ToTsfWorkerThreadPipeEventListenerLoopThread();
 
 void PrepareCandidateList();
+void ClearState();
 void ProcessSelectionKey(UINT keycode);
 void SendCurrentDataToActiveTsf();
 void EnqueueCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);

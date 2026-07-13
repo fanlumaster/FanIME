@@ -12,6 +12,8 @@ namespace
 {
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
+std::string g_shuangpin_schema = "xiaohe";
+std::string g_wubi_schema = "wubi86";
 std::string g_shuangpin_preedit_mode = "quanpin";
 bool g_shuangpin_helpcode_enabled = true;
 bool g_quanpin_helpcode_enabled = true;
@@ -194,6 +196,8 @@ bool LoadImeConfig()
         Global::candidate_ui.page_size = page_size >= 3 && page_size <= 10 ? page_size : 8;
         g_session_backend = tbl["input"]["session_backend"].value_or(std::string("legacy"));
         g_input_scheme = ParseScheme(tbl["input"]["schema"].value_or(std::string("shuangpin")));
+        g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
+        g_wubi_schema = tbl["input"]["wubi_schema"].value_or(std::string("wubi86"));
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
@@ -203,16 +207,15 @@ bool LoadImeConfig()
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
-        g_paging_minus_equal_enabled = tbl["general"]["paging_minus_equal"].value_or(
-            !legacy_paging_mode || *legacy_paging_mode == "-/=");
-        g_paging_comma_period_enabled = tbl["general"]["paging_comma_period"].value_or(
-            legacy_paging_mode && *legacy_paging_mode == ",/.");
-        g_paging_tab_enabled = tbl["general"]["paging_tab"].value_or(
-            legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
+        g_paging_minus_equal_enabled =
+            tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
+        g_paging_comma_period_enabled =
+            tbl["general"]["paging_comma_period"].value_or(legacy_paging_mode && *legacy_paging_mode == ",/.");
+        g_paging_tab_enabled =
+            tbl["general"]["paging_tab"].value_or(legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
-        const std::string layout =
-            tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
+        const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         RememberConfigWriteTime();
         return true;
@@ -292,14 +295,11 @@ void InitImeConfig()
     if (LoadImeConfig())
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: session_backend = {}",
-                                      string_to_wstring(g_session_backend))
-                              .c_str());
+        OutputDebugString(fmt::format(L"[msime]: session_backend = {}", string_to_wstring(g_session_backend)).c_str());
 #endif
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: shuangpin_preedit_mode = {}",
-                                      string_to_wstring(g_shuangpin_preedit_mode))
-                              .c_str());
+        OutputDebugString(
+            fmt::format(L"[msime]: shuangpin_preedit_mode = {}", string_to_wstring(g_shuangpin_preedit_mode)).c_str());
 #endif
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: shuangpin_helpcode = {}", g_shuangpin_helpcode_enabled).c_str());
@@ -334,6 +334,73 @@ const std::string &GetConfiguredSessionBackend()
 SchemeType GetConfiguredInputScheme()
 {
     return g_input_scheme;
+}
+
+std::string GetConfiguredInputSchemeName()
+{
+    switch (g_input_scheme)
+    {
+    case SchemeType::Quanpin:
+        return "quanpin";
+    case SchemeType::Shuangpin:
+        return "shuangpin";
+    case SchemeType::Wubi:
+        return "wubi";
+    default:
+        return "shuangpin";
+    }
+}
+
+bool SetConfiguredInputScheme(const std::string &scheme)
+{
+    if (scheme != "quanpin" && scheme != "shuangpin" && scheme != "wubi")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "schema", EscapeTomlBasicString(scheme)))
+    {
+        return false;
+    }
+    g_input_scheme = ParseScheme(scheme);
+    return true;
+}
+
+const std::string &GetConfiguredShuangpinSchema()
+{
+    return g_shuangpin_schema;
+}
+
+bool SetConfiguredShuangpinSchema(const std::string &schema)
+{
+    if (schema != "xiaohe" && schema != "ziranma")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "shuangpin_schema", EscapeTomlBasicString(schema)))
+    {
+        return false;
+    }
+    g_shuangpin_schema = schema;
+    return true;
+}
+
+const std::string &GetConfiguredWubiSchema()
+{
+    return g_wubi_schema;
+}
+
+bool SetConfiguredWubiSchema(const std::string &schema)
+{
+    if (schema != "wubi86")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "wubi_schema", EscapeTomlBasicString(schema)))
+    {
+        return false;
+    }
+    g_wubi_schema = schema;
+    return true;
 }
 
 const std::string &GetConfiguredShuangpinPreeditMode()

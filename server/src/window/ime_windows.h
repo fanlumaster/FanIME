@@ -24,3 +24,4 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
 bool ActivateSettingsWindow(HWND hwnd);
 void RequestSettingsWindowActivation(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
+void ApplyConfiguredInputScheme();
