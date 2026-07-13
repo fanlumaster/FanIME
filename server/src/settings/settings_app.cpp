@@ -45,6 +45,7 @@ RECT g_maximize_button_rect{};
 bool g_has_maximize_button_rect = false;
 bool g_maximize_button_hover = false;
 bool g_window_active = true;
+bool g_window_minimized = false;
 
 void ApplyWindowActivationAppearance()
 {
@@ -94,6 +95,54 @@ void ApplyWindowActivationAppearance()
             document.documentElement.classList.add('metasequoia-window-inactive');
         })())JS";
     g_webview->ExecuteScript(script, nullptr);
+}
+
+void ResetTitlebarHoverAfterVisibilityChange()
+{
+    if (!g_webview)
+        return;
+
+    g_webview->ExecuteScript(LR"JS((() => {
+        const root = document.documentElement;
+        const suppressClass = 'metasequoia-suppress-titlebar-tooltip';
+        const styleId = 'metasequoia-titlebar-tooltip-reset-style';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                html.${suppressClass} .window-button[data-tooltip]::after,
+                html.${suppressClass} .window-button[data-tooltip]:hover::after {
+                    opacity: 0 !important;
+                    transform: translateX(-50%) !important;
+                    transition-delay: 0s !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        root.classList.add(suppressClass);
+        document.querySelector('.window-controls')
+            ?.classList.add('window-controls-click-reset');
+        document.querySelectorAll('.window-button').forEach((button) => {
+            button.classList.remove('host-hover', 'host-active');
+            if (button instanceof HTMLElement) button.blur();
+        });
+
+        const previousRelease = window.__metasequoiaReleaseTooltipReset;
+        if (typeof previousRelease === 'function') {
+            window.removeEventListener('pointermove', previousRelease, true);
+            window.removeEventListener('pointerdown', previousRelease, true);
+        }
+        const release = () => {
+            root.classList.remove(suppressClass);
+            window.removeEventListener('pointermove', release, true);
+            window.removeEventListener('pointerdown', release, true);
+            delete window.__metasequoiaReleaseTooltipReset;
+        };
+        window.__metasequoiaReleaseTooltipReset = release;
+        window.addEventListener('pointermove', release, {capture: true, once: true});
+        window.addEventListener('pointerdown', release, {capture: true, once: true});
+    })())JS", nullptr);
 }
 
 void PostConfig()
@@ -540,6 +589,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         return 0;
     }
     case WM_SIZE:
+    {
+        const bool minimized = w_param == SIZE_MINIMIZED;
+        if (minimized || g_window_minimized)
+            ResetTitlebarHoverAfterVisibilityChange();
+        g_window_minimized = minimized;
         if (g_controller)
         {
             RECT bounds{};
@@ -548,6 +602,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             PostWindowState(hwnd);
         }
         break;
+    }
     case WM_TIMER:
         if (w_param == kConfigReloadTimer && ReloadImeConfigIfChanged()) PostConfig();
         return 0;
