@@ -48,7 +48,8 @@ void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
 void InflateMeasureDivCandWnd(std::wstring &str);
-void InitWebviewCandWnd(HWND hwnd);
+void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
+void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 
 //
 // 菜单窗口 webview
@@ -59,8 +60,6 @@ inline ComPtr<ICoreWebView2_3> webview3MenuWnd;
 inline ComPtr<ICoreWebView2Controller2> webviewController2MenuWnd;
 
 inline std::wstring HTMLStringMenuWnd = LR"()";
-
-void InitWebviewMenuWnd(HWND hwnd);
 
 //
 // settings 窗口 webview
@@ -92,8 +91,6 @@ inline ComPtr<ICoreWebView2_3> webview3FtbWnd;
 inline ComPtr<ICoreWebView2Controller2> webviewController2FtbWnd;
 
 inline std::wstring HTMLStringFtbWnd = LR"()";
-
-void InitWebviewFtbWnd(HWND hwnd);
 void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState);
 void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int puncState);
 void UpdateFtbCnEnAndDoubleSingleAndPuncState( //

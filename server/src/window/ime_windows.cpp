@@ -330,12 +330,8 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // Preparing webview2 env
     //
     PrepareHtmlForWnds();
-    /* 候选框窗口 */
-    InitWebviewCandWnd(hwnd_cand);
-    /* 托盘语言区右键菜单窗口 */
-    InitWebviewMenuWnd(hwnd_menu);
-    /* flaoting toolbar 窗口 */
-    InitWebviewFtbWnd(hwnd_ftb);
+    /* 候选框、托盘语言区右键菜单和 floating toolbar 共用一个 WebView2 environment */
+    InitSmallWindowWebviews(hwnd_cand, hwnd_menu, hwnd_ftb);
 
     /* 调整候选框窗口 size，顺便置顶 */
     SetTimer(hwnd_cand, TIMER_ID_INIT_WEBVIEW_CAND, 200, nullptr);
@@ -388,6 +384,11 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (message == WM_SHOWWINDOW)
+    {
+        UpdateSmallWindowWebviewVisibility(hwnd, wParam != FALSE);
+    }
+
     /* 候选窗口 */
     if (hwnd == ::global_hwnd)
     {

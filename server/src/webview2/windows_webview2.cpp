@@ -25,10 +25,67 @@ int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
 void ApplyConfiguredInputScheme();
 
-int boundRightExtra = 1000;
-int boundBottomExtra = 1000;
+constexpr int candidateBoundRightExtra = 1000;
+constexpr int candidateBoundBottomExtra = 1000;
 
 std::wstring bodyRes = L"";
+
+namespace
+{
+ComPtr<ICoreWebView2Environment> smallWindowWebviewEnvironment;
+
+void SetWebviewMemoryUsageTarget(ComPtr<ICoreWebView2> webview, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL level)
+{
+    if (!webview) return;
+
+    ComPtr<ICoreWebView2_23> webview23;
+    if (SUCCEEDED(webview.As(&webview23)))
+    {
+        webview23->put_MemoryUsageTargetLevel(level);
+    }
+}
+}
+
+void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
+{
+    ComPtr<ICoreWebView2Controller> controller;
+    ComPtr<ICoreWebView2> webview;
+    bool lowerMemoryWhenHidden = false;
+
+    if (hwnd == ::global_hwnd)
+    {
+        controller = webviewControllerCandWnd;
+        webview = webviewCandWnd;
+    }
+    else if (hwnd == ::global_hwnd_menu)
+    {
+        controller = webviewControllerMenuWnd;
+        webview = webviewMenuWnd;
+        lowerMemoryWhenHidden = true;
+    }
+    else if (hwnd == ::global_hwnd_ftb)
+    {
+        controller = webviewControllerFtbWnd;
+        webview = webviewFtbWnd;
+        lowerMemoryWhenHidden = true;
+    }
+    else
+    {
+        return;
+    }
+
+    if (controller)
+    {
+        controller->put_IsVisible(visible ? TRUE : FALSE);
+    }
+
+    if (lowerMemoryWhenHidden)
+    {
+        SetWebviewMemoryUsageTarget(
+            webview,
+            visible ? COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL : COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW);
+    }
+}
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
 {
@@ -320,6 +377,8 @@ HRESULT OnControllerCreatedCandWnd(     //
         return E_FAIL;
     }
 
+    UpdateSmallWindowWebviewVisibility(hwnd, IsWindowVisible(hwnd) != FALSE);
+
     // Configure WebView settings
     ComPtr<ICoreWebView2Settings> settings;
     if (SUCCEEDED(webviewCandWnd->get_Settings(&settings)))
@@ -386,8 +445,10 @@ HRESULT OnControllerCreatedCandWnd(     //
     // Adjust to window size
     RECT bounds;
     GetClientRect(hwnd, &bounds);
-    bounds.right += boundRightExtra;
-    bounds.bottom += boundBottomExtra;
+    // The candidate page uses the extra viewport for stable off-screen
+    // measurement before its host window is resized to the measured content.
+    bounds.right += candidateBoundRightExtra;
+    bounds.bottom += candidateBoundBottomExtra;
     webviewControllerCandWnd->put_Bounds(bounds);
 
     // Navigate to HTML
@@ -500,40 +561,6 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
     );                                                                                       //
 }
 
-/**
- * @brief 初始化候选窗口的 webview
- *
- * @param hwnd
- */
-void InitWebviewCandWnd(HWND hwnd)
-{
-    std::wstring appDataBase = GetAppdataPath();
-    std::wstring candUdfPath = appDataBase + L"\\candwnd"; // Isolate UDF for candidate window
-
-    auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
-    options->put_AdditionalBrowserArguments( //
-        L"--disable-features=TranslateUI "
-        L"--enable-gpu --disable-software-rasterizer "
-        L"--disable-background-networking "
-        L"--disable-default-apps "
-        L"--disable-sync "
-        L"--disable-component-update "
-        L"--disable-prompt-on-repost "
-        L"--metrics-recording-only "
-        L"--no-first-run");
-
-    CreateCoreWebView2EnvironmentWithOptions(                                                 //
-        nullptr,                                                                              //
-        candUdfPath.c_str(),                                                                  //
-        options.Get(),                                                                        //
-        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>( //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {                //
-                return OnEnvironmentCreated(hwnd, result, env);                               //
-            })                                                                                //
-            .Get()                                                                            //
-    );                                                                                        //
-}
-
 //
 //
 // 菜单窗口 webview
@@ -574,17 +601,33 @@ HRESULT OnControllerCreatedMenuWnd(     //
         return E_FAIL;
     }
 
+    UpdateSmallWindowWebviewVisibility(hwnd, IsWindowVisible(hwnd) != FALSE);
+
     // Configure webviewMenuWindow settings
     ComPtr<ICoreWebView2Settings> settings;
     if (SUCCEEDED(webviewMenuWnd->get_Settings(&settings)))
     {
         settings->put_IsScriptEnabled(TRUE);
-        settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+        settings->put_AreDefaultScriptDialogsEnabled(FALSE);
         settings->put_IsWebMessageEnabled(TRUE);
-        settings->put_AreHostObjectsAllowed(TRUE);
+        settings->put_AreHostObjectsAllowed(FALSE);
         settings->put_AreDefaultContextMenusEnabled(FALSE);
         settings->put_AreDevToolsEnabled(FALSE);
-        settings->put_IsZoomControlEnabled(false);
+        settings->put_IsZoomControlEnabled(FALSE);
+        settings->put_IsStatusBarEnabled(FALSE);
+
+        ComPtr<ICoreWebView2Settings3> settings3;
+        if (SUCCEEDED(settings.As(&settings3)))
+        {
+            settings3->put_AreBrowserAcceleratorKeysEnabled(FALSE);
+        }
+
+        ComPtr<ICoreWebView2Settings5> settings5;
+        if (SUCCEEDED(settings.As(&settings5)))
+        {
+            settings5->put_IsGeneralAutofillEnabled(FALSE);
+            settings5->put_IsPasswordAutosaveEnabled(FALSE);
+        }
     }
 
     webviewControllerMenuWnd->put_ZoomFactor(1.0);
@@ -610,8 +653,6 @@ HRESULT OnControllerCreatedMenuWnd(     //
     // Adjust to window size
     RECT bounds;
     GetClientRect(hwnd, &bounds);
-    bounds.right += boundRightExtra;
-    bounds.bottom += boundBottomExtra;
     webviewControllerMenuWnd->put_Bounds(bounds);
 
     // Navigate to HTML
@@ -688,26 +729,6 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
             })                                                                               //
             .Get()                                                                           //
     );                                                                                       //
-}
-
-/**
- * @brief 初始化菜单窗口的 webview
- *
- * @param hwnd
- */
-void InitWebviewMenuWnd(HWND hwnd)
-{
-    std::wstring appDataPath = GetAppdataPath();
-    CreateCoreWebView2EnvironmentWithOptions(                                                 //
-        nullptr,                                                                              //
-        appDataPath.c_str(),                                                                  //
-        nullptr,                                                                              //
-        Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>( //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {                //
-                return OnMenuWindowEnvironmentCreated(hwnd, result, env);                     //
-            })                                                                                //
-            .Get()                                                                            //
-    );                                                                                        //
 }
 
 //
@@ -1299,19 +1320,35 @@ HRESULT OnControllerCreatedFtbWnd(      //
         return E_FAIL;
     }
 
+    UpdateSmallWindowWebviewVisibility(hwnd, IsWindowVisible(hwnd) != FALSE);
+
     // Configure webviewFtbWindow settings
     ComPtr<ICoreWebView2Settings> settings;
     if (SUCCEEDED(webviewFtbWnd->get_Settings(&settings)))
     {
         settings->put_IsScriptEnabled(TRUE);
-        settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+        settings->put_AreDefaultScriptDialogsEnabled(FALSE);
         settings->put_IsWebMessageEnabled(TRUE);
-        settings->put_AreHostObjectsAllowed(TRUE);
+        settings->put_AreHostObjectsAllowed(FALSE);
         // 禁用右键菜单和开发者工具
         settings->put_AreDefaultContextMenusEnabled(FALSE);
         settings->put_AreDevToolsEnabled(FALSE);
         // 禁止界面缩放
-        settings->put_IsZoomControlEnabled(false);
+        settings->put_IsZoomControlEnabled(FALSE);
+        settings->put_IsStatusBarEnabled(FALSE);
+
+        ComPtr<ICoreWebView2Settings3> settings3;
+        if (SUCCEEDED(settings.As(&settings3)))
+        {
+            settings3->put_AreBrowserAcceleratorKeysEnabled(FALSE);
+        }
+
+        ComPtr<ICoreWebView2Settings5> settings5;
+        if (SUCCEEDED(settings.As(&settings5)))
+        {
+            settings5->put_IsGeneralAutofillEnabled(FALSE);
+            settings5->put_IsPasswordAutosaveEnabled(FALSE);
+        }
     }
 
     // 初始时缩放设置成 1.0
@@ -1338,8 +1375,6 @@ HRESULT OnControllerCreatedFtbWnd(      //
     // Adjust to window size
     RECT bounds;
     GetClientRect(hwnd, &bounds);
-    bounds.right += boundRightExtra;
-    bounds.bottom += boundBottomExtra;
     webviewControllerFtbWnd->put_Bounds(bounds);
 
     // Navigate to HTML
@@ -1481,23 +1516,44 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 }
 
 /**
- * @brief 初始化 floating toolbar 窗口的 webview
- *
- * @param hwnd
+ * @brief Initialize the candidate, tray menu, and floating toolbar WebViews in
+ *        one environment so they share a browser process and user data folder.
  */
-void InitWebviewFtbWnd(HWND hwnd)
+void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 {
-    std::wstring appDataPath = GetAppdataPath();
-    CreateCoreWebView2EnvironmentWithOptions(                                  //
-        nullptr,                                                               //
-        appDataPath.c_str(),                                                   //
-        nullptr,                                                               //
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(  //
-            [hwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT { //
-                return OnFtbWindowEnvironmentCreated(hwnd, result, env);       //
-            })                                                                 //
-            .Get()                                                             //
-    );                                                                         //
+    auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
+    options->put_AdditionalBrowserArguments( //
+        L"--disable-features=TranslateUI "
+        L"--disable-background-networking "
+        L"--disable-default-apps "
+        L"--disable-sync "
+        L"--disable-prompt-on-repost "
+        L"--no-first-run");
+
+    const std::wstring appDataPath = GetAppdataPath();
+    CreateCoreWebView2EnvironmentWithOptions(
+        nullptr,
+        appDataPath.c_str(),
+        options.Get(),
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+            [candHwnd, menuHwnd, ftbHwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
+                if (FAILED(result) || !env)
+                {
+                    ShowErrorMessage(candHwnd, L"Failed to create the shared WebView2 environment.");
+                    return FAILED(result) ? result : E_FAIL;
+                }
+
+                smallWindowWebviewEnvironment = env;
+
+                const HRESULT candResult = OnEnvironmentCreated(candHwnd, S_OK, env);
+                const HRESULT menuResult = OnMenuWindowEnvironmentCreated(menuHwnd, S_OK, env);
+                const HRESULT ftbResult = OnFtbWindowEnvironmentCreated(ftbHwnd, S_OK, env);
+
+                if (FAILED(candResult)) return candResult;
+                if (FAILED(menuResult)) return menuResult;
+                return ftbResult;
+            })
+            .Get());
 }
 
 /**
