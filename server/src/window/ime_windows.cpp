@@ -84,17 +84,20 @@ bool ActivateSettingsWindow(HWND hwnd)
 
     BringWindowToTop(hwnd);
     SetForegroundWindow(hwnd);
+    SetActiveWindow(hwnd);
+    SetFocus(hwnd);
 
     if (input_attached)
     {
         AttachThreadInput(current_thread, foreground_thread, FALSE);
     }
 
-    // Set thread-local active/focus state only after the temporary input queue
-    // attachment has been removed. Otherwise detaching can restore ownership
-    // to the previously foreground thread after several app switches.
+    // Detaching can restore some thread-local state, so verify foreground and
+    // reassert this thread's active/focus state after the shared queue has been
+    // separated again.
     if (GetForegroundWindow() != hwnd)
     {
+        BringWindowToTop(hwnd);
         SetForegroundWindow(hwnd);
     }
     SetActiveWindow(hwnd);
@@ -959,14 +962,22 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     switch (message)
     {
     case WM_ACTIVATE_SETTINGS_WINDOW:
+        if (!IsWindowVisible(hwnd))
+        {
+            g_settings_activation_retries_remaining = 0;
+            KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
+            return 0;
+        }
         ActivateSettingsWindow(hwnd);
         return 0;
     case WM_MOUSEACTIVATE:
-        // Let Windows finish its native mouse-activation sequence first. Doing
-        // SetForegroundWindow/SetFocus synchronously from inside
-        // WM_MOUSEACTIVATE can be overwritten by the remaining default click
-        // processing. Reassert host + WebView focus on the next queue turn.
-        ScheduleSettingsWindowActivation(hwnd);
+        // The click itself gives Windows permission to activate this window.
+        // Request foreground synchronously, before button-down, but do not use
+        // ActivateSettingsWindow here: temporarily attaching the two input
+        // queues interferes with subsequent mouse activations. Deferring this
+        // work can also split the down/up pair forwarded to WebView.
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
         return MA_ACTIVATE;
     case WM_ACTIVATE: {
         const LRESULT result = DefWindowProc(hwnd, message, wParam, lParam);
@@ -998,7 +1009,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     case WM_TIMER: {
         if (wParam == TIMER_ID_SETTINGS_ACTIVATION_RETRY)
         {
-            if (GetForegroundWindow() == hwnd || g_settings_activation_retries_remaining <= 0)
+            if (!IsWindowVisible(hwnd) || GetForegroundWindow() == hwnd ||
+                g_settings_activation_retries_remaining <= 0)
             {
                 g_settings_activation_retries_remaining = 0;
                 KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
@@ -1120,6 +1132,15 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
     case WM_MOUSEHWHEEL:
         if (ForwardMouseMessageToWebViewSettingsWnd(hwnd, message, wParam, lParam))
         {
+            // Start the bounded foreground retry only after WebView has
+            // received the complete click. Scheduling from WM_MOUSEACTIVATE
+            // can split the down/up pair; scheduling here also handles a real
+            // foreground application (such as Chrome) reclaiming activation
+            // shortly after the click. Hidden windows cancel the retry above.
+            if (message == WM_LBUTTONUP)
+            {
+                ScheduleSettingsWindowActivation(hwnd);
+            }
             if (message == WM_XBUTTONDOWN || message == WM_XBUTTONUP || message == WM_XBUTTONDBLCLK)
             {
                 return TRUE;
