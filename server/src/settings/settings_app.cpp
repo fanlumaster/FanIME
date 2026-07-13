@@ -44,6 +44,57 @@ ComPtr<IDCompositionVisual> g_dcomp_root;
 RECT g_maximize_button_rect{};
 bool g_has_maximize_button_rect = false;
 bool g_maximize_button_hover = false;
+bool g_window_active = true;
+
+void ApplyWindowActivationAppearance()
+{
+    if (!g_webview)
+        return;
+
+    // Keep this effect in the native host so it follows the real top-level
+    // activation state rather than DOM focus. Only title-bar foreground
+    // elements are muted; the page and title-bar backgrounds remain intact.
+    const wchar_t *script = g_window_active
+        ? LR"JS((() => {
+            document.getElementById('metasequoia-window-inactive-overlay')?.remove();
+            const id = 'metasequoia-window-activation-style';
+            if (!document.getElementById(id)) {
+                const style = document.createElement('style');
+                style.id = id;
+                style.textContent = `
+                    .titlebar-left, .window-controls {
+                        transition: opacity 140ms ease-out;
+                    }
+                    html.metasequoia-window-inactive .titlebar-left,
+                    html.metasequoia-window-inactive .window-controls {
+                        opacity: 0.52 !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            document.documentElement.classList.remove('metasequoia-window-inactive');
+        })())JS"
+        : LR"JS((() => {
+            document.getElementById('metasequoia-window-inactive-overlay')?.remove();
+            const id = 'metasequoia-window-activation-style';
+            if (!document.getElementById(id)) {
+                const style = document.createElement('style');
+                style.id = id;
+                style.textContent = `
+                    .titlebar-left, .window-controls {
+                        transition: opacity 140ms ease-out;
+                    }
+                    html.metasequoia-window-inactive .titlebar-left,
+                    html.metasequoia-window-inactive .window-controls {
+                        opacity: 0.52 !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            document.documentElement.classList.add('metasequoia-window-inactive');
+        })())JS";
+    g_webview->ExecuteScript(script, nullptr);
+}
 
 void PostConfig()
 {
@@ -272,6 +323,7 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
                     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
                     PostWindowState(hwnd);
                     PostConfig();
+                    ApplyWindowActivationAppearance();
                     SetFocus(hwnd);
                 }
                 return S_OK;
@@ -415,6 +467,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     case WM_SETFOCUS:
         if (g_controller) g_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         break;
+    case WM_ACTIVATE:
+    {
+        const bool active = LOWORD(w_param) != WA_INACTIVE;
+        if (g_window_active != active)
+        {
+            g_window_active = active;
+            ApplyWindowActivationAppearance();
+        }
+        break;
+    }
     case WM_MOUSEMOVE: case WM_MOUSELEAVE:
     case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_RBUTTONDBLCLK:
