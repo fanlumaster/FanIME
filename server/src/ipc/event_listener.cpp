@@ -40,7 +40,8 @@ namespace
 {
 std::string BuildCurrentCandidatePage();
 
-std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases, const std::string &current_word)
+std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases,
+                                        const std::string &current_word)
 {
     return string_to_wstring(remaining_raw_input_with_cases + "\t" + current_word);
 }
@@ -51,8 +52,7 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wc
     {
         return false;
     }
-    const bool has_active_composition =
-        g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
+    const bool has_active_composition = g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
     if ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled() &&
         has_active_composition)
     {
@@ -89,7 +89,8 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wc
 
 bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
 {
-    return keycode == VK_OEM_7 && wch == L'\'' && g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
+    return keycode == VK_OEM_7 && wch == L'\'' && g_inputSession != nullptr &&
+           g_inputSession->current_scheme_type() != SchemeType::Wubi && !g_inputSession->get_pinyin_sequence().empty();
 }
 
 bool IsSelectionKey(UINT keycode)
@@ -106,9 +107,8 @@ bool IsPagingKey(UINT keycode)
 
 bool IsCandidateNavigationKey(UINT keycode)
 {
-    return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_OEM_COMMA ||
-           keycode == VK_OEM_PERIOD || keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT ||
-           keycode == VK_UP || keycode == VK_DOWN;
+    return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD ||
+           keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT || keycode == VK_UP || keycode == VK_DOWN;
 }
 
 bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
@@ -151,9 +151,8 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
         char input = 0;
         if (keycode >= 'A' && keycode <= 'Z')
         {
-            input = wch >= L'A' && wch <= L'Z' || wch >= L'a' && wch <= L'z'
-                        ? static_cast<char>(wch)
-                        : static_cast<char>(keycode + ('a' - 'A'));
+            input = wch >= L'A' && wch <= L'Z' || wch >= L'a' && wch <= L'z' ? static_cast<char>(wch)
+                                                                             : static_cast<char>(keycode + ('a' - 'A'));
         }
         else if (keycode == VK_OEM_7 && wch == L'\'')
         {
@@ -193,12 +192,10 @@ std::string BuildCurrentCandidatePage()
     ui.clear_page();
     const SchemeType current_scheme = g_inputSession->current_scheme_type();
     const bool uppercase_all_helpcodes = current_scheme == SchemeType::Quanpin;
-    const bool show_helpcodes =
-        (current_scheme == SchemeType::Shuangpin && GetConfiguredShuangpinHelpcodeEnabled() &&
-         GetConfiguredShowShuangpinHelpcodeInCandidateWindow()) ||
-        (current_scheme == SchemeType::Quanpin && GetConfiguredQuanpinHelpcodeEnabled() &&
-         GetConfiguredShowQuanpinHelpcodeInCandidateWindow()) ||
-        (current_scheme != SchemeType::Shuangpin && current_scheme != SchemeType::Quanpin);
+    const bool show_helpcodes = (current_scheme == SchemeType::Shuangpin && GetConfiguredShuangpinHelpcodeEnabled() &&
+                                 GetConfiguredShowShuangpinHelpcodeInCandidateWindow()) ||
+                                (current_scheme == SchemeType::Quanpin && GetConfiguredQuanpinHelpcodeEnabled() &&
+                                 GetConfiguredShowQuanpinHelpcodeInCandidateWindow());
 
     const int start = ui.current_page_start();
     const int loop = ui.current_page_count();
@@ -277,8 +274,8 @@ void LogPipeDisconnect(const wchar_t *pipe_name)
 
 void LogPipeEvent(const wchar_t *pipe_name, UINT event_type, UINT keycode, WCHAR wch, UINT modifiers_down)
 {
-    FANY_IPC_LOGF(L"[msime]: [ipc] {} event: type={}, keycode={}, wch={}, modifiers={}", pipe_name, event_type,
-                  keycode, static_cast<unsigned int>(wch), modifiers_down);
+    FANY_IPC_LOGF(L"[msime]: [ipc] {} event: type={}, keycode={}, wch={}, modifiers={}", pipe_name, event_type, keycode,
+                  static_cast<unsigned int>(wch), modifiers_down);
 }
 
 void LogClientLifecycle(const wchar_t *phase, uint64_t client_id, UINT event_type)
@@ -447,7 +444,6 @@ void WorkerThread()
         }
         }
     }
-
 }
 
 void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData)
@@ -506,7 +502,8 @@ void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word)
 void SendCurrentDataToActiveTsf()
 {
     const UINT msg_type = Global::MsgTypeToTsf;
-    FANY_IPC_LOGF(L"[msime]: [ipc] send-current-data: msg_type={}, text={}", msg_type, ::Global::candidate_ui.selected_text);
+    FANY_IPC_LOGF(L"[msime]: [ipc] send-current-data: msg_type={}, text={}", msg_type,
+                  ::Global::candidate_ui.selected_text);
     SendToTsfViaNamedpipe(msg_type, ::Global::candidate_ui.selected_text);
     if (msg_type == Global::DataFromServerMsgType::Normal)
     {
@@ -900,12 +897,12 @@ void HandleImeKey()
     const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
     const bool is_commit_with_first_candidate_punctuation =
-        !is_manual_pinyin_separator && IsCommitWithFirstCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
+        !is_manual_pinyin_separator &&
+        IsCommitWithFirstCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
-    const bool is_composition_edit_key = Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT ||
-                                         Global::Keycode == VK_BACK ||
-                                         (Global::Keycode >= 'A' && Global::Keycode <= 'Z') ||
-                                         is_manual_pinyin_separator;
+    const bool is_composition_edit_key =
+        Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT || Global::Keycode == VK_BACK ||
+        (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator;
     const bool should_forward_key_to_session =
         !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key && !is_composition_edit_key;
 
@@ -915,8 +912,7 @@ void HandleImeKey()
     if (is_commit_with_first_candidate_punctuation)
     {
         Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
-        const bool has_active_composition =
-            g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
+        const bool has_active_composition = g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
         if (has_active_composition)
         {
             EnsureCandidatePageReady();
@@ -1049,7 +1045,7 @@ void HandleImeKey()
         else if (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled())
         {
             move_page(shift_down ? -1 : 1, shift_down ? Global::DataFromServerMsgType::MovePagePrevious
-                                                     : Global::DataFromServerMsgType::MovePageNext);
+                                                      : Global::DataFromServerMsgType::MovePageNext);
         }
         else if (Global::Keycode == VK_PRIOR && GetConfiguredPagingPageUpDownEnabled())
         {
@@ -1103,9 +1099,8 @@ void ProcessSelectionKey(UINT keycode)
     const bool is_space = keycode == VK_SPACE;
     const bool is_digit_selection = keycode >= '1' && keycode <= '9';
     const int index = is_space ? Global::candidate_ui.selected_index_in_page : static_cast<int>(keycode - '1');
-    const bool is_valid_selection =
-        (is_space || is_digit_selection) && index >= 0 &&
-        static_cast<size_t>(index) < Global::candidate_ui.page_words.size();
+    const bool is_valid_selection = (is_space || is_digit_selection) && index >= 0 &&
+                                    static_cast<size_t>(index) < Global::candidate_ui.page_words.size();
 
     if (is_valid_selection)
     {

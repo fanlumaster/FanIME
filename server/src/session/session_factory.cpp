@@ -11,9 +11,8 @@ namespace
 {
 std::string ToLowerAscii(std::string value)
 {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     return value;
 }
 
@@ -28,7 +27,7 @@ std::string ResolveEffectiveBackend(std::string configured_backend, SchemeType s
         case SchemeType::Quanpin:
             return "engine-quanpin";
         case SchemeType::Wubi:
-            throw std::runtime_error("Wubi is not supported yet.");
+            return "engine-wubi";
         default:
             throw std::runtime_error("Unknown input scheme.");
         }
@@ -43,7 +42,7 @@ std::string ResolveEffectiveBackend(std::string configured_backend, SchemeType s
         case SchemeType::Quanpin:
             return "engine-quanpin";
         case SchemeType::Wubi:
-            throw std::runtime_error("Wubi is not supported yet.");
+            return "engine-wubi";
         default:
             throw std::runtime_error("Unknown input scheme.");
         }
@@ -63,6 +62,10 @@ std::shared_ptr<IInputSession> CreateInputSessionFromConfig()
     if (backend == "engine-quanpin")
     {
         return std::make_shared<EngineInputSession>(SchemeType::Quanpin);
+    }
+    if (backend == "engine-wubi")
+    {
+        return std::make_shared<EngineInputSession>(SchemeType::Wubi);
     }
 
     if (backend == "legacy-shuangpin")

@@ -35,7 +35,7 @@ class EngineInputSession : public IInputSession
     int remove_candidate(std::string pinyin, std::string word) override;
     int cache_dynamic_candidate(const std::string &pinyin, const std::string &word) override;
     SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin,
-                                                           const std::string &selected_word) override;
+                                                            const std::string &selected_word) override;
     CloudQueryState get_cloud_query_state() const override;
     CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
                                                        const std::string &current_word,
@@ -45,7 +45,9 @@ class EngineInputSession : public IInputSession
   private:
     const QueryRequest &request() const;
     bool is_shuangpin() const;
-    void apply_pending_shuangpin_sequence();
+    bool is_wubi() const;
+    void clear_pending_sequence();
+    void apply_pending_sequence();
 
   private:
     ImeSession session_;
@@ -53,4 +55,6 @@ class EngineInputSession : public IInputSession
     QuanpinEngine quanpin_engine_;
     std::string pending_pinyin_sequence_;
     std::string pending_pinyin_sequence_with_cases_;
+    bool has_pending_pinyin_sequence_ = false;
+    bool has_pending_pinyin_sequence_with_cases_ = false;
 };

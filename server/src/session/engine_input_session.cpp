@@ -49,8 +49,8 @@ struct ShuangpinCompositionBase
 
 ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &request)
 {
-    ShuangpinCompositionBase base{request.raw_input,
-                                  request.raw_input_with_cases.empty() ? request.raw_input : request.raw_input_with_cases};
+    ShuangpinCompositionBase base{
+        request.raw_input, request.raw_input_with_cases.empty() ? request.raw_input : request.raw_input_with_cases};
     base.effective_raw_input = shuangpin::remove_manual_delimiters(base.raw_input);
     base.effective_raw_input_with_cases = shuangpin::remove_manual_delimiters(base.raw_input_with_cases);
 
@@ -88,8 +88,8 @@ std::string ResolveShuangpinCloudCacheKey(const QueryRequest &request)
     const auto base = ResolveShuangpinCompositionBase(request);
     if (base.helpcode_length > 0 && base.effective_raw_input.size() >= base.helpcode_length)
     {
-        return base.raw_input.substr(
-            0, raw_length_for_normalized_prefix(base.raw_input, base.effective_raw_input.size() - base.helpcode_length));
+        return base.raw_input.substr(0, raw_length_for_normalized_prefix(
+                                            base.raw_input, base.effective_raw_input.size() - base.helpcode_length));
     }
     return base.raw_input;
 }
@@ -117,9 +117,9 @@ void EngineInputSession::recompute_candidates()
 {
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
-    if (is_shuangpin() && (!pending_pinyin_sequence_.empty() || !pending_pinyin_sequence_with_cases_.empty()))
+    if (has_pending_pinyin_sequence_ || has_pending_pinyin_sequence_with_cases_)
     {
-        apply_pending_shuangpin_sequence();
+        apply_pending_sequence();
         return;
     }
     session_.handle_key(0, 0, 0);
@@ -132,15 +132,13 @@ SchemeType EngineInputSession::current_scheme_type() const
 
 void EngineInputSession::switch_scheme(SchemeType scheme_type)
 {
-    pending_pinyin_sequence_.clear();
-    pending_pinyin_sequence_with_cases_.clear();
+    clear_pending_sequence();
     session_.switch_scheme(scheme_type);
 }
 
 void EngineInputSession::reset_state()
 {
-    pending_pinyin_sequence_.clear();
-    pending_pinyin_sequence_with_cases_.clear();
+    clear_pending_sequence();
     session_.reset();
 }
 
@@ -183,6 +181,10 @@ const std::string &EngineInputSession::get_pinyin_segmentation() const
 
 std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
 {
+    if (is_wubi())
+    {
+        return request().raw_input;
+    }
     if (is_shuangpin() && GetConfiguredShuangpinPreeditMode() == "shuangpin")
     {
         std::string preedit = request().raw_segmentation.empty() ? request().raw_input : request().raw_segmentation;
@@ -197,7 +199,8 @@ std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
     {
         return request().raw_segmentation.empty() ? request().raw_input_with_cases : request().raw_segmentation;
     }
-    std::string preedit = request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
+    std::string preedit =
+        request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
     if (!request().raw_input_with_cases.empty() && request().raw_input_with_cases.back() == '\'' &&
         (preedit.empty() || preedit.back() != '\''))
     {
@@ -213,13 +216,18 @@ std::string EngineInputSession::get_quanpin() const
 
 bool EngineInputSession::is_all_complete_pure_pinyin() const
 {
+    if (is_wubi())
+    {
+        return request().valid;
+    }
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request());
         if (base.helpcode_length > 0 && base.effective_raw_input.size() >= base.helpcode_length)
         {
-            return shuangpin::is_complete_input(base.raw_input.substr(
-                0, raw_length_for_normalized_prefix(base.raw_input, base.effective_raw_input.size() - base.helpcode_length)));
+            return shuangpin::is_complete_input(
+                base.raw_input.substr(0, raw_length_for_normalized_prefix(
+                                             base.raw_input, base.effective_raw_input.size() - base.helpcode_length)));
         }
         return shuangpin::is_complete_input(base.raw_input);
     }
@@ -231,11 +239,13 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
 void EngineInputSession::set_pinyin_sequence(const std::string &pinyin_sequence)
 {
     pending_pinyin_sequence_ = pinyin_sequence;
+    has_pending_pinyin_sequence_ = true;
 }
 
 void EngineInputSession::set_pinyin_sequence_with_cases(const std::string &pinyin_sequence)
 {
     pending_pinyin_sequence_with_cases_ = pinyin_sequence;
+    has_pending_pinyin_sequence_with_cases_ = true;
 }
 
 int EngineInputSession::store_user_phrase(std::string pinyin, std::string word)
@@ -264,6 +274,13 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     const std::string &selected_pinyin, const std::string &selected_word)
 {
     SelectionTransition transition;
+    if (is_wubi())
+    {
+        transition.full_pure_pinyin = request().normalized_input;
+        transition.current_segmentation = request().normalized_input;
+        transition.current_segmentation_with_cases = request().raw_input;
+        return transition;
+    }
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request());
@@ -284,9 +301,10 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 
             if (transition.continues_composition)
             {
-                const size_t rest_start = raw_length_for_normalized_prefix(base.raw_input_with_cases, word_pinyin_length);
-                const size_t rest_end = raw_length_for_normalized_prefix(
-                    base.raw_input_with_cases, total_input_length - base.helpcode_length);
+                const size_t rest_start =
+                    raw_length_for_normalized_prefix(base.raw_input_with_cases, word_pinyin_length);
+                const size_t rest_end = raw_length_for_normalized_prefix(base.raw_input_with_cases,
+                                                                         total_input_length - base.helpcode_length);
                 const std::string rest_pinyin_sequence = base.raw_input.substr(rest_start, rest_end - rest_start);
                 const std::string rest_pinyin_sequence_with_cases =
                     base.raw_input_with_cases.substr(rest_start, rest_end - rest_start);
@@ -305,7 +323,8 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 
             if (transition.continues_composition)
             {
-                const size_t consumed_raw_length = raw_length_for_normalized_prefix(base.raw_input_with_cases, consumed_length);
+                const size_t consumed_raw_length =
+                    raw_length_for_normalized_prefix(base.raw_input_with_cases, consumed_length);
                 const std::string rest_pinyin_sequence =
                     base.raw_input.substr(consumed_raw_length, base.raw_input.size() - consumed_raw_length);
                 const std::string rest_pinyin_sequence_with_cases = base.raw_input_with_cases.substr(
@@ -332,9 +351,9 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     size_t consumed_raw_length =
         raw_length_for_normalized_prefix(raw_input_with_cases_without_helpcodes, selected_pure_pinyin.size());
 
-    transition.continues_composition =
-        !selected_pure_pinyin.empty() && selected_pure_pinyin.size() < transition.full_pure_pinyin.size() &&
-        is_all_complete_pure_pinyin();
+    transition.continues_composition = !selected_pure_pinyin.empty() &&
+                                       selected_pure_pinyin.size() < transition.full_pure_pinyin.size() &&
+                                       is_all_complete_pure_pinyin();
 
     if (transition.continues_composition)
     {
@@ -356,6 +375,13 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
 
+    if (is_wubi())
+    {
+        state.cache_key = request().normalized_input;
+        state.committed_pinyin = request().normalized_input;
+        return state;
+    }
+
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request());
@@ -369,7 +395,8 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 
         const std::string base_input_with_cases =
             base.helpcode_length > 0 && base.effective_raw_input_with_cases.size() >= base.helpcode_length
-                ? base.effective_raw_input_with_cases.substr(0, base.effective_raw_input_with_cases.size() - base.helpcode_length)
+                ? base.effective_raw_input_with_cases.substr(0, base.effective_raw_input_with_cases.size() -
+                                                                    base.helpcode_length)
                 : base.effective_raw_input_with_cases;
 
         if (!base_input_with_cases.empty() && base_input_with_cases.size() % 2 == 0)
@@ -399,13 +426,19 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
     return state;
 }
 
-IInputSession::CreatingWordProgress
-EngineInputSession::update_creating_word_progress(const std::string &current_pinyin,
-                                                  const std::string &current_word,
-                                                  const std::string &selected_word,
-                                                  const SelectionTransition &selection_transition) const
+IInputSession::CreatingWordProgress EngineInputSession::update_creating_word_progress(
+    const std::string &current_pinyin, const std::string &current_word, const std::string &selected_word,
+    const SelectionTransition &selection_transition) const
 {
     CreatingWordProgress progress;
+    if (is_wubi())
+    {
+        progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
+        progress.word = current_word + selected_word;
+        progress.preedit = progress.word;
+        progress.completed = true;
+        return progress;
+    }
     progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
     progress.word = current_word + selected_word;
     progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
@@ -425,14 +458,36 @@ bool EngineInputSession::is_shuangpin() const
     return current_scheme_type() == SchemeType::Shuangpin;
 }
 
-void EngineInputSession::apply_pending_shuangpin_sequence()
+bool EngineInputSession::is_wubi() const
 {
-    const std::string raw_input =
-        pending_pinyin_sequence_.empty() ? request().raw_input : pending_pinyin_sequence_;
-    const std::string raw_input_with_cases =
-        pending_pinyin_sequence_with_cases_.empty() ? raw_input : pending_pinyin_sequence_with_cases_;
+    return current_scheme_type() == SchemeType::Wubi;
+}
 
-    session_.replace_shuangpin_raw_input(raw_input, raw_input_with_cases);
+void EngineInputSession::clear_pending_sequence()
+{
     pending_pinyin_sequence_.clear();
     pending_pinyin_sequence_with_cases_.clear();
+    has_pending_pinyin_sequence_ = false;
+    has_pending_pinyin_sequence_with_cases_ = false;
+}
+
+void EngineInputSession::apply_pending_sequence()
+{
+    const std::string raw_input = has_pending_pinyin_sequence_ ? pending_pinyin_sequence_ : request().raw_input;
+    const std::string raw_input_with_cases =
+        has_pending_pinyin_sequence_with_cases_ ? pending_pinyin_sequence_with_cases_ : raw_input;
+
+    switch (current_scheme_type())
+    {
+    case SchemeType::Shuangpin:
+        session_.replace_shuangpin_raw_input(raw_input, raw_input_with_cases);
+        break;
+    case SchemeType::Quanpin:
+        session_.replace_quanpin_raw_input(raw_input, raw_input_with_cases);
+        break;
+    case SchemeType::Wubi:
+        session_.replace_wubi_raw_input(raw_input, raw_input_with_cases);
+        break;
+    }
+    clear_pending_sequence();
 }

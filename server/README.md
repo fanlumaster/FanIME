@@ -27,7 +27,7 @@ cd .\MetasequoiaImeDict\makecikudb\xnheulpb\makedb\separated_jp_version
 python .\create_db_and_table.py
 python .\insert_data.py
 python .\create_index_for_db.py
-Copy-Item -Path .\out\cutted_flyciku_with_jp.db -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
+Copy-Item -Path .\out\msime.db -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
 ```
 
 **Then**, clone and build MetasequoiaImeServer,
