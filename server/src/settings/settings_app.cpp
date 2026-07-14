@@ -159,6 +159,7 @@ void PostConfig()
             {"wubi_schema", GetConfiguredWubiSchema()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+            {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
             {"paging_tab", GetConfiguredPagingTabEnabled()},
@@ -205,6 +206,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.cn_en_mixed_input")
+        return SetConfiguredEnglishCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_minus_equal")
         return SetConfiguredPagingMinusEqualEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_tab")

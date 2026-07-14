@@ -524,6 +524,16 @@ bool GetConfiguredEnglishCandidatesEnabled()
     return g_english_candidates_enabled;
 }
 
+bool SetConfiguredEnglishCandidatesEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "cn_en_mixed_input", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_english_candidates_enabled = enabled;
+    return true;
+}
+
 bool GetConfiguredPagingMinusEqualEnabled()
 {
     return g_paging_minus_equal_enabled;

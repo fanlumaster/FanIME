@@ -1081,6 +1081,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.cn_en_mixed_input")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredEnglishCandidatesEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1242,6 +1250,7 @@ void PostSettingsConfig()
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
                                 {"wubi_schema", GetConfiguredWubiSchema()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+                                {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
                                 {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
                                 {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
                                 {"paging_tab", GetConfiguredPagingTabEnabled()},
