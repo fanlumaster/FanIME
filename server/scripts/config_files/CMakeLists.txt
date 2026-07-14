@@ -92,6 +92,7 @@ set(SRC_FILES_IME_ENGINE
     "./MetasequoiaImeEngine/schemes/shuangpin_scheme.cpp"
     "./MetasequoiaImeEngine/shuangpin/engine.cpp"
     "./MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.cpp"
+    "./MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
     "./MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
     "./MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
 )

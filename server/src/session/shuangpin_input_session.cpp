@@ -20,7 +20,7 @@ bool HasActiveShuangpinHelpcode(const ShuangpinInputSession &session)
         return false;
     }
 
-    if (ShuangpinUtil::IsFullHelpMode(raw_input_with_cases) && raw_input.size() >= 2)
+    if (ShuangpinUtil::IsFullHelpMode(raw_input_with_cases, session.profile()) && raw_input.size() >= 2)
     {
         return true;
     }
@@ -28,7 +28,7 @@ bool HasActiveShuangpinHelpcode(const ShuangpinInputSession &session)
     if (raw_input.size() % 2 == 1 && raw_input.size() > 1)
     {
         const std::string pure_raw_input = raw_input.substr(0, raw_input.size() - 1);
-        const std::string pure_segmentation = ShuangpinUtil::pinyin_segmentation(pure_raw_input);
+        const std::string pure_segmentation = ShuangpinUtil::pinyin_segmentation(pure_raw_input, session.profile());
         return ShuangpinUtil::is_all_complete_pinyin(pure_raw_input, pure_segmentation);
     }
 
@@ -36,7 +36,8 @@ bool HasActiveShuangpinHelpcode(const ShuangpinInputSession &session)
 }
 } // namespace
 
-ShuangpinInputSession::ShuangpinInputSession() : dictionary_(std::make_unique<DictionaryUlPb>())
+ShuangpinInputSession::ShuangpinInputSession(const ShuangpinProfile &profile)
+    : profile_(profile), dictionary_(std::make_unique<DictionaryUlPb>(profile))
 {
 }
 

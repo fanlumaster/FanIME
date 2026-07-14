@@ -47,7 +47,8 @@ struct ShuangpinCompositionBase
     size_t helpcode_length = 0;
 };
 
-ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &request)
+ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &request,
+                                                          const ShuangpinProfile &profile)
 {
     ShuangpinCompositionBase base{
         request.raw_input, request.raw_input_with_cases.empty() ? request.raw_input : request.raw_input_with_cases};
@@ -59,7 +60,8 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
         return base;
     }
 
-    if (ShuangpinUtil::IsFullHelpMode(base.effective_raw_input_with_cases) && base.effective_raw_input.size() >= 2)
+    if (ShuangpinUtil::IsFullHelpMode(base.effective_raw_input_with_cases, profile) &&
+        base.effective_raw_input.size() >= 2)
     {
         base.helpcode_length = 2;
         return base;
@@ -68,7 +70,7 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
     if (base.effective_raw_input.size() % 2 == 1 && base.effective_raw_input.size() > 1)
     {
         const std::string pure_raw_input = base.effective_raw_input.substr(0, base.effective_raw_input.size() - 1);
-        if (shuangpin::is_complete_input(pure_raw_input))
+        if (shuangpin::is_complete_input(pure_raw_input, profile))
         {
             base.helpcode_length = 1;
         }
@@ -83,9 +85,9 @@ bool HasActiveQuanpinHelpcode(const QueryRequest &request)
            quanpin::detect_active_helpcode_length(request.raw_input, request.raw_input_with_cases) > 0;
 }
 
-std::string ResolveShuangpinCloudCacheKey(const QueryRequest &request)
+std::string ResolveShuangpinCloudCacheKey(const QueryRequest &request, const ShuangpinProfile &profile)
 {
-    const auto base = ResolveShuangpinCompositionBase(request);
+    const auto base = ResolveShuangpinCompositionBase(request, profile);
     if (base.helpcode_length > 0 && base.effective_raw_input.size() >= base.helpcode_length)
     {
         return base.raw_input.substr(0, raw_length_for_normalized_prefix(
@@ -100,7 +102,9 @@ std::string ResolveQuanpinCloudCacheKey(const QueryRequest &request)
 }
 } // namespace
 
-EngineInputSession::EngineInputSession(SchemeType scheme_type) : session_(scheme_type)
+EngineInputSession::EngineInputSession(SchemeType scheme_type, const ShuangpinProfile &shuangpin_profile)
+    : shuangpin_profile_(shuangpin_profile), session_(scheme_type, shuangpin_profile),
+      shuangpin_dictionary_(shuangpin_profile)
 {
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
@@ -222,14 +226,15 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
     }
     if (is_shuangpin())
     {
-        const auto base = ResolveShuangpinCompositionBase(request());
+        const auto base = ResolveShuangpinCompositionBase(request(), shuangpin_profile_);
         if (base.helpcode_length > 0 && base.effective_raw_input.size() >= base.helpcode_length)
         {
             return shuangpin::is_complete_input(
                 base.raw_input.substr(0, raw_length_for_normalized_prefix(
-                                             base.raw_input, base.effective_raw_input.size() - base.helpcode_length)));
+                                             base.raw_input, base.effective_raw_input.size() - base.helpcode_length)),
+                shuangpin_profile_);
         }
-        return shuangpin::is_complete_input(base.raw_input);
+        return shuangpin::is_complete_input(base.raw_input, shuangpin_profile_);
     }
     const auto &segmentation =
         request().normalized_segmentation.empty() ? request().segmentation : request().normalized_segmentation;
@@ -283,7 +288,7 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
     }
     if (is_shuangpin())
     {
-        const auto base = ResolveShuangpinCompositionBase(request());
+        const auto base = ResolveShuangpinCompositionBase(request(), shuangpin_profile_);
         const size_t word_pinyin_length = HelpcodeUtils::count_han_chars(selected_word) * 2;
         const size_t total_input_length = base.effective_raw_input.size();
 
@@ -384,8 +389,8 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 
     if (is_shuangpin())
     {
-        const auto base = ResolveShuangpinCompositionBase(request());
-        state.cache_key = ResolveShuangpinCloudCacheKey(request());
+        const auto base = ResolveShuangpinCompositionBase(request(), shuangpin_profile_);
+        state.cache_key = ResolveShuangpinCloudCacheKey(request(), shuangpin_profile_);
         state.committed_pinyin = shuangpin::remove_manual_delimiters(state.cache_key);
 
         if (base.helpcode_length > 0)
@@ -407,7 +412,7 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 
         if (state.should_query)
         {
-            state.query_text = shuangpin::normalize_input_with_delimiters(state.cache_key);
+            state.query_text = shuangpin::normalize_input_with_delimiters(state.cache_key, shuangpin_profile_);
         }
         return state;
     }

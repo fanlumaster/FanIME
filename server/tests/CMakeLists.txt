@@ -27,6 +27,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_query.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/engine.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.cpp"
+    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"

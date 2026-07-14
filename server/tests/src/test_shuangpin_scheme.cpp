@@ -7,6 +7,18 @@ void InputKey(ShuangpinScheme &scheme, UINT vk, WCHAR wch, UINT modifiers_down =
 {
     scheme.handle_key(vk, modifiers_down, wch);
 }
+
+const ShuangpinProfile &GetTestShuangpinProfile()
+{
+    static const ShuangpinProfile profile = [] {
+        ShuangpinProfile value = GetXiaoheShuangpinProfile();
+        value.name = "test";
+        value.finals["iang"] = "d";
+        value.finals["uang"] = "d";
+        return value;
+    }();
+    return profile;
+}
 }
 
 TEST_CASE(ShuangpinSchemeBuildRequestPreservesCaseAndNormalizesQuery)
@@ -58,4 +70,17 @@ TEST_CASE(ShuangpinSchemeBackspaceRemovesLastInput)
     REQUIRE(request.valid);
     REQUIRE_EQ(request.raw_input, std::string("x"));
     REQUIRE_EQ(request.raw_input_with_cases, std::string("x"));
+}
+
+TEST_CASE(ShuangpinSchemeUsesInjectedProfile)
+{
+    ShuangpinScheme xiaohe;
+    InputKey(xiaohe, 'X', L'x');
+    InputKey(xiaohe, 'L', L'l');
+    REQUIRE_EQ(xiaohe.build_request().normalized_segmentation, std::string("xiang"));
+
+    ShuangpinScheme custom(GetTestShuangpinProfile());
+    InputKey(custom, 'X', L'x');
+    InputKey(custom, 'D', L'd');
+    REQUIRE_EQ(custom.build_request().normalized_segmentation, std::string("xiang"));
 }

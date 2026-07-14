@@ -1,12 +1,14 @@
 #pragma once
 
 #include "input_session.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
 #include <memory>
 
 class ShuangpinInputSession : public IInputSession
 {
   public:
-    ShuangpinInputSession();
+    explicit ShuangpinInputSession(const ShuangpinProfile &profile = GetXiaoheShuangpinProfile());
+    const ShuangpinProfile &profile() const { return profile_; }
 
     void handle_key(UINT vk, UINT modifiers_down, WCHAR wch) override;
     void recompute_candidates() override;
@@ -42,5 +44,6 @@ class ShuangpinInputSession : public IInputSession
                                                        const SelectionTransition &selection_transition) const override;
 
   private:
+    const ShuangpinProfile &profile_;
     std::unique_ptr<DictionaryUlPb> dictionary_;
 };

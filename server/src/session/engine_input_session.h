@@ -7,7 +7,8 @@
 class EngineInputSession : public IInputSession
 {
   public:
-    explicit EngineInputSession(SchemeType scheme_type = SchemeType::Shuangpin);
+    explicit EngineInputSession(SchemeType scheme_type = SchemeType::Shuangpin,
+                                const ShuangpinProfile &shuangpin_profile = GetXiaoheShuangpinProfile());
 
     void handle_key(UINT vk, UINT modifiers_down, WCHAR wch) override;
     void recompute_candidates() override;
@@ -50,6 +51,7 @@ class EngineInputSession : public IInputSession
     void apply_pending_sequence();
 
   private:
+    const ShuangpinProfile &shuangpin_profile_;
     ImeSession session_;
     DictionaryUlPb shuangpin_dictionary_;
     QuanpinEngine quanpin_engine_;
