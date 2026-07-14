@@ -148,7 +148,7 @@ void ApplyConfiguredInputScheme()
     Global::candidate_ui.set_items({});
     if (::global_hwnd)
     {
-        ShowWindow(::global_hwnd, SW_HIDE);
+        PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
     }
 }
 
@@ -164,7 +164,7 @@ void ApplyConfiguredShuangpinSchema()
     Global::candidate_ui.set_items({});
     if (::global_hwnd)
     {
-        ShowWindow(::global_hwnd, SW_HIDE);
+        PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
     }
 }
 
