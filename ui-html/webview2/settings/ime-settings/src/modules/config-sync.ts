@@ -29,6 +29,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
+    if (typeof payload.data?.general?.cn_en_mixed_input === 'boolean') {
+      applyToggleState('zhEnToggleBtn', payload.data.general.cn_en_mixed_input);
+    }
     if (typeof payload.data?.general?.paging_minus_equal === 'boolean') {
       const checkbox = document.getElementById('pagingMinusEqualCheckbox') as HTMLInputElement | null;
       if (checkbox) checkbox.checked = payload.data.general.paging_minus_equal;

@@ -11,7 +11,9 @@ export function setupGeneral(): void {
   setupPageOptions();
 
   // 中英混输开关
-  setupToggleButton('zhEnToggleBtn');
+  setupToggleButton('zhEnToggleBtn', (active) => {
+    updateConfig('general.cn_en_mixed_input', active);
+  });
 }
 
 function setupPageOptions(): void {
