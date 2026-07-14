@@ -11,7 +11,9 @@
 
 namespace
 {
-constexpr size_t kMinimumPrefixLength = 2;
+// Start offering English completions at five input characters. Shorter input
+// remains exclusively on the existing Chinese candidate path.
+constexpr size_t kMinimumPrefixLength = 5;
 constexpr size_t kCandidateLimit = 5;
 
 std::mutex g_mutex;
