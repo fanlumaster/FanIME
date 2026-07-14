@@ -59,7 +59,7 @@ async function initializeApp() {
 
   // 加载默认内容(通用设置)，初始化功能
   // 隐藏其他的分区
-  showOnlyCurrentModule('appearance');
+  showOnlyCurrentModule('general');
   setupSidebar();
 
   container.style.visibility = 'visible';
