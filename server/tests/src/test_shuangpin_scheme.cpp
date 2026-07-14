@@ -1,5 +1,8 @@
 #include "tests/includes/test_framework.h"
 #include "MetasequoiaImeEngine/schemes/shuangpin_scheme.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -83,4 +86,47 @@ TEST_CASE(ShuangpinSchemeUsesInjectedProfile)
     InputKey(custom, 'X', L'x');
     InputKey(custom, 'D', L'd');
     REQUIRE_EQ(custom.build_request().normalized_segmentation, std::string("xiang"));
+}
+
+TEST_CASE(ZiranmaProfileDecodesWikipediaKeyboardLayout)
+{
+    const auto &profile = GetZiranmaShuangpinProfile();
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"jq", "jiu"},   {"xw", "xia"},   {"gw", "gua"},   {"he", "he"},
+        {"gr", "guan"},  {"xt", "xue"},   {"my", "ming"},  {"ky", "kuai"},
+        {"du", "du"},    {"li", "li"},    {"bo", "bo"},    {"lo", "luo"},
+        {"lp", "lun"},   {"da", "da"},    {"js", "jiong"}, {"ds", "dong"},
+        {"xd", "xiang"}, {"gd", "guang"}, {"hf", "hen"},   {"dg", "deng"},
+        {"dh", "dang"},  {"dj", "dan"},   {"dk", "dao"},   {"dl", "dai"},
+        {"fz", "fei"},   {"dx", "die"},   {"dc", "diao"},  {"dv", "dui"},
+        {"lv", "lv"},    {"db", "dou"},   {"ln", "lin"},   {"lm", "lian"},
+        {"vh", "zhang"}, {"ih", "chang"}, {"uh", "shang"},
+    };
+
+    for (const auto &[input, expected] : cases)
+    {
+        REQUIRE_EQ(shuangpin::normalize_input(input, profile), expected);
+    }
+}
+
+TEST_CASE(ZiranmaProfileDecodesZeroInitialSyllables)
+{
+    const auto &profile = GetZiranmaShuangpinProfile();
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"aa", "a"},   {"oo", "o"},   {"ee", "e"},   {"ai", "ai"}, {"an", "an"},
+        {"ao", "ao"}, {"ah", "ang"}, {"ei", "ei"}, {"en", "en"}, {"eg", "eng"},
+        {"er", "er"}, {"ou", "ou"},
+    };
+
+    for (const auto &[input, expected] : cases)
+    {
+        REQUIRE_EQ(shuangpin::normalize_input(input, profile), expected);
+    }
+}
+
+TEST_CASE(ShuangpinProfileResolverSelectsZiranmaAndFallsBackToXiaohe)
+{
+    REQUIRE_EQ(GetShuangpinProfile("ziranma").name, std::string("ziranma"));
+    REQUIRE_EQ(GetShuangpinProfile("xiaohe").name, std::string("xiaohe"));
+    REQUIRE_EQ(GetShuangpinProfile("unknown").name, std::string("xiaohe"));
 }

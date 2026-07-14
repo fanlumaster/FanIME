@@ -24,6 +24,7 @@ namespace json = boost::json;
 int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
 void ApplyConfiguredInputScheme();
+void ApplyConfiguredShuangpinSchema();
 
 constexpr int candidateBoundRightExtra = 1000;
 constexpr int candidateBoundBottomExtra = 1000;
@@ -1052,6 +1053,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredShuangpinSchema(value))
                                 {
+                                    ApplyConfiguredShuangpinSchema();
                                     PostSettingsConfig();
                                 }
                             }

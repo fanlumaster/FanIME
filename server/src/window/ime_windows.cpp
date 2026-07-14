@@ -152,6 +152,22 @@ void ApplyConfiguredInputScheme()
     }
 }
 
+void ApplyConfiguredShuangpinSchema()
+{
+    if (!g_inputSession || g_inputSession->current_scheme_type() != SchemeType::Shuangpin)
+    {
+        return;
+    }
+
+    FanyNamedPipe::ClearState();
+    g_inputSession = CreateInputSessionFromConfig();
+    Global::candidate_ui.set_items({});
+    if (::global_hwnd)
+    {
+        ShowWindow(::global_hwnd, SW_HIDE);
+    }
+}
+
 LRESULT RegisterCandidateWindowMessage()
 {
 
@@ -545,6 +561,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         else if (wParam == TIMER_ID_CONFIG_SYNC)
         {
             const SchemeType previous_input_scheme = GetConfiguredInputScheme();
+            const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
@@ -552,6 +569,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             {
                 if (previous_input_scheme != GetConfiguredInputScheme())
                     ApplyConfiguredInputScheme();
+                else if (previous_shuangpin_schema != GetConfiguredShuangpinSchema())
+                    ApplyConfiguredShuangpinSchema();
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                     ApplyConfiguredCandidateWindowLayout();
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
@@ -1017,6 +1036,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         else if (wParam == TIMER_ID_CONFIG_SYNC)
         {
             const SchemeType previous_input_scheme = GetConfiguredInputScheme();
+            const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             if (ReloadImeConfigIfChanged())
@@ -1024,6 +1044,10 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 if (previous_input_scheme != GetConfiguredInputScheme())
                 {
                     ApplyConfiguredInputScheme();
+                }
+                else if (previous_shuangpin_schema != GetConfiguredShuangpinSchema())
+                {
+                    ApplyConfiguredShuangpinSchema();
                 }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                 {

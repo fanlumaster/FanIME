@@ -68,7 +68,8 @@ schema = "shuangpin"
 #   shuangpin -> 预编辑显示原始双拼输入串
 shuangpin_preedit_mode = "shuangpin"
 # 双拼方案，可选："xiaohe", "ziranma"
-shuangpin_schema = "xiaohe"
+# shuangpin_schema = "xiaohe"
+shuangpin_schema = "ziranma"
 # 五笔方案，可选："wubi86", "wubi98"
 wubi_schema = "wubi86"
 

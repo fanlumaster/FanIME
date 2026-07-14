@@ -1,5 +1,6 @@
 #include "tests/includes/test_framework.h"
 #include "src/session/engine_input_session.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
 #include <algorithm>
 
 namespace
@@ -221,4 +222,25 @@ TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
     });
     REQUIRE(found != candidates.end());
     REQUIRE(found->source == CandidateSource::CloudSuggestion);
+}
+
+TEST_CASE(EngineShuangpinSessionUsesZiranmaProfileEndToEnd)
+{
+    EngineInputSession session(SchemeType::Shuangpin, GetZiranmaShuangpinProfile());
+
+    InputLetters(session, "xd");
+    const auto state = session.get_cloud_query_state();
+
+    REQUIRE(state.should_query);
+    REQUIRE_EQ(state.query_text, std::string("xiang"));
+    REQUIRE_EQ(session.get_quanpin(), std::string("xiang"));
+}
+
+TEST_CASE(LegacyShuangpinDictionaryUsesZiranmaProfile)
+{
+    ShuangpinDictionary dictionary(GetZiranmaShuangpinProfile());
+    dictionary.handleVkCode('X', 0, L'x');
+    dictionary.handleVkCode('D', 0, L'd');
+
+    REQUIRE_EQ(dictionary.get_quanpin(), std::string("xiang"));
 }

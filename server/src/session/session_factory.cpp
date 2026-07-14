@@ -3,6 +3,7 @@
 #include "config/ime_config.h"
 #include "engine_input_session.h"
 #include "shuangpin_input_session.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
 #include <algorithm>
 #include <stdexcept>
 #include <string>
@@ -55,9 +56,10 @@ std::string ResolveEffectiveBackend(std::string configured_backend, SchemeType s
 std::shared_ptr<IInputSession> CreateInputSessionFromConfig()
 {
     const std::string backend = DescribeEffectiveInputSessionBackendFromConfig();
+    const ShuangpinProfile &shuangpin_profile = GetShuangpinProfile(GetConfiguredShuangpinSchema());
     if (backend == "engine-shuangpin")
     {
-        return std::make_shared<EngineInputSession>(SchemeType::Shuangpin);
+        return std::make_shared<EngineInputSession>(SchemeType::Shuangpin, shuangpin_profile);
     }
     if (backend == "engine-quanpin")
     {
@@ -70,7 +72,7 @@ std::shared_ptr<IInputSession> CreateInputSessionFromConfig()
 
     if (backend == "legacy-shuangpin")
     {
-        return std::make_shared<ShuangpinInputSession>();
+        return std::make_shared<ShuangpinInputSession>(shuangpin_profile);
     }
 
     throw std::runtime_error("Unsupported effective input session backend: " + backend);
