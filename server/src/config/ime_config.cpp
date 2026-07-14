@@ -20,6 +20,7 @@ bool g_quanpin_helpcode_enabled = true;
 bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
+bool g_english_candidates_enabled = false;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
@@ -237,6 +238,7 @@ bool LoadImeConfig()
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
+        g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled =
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
@@ -515,6 +517,11 @@ bool SetConfiguredFloatingToolbarEnabled(bool enabled)
     }
     g_floating_toolbar_enabled = enabled;
     return true;
+}
+
+bool GetConfiguredEnglishCandidatesEnabled()
+{
+    return g_english_candidates_enabled;
 }
 
 bool GetConfiguredPagingMinusEqualEnabled()

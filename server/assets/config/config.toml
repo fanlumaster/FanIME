@@ -20,8 +20,8 @@ paging_comma_period = true
 paging_tab = true
 paging_page_up_down = true
 candidate_arrow_navigation = true
-# 中英混输
-cn_en_mixed_input = false
+# 中文输入状态下显示英文前缀候选
+cn_en_mixed_input = true
 # 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。
 clean_mode = false
 

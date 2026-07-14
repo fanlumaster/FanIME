@@ -27,4 +27,5 @@ void ClearState();
 void ProcessSelectionKey(UINT keycode);
 void SendCurrentDataToActiveTsf();
 void EnqueueCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
+void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 } // namespace FanyNamedPipe

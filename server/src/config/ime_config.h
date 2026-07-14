@@ -27,6 +27,7 @@ bool GetConfiguredShowQuanpinHelpcodeInCandidateWindow();
 bool SetConfiguredShowQuanpinHelpcodeInCandidateWindow(bool enabled);
 bool GetConfiguredFloatingToolbarEnabled();
 bool SetConfiguredFloatingToolbarEnabled(bool enabled);
+bool GetConfiguredEnglishCandidatesEnabled();
 bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();

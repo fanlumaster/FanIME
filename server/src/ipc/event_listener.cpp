@@ -24,6 +24,7 @@
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
+#include "english/english_ime.h"
 #include "config/ime_config.h"
 
 #ifdef FANY_IPC_DEBUG
@@ -208,7 +209,7 @@ std::string BuildCurrentCandidatePage()
         const auto &word = item.word;
 
         std::string display_word = word;
-        if (show_helpcodes)
+        if (show_helpcodes && item.source != CandidateSource::EnglishDictionary)
         {
             display_word += HelpcodeUtils::compute_helpcodes(word, uppercase_all_helpcodes);
         }
@@ -321,6 +322,7 @@ enum class TaskType
     PuncSwitch,
     DoubleSingleByteSwitch,
     ApplyCloudCandidate,
+    ApplyEnglishCandidates,
     StoreUserPhrase,
     PinCandidate,
     ClientDeactivated,
@@ -334,6 +336,9 @@ struct Task
     std::string cloud_candidate;
     std::string cloud_pinyin;
     uint64_t cloud_generation = 0;
+    std::vector<WordItem> english_candidates;
+    std::string english_input;
+    uint64_t english_generation = 0;
     std::string session_pinyin;
     std::string session_word;
 };
@@ -346,6 +351,7 @@ void HandleImeKey();
 void ClearState();
 void ProcessSelectionKey(UINT keycode);
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
+void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word);
 void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
 void MainPipeClientThread(HANDLE clientPipe);
@@ -425,6 +431,11 @@ void WorkerThread()
             break;
         }
 
+        case TaskType::ApplyEnglishCandidates: {
+            ApplyEnglishCandidates(std::move(task.english_candidates), task.english_input, task.english_generation);
+            break;
+        }
+
         case TaskType::StoreUserPhrase: {
             g_inputSession->store_user_phrase(task.session_pinyin, task.session_word);
             g_inputSession->reset_cache();
@@ -468,6 +479,20 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
         task.cloud_candidate = candidate;
         task.cloud_pinyin = pinyin;
         task.cloud_generation = generation;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ApplyEnglishCandidates;
+        task.english_candidates = std::move(candidates);
+        task.english_input = input;
+        task.english_generation = generation;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -828,6 +853,7 @@ void PrepareCandidateList()
     auto &ui = Global::candidate_ui;
     std::string pinyin = wstring_to_string(Global::PinyinString);
     auto items = g_inputSession->get_candidates();
+    const std::string current_input = g_inputSession->get_pinyin_sequence_with_cases();
 
     if (items.empty())
     {
@@ -836,6 +862,17 @@ void PrepareCandidateList()
 
     ui.set_items(std::move(items));
     RefreshCandidatePageUi(false);
+
+    const SchemeType scheme = g_inputSession->current_scheme_type();
+    if (GetConfiguredEnglishCandidatesEnabled() && scheme != SchemeType::Wubi &&
+        !GlobalIme::composition.creating_word.active)
+    {
+        EnglishIme::OnInputChanged(current_input);
+    }
+    else
+    {
+        EnglishIme::Clear();
+    }
 }
 
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
@@ -858,8 +895,6 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     if (Global::candidate_ui.items.empty())
         return;
 
-    // 找一下看云候选词在当前候选列表里有没有，如果没有就插到第二位，如果有就不处理。就不需要判断字词的数量大于 2
-    // 的时候才插入云候选项了。
     auto dup_it = std::find_if(Global::candidate_ui.items.begin(), Global::candidate_ui.items.end(),
                                [&](const DictionaryUlPb::WordItem &item) { return item.word == candidate; });
     if (dup_it != Global::candidate_ui.items.end())
@@ -876,6 +911,53 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     Global::cloud_candidate.pinyin = cloud_query_state.committed_pinyin;
 
     Global::candidate_ui.item_total_count = static_cast<int>(Global::candidate_ui.items.size());
+    Global::candidate_ui.page_index = 0;
+    Global::candidate_ui.select_first_on_page();
+    Global::candidate_ui.clear_page();
+    RefreshCandidatePageUi(true);
+}
+
+void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
+{
+    if (!GetConfiguredEnglishCandidatesEnabled() || !EnglishIme::IsCurrent(input, generation) ||
+        g_inputSession == nullptr || g_inputSession->current_scheme_type() == SchemeType::Wubi ||
+        g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
+    {
+        return;
+    }
+
+    auto &items = Global::candidate_ui.items;
+    items.erase(std::remove_if(items.begin(), items.end(), [](const WordItem &item) {
+                    return item.source == CandidateSource::EnglishDictionary;
+                }),
+                items.end());
+
+    std::vector<WordItem> unique_candidates;
+    for (auto &candidate : candidates)
+    {
+        const bool duplicate = std::any_of(items.begin(), items.end(),
+                                           [&](const WordItem &item) { return item.word == candidate.word; });
+        if (!duplicate)
+        {
+            unique_candidates.push_back(std::move(candidate));
+        }
+    }
+
+    if (!unique_candidates.empty())
+    {
+        size_t insert_index = items.empty() || items.front().source == CandidateSource::Fallback ? 0 : 1;
+        while (insert_index < items.size() && items[insert_index].source == CandidateSource::CloudSuggestion)
+        {
+            ++insert_index;
+        }
+        items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
+        for (size_t index = 1; index < unique_candidates.size(); ++index)
+        {
+            items.push_back(std::move(unique_candidates[index]));
+        }
+    }
+
+    Global::candidate_ui.item_total_count = static_cast<int>(items.size());
     Global::candidate_ui.page_index = 0;
     Global::candidate_ui.select_first_on_page();
     Global::candidate_ui.clear_page();
@@ -1080,6 +1162,7 @@ void HandleImeKey()
 void ClearState()
 {
     CloudIme::Clear();
+    EnglishIme::Clear();
     /* Clear dict engine state */
     g_inputSession->reset_state();
     /* 造词的状态也要清理 */
@@ -1113,6 +1196,14 @@ void ProcessSelectionKey(UINT keycode)
             Global::candidate_ui.items[index + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
+        if (curWordItem.source == CandidateSource::EnglishDictionary)
+        {
+            CloudIme::Clear();
+            EnglishIme::Clear();
+            g_inputSession->reset_state();
+            GlobalIme::composition.clear();
+            return;
+        }
         std::string cloudCommittedPinyin;
         if (curWordItem.source == CandidateSource::CloudSuggestion)
         {

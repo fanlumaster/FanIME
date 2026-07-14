@@ -7,6 +7,8 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_wubi.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_shuangpin_query.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_engine_shuangpin_session.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_english_dictionary.cpp"
+    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/english/english_dictionary.cpp"
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"
     "${CMAKE_SOURCE_DIR}/src/session/engine_input_session.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/common_utils.cpp"

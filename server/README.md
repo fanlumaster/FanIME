@@ -67,6 +67,12 @@ If you want to build and run in **one step**, run the following command,
 .\scripts\llaunch.ps1
 ```
 
+## English prefix candidates
+
+Place `english.db` next to `msime.db` in `%LOCALAPPDATA%\MetasequoiaImeTsf`. Set
+`general.cn_en_mixed_input = true` in `config.toml` to enable asynchronous English prefix candidates for Quanpin and
+Shuangpin.
+
 ## Developer Shortcuts
 
 The server process includes a few built-in global shortcuts that are useful during development:

@@ -43,6 +43,8 @@ set(SRC_FILES
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/defines/defines.h"
+    "./src/english/english_ime.cpp"
+    "./src/english/english_ime.h"
     "./src/global/globals.h"
     "./src/ipc/event_listener.cpp"
     "./src/ipc/event_listener.h"
@@ -79,6 +81,8 @@ set(SRC_FILES
 set(SRC_FILES_IME_ENGINE
     "./MetasequoiaImeEngine/common/string_utils.cpp"
     "./MetasequoiaImeEngine/core/ime_session.cpp"
+    "./MetasequoiaImeEngine/english/english_dictionary.cpp"
+    "./MetasequoiaImeEngine/english/english_dictionary.h"
     "./MetasequoiaImeEngine/providers/provider_registry.cpp"
     "./MetasequoiaImeEngine/providers/pinyin_candidate_provider.cpp"
     "./MetasequoiaImeEngine/quanpin/engine.cpp"

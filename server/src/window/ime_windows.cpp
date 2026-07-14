@@ -629,6 +629,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         /* 先取出拼音和汉字 */
         DictionaryUlPb::WordItem curWordItem =
             Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
+        if (curWordItem.source == CandidateSource::EnglishDictionary)
+        {
+            break;
+        }
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
 
@@ -661,6 +665,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         /* 先取出拼音和汉字 */
         DictionaryUlPb::WordItem curWordItem =
             Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
+        if (curWordItem.source == CandidateSource::EnglishDictionary)
+        {
+            break;
+        }
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
         // 单字不删除，静默无任何操作来处理
