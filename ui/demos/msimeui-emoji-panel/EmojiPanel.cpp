@@ -233,6 +233,28 @@ PointF EmojiPanel::ToDesignPoint(const PointF &viewportPoint) const
             (viewportPoint.y - viewportBounds_.y) / kPanelScale};
 }
 
+RectF EmojiPanel::ScrollbarTrackRect() const
+{
+    const float viewportHeight = std::max(bounds_.height - kContentTop, 0.0f);
+    return {bounds_.x + bounds_.width - 16.0f, bounds_.y + kContentTop + 6.0f, 14.0f,
+            std::max(viewportHeight - 12.0f, 0.0f)};
+}
+
+RectF EmojiPanel::ScrollbarThumbRect() const
+{
+    const RectF track = ScrollbarTrackRect();
+    const float viewportHeight = std::max(bounds_.height - kContentTop, 1.0f);
+    const float contentHeight = ContentHeight();
+    if (contentHeight <= viewportHeight || track.height <= 0.0f)
+    {
+        return {};
+    }
+    const float thumbHeight = std::max(track.height * viewportHeight / contentHeight, 34.0f);
+    const float travel = std::max(track.height - thumbHeight, 0.0f);
+    const float maxScroll = std::max(contentHeight - viewportHeight, 1.0f);
+    return {bounds_.x + bounds_.width - 12.0f, track.y + travel * (scrollOffset_ / maxScroll), 6.0f, thumbHeight};
+}
+
 size_t EmojiPanel::HitCategory(const PointF &point) const
 {
     for (size_t index = 0; index < 6; ++index)
@@ -489,14 +511,10 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
     target->PopAxisAlignedClip();
 
-    const float viewportHeight = std::max(viewport.height, 1.0f);
-    if (ContentHeight() > viewportHeight)
+    const RectF scrollbarThumb = ScrollbarThumbRect();
+    if (scrollbarThumb.height > 0.0f)
     {
-        const float trackHeight = viewportHeight - 12.0f;
-        const float thumbHeight = std::max(trackHeight * viewportHeight / ContentHeight(), 34.0f);
-        const float maxScroll = ContentHeight() - viewportHeight;
-        const float thumbY = viewport.y + 6.0f + (trackHeight - thumbHeight) * (scrollOffset_ / maxScroll);
-        FillRect(resources, {bounds_.x + bounds_.width - 12.0f, thumbY, 6.0f, thumbHeight}, D2D1::ColorF(0xB8B8C0), 3.0f);
+        FillRect(resources, scrollbarThumb, D2D1::ColorF(0xB8B8C0), 3.0f);
     }
 
     target->SetTransform(oldTransform);
@@ -514,6 +532,18 @@ bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
 {
     if (!window_) return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
+    const RectF scrollbarThumb = ScrollbarThumbRect();
+    const RectF scrollbarHitRect = {scrollbarThumb.x - 4.0f, scrollbarThumb.y, scrollbarThumb.width + 8.0f,
+                                    scrollbarThumb.height};
+    if (scrollbarThumb.height > 0.0f && Contains(scrollbarHitRect, dip))
+    {
+        scrollbarDragging_ = true;
+        scrollbarDragOffsetY_ = dip.y - scrollbarThumb.y;
+        closePressed_ = false;
+        pressedCategory_ = kInvalidIndex;
+        pressedItem_ = kInvalidIndex;
+        return true;
+    }
     closePressed_ = Contains(CloseRect(), dip);
     pressedCategory_ = closePressed_ ? kInvalidIndex : HitCategory(dip);
     pressedItem_ = (closePressed_ || pressedCategory_ != kInvalidIndex) ? kInvalidIndex : HitItem(dip);
@@ -525,6 +555,13 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
 {
     if (!window_) return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
+    if (scrollbarDragging_)
+    {
+        scrollbarDragging_ = false;
+        scrollbarDragOffsetY_ = 0.0f;
+        InvalidateVisual();
+        return true;
+    }
     const bool close = closePressed_ && Contains(CloseRect(), dip);
     const size_t category = HitCategory(dip);
     const size_t item = HitItem(dip);
@@ -551,6 +588,19 @@ bool EmojiPanel::OnMouseMove(const POINT &point, WPARAM)
 {
     if (!window_) return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
+    if (scrollbarDragging_)
+    {
+        const RectF track = ScrollbarTrackRect();
+        const RectF thumb = ScrollbarThumbRect();
+        const float travel = std::max(track.height - thumb.height, 0.0f);
+        const float thumbY = std::clamp(dip.y - scrollbarDragOffsetY_, track.y, track.y + travel);
+        const float viewportHeight = std::max(bounds_.height - kContentTop, 1.0f);
+        const float maxScroll = std::max(ContentHeight() - viewportHeight, 0.0f);
+        scrollOffset_ = travel > 0.0f ? ((thumbY - track.y) / travel) * maxScroll : 0.0f;
+        ClampScroll();
+        InvalidateVisual();
+        return true;
+    }
     const bool close = Contains(CloseRect(), dip);
     const size_t category = close ? kInvalidIndex : HitCategory(dip);
     const size_t item = (close || category != kInvalidIndex) ? kInvalidIndex : HitItem(dip);

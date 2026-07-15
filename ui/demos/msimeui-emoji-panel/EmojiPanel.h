@@ -53,6 +53,8 @@ class EmojiPanel final : public Visual
     RectF SearchRect() const;
     RectF ToViewportRect(const RectF &designRect) const;
     PointF ToDesignPoint(const PointF &viewportPoint) const;
+    RectF ScrollbarTrackRect() const;
+    RectF ScrollbarThumbRect() const;
     size_t HitCategory(const PointF &point) const;
     size_t HitItem(const PointF &point) const;
     std::vector<DisplayGroup> BuildDisplayGroups() const;
@@ -115,5 +117,7 @@ class EmojiPanel final : public Visual
     bool focused_ = false;
     bool closeHovered_ = false;
     bool closePressed_ = false;
+    bool scrollbarDragging_ = false;
+    float scrollbarDragOffsetY_ = 0.0f;
 };
 } // namespace msimeui
