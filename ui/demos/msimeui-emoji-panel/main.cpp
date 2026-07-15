@@ -5,7 +5,6 @@
 #include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 
-#include <cmath>
 #include <memory>
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
@@ -25,12 +24,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
     theme.textSecondary = D2D1::ColorF(0xC9C9D0);
     msimeui::ThemeManager::SetCurrent(std::move(theme));
 
-    const float scale = static_cast<float>(GetDpiForSystem()) / 96.0f;
-    const int width = static_cast<int>(std::lround(550.0f * scale));
-    const int height = static_cast<int>(std::lround(610.0f * scale));
-    msimeui::Window window(L"msimeui.EmojiPanel", L"Emoji and more", width, height);
+    // Window sizes are physical pixels for a per-monitor-DPI-aware Win32 popup. The panel renders
+    // its 550 x 610 design surface at 2/3 scale, producing the requested 550 x 610 window at 150%.
+    msimeui::Window window(L"msimeui.EmojiPanel", L"Emoji and more", 550, 610);
     window.SetWindowStyle(WS_POPUP, WS_EX_TOOLWINDOW);
-    window.SetDragRegionHeight(56.0f);
+    window.SetDragRegionHeight(56.0f * 2.0f / 3.0f);
     window.SetRoundedCorners(true);
     if (!window.Create())
     {

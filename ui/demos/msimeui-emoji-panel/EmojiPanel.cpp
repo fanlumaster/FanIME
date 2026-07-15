@@ -20,6 +20,7 @@ constexpr float kCellSize = 64.0f;
 constexpr float kGridLeft = 26.0f;
 constexpr size_t kColumns = 7;
 constexpr size_t kInvalidIndex = static_cast<size_t>(-1);
+constexpr float kPanelScale = 2.0f / 3.0f;
 constexpr float kCategoryWidths[] = {58.0f, 58.0f, 66.0f, 66.0f, 64.0f, 58.0f};
 
 bool Contains(const RectF &rect, const PointF &point)
@@ -127,7 +128,8 @@ bool CopyToClipboard(HWND hwnd, const std::wstring &text)
 
 EmojiPanel::EmojiPanel()
 {
-    searchBox_ = std::make_shared<TextBox>(kSearchHeight, L"Search emoji, kaomoji, and symbols");
+    searchBox_ = std::make_shared<TextBox>(kSearchHeight * kPanelScale, L"Search emoji, kaomoji, and symbols");
+    searchBox_->SetFontSize(12.0f);
     searchBox_->SetOnTextChanged([this](const std::wstring &text) {
         searchText_ = text;
         statusText_.clear();
@@ -142,11 +144,13 @@ SizeF EmojiPanel::Measure(const SizeF &availableSize)
 
 void EmojiPanel::Arrange(const RectF &finalRect)
 {
-    bounds_ = finalRect;
+    viewportBounds_ = finalRect;
+    bounds_ = {0.0f, 0.0f, finalRect.width / kPanelScale, finalRect.height / kPanelScale};
     if (searchBox_)
     {
-        searchBox_->MeasureInLayout({SearchRect().width, SearchRect().height});
-        searchBox_->ArrangeInLayout(SearchRect());
+        const RectF searchViewportRect = ToViewportRect(SearchRect());
+        searchBox_->MeasureInLayout({searchViewportRect.width, searchViewportRect.height});
+        searchBox_->ArrangeInLayout(searchViewportRect);
     }
     ClampScroll();
 }
@@ -166,7 +170,7 @@ Visual *EmojiPanel::FindVisualAt(const PointF &point)
     {
         return searchBox_.get();
     }
-    return HitTest(point) ? this : nullptr;
+    return HitTest(ToDesignPoint(point)) ? this : nullptr;
 }
 
 Visual *EmojiPanel::FindFocusableAt(const PointF &point)
@@ -175,7 +179,7 @@ Visual *EmojiPanel::FindFocusableAt(const PointF &point)
     {
         return searchBox_.get();
     }
-    return HitTest(point) ? this : nullptr;
+    return HitTest(ToDesignPoint(point)) ? this : nullptr;
 }
 
 Visual *EmojiPanel::FindFirstFocusableDescendant()
@@ -195,6 +199,18 @@ RectF EmojiPanel::CloseRect() const
 RectF EmojiPanel::SearchRect() const
 {
     return {bounds_.x + 24.0f, bounds_.y + kSearchTop, bounds_.width - 48.0f, kSearchHeight};
+}
+
+RectF EmojiPanel::ToViewportRect(const RectF &designRect) const
+{
+    return {viewportBounds_.x + designRect.x * kPanelScale, viewportBounds_.y + designRect.y * kPanelScale,
+            designRect.width * kPanelScale, designRect.height * kPanelScale};
+}
+
+PointF EmojiPanel::ToDesignPoint(const PointF &viewportPoint) const
+{
+    return {(viewportPoint.x - viewportBounds_.x) / kPanelScale,
+            (viewportPoint.y - viewportBounds_.y) / kPanelScale};
 }
 
 size_t EmojiPanel::HitCategory(const PointF &point) const
@@ -372,6 +388,10 @@ void EmojiPanel::Render(DeviceResources &resources)
     {
         return;
     }
+    D2D1_MATRIX_3X2_F oldTransform = {};
+    target->GetTransform(&oldTransform);
+    target->SetTransform(D2D1::Matrix3x2F::Scale(kPanelScale, kPanelScale) * oldTransform);
+
     FillRect(resources, bounds_, D2D1::ColorF(0x202027));
     DrawText(resources, L"Emoji and more", {bounds_.x + 24.0f, bounds_.y, 240.0f, kHeaderHeight}, 18.0f,
              D2D1::ColorF(0xF7F7FA), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
@@ -398,11 +418,6 @@ void EmojiPanel::Render(DeviceResources &resources)
     const RectF activeRect = CategoryRect(bounds_, activeCategory_);
     FillRect(resources, {activeRect.x + (activeRect.width - 29.0f) * 0.5f, bounds_.y + 121.0f, 29.0f, 4.0f},
              D2D1::ColorF(0xD88BDE), 2.0f);
-
-    if (searchBox_)
-    {
-        searchBox_->Render(resources);
-    }
 
     const RectF viewport = {bounds_.x, bounds_.y + kContentTop, bounds_.width, bounds_.height - kContentTop};
     target->PushAxisAlignedClip(D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width,
@@ -463,6 +478,12 @@ void EmojiPanel::Render(DeviceResources &resources)
         const float thumbY = viewport.y + 6.0f + (trackHeight - thumbHeight) * (scrollOffset_ / maxScroll);
         FillRect(resources, {bounds_.x + bounds_.width - 12.0f, thumbY, 6.0f, thumbHeight}, D2D1::ColorF(0xB8B8C0), 3.0f);
     }
+
+    target->SetTransform(oldTransform);
+    if (searchBox_)
+    {
+        searchBox_->Render(resources);
+    }
 }
 
 bool EmojiPanel::HitTest(const PointF &point) const { return Contains(bounds_, point); }
@@ -472,7 +493,7 @@ void EmojiPanel::OnFocusChanged(bool focused) { focused_ = focused; InvalidateVi
 bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
 {
     if (!window_) return false;
-    const PointF dip = window_->ClientPixelsToDips(point);
+    const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     closePressed_ = Contains(CloseRect(), dip);
     pressedCategory_ = closePressed_ ? kInvalidIndex : HitCategory(dip);
     pressedItem_ = (closePressed_ || pressedCategory_ != kInvalidIndex) ? kInvalidIndex : HitItem(dip);
@@ -483,7 +504,7 @@ bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
 bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
 {
     if (!window_) return false;
-    const PointF dip = window_->ClientPixelsToDips(point);
+    const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     const bool close = closePressed_ && Contains(CloseRect(), dip);
     const size_t category = HitCategory(dip);
     const size_t item = HitItem(dip);
@@ -509,7 +530,7 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
 bool EmojiPanel::OnMouseMove(const POINT &point, WPARAM)
 {
     if (!window_) return false;
-    const PointF dip = window_->ClientPixelsToDips(point);
+    const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     const bool close = Contains(CloseRect(), dip);
     const size_t category = close ? kInvalidIndex : HitCategory(dip);
     const size_t item = (close || category != kInvalidIndex) ? kInvalidIndex : HitItem(dip);

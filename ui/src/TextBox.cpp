@@ -9,6 +9,7 @@
 #include "TsfTextServices.h"
 
 #include <algorithm>
+#include <cmath>
 #include <commdlg.h>
 #include <sstream>
 #include <wrl/client.h>
@@ -160,7 +161,7 @@ TextBox::TextBox(float height, std::wstring placeholder) : preferredHeight_(heig
 
     HFONT defaultFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
     GetObject(defaultFont, sizeof(LOGFONT), &font_);
-    font_.lfHeight = -27;
+    font_.lfHeight = -18;
     wcscpy_s(font_.lfFaceName, LF_FACESIZE, ThemeManager::GetCurrent().textInputFontFamily.c_str());
 }
 
@@ -274,6 +275,7 @@ void TextBox::Attach(Window *window)
     Visual::Attach(window);
     if (editor_)
     {
+        font_.lfHeight = -static_cast<LONG>(std::lround(DipsToPixels(fontSizeDips_, window->GetDpi())));
         editor_->SetWnd(window->GetHandle());
         editor_->SetFont(&font_);
         editor_->SetCaretVisible(FALSE);
@@ -637,6 +639,19 @@ std::wstring TextBox::GetText() const
 void TextBox::SetOnTextChanged(TextChangedHandler handler)
 {
     onTextChanged_ = std::move(handler);
+}
+
+void TextBox::SetFontSize(float fontSizeDips)
+{
+    fontSizeDips_ = std::max(fontSizeDips, 1.0f);
+    if (editor_ && window_)
+    {
+        font_.lfHeight = -static_cast<LONG>(std::lround(DipsToPixels(fontSizeDips_, window_->GetDpi())));
+        editor_->SetFont(&font_);
+        editor_->UpdateLayout();
+        editor_->NotifyLayoutChange();
+        InvalidateVisual();
+    }
 }
 
 POINT TextBox::ToLocalPoint(const POINT &point) const

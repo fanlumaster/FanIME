@@ -51,6 +51,8 @@ class EmojiPanel final : public Visual
 
     RectF CloseRect() const;
     RectF SearchRect() const;
+    RectF ToViewportRect(const RectF &designRect) const;
+    PointF ToDesignPoint(const PointF &viewportPoint) const;
     size_t HitCategory(const PointF &point) const;
     size_t HitItem(const PointF &point) const;
     std::vector<DisplayGroup> BuildDisplayGroups() const;
@@ -102,6 +104,7 @@ class EmojiPanel final : public Visual
     std::wstring searchText_;
     std::wstring statusText_;
     std::shared_ptr<TextBox> searchBox_;
+    RectF viewportBounds_ = {};
     size_t activeCategory_ = 1;
     size_t selectedItem_ = 0;
     size_t hoveredItem_ = static_cast<size_t>(-1);

@@ -76,6 +76,7 @@ class TextBox : public Visual
     HCURSOR GetCursor() const override;
     std::wstring GetText() const;
     void SetOnTextChanged(TextChangedHandler handler);
+    void SetFontSize(float fontSizeDips);
 
   private:
     RECT ComputeEditorHostRect() const;
@@ -93,6 +94,7 @@ class TextBox : public Visual
     ::CTextEditor *editor_ = nullptr;
     LOGFONT font_ = {};
     TextChangedHandler onTextChanged_;
+    float fontSizeDips_ = 18.0f;
 };
 
 class Button : public Visual
