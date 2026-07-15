@@ -86,6 +86,25 @@ void DrawText(DeviceResources &resources, const std::wstring &text, const RectF 
     }
 }
 
+void DrawCloseIcon(DeviceResources &resources, const RectF &rect, const D2D1_COLOR_F &color)
+{
+    auto *target = resources.GetRenderTarget();
+    auto *brush = resources.GetSolidColorBrush(color);
+    if (!target || !brush)
+    {
+        return;
+    }
+
+    const float centerX = rect.x + rect.width * 0.5f;
+    const float centerY = rect.y + rect.height * 0.5f;
+    const float halfLength = std::min(rect.width, rect.height) * 0.19f;
+    const float strokeWidth = std::max(std::min(rect.width, rect.height) * 0.055f, 1.0f);
+    target->DrawLine(D2D1::Point2F(centerX - halfLength, centerY - halfLength),
+                     D2D1::Point2F(centerX + halfLength, centerY + halfLength), brush, strokeWidth);
+    target->DrawLine(D2D1::Point2F(centerX + halfLength, centerY - halfLength),
+                     D2D1::Point2F(centerX - halfLength, centerY + halfLength), brush, strokeWidth);
+}
+
 std::wstring Lower(std::wstring value)
 {
     std::transform(value.begin(), value.end(), value.begin(), [](wchar_t ch) { return std::towlower(ch); });
@@ -129,7 +148,8 @@ bool CopyToClipboard(HWND hwnd, const std::wstring &text)
 EmojiPanel::EmojiPanel()
 {
     searchBox_ = std::make_shared<TextBox>(kSearchHeight * kPanelScale, L"Search emoji, kaomoji, and symbols");
-    searchBox_->SetFontSize(12.0f);
+    searchBox_->SetFontSize(14.0f);
+    searchBox_->SetPlaceholderFontSize(11.0f);
     searchBox_->SetOnTextChanged([this](const std::wstring &text) {
         searchText_ = text;
         statusText_.clear();
@@ -401,7 +421,7 @@ void EmojiPanel::Render(DeviceResources &resources)
     {
         FillRect(resources, close, closePressed_ ? D2D1::ColorF(0x4B4B55) : D2D1::ColorF(0x36363F), 7.0f);
     }
-    DrawText(resources, L"\u00D7", close, 31.0f, D2D1::ColorF(0xF4F4F7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+    DrawCloseIcon(resources, close, D2D1::ColorF(0xF4F4F7));
 
     const wchar_t *categories[] = {L"\u2665", L"\u263A", L"GIF", L";-)" , L"\u2605", L"\u25A3"};
     for (size_t index = 0; index < 6; ++index)
@@ -460,7 +480,7 @@ void EmojiPanel::Render(DeviceResources &resources)
         else if (activeCategory_ == 5)
             emptyText = L"Clipboard history can be connected here";
         DrawText(resources, emptyText, {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 60.0f},
-                 16.0f, D2D1::ColorF(0xAFAFB7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+                 20.0f, D2D1::ColorF(0xAFAFB7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     if (!statusText_.empty())
     {

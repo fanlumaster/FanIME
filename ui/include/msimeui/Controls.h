@@ -77,6 +77,7 @@ class TextBox : public Visual
     std::wstring GetText() const;
     void SetOnTextChanged(TextChangedHandler handler);
     void SetFontSize(float fontSizeDips);
+    void SetPlaceholderFontSize(float fontSizeDips);
 
   private:
     RECT ComputeEditorHostRect() const;
@@ -95,6 +96,7 @@ class TextBox : public Visual
     LOGFONT font_ = {};
     TextChangedHandler onTextChanged_;
     float fontSizeDips_ = 18.0f;
+    float placeholderFontSizeDips_ = 16.0f;
 };
 
 class Button : public Visual

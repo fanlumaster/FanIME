@@ -256,7 +256,7 @@ void TextBox::Render(DeviceResources &deviceResources)
     if (editor_->GetTextLength() == 0 && !placeholder_.empty())
     {
         IDWriteTextFormat *placeholderFormat = deviceResources.GetTextFormat(
-            ThemeManager::GetCurrent().textInputFontFamily, 16.0f, DWRITE_FONT_WEIGHT_NORMAL,
+            ThemeManager::GetCurrent().textInputFontFamily, placeholderFontSizeDips_, DWRITE_FONT_WEIGHT_NORMAL,
             DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
         ID2D1SolidColorBrush *placeholderBrush = deviceResources.GetSolidColorBrush(ThemeManager::GetCurrent().textSecondary);
         if (placeholderFormat && placeholderBrush)
@@ -652,6 +652,12 @@ void TextBox::SetFontSize(float fontSizeDips)
         editor_->NotifyLayoutChange();
         InvalidateVisual();
     }
+}
+
+void TextBox::SetPlaceholderFontSize(float fontSizeDips)
+{
+    placeholderFontSizeDips_ = std::max(fontSizeDips, 1.0f);
+    InvalidateVisual();
 }
 
 POINT TextBox::ToLocalPoint(const POINT &point) const
