@@ -2,6 +2,7 @@
 
 #include <d2d1.h>
 #include <dwrite.h>
+#include <wincodec.h>
 #include <string>
 #include <vector>
 #include <wrl/client.h>
@@ -21,6 +22,7 @@ class DeviceResources
     IDWriteTextFormat *GetTextFormat(const std::wstring &fontFamily, float fontSize, DWRITE_FONT_WEIGHT fontWeight,
                                      DWRITE_TEXT_ALIGNMENT textAlignment, DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment,
                                      DWRITE_WORD_WRAPPING wordWrapping);
+    ID2D1Bitmap *GetBitmapFromFile(const std::wstring &filePath, D2D1_SIZE_F *size = nullptr);
 
   private:
     struct BrushCacheEntry
@@ -40,12 +42,21 @@ class DeviceResources
         Microsoft::WRL::ComPtr<IDWriteTextFormat> format;
     };
 
+    struct BitmapCacheEntry
+    {
+        std::wstring filePath;
+        D2D1_SIZE_F size = {};
+        Microsoft::WRL::ComPtr<ID2D1Bitmap> bitmap;
+    };
+
     static bool IsSameColor(const D2D1_COLOR_F &lhs, const D2D1_COLOR_F &rhs);
 
     Microsoft::WRL::ComPtr<ID2D1Factory> d2dFactory_;
     Microsoft::WRL::ComPtr<IDWriteFactory> dwriteFactory_;
+    Microsoft::WRL::ComPtr<IWICImagingFactory> wicFactory_;
     Microsoft::WRL::ComPtr<ID2D1HwndRenderTarget> renderTarget_;
     std::vector<BrushCacheEntry> brushCache_;
     std::vector<TextFormatCacheEntry> textFormatCache_;
+    std::vector<BitmapCacheEntry> bitmapCache_;
 };
 } // namespace msimeui

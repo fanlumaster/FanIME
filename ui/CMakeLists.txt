@@ -70,6 +70,7 @@ target_link_libraries(msimeui PUBLIC
     ole32.lib
     oleaut32.lib
     uuid.lib
+    windowscodecs.lib
 )
 
 add_executable(msimeui-demo WIN32
@@ -81,6 +82,7 @@ add_executable(msimeui-demo WIN32
 )
 
 target_link_libraries(msimeui-demo PRIVATE msimeui)
+target_compile_definitions(msimeui-demo PRIVATE MSIMEUI_ASSET_DIR=L\"${CMAKE_CURRENT_SOURCE_DIR}/assets\")
 
 if(MSVC)
     target_compile_options(msimeui PRIVATE /W4 /permissive-)

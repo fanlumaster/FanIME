@@ -28,6 +28,15 @@ bool DeviceResources::EnsureForWindow(HWND hwnd)
         }
     }
 
+    if (!wicFactory_)
+    {
+        if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+                                    IID_PPV_ARGS(wicFactory_.GetAddressOf()))))
+        {
+            return false;
+        }
+    }
+
     if (renderTarget_)
     {
         return true;
@@ -60,6 +69,7 @@ void DeviceResources::DiscardTarget()
 {
     renderTarget_.Reset();
     brushCache_.clear();
+    bitmapCache_.clear();
 }
 
 ID2D1HwndRenderTarget *DeviceResources::GetRenderTarget() const
@@ -136,5 +146,60 @@ IDWriteTextFormat *DeviceResources::GetTextFormat(const std::wstring &fontFamily
     entry.format->SetWordWrapping(entry.wordWrapping);
     textFormatCache_.push_back(std::move(entry));
     return textFormatCache_.back().format.Get();
+}
+
+ID2D1Bitmap *DeviceResources::GetBitmapFromFile(const std::wstring &filePath, D2D1_SIZE_F *size)
+{
+    if (!renderTarget_ || !wicFactory_ || filePath.empty())
+    {
+        return nullptr;
+    }
+
+    for (auto &entry : bitmapCache_)
+    {
+        if (entry.filePath == filePath && entry.bitmap)
+        {
+            if (size)
+            {
+                *size = entry.size;
+            }
+            return entry.bitmap.Get();
+        }
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
+    if (FAILED(wicFactory_->CreateDecoderFromFilename(filePath.c_str(), nullptr, GENERIC_READ,
+                                                       WICDecodeMetadataCacheOnLoad, decoder.GetAddressOf())))
+    {
+        return nullptr;
+    }
+
+    Microsoft::WRL::ComPtr<IWICBitmapFrameDecode> frame;
+    if (FAILED(decoder->GetFrame(0, frame.GetAddressOf())))
+    {
+        return nullptr;
+    }
+
+    Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+    if (FAILED(wicFactory_->CreateFormatConverter(converter.GetAddressOf())) ||
+        FAILED(converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+                                     WICBitmapPaletteTypeMedianCut)))
+    {
+        return nullptr;
+    }
+
+    BitmapCacheEntry entry;
+    entry.filePath = filePath;
+    if (FAILED(renderTarget_->CreateBitmapFromWicBitmap(converter.Get(), nullptr, entry.bitmap.GetAddressOf())))
+    {
+        return nullptr;
+    }
+    entry.size = entry.bitmap->GetSize();
+    bitmapCache_.push_back(std::move(entry));
+    if (size)
+    {
+        *size = bitmapCache_.back().size;
+    }
+    return bitmapCache_.back().bitmap.Get();
 }
 } // namespace msimeui

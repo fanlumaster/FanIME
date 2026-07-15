@@ -18,6 +18,40 @@ enum class PopupPlacement
     AboveLeading,
 };
 
+enum class ImageStretch
+{
+    None,
+    Fill,
+    Uniform,
+    UniformToFill,
+};
+
+class Image : public Visual
+{
+  public:
+    explicit Image(std::wstring filePath);
+
+    void SetSource(std::wstring filePath);
+    const std::wstring &GetSource() const;
+    void SetStretch(ImageStretch stretch);
+    void SetOpacity(float opacity);
+    void SetInterpolationMode(D2D1_BITMAP_INTERPOLATION_MODE interpolationMode);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+
+  private:
+    void LoadNaturalSize();
+
+    std::wstring filePath_;
+    SizeF naturalSize_ = {};
+    bool naturalSizeLoaded_ = false;
+    ImageStretch stretch_ = ImageStretch::Uniform;
+    float opacity_ = 1.0f;
+    D2D1_BITMAP_INTERPOLATION_MODE interpolationMode_ = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR;
+};
+
 class TextBox : public Visual
 {
   public:

@@ -95,6 +95,22 @@ std::unique_ptr<Scene> CreateDemoScene()
     root->AddChild(heroCard);
     root->AddChild(std::make_shared<Spacer>(24.0f));
 
+    auto imageCard = std::make_shared<Card>(surface, 20.0f);
+    auto imageStack = std::make_shared<StackPanel>(12.0f);
+    auto imagePreview = std::make_shared<Image>(std::wstring(MSIMEUI_ASSET_DIR) + L"/msimeui.ico");
+    imagePreview->SetWidth(96.0f);
+    imagePreview->SetHeight(96.0f);
+    imagePreview->SetHorizontalAlignment(HorizontalAlignment::Leading);
+    imagePreview->SetStretch(ImageStretch::Uniform);
+    imageStack->AddChild(std::make_shared<TextBlock>(L"Image", 20.0f, D2D1::ColorF(0x1F2937), true));
+    imageStack->AddChild(std::make_shared<TextBlock>(
+        L"WIC-backed image decoding supports common Windows image formats and caches Direct2D bitmaps per render target.",
+        14.0f, D2D1::ColorF(0x6B7280)));
+    imageStack->AddChild(imagePreview);
+    imageCard->AddChild(imageStack);
+    root->AddChild(imageCard);
+    root->AddChild(std::make_shared<Spacer>(24.0f));
+
     auto controlsCard = std::make_shared<Card>(surface, 20.0f);
     auto controlsStack = std::make_shared<StackPanel>(16.0f);
     auto progressLabel =

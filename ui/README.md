@@ -23,7 +23,21 @@
 - `CandidateList`
 - `ContextMenuHost`
 - `Card`
+- `Image`（WIC 解码与 Direct2D 位图缓存）
 - `TextBox` 输入控件
+
+## 图片渲染
+
+`Image` 控件可以从文件加载 WIC 支持的图片格式，例如 PNG、JPEG、BMP、ICO、TIFF，以及 GIF 的静态首帧：
+
+```cpp
+auto image = std::make_shared<msimeui::Image>(L"assets/sticker.png");
+image->SetWidth(160.0f);
+image->SetHeight(120.0f);
+image->SetStretch(msimeui::ImageStretch::Uniform);
+```
+
+可用的缩放方式包括 `None`、`Fill`、`Uniform` 和 `UniformToFill`。位图按文件路径缓存在 `DeviceResources` 中，D2D 设备目标重建后会自动重新解码。当前 GIF 只显示第一帧，动画播放将在后续单独加入。
 
 ## 最近新增
 
