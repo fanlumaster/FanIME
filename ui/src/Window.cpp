@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <d2d1.h>
+#include <dwmapi.h>
 #include <sstream>
 #include <windowsx.h>
 
@@ -64,10 +65,15 @@ bool Window::Create()
     RegisterClassExW(&windowClass);
 
     const POINT origin = GetCenteredWindowOrigin(width_, height_);
-    hwnd_ = CreateWindowExW(0, className_.c_str(), title_.c_str(), WS_OVERLAPPEDWINDOW, origin.x, origin.y, width_, height_,
-                            nullptr, nullptr, instance_, this);
+    hwnd_ = CreateWindowExW(extendedWindowStyle_, className_.c_str(), title_.c_str(), windowStyle_, origin.x, origin.y,
+                            width_, height_, nullptr, nullptr, instance_, this);
     if (hwnd_)
     {
+        if (roundedCorners_)
+        {
+            const DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_ROUND;
+            DwmSetWindowAttribute(hwnd_, DWMWA_WINDOW_CORNER_PREFERENCE, &preference, sizeof(preference));
+        }
         if (largeIcon)
         {
             SendMessageW(hwnd_, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(largeIcon));
@@ -412,6 +418,26 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
 
+    case WM_NCHITTEST:
+    {
+        const LRESULT defaultHit = DefWindowProcW(hwnd_, message, wParam, lParam);
+        if (defaultHit == HTCLIENT && dragRegionHeight_ > 0.0f)
+        {
+            POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            ScreenToClient(hwnd_, &point);
+            RECT client = {};
+            GetClientRect(hwnd_, &client);
+            const float dragHeightPixels = DipsToPixels(dragRegionHeight_, GetDpi());
+            const float reservedRightPixels = DipsToPixels(58.0f, GetDpi());
+            if (static_cast<float>(point.y) < dragHeightPixels &&
+                static_cast<float>(point.x) < static_cast<float>(client.right) - reservedRightPixels)
+            {
+                return HTCAPTION;
+            }
+        }
+        return defaultHit;
+    }
+
     case WM_SIZE:
         OnSize();
         return 0;
@@ -505,6 +531,25 @@ bool Window::UpdateCursorForClientPoint(const POINT &point)
 void Window::FocusVisual(Visual *visual)
 {
     SetFocusedVisual(visual);
+}
+
+void Window::SetWindowStyle(DWORD style, DWORD extendedStyle)
+{
+    if (!hwnd_)
+    {
+        windowStyle_ = style;
+        extendedWindowStyle_ = extendedStyle;
+    }
+}
+
+void Window::SetDragRegionHeight(float height)
+{
+    dragRegionHeight_ = std::max(height, 0.0f);
+}
+
+void Window::SetRoundedCorners(bool enabled)
+{
+    roundedCorners_ = enabled;
 }
 
 void Window::SetFocusedVisual(Visual *visual)

@@ -66,6 +66,7 @@ target_include_directories(msimeui
 target_link_libraries(msimeui PUBLIC
     d2d1.lib
     dwrite.lib
+    dwmapi.lib
     imm32.lib
     ole32.lib
     oleaut32.lib
@@ -84,7 +85,18 @@ add_executable(msimeui-demo WIN32
 target_link_libraries(msimeui-demo PRIVATE msimeui)
 target_compile_definitions(msimeui-demo PRIVATE MSIMEUI_ASSET_DIR=L\"${CMAKE_CURRENT_SOURCE_DIR}/assets\")
 
+add_executable(msimeui-emoji-panel WIN32
+    demos/msimeui-emoji-panel/EmojiPanel.cpp
+    demos/msimeui-emoji-panel/EmojiPanel.h
+    demos/msimeui-emoji-panel/main.cpp
+    demos/msimeui-emoji-panel/msimeui-emoji-panel.rc
+    demos/msimeui-emoji-panel/resource.h
+)
+
+target_link_libraries(msimeui-emoji-panel PRIVATE msimeui)
+
 if(MSVC)
     target_compile_options(msimeui PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-demo PRIVATE /W4 /permissive-)
+    target_compile_options(msimeui-emoji-panel PRIVATE /W4 /permissive-)
 endif()

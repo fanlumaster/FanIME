@@ -191,6 +191,21 @@ cmake --build build --config Debug
 ./scripts/launch-demo.ps1 -Configuration Release
 ```
 
+### 独立 Emoji 面板
+
+项目包含独立的 `msimeui-emoji-panel.exe`，用于预览接近微软输入法风格的深色表情面板：
+
+```powershell
+./scripts/build-emoji-panel.ps1
+./scripts/launch-emoji-panel.ps1
+```
+
+也可以一次完成构建和启动：
+
+```powershell
+./scripts/launch-emoji-panel.ps1 -Build
+```
+
 如果切换过 CMake generator、Visual Studio 版本或者 preset，可以加 `-Fresh` 重新生成构建目录：
 
 ```powershell
@@ -202,6 +217,7 @@ cmake --build build --config Debug
 
 ```text
 build/bin/Debug/msimeui-demo.exe
+build/bin/Debug/msimeui-emoji-panel.exe
 ```
 
 ## 目录
@@ -209,6 +225,7 @@ build/bin/Debug/msimeui-demo.exe
 - `include/msimeui`：新框架公开头文件
 - `src`：框架实现
 - `demos/msimeui-demo`：demo 入口和示例场景
+- `demos/msimeui-emoji-panel`：独立 Emoji 面板入口和专用控件
 - `src/tsf`：内置 TSF 文本输入实现
 
 ## 后续工作

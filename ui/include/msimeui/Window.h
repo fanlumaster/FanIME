@@ -33,6 +33,9 @@ class Window
     void InvalidateArrange(Visual *source);
     void Relayout();
     void FocusVisual(Visual *visual);
+    void SetWindowStyle(DWORD style, DWORD extendedStyle = 0);
+    void SetDragRegionHeight(float height);
+    void SetRoundedCorners(bool enabled);
 
     void SetScene(std::unique_ptr<Scene> scene);
 
@@ -56,5 +59,9 @@ class Window
     Visual *focusedVisual_ = nullptr;
     Visual *hoveredVisual_ = nullptr;
     Visual *capturedVisual_ = nullptr;
+    DWORD windowStyle_ = WS_OVERLAPPEDWINDOW;
+    DWORD extendedWindowStyle_ = 0;
+    float dragRegionHeight_ = 0.0f;
+    bool roundedCorners_ = false;
 };
 } // namespace msimeui
