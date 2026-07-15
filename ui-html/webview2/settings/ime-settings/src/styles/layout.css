@@ -11,7 +11,6 @@
   display: flex;
   flex: 1;
   min-height: 0;
-  margin-top: 8px;
   background: #202020;
 }
 
@@ -21,7 +20,6 @@
   justify-content: center;
   align-items: flex-start;
   min-height: 0;
-  margin-top: 8px;
   padding-left: 1rem;
   padding-right: 1.5rem;
   background: #202020;
