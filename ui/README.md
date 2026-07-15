@@ -208,6 +208,22 @@ cmake --build build --config Debug
 ./scripts/launch-emoji-panel.ps1 -Build
 ```
 
+### 暗色屏幕键盘 Demo
+
+独立的 `msimeui-keyboard-demo.exe` 提供五行暗色 PC 键盘布局、按键悬浮/按压/修饰键状态，
+并使用 `SendInput` 将字符发送到当前前台应用：
+
+```powershell
+./scripts/build-keyboard-demo.ps1
+./scripts/launch-keyboard-demo.ps1
+```
+
+或者一次构建并启动：
+
+```powershell
+./scripts/launch-keyboard-demo.ps1 -Build
+```
+
 如果切换过 CMake generator、Visual Studio 版本或者 preset，可以加 `-Fresh` 重新生成构建目录：
 
 ```powershell

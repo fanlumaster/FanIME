@@ -325,6 +325,18 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_MOUSEMOVE:
     {
+        if (!mouseLeaveTracking_)
+        {
+            TRACKMOUSEEVENT tracking = {};
+            tracking.cbSize = sizeof(tracking);
+            tracking.dwFlags = TME_LEAVE;
+            tracking.hwndTrack = hwnd_;
+            if (TrackMouseEvent(&tracking))
+            {
+                mouseLeaveTracking_ = true;
+            }
+        }
+
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         UpdateCursorForClientPoint(point);
         Visual *hoverTarget = nullptr;
@@ -359,6 +371,16 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         }
         return 0;
     }
+
+    case WM_MOUSELEAVE:
+        mouseLeaveTracking_ = false;
+        if (hoveredVisual_)
+        {
+            hoveredVisual_->OnMouseLeave();
+            hoveredVisual_ = nullptr;
+        }
+        SetCursor(LoadCursor(nullptr, IDC_ARROW));
+        return 0;
 
     case WM_MOUSEWHEEL:
         if (OnMouseWheel(wParam, lParam))

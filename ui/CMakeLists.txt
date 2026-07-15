@@ -95,8 +95,19 @@ add_executable(msimeui-emoji-panel WIN32
 
 target_link_libraries(msimeui-emoji-panel PRIVATE msimeui)
 
+add_executable(msimeui-keyboard-demo WIN32
+    demos/msimeui-keyboard-demo/KeyboardPanel.cpp
+    demos/msimeui-keyboard-demo/KeyboardPanel.h
+    demos/msimeui-keyboard-demo/main.cpp
+    demos/msimeui-keyboard-demo/msimeui-keyboard-demo.rc
+    demos/msimeui-keyboard-demo/resource.h
+)
+
+target_link_libraries(msimeui-keyboard-demo PRIVATE msimeui)
+
 if(MSVC)
     target_compile_options(msimeui PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-demo PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-emoji-panel PRIVATE /W4 /permissive-)
+    target_compile_options(msimeui-keyboard-demo PRIVATE /W4 /permissive-)
 endif()

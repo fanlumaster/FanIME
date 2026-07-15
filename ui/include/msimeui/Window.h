@@ -59,6 +59,7 @@ class Window
     Visual *focusedVisual_ = nullptr;
     Visual *hoveredVisual_ = nullptr;
     Visual *capturedVisual_ = nullptr;
+    bool mouseLeaveTracking_ = false;
     DWORD windowStyle_ = WS_OVERLAPPEDWINDOW;
     DWORD extendedWindowStyle_ = 0;
     float dragRegionHeight_ = 0.0f;
