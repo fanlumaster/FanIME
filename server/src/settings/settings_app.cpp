@@ -63,12 +63,16 @@ void ApplyWindowActivationAppearance()
                 const style = document.createElement('style');
                 style.id = id;
                 style.textContent = `
-                    .titlebar-left, .window-controls {
+                    .titlebar-left, .window-button {
                         transition: opacity 140ms ease-out;
                     }
                     html.metasequoia-window-inactive .titlebar-left,
-                    html.metasequoia-window-inactive .window-controls {
+                    html.metasequoia-window-inactive .window-button {
                         opacity: 0.52 !important;
+                    }
+                    html.metasequoia-window-inactive .window-button:hover,
+                    html.metasequoia-window-inactive .window-button.host-hover {
+                        opacity: 1 !important;
                     }
                 `;
                 document.head.appendChild(style);
@@ -82,12 +86,16 @@ void ApplyWindowActivationAppearance()
                 const style = document.createElement('style');
                 style.id = id;
                 style.textContent = `
-                    .titlebar-left, .window-controls {
+                    .titlebar-left, .window-button {
                         transition: opacity 140ms ease-out;
                     }
                     html.metasequoia-window-inactive .titlebar-left,
-                    html.metasequoia-window-inactive .window-controls {
+                    html.metasequoia-window-inactive .window-button {
                         opacity: 0.52 !important;
+                    }
+                    html.metasequoia-window-inactive .window-button:hover,
+                    html.metasequoia-window-inactive .window-button.host-hover {
+                        opacity: 1 !important;
                     }
                 `;
                 document.head.appendChild(style);
