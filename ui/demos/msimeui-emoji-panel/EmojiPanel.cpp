@@ -14,8 +14,8 @@ constexpr float kHeaderHeight = 58.0f;
 constexpr float kCategoryTop = 66.0f;
 constexpr float kCategoryHeight = 58.0f;
 constexpr float kSearchTop = 142.0f;
-constexpr float kSearchHeight = 48.0f;
-constexpr float kContentTop = 214.0f;
+constexpr float kSearchHeight = 52.0f;
+constexpr float kContentTop = 218.0f;
 constexpr float kCellSize = 64.0f;
 constexpr float kGridLeft = 26.0f;
 constexpr size_t kColumns = 7;
@@ -149,7 +149,7 @@ EmojiPanel::EmojiPanel()
 {
     searchBox_ = std::make_shared<TextBox>(kSearchHeight * kPanelScale, L"Search emoji, kaomoji, and symbols");
     searchBox_->SetFontSize(14.0f);
-    searchBox_->SetPlaceholderFontSize(11.0f);
+    searchBox_->SetPlaceholderFontSize(12.0f);
     searchBox_->SetOnTextChanged([this](const std::wstring &text) {
         searchText_ = text;
         statusText_.clear();
