@@ -41,6 +41,11 @@ class CTextContainer
         return _psz;
     }
 
+  protected:
+    virtual void OnTextChanged()
+    {
+    }
+
   private:
     BOOL EnsureBuffer(UINT nNewTextSize);
 

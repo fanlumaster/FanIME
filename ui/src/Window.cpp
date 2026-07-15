@@ -368,13 +368,13 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_KEYDOWN:
+        if (focusedVisual_ && focusedVisual_->OnKeyDown(wParam, lParam))
+        {
+            return 0;
+        }
         if (wParam == VK_ESCAPE && focusedVisual_)
         {
             SetFocusedVisual(nullptr);
-            return 0;
-        }
-        if (focusedVisual_ && focusedVisual_->OnKeyDown(wParam, lParam))
-        {
             return 0;
         }
         break;

@@ -150,6 +150,13 @@ std::wstring ReadClipboardText(HWND hwnd)
 TextBox::TextBox(float height, std::wstring placeholder) : preferredHeight_(height), placeholder_(std::move(placeholder))
 {
     editor_ = new CTextEditor();
+    editor_->SetTextChangedCallback([this]() {
+        if (onTextChanged_)
+        {
+            onTextChanged_(GetText());
+        }
+        InvalidateVisual();
+    });
 
     HFONT defaultFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
     GetObject(defaultFont, sizeof(LOGFONT), &font_);
@@ -217,6 +224,7 @@ void TextBox::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
+    editor_->SetColors(theme.textPrimary, theme.primary);
     ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(theme.surface);
     ID2D1SolidColorBrush *strokeBrush =
         deviceResources.GetSolidColorBrush(focused_ ? theme.primaryFocusStrong : theme.borderStrong);
@@ -244,6 +252,19 @@ void TextBox::Render(DeviceResources &deviceResources)
     target->SetTransform(D2D1::Matrix3x2F::Translation(bounds_.x + contentOffsetXDips, bounds_.y + contentOffsetYDips));
     target->PushAxisAlignedClip(D2D1::RectF(0.0f, 0.0f, contentWidth, contentHeight), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     editor_->Render(target);
+    if (editor_->GetTextLength() == 0 && !placeholder_.empty())
+    {
+        IDWriteTextFormat *placeholderFormat = deviceResources.GetTextFormat(
+            ThemeManager::GetCurrent().textInputFontFamily, 16.0f, DWRITE_FONT_WEIGHT_NORMAL,
+            DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+        ID2D1SolidColorBrush *placeholderBrush = deviceResources.GetSolidColorBrush(ThemeManager::GetCurrent().textSecondary);
+        if (placeholderFormat && placeholderBrush)
+        {
+            target->DrawTextW(placeholder_.c_str(), static_cast<UINT32>(placeholder_.size()), placeholderFormat,
+                              D2D1::RectF(6.0f, 0.0f, contentWidth, contentHeight), placeholderBrush,
+                              D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+    }
     target->PopAxisAlignedClip();
     target->SetTransform(oldTransform);
 }
@@ -604,6 +625,20 @@ HCURSOR TextBox::GetCursor() const
     return LoadCursor(nullptr, IDC_IBEAM);
 }
 
+std::wstring TextBox::GetText() const
+{
+    if (!editor_ || !editor_->GetTextBuffer() || editor_->GetTextLength() == 0)
+    {
+        return {};
+    }
+    return std::wstring(editor_->GetTextBuffer(), editor_->GetTextLength());
+}
+
+void TextBox::SetOnTextChanged(TextChangedHandler handler)
+{
+    onTextChanged_ = std::move(handler);
+}
+
 POINT TextBox::ToLocalPoint(const POINT &point) const
 {
     const RECT hostRect = ComputeEditorHostRect();
@@ -633,19 +668,8 @@ RECT TextBox::ComputeEditorContentPadding() const
         return padding;
     }
 
-    const RECT hostRect = ComputeEditorHostRect();
-    const LONG contentHeight = std::max<LONG>(hostRect.bottom - hostRect.top, 1);
-    const LONG lineHeight = std::max<LONG>(editor_->GetLineHeight(), 1);
     padding.left = kSingleLineTextHorizontalInsetPixels;
     padding.right = kSingleLineTextHorizontalInsetPixels;
-    if (lineHeight >= contentHeight)
-    {
-        return padding;
-    }
-
-    const LONG verticalInset = (contentHeight - lineHeight) / 2;
-    padding.top = verticalInset;
-    padding.bottom = std::max<LONG>(contentHeight - lineHeight - verticalInset, 0);
     return padding;
 }
 
@@ -659,6 +683,12 @@ bool TextBox::EnsureInitialized(DeviceResources *deviceResources)
     if (!renderInitialized_)
     {
         renderInitialized_ = editor_->InitializeRenderResources(deviceResources->GetDWriteFactory()) == TRUE;
+        if (renderInitialized_)
+        {
+            editor_->SetContentPadding(ComputeEditorContentPadding());
+            editor_->UpdateLayout();
+            editor_->NotifyLayoutChange();
+        }
     }
 
     return renderInitialized_ && tsfInitialized_;

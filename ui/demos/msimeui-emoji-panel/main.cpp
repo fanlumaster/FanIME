@@ -18,6 +18,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
     msimeui::Theme theme = msimeui::ThemeManager::GetCurrent();
     theme.windowBackground = D2D1::ColorF(0x202027);
     theme.surface = D2D1::ColorF(0x202027);
+    theme.borderStrong = D2D1::ColorF(0x45454F);
+    theme.primary = D2D1::ColorF(0x8C55A2);
+    theme.primaryFocusStrong = D2D1::ColorF(0xD88BDE);
     theme.textPrimary = D2D1::ColorF(0xF5F5F7);
     theme.textSecondary = D2D1::ColorF(0xC9C9D0);
     msimeui::ThemeManager::SetCurrent(std::move(theme));

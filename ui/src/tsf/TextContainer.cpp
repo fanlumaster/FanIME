@@ -16,6 +16,7 @@ BOOL CTextContainer::InsertText(int nPos, const WCHAR *psz, UINT nCnt)
     memmove(_psz + nPos + nCnt, _psz + nPos, (_nTextSize - nPos) * sizeof(WCHAR));
     memcpy(_psz + nPos, psz, nCnt * sizeof(WCHAR));
     _nTextSize += nCnt;
+    OnTextChanged();
     return TRUE;
 }
 
@@ -35,6 +36,7 @@ BOOL CTextContainer::RemoveText(int nPos, UINT nCnt)
 
     memmove(_psz + nPos, _psz + nPos + nCnt, (_nTextSize - nPos - nCnt) * sizeof(WCHAR));
     _nTextSize -= nCnt;
+    OnTextChanged();
     return TRUE;
 }
 

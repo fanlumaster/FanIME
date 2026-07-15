@@ -72,6 +72,9 @@ class CTextLayout
         _horizontalScrollDips = 0.0f;
         _singleLine = FALSE;
         _rcCaret = D2D1::RectF();
+        _useCustomColors = FALSE;
+        _textColor = D2D1::ColorF(0x000000);
+        _selectionColor = D2D1::ColorF(0x0078D4);
     }
 
     ~CTextLayout()
@@ -88,7 +91,8 @@ class CTextLayout
     }
 
     BOOL Initialize(IDWriteFactory *pDWriteFactory);
-    BOOL Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY,
+    BOOL Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT layoutHeightPixels,
+                FLOAT dpiX, FLOAT dpiY,
                 FLOAT paddingLeftPixels = 0.0f, FLOAT paddingTopPixels = 0.0f, FLOAT paddingRightPixels = 0.0f,
                 FLOAT paddingBottomPixels = 0.0f, BOOL singleLine = FALSE);
     BOOL Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
@@ -106,6 +110,12 @@ class CTextLayout
         _fCaretVisible = fVisible;
     }
     void SetInterimCaret(BOOL fSet, UINT uPos);
+    void SetColors(const D2D1_COLOR_F &textColor, const D2D1_COLOR_F &selectionColor)
+    {
+        _textColor = textColor;
+        _selectionColor = selectionColor;
+        _useCustomColors = TRUE;
+    }
     BOOL IsInterimCaret()
     {
         return _fInterimCaret;
@@ -167,4 +177,7 @@ class CTextLayout
     BOOL _fInterimCaret;
     BOOL _fCaretVisible;
     D2D1_RECT_F _rcCaret;
+    BOOL _useCustomColors;
+    D2D1_COLOR_F _textColor;
+    D2D1_COLOR_F _selectionColor;
 };

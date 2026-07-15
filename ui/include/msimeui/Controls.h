@@ -55,6 +55,8 @@ class Image : public Visual
 class TextBox : public Visual
 {
   public:
+    using TextChangedHandler = std::function<void(const std::wstring &text)>;
+
     TextBox(float height, std::wstring placeholder);
     ~TextBox() override;
 
@@ -72,6 +74,8 @@ class TextBox : public Visual
     bool OnChar(wchar_t ch, LPARAM lParam) override;
     bool OnTimer(UINT_PTR timerId) override;
     HCURSOR GetCursor() const override;
+    std::wstring GetText() const;
+    void SetOnTextChanged(TextChangedHandler handler);
 
   private:
     RECT ComputeEditorHostRect() const;
@@ -88,6 +92,7 @@ class TextBox : public Visual
     UINT dragSelectionStart_ = static_cast<UINT>(-1);
     ::CTextEditor *editor_ = nullptr;
     LOGFONT font_ = {};
+    TextChangedHandler onTextChanged_;
 };
 
 class Button : public Visual

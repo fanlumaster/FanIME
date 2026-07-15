@@ -90,7 +90,8 @@ BOOL CTextLayout::EnsureTextFormat(const LOGFONT *plf, FLOAT dpiY)
     return TRUE;
 }
 
-BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels, FLOAT dpiX, FLOAT dpiY,
+BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels,
+                         FLOAT layoutHeightPixels, FLOAT dpiX, FLOAT dpiY,
                          FLOAT paddingLeftPixels, FLOAT paddingTopPixels, FLOAT paddingRightPixels,
                          FLOAT paddingBottomPixels, BOOL singleLine)
 {
@@ -171,6 +172,7 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
     }
 
     UINT32 textPos = 0;
+    const FLOAT layoutHeightDips = PixelsToDipsY(max(layoutHeightPixels, 1.0f));
     FLOAT lineTopDips = _paddingTopDips;
     _nLineHeight = 0;
     _lineHeightDips = 0.0f;
@@ -184,9 +186,13 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
         const UINT32 visibleLength = usesPlaceholder ? 0U : (lineLength - lineMetrics[i].newlineLength);
         line.nPos = textPos;
         line.nCnt = visibleLength;
-        line.top = lineTopDips;
-
         const FLOAT lineHeightDips = max(lineMetrics[i].height, 1.0f);
+        if (_singleLine && i == 0)
+        {
+            const FLOAT usableHeight = max(layoutHeightDips - _paddingTopDips - _paddingBottomDips, 0.0f);
+            lineTopDips = _paddingTopDips + max((usableHeight - lineHeightDips) * 0.5f, 0.0f);
+        }
+        line.top = lineTopDips;
         line.bottom = lineTopDips + lineHeightDips;
         _lineHeightDips = max(_lineHeightDips, lineHeightDips);
         _nLineHeight = max(_nLineHeight, static_cast<int>(DipsToPixelsY(lineHeightDips)));
@@ -215,9 +221,9 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
 
                 D2D1_RECT_F &rc = line.prgCharInfo[j].rc;
                 rc.left = _paddingLeftDips + hitX;
-                rc.top = _paddingTopDips + hitY;
+                rc.top = (_singleLine ? lineTopDips : _paddingTopDips) + hitY;
                 rc.right = _paddingLeftDips + hitX + hitMetrics.width;
-                rc.bottom = _paddingTopDips + hitY + hitMetrics.height;
+                rc.bottom = (_singleLine ? lineTopDips : _paddingTopDips) + hitY + hitMetrics.height;
                 if (rc.right <= rc.left)
                 {
                     rc.right = rc.left + (1.0f * 96.0f / _dpiX);
@@ -260,8 +266,8 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
     ID2D1SolidColorBrush *pCaretBrush = NULL;
     ID2D1SolidColorBrush *pCompositionBrush = NULL;
 
-    const D2D1_COLOR_F textColor = ToColorF(GetSysColor(COLOR_WINDOWTEXT));
-    const D2D1_COLOR_F selectionColor = ToColorF(GetSysColor(COLOR_HIGHLIGHT));
+    const D2D1_COLOR_F textColor = _useCustomColors ? _textColor : ToColorF(GetSysColor(COLOR_WINDOWTEXT));
+    const D2D1_COLOR_F selectionColor = _useCustomColors ? _selectionColor : ToColorF(GetSysColor(COLOR_HIGHLIGHT));
 
     if (FAILED(pRenderTarget->CreateSolidColorBrush(textColor, &pTextBrush)) ||
         FAILED(pRenderTarget->CreateSolidColorBrush(selectionColor, &pSelectionBrush)) ||
@@ -333,8 +339,9 @@ BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz,
 
     if (_pTextLayout && nCnt > 0)
     {
+        const FLOAT textTop = (_singleLine && _nLineCnt > 0) ? _prgLines[0].top : _paddingTopDips;
         pRenderTarget->DrawTextLayout(D2D1::Point2F(_paddingLeftDips - (_singleLine ? _horizontalScrollDips : 0.0f),
-                                                    _paddingTopDips),
+                                                    textTop),
                                       _pTextLayout, pTextBrush,
                                       D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
     }
@@ -510,9 +517,9 @@ BOOL CTextLayout::RectFromCharPosDipsRaw(UINT nPos, D2D1_RECT_F *prc)
     if ((_nLineCnt > 0) && (_prgLines[0].nCnt == 0))
     {
         prc->left = _paddingLeftDips;
-        prc->top = _paddingTopDips;
+        prc->top = _prgLines[0].top;
         prc->right = _paddingLeftDips + PixelsToDipsX(kCaretWidthPixels);
-        prc->bottom = _paddingTopDips + _lineHeightDips;
+        prc->bottom = _prgLines[0].bottom;
         return TRUE;
     }
 
@@ -777,7 +784,10 @@ void CTextLayout::DrawUnderline(ID2D1HwndRenderTarget *pRenderTarget, const TF_D
                                 const D2D1_RECT_F &rc, BOOL bClause)
 {
     ID2D1SolidColorBrush *pBrush = NULL;
-    const D2D1_COLOR_F lineColor = GetAttributeColor(&pda->crLine, GetSysColor(COLOR_WINDOWTEXT));
+    // A themed TextBox supplies its foreground explicitly. Use that same foreground for the
+    // preedit underline so automatic/system TSF colors remain readable on dark surfaces.
+    const D2D1_COLOR_F lineColor =
+        _useCustomColors ? _textColor : GetAttributeColor(&pda->crLine, GetSysColor(COLOR_WINDOWTEXT));
     if (FAILED(pRenderTarget->CreateSolidColorBrush(lineColor, &pBrush)))
     {
         return;
@@ -789,8 +799,12 @@ void CTextLayout::DrawUnderline(ID2D1HwndRenderTarget *pRenderTarget, const TF_D
         strokeWidth *= 1.5f;
     }
 
-    const FLOAT left = static_cast<FLOAT>(rc.left);
-    const FLOAT right = static_cast<FLOAT>(rc.right - (bClause ? strokeWidth : 0.0f));
+    // Direct2D centers the stroke on each endpoint. Keep the visible stroke inside the
+    // composition bounds by insetting both endpoints by half of the computed stroke width.
+    const FLOAT endpointInset = strokeWidth * 0.5f;
+    const FLOAT left = static_cast<FLOAT>(rc.left) + endpointInset;
+    const FLOAT right = max(static_cast<FLOAT>(rc.right) - endpointInset,
+                            left + (bClause ? 0.0f : endpointInset));
     const FLOAT baseline = static_cast<FLOAT>(rc.bottom) - (strokeWidth / 2.0f);
 
     switch (pda->lsStyle)

@@ -195,6 +195,8 @@ cmake --build build --config Debug
 
 项目包含独立的 `msimeui-emoji-panel.exe`，用于预览接近微软输入法风格的深色表情面板：
 
+面板支持 Emoji、颜文字和符号分类，搜索过滤、最近使用、方向键导航，以及点击或回车后复制到剪贴板。GIF 与剪贴板历史页目前保留为后续数据源接入口。
+
 ```powershell
 ./scripts/build-emoji-panel.ps1
 ./scripts/launch-emoji-panel.ps1

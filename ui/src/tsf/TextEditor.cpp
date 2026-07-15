@@ -609,7 +609,9 @@ void CTextEditor::UpdateLayout()
 
     const FLOAT dpi = static_cast<FLOAT>(GetDpiForWindow(_hwnd));
     const LONG width = max(_rcHost.right - _rcHost.left, 1L);
-    _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width), dpi, dpi,
+    const LONG height = max(_rcHost.bottom - _rcHost.top, 1L);
+    _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width),
+                   static_cast<FLOAT>(height), dpi, dpi,
                    static_cast<FLOAT>(_rcContentPadding.left), static_cast<FLOAT>(_rcContentPadding.top),
                    static_cast<FLOAT>(_rcContentPadding.right), static_cast<FLOAT>(_rcContentPadding.bottom), _singleLine);
     _layout.EnsureCaretVisible(_nSelEnd);

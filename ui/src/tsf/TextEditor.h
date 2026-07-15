@@ -5,6 +5,7 @@
 #include "TextStore.h"
 #include "TextEditSink.h"
 #include <string>
+#include <functional>
 
 //----------------------------------------------------------------
 //
@@ -56,6 +57,10 @@ class CTextEditor : public CTextContainer
         return _nSelStart != _nSelEnd;
     }
     std::wstring GetSelectedText() const;
+    void SetTextChangedCallback(std::function<void()> callback)
+    {
+        _textChangedCallback = std::move(callback);
+    }
 
     void MoveSelectionNext();
     void MoveSelectionPrev();
@@ -141,6 +146,19 @@ class CTextEditor : public CTextContainer
 
     void AleartMouseSink(POINT pt, DWORD dwBtnState, BOOL *pbEaten);
 
+    void SetColors(const D2D1_COLOR_F &textColor, const D2D1_COLOR_F &selectionColor)
+    {
+        _layout.SetColors(textColor, selectionColor);
+    }
+
+  protected:
+    void OnTextChanged() override
+    {
+        if (_textChangedCallback)
+        {
+            _textChangedCallback();
+        }
+    }
   private:
     UINT _nSelStart;
     UINT _nSelEnd;
@@ -162,4 +180,5 @@ class CTextEditor : public CTextContainer
 
     COMPOSITIONRENDERINFO *_pCompositionRenderInfo;
     int _nCompositionRenderInfo;
+    std::function<void()> _textChangedCallback;
 };
