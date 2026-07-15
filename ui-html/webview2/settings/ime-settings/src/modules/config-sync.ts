@@ -1,4 +1,4 @@
-import { applyCandidateArrange, applyToggleState } from './shared';
+import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 import { applyInputConfig } from './input';
 
 function safeParseJson(value: string): unknown {
@@ -61,9 +61,13 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.helpcode?.shuangpin_helpcode === 'boolean') {
       applyToggleState('shuangpinHelpcodeToggleBtn', payload.data.helpcode.shuangpin_helpcode);
     }
+    applyDropdownValue('shuangpinHelpcodeSchemeBtn', 'shuangpinHelpcodeSchemeMenu',
+      payload.data?.helpcode?.shuangpin_helpcode_schema);
     if (typeof payload.data?.helpcode?.quanpin_helpcode === 'boolean') {
       applyToggleState('quanpinHelpcodeToggleBtn', payload.data.helpcode.quanpin_helpcode);
     }
+    applyDropdownValue('quanpinHelpcodeSchemeBtn', 'quanpinHelpcodeSchemeMenu',
+      payload.data?.helpcode?.quanpin_helpcode_schema);
     if (typeof payload.data?.helpcode?.show_qp_helpcode_in_candidate_window === 'boolean') {
       applyToggleState(
         'showQuanpinHelpcodeToggleBtn',

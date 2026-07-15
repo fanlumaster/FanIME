@@ -3,10 +3,12 @@ import { updateConfig } from './config-sync';
 
 export function setupHelpcode(): void {
   // 双拼辅助码方案
-  setupDropdownMenu('shuangpinHelpcodeSchemeBtn', 'shuangpinHelpcodeSchemeMenu', 'changeShuangpinScheme', true);
+  setupDropdownMenu('shuangpinHelpcodeSchemeBtn', 'shuangpinHelpcodeSchemeMenu', 'changeShuangpinScheme', true,
+    'helpcode.shuangpin_helpcode_schema');
 
   // 全拼辅助码方案
-  setupDropdownMenu('quanpinHelpcodeSchemeBtn', 'quanpinHelpcodeSchemeMenu', 'changeQuanpinScheme', true);
+  setupDropdownMenu('quanpinHelpcodeSchemeBtn', 'quanpinHelpcodeSchemeMenu', 'changeQuanpinScheme', true,
+    'helpcode.quanpin_helpcode_schema');
 
   // 双拼辅助码开关
   setupToggleButton('shuangpinHelpcodeToggleBtn', (active) => {
