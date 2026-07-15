@@ -1,0 +1,15 @@
+.shortcut-settings { padding-bottom: 24px; }
+.shortcut-intro { color: #a8a8a8; font-size: 13px; line-height: 1.6; margin: -4px 8px 18px; }
+.shortcut-section { padding: 0; overflow: hidden; }
+.shortcut-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; }
+.shortcut-section-description { color: #8f8f8f; font-size: 12px; margin-top: 5px; }
+.shortcut-badge { color: #c7c5ff; background: rgba(142, 140, 216, .16); border: 1px solid rgba(142, 140, 216, .25); border-radius: 999px; font-size: 11px; padding: 3px 9px; }
+.shortcut-list { border-top: 1px solid var(--border-color); }
+.shortcut-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 22px; color: #ddd; font-size: 13px; }
+.shortcut-row + .shortcut-row { border-top: 1px solid rgba(255, 255, 255, .045); }
+.shortcut-row-danger > span { color: #e8b4b4; }
+.shortcut-keys { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px; color: #777; }
+.shortcut-keys kbd { min-width: 28px; padding: 4px 8px; color: #e6e6e6; background: #303030; border: 1px solid #505050; border-bottom-color: #656565; border-radius: 5px; box-shadow: 0 1px 0 rgba(255, 255, 255, .08); font: 12px/1.25 "Segoe UI Variable", "Segoe UI", sans-serif; text-align: center; white-space: nowrap; }
+.shortcut-keys i, .shortcut-keys em { font-style: normal; font-size: 11px; }
+.shortcut-keys em { margin: 0 3px; color: #8d8d8d; }
+@media (max-width: 760px) { .shortcut-row { align-items: flex-start; flex-direction: column; gap: 9px; } .shortcut-keys { justify-content: flex-start; } }

@@ -55,6 +55,7 @@ async function initializeApp() {
   await loadContent('appearance');
   await loadContent('input');
   await loadContent('helpcode');
+  await loadContent('shortcut');
   setupConfigSync();
 
   // 加载默认内容(通用设置)，初始化功能
