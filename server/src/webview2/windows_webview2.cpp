@@ -1150,10 +1150,26 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "helpcode.shuangpin_helpcode_schema")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredShuangpinHelpcodeSchema(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "helpcode.quanpin_helpcode")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
                                 if (SetConfiguredQuanpinHelpcodeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "helpcode.quanpin_helpcode_schema")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredQuanpinHelpcodeSchema(value))
                                 {
                                     PostSettingsConfig();
                                 }
@@ -1261,7 +1277,9 @@ void PostSettingsConfig()
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
+                    {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
                     {"quanpin_helpcode", GetConfiguredQuanpinHelpcodeEnabled()},
+                    {"quanpin_helpcode_schema", GetConfiguredQuanpinHelpcodeSchema()},
                     {"show_sp_helpcode_in_candidate_window",
                      GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
                     {"show_qp_helpcode_in_candidate_window",

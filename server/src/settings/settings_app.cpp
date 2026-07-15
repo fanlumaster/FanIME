@@ -168,7 +168,9 @@ void PostConfig()
           {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
+            {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
             {"quanpin_helpcode", GetConfiguredQuanpinHelpcodeEnabled()},
+            {"quanpin_helpcode_schema", GetConfiguredQuanpinHelpcodeSchema()},
             {"show_sp_helpcode_in_candidate_window", GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
             {"show_qp_helpcode_in_candidate_window", GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
     const std::wstring message = string_to_wstring(payload.dump());
@@ -222,8 +224,12 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredShowShuangpinHelpcodeInCandidateWindow(json::value_to<bool>(data.at("value")));
     if (path == "helpcode.shuangpin_helpcode")
         return SetConfiguredShuangpinHelpcodeEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "helpcode.shuangpin_helpcode_schema")
+        return SetConfiguredShuangpinHelpcodeSchema(json::value_to<std::string>(data.at("value")));
     if (path == "helpcode.quanpin_helpcode")
         return SetConfiguredQuanpinHelpcodeEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "helpcode.quanpin_helpcode_schema")
+        return SetConfiguredQuanpinHelpcodeSchema(json::value_to<std::string>(data.at("value")));
     if (path == "helpcode.show_qp_helpcode_in_candidate_window")
         return SetConfiguredShowQuanpinHelpcodeInCandidateWindow(json::value_to<bool>(data.at("value")));
     return false;

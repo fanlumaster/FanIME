@@ -17,6 +17,8 @@ std::string g_wubi_schema = "wubi86";
 std::string g_shuangpin_preedit_mode = "quanpin";
 bool g_shuangpin_helpcode_enabled = true;
 bool g_quanpin_helpcode_enabled = true;
+std::string g_shuangpin_helpcode_schema = "lantian";
+std::string g_quanpin_helpcode_schema = "lantian";
 bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
@@ -233,6 +235,12 @@ bool LoadImeConfig()
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
+        const std::string shuangpin_helpcode_schema =
+            tbl["helpcode"]["shuangpin_helpcode_schema"].value_or(std::string("lantian"));
+        g_shuangpin_helpcode_schema = shuangpin_helpcode_schema == "ziranma" ? "ziranma" : "lantian";
+        const std::string quanpin_helpcode_schema =
+            tbl["helpcode"]["quanpin_helpcode_schema"].value_or(std::string("lantian"));
+        g_quanpin_helpcode_schema = quanpin_helpcode_schema == "ziranma" ? "ziranma" : "lantian";
         g_show_shuangpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_sp_helpcode_in_candidate_window"].value_or(true);
         g_show_quanpin_helpcode_in_candidate_window =
@@ -459,6 +467,21 @@ bool SetConfiguredShuangpinHelpcodeEnabled(bool enabled)
     return true;
 }
 
+const std::string &GetConfiguredShuangpinHelpcodeSchema()
+{
+    return g_shuangpin_helpcode_schema;
+}
+
+bool SetConfiguredShuangpinHelpcodeSchema(const std::string &schema)
+{
+    if (schema != "lantian" && schema != "ziranma")
+        return false;
+    if (!WriteConfiguredValue("helpcode", "shuangpin_helpcode_schema", EscapeTomlBasicString(schema)))
+        return false;
+    g_shuangpin_helpcode_schema = schema;
+    return true;
+}
+
 bool GetConfiguredQuanpinHelpcodeEnabled()
 {
     return g_quanpin_helpcode_enabled;
@@ -471,6 +494,21 @@ bool SetConfiguredQuanpinHelpcodeEnabled(bool enabled)
         return false;
     }
     g_quanpin_helpcode_enabled = enabled;
+    return true;
+}
+
+const std::string &GetConfiguredQuanpinHelpcodeSchema()
+{
+    return g_quanpin_helpcode_schema;
+}
+
+bool SetConfiguredQuanpinHelpcodeSchema(const std::string &schema)
+{
+    if (schema != "lantian" && schema != "ziranma")
+        return false;
+    if (!WriteConfiguredValue("helpcode", "quanpin_helpcode_schema", EscapeTomlBasicString(schema)))
+        return false;
+    g_quanpin_helpcode_schema = schema;
     return true;
 }
 

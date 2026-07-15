@@ -69,7 +69,7 @@ schema = "shuangpin"
 shuangpin_preedit_mode = "shuangpin"
 # 双拼方案，可选："xiaohe", "ziranma"
 # shuangpin_schema = "xiaohe"
-shuangpin_schema = "ziranma"
+shuangpin_schema = "xiaohe"
 # 五笔方案，可选："wubi86", "wubi98"
 wubi_schema = "wubi86"
 
@@ -81,7 +81,7 @@ wubi_schema = "wubi86"
 # 双拼辅助码
 shuangpin_helpcode = true
 # 双拼辅助码方案，可选："lantian", "ziranma"
-shuangpin_helpcode_schema = "lantian"
+shuangpin_helpcode_schema = "ziranma"
 # 是否在候选窗口中显示双拼辅助码
 show_sp_helpcode_in_candidate_window = true
 # 全拼辅助码

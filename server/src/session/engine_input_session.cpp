@@ -9,6 +9,13 @@
 
 namespace
 {
+void SelectConfiguredHelpcodeSchema(SchemeType scheme)
+{
+    HelpcodeUtils::select_helpcode_schema(scheme == SchemeType::Quanpin
+                                              ? GetConfiguredQuanpinHelpcodeSchema()
+                                              : GetConfiguredShuangpinHelpcodeSchema());
+}
+
 std::string remove_delimiters(const std::string &segmented)
 {
     std::string normalized;
@@ -106,12 +113,14 @@ EngineInputSession::EngineInputSession(SchemeType scheme_type, const ShuangpinPr
     : shuangpin_profile_(shuangpin_profile), session_(scheme_type, shuangpin_profile),
       shuangpin_dictionary_(shuangpin_profile)
 {
+    SelectConfiguredHelpcodeSchema(scheme_type);
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
 }
 
 void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
 {
+    SelectConfiguredHelpcodeSchema(current_scheme_type());
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
     session_.handle_key(vk, modifiers_down, wch);
@@ -119,6 +128,7 @@ void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
 
 void EngineInputSession::recompute_candidates()
 {
+    SelectConfiguredHelpcodeSchema(current_scheme_type());
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
     if (has_pending_pinyin_sequence_ || has_pending_pinyin_sequence_with_cases_)
@@ -137,6 +147,7 @@ SchemeType EngineInputSession::current_scheme_type() const
 void EngineInputSession::switch_scheme(SchemeType scheme_type)
 {
     clear_pending_sequence();
+    SelectConfiguredHelpcodeSchema(scheme_type);
     session_.switch_scheme(scheme_type);
 }
 
