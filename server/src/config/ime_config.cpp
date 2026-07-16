@@ -12,6 +12,7 @@ namespace
 {
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
+int g_candidate_page_size = 8;
 std::string g_shuangpin_schema = "xiaohe";
 std::string g_wubi_schema = "wubi86";
 std::string g_shuangpin_preedit_mode = "quanpin";
@@ -227,7 +228,7 @@ bool LoadImeConfig()
         auto tbl = toml::parse_file(g_config_path.string());
 
         const int page_size = tbl["appearance"]["page_size"].value_or(8);
-        Global::candidate_ui.page_size = page_size >= 3 && page_size <= 10 ? page_size : 8;
+        g_candidate_page_size = page_size >= 3 && page_size <= 10 ? page_size : 8;
         g_session_backend = tbl["input"]["session_backend"].value_or(std::string("legacy"));
         g_input_scheme = ParseScheme(tbl["input"]["schema"].value_or(std::string("shuangpin")));
         g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
@@ -373,6 +374,11 @@ const std::filesystem::path &GetImeConfigPath()
 const std::string &GetConfiguredSessionBackend()
 {
     return g_session_backend;
+}
+
+int GetConfiguredCandidatePageSize()
+{
+    return g_candidate_page_size;
 }
 
 SchemeType GetConfiguredInputScheme()

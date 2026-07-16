@@ -198,15 +198,19 @@ constexpr std::string_view Pinyin = "pinyin";
 constexpr std::string_view Cand = "cand";
 } // namespace TsfPreeditStyle
 
+inline std::string &tsfPreeditStyleStorage()
+{
+    static std::string style = std::string(TsfPreeditStyle::Raw); // 默认的原始按键序列
+    return style;
+}
+
 inline const std::string &getTsfPreeditStyle()
 {
-    static const std::string style = std::string(TsfPreeditStyle::Raw); // 默认的原始按键序列
-    return style;
+    return tsfPreeditStyleStorage();
 }
 
 inline void setTsfPreeditStyle(std::string_view newStyle)
 {
-    static std::string currentStyle = std::string(TsfPreeditStyle::Raw);
-    currentStyle = std::string(newStyle);
+    tsfPreeditStyleStorage() = std::string(newStyle);
 }
 } // namespace GlobalSettings

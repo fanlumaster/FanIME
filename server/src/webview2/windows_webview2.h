@@ -49,6 +49,7 @@ void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
 void InflateMeasureDivCandWnd(std::wstring &str);
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
+void ShutdownWebviews();
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 
 //
@@ -91,6 +92,9 @@ inline ComPtr<ICoreWebView2_3> webview3FtbWnd;
 inline ComPtr<ICoreWebView2Controller2> webviewController2FtbWnd;
 
 inline std::wstring HTMLStringFtbWnd = LR"()";
+
+// These entry points always update the canonical toolbar state, even when the
+// WebView is not ready. A successful FTB navigation replays the complete state.
 void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState);
 void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int puncState);
 void UpdateFtbCnEnAndDoubleSingleAndPuncState( //

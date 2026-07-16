@@ -10,16 +10,15 @@
 #include <windef.h>
 #include <winuser.h>
 #include <fmt/xchar.h>
-#include <utf8.h>
 #include "webview2/windows_webview2.h"
 #include "utils/webview_utils.h"
 #include "utils/window_utils.h"
 #include <dwmapi.h>
 #include "utils/window_utils.h"
 #include "ipc/event_listener.h"
-#include "session/session_factory.h"
 #include "utils/ime_utils.h"
 #include "window_hook.h"
+#include "window/floating_toolbar_visibility_policy.h"
 #include <windowsx.h>
 #include "resource/resource.h"
 
@@ -29,7 +28,6 @@ constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_CAND = 1;
 constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 2;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 3;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
-constexpr UINT_PTR TIMER_ID_CHECK_TSF_TO_HIDE_FTB = 5;
 constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 6;
 constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
 constexpr UINT_PTR TIMER_ID_SETTINGS_ACTIVATION_RETRY = 8;
@@ -40,8 +38,8 @@ int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
 
 namespace
 {
-bool g_is_ime_active = true;
 int g_settings_activation_retries_remaining = 0;
+bool g_is_ime_active = false;
 
 void ScheduleSettingsWindowActivation(HWND hwnd)
 {
@@ -132,40 +130,23 @@ void ApplyConfiguredFloatingToolbarVisibility()
     }
     const HWND foreground = GetForegroundWindow();
     const bool fullscreen = foreground && CheckFullscreen(foreground);
-    const bool should_show = GetConfiguredFloatingToolbarEnabled() && g_is_ime_active && !fullscreen;
-    ShowWindow(::global_hwnd_ftb, should_show ? SW_SHOWNA : SW_HIDE);
+    const bool should_show = FanyImeUi::ShouldShowFloatingToolbar(
+        GetConfiguredFloatingToolbarEnabled(), fullscreen, g_is_ime_active);
+    const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
+    if (is_visible != should_show)
+    {
+        ShowWindow(::global_hwnd_ftb, should_show ? SW_SHOWNA : SW_HIDE);
+    }
 }
 
 void ApplyConfiguredInputScheme()
 {
-    if (!g_inputSession || g_inputSession->current_scheme_type() == GetConfiguredInputScheme())
-    {
-        return;
-    }
-
-    FanyNamedPipe::ClearState();
-    g_inputSession = CreateInputSessionFromConfig();
-    Global::candidate_ui.set_items({});
-    if (::global_hwnd)
-    {
-        PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
-    }
+    FanyNamedPipe::EnqueueReloadInputSessionTask();
 }
 
 void ApplyConfiguredShuangpinSchema()
 {
-    if (!g_inputSession || g_inputSession->current_scheme_type() != SchemeType::Shuangpin)
-    {
-        return;
-    }
-
-    FanyNamedPipe::ClearState();
-    g_inputSession = CreateInputSessionFromConfig();
-    Global::candidate_ui.set_items({});
-    if (::global_hwnd)
-    {
-        PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
-    }
+    FanyNamedPipe::EnqueueReloadInputSessionTask();
 }
 
 LRESULT RegisterCandidateWindowMessage()
@@ -331,13 +312,14 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         return 1;
     }
     ::global_hwnd_ftb = hwnd_ftb;
+    FanyNamedPipe::RegisterStatusSnapshotWindow(hwnd_ftb);
 
     //
     // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口、floating toolbar hover tip 窗口
     //
     ShowWindow(hwnd_cand, SW_SHOW);
     ShowWindow(hwnd_menu, SW_SHOW);
-    ShowWindow(hwnd_ftb, GetConfiguredFloatingToolbarEnabled() ? SW_SHOW : SW_HIDE);
+    ApplyConfiguredFloatingToolbarVisibility();
     UpdateWindow(hwnd_cand);
     UpdateWindow(hwnd_menu);
     UpdateWindow(hwnd_ftb);
@@ -428,6 +410,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (message == WM_IMEACTIVATE)
+    {
+        g_is_ime_active = true;
+        ApplyConfiguredFloatingToolbarVisibility();
+        return 0;
+    }
+
+    if (message == WM_IMEDEACTIVATE)
+    {
+        g_is_ime_active = false;
+        ApplyConfiguredFloatingToolbarVisibility();
+        return 0;
+    }
+
     if (message == WM_SHOW_MAIN_WINDOW)
     {
         /* Read candidate string */
@@ -471,20 +467,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     if (message == WM_MOVE_CANDIDATE_WINDOW)
     {
         FineTuneWindow(hwnd);
-        return 0;
-    }
-
-    if (message == WM_IMEACTIVATE)
-    {
-        g_is_ime_active = true;
-        ApplyConfiguredFloatingToolbarVisibility();
-        return 0;
-    }
-
-    if (message == WM_IMEDEACTIVATE)
-    {
-        g_is_ime_active = false;
-        ApplyConfiguredFloatingToolbarVisibility();
         return 0;
     }
 
@@ -567,6 +549,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             if (ReloadImeConfigIfChanged())
             {
+                FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
                 if (previous_input_scheme != GetConfiguredInputScheme())
                     ApplyConfiguredInputScheme();
                 else if (previous_shuangpin_schema != GetConfiguredShuangpinSchema())
@@ -600,7 +583,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     /* Clear dictionary buffer cache */
     case WM_CLS_DICT_CACHE: {
-        g_inputSession->reset_cache();
+        FanyNamedPipe::EnqueueResetInputSessionCacheTask();
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Cleared dictionary buffer cache.").c_str());
 #endif
@@ -609,101 +592,30 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     case WM_COMMIT_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
-        int zero_based = one_based - 1;
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to commit candidate {}", one_based).c_str());
 #endif
-        if (one_based > Global::candidate_ui.page_words.size())
-        {
-            break;
-        }
-
-        /* 取出汉字 */
-        UINT keycode = '0' + one_based;
-        FanyNamedPipe::ProcessSelectionKey(keycode);
-
-        FanyNamedPipe::SendCurrentDataToActiveTsf();
-
-        SendToTsfWorkerThreadViaNamedpipe(
-            Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate,
-            Global::MsgTypeToTsf == Global::DataFromServerMsgType::Normal ? Global::candidate_ui.selected_text : L"");
+        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::Commit, one_based);
 
         break;
     }
 
     case WM_PIN_TO_TOP_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
-        int zero_based = one_based - 1;
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to pin to top candidate {}", one_based).c_str());
 #endif
-        if (one_based > Global::candidate_ui.page_words.size())
-        {
-            break;
-        }
-
-        //
-        // 在词库中调整 weight 以置顶
-        //
-        /* 先取出拼音和汉字 */
-        DictionaryUlPb::WordItem curWordItem =
-            Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
-        if (curWordItem.source == CandidateSource::EnglishDictionary)
-        {
-            break;
-        }
-        std::string curWord = curWordItem.word;
-        std::string curWordPinyin = curWordItem.pinyin;
-
-        /* 调整条目 weight，一次到顶 */
-        g_inputSession->pin_candidate(curWordPinyin, curWord);
-        /* 刷新候选窗列表 */
-        g_inputSession->reset_cache();
-        g_inputSession->recompute_candidates();
-        /* 刷新窗口 */
-        FanyNamedPipe::PrepareCandidateList();
-        PostMessage(hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::Pin, one_based);
 
         break;
     }
 
     case WM_DELETE_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
-        int zero_based = one_based - 1;
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Really to delete candidate {}", one_based).c_str());
 #endif
-        if (one_based > Global::candidate_ui.page_words.size())
-        {
-            break;
-        }
-
-        //
-        // 在词库中删除
-        //
-        /* 先取出拼音和汉字 */
-        DictionaryUlPb::WordItem curWordItem =
-            Global::candidate_ui.items[zero_based + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
-        if (curWordItem.source == CandidateSource::EnglishDictionary)
-        {
-            break;
-        }
-        std::string curWord = curWordItem.word;
-        std::string curWordPinyin = curWordItem.pinyin;
-        // 单字不删除，静默无任何操作来处理
-        if (utf8::distance(curWord.begin(), curWord.end()) == 1)
-        {
-            break;
-        }
-
-        /* 删除条目 */
-        g_inputSession->remove_candidate(curWordPinyin, curWord);
-        /* 刷新候选窗列表 */
-        g_inputSession->reset_cache();
-        g_inputSession->recompute_candidates();
-        /* 刷新窗口 */
-        FanyNamedPipe::PrepareCandidateList();
-        PostMessage(hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::Delete, one_based);
 
         break;
     }
@@ -713,7 +625,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         OutputDebugString(L"[msime]: Clearing IME engine cache");
 #endif
         /* 清除候选词缓存 */
-        g_inputSession->reset_cache();
+        FanyNamedPipe::EnqueueResetInputSessionCacheTask();
         break;
     }
 
@@ -1041,6 +953,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             if (ReloadImeConfigIfChanged())
             {
+                FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
                 if (previous_input_scheme != GetConfiguredInputScheme())
                 {
                     ApplyConfiguredInputScheme();

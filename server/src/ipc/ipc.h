@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -12,6 +13,8 @@ inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
 inline const wchar_t *FANY_IME_TO_TSF_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfNamedPipe";
 inline const wchar_t *FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfWorkerThreadNamedPipe";
 inline const wchar_t *FANY_IME_AUX_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeAuxNamedPipe";
+inline constexpr DWORD FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY = 64;
+inline constexpr DWORD FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY = 32;
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
 inline HANDLE hToTsfPipe = INVALID_HANDLE_VALUE;
 inline HANDLE hToTsfWorkerThreadPipe = INVALID_HANDLE_VALUE;
@@ -56,6 +59,8 @@ inline const std::vector<std::wstring> FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_
 };
 
 inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
+inline std::vector<HANDLE> hPipeEvents(FANY_IME_EVENT_PIPE_ARRAY.size());
+inline std::vector<HANDLE> hWorkerPipeEvents(FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size());
 
 struct FanyImeSharedMemoryData
 {
@@ -79,8 +84,14 @@ struct FanyImeSharedMemoryData
 //   2: FanyShowCandidateWndEvent
 //   3: FanyMoveCandidateWndEvent
 //   4: FanyLangbarRightClickEvent
-//   5: FanyIMEActivationEvent
-//   6: FanyIMEDeactivationEvent
+//   7: IMESwitch
+//   8: PuncSwitch
+//   9: DoubleSingleByteSwitch
+//  10: ClientHello
+//  11: ClientActivated
+//  12: ClientDeactivated (terminal route reset; toolbar hidden)
+//  13: StatusSnapshot
+//  14: ClientSuspended (recoverable route reset; toolbar unchanged)
 //
 // modifiers_down:
 //     0b00000001: Shift
@@ -93,6 +104,7 @@ struct FanyImeNamedpipeData
 {
     UINT event_type;
     uint64_t client_id = 0;
+    uint64_t request_id = 0;
     UINT keycode; // VkCode
     WCHAR wch;    // Unicode character converted from vkcode
     UINT modifiers_down = 0;
@@ -111,9 +123,27 @@ struct FanyImeNamedpipeData
 struct FanyImeNamedpipeDataToTsf
 {
     UINT msg_type;
+    uint64_t request_id = 0;
     wchar_t candidate_string[200]; // 200 chars at most
 };
 
+static_assert(offsetof(FanyImeNamedpipeData, request_id) == 16,
+              "FanyImeNamedpipeData request_id ABI must match the TSF client");
+static_assert(sizeof(WCHAR) == 2, "The IPC ABI requires 16-bit WCHAR");
+static_assert(offsetof(FanyImeNamedpipeData, client_id) == 8,
+              "FanyImeNamedpipeData client_id ABI must match the TSF client");
+static_assert(offsetof(FanyImeNamedpipeData, keycode) == 24,
+              "FanyImeNamedpipeData keycode ABI must match the TSF client");
+static_assert(offsetof(FanyImeNamedpipeData, pinyin_string) == 48,
+              "FanyImeNamedpipeData pinyin ABI must match the TSF client");
+static_assert(sizeof(FanyImeNamedpipeData) == 304,
+              "FanyImeNamedpipeData ABI must match the TSF client");
+static_assert(offsetof(FanyImeNamedpipeDataToTsf, request_id) == 8,
+              "FanyImeNamedpipeDataToTsf request_id ABI must match the TSF client");
+static_assert(offsetof(FanyImeNamedpipeDataToTsf, candidate_string) == 16,
+              "FanyImeNamedpipeDataToTsf candidate ABI must match the TSF client");
+static_assert(sizeof(FanyImeNamedpipeDataToTsf) == 416,
+              "FanyImeNamedpipeDataToTsf ABI must match the TSF client");
 inline FanyImeNamedpipeData namedpipeData;
 
 namespace FanyImePipeEventType
@@ -126,9 +156,23 @@ constexpr UINT LangbarRightClick = 4;
 constexpr UINT ClientHello = 10;
 constexpr UINT ClientActivated = 11;
 constexpr UINT ClientDeactivated = 12;
+constexpr UINT StatusSnapshot = 13;
+// Rotate the active IPC route for an internal TSF focus-session reset. A
+// suspension keeps floating-toolbar visibility; terminal deactivation hides it.
+constexpr UINT ClientSuspended = 14;
 constexpr UINT IMESwitch = 7;
 constexpr UINT PuncSwitch = 8;
 constexpr UINT DoubleSingleByteSwitch = 9;
+
+constexpr bool IsRouteDeactivation(UINT event_type)
+{
+    return event_type == ClientDeactivated || event_type == ClientSuspended;
+}
+
+constexpr bool IsTerminalDeactivation(UINT event_type)
+{
+    return event_type == ClientDeactivated;
+}
 } // namespace FanyImePipeEventType
 
 namespace FanyImePipeRole
@@ -161,7 +205,16 @@ struct FanyImeNamedpipeDataToTsfWorkerThread
     wchar_t data[200];
 };
 
-inline FanyImeNamedpipeDataToTsfWorkerThread namedpipeDataToTsfWorkerThread;
+static_assert(sizeof(FanyImePipeHello) == 16,
+              "FanyImePipeHello ABI must match the TSF client");
+static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) == 404,
+              "FanyImeNamedpipeDataToTsfWorkerThread ABI must match the TSF client");
+static_assert(sizeof(FanyImeNamedpipeDataToTsf) * FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY >=
+                  sizeof(FanyImeNamedpipeDataToTsf) * 64,
+              "The TSF reply pipe must buffer at least 64 complete replies");
+static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) * FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY >=
+                  sizeof(FanyImeNamedpipeDataToTsfWorkerThread) * 16,
+              "The TSF worker pipe must buffer at least 16 complete notifications");
 
 int InitIpc();
 int CloseIpc();
@@ -190,13 +243,44 @@ int WriteDataToSharedMemory(              //
 */
 int ReadDataFromSharedMemory(UINT read_flag);
 int ReadDataFromNamedPipe(UINT read_flag);
-void RegisterMainPipeClient(uint64_t client_id, HANDLE pipe);
-void RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe);
-void RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe);
-void UnregisterPipeClientHandle(uint64_t client_id, UINT pipe_role, HANDLE pipe);
-void ActivatePipeClient(uint64_t client_id);
-void DeactivatePipeClient(uint64_t client_id);
-bool IsActivePipeClient(uint64_t client_id);
+uint64_t RegisterMainPipeClient(uint64_t client_id, HANDLE pipe);
+uint64_t RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe);
+uint64_t RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe);
+uint64_t BeginPipeClientHandler(HANDLE pipe);
+void EndPipeClientHandler(uint64_t handler_id);
+struct PipeClientActivation
+{
+    uint64_t client_id = 0;
+    uint64_t epoch = 0;
+    bool changed = false;
+    uint64_t focus_token = 0;
+};
+
+struct PipeClientUnregisterResult
+{
+    bool removed = false;
+    uint64_t deactivation_epoch = 0;
+};
+
+PipeClientUnregisterResult UnregisterPipeClientHandle(uint64_t client_id, UINT pipe_role, HANDLE pipe,
+                                                      uint64_t registration_id);
+bool IsPipeClientRegistrationCurrent(uint64_t client_id, UINT pipe_role, uint64_t registration_id);
+PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_registration_id,
+                                        bool wait_for_reverse_pipe = false, uint64_t focus_token = 0,
+                                        bool update_focus_token = false);
+uint64_t DeactivatePipeClient(uint64_t client_id, uint64_t main_registration_id);
+uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id,
+                                                    uint64_t transition_epoch = 0);
+PipeClientActivation GetActivePipeClient();
+bool IsActivePipeClient(uint64_t client_id, uint64_t activation_epoch = 0);
+bool IsPipeActivationCurrent(uint64_t client_id, uint64_t activation_epoch);
+void ShutdownPipeClients();
+bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
+                                 uint64_t request_id, const std::wstring &pipeData);
+bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, UINT msg_type,
+                                             const std::wstring &pipeData);
+bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch,
+                                             UINT msg_type, const std::wstring &pipeData);
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 
@@ -221,6 +305,7 @@ constexpr UINT MoveSelectionPrevious = 5;
 constexpr UINT MoveSelectionNext = 6;
 constexpr UINT MovePagePrevious = 7;
 constexpr UINT MovePageNext = 8;
+constexpr UINT PipeReady = 9;
 } // namespace DataFromServerMsgType
 
 inline UINT MsgTypeToTsf = DataFromServerMsgType::Normal; // 默认为 Normal
@@ -235,6 +320,15 @@ constexpr UINT SwitchToFullwidth = 4;
 constexpr UINT SwitchToHalfwidth = 5;
 constexpr UINT CommitCandidate = 6;
 constexpr UINT PagingCommaPeriodChanged = 7;
+// Ordered focus-session barrier. The data field echoes the nonzero request_id
+// (focus token) from ClientActivated; implicit-key barriers reuse the nonzero
+// token recorded for the current main registration. No token means no barrier.
+// Because all worker packets share one endpoint/write lock, older notifications
+// are written before this marker or rejected by their stale activation epoch.
+constexpr UINT FocusSessionReady = 8;
+// Worker reverse-pipe registration acknowledgement. This is always the first
+// frame written to a newly accepted worker endpoint.
+constexpr UINT PipeReady = 9;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

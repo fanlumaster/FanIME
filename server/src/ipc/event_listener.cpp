@@ -6,9 +6,14 @@
 #include <namedpipeapi.h>
 #include <string>
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <iterator>
 #include <thread>
 #include "Ipc.h"
+#include "ipc/candidate_ui_owner.h"
+#include "ipc/focus_session_policy.h"
+#include "ipc/input_key_policy.h"
 #include "defines/defines.h"
 #include "ipc.h"
 #include "defines/globals.h"
@@ -26,6 +31,7 @@
 #include "cloud/cloud_ime.h"
 #include "english/english_ime.h"
 #include "config/ime_config.h"
+#include "session/session_factory.h"
 
 #ifdef FANY_IPC_DEBUG
 #define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
@@ -40,6 +46,149 @@
 namespace
 {
 std::string BuildCurrentCandidatePage();
+
+constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
+
+class ScopedPipeClientHandler
+{
+  public:
+    explicit ScopedPipeClientHandler(uint64_t handler_id) : handler_id_(handler_id)
+    {
+    }
+
+    ~ScopedPipeClientHandler()
+    {
+        EndPipeClientHandler(handler_id_);
+    }
+
+    ScopedPipeClientHandler(const ScopedPipeClientHandler &) = delete;
+    ScopedPipeClientHandler &operator=(const ScopedPipeClientHandler &) = delete;
+
+  private:
+    uint64_t handler_id_ = 0;
+};
+
+bool SetPipeWaitMode(HANDLE pipe, bool wait)
+{
+    DWORD mode = PIPE_READMODE_MESSAGE | (wait ? PIPE_WAIT : PIPE_NOWAIT);
+    return SetNamedPipeHandleState(pipe, &mode, nullptr, nullptr) != FALSE;
+}
+
+bool ReadExactPipeMessageUntil(HANDLE pipe, void *destination, DWORD destination_size,
+                               std::chrono::steady_clock::time_point deadline, DWORD &bytes_read)
+{
+    bytes_read = 0;
+    while (pipe_running && std::chrono::steady_clock::now() < deadline)
+    {
+        const BOOL result = ReadFile(pipe, destination, destination_size, &bytes_read, nullptr);
+        if (result)
+        {
+            return bytes_read == destination_size;
+        }
+
+        const DWORD error = GetLastError();
+        if (error != ERROR_NO_DATA)
+        {
+            return false;
+        }
+        Sleep(2);
+    }
+
+    SetLastError(pipe_running ? ERROR_SEM_TIMEOUT : ERROR_OPERATION_ABORTED);
+    return false;
+}
+
+struct AsyncRequestOrigin
+{
+    uint64_t client_id = 0;
+    uint64_t activation_epoch = 0;
+    uint64_t generation = 0;
+    std::string input;
+};
+
+std::mutex g_async_request_mutex;
+uint64_t g_cloud_generation = 0;
+uint64_t g_english_generation = 0;
+AsyncRequestOrigin g_cloud_request_origin;
+AsyncRequestOrigin g_english_request_origin;
+std::mutex g_status_snapshot_mutex;
+int g_latest_status_snapshot = -1;
+HWND g_status_snapshot_window = nullptr;
+std::mutex g_candidate_ui_owner_mutex;
+FanyImeIpc::CandidateUiOwnerState g_candidate_ui_owner;
+
+void PublishCandidateUiOwner(uint64_t client_id, uint64_t activation_epoch)
+{
+    std::lock_guard lock(g_candidate_ui_owner_mutex);
+    g_candidate_ui_owner.publish(client_id, activation_epoch);
+}
+
+void ClearCandidateUiOwner()
+{
+    std::lock_guard lock(g_candidate_ui_owner_mutex);
+    g_candidate_ui_owner.clear();
+}
+
+FanyImeIpc::CandidateUiOwner SnapshotCandidateUiOwner()
+{
+    std::lock_guard lock(g_candidate_ui_owner_mutex);
+    return g_candidate_ui_owner.snapshot();
+}
+
+bool CandidateUiOwnerIsCurrent(const FanyImeIpc::CandidateUiOwner &owner)
+{
+    std::lock_guard lock(g_candidate_ui_owner_mutex);
+    return g_candidate_ui_owner.matches(owner);
+}
+
+void PublishStatusSnapshotValue(int packed_state)
+{
+    std::lock_guard lock(g_status_snapshot_mutex);
+    g_latest_status_snapshot = packed_state;
+    if (g_status_snapshot_window && IsWindow(g_status_snapshot_window))
+    {
+        PostMessage(g_status_snapshot_window, UPDATE_FTB_STATUS, packed_state, 0);
+    }
+}
+
+void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    CloudIme::OnInputChanged(input);
+    ++g_cloud_generation;
+    g_cloud_request_origin = input.empty() ? AsyncRequestOrigin{}
+                                           : AsyncRequestOrigin{client_id, activation_epoch, g_cloud_generation, input};
+}
+
+void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    EnglishIme::OnInputChanged(input);
+    ++g_english_generation;
+    g_english_request_origin =
+        input.empty() ? AsyncRequestOrigin{}
+                      : AsyncRequestOrigin{client_id, activation_epoch, g_english_generation, input};
+}
+
+AsyncRequestOrigin FindCloudRequestOrigin(const std::string &input, uint64_t generation)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    if (g_cloud_request_origin.generation == generation && g_cloud_request_origin.input == input)
+    {
+        return g_cloud_request_origin;
+    }
+    return {};
+}
+
+AsyncRequestOrigin FindEnglishRequestOrigin(const std::string &input, uint64_t generation)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    if (g_english_request_origin.generation == generation && g_english_request_origin.input == input)
+    {
+        return g_english_request_origin;
+    }
+    return {};
+}
 
 std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases,
                                         const std::string &current_word)
@@ -291,6 +440,84 @@ void LogClientRouting(uint64_t client_id, UINT event_type, bool is_active)
                   is_active);
 }
 
+bool IsImplicitActivationEvent(UINT event_type)
+{
+    // A real key is the only unambiguous foreground-ownership signal. Status
+    // and compartment notifications can be delayed background callbacks and
+    // must never steal routing from the focused TSF client.
+    return event_type == FanyImePipeEventType::KeyEvent;
+}
+
+void SendFocusSessionReady(const PipeClientActivation &activation)
+{
+    if (!FanyImeIpc::CanSendFocusSessionReady(activation.client_id, activation.epoch,
+                                               activation.focus_token))
+    {
+        return;
+    }
+
+    // This packet is an ordered focus-session fence on the same worker
+    // endpoint used for candidate commits. The activation request id is a TSF
+    // focus token and is echoed verbatim; unlike the Server-only epoch, it lets
+    // TSF reject a buffered marker from an older focus session.
+    SendToTsfWorkerThreadClientViaNamedpipe(
+        activation.client_id, activation.epoch,
+        Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady,
+        std::to_wstring(activation.focus_token));
+}
+
+bool IsKnownMainPipeEvent(UINT event_type)
+{
+    switch (event_type)
+    {
+    case FanyImePipeEventType::KeyEvent:
+    case FanyImePipeEventType::HideCandidateWnd:
+    case FanyImePipeEventType::ShowCandidateWnd:
+    case FanyImePipeEventType::MoveCandidateWnd:
+    case FanyImePipeEventType::LangbarRightClick:
+    case FanyImePipeEventType::IMESwitch:
+    case FanyImePipeEventType::PuncSwitch:
+    case FanyImePipeEventType::DoubleSingleByteSwitch:
+    case FanyImePipeEventType::ClientHello:
+    case FanyImePipeEventType::ClientActivated:
+    case FanyImePipeEventType::ClientDeactivated:
+    case FanyImePipeEventType::StatusSnapshot:
+    case FanyImePipeEventType::ClientSuspended:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool IsValidMainPipeFrame(const FanyImeNamedpipeData &pipe_data)
+{
+    if (!IsKnownMainPipeEvent(pipe_data.event_type) || pipe_data.pinyin_length < 0 ||
+        pipe_data.pinyin_length >= static_cast<int>(std::size(pipe_data.pinyin_string)) ||
+        pipe_data.pinyin_string[std::size(pipe_data.pinyin_string) - 1] != L'\0' ||
+        pipe_data.pinyin_string[pipe_data.pinyin_length] != L'\0')
+    {
+        return false;
+    }
+
+    if (pipe_data.event_type == FanyImePipeEventType::StatusSnapshot &&
+        (pipe_data.keycode > 1 || pipe_data.modifiers_down > 1 || pipe_data.pinyin_length > 1))
+    {
+        return false;
+    }
+    if (pipe_data.event_type == FanyImePipeEventType::KeyEvent && pipe_data.request_id == 0)
+    {
+        return false;
+    }
+    if (pipe_data.event_type == FanyImePipeEventType::ClientActivated &&
+        pipe_data.request_id == 0)
+    {
+        // FocusSessionReady can never acknowledge token zero. Reject the
+        // activation instead of creating a server epoch that TSF cannot fence.
+        return false;
+    }
+    return true;
+}
+
 bool WaitForPipeClient(HANDLE pipe)
 {
     BOOL connected = ConnectNamedPipe(pipe, NULL);
@@ -301,11 +528,58 @@ bool WaitForPipeClient(HANDLE pipe)
     return GetLastError() == ERROR_PIPE_CONNECTED;
 }
 
-bool ReadPipeHello(HANDLE pipe, FanyImePipeHello &hello)
+bool PipeClientIdMatchesConnectedProcess(HANDLE pipe, uint64_t client_id)
 {
+    ULONG client_process_id = 0;
+    if (!GetNamedPipeClientProcessId(pipe, &client_process_id))
+    {
+        // Best effort for older/exceptional hosts. When Windows provides the
+        // process identity, however, never accept a spoofed routing id.
+        return true;
+    }
+    return static_cast<DWORD>(client_id >> 32) == static_cast<DWORD>(client_process_id);
+}
+
+bool ReadPipeHello(HANDLE pipe, UINT expected_pipe_role, FanyImePipeHello &hello)
+{
+    if (!SetPipeWaitMode(pipe, false))
+    {
+        return false;
+    }
     DWORD bytesRead = 0;
-    BOOL readResult = ReadFile(pipe, &hello, sizeof(hello), &bytesRead, NULL);
-    return readResult && bytesRead == sizeof(hello) && hello.client_id != 0;
+    const bool readResult = ReadExactPipeMessageUntil(pipe, &hello, sizeof(hello),
+                                                      std::chrono::steady_clock::now() + kPipeHelloTimeout,
+                                                      bytesRead);
+    return readResult && pipe_running && hello.client_id != 0 &&
+           hello.pipe_role == expected_pipe_role && PipeClientIdMatchesConnectedProcess(pipe, hello.client_id);
+}
+
+void WakePipeListener(const wchar_t *pipe_name)
+{
+    for (int retry = 0; retry < 20; ++retry)
+    {
+        HANDLE wake_pipe = CreateFileW(pipe_name, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (wake_pipe && wake_pipe != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(wake_pipe);
+            return;
+        }
+
+        const DWORD error = GetLastError();
+        if (error != ERROR_PIPE_BUSY)
+        {
+            return;
+        }
+        WaitNamedPipeW(pipe_name, 10);
+    }
+}
+
+void WakeNamedPipeListenersForShutdown()
+{
+    WakePipeListener(FANY_IME_NAMED_PIPE);
+    WakePipeListener(FANY_IME_TO_TSF_NAMED_PIPE);
+    WakePipeListener(FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE);
+    WakePipeListener(FANY_IME_AUX_NAMED_PIPE);
 }
 } // namespace
 
@@ -325,7 +599,16 @@ enum class TaskType
     ApplyEnglishCandidates,
     StoreUserPhrase,
     PinCandidate,
+    ClientActivated,
     ClientDeactivated,
+    ClientSuspended,
+    StatusSnapshot,
+    UiCommitCandidate,
+    UiPinCandidate,
+    UiDeleteCandidate,
+    ReloadInputSession,
+    ApplyCandidatePageSize,
+    ResetInputSessionCache,
 };
 
 struct Task
@@ -333,6 +616,8 @@ struct Task
     TaskType type;
     bool has_pipe_data = false;
     FanyImeNamedpipeData pipe_data = {};
+    uint64_t client_id = 0;
+    uint64_t activation_epoch = 0;
     std::string cloud_candidate;
     std::string cloud_pinyin;
     uint64_t cloud_generation = 0;
@@ -341,21 +626,25 @@ struct Task
     uint64_t english_generation = 0;
     std::string session_pinyin;
     std::string session_word;
+    int candidate_one_based_index = 0;
 };
 
 std::queue<Task> taskQueue;
 std::mutex queueMutex;
 
-void PrepareCandidateList();
-void HandleImeKey();
+void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch);
+void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
 void ClearState();
-void ProcessSelectionKey(UINT keycode);
+void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch,
+                         int forced_index_in_page = -1);
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word);
 void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
-void MainPipeClientThread(HANDLE clientPipe);
-void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole);
+bool ResolveCandidateItem(int one_based_index, WordItem &item);
+bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
+void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId);
+void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t handlerId);
 
 void WorkerThread()
 {
@@ -371,6 +660,32 @@ void WorkerThread()
             taskQueue.pop();
         }
 
+        if (task.type == TaskType::ClientDeactivated ||
+            task.type == TaskType::ClientSuspended)
+        {
+            if (!IsPipeActivationCurrent(0, task.activation_epoch))
+            {
+                continue;
+            }
+        }
+        else if (task.client_id != 0 && task.activation_epoch != 0 &&
+                 !IsPipeActivationCurrent(task.client_id, task.activation_epoch))
+        {
+            // Every task carrying an owner is rejected after a focus/session
+            // transition, including UI-originated candidate actions.
+            continue;
+        }
+
+        const bool candidateUiAction = task.type == TaskType::UiCommitCandidate ||
+                                       task.type == TaskType::UiPinCandidate ||
+                                       task.type == TaskType::UiDeleteCandidate;
+        if (candidateUiAction &&
+            !CandidateUiOwnerIsCurrent({task.client_id, task.activation_epoch}))
+        {
+            // The page was hidden or replaced after the click was posted.
+            continue;
+        }
+
         if (task.has_pipe_data)
         {
             namedpipeData = task.pipe_data;
@@ -380,7 +695,7 @@ void WorkerThread()
         {
         case TaskType::ShowCandidate: {
             static int cnt = 0;
-            PrepareCandidateList();
+            PrepareCandidateList(task.client_id, task.activation_epoch);
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
         }
@@ -401,7 +716,7 @@ void WorkerThread()
         }
 
         case TaskType::ImeKeyEvent: {
-            HandleImeKey();
+            HandleImeKey(task.client_id, task.activation_epoch, task.pipe_data.request_id);
             break;
         }
 
@@ -448,16 +763,155 @@ void WorkerThread()
             break;
         }
 
-        case TaskType::ClientDeactivated: {
+        case TaskType::ClientActivated: {
+            // Activation replaces all composition/candidate state from the
+            // previous focus session. A terminal TIP activation also makes
+            // the configured floating toolbar visible. Re-activation after a
+            // suspension is idempotent and therefore does not flash it.
+            PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
             PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             ClearState();
             break;
         }
+
+        case TaskType::ClientDeactivated: {
+            // Unlike a route-only suspension, terminal TIP deactivation means
+            // the user switched to another input method.
+            PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
+            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            ClearState();
+            break;
         }
+
+        case TaskType::ClientSuspended: {
+            // A suspension rotates the IPC focus session while the TIP may
+            // still own thread focus. It clears candidates just like terminal
+            // deactivation, but never changes floating-toolbar visibility.
+            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            ClearState();
+            break;
+        }
+
+        case TaskType::StatusSnapshot: {
+            const int cn_state = task.pipe_data.keycode != 0 ? 1 : 0;
+            const int fullwidth_state = task.pipe_data.modifiers_down != 0 ? 1 : 0;
+            const int punctuation_state = task.pipe_data.pinyin_length != 0 ? 1 : 0;
+            const int packed_state = (cn_state << 2) | (fullwidth_state << 1) | punctuation_state;
+            if (FanyImeIpc::ShouldResetCompositionForImeMode(cn_state != 0))
+            {
+                PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+                ClearState();
+            }
+            PublishStatusSnapshotValue(packed_state);
+            break;
+        }
+
+        case TaskType::UiCommitCandidate: {
+            ProcessSelectionKey(0, task.client_id, task.activation_epoch,
+                                task.candidate_one_based_index - 1);
+            if (Global::MsgTypeToTsf == Global::DataFromServerMsgType::Normal)
+            {
+                // The worker packet is the complete edit-session-owned commit
+                // for a normal UI click. Do not also leave an unsolicited
+                // request-id-0 reply on the normal reverse pipe.
+                if (SendToTsfWorkerThreadClientViaNamedpipe(
+                        task.client_id, task.activation_epoch,
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate,
+                        Global::candidate_ui.selected_text))
+                {
+                    ClearState();
+                }
+            }
+            else if (SendCurrentDataToClient(task.client_id, task.activation_epoch, 0))
+            {
+                // NeedToCreateWord/OutOfRange require the normal reply's
+                // subtype. An empty worker packet is only the ordered trigger;
+                // TSF consumes (rather than discards) the id-0 reply.
+                SendToTsfWorkerThreadClientViaNamedpipe(
+                    task.client_id, task.activation_epoch,
+                    Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate, L"");
+            }
+            break;
+        }
+
+        case TaskType::UiPinCandidate:
+        case TaskType::UiDeleteCandidate: {
+            WordItem item;
+            if (!ResolveCandidateItem(task.candidate_one_based_index, item) ||
+                item.source == CandidateSource::EnglishDictionary)
+            {
+                break;
+            }
+
+            if (task.type == TaskType::UiPinCandidate)
+            {
+                g_inputSession->pin_candidate(item.pinyin, item.word);
+            }
+            else
+            {
+                if (utf8::distance(item.word.begin(), item.word.end()) == 1)
+                {
+                    break;
+                }
+                g_inputSession->remove_candidate(item.pinyin, item.word);
+            }
+            g_inputSession->reset_cache();
+            g_inputSession->recompute_candidates();
+            PrepareCandidateList(task.client_id, task.activation_epoch);
+            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+            break;
+        }
+
+        case TaskType::ReloadInputSession: {
+            ClearState();
+            Global::candidate_ui.page_size = GetConfiguredCandidatePageSize();
+            g_inputSession = CreateInputSessionFromConfig();
+            Global::candidate_ui.set_items({});
+            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            break;
+        }
+
+        case TaskType::ApplyCandidatePageSize: {
+            const int pageSize = GetConfiguredCandidatePageSize();
+            if (Global::candidate_ui.page_size != pageSize)
+            {
+                Global::candidate_ui.page_size = pageSize;
+                Global::candidate_ui.page_index = 0;
+                Global::candidate_ui.clear_page();
+                const FanyImeIpc::CandidateUiOwner owner = SnapshotCandidateUiOwner();
+                if (owner && IsPipeActivationCurrent(owner.client_id, owner.activation_epoch))
+                {
+                    RefreshCandidatePageUi(true);
+                }
+            }
+            break;
+        }
+
+        case TaskType::ResetInputSessionCache: {
+            if (g_inputSession)
+            {
+                g_inputSession->reset_cache();
+            }
+            break;
+        }
+        }
+    }
+
+    ShutdownPipeClients();
+    WakeNamedPipeListenersForShutdown();
+}
+
+void RegisterStatusSnapshotWindow(HWND toolbar_window)
+{
+    std::lock_guard lock(g_status_snapshot_mutex);
+    g_status_snapshot_window = toolbar_window;
+    if (g_latest_status_snapshot >= 0 && g_status_snapshot_window && IsWindow(g_status_snapshot_window))
+    {
+        PostMessage(g_status_snapshot_window, UPDATE_FTB_STATUS, g_latest_status_snapshot, 0);
     }
 }
 
-void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData)
+void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData, uint64_t activation_epoch)
 {
     {
         std::lock_guard lock(queueMutex);
@@ -465,6 +919,8 @@ void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData)
         task.type = type;
         task.has_pipe_data = true;
         task.pipe_data = pipeData;
+        task.client_id = pipeData.client_id;
+        task.activation_epoch = activation_epoch;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -472,6 +928,11 @@ void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData)
 
 void EnqueueCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
 {
+    const AsyncRequestOrigin origin = FindCloudRequestOrigin(pinyin, generation);
+    if (origin.client_id == 0 || origin.activation_epoch == 0)
+    {
+        return;
+    }
     {
         std::lock_guard lock(queueMutex);
         Task task;
@@ -479,6 +940,8 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
         task.cloud_candidate = candidate;
         task.cloud_pinyin = pinyin;
         task.cloud_generation = generation;
+        task.client_id = origin.client_id;
+        task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -486,6 +949,11 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
 
 void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
+    const AsyncRequestOrigin origin = FindEnglishRequestOrigin(input, generation);
+    if (origin.client_id == 0 || origin.activation_epoch == 0)
+    {
+        return;
+    }
     {
         std::lock_guard lock(queueMutex);
         Task task;
@@ -493,6 +961,8 @@ void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::strin
         task.english_candidates = std::move(candidates);
         task.english_input = input;
         task.english_generation = generation;
+        task.client_id = origin.client_id;
+        task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -524,16 +994,112 @@ void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word)
     pipe_queueCv.notify_one();
 }
 
-void SendCurrentDataToActiveTsf()
+void EnqueuePipeSessionInvalidatedTask(uint64_t client_id, uint64_t invalidation_epoch)
+{
+    if (!pipe_running || client_id == 0 || invalidation_epoch == 0)
+    {
+        return;
+    }
+
+    FanyImeNamedpipeData disconnectData = {};
+    disconnectData.event_type = FanyImePipeEventType::ClientSuspended;
+    disconnectData.client_id = client_id;
+    EnqueueTask(TaskType::ClientSuspended, disconnectData, invalidation_epoch);
+}
+
+void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index)
+{
+    if (!pipe_running || one_based_index <= 0 || one_based_index > 10)
+    {
+        return;
+    }
+
+    const FanyImeIpc::CandidateUiOwner owner = SnapshotCandidateUiOwner();
+    if (!owner)
+    {
+        return;
+    }
+
+    TaskType type = TaskType::UiCommitCandidate;
+    if (action == CandidateUiAction::Pin)
+    {
+        type = TaskType::UiPinCandidate;
+    }
+    else if (action == CandidateUiAction::Delete)
+    {
+        type = TaskType::UiDeleteCandidate;
+    }
+
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = type;
+        task.client_id = owner.client_id;
+        task.activation_epoch = owner.activation_epoch;
+        task.candidate_one_based_index = one_based_index;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueReloadInputSessionTask()
+{
+    if (!pipe_running)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ReloadInputSession;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueApplyCandidatePageSizeTask()
+{
+    if (!pipe_running)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ApplyCandidatePageSize;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueResetInputSessionCacheTask()
+{
+    if (!pipe_running)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ResetInputSessionCache;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id)
 {
     const UINT msg_type = Global::MsgTypeToTsf;
     FANY_IPC_LOGF(L"[msime]: [ipc] send-current-data: msg_type={}, text={}", msg_type,
                   ::Global::candidate_ui.selected_text);
-    SendToTsfViaNamedpipe(msg_type, ::Global::candidate_ui.selected_text);
-    if (msg_type == Global::DataFromServerMsgType::Normal)
+    const bool sent = SendToTsfClientViaNamedpipe(client_id, activation_epoch, msg_type, request_id,
+                                                  ::Global::candidate_ui.selected_text);
+    if (sent && msg_type == Global::DataFromServerMsgType::Normal &&
+        IsPipeActivationCurrent(client_id, activation_epoch))
     {
         ClearState();
     }
+    return sent;
 }
 
 void EventListenerLoopThread()
@@ -541,7 +1107,7 @@ void EventListenerLoopThread()
     HANDLE listeningPipe = hPipe;
     hPipe = INVALID_HANDLE_VALUE;
 
-    while (true)
+    while (pipe_running)
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: Main pipe starts to wait");
@@ -561,9 +1127,34 @@ void EventListenerLoopThread()
         LogPipeConnectResult(L"main-pipe", connected);
         if (connected)
         {
+            if (!pipe_running)
+            {
+                DisconnectNamedPipe(listeningPipe);
+                CloseHandle(listeningPipe);
+                listeningPipe = INVALID_HANDLE_VALUE;
+                break;
+            }
             HANDLE clientPipe = listeningPipe;
             listeningPipe = CreateMainNamedPipeInstance();
-            std::thread(MainPipeClientThread, clientPipe).detach();
+            const uint64_t handlerId = BeginPipeClientHandler(clientPipe);
+            if (handlerId == 0)
+            {
+                DisconnectNamedPipe(clientPipe);
+                CloseHandle(clientPipe);
+            }
+            else
+            {
+                try
+                {
+                    std::thread(MainPipeClientThread, clientPipe, handlerId).detach();
+                }
+                catch (...)
+                {
+                    EndPipeClientHandler(handlerId);
+                    DisconnectNamedPipe(clientPipe);
+                    CloseHandle(clientPipe);
+                }
+            }
         }
         else
         {
@@ -571,48 +1162,143 @@ void EventListenerLoopThread()
             listeningPipe = INVALID_HANDLE_VALUE;
         }
     }
+
+    if (listeningPipe && listeningPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(listeningPipe);
+    }
 }
 
-void MainPipeClientThread(HANDLE clientPipe)
+void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
 {
+    ScopedPipeClientHandler handler(handlerId);
     uint64_t clientId = 0;
-    while (true)
+    uint64_t mainRegistrationId = 0;
+    bool helloReceived = false;
+    if (!SetPipeWaitMode(clientPipe, false))
+    {
+        DisconnectNamedPipe(clientPipe);
+        CloseHandle(clientPipe);
+        return;
+    }
+    while (pipe_running)
     {
         FanyImeNamedpipeData pipeData = {};
         DWORD bytesRead = 0;
-        BOOL readResult = ReadFile(clientPipe, &pipeData, sizeof(pipeData), &bytesRead, NULL);
-        if (!readResult || bytesRead == 0)
+        const BOOL readResult = helloReceived
+                                    ? ReadFile(clientPipe, &pipeData, sizeof(pipeData), &bytesRead, nullptr)
+                                    : ReadExactPipeMessageUntil(clientPipe, &pipeData, sizeof(pipeData),
+                                                                std::chrono::steady_clock::now() + kPipeHelloTimeout,
+                                                                bytesRead);
+        if (!readResult || bytesRead != sizeof(pipeData))
         {
             LogPipeReadFailure(L"main-pipe", bytesRead);
             break;
         }
+        if (!pipe_running)
+        {
+            break;
+        }
+        if (!IsValidMainPipeFrame(pipeData))
+        {
+            FANY_IPC_LOGF(L"[msime]: [ipc] rejected malformed main-pipe frame: type={}, client_id={}, pinyin_length={}",
+                          pipeData.event_type, pipeData.client_id, pipeData.pinyin_length);
+            break;
+        }
 
-        clientId = pipeData.client_id;
+        if (!helloReceived)
+        {
+            if (pipeData.event_type != FanyImePipeEventType::ClientHello || pipeData.client_id == 0 ||
+                !PipeClientIdMatchesConnectedProcess(clientPipe, pipeData.client_id))
+            {
+                FANY_IPC_LOGF(L"[msime]: [ipc] rejected main pipe without a valid hello: type={}, client_id={}",
+                              pipeData.event_type, pipeData.client_id);
+                break;
+            }
+            clientId = pipeData.client_id;
+            LogClientLifecycle(L"hello", clientId, pipeData.event_type);
+            mainRegistrationId = RegisterMainPipeClient(clientId, clientPipe);
+            if (mainRegistrationId == 0)
+            {
+                break;
+            }
+            if (!pipe_running || !SetPipeWaitMode(clientPipe, true))
+            {
+                break;
+            }
+            helloReceived = true;
+            continue;
+        }
+
+        if (pipeData.client_id != clientId)
+        {
+            FANY_IPC_LOGF(L"[msime]: [ipc] rejected client-id change on main pipe: pinned={}, received={}", clientId,
+                          pipeData.client_id);
+            break;
+        }
+        if (!IsPipeClientRegistrationCurrent(clientId, FanyImePipeRole::Main, mainRegistrationId))
+        {
+            break;
+        }
         if (pipeData.event_type == FanyImePipeEventType::ClientHello)
         {
-            LogClientLifecycle(L"hello", clientId, pipeData.event_type);
-            RegisterMainPipeClient(clientId, clientPipe);
+            // A repeated hello from the same pinned connection is harmless.
             continue;
         }
         if (pipeData.event_type == FanyImePipeEventType::ClientActivated)
         {
             LogClientLifecycle(L"activated", clientId, pipeData.event_type);
-            RegisterMainPipeClient(clientId, clientPipe);
-            ActivatePipeClient(clientId);
+            const PipeClientActivation activation =
+                ActivatePipeClient(clientId, mainRegistrationId, true, pipeData.request_id, true);
+            SendFocusSessionReady(activation);
+            if (activation.changed)
+            {
+                EnqueueTask(TaskType::ClientActivated, pipeData, activation.epoch);
+            }
             continue;
         }
-        if (pipeData.event_type == FanyImePipeEventType::ClientDeactivated)
+        if (FanyImePipeEventType::IsRouteDeactivation(pipeData.event_type))
         {
-            LogClientLifecycle(L"deactivated", clientId, pipeData.event_type);
-            if (IsActivePipeClient(clientId))
+            const bool terminalDeactivation =
+                FanyImePipeEventType::IsTerminalDeactivation(pipeData.event_type);
+            LogClientLifecycle(terminalDeactivation ? L"deactivated" : L"suspended",
+                               clientId, pipeData.event_type);
+            uint64_t deactivationEpoch = DeactivatePipeClient(clientId, mainRegistrationId);
+            if (terminalDeactivation && deactivationEpoch == 0)
             {
-                EnqueueTask(TaskType::ClientDeactivated, pipeData);
+                // ClientSuspended may already have put routing into the
+                // inactive state. Preserve exact terminal cleanup for that
+                // owner; a subsequent activation makes this task stale.
+                deactivationEpoch =
+                    ResolvePipeClientTerminalDeactivationEpoch(clientId);
             }
-            DeactivatePipeClient(clientId);
+            if (deactivationEpoch != 0)
+            {
+                EnqueueTask(terminalDeactivation ? TaskType::ClientDeactivated
+                                                 : TaskType::ClientSuspended,
+                            pipeData, deactivationEpoch);
+            }
             continue;
         }
 
-        const bool isActiveClient = IsActivePipeClient(clientId);
+        PipeClientActivation activation = GetActivePipeClient();
+        if (IsImplicitActivationEvent(pipeData.event_type))
+        {
+            activation = ActivatePipeClient(clientId, mainRegistrationId, false);
+            // A real key can be the first observable foreground signal after
+            // Win+. returns, before the TSF reconnect timer has replayed its
+            // explicit activation. Fence the worker stream before enqueueing
+            // the corresponding key task. Repeated markers for one epoch are
+            // intentional and harmless.
+            SendFocusSessionReady(activation);
+            if (activation.changed)
+            {
+                EnqueueTask(TaskType::ClientActivated, pipeData, activation.epoch);
+            }
+        }
+
+        const bool isActiveClient = activation.client_id == clientId && activation.epoch != 0 &&
+                                    IsActivePipeClient(clientId, activation.epoch);
         LogClientRouting(clientId, pipeData.event_type, isActiveClient);
         if (!isActiveClient)
         {
@@ -625,48 +1311,70 @@ void MainPipeClientThread(HANDLE clientPipe)
         switch (pipeData.event_type)
         {
         case FanyImePipeEventType::KeyEvent: {
-            EnqueueTask(TaskType::ImeKeyEvent, pipeData);
+            EnqueueTask(TaskType::ImeKeyEvent, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::HideCandidateWnd: {
-            EnqueueTask(TaskType::HideCandidate, pipeData);
+            EnqueueTask(TaskType::HideCandidate, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::ShowCandidateWnd: {
-            EnqueueTask(TaskType::ShowCandidate, pipeData);
+            EnqueueTask(TaskType::ShowCandidate, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::MoveCandidateWnd: {
-            EnqueueTask(TaskType::MoveCandidate, pipeData);
+            EnqueueTask(TaskType::MoveCandidate, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::LangbarRightClick: {
-            EnqueueTask(TaskType::LangbarRightClick, pipeData);
+            EnqueueTask(TaskType::LangbarRightClick, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::IMESwitch: {
-            EnqueueTask(TaskType::IMESwitch, pipeData);
+            EnqueueTask(TaskType::IMESwitch, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::PuncSwitch: {
-            EnqueueTask(TaskType::PuncSwitch, pipeData);
+            EnqueueTask(TaskType::PuncSwitch, pipeData, activation.epoch);
             break;
         }
 
         case FanyImePipeEventType::DoubleSingleByteSwitch: {
-            EnqueueTask(TaskType::DoubleSingleByteSwitch, pipeData);
+            EnqueueTask(TaskType::DoubleSingleByteSwitch, pipeData, activation.epoch);
+            break;
+        }
+
+        case FanyImePipeEventType::StatusSnapshot: {
+            EnqueueTask(TaskType::StatusSnapshot, pipeData, activation.epoch);
             break;
         }
         }
     }
 
-    UnregisterPipeClientHandle(clientId, FanyImePipeRole::Main, clientPipe);
+    const PipeClientUnregisterResult unregisterResult =
+        UnregisterPipeClientHandle(clientId, FanyImePipeRole::Main, clientPipe, mainRegistrationId);
+    uint64_t disconnectEpoch = unregisterResult.deactivation_epoch;
+    if (disconnectEpoch == 0 && unregisterResult.removed)
+    {
+        // A process can disconnect its Main pipe after it suspended the route.
+        // Reuse only that owner's inactive epoch; a replacement Main that has
+        // already activated makes this terminal cleanup stale.
+        disconnectEpoch =
+            ResolvePipeClientTerminalDeactivationEpoch(clientId);
+    }
+    if (disconnectEpoch != 0)
+    {
+        FanyImeNamedpipeData disconnectData = {};
+        disconnectData.event_type = FanyImePipeEventType::ClientSuspended;
+        disconnectData.client_id = clientId;
+        EnqueueTask(TaskType::ClientSuspended, disconnectData, disconnectEpoch);
+    }
     LogPipeDisconnect(L"main-pipe");
     DisconnectNamedPipe(clientPipe);
     CloseHandle(clientPipe);
@@ -676,7 +1384,7 @@ void ToTsfPipeEventListenerLoopThread()
 {
     HANDLE listeningPipe = hToTsfPipe;
     hToTsfPipe = INVALID_HANDLE_VALUE;
-    while (true)
+    while (pipe_running)
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: ToTsf Pipe starts to wait");
@@ -699,9 +1407,34 @@ void ToTsfPipeEventListenerLoopThread()
         LogPipeConnectResult(L"to-tsf-pipe", connected);
         if (connected)
         {
+            if (!pipe_running)
+            {
+                DisconnectNamedPipe(listeningPipe);
+                CloseHandle(listeningPipe);
+                listeningPipe = INVALID_HANDLE_VALUE;
+                break;
+            }
             HANDLE clientPipe = listeningPipe;
             listeningPipe = CreateToTsfNamedPipeInstance();
-            std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsf).detach();
+            const uint64_t handlerId = BeginPipeClientHandler(clientPipe);
+            if (handlerId == 0)
+            {
+                DisconnectNamedPipe(clientPipe);
+                CloseHandle(clientPipe);
+            }
+            else
+            {
+                try
+                {
+                    std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsf, handlerId).detach();
+                }
+                catch (...)
+                {
+                    EndPipeClientHandler(handlerId);
+                    DisconnectNamedPipe(clientPipe);
+                    CloseHandle(clientPipe);
+                }
+            }
         }
         else
         {
@@ -709,13 +1442,18 @@ void ToTsfPipeEventListenerLoopThread()
             listeningPipe = INVALID_HANDLE_VALUE;
         }
     }
+
+    if (listeningPipe && listeningPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(listeningPipe);
+    }
 }
 
 void ToTsfWorkerThreadPipeEventListenerLoopThread()
 {
     HANDLE listeningPipe = hToTsfWorkerThreadPipe;
     hToTsfWorkerThreadPipe = INVALID_HANDLE_VALUE;
-    while (true)
+    while (pipe_running)
     {
 #ifdef FANY_DEBUG
         OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe starts to wait");
@@ -739,9 +1477,36 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
 #ifdef FANY_DEBUG
             OutputDebugString(fmt::format(L"[msime]: ToTsf Worker Thread Pipe connected: {}", connected).c_str());
 #endif
+            if (!pipe_running)
+            {
+                DisconnectNamedPipe(listeningPipe);
+                CloseHandle(listeningPipe);
+                listeningPipe = INVALID_HANDLE_VALUE;
+                break;
+            }
             HANDLE clientPipe = listeningPipe;
             listeningPipe = CreateToTsfWorkerThreadNamedPipeInstance();
-            std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsfWorkerThread).detach();
+            const uint64_t handlerId = BeginPipeClientHandler(clientPipe);
+            if (handlerId == 0)
+            {
+                DisconnectNamedPipe(clientPipe);
+                CloseHandle(clientPipe);
+            }
+            else
+            {
+                try
+                {
+                    std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsfWorkerThread,
+                                handlerId)
+                        .detach();
+                }
+                catch (...)
+                {
+                    EndPipeClientHandler(handlerId);
+                    DisconnectNamedPipe(clientPipe);
+                    CloseHandle(clientPipe);
+                }
+            }
         }
         else
         {
@@ -749,12 +1514,18 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
             listeningPipe = INVALID_HANDLE_VALUE;
         }
     }
+
+    if (listeningPipe && listeningPipe != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(listeningPipe);
+    }
 }
 
-void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
+void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t handlerId)
 {
+    ScopedPipeClientHandler handler(handlerId);
     FanyImePipeHello hello = {};
-    if (!ReadPipeHello(clientPipe, hello))
+    if (!ReadPipeHello(clientPipe, pipeRole, hello))
     {
         LogPipeReadFailure(pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe", 0);
         DisconnectNamedPipe(clientPipe);
@@ -762,40 +1533,112 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole)
         return;
     }
 
+    HANDLE monitorPipe = INVALID_HANDLE_VALUE;
+    if (!DuplicateHandle(GetCurrentProcess(), clientPipe, GetCurrentProcess(), &monitorPipe, 0, FALSE,
+                         DUPLICATE_SAME_ACCESS))
+    {
+        monitorPipe = INVALID_HANDLE_VALUE;
+    }
+
+    uint64_t registrationId = 0;
     if (pipeRole == FanyImePipeRole::ToTsf)
     {
-        RegisterToTsfPipeClient(hello.client_id, clientPipe);
+        registrationId = RegisterToTsfPipeClient(hello.client_id, clientPipe);
     }
     else if (pipeRole == FanyImePipeRole::ToTsfWorkerThread)
     {
-        RegisterToTsfWorkerThreadPipeClient(hello.client_id, clientPipe);
-        FanyImeNamedpipeDataToTsfWorkerThread settingsData{};
-        settingsData.msg_type = Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged;
-        wcscpy_s(settingsData.data, GetConfiguredPagingCommaPeriodEnabled() ? L"1" : L"0");
-        DWORD bytesWritten = 0;
-        WriteFile(clientPipe, &settingsData, sizeof(settingsData), &bytesWritten, nullptr);
+        registrationId = RegisterToTsfWorkerThreadPipeClient(hello.client_id, clientPipe);
+        if (registrationId != 0)
+        {
+            SendToTsfWorkerThreadClientViaNamedpipe(
+                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
+                GetConfiguredPagingCommaPeriodEnabled() ? L"1" : L"0");
+        }
     }
+
+    if (registrationId == 0)
+    {
+        if (monitorPipe && monitorPipe != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(monitorPipe);
+        }
+        DisconnectNamedPipe(clientPipe);
+        CloseHandle(clientPipe);
+        return;
+    }
+
+    if (!monitorPipe || monitorPipe == INVALID_HANDLE_VALUE)
+    {
+        const PipeClientUnregisterResult result =
+            UnregisterPipeClientHandle(hello.client_id, pipeRole, clientPipe, registrationId);
+        EnqueuePipeSessionInvalidatedTask(hello.client_id, result.deactivation_epoch);
+        return;
+    }
+
+    const wchar_t *pipeName =
+        pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe";
+    while (pipe_running && IsPipeClientRegistrationCurrent(hello.client_id, pipeRole, registrationId))
+    {
+        DWORD bytesAvailable = 0;
+        if (!PeekNamedPipe(monitorPipe, nullptr, 0, nullptr, &bytesAvailable, nullptr))
+        {
+            LogPipeReadFailure(pipeName, 0);
+            break;
+        }
+        Sleep(20);
+    }
+
+    const PipeClientUnregisterResult result =
+        UnregisterPipeClientHandle(hello.client_id, pipeRole, clientPipe, registrationId);
+    EnqueuePipeSessionInvalidatedTask(hello.client_id, result.deactivation_epoch);
+    LogPipeDisconnect(pipeName);
+    CloseHandle(monitorPipe);
 }
 
 void AuxPipeEventListenerLoopThread()
 {
-    while (true)
+    HANDLE listeningPipe = hAuxPipe;
+    hAuxPipe = INVALID_HANDLE_VALUE;
+    while (pipe_running)
     {
-        // OutputDebugString(L"[msime]: Aux Pipe starts to wait");
-        BOOL connected = ConnectNamedPipe(hAuxPipe, NULL);
-        // OutputDebugString(fmt::format(L"[msime]: Aux Pipe connected: {}", connected).c_str());
+        if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+        {
+            listeningPipe = CreateAuxNamedPipeInstance();
+            if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+            {
+                Sleep(50);
+                continue;
+            }
+        }
+
+        const BOOL connected = WaitForPipeClient(listeningPipe);
         LogPipeConnectResult(L"aux-pipe", connected);
         if (connected)
         {
+            if (!pipe_running)
+            {
+                DisconnectNamedPipe(listeningPipe);
+                break;
+            }
+
             wchar_t buffer[128] = {0};
             DWORD bytesRead = 0;
-            BOOL readResult = ReadFile( //
-                hAuxPipe,               //
-                buffer,                 //
-                sizeof(buffer),         //
-                &bytesRead,             //
-                NULL                    //
-            );
+            BOOL readResult = FALSE;
+            DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
+            if (SetNamedPipeHandleState(listeningPipe, &pipeMode, nullptr, nullptr))
+            {
+                // Polling a NOWAIT server handle keeps shutdown bounded even
+                // if a client connects and never sends its auxiliary message.
+                while (pipe_running)
+                {
+                    readResult = ReadFile(listeningPipe, buffer, sizeof(buffer), &bytesRead, nullptr);
+                    if (readResult || GetLastError() != ERROR_NO_DATA)
+                    {
+                        break;
+                    }
+                    Sleep(1);
+                }
+            }
             if (!readResult || bytesRead == 0) // Disconnected or error
             {
                 LogPipeReadFailure(L"aux-pipe", bytesRead);
@@ -805,49 +1648,34 @@ void AuxPipeEventListenerLoopThread()
                 std::wstring message(buffer, bytesRead / sizeof(wchar_t));
                 FANY_IPC_LOGF(L"[msime]: [ipc] aux-pipe message: {}", message);
 
-                if (message == L"kill")
-                {
-#ifdef FANY_DEBUG
-                    OutputDebugString(L"[msime]: Kill event from TSF");
-#endif
-                    if (::mainConnected)
-                    {
-                        /* DisconnectNamedPipe hPipe and hToTsfPipe, 这里直接中断 hPipe,
-                         * 然后，再在中断 hPipe 的时候，通过 event 来中断 hToTsfPipe，达到清理
-                         * 脏句柄的目的
-                         */
-                        CancelSynchronousIo(::mainPipeThread);
-                    }
-                }
-                else if (message == L"IMEActivation")
-                {
-                    PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
-                }
-                else if (message == L"IMEDeactivation")
-                {
-                    PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
-                }
-                else if (boost::starts_with(message, L"ftbStatus"))
-                {
-                    std::wstring ftbStatus = message.substr(9);
-                    int intState = std::stoi(ftbStatus);
-                    // e.g. 101 => 从左往右看，状态是：中文状态、半角符号、中文标点
-                    PostMessage(::global_hwnd_ftb, UPDATE_FTB_STATUS, intState, 0);
-                }
+                // Compatibility drain only.  This protocol has no client id
+                // or activation epoch, so accepting lifecycle/status writes
+                // here lets an old TextInputHost/Win+. message overwrite the
+                // current client.  Updated TSF clients drive both visibility
+                // and status through the epoch-checked Main protocol.
+                (void)message;
             }
         }
         else
         {
-            // TODO:
+            if (pipe_running)
+            {
+                Sleep(10);
+            }
         }
-        // OutputDebugString(L"[msime]: Aux Pipe disconnected");
         LogPipeDisconnect(L"aux-pipe");
-        DisconnectNamedPipe(hAuxPipe);
+        DisconnectNamedPipe(listeningPipe);
+        CloseHandle(listeningPipe);
+        listeningPipe = INVALID_HANDLE_VALUE;
     }
-    ::CloseAuxNamedPipe();
+    if (listeningPipe && listeningPipe != INVALID_HANDLE_VALUE)
+    {
+        DisconnectNamedPipe(listeningPipe);
+        CloseHandle(listeningPipe);
+    }
 }
 
-void PrepareCandidateList()
+void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
 {
     ::ReadDataFromNamedPipe(0b111111);
     auto &ui = Global::candidate_ui;
@@ -862,16 +1690,17 @@ void PrepareCandidateList()
 
     ui.set_items(std::move(items));
     RefreshCandidatePageUi(false);
+    PublishCandidateUiOwner(client_id, activation_epoch);
 
     const SchemeType scheme = g_inputSession->current_scheme_type();
     if (GetConfiguredEnglishCandidatesEnabled() && scheme != SchemeType::Wubi &&
         !GlobalIme::composition.creating_word.active)
     {
-        EnglishIme::OnInputChanged(current_input);
+        UpdateEnglishInput(current_input, client_id, activation_epoch);
     }
     else
     {
-        EnglishIme::Clear();
+        UpdateEnglishInput("");
     }
 }
 
@@ -970,11 +1799,21 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
  * 调频、造词也都在这里处理。
  *
  */
-void HandleImeKey()
+void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id)
 {
     /* 先清理一下状态 */
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
     ::ReadDataFromNamedPipe(0b000111);
+
+    if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
+    {
+        // TSF completes/cancels the composition locally. Keep every backend in
+        // lockstep, invalidate async candidates, and do not manufacture a
+        // reply for this locally consumed key.
+        PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+        ClearState();
+        return;
+    }
 
     const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
@@ -1000,7 +1839,7 @@ void HandleImeKey()
             EnsureCandidatePageReady();
             Global::candidate_ui.selected_text =
                 Global::candidate_ui.page_words.empty() ? L"" : Global::candidate_ui.page_words[0];
-            SendCurrentDataToActiveTsf();
+            SendCurrentDataToClient(client_id, activation_epoch, request_id);
         }
         else
         {
@@ -1030,7 +1869,7 @@ void HandleImeKey()
     const auto cloud_query_state = g_inputSession->get_cloud_query_state();
     if (cloud_query_state.should_query)
     {
-        CloudIme::OnInputChanged(cloud_query_state.query_text);
+        UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
 
     //
@@ -1043,7 +1882,7 @@ void HandleImeKey()
             std::wstring preedit = GetPreedit();
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
             Global::candidate_ui.selected_text = preedit;
-            SendCurrentDataToActiveTsf();
+            SendCurrentDataToClient(client_id, activation_epoch, request_id);
         }
     }
 
@@ -1059,7 +1898,7 @@ void HandleImeKey()
                 std::wstring preedit = GetPreedit();
                 Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
                 Global::candidate_ui.selected_text = preedit;
-                SendCurrentDataToActiveTsf();
+                SendCurrentDataToClient(client_id, activation_epoch, request_id);
             }
         }
     }
@@ -1078,8 +1917,8 @@ void HandleImeKey()
     /* 2. VK_SPACE, 3. Digits */
     if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
     {
-        ProcessSelectionKey(Global::Keycode);
-        SendCurrentDataToActiveTsf();
+        ProcessSelectionKey(Global::Keycode, client_id, activation_epoch);
+        SendCurrentDataToClient(client_id, activation_epoch, request_id);
     }
     else if (Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT)
     {
@@ -1151,7 +1990,7 @@ void HandleImeKey()
         }
 
         Global::MsgTypeToTsf = result;
-        SendCurrentDataToActiveTsf();
+        SendCurrentDataToClient(client_id, activation_epoch, request_id);
         if (refresh)
         {
             RefreshCandidatePageUi(true);
@@ -1161,15 +2000,41 @@ void HandleImeKey()
 
 void ClearState()
 {
-    CloudIme::Clear();
-    EnglishIme::Clear();
+    ClearCandidateUiOwner();
+    UpdateCloudInput("");
+    UpdateEnglishInput("");
     /* Clear dict engine state */
     g_inputSession->reset_state();
     /* 造词的状态也要清理 */
     GlobalIme::composition.clear();
 }
 
-void ProcessSelectionKey(UINT keycode)
+bool ResolveCandidateItem(int one_based_index, WordItem &item)
+{
+    if (!g_inputSession || one_based_index <= 0)
+    {
+        return false;
+    }
+
+    const auto &ui = Global::candidate_ui;
+    const size_t indexInPage = static_cast<size_t>(one_based_index - 1);
+    if (indexInPage >= ui.page_words.size() || ui.page_index < 0 || ui.page_size <= 0)
+    {
+        return false;
+    }
+
+    const size_t pageStart = static_cast<size_t>(ui.page_index) * static_cast<size_t>(ui.page_size);
+    if (pageStart > ui.items.size() || indexInPage >= ui.items.size() - pageStart)
+    {
+        return false;
+    }
+
+    item = ui.items[pageStart + indexInPage];
+    return true;
+}
+
+void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch,
+                         int forced_index_in_page)
 {
     /* 先清理一下状态 */
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
@@ -1181,9 +2046,15 @@ void ProcessSelectionKey(UINT keycode)
 
     const bool is_space = keycode == VK_SPACE;
     const bool is_digit_selection = keycode >= '1' && keycode <= '9';
-    const int index = is_space ? Global::candidate_ui.selected_index_in_page : static_cast<int>(keycode - '1');
-    const bool is_valid_selection = (is_space || is_digit_selection) && index >= 0 &&
-                                    static_cast<size_t>(index) < Global::candidate_ui.page_words.size();
+    const bool is_direct_selection = forced_index_in_page >= 0;
+    const int index = is_direct_selection
+                          ? forced_index_in_page
+                          : (is_space ? Global::candidate_ui.selected_index_in_page
+                                      : static_cast<int>(keycode - '1'));
+    WordItem curWordItem;
+    const bool is_valid_selection = (is_direct_selection || is_space || is_digit_selection) && index >= 0 &&
+                                    static_cast<size_t>(index) < Global::candidate_ui.page_words.size() &&
+                                    ResolveCandidateItem(index + 1, curWordItem);
 
     if (is_valid_selection)
     {
@@ -1192,14 +2063,12 @@ void ProcessSelectionKey(UINT keycode)
             isNeedUpdateWeight = true;
         }
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
-        DictionaryUlPb::WordItem curWordItem =
-            Global::candidate_ui.items[index + Global::candidate_ui.page_index * Global::candidate_ui.page_size];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
         if (curWordItem.source == CandidateSource::EnglishDictionary)
         {
-            CloudIme::Clear();
-            EnglishIme::Clear();
+            UpdateCloudInput("");
+            UpdateEnglishInput("");
             g_inputSession->reset_state();
             GlobalIme::composition.clear();
             return;
@@ -1219,7 +2088,7 @@ void ProcessSelectionKey(UINT keycode)
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::NeedToCreateWord;
             GlobalIme::composition.segmented_pinyin = selection_transition.current_segmentation_with_cases;
 
-            PrepareCandidateList();
+            PrepareCandidateList(client_id, activation_epoch);
         }
 
         // 详细处理一下造词的逻辑

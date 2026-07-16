@@ -14,6 +14,7 @@
 #include "global/globals.h"
 #include "fmt/xchar.h"
 #include "ipc/ipc.h"
+#include "ipc/candidate_ui_action_policy.h"
 #include "settings/settings_launcher.h"
 #include <WebView2EnvironmentOptions.h>
 
@@ -34,6 +35,75 @@ std::wstring bodyRes = L"";
 namespace
 {
 ComPtr<ICoreWebView2Environment> smallWindowWebviewEnvironment;
+
+struct FloatingToolbarState
+{
+    // Keep these defaults aligned with the TSF compartment defaults:
+    // Chinese input, half-width characters, and Chinese punctuation.
+    int cn_en = 1;
+    int double_single_byte = 0;
+    int punctuation = 1;
+};
+
+FloatingToolbarState floatingToolbarState;
+bool floatingToolbarNavigationReady = false;
+
+bool UpdateBinaryState(int value, int &state)
+{
+    // The existing UI contract only defines 0 and 1. Ignore malformed values
+    // instead of replacing a known-good cached state.
+    if ((value == 0 || value == 1) && value != state)
+    {
+        state = value;
+        return true;
+    }
+    return false;
+}
+
+void RenderFloatingToolbarState(ICoreWebView2 *webview)
+{
+    if (!floatingToolbarNavigationReady || webview == nullptr)
+    {
+        return;
+    }
+
+    std::wstring script;
+    script.reserve(768);
+    if (floatingToolbarState.cn_en == 1)
+    {
+        script.append(L"document.getElementById('cn').style.display = 'flex';");
+        script.append(L"document.getElementById('en').style.display = 'none';");
+    }
+    else
+    {
+        script.append(L"document.getElementById('cn').style.display = 'none';");
+        script.append(L"document.getElementById('en').style.display = 'flex';");
+    }
+
+    if (floatingToolbarState.double_single_byte == 1)
+    {
+        script.append(L"document.getElementById('fullwidth').style.display = 'flex';");
+        script.append(L"document.getElementById('halfwidth').style.display = 'none';");
+    }
+    else
+    {
+        script.append(L"document.getElementById('fullwidth').style.display = 'none';");
+        script.append(L"document.getElementById('halfwidth').style.display = 'flex';");
+    }
+
+    if (floatingToolbarState.punctuation == 1)
+    {
+        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
+        script.append(L"document.getElementById('puncEn').style.display = 'none';");
+    }
+    else
+    {
+        script.append(L"document.getElementById('puncCn').style.display = 'none';");
+        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
+    }
+
+    webview->ExecuteScript(script.c_str(), nullptr);
+}
 
 void SetWebviewMemoryUsageTarget(ComPtr<ICoreWebView2> webview, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL level)
 {
@@ -68,7 +138,10 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
     {
         controller = webviewControllerFtbWnd;
         webview = webviewFtbWnd;
-        lowerMemoryWhenHidden = true;
+        // Keep the small, persistent toolbar warm when configuration or
+        // fullscreen policy temporarily hides it. Switching its WebView back
+        // from LOW can otherwise produce a visible white repaint.
+        lowerMemoryWhenHidden = false;
     }
     else
     {
@@ -479,7 +552,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                         if (type == "delete")
                         {
                             int idx = json::value_to<int>(val.at("data"));
-                            if (idx >= 0 && idx < 9)
+                            if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx))
                             {
                                 PostMessage(::global_hwnd, WM_DELETE_CANDIDATE, idx, 0);
                             }
@@ -487,7 +560,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                         else if (type == "pin")
                         {
                             int idx = json::value_to<int>(val.at("data"));
-                            if (idx >= 0 && idx < 9)
+                            if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx))
                             {
                                 PostMessage(::global_hwnd, WM_PIN_TO_TOP_CANDIDATE, idx, 0);
                             }
@@ -495,7 +568,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                         else if (type == "candidate")
                         {
                             int idx = json::value_to<int>(val.at("data"));
-                            if (idx >= 0 && idx < 9)
+                            if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx))
                             {
                                 PostMessage(::global_hwnd, WM_COMMIT_CANDIDATE, idx, 0);
                             }
@@ -1406,6 +1479,39 @@ HRESULT OnControllerCreatedFtbWnd(      //
     GetClientRect(hwnd, &bounds);
     webviewControllerFtbWnd->put_Bounds(bounds);
 
+    // State notifications can arrive before the controller exists or while
+    // NavigateToString is still loading. Only render after a successful
+    // navigation, then replay the complete cached state in one operation.
+    floatingToolbarNavigationReady = false;
+    EventRegistrationToken navigationCompletedToken{};
+    const HRESULT navigationCompletedResult = webviewFtbWnd->add_NavigationCompleted(
+        Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+            [](ICoreWebView2 *sender, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
+                BOOL success = FALSE;
+                if (args)
+                {
+                    args->get_IsSuccess(&success);
+                }
+                floatingToolbarNavigationReady = success != FALSE;
+                if (floatingToolbarNavigationReady)
+                {
+                    RenderFloatingToolbarState(sender);
+                }
+                return S_OK;
+            })
+            .Get(),
+        &navigationCompletedToken);
+    if (FAILED(navigationCompletedResult))
+    {
+#ifdef FANY_DEBUG
+        OutputDebugString(
+            fmt::format(L"[msime]: Failed to register floating toolbar navigation callback: 0x{:08X}",
+                        static_cast<unsigned long>(navigationCompletedResult))
+                .c_str());
+#endif
+        return navigationCompletedResult;
+    }
+
     // Navigate to HTML
     HRESULT hr = webviewFtbWnd->NavigateToString(::HTMLStringFtbWnd.c_str());
     if (FAILED(hr))
@@ -1413,6 +1519,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
 #endif
+        return hr;
     }
 
     /* Debug console */
@@ -1585,6 +1692,56 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
             .Get());
 }
 
+void ShutdownWebviews()
+{
+    // WebView2 objects are apartment-bound. Release every controller and
+    // interface on the UI STA before WinMain balances CoInitializeEx.
+    floatingToolbarNavigationReady = false;
+
+    if (webviewControllerCandWnd)
+    {
+        webviewControllerCandWnd->Close();
+    }
+    if (webviewControllerMenuWnd)
+    {
+        webviewControllerMenuWnd->Close();
+    }
+    if (webviewControllerFtbWnd)
+    {
+        webviewControllerFtbWnd->Close();
+    }
+    if (webviewControllerSettingsWnd)
+    {
+        webviewControllerSettingsWnd->Close();
+    }
+
+    webviewController2CandWnd.Reset();
+    webviewController2MenuWnd.Reset();
+    webviewController2FtbWnd.Reset();
+    webviewController2SettingsWnd.Reset();
+
+    webview3CandWnd.Reset();
+    webview3MenuWnd.Reset();
+    webview3FtbWnd.Reset();
+    webview3SettingsWnd.Reset();
+
+    webviewCandWnd.Reset();
+    webviewMenuWnd.Reset();
+    webviewFtbWnd.Reset();
+    webviewSettingsWnd.Reset();
+
+    webviewCompositionControllerSettingsWnd.Reset();
+    webviewControllerCandWnd.Reset();
+    webviewControllerMenuWnd.Reset();
+    webviewControllerFtbWnd.Reset();
+    webviewControllerSettingsWnd.Reset();
+
+    dcompRootVisualSettingsWnd.Reset();
+    dcompTargetSettingsWnd.Reset();
+    dcompDeviceSettingsWnd.Reset();
+    smallWindowWebviewEnvironment.Reset();
+}
+
 /**
  * @brief 更新 floating toolbar 窗口的中英文切换状态
  *
@@ -1593,30 +1750,9 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
  */
 void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState)
 {
-    if (webview == nullptr)
+    if (UpdateBinaryState(cnEnState, floatingToolbarState.cn_en))
     {
-        return;
-    }
-
-    if (cnEnState == 1)
-    {
-        std::wstring script;
-        script.reserve(256);
-
-        script.append(L"document.getElementById('cn').style.display = 'flex';");
-        script.append(L"document.getElementById('en').style.display = 'none';");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
-    }
-    else if (cnEnState == 0)
-    {
-        std::wstring script;
-        script.reserve(256);
-
-        script.append(L"document.getElementById('cn').style.display = 'none';");
-        script.append(L"document.getElementById('en').style.display = 'flex';");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
+        RenderFloatingToolbarState(webview.Get());
     }
 }
 
@@ -1629,33 +1765,12 @@ void UpdateFtbCnEnState(ComPtr<ICoreWebView2> webview, int cnEnState)
  */
 void UpdateFtbCnEnAndPuncState(ComPtr<ICoreWebView2> webview, int cnEnState, int puncState)
 {
-    if (webview == nullptr)
+    bool changed = UpdateBinaryState(cnEnState, floatingToolbarState.cn_en);
+    changed |= UpdateBinaryState(puncState, floatingToolbarState.punctuation);
+    if (changed)
     {
-        return;
+        RenderFloatingToolbarState(webview.Get());
     }
-    std::wstring script;
-    script.reserve(256);
-    if (cnEnState == 1)
-    {
-        script.append(L"document.getElementById('cn').style.display = 'flex';");
-        script.append(L"document.getElementById('en').style.display = 'none';");
-    }
-    else if (cnEnState == 0)
-    {
-        script.append(L"document.getElementById('cn').style.display = 'none';");
-        script.append(L"document.getElementById('en').style.display = 'flex';");
-    }
-    if (puncState == 1)
-    {
-        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
-        script.append(L"document.getElementById('puncEn').style.display = 'none';");
-    }
-    else if (puncState == 0)
-    {
-        script.append(L"document.getElementById('puncCn').style.display = 'none';");
-        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
-    }
-    webview->ExecuteScript(script.c_str(), nullptr);
 }
 
 /**
@@ -1673,43 +1788,13 @@ void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
     int puncState                              //
 )
 {
-    if (webview == nullptr)
+    bool changed = UpdateBinaryState(cnEnState, floatingToolbarState.cn_en);
+    changed |= UpdateBinaryState(doubleSingleByteState, floatingToolbarState.double_single_byte);
+    changed |= UpdateBinaryState(puncState, floatingToolbarState.punctuation);
+    if (changed)
     {
-        return;
+        RenderFloatingToolbarState(webview.Get());
     }
-    std::wstring script;
-    script.reserve(256);
-    if (cnEnState == 1)
-    {
-        script.append(L"document.getElementById('cn').style.display = 'flex';");
-        script.append(L"document.getElementById('en').style.display = 'none';");
-    }
-    else if (cnEnState == 0)
-    {
-        script.append(L"document.getElementById('cn').style.display = 'none';");
-        script.append(L"document.getElementById('en').style.display = 'flex';");
-    }
-    if (doubleSingleByteState == 1)
-    {
-        script.append(L"document.getElementById('fullwidth').style.display = 'flex';");
-        script.append(L"document.getElementById('halfwidth').style.display = 'none';");
-    }
-    else if (doubleSingleByteState == 0)
-    {
-        script.append(L"document.getElementById('fullwidth').style.display = 'none';");
-        script.append(L"document.getElementById('halfwidth').style.display = 'flex';");
-    }
-    if (puncState == 1)
-    {
-        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
-        script.append(L"document.getElementById('puncEn').style.display = 'none';");
-    }
-    else if (puncState == 0)
-    {
-        script.append(L"document.getElementById('puncCn').style.display = 'none';");
-        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
-    }
-    webview->ExecuteScript(script.c_str(), nullptr);
 }
 
 /**
@@ -1720,30 +1805,9 @@ void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
  */
 void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState)
 {
-    if (webview == nullptr)
+    if (UpdateBinaryState(puncState, floatingToolbarState.punctuation))
     {
-        return;
-    }
-
-    if (puncState == 1)
-    {
-        std::wstring script;
-        script.reserve(256);
-
-        script.append(L"document.getElementById('puncCn').style.display = 'flex';");
-        script.append(L"document.getElementById('puncEn').style.display = 'none';");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
-    }
-    else if (puncState == 0)
-    {
-        std::wstring script;
-        script.reserve(256);
-
-        script.append(L"document.getElementById('puncCn').style.display = 'none';");
-        script.append(L"document.getElementById('puncEn').style.display = 'flex';");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
+        RenderFloatingToolbarState(webview.Get());
     }
 }
 
@@ -1755,21 +1819,8 @@ void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState)
  */
 void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState)
 {
-    if (webview == nullptr)
+    if (UpdateBinaryState(doubleSingleByteState, floatingToolbarState.double_single_byte))
     {
-        return;
+        RenderFloatingToolbarState(webview.Get());
     }
-    std::wstring script;
-    script.reserve(256);
-    if (doubleSingleByteState == 0)
-    {
-        script.append(L"document.getElementById('halfwidth').style.display = 'flex';");
-        script.append(L"document.getElementById('fullwidth').style.display = 'none';");
-    }
-    else if (doubleSingleByteState == 1)
-    {
-        script.append(L"document.getElementById('halfwidth').style.display = 'none';");
-        script.append(L"document.getElementById('fullwidth').style.display = 'flex';");
-    }
-    webview->ExecuteScript(script.c_str(), nullptr);
 }

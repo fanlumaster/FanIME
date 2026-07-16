@@ -9,6 +9,7 @@ void InitImeConfig();
 bool ReloadImeConfigIfChanged();
 const std::filesystem::path &GetImeConfigPath();
 const std::string &GetConfiguredSessionBackend();
+int GetConfiguredCandidatePageSize();
 SchemeType GetConfiguredInputScheme();
 std::string GetConfiguredInputSchemeName();
 bool SetConfiguredInputScheme(const std::string &scheme);

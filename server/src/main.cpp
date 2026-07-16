@@ -13,6 +13,7 @@
 #include "english/english_ime.h"
 #include "utils/common_utils.h"
 #include "session/session_factory.h"
+#include "webview2/windows_webview2.h"
 
 namespace
 {
@@ -52,6 +53,17 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
+    const HRESULT comResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(comResult))
+    {
+        OutputDebugString(
+            fmt::format(L"[msime]: Failed to initialize the UI COM STA: 0x{:08X}",
+                        static_cast<unsigned long>(comResult))
+                .c_str());
+        CloseHandle(hSingleInstanceMutex);
+        return 1;
+    }
+
     // #ifdef FANY_DEBUG
     // Initialize for logging
     InitializeSpdLog();
@@ -59,6 +71,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     // Initialize config
     InitImeConfig();
+    Global::candidate_ui.page_size = GetConfiguredCandidatePageSize();
 
     ::InitIpc();
     ::InitNamedPipe();
@@ -105,6 +118,9 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     int ret = CreateCandidateWindow(hInstance);
 
+    FanyNamedPipe::RegisterStatusSnapshotWindow(nullptr);
+    ShutdownWebviews();
+
     EnglishIme::Stop();
     CloudIme::Stop();
 
@@ -117,6 +133,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     to_tsf_worker_thread_pipe_listener.join();
     aux_pipe_listener.join();
 
+    ::CloseIpc();
+    CoUninitialize();
     CloseHandle(hSingleInstanceMutex);
     return ret;
 }
