@@ -132,7 +132,10 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
     {
         controller = webviewControllerMenuWnd;
         webview = webviewMenuWnd;
-        lowerMemoryWhenHidden = true;
+        // The language-bar menu is reopened interactively and must paint on
+        // the first frame. Returning its renderer from LOW is asynchronous
+        // and can leave the host window visible with transparent content.
+        lowerMemoryWhenHidden = false;
     }
     else if (hwnd == ::global_hwnd_ftb)
     {

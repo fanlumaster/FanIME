@@ -80,6 +80,8 @@ void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std:
 {
     std::wstring script = LR"(
         (function() {
+            document.documentElement.style.overflow = "hidden";
+            document.body.style.overflow = "hidden";
             var rect = document.getElementById("menuContainer").getBoundingClientRect();
             return JSON.stringify({width: rect.width, height: rect.height});
         })();

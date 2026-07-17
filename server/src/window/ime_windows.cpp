@@ -5,6 +5,7 @@
 #include "defines/defines.h"
 #include "defines/globals.h"
 #include <debugapi.h>
+#include <cmath>
 #include <minwindef.h>
 #include <string>
 #include <windef.h>
@@ -654,7 +655,8 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         int iconMiddleX = left + iconWidth / 2;
         int menuX = iconMiddleX - ::MENU_WINDOW_WIDTH / 2;
         int menuY = top - ::MENU_WINDOW_HEIGHT;
-        UINT flag = SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOZORDER;
+        // Do not specify SWP_NOZORDER here: it would discard HWND_TOPMOST.
+        UINT flag = SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE;
         SetLastError(0);
         BOOL okShowMenu = SetWindowPos( //
             ::global_hwnd_menu,         //
@@ -665,9 +667,33 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             0,                          //
             flag                        //
         );
+        if (okShowMenu && ::webviewControllerMenuWnd)
+        {
+            RECT bounds{};
+            GetClientRect(hwnd, &bounds);
+            ::webviewControllerMenuWnd->put_Bounds(bounds);
+            ::webviewControllerMenuWnd->NotifyParentWindowPositionChanged();
+            UpdateSmallWindowWebviewVisibility(hwnd, true);
+        }
         SetForegroundWindow(::global_hwnd_menu);
         /* 安装鼠标钩子 */
-        g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
+        if (!g_mouseHook)
+        {
+            g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
+        }
+        break;
+    }
+
+    case WM_SIZE: {
+        // The menu is resized to match its HTML content after WebView startup.
+        // Keep the controller surface aligned with the resized host HWND so it
+        // can be hidden and shown repeatedly without losing its painted area.
+        if (::webviewControllerMenuWnd && wParam != SIZE_MINIMIZED)
+        {
+            RECT bounds{};
+            GetClientRect(hwnd, &bounds);
+            ::webviewControllerMenuWnd->put_Bounds(bounds);
+        }
         break;
     }
 
@@ -683,8 +709,11 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                         // UINT flag = SWP_NOZORDER | SWP_NOMOVE | SWP_HIDEWINDOW;
                         UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE;
                         FLOAT scale = GetForegroundWindowScale();
-                        int newWidth = (containerSize.first) * scale;
-                        int newHeight = (containerSize.second) * scale;
+                        // CSS layout can produce fractional pixels. Truncating
+                        // here makes the viewport fractionally smaller than the
+                        // content, which causes Chromium to add both scrollbars.
+                        int newWidth = static_cast<int>(std::ceil(containerSize.first * scale));
+                        int newHeight = static_cast<int>(std::ceil(containerSize.second * scale));
                         ::SCALE = scale;
                         ::MENU_WINDOW_WIDTH = newWidth;
                         ::MENU_WINDOW_HEIGHT = newHeight;
