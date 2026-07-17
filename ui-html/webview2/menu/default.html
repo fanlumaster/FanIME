@@ -93,20 +93,12 @@
       <div class="toggle active" id="floatingToggle"></div>
     </div>
 
-    <div class="menu-item">
+    <div class="menu-item" id="emojiSymbols">
       <div class="menu-item-left">
         <span>😊</span>
-        表情面板
+        表情/符号面板
       </div>
       <span class="shortcut">Win+⇧+.</span>
-    </div>
-
-    <div class="menu-item">
-      <div class="menu-item-left">
-        <span>🔣</span>
-        符号面板
-      </div>
-      <span class="shortcut">Win+⇧+I</span>
     </div>
 
     <div class="menu-item">
@@ -168,6 +160,14 @@
       window.chrome.webview.postMessage(JSON.stringify({
         type: 'floatingToggle',
         data: toggle.classList.contains('active')
+      }));
+    });
+
+    // 表情和符号共用同一个原生面板。
+    const emojiSymbols = document.getElementById('emojiSymbols');
+    emojiSymbols.addEventListener('click', () => {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'emojiSymbols',
       }));
     });
 
