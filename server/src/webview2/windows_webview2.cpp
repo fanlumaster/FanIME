@@ -732,6 +732,21 @@ HRESULT OnControllerCreatedMenuWnd(     //
     GetClientRect(hwnd, &bounds);
     webviewControllerMenuWnd->put_Bounds(bounds);
 
+    EventRegistrationToken menuNavigationCompletedToken{};
+    webviewMenuWnd->add_NavigationCompleted(
+        Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+            [hwnd](ICoreWebView2 *sender, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
+                BOOL success = FALSE;
+                if (!args || FAILED(args->get_IsSuccess(&success)) || !success)
+                {
+                    return S_OK;
+                }
+                PostMessage(hwnd, WM_REFRESH_MENU_SIZE, 0, 0);
+                return S_OK;
+            })
+            .Get(),
+        &menuNavigationCompletedToken);
+
     // Navigate to HTML
     HRESULT hr = webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
     if (FAILED(hr))
@@ -768,6 +783,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     else if (type == "settings")
                     {
                         OpenSettingsApplication();
+                        ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
+                    else if (type == "emojiSymbols")
+                    {
+                        OpenEmojiPanelApplication();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                 }

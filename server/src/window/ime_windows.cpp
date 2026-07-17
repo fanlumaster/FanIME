@@ -697,6 +697,10 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         break;
     }
 
+    case WM_REFRESH_MENU_SIZE:
+        SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_MENU, 1, nullptr);
+        return 0;
+
     case WM_TIMER: {
         if (wParam == TIMER_ID_INIT_WEBVIEW_MENU)
         {
