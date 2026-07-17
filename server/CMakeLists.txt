@@ -184,6 +184,12 @@ if(MSVC)
 endif()
 add_dependencies(${PROJECT_NAME} ${KEYBOARD_EXECUTABLE_NAME})
 
+# Voice input remains an independently versioned application. Build its
+# upstream executable as part of the server so the menu launcher can always
+# find it beside MetasequoiaImeServer.exe.
+add_subdirectory(MetasequoiaVoiceInput EXCLUDE_FROM_ALL)
+add_dependencies(${PROJECT_NAME} MetasequoiaVoiceInput)
+
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
 set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
 set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")

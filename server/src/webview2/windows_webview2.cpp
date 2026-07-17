@@ -795,6 +795,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
                         OpenKeyboardPanelApplication();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
+                    else if (type == "voiceInput")
+                    {
+                        OpenVoiceInputApplication();
+                        ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
                 }
                 return S_OK;
             })

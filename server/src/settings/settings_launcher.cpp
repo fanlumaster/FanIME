@@ -13,10 +13,13 @@ constexpr wchar_t kKeyboardPanelWindowClass[] = L"msimeui.KeyboardDemo";
 
 bool OpenSiblingApplication(const wchar_t *executable_name, const wchar_t *window_class)
 {
-    if (const HWND existing_window = FindWindowW(window_class, nullptr))
+    if (window_class)
     {
-        ShowWindow(existing_window, SW_SHOWNORMAL);
-        return SetForegroundWindow(existing_window) != FALSE;
+        if (const HWND existing_window = FindWindowW(window_class, nullptr))
+        {
+            ShowWindow(existing_window, SW_SHOWNORMAL);
+            return SetForegroundWindow(existing_window) != FALSE;
+        }
     }
 
     std::wstring module_path(32768, L'\0');
@@ -69,4 +72,11 @@ bool OpenKeyboardPanelApplication()
 bool CloseKeyboardPanelApplication()
 {
     return CloseApplication(kKeyboardPanelWindowClass);
+}
+
+bool OpenVoiceInputApplication()
+{
+    // VoiceInput is a background/tray application and enforces its own single
+    // instance with a named mutex, so it has no persistent HWND to activate.
+    return OpenSiblingApplication(L"MetasequoiaVoiceInput.exe", nullptr);
 }
