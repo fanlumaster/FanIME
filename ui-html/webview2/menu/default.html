@@ -109,12 +109,12 @@
       <span class="shortcut">Win+⇧+P</span>
     </div>
 
-    <div class="menu-item">
+    <div class="menu-item" id="keyboardPanel">
       <div class="menu-item-left">
         <span>🖥️</span>
         屏幕键盘
       </div>
-      <span class="shortcut">Win+⇧+K</span>
+      <span class="shortcut">Ctrl+⇧+Alt+K</span>
     </div>
 
     <div class="menu-item">
@@ -168,6 +168,14 @@
     emojiSymbols.addEventListener('click', () => {
       window.chrome.webview.postMessage(JSON.stringify({
         type: 'emojiSymbols',
+      }));
+    });
+
+    // 屏幕键盘：由原生服务启动独立面板。
+    const keyboardPanel = document.getElementById('keyboardPanel');
+    keyboardPanel.addEventListener('click', () => {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'keyboardPanel',
       }));
     });
 
