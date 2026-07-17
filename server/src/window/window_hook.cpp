@@ -1,6 +1,7 @@
 #include "window_hook.h"
 #include "config/ime_config.h"
 #include "ime_windows.h"
+#include "settings/settings_launcher.h"
 #include "utils/webview_utils.h"
 #include "defines/globals.h"
 #include "defines/defines.h"
@@ -29,6 +30,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         //
         if (ctrl && shift && alt && p->vkCode == 'T')
         {
+            CloseSettingsApplication();
             ExitProcess(0);
         }
 

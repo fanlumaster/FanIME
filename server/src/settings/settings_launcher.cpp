@@ -5,6 +5,11 @@
 
 #pragma comment(lib, "Shell32.lib")
 
+namespace
+{
+constexpr wchar_t kSettingsWindowClass[] = L"MetasequoiaImeSettingsWindow";
+}
+
 bool OpenSettingsApplication()
 {
     std::wstring module_path(32768, L'\0');
@@ -20,4 +25,15 @@ bool OpenSettingsApplication()
     const HINSTANCE result = ShellExecuteW(nullptr, L"open", settings_path.c_str(), nullptr,
                                            settings_path.parent_path().c_str(), SW_SHOWNORMAL);
     return reinterpret_cast<INT_PTR>(result) > 32;
+}
+
+bool CloseSettingsApplication()
+{
+    const HWND settings_window = FindWindowW(kSettingsWindowClass, nullptr);
+    if (!settings_window)
+    {
+        return true;
+    }
+
+    return PostMessageW(settings_window, WM_CLOSE, 0, 0) != FALSE;
 }
