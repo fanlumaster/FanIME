@@ -790,6 +790,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
                         OpenEmojiPanelApplication();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
+                    else if (type == "keyboardPanel")
+                    {
+                        OpenKeyboardPanelApplication();
+                        ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
                 }
                 return S_OK;
             })
