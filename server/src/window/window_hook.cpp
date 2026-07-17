@@ -25,12 +25,22 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         bool alt = IsKeyPressed(VK_MENU);
         bool shift = IsKeyPressed(VK_SHIFT);
 
+        // Ctrl + Shift + Alt + K opens the standalone screen keyboard. Consume the
+        // shortcut so the foreground application does not receive a stray K.
+        if (ctrl && shift && alt && p->vkCode == 'K')
+        {
+            OpenKeyboardPanelApplication();
+            return 1;
+        }
+
         //
         // Ctrl + Shift + Alt + T to terminate
         //
         if (ctrl && shift && alt && p->vkCode == 'T')
         {
             CloseSettingsApplication();
+            CloseEmojiPanelApplication();
+            CloseKeyboardPanelApplication();
             ExitProcess(0);
         }
 

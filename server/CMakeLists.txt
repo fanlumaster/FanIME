@@ -166,6 +166,24 @@ if(MSVC)
 endif()
 add_dependencies(${PROJECT_NAME} ${EMOJI_EXECUTABLE_NAME})
 
+set(KEYBOARD_EXECUTABLE_NAME "MetasequoiaImeKeyboardPanel")
+add_executable(${KEYBOARD_EXECUTABLE_NAME} WIN32
+    "./src/keyboard-panel/KeyboardPanel.cpp"
+    "./src/keyboard-panel/KeyboardPanel.h"
+    "./src/keyboard-panel/main.cpp"
+    "./src/keyboard-panel/keyboard_panel.rc"
+    "./src/keyboard-panel/resource.h"
+)
+target_link_libraries(${KEYBOARD_EXECUTABLE_NAME} PRIVATE msimeui)
+target_compile_definitions(${KEYBOARD_EXECUTABLE_NAME} PRIVATE
+    NOMINMAX=1
+    WIN32_LEAN_AND_MEAN=1
+)
+if(MSVC)
+    target_compile_options(${KEYBOARD_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
+endif()
+add_dependencies(${PROJECT_NAME} ${KEYBOARD_EXECUTABLE_NAME})
+
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
 set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
 set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")
