@@ -1496,6 +1496,20 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 if (floatingToolbarNavigationReady)
                 {
                     RenderFloatingToolbarState(sender);
+                    // The toolbar template's smiley button is the second-to-last
+                    // direct icon in the right section. Keep the shipped HTML and
+                    // SVG styling untouched and add only the native launch bridge.
+                    sender->ExecuteScript(
+                        LR"((() => {
+                            const emojiButton = document.querySelector('.right-section > .icon:nth-last-of-type(2)');
+                            if (emojiButton && !emojiButton.dataset.nativeEmojiLauncher) {
+                                emojiButton.dataset.nativeEmojiLauncher = 'true';
+                                emojiButton.addEventListener('click', () => {
+                                    window.chrome.webview.postMessage(JSON.stringify({ type: 'openEmojiPanel' }));
+                                });
+                            }
+                        })())",
+                        nullptr);
                 }
                 return S_OK;
             })
@@ -1610,6 +1624,13 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         OutputDebugString(fmt::format(L"[msime]: Open settings").c_str());
 #endif
                         OpenSettingsApplication();
+                    }
+                    else if (type == "openEmojiPanel")
+                    {
+#ifdef FANY_DEBUG
+                        OutputDebugString(fmt::format(L"[msime]: Open emoji panel").c_str());
+#endif
+                        OpenEmojiPanelApplication();
                     }
                 }
 

@@ -144,6 +144,28 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json nlohmann_json::nlohmann_json)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 
+# Keep msimeui as an independently versioned GUI framework submodule. The
+# product-owned emoji panel lives under src/emoji-panel so it can evolve separately
+# from the framework's example applications.
+add_subdirectory(msimeui EXCLUDE_FROM_ALL)
+set(EMOJI_EXECUTABLE_NAME "MetasequoiaImeEmojiPanel")
+add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
+    "./src/emoji-panel/EmojiPanel.cpp"
+    "./src/emoji-panel/EmojiPanel.h"
+    "./src/emoji-panel/main.cpp"
+    "./src/emoji-panel/emoji_panel.rc"
+    "./src/emoji-panel/resource.h"
+)
+target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui)
+target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE
+    NOMINMAX=1
+    WIN32_LEAN_AND_MEAN=1
+)
+if(MSVC)
+    target_compile_options(${EMOJI_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
+endif()
+add_dependencies(${PROJECT_NAME} ${EMOJI_EXECUTABLE_NAME})
+
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
 set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
 set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")

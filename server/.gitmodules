@@ -1,3 +1,6 @@
 [submodule "MetasequoiaImeEngine"]
 	path = MetasequoiaImeEngine
 	url = https://github.com/metasequoiaime/MetasequoiaImeEngine.git
+[submodule "msimeui"]
+	path = msimeui
+	url = https://github.com/metasequoiaime/msimeui.git
