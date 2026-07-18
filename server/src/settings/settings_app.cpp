@@ -158,6 +158,7 @@ void PostConfig()
     if (!g_webview)
         return;
 
+    const VoiceInputConfig &voice = GetConfiguredVoiceInput();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -174,6 +175,13 @@ void PostConfig()
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
           {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
+          {"voice_input",
+           {{"enabled", voice.enabled},
+            {"asr_provider", voice.asr_provider}, {"asr_token", voice.asr_token},
+            {"asr_endpoint", voice.asr_endpoint}, {"polish_provider", voice.polish_provider},
+            {"polish_token", voice.polish_token}, {"polish_endpoint", voice.polish_endpoint},
+            {"language", voice.language}, {"notification_sound", voice.notification_sound},
+            {"polish_text", voice.polish_text}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
             {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
@@ -228,6 +236,14 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredPagingPageUpDownEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.candidate_arrow_navigation")
         return SetConfiguredCandidateArrowNavigationEnabled(json::value_to<bool>(data.at("value")));
+    if (path.rfind("voice_input.", 0) == 0)
+    {
+        const std::string key = path.substr(12);
+        const json::value &value = data.at("value");
+        if (value.is_bool()) return SetConfiguredVoiceInputBool(key, json::value_to<bool>(value));
+        if (value.is_string()) return SetConfiguredVoiceInputString(key, json::value_to<std::string>(value));
+        return false;
+    }
     if (path == "helpcode.show_sp_helpcode_in_candidate_window")
         return SetConfiguredShowShuangpinHelpcodeInCandidateWindow(json::value_to<bool>(data.at("value")));
     if (path == "helpcode.shuangpin_helpcode")

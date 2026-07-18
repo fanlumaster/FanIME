@@ -14,6 +14,7 @@
 #include "utils/common_utils.h"
 #include "session/session_factory.h"
 #include "webview2/windows_webview2.h"
+#include "voice-input/voice_input_service.h"
 
 namespace
 {
@@ -71,6 +72,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     // Initialize config
     InitImeConfig();
+    VoiceInput::Initialize();
     Global::candidate_ui.page_size = GetConfiguredCandidatePageSize();
 
     ::InitIpc();
@@ -123,6 +125,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     EnglishIme::Stop();
     CloudIme::Stop();
+    VoiceInput::Shutdown();
 
     pipe_running = false;
     pipe_queueCv.notify_one();

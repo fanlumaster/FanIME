@@ -5,6 +5,20 @@
 #include <filesystem>
 #include <string>
 
+struct VoiceInputConfig
+{
+    bool enabled = true;
+    std::string asr_provider = "siliconflow";
+    std::string asr_token;
+    std::string asr_endpoint = "https://api.siliconflow.cn/v1/audio/transcriptions";
+    std::string polish_provider = "siliconflow";
+    std::string polish_token;
+    std::string polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions";
+    std::string language = "zh-cn";
+    bool notification_sound = true;
+    bool polish_text = false;
+};
+
 void InitImeConfig();
 bool ReloadImeConfigIfChanged();
 const std::filesystem::path &GetImeConfigPath();
@@ -46,3 +60,6 @@ bool GetConfiguredCandidateArrowNavigationEnabled();
 bool SetConfiguredCandidateArrowNavigationEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
+const VoiceInputConfig &GetConfiguredVoiceInput();
+bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value);
+bool SetConfiguredVoiceInputBool(const std::string &key, bool value);

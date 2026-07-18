@@ -1,4 +1,3 @@
-#define NOMINMAX
 #include "event_listener.h"
 #include <Windows.h>
 #include <debugapi.h>

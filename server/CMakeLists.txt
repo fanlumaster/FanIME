@@ -18,6 +18,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(CURL CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -84,6 +85,14 @@ set(SRC_FILES
     "./src/window/ime_windows.h"
     "./src/window/window_hook.cpp"
     "./src/window/window_hook.h"
+    "./src/voice-input/voice_input_service.cpp"
+    "./src/voice-input/voice_input_service.h"
+    "./src/voice-input/wave_overlay.cpp"
+    "./src/voice-input/wave_overlay.h"
+    "./src/voice-input/cue_player.cpp"
+    "./src/voice-input/cue_player.h"
+    "./src/voice-input/mvi_utils.h"
+    "./src/voice-input/voice_input_overlay_utils.cpp"
     "./src/main.cpp"
 )
 
@@ -139,10 +148,14 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 target_include_directories(${PROJECT_NAME}
     PRIVATE
     "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+    "${CMAKE_SOURCE_DIR}/src/voice-input"
+    "${CMAKE_SOURCE_DIR}/src/voice-input/third_party"
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json nlohmann_json::nlohmann_json)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
+target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
+target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwmapi shell32)
 
 # Keep msimeui as an independently versioned GUI framework submodule. The
 # product-owned emoji panel lives under src/emoji-panel so it can evolve separately
@@ -156,6 +169,7 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/emoji_panel.rc"
     "./src/emoji-panel/resource.h"
 )
+target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
 target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui)
 target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
@@ -183,12 +197,6 @@ if(MSVC)
     target_compile_options(${KEYBOARD_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
 endif()
 add_dependencies(${PROJECT_NAME} ${KEYBOARD_EXECUTABLE_NAME})
-
-# Voice input remains an independently versioned application. Build its
-# upstream executable as part of the server so the menu launcher can always
-# find it beside MetasequoiaImeServer.exe.
-add_subdirectory(MetasequoiaVoiceInput EXCLUDE_FROM_ALL)
-add_dependencies(${PROJECT_NAME} MetasequoiaVoiceInput)
 
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
 set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
@@ -238,6 +246,12 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         $<$<CONFIG:Debug>:${WEBVIEW2_VCPKG_ROOT}/debug/bin/WebView2Loader.dll>
         $<$<CONFIG:Release>:${WEBVIEW2_VCPKG_ROOT}/bin/WebView2Loader.dll>
         $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets/audios
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/audios/start.mp3
+        ${CMAKE_SOURCE_DIR}/assets/audios/end.mp3
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets/audios
 )
 
 if(BUILD_TESTING)

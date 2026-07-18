@@ -4,6 +4,3 @@
 [submodule "msimeui"]
 	path = msimeui
 	url = https://github.com/metasequoiaime/msimeui.git
-[submodule "MetasequoiaVoiceInput"]
-	path = MetasequoiaVoiceInput
-	url = https://github.com/metasequoiaime/MetasequoiaVoiceInput.git

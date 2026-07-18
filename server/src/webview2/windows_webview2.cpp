@@ -16,6 +16,7 @@
 #include "ipc/ipc.h"
 #include "ipc/candidate_ui_action_policy.h"
 #include "settings/settings_launcher.h"
+#include "voice-input/voice_input_service.h"
 #include <WebView2EnvironmentOptions.h>
 
 #pragma comment(lib, "dcomp.lib")
@@ -797,7 +798,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     }
                     else if (type == "voiceInput")
                     {
-                        OpenVoiceInputApplication();
+                        VoiceInput::ToggleRecording();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                 }

@@ -30,6 +30,7 @@ bool g_paging_tab_enabled = true;
 bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
+VoiceInputConfig g_voice_input;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
 
@@ -259,6 +260,18 @@ bool LoadImeConfig()
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
+        g_voice_input.enabled = tbl["voice_input"]["voice_input"].value_or(true);
+        g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("siliconflow"));
+        g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
+        g_voice_input.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
+            std::string("https://api.siliconflow.cn/v1/audio/transcriptions"));
+        g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
+        g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
+        g_voice_input.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
+            std::string("https://api.siliconflow.cn/v1/chat/completions"));
+        g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
+        g_voice_input.notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
+        g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
         RememberConfigWriteTime();
         return true;
     }
@@ -315,6 +328,41 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
     return true;
 }
 
+void MigrateLegacyVoiceInputConfig()
+{
+    if (!g_voice_input.asr_token.empty()) return;
+    const std::filesystem::path legacy_path = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+                                                   "MetasequoiaVoiceInput" / "config.toml";
+    if (!std::filesystem::exists(legacy_path)) return;
+    try
+    {
+        const toml::table legacy = toml::parse_file(legacy_path.string());
+        const std::string asr_token = legacy["asr_api"]["token"].value_or(std::string());
+        if (asr_token.empty()) return;
+        const auto migrate_string = [](const std::string &key, const std::string &value, std::string &target) {
+            if (WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value))) target = value;
+        };
+        const auto migrate_bool = [](const std::string &key, bool value, bool &target) {
+            if (WriteConfiguredValue("voice_input", key, value ? "true" : "false")) target = value;
+        };
+        migrate_string("asr_provider", legacy["asr_api"]["provider"].value_or(std::string("siliconflow")), g_voice_input.asr_provider);
+        migrate_string("asr_token", asr_token, g_voice_input.asr_token);
+        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(g_voice_input.asr_endpoint), g_voice_input.asr_endpoint);
+        migrate_string("polish_provider", legacy["polish_api"]["provider"].value_or(std::string("siliconflow")), g_voice_input.polish_provider);
+        migrate_string("polish_token", legacy["polish_api"]["token"].value_or(std::string()), g_voice_input.polish_token);
+        migrate_string("polish_endpoint", legacy["polish_api"]["endpoint"].value_or(g_voice_input.polish_endpoint), g_voice_input.polish_endpoint);
+        migrate_string("language", legacy["settings"]["language"].value_or(std::string("zh-cn")), g_voice_input.language);
+        migrate_bool("notification_sound", legacy["settings"]["notification_sound"].value_or(true), g_voice_input.notification_sound);
+        migrate_bool("polish_text", legacy["settings"]["polish_text"].value_or(false), g_voice_input.polish_text);
+    }
+    catch (const toml::parse_error &)
+    {
+#ifdef FANY_DEBUG
+        OutputDebugString(L"[msime]: Legacy voice input config migration skipped: TOML parse error\n");
+#endif
+    }
+}
+
 SchemeType ParseScheme(const std::string &value)
 {
     if (value == "quanpin")
@@ -339,6 +387,7 @@ void InitImeConfig()
     }
     if (LoadImeConfig())
     {
+        MigrateLegacyVoiceInputConfig();
 #ifdef FANY_DEBUG
         OutputDebugString(fmt::format(L"[msime]: session_backend = {}", string_to_wstring(g_session_backend)).c_str());
 #endif
@@ -670,5 +719,36 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout)
         return false;
     }
     g_candidate_window_layout = layout;
+    return true;
+}
+
+const VoiceInputConfig &GetConfiguredVoiceInput()
+{
+    return g_voice_input;
+}
+
+bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value)
+{
+    std::string *target = nullptr;
+    if (key == "asr_provider") target = &g_voice_input.asr_provider;
+    else if (key == "asr_token") target = &g_voice_input.asr_token;
+    else if (key == "asr_endpoint") target = &g_voice_input.asr_endpoint;
+    else if (key == "polish_provider") target = &g_voice_input.polish_provider;
+    else if (key == "polish_token") target = &g_voice_input.polish_token;
+    else if (key == "polish_endpoint") target = &g_voice_input.polish_endpoint;
+    else if (key == "language") target = &g_voice_input.language;
+    if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value))) return false;
+    *target = value;
+    return true;
+}
+
+bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
+{
+    bool *target = nullptr;
+    if (key == "voice_input") target = &g_voice_input.enabled;
+    else if (key == "notification_sound") target = &g_voice_input.notification_sound;
+    else if (key == "polish_text") target = &g_voice_input.polish_text;
+    if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false")) return false;
+    *target = value;
     return true;
 }

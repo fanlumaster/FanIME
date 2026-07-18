@@ -73,10 +73,3 @@ bool CloseKeyboardPanelApplication()
 {
     return CloseApplication(kKeyboardPanelWindowClass);
 }
-
-bool OpenVoiceInputApplication()
-{
-    // VoiceInput is a background/tray application and enforces its own single
-    // instance with a named mutex, so it has no persistent HWND to activate.
-    return OpenSiblingApplication(L"MetasequoiaVoiceInput.exe", nullptr);
-}
