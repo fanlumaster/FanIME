@@ -1,6 +1,7 @@
 #include "config/ime_config.h"
 #include "global/globals.h"
 #include "resource/resource.h"
+#include "settings/settings_launcher.h"
 #include "utils/common_utils.h"
 
 #include <WebView2.h>
@@ -330,6 +331,10 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         else if (type == "configUpdate" && ApplyConfigUpdate(value.at("data").as_object()))
         {
             PostConfig();
+        }
+        else if (type == "openKeyboardPanel")
+        {
+            OpenKeyboardPanelApplication();
         }
     }
     catch (const std::exception &)

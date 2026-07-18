@@ -210,6 +210,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 set(SETTINGS_EXECUTABLE_NAME "MetasequoiaImeSettings")
 add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/settings_app.cpp"
+    "./src/settings/settings_launcher.cpp"
+    "./src/settings/settings_launcher.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/utils/common_utils.cpp"
@@ -227,6 +229,7 @@ target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     dwmapi
     dcomp
+    shell32
     $<$<CONFIG:Debug>:${WEBVIEW2_LOADER_DEBUG}>
     $<$<CONFIG:Release>:${WEBVIEW2_LOADER_RELEASE}>
 )
