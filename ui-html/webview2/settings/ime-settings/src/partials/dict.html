@@ -12,9 +12,11 @@
       <button id="dictAddButton" class="dict-button primary">新增词条</button>
     </div>
     <div class="dict-hint" id="dictHint">输入完整拼音查询，最多显示 100 条结果</div>
+    <div id="dictTableHeaderWrap" class="dict-table-header-wrap">
+      <table class="dict-table"><thead><tr id="dictTableHeader"><th class="dict-index-column">No.</th><th>拼音</th><th>词条</th><th>权重</th><th>操作</th></tr></thead></table>
+    </div>
     <div class="dict-table-wrap">
       <table class="dict-table">
-        <thead><tr id="dictTableHeader"><th class="dict-index-column">No.</th><th>拼音</th><th>词条</th><th>权重</th><th>操作</th></tr></thead>
         <tbody id="dictRows"><tr><td colspan="5" class="dict-empty">输入查询条件后查看词条</td></tr></tbody>
       </table>
     </div>
@@ -32,5 +34,9 @@
       </div>
     </div>
   </div>
-  <div id="dictToast" class="dict-toast" role="status"></div>
+  <div id="dictToast" class="dict-toast" role="status" aria-live="polite">
+    <div id="dictToastIcon" class="dict-toast-icon" aria-hidden="true"></div>
+    <div id="dictToastMessage" class="dict-toast-message"></div>
+    <button id="dictToastClose" class="dict-toast-close" type="button" aria-label="关闭通知">×</button>
+  </div>
 </div>

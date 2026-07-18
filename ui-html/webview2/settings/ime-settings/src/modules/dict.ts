@@ -6,6 +6,7 @@ let editing: DictionaryRow | null = null;
 let requestCounter = 0;
 let lastQuery = '';
 let lastAction = 'query';
+let toastTimer: number | null = null;
 
 function post(action: string, data: Record<string, unknown> = {}): void {
   lastAction = action;
@@ -23,9 +24,16 @@ function showToast(message: string, ok: boolean): void {
     const rect = table.getBoundingClientRect();
     toast.style.left = `${rect.left + rect.width / 2}px`;
   }
-  toast.textContent = message;
+  const messageElement = document.getElementById('dictToastMessage');
+  const iconElement = document.getElementById('dictToastIcon');
+  if (messageElement) messageElement.textContent = message;
+  if (iconElement) iconElement.textContent = ok ? '' : '!';
   toast.className = `dict-toast visible ${ok ? 'success' : 'error'}`;
-  window.setTimeout(() => toast.classList.remove('visible'), 2800);
+  if (toastTimer !== null) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove('visible');
+    toastTimer = null;
+  }, 3200);
 }
 
 function renderRows(rows: DictionaryRow[]): void {
@@ -33,6 +41,7 @@ function renderRows(rows: DictionaryRow[]): void {
   if (!body) return;
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="${dictionary === 'english' ? 4 : 5}" class="dict-empty">没有找到词条</td></tr>`;
+    syncTableHeaderWidth();
     return;
   }
   body.replaceChildren(...rows.map((row, index) => {
@@ -64,6 +73,16 @@ function renderRows(rows: DictionaryRow[]): void {
     });
     actions.append(edit, remove); tr.appendChild(actions); return tr;
   }));
+  syncTableHeaderWidth();
+}
+
+function syncTableHeaderWidth(): void {
+  window.requestAnimationFrame(() => {
+    const scrollArea = document.querySelector<HTMLElement>('.dict-table-wrap');
+    const header = document.getElementById('dictTableHeaderWrap');
+    if (!scrollArea || !header) return;
+    header.style.paddingRight = `${scrollArea.offsetWidth - scrollArea.clientWidth}px`;
+  });
 }
 
 function updateMode(): void {
@@ -79,6 +98,7 @@ function updateMode(): void {
     ? '<th class="dict-index-column">No.</th><th>单词</th><th>显示内容</th><th>操作</th>'
     : '<th class="dict-index-column">No.</th><th>编码</th><th>词条</th><th>权重</th><th>操作</th>';
   document.getElementById('dictRows')!.innerHTML = `<tr><td colspan="${english ? 4 : 5}" class="dict-empty">输入查询条件后查看词条</td></tr>`;
+  syncTableHeaderWidth();
 }
 
 function openDialog(row: DictionaryRow | null = null): void {
@@ -114,6 +134,14 @@ export function setupDictionary(): void {
   document.getElementById('dictSearch')?.addEventListener('keydown', (event) => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('dictAddButton')?.addEventListener('click', () => openDialog());
   document.getElementById('dictCancelButton')?.addEventListener('click', closeDialog);
+  document.getElementById('dictToastClose')?.addEventListener('click', () => {
+    document.getElementById('dictToast')?.classList.remove('visible');
+    if (toastTimer !== null) {
+      window.clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+  });
+  window.addEventListener('resize', syncTableHeaderWidth);
   document.addEventListener('keydown', (event: KeyboardEvent) => {
     if (event.key === 'Escape' && document.getElementById('dictModal')?.classList.contains('open')) {
       event.preventDefault();

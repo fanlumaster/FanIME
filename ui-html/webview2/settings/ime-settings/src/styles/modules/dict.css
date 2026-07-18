@@ -10,10 +10,11 @@
 .dict-button.primary { background: #8078d4; } .dict-button.primary:hover { background: #9189e2; }
 .dict-button.secondary { background: #3b3b3b; } .dict-button.secondary:hover { background: #484848; }
 .dict-hint { padding: 0 22px 16px; color: #929292; font-size: 13px; }
-.dict-table-wrap { max-height: clamp(180px, calc(100vh - 300px), 600px); overflow: auto; border-top: 1px solid #393939; }
+.dict-table-header-wrap { box-sizing: border-box; border-top: 1px solid #393939; background: #292929; }
+.dict-table-wrap { max-height: clamp(180px, calc(100vh - 350px), 550px); overflow-y: auto; overflow-x: hidden; }
 .dict-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .dict-table th, .dict-table td { padding: 13px 18px; text-align: left; border-bottom: 1px solid #343434; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dict-table th { position: sticky; top: 0; z-index: 1; color: #aaa; background: #292929; font-weight: 500; }
+.dict-table th { color: #aaa; background: #292929; font-weight: 500; }
 .dict-table th:nth-child(2), .dict-table td:nth-child(2) { width: 22%; }
 .dict-table th:nth-child(3), .dict-table td:nth-child(3) { width: 25%; }
 .dict-table th:nth-child(4):not(:last-child), .dict-table td:nth-child(4):not(:last-child) { width: 18%; }
@@ -29,6 +30,17 @@
 .dict-dialog-title { margin-bottom: 20px; font-size: 20px; font-weight: 600; }
 .dict-dialog label { display: grid; gap: 7px; margin-top: 14px; color: #bbb; font-size: 14px; }
 .dict-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-.dict-toast { position: fixed; left: 50%; bottom: 34px; z-index: 30; padding: 11px 18px; color: #fff; border-radius: 8px; opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .2s, transform .2s; box-shadow: 0 8px 25px #0008; }
-.dict-toast.visible { opacity: 1; transform: translate(-50%, 0); }
-.dict-toast.success { background: #397451; } .dict-toast.error { background: #914848; }
+.dict-toast { position: fixed; left: 50%; bottom: 34px; z-index: 30; box-sizing: border-box; display: grid; grid-template-columns: 24px minmax(180px, auto); align-items: center; column-gap: 10px; min-width: 280px; max-width: 430px; min-height: 58px; padding: 12px 42px 12px 16px; color: #f3f3f3; background: #2b2b2b; border: 1px solid #484848; border-radius: 8px; opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .2s, transform .2s; box-shadow: 0 8px 28px rgba(0, 0, 0, .48); overflow: hidden; }
+.dict-toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.dict-toast-icon { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 14px; font-weight: 700; }
+.dict-toast.success .dict-toast-icon { color: #b8f2ca; background: rgba(84, 190, 119, .18); }
+.dict-toast.error .dict-toast-icon { color: #ffc0c0; background: rgba(230, 90, 90, .18); }
+.dict-toast.success .dict-toast-icon::after { content: ''; width: 6px; height: 11px; margin-top: -2px; border-right: 2px solid #a8efbf; border-bottom: 2px solid #a8efbf; transform: rotate(40deg) scale(.9); }
+.dict-toast-message { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.dict-toast-close { position: absolute; top: 2px; right: 2px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: #b8b8b8; background: transparent; border: 0; border-radius: 4px; font-size: 0; cursor: pointer; }
+.dict-toast-close::before, .dict-toast-close::after { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.5px; border-radius: 1px; background: currentColor; transform-origin: center; }
+.dict-toast-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.dict-toast-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.dict-toast-close:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.dict-toast-close:active { background: rgba(255, 255, 255, .12); }
+.dict-toast-close:focus { outline: none; }
