@@ -104,14 +104,26 @@ export function setupToggleButton(btnId: string, onChanged?: (active: boolean) =
     return;
   }
 
-  toggle.addEventListener('click', () => {
+  const toggleState = () => {
     toggle.classList.toggle('active');
-    onChanged?.(toggle.classList.contains('active'));
+    const active = toggle.classList.contains('active');
+    toggle.setAttribute('aria-checked', String(active));
+    onChanged?.(active);
+  };
+
+  toggle.addEventListener('click', toggleState);
+  toggle.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleState();
+    }
   });
 }
 
 export function applyToggleState(btnId: string, active: boolean): void {
-  document.getElementById(btnId)?.classList.toggle('active', active);
+  const toggle = document.getElementById(btnId);
+  toggle?.classList.toggle('active', active);
+  toggle?.setAttribute('aria-checked', String(active));
 }
 
 export function applyCandidateArrange(value: string | undefined): void {

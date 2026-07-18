@@ -1,0 +1,13 @@
+.floating-toolbar-card { padding: 0; overflow: hidden; }
+.floating-toolbar-setting-row { padding: 20px 24px; }
+.floating-toolbar-description { margin-top: 6px; color: #919191; font-size: 12px; }
+.floating-toolbar-preview { min-height: 190px; padding: 20px 24px 30px; border-top: 1px solid var(--border-color); background: rgba(18, 18, 18, 0.28); }
+.floating-toolbar-preview-label { margin-bottom: 28px; color: #8f8f8f; font-size: 12px; }
+.ftb-preview-host { display: flex; justify-content: center; padding: 14px 0 22px; pointer-events: none; }
+.ftb-preview-host .status-bar { position: relative; display: flex; align-items: center; height: 35px; padding: 0 4px 0 8px; gap: 6px; background-color: #1a1a1a; border: 1.4px solid rgba(255, 255, 255, 0.15); border-radius: 8px; box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); }
+.ftb-preview-host .drag-handle { position: relative; width: 2.5px; height: 14px; margin-right: 0; border-radius: 2px; background: #8e8cd8; }
+.ftb-preview-host .divider { align-self: stretch; width: 1.2px; height: auto; margin: 0 0 0 4px; background-color: rgba(255, 255, 255, 0.15); }
+.ftb-preview-host .icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: #fff; border-radius: 6px; font-family: "Segoe UI Symbol", "Microsoft YaHei", sans-serif; font-size: 20px; }
+.ftb-preview-host .left-section { display: flex; align-items: center; gap: 4px; }
+.ftb-preview-host .right-section { display: flex; align-items: center; gap: 6px; }
+.ftb-preview-host svg { display: block; }

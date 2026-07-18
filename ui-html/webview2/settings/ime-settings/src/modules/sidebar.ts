@@ -3,6 +3,7 @@ import { setupGeneral } from './general';
 import { setupAppearance } from './appearance';
 import { setupInput } from './input';
 import { setupHelpcode } from './helpcode';
+import { setupFloatingToolbar } from './floating-toolbar';
 
 // 动态加载内容
 export async function loadContent(moduleName: string) {
@@ -15,6 +16,9 @@ export async function loadContent(moduleName: string) {
   switch (moduleName) {
     case 'general':
       setupGeneral();
+      break;
+    case 'floating-toolbar':
+      setupFloatingToolbar();
       break;
     case 'appearance':
       await setupAppearance();

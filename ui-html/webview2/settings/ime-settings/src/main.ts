@@ -52,6 +52,7 @@ async function initializeApp() {
 
   // 先将所有的 sidebar 中的分区的 html 加载进来
   await loadContent('general');
+  await loadContent('floating-toolbar');
   await loadContent('appearance');
   await loadContent('input');
   await loadContent('helpcode');

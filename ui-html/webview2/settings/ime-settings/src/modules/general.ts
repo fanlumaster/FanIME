@@ -2,11 +2,6 @@ import { setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
 
 export function setupGeneral(): void {
-  // 悬浮工具栏
-  setupToggleButton('ftbToggleBtn', (active) => {
-    updateConfig('general.floating_toolbar', active);
-  });
-
   // 设置翻页方式复选框
   setupPageOptions();
 
