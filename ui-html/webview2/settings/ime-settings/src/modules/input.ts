@@ -1,4 +1,5 @@
-import { applyDropdownValue, setupDropdownMenu } from './shared';
+import { applyDropdownValue, setupDropdownMenu, setupToggleButton } from './shared';
+import { updateConfig } from './config-sync';
 
 type InputScheme = 'quanpin' | 'shuangpin' | 'wubi';
 
@@ -45,4 +46,25 @@ export function setupInput(): void {
   );
   setupDropdownMenu('wubiSchemeBtn', 'wubiSchemeMenu', 'changeWubiScheme', true, 'input.wubi_schema');
 
+  setupPageOptions();
+  setupToggleButton('zhEnToggleBtn', (active) => {
+    updateConfig('general.cn_en_mixed_input', active);
+  });
+
+}
+
+function setupPageOptions(): void {
+  document.querySelectorAll<HTMLInputElement>('input[name="page-method"]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const configPaths: Record<string, string> = {
+        minus: 'general.paging_minus_equal',
+        comma: 'general.paging_comma_period',
+        tab: 'general.paging_tab',
+        page: 'general.paging_page_up_down',
+        arrow: 'general.candidate_arrow_navigation'
+      };
+      const path = configPaths[checkbox.value];
+      if (path) updateConfig(path, checkbox.checked);
+    });
+  });
 }

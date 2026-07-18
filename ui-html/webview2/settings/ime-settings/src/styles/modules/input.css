@@ -13,6 +13,12 @@
   justify-content: space-between;
 }
 
+.content-page-option {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
 .wubi-option-content {
   display: flex;
   flex-direction: column;

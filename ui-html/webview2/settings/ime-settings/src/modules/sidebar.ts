@@ -1,5 +1,4 @@
 import { loadHTML, showOnlyCurrentModule } from '../utils/common-utils';
-import { setupGeneral } from './general';
 import { setupAppearance } from './appearance';
 import { setupInput } from './input';
 import { setupHelpcode } from './helpcode';
@@ -14,9 +13,6 @@ export async function loadContent(moduleName: string) {
 
   // 根据加载的模块初始化对应的功能
   switch (moduleName) {
-    case 'general':
-      setupGeneral();
-      break;
     case 'floating-toolbar':
       setupFloatingToolbar();
       break;

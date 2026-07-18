@@ -14,7 +14,6 @@
 @import './components/forms.css';
 
 /* 功能模块样式 */
-@import './modules/general.css';
 @import './modules/floating-toolbar.css';
 @import './modules/appearance.css';
 @import './modules/candidate/style-v.css';

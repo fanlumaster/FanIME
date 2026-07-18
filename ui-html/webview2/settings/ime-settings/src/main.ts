@@ -51,7 +51,6 @@ async function initializeApp() {
   container.style.visibility = 'hidden';
 
   // 先将所有的 sidebar 中的分区的 html 加载进来
-  await loadContent('general');
   await loadContent('floating-toolbar');
   await loadContent('appearance');
   await loadContent('input');
@@ -61,7 +60,7 @@ async function initializeApp() {
 
   // 加载默认内容(通用设置)，初始化功能
   // 隐藏其他的分区
-  showOnlyCurrentModule('general');
+  showOnlyCurrentModule('appearance');
   setupSidebar();
 
   container.style.visibility = 'visible';
