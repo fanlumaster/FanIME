@@ -1,5 +1,6 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 import { applyInputConfig } from './input';
+import { applyVoiceConfig } from './voice';
 
 function safeParseJson(value: string): unknown {
   try {
@@ -26,6 +27,12 @@ export function setupConfigSync(): void {
       payload.data?.input?.shuangpin_schema,
       payload.data?.input?.wubi_schema
     );
+    if (payload.data?.voice_input && typeof payload.data.voice_input === 'object') {
+      applyVoiceConfig(payload.data.voice_input);
+      if (typeof payload.data.voice_input.enabled === 'boolean') applyToggleState('voiceEnabled', payload.data.voice_input.enabled);
+      if (typeof payload.data.voice_input.polish_text === 'boolean') applyToggleState('voicePolishText', payload.data.voice_input.polish_text);
+      if (typeof payload.data.voice_input.notification_sound === 'boolean') applyToggleState('voiceNotificationSound', payload.data.voice_input.notification_sound);
+    }
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
