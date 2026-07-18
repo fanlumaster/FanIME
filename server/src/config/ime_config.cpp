@@ -731,6 +731,7 @@ const VoiceInputConfig &GetConfiguredVoiceInput()
 
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value)
 {
+    if (key == "language" && value != "zh-cn" && value != "en" && value != "auto") return false;
     std::string *target = nullptr;
     if (key == "asr_provider") target = &g_voice_input.asr_provider;
     else if (key == "asr_token") target = &g_voice_input.asr_token;

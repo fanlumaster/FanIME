@@ -230,6 +230,12 @@ std::string Recognize(const std::vector<float> &samples, const VoiceInputConfig 
     curl_mime_data(file, reinterpret_cast<const char *>(wav.data()), wav.size());
     curl_mimepart *model = curl_mime_addpart(mime);
     curl_mime_name(model, "model"); curl_mime_data(model, "TeleAI/TeleSpeechASR", CURL_ZERO_TERMINATED);
+    if (config.language == "zh-cn" || config.language == "en")
+    {
+        curl_mimepart *language = curl_mime_addpart(mime);
+        curl_mime_name(language, "language");
+        curl_mime_data(language, config.language == "zh-cn" ? "zh" : "en", CURL_ZERO_TERMINATED);
+    }
     curl_easy_setopt(curl, CURLOPT_URL, config.asr_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
