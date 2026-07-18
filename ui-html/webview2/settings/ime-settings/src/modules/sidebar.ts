@@ -4,6 +4,7 @@ import { setupInput } from './input';
 import { setupHelpcode } from './helpcode';
 import { setupFloatingToolbar } from './floating-toolbar';
 import { setupVoiceInput } from './voice';
+import { setupScreenKeyboardSettings } from './screenkb-settings';
 
 // 动态加载内容
 export async function loadContent(moduleName: string) {
@@ -28,6 +29,9 @@ export async function loadContent(moduleName: string) {
       break;
     case 'voice':
       setupVoiceInput();
+      break;
+    case 'screenkb-settings':
+      setupScreenKeyboardSettings();
       break;
   }
 }
