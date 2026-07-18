@@ -1,0 +1,10 @@
+.skin-theme-card { padding: 0; overflow: hidden; }
+.skin-theme-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
+.skin-theme-description { margin-top: 5px; color: #929292; font-size: 13px; }
+.skin-theme-toggle { cursor: default; }
+.skin-preview-list { padding: 9px 0; background: rgba(18, 18, 18, .13); }
+.skin-preview-row { min-width: 0; }
+.skin-preview-stage { display: flex; align-items: flex-start; justify-content: flex-start; min-width: 0; padding: 9px 24px; overflow: hidden; }
+.skin-preview-row .candidate { flex: 0 0 auto; margin-top: 0; transform-origin: left center; }
+.skin-preview-horizontal .container { width: max-content; white-space: nowrap; }
+.skin-preview-toolbar .ftb-preview-host { display: flex; align-items: center; justify-content: flex-start; padding: 0; }
