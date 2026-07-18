@@ -5,6 +5,7 @@ import { setupHelpcode } from './helpcode';
 import { setupFloatingToolbar } from './floating-toolbar';
 import { setupVoiceInput } from './voice';
 import { setupScreenKeyboardSettings } from './screenkb-settings';
+import { setupDictionary } from './dict';
 
 // 动态加载内容
 export async function loadContent(moduleName: string) {
@@ -26,6 +27,9 @@ export async function loadContent(moduleName: string) {
       break;
     case 'helpcode':
       setupHelpcode();
+      break;
+    case 'dict':
+      setupDictionary();
       break;
     case 'voice':
       setupVoiceInput();

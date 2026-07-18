@@ -55,6 +55,7 @@ async function initializeApp() {
   await loadContent('appearance');
   await loadContent('input');
   await loadContent('helpcode');
+  await loadContent('dict');
   await loadContent('voice');
   await loadContent('screenkb-settings');
   await loadContent('shortcut');

@@ -1,0 +1,36 @@
+<div class="content" id="dict-settings">
+  <div class="content-header"><span>词库</span></div>
+  <div class="dict-card">
+    <div class="dict-tabs" role="tablist">
+      <button class="dict-tab active" data-dictionary="quanpin">全拼词库</button>
+      <button class="dict-tab" data-dictionary="wubi">五笔词库</button>
+      <button class="dict-tab" data-dictionary="english">英文词库</button>
+    </div>
+    <div class="dict-toolbar">
+      <input id="dictSearch" class="dict-input" placeholder="输入全拼后查询，例如 nihao" spellcheck="false">
+      <button id="dictSearchButton" class="dict-button secondary">查询</button>
+      <button id="dictAddButton" class="dict-button primary">新增词条</button>
+    </div>
+    <div class="dict-hint" id="dictHint">输入完整拼音查询，最多显示 100 条结果</div>
+    <div class="dict-table-wrap">
+      <table class="dict-table">
+        <thead><tr id="dictTableHeader"><th class="dict-index-column">No.</th><th>拼音</th><th>词条</th><th>权重</th><th>操作</th></tr></thead>
+        <tbody id="dictRows"><tr><td colspan="5" class="dict-empty">输入查询条件后查看词条</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="dictModal" class="dict-modal" aria-hidden="true">
+    <div class="dict-dialog" role="dialog" aria-modal="true">
+      <div class="dict-dialog-title" id="dictDialogTitle">新增词条</div>
+      <label id="dictCodeField">编码<input id="dictCode" class="dict-input" spellcheck="false"></label>
+      <label>词条<input id="dictWord" class="dict-input" spellcheck="false"></label>
+      <label id="dictWeightField">权重<input id="dictWeight" class="dict-input" type="number" min="0"></label>
+      <div class="dict-dialog-actions">
+        <button id="dictCancelButton" class="dict-button secondary">取消</button>
+        <button id="dictSaveButton" class="dict-button primary">保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="dictToast" class="dict-toast" role="status"></div>
+</div>
