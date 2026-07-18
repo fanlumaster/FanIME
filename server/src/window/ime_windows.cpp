@@ -547,6 +547,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
+            const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             if (ReloadImeConfigIfChanged())
             {
@@ -559,6 +560,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     ApplyConfiguredCandidateWindowLayout();
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                     ApplyConfiguredFloatingToolbarVisibility();
+                if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
+                    FanyNamedPipe::CancelCloudCandidateRequest();
                 if (previous_comma_period != GetConfiguredPagingCommaPeriodEnabled())
                 {
                     SendToTsfWorkerThreadViaNamedpipe(
@@ -984,6 +987,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
+            const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -1002,6 +1006,10 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
                     ApplyConfiguredFloatingToolbarVisibility();
+                }
+                if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
+                {
+                    FanyNamedPipe::CancelCloudCandidateRequest();
                 }
                 PostSettingsConfig();
             }

@@ -1198,6 +1198,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.cloud_candidates")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCloudCandidatesEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1376,6 +1384,7 @@ void PostSettingsConfig()
                                 {"wubi_schema", GetConfiguredWubiSchema()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
+                                {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
                                 {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
                                 {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
                                 {"paging_tab", GetConfiguredPagingTabEnabled()},

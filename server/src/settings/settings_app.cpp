@@ -170,6 +170,7 @@ void PostConfig()
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
+            {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
             {"paging_tab", GetConfiguredPagingTabEnabled()},
@@ -227,6 +228,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")
         return SetConfiguredEnglishCandidatesEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.cloud_candidates")
+        return SetConfiguredCloudCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_minus_equal")
         return SetConfiguredPagingMinusEqualEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_tab")

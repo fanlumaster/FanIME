@@ -48,6 +48,8 @@ bool GetConfiguredFloatingToolbarEnabled();
 bool SetConfiguredFloatingToolbarEnabled(bool enabled);
 bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
+bool GetConfiguredCloudCandidatesEnabled();
+bool SetConfiguredCloudCandidatesEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();

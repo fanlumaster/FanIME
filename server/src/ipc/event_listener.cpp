@@ -153,10 +153,12 @@ void PublishStatusSnapshotValue(int packed_state)
 void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
 {
     std::lock_guard lock(g_async_request_mutex);
-    CloudIme::OnInputChanged(input);
+    const std::string effective_input = GetConfiguredCloudCandidatesEnabled() ? input : std::string{};
+    CloudIme::OnInputChanged(effective_input);
     ++g_cloud_generation;
-    g_cloud_request_origin = input.empty() ? AsyncRequestOrigin{}
-                                           : AsyncRequestOrigin{client_id, activation_epoch, g_cloud_generation, input};
+    g_cloud_request_origin = effective_input.empty()
+                                 ? AsyncRequestOrigin{}
+                                 : AsyncRequestOrigin{client_id, activation_epoch, g_cloud_generation, effective_input};
 }
 
 void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
@@ -584,6 +586,11 @@ void WakeNamedPipeListenersForShutdown()
 
 namespace FanyNamedPipe
 {
+void CancelCloudCandidateRequest()
+{
+    UpdateCloudInput("");
+}
+
 enum class TaskType
 {
     ShowCandidate,
@@ -1705,6 +1712,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
 
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
 {
+    if (!GetConfiguredCloudCandidatesEnabled())
+        return;
     (void)generation;
 
     // 先清空状态，只需要懒清空 added 标志位即可
