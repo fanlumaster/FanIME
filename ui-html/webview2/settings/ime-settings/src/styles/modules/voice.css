@@ -4,9 +4,9 @@
 .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .voice-grid label { display: flex; flex-direction: column; gap: 7px; color: #aaa; font-size: 12px; }
 .voice-grid .voice-wide { grid-column: 1 / -1; }
-.voice-grid input, .voice-basic-row select { box-sizing: border-box; width: 100%; padding: 10px 12px; color: #eee; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); border-radius: 6px; outline: none; font: inherit; }
-.voice-grid input:focus, .voice-basic-row select:focus { border-color: var(--accent-color); }
+.voice-grid input { box-sizing: border-box; width: 100%; padding: 10px 12px; color: #eee; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); border-radius: 6px; outline: none; font: inherit; }
+.voice-grid input:focus { border-color: var(--accent-color); }
 .voice-grid input[type="password"] { font-family: Consolas, "Cascadia Mono", monospace; letter-spacing: -0.1ch; }
-.voice-basic-row { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 7px 0; color: #ccc; font-size: 14px; }
-.voice-basic-row + .voice-basic-row { border-top: 1px solid var(--border-color); }
-.voice-basic-row select { width: 160px; }
+.voice-basic-row { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 5px 0; color: #ddd; font-size: 14px; }
+.voice-language-toggle { min-width: 132px; }
+.voice-language-menu { min-width: 132px; }
