@@ -212,10 +212,17 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/settings_app.cpp"
     "./src/settings/settings_launcher.cpp"
     "./src/settings/settings_launcher.h"
+    "./src/settings/dictionary_manager.cpp"
+    "./src/settings/dictionary_manager.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
+    "./MetasequoiaImeEngine/common/helpcode_utils.cpp"
+    "./MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
+    "./MetasequoiaImeEngine/quanpin/quanpin_query.cpp"
+    "./MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
+    "./MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
     "./src/resource/resource.rc"
 )
 target_include_directories(${SETTINGS_EXECUTABLE_NAME}
@@ -227,6 +234,8 @@ target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
     Boost::locale
     Boost::json
     nlohmann_json::nlohmann_json
+    unofficial::sqlite3::sqlite3
+    spdlog::spdlog
     dwmapi
     dcomp
     shell32

@@ -2,6 +2,7 @@
 #include "global/globals.h"
 #include "resource/resource.h"
 #include "settings/settings_launcher.h"
+#include "settings/dictionary_manager.h"
 #include "utils/common_utils.h"
 
 #include <WebView2.h>
@@ -338,6 +339,16 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         else if (type == "openKeyboardPanel")
         {
             OpenKeyboardPanelApplication();
+        }
+        else if (type == "dictionaryRequest")
+        {
+            const auto &data = value.at("data").as_object();
+            nlohmann::json response = nlohmann::json::parse(boost::json::serialize(SettingsDictionary::HandleRequest(data)));
+            response["type"] = "dictionaryResponse";
+            if (const auto *request_id = data.if_contains("requestId"); request_id && request_id->is_string())
+                response["requestId"] = std::string(request_id->as_string());
+            const std::wstring message = string_to_wstring(response.dump());
+            g_webview->PostWebMessageAsJson(message.c_str());
         }
     }
     catch (const std::exception &)
