@@ -108,7 +108,7 @@
       </div>
     </div>
 
-    <div class="menu-item">
+    <div class="menu-item" id="voiceInput">
       <div class="menu-item-left">
         <span>🎙️</span>
         语音输入
@@ -163,6 +163,14 @@
     keyboardPanel.addEventListener('click', () => {
       window.chrome.webview.postMessage(JSON.stringify({
         type: 'keyboardPanel',
+      }));
+    });
+
+    // 语音输入：启动独立的 MetasequoiaVoiceInput 应用。
+    const voiceInput = document.getElementById('voiceInput');
+    voiceInput.addEventListener('click', () => {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'voiceInput',
       }));
     });
 
