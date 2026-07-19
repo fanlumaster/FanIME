@@ -202,6 +202,24 @@ if(MSVC)
 endif()
 add_dependencies(${PROJECT_NAME} ${KEYBOARD_EXECUTABLE_NAME})
 
+set(HANDWRITING_EXECUTABLE_NAME "MetasequoiaImeHandwritingPanel")
+add_executable(${HANDWRITING_EXECUTABLE_NAME} WIN32
+    "./src/handwriting-panel/HandwritingPanel.cpp"
+    "./src/handwriting-panel/HandwritingPanel.h"
+    "./src/handwriting-panel/main.cpp"
+    "./src/handwriting-panel/handwriting_panel.rc"
+    "./src/handwriting-panel/resource.h"
+)
+target_link_libraries(${HANDWRITING_EXECUTABLE_NAME} PRIVATE msimeui windowsapp.lib)
+target_compile_definitions(${HANDWRITING_EXECUTABLE_NAME} PRIVATE
+    NOMINMAX=1
+    WIN32_LEAN_AND_MEAN=1
+)
+if(MSVC)
+    target_compile_options(${HANDWRITING_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
+endif()
+add_dependencies(${PROJECT_NAME} ${HANDWRITING_EXECUTABLE_NAME})
+
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
 set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
 set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")

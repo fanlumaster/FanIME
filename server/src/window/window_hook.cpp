@@ -42,6 +42,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
             CloseSettingsApplication();
             CloseEmojiPanelApplication();
             CloseKeyboardPanelApplication();
+            CloseHandwritingPanelApplication();
             ExitProcess(0);
         }
 

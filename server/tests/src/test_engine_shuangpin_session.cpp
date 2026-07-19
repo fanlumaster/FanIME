@@ -194,7 +194,7 @@ TEST_CASE(EngineShuangpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuer
     const auto state = session.get_cloud_query_state();
     REQUIRE(state.should_query);
 
-    session.cache_dynamic_candidate(state.cache_key, "云词");
+    session.cache_dynamic_candidate(state.cache_key, "云词", CandidateSource::CloudSuggestion);
     InputLetters(session, "a");
 
     const auto &candidates = session.get_candidates();
@@ -213,7 +213,7 @@ TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
     const auto state = session.get_cloud_query_state();
     REQUIRE(state.should_query);
 
-    session.cache_dynamic_candidate(state.cache_key, "云词");
+    session.cache_dynamic_candidate(state.cache_key, "云词", CandidateSource::CloudSuggestion);
     InputLetters(session, "A");
 
     const auto &candidates = session.get_candidates();

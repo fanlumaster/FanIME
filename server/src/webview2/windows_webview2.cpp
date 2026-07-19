@@ -742,6 +742,21 @@ HRESULT OnControllerCreatedMenuWnd(     //
                 {
                     return S_OK;
                 }
+                // Older menu assets already render the handwriting entry but do not
+                // give it an id or native click bridge. Wire it at runtime so existing
+                // installations gain the launcher without replacing their skin.
+                sender->ExecuteScript(
+                    LR"((() => {
+                        const item = [...document.querySelectorAll('.menu-item')]
+                            .find(element => element.textContent.includes('\u624b\u5199\u8bc6\u522b\u677f'));
+                        if (item && !item.dataset.nativeHandwritingLauncher) {
+                            item.dataset.nativeHandwritingLauncher = 'true';
+                            item.addEventListener('click', () => {
+                                window.chrome.webview.postMessage(JSON.stringify({ type: 'handwritingPanel' }));
+                            });
+                        }
+                    })())",
+                    nullptr);
                 PostMessage(hwnd, WM_REFRESH_MENU_SIZE, 0, 0);
                 return S_OK;
             })
@@ -794,6 +809,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     else if (type == "keyboardPanel")
                     {
                         OpenKeyboardPanelApplication();
+                        ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
+                    else if (type == "handwritingPanel")
+                    {
+                        OpenHandwritingPanelApplication();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
                     else if (type == "voiceInput")

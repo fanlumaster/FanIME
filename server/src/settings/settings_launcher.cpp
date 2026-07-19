@@ -10,6 +10,7 @@ namespace
 constexpr wchar_t kSettingsWindowClass[] = L"MetasequoiaImeSettingsWindow";
 constexpr wchar_t kEmojiPanelWindowClass[] = L"msimeui.EmojiPanel";
 constexpr wchar_t kKeyboardPanelWindowClass[] = L"msimeui.KeyboardDemo";
+constexpr wchar_t kHandwritingPanelWindowClass[] = L"msimeui.HandwritingDemo";
 
 bool OpenSiblingApplication(const wchar_t *executable_name, const wchar_t *window_class)
 {
@@ -72,4 +73,14 @@ bool OpenKeyboardPanelApplication()
 bool CloseKeyboardPanelApplication()
 {
     return CloseApplication(kKeyboardPanelWindowClass);
+}
+
+bool OpenHandwritingPanelApplication()
+{
+    return OpenSiblingApplication(L"MetasequoiaImeHandwritingPanel.exe", kHandwritingPanelWindowClass);
+}
+
+bool CloseHandwritingPanelApplication()
+{
+    return CloseApplication(kHandwritingPanelWindowClass);
 }
