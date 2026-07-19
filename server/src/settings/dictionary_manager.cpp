@@ -280,6 +280,59 @@ json::object HandleWubi(const json::object &request)
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
     return Result(ok, ok ? std::string("五笔词条") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
 }
+
+json::object HandleQuickPhrase(const json::object &request)
+{
+    const std::string action = StringValue(request, "action");
+    std::string code = StringValue(request, "code");
+    const std::string phrase = StringValue(request, "word");
+    const int weight = (std::max)(0, IntValue(request, "weight", 10));
+    std::transform(code.begin(), code.end(), code.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    const auto valid_code = [](const std::string &value) {
+        return !value.empty() && std::all_of(value.begin(), value.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; });
+    };
+    std::string error;
+    Db db = OpenDatabase("msime.db", error);
+    if (!db) return Result(false, "打开快捷短语表失败：" + error);
+
+    if (action == "query")
+    {
+        if (!code.empty() && !valid_code(code)) return Result(false, "编码只能包含英文字母");
+        Stmt stmt = Prepare(db.get(), "SELECT key,value,weight FROM quick_parases WHERE key LIKE ?1 "
+                                      "ORDER BY weight DESC,key,value", error);
+        if (!stmt || !BindText(stmt.get(), 1, code + "%")) return Result(false, "查询失败：" + error);
+        json::array rows;
+        while (sqlite3_step(stmt.get()) == SQLITE_ROW)
+            rows.push_back({{"code", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 0))},
+                            {"word", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))},
+                            {"weight", sqlite3_column_int(stmt.get(), 2)}});
+        json::object result = Result(true, rows.empty() ? "没有找到快捷短语" : "查询成功");
+        result["rows"] = std::move(rows);
+        return result;
+    }
+
+    if (!valid_code(code) || phrase.empty()) return Result(false, "编码只能包含英文字母，短语不能为空");
+    const std::string old_code = StringValue(request, "oldCode");
+    const std::string old_phrase = StringValue(request, "oldWord");
+    std::string sql;
+    if (action == "create") sql = "INSERT INTO quick_parases(key,value,weight) VALUES(?1,?2,?3)";
+    else if (action == "update") sql = "UPDATE quick_parases SET key=?1,value=?2,weight=?3 WHERE key=?4 AND value=?5";
+    else if (action == "delete") sql = "DELETE FROM quick_parases WHERE key=?1 AND value=?2";
+    else return Result(false, "未知操作");
+
+    Stmt stmt = Prepare(db.get(), sql, error);
+    bool ok = stmt != nullptr;
+    if (ok && action == "delete") ok = BindText(stmt.get(), 1, old_code) && BindText(stmt.get(), 2, old_phrase);
+    else if (ok)
+    {
+        ok = BindText(stmt.get(), 1, code) && BindText(stmt.get(), 2, phrase) &&
+             sqlite3_bind_int(stmt.get(), 3, weight) == SQLITE_OK;
+        if (ok && action == "update") ok = BindText(stmt.get(), 4, old_code) && BindText(stmt.get(), 5, old_phrase);
+    }
+    ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
+    const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
+    return Result(ok, ok ? std::string("快捷短语") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
+}
 }
 
 json::object HandleRequest(const json::object &request)
@@ -288,6 +341,7 @@ json::object HandleRequest(const json::object &request)
     const std::string action = StringValue(request, "action");
     if (dictionary == "english") return HandleEnglish(request);
     if (dictionary == "wubi") return HandleWubi(request);
+    if (dictionary == "quick") return HandleQuickPhrase(request);
     if (dictionary != "quanpin") return Result(false, "未知词库");
     if (action == "query") return QueryChinese(dictionary, StringValue(request, "code"));
     return MutateChinese(request);

@@ -60,6 +60,8 @@ set(SRC_FILES
     "./src/ipc/ipc.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
+    "./src/quick-phrases/quick_phrase_query.cpp"
+    "./src/quick-phrases/quick_phrase_query.h"
     "./src/resource/resource.h"
     "./src/resource/resource.rc"
     "./src/settings/settings_launcher.cpp"
