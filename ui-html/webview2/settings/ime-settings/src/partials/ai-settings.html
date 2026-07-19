@@ -1,0 +1,23 @@
+<div class="content" id="ai-assistant-settings">
+  <div class="content-header"><span>AI 辅助</span></div>
+  <div class="section ai-section">
+    <div class="section-header">
+      <div><div class="section-title">启用 AI 联想</div><div class="ai-description">在全拼和双拼输入时异步生成第 3 个候选项</div></div>
+      <div class="ftb-toggle-btn" id="aiEnabled" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div>
+    </div>
+  </div>
+  <div class="section ai-section">
+    <div class="section-title ai-heading">API 配置</div>
+    <div class="ai-grid">
+      <label><span>服务提供商</span><input id="aiProvider" type="text" autocomplete="off" spellcheck="false"></label>
+      <label><span>模型</span><input id="aiModel" type="text" autocomplete="off" spellcheck="false"></label>
+      <label><span>API Token</span><input id="aiToken" type="password" autocomplete="off" spellcheck="false"></label>
+      <label><span>候选数量</span><input id="aiCandidateLimit" type="number" min="1" max="10" autocomplete="off"></label>
+      <label class="ai-wide"><span>接口地址</span><input id="aiEndpoint" type="url" autocomplete="off" spellcheck="false"></label>
+    </div>
+  </div>
+  <div class="section ai-section">
+    <div class="section-title ai-heading">自定义提示词</div>
+    <textarea id="aiPrompt" class="ai-prompt" autocomplete="off" spellcheck="false"></textarea>
+  </div>
+</div>

@@ -1,0 +1,10 @@
+.ai-section { padding: 20px 24px; }
+.ai-heading { margin-bottom: 18px; }
+.ai-description { margin-top: 6px; color: #919191; font-size: 12px; }
+.ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ai-grid label { display: flex; flex-direction: column; gap: 7px; color: #aaa; font-size: 12px; }
+.ai-grid .ai-wide { grid-column: 1 / -1; }
+.ai-grid input, .ai-prompt { box-sizing: border-box; width: 100%; padding: 10px 12px; color: #eee; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); border-radius: 6px; outline: none; font: inherit; }
+.ai-grid input:focus, .ai-prompt:focus { border-color: var(--accent-color); }
+.ai-grid input[type="password"] { font-family: Consolas, "Cascadia Mono", monospace; letter-spacing: -0.1ch; }
+.ai-prompt { min-height: 280px; resize: vertical; line-height: 1.65; }

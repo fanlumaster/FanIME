@@ -8,6 +8,7 @@ import { setupScreenKeyboardSettings } from './screenkb-settings';
 import { setupDictionary } from './dict';
 import { setupSkin } from './skin';
 import { setupToolsSettings } from './tools-settings';
+import { setupAiSettings } from './ai-settings';
 
 // 动态加载内容
 export async function loadContent(moduleName: string) {
@@ -44,6 +45,9 @@ export async function loadContent(moduleName: string) {
       break;
     case 'tools-settings':
       setupToolsSettings();
+      break;
+    case 'ai-settings':
+      setupAiSettings();
       break;
   }
 }

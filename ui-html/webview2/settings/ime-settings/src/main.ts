@@ -60,6 +60,7 @@ async function initializeApp() {
   await loadContent('voice');
   await loadContent('screenkb-settings');
   await loadContent('tools-settings');
+  await loadContent('ai-settings');
   await loadContent('shortcut');
   setupConfigSync();
 

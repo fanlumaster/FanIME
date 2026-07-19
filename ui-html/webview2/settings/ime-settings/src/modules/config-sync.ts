@@ -1,6 +1,7 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 import { applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
+import { applyAiConfig } from './ai-settings';
 
 function safeParseJson(value: string): unknown {
   try {
@@ -32,6 +33,12 @@ export function setupConfigSync(): void {
       if (typeof payload.data.voice_input.enabled === 'boolean') applyToggleState('voiceEnabled', payload.data.voice_input.enabled);
       if (typeof payload.data.voice_input.polish_text === 'boolean') applyToggleState('voicePolishText', payload.data.voice_input.polish_text);
       if (typeof payload.data.voice_input.notification_sound === 'boolean') applyToggleState('voiceNotificationSound', payload.data.voice_input.notification_sound);
+    }
+    if (payload.data?.ai_assistant && typeof payload.data.ai_assistant === 'object') {
+      applyAiConfig(payload.data.ai_assistant);
+      if (typeof payload.data.ai_assistant.enabled === 'boolean') {
+        applyToggleState('aiEnabled', payload.data.ai_assistant.enabled);
+      }
     }
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
