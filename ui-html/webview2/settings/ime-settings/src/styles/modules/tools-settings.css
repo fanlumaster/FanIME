@@ -1,0 +1,5 @@
+.quick-phrase-heading { padding: 20px 22px 4px; }
+.quick-phrase-description { margin-top: 6px; color: #929292; font-size: 13px; }
+.quick-phrase-card .dict-table th:nth-child(2), .quick-phrase-card .dict-table td:nth-child(2) { width: 20%; }
+.quick-phrase-card .dict-table th:nth-child(3), .quick-phrase-card .dict-table td:nth-child(3) { width: 34%; }
+.quick-phrase-card .dict-table th:nth-child(4), .quick-phrase-card .dict-table td:nth-child(4) { width: 15%; }

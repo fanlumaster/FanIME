@@ -1,0 +1,39 @@
+<div class="content" id="tools-settings-content">
+  <div class="content-header"><span>实用功能</span></div>
+  <div class="dict-card quick-phrase-card">
+    <div class="quick-phrase-heading">
+      <div class="section-title">快捷短语</div>
+      <div class="quick-phrase-description">中文模式下按 Shift+K，再输入编码即可调用快捷短语</div>
+    </div>
+    <div class="dict-toolbar">
+      <input id="quickPhraseSearch" class="dict-input" placeholder="输入编码前缀，留空可查看全部" spellcheck="false">
+      <button id="quickPhraseSearchButton" class="dict-button secondary">查询</button>
+      <button id="quickPhraseAddButton" class="dict-button primary">新增短语</button>
+    </div>
+    <div class="dict-hint">编码只能包含英文字母；触发键 K 不属于编码内容</div>
+    <div id="quickPhraseTableHeaderWrap" class="dict-table-header-wrap">
+      <table class="dict-table"><thead><tr><th class="dict-index-column">No.</th><th>编码</th><th>快捷短语</th><th>权重</th><th>操作</th></tr></thead></table>
+    </div>
+    <div id="quickPhraseTableWrap" class="dict-table-wrap">
+      <table class="dict-table"><tbody id="quickPhraseRows"><tr><td colspan="5" class="dict-empty">点击查询后查看快捷短语</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div id="quickPhraseModal" class="dict-modal" aria-hidden="true">
+    <div class="dict-dialog" role="dialog" aria-modal="true">
+      <div class="dict-dialog-title" id="quickPhraseDialogTitle">新增快捷短语</div>
+      <label>编码<input id="quickPhraseCode" class="dict-input" spellcheck="false"></label>
+      <label>快捷短语<input id="quickPhraseValue" class="dict-input" spellcheck="false"></label>
+      <label>权重<input id="quickPhraseWeight" class="dict-input" type="number" min="0"></label>
+      <div class="dict-dialog-actions">
+        <button id="quickPhraseCancelButton" class="dict-button secondary">取消</button>
+        <button id="quickPhraseSaveButton" class="dict-button primary">保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="quickPhraseToast" class="dict-toast" role="status" aria-live="polite">
+    <div id="quickPhraseToastIcon" class="dict-toast-icon" aria-hidden="true"></div>
+    <div id="quickPhraseToastMessage" class="dict-toast-message"></div>
+    <button id="quickPhraseToastClose" class="dict-toast-close" type="button" aria-label="关闭通知">×</button>
+  </div>
+</div>

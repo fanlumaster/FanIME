@@ -157,7 +157,7 @@ export function setupDictionary(): void {
   });
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (payload?.type !== 'dictionaryResponse') return;
+    if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
     showToast(payload.message ?? (payload.ok ? '操作成功' : '操作失败'), Boolean(payload.ok));
     if (Array.isArray(payload.rows)) renderRows(payload.rows);
     if (payload.ok && lastAction !== 'query') { closeDialog(); if (lastQuery) query(); }
