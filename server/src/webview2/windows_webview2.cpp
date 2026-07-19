@@ -801,6 +801,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
                         OpenSettingsApplication();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
                     }
+                    else if (type == "about")
+                    {
+                        OpenSettingsAboutApplication();
+                        ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
                     else if (type == "emojiSymbols")
                     {
                         OpenEmojiPanelApplication();

@@ -33,6 +33,7 @@ constexpr wchar_t kWindowClass[] = L"MetasequoiaImeSettingsWindow";
 constexpr wchar_t kWindowTitle[] = L"Metasequoia IME Settings";
 constexpr wchar_t kSingleInstanceMutex[] = L"Local\\MetasequoiaImeSettings.SingleInstance";
 constexpr UINT kActivateExistingWindow = WM_APP + 1;
+constexpr UINT kOpenAboutSection = WM_APP + 2;
 constexpr UINT_PTR kConfigReloadTimer = 1;
 
 ComPtr<ICoreWebView2Controller> g_controller;
@@ -48,6 +49,29 @@ bool g_has_maximize_button_rect = false;
 bool g_maximize_button_hover = false;
 bool g_window_active = true;
 bool g_window_minimized = false;
+bool g_open_about_on_ready = false;
+
+void ShowAboutSection()
+{
+    if (!g_webview) return;
+    g_webview->ExecuteScript(LR"JS((() => {
+        const selectAbout = () => {
+            const item = document.querySelector('.sidebar .item[data-target="about-settings"]');
+            if (!item) return false;
+            if (!item.classList.contains('active')) item.click();
+            const section = document.getElementById('about-settings');
+            if (!item.classList.contains('active') || !section || getComputedStyle(section).display === 'none')
+                return false;
+            item.scrollIntoView({ block: 'nearest' });
+            return true;
+        };
+        if (selectAbout()) return;
+        const retry = setInterval(() => {
+            if (selectAbout()) clearInterval(retry);
+        }, 50);
+        setTimeout(() => clearInterval(retry), 10000);
+    })())JS", nullptr);
+}
 
 void ApplyWindowActivationAppearance()
 {
@@ -440,6 +464,11 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
                     PostConfig();
                     ApplyWindowActivationAppearance();
                     SetFocus(hwnd);
+                    if (g_open_about_on_ready)
+                    {
+                        ShowAboutSection();
+                        g_open_about_on_ready = false;
+                    }
                 }
                 return S_OK;
             }).Get(),
@@ -559,6 +588,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     {
     case kActivateExistingWindow:
         ActivateWindow(hwnd);
+        return 0;
+    case kOpenAboutSection:
+        ActivateWindow(hwnd);
+        ShowAboutSection();
         return 0;
     case WM_NCCALCSIZE:
         if (w_param)
@@ -691,8 +724,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
 }
 } // namespace
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
+int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_command)
 {
+    g_open_about_on_ready = command_line && std::wstring(command_line).find(L"--about") != std::wstring::npos;
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     const HRESULT com_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(com_result)) return 1;
@@ -704,7 +738,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         HWND existing = FindWindowW(kWindowClass, nullptr);
         if (existing)
         {
-            PostMessageW(existing, kActivateExistingWindow, 0, 0);
+            PostMessageW(existing, g_open_about_on_ready ? kOpenAboutSection : kActivateExistingWindow, 0, 0);
             SetForegroundWindow(existing);
         }
         return 0;

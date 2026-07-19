@@ -1,6 +1,7 @@
 #pragma once
 
 bool OpenSettingsApplication();
+bool OpenSettingsAboutApplication();
 bool CloseSettingsApplication();
 bool OpenEmojiPanelApplication();
 bool CloseEmojiPanelApplication();
