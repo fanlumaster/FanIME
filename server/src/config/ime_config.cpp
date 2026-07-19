@@ -32,6 +32,7 @@ bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 VoiceInputConfig g_voice_input;
+AiAssistantConfig g_ai_assistant;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
 
@@ -274,6 +275,15 @@ bool LoadImeConfig()
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         g_voice_input.notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
         g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
+        g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
+        g_ai_assistant.provider = tbl["ai_assistant"]["provider"].value_or(std::string("deepseek"));
+        g_ai_assistant.token = tbl["ai_assistant"]["token"].value_or(std::string());
+        g_ai_assistant.endpoint = tbl["ai_assistant"]["endpoint"].value_or(
+            std::string("https://api.deepseek.com/chat/completions"));
+        g_ai_assistant.model = tbl["ai_assistant"]["model"].value_or(std::string("deepseek-v4-flash"));
+        const int ai_limit = tbl["ai_assistant"]["candidate_limit"].value_or(3);
+        g_ai_assistant.candidate_limit = ai_limit >= 1 && ai_limit <= 10 ? ai_limit : 3;
+        g_ai_assistant.prompt = tbl["ai_assistant"]["prompt"].value_or(g_ai_assistant.prompt);
         RememberConfigWriteTime();
         return true;
     }
@@ -768,5 +778,38 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
     else if (key == "polish_text") target = &g_voice_input.polish_text;
     if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false")) return false;
     *target = value;
+    return true;
+}
+
+const AiAssistantConfig &GetConfiguredAiAssistant()
+{
+    return g_ai_assistant;
+}
+
+bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value)
+{
+    std::string *target = nullptr;
+    if (key == "provider") target = &g_ai_assistant.provider;
+    else if (key == "token") target = &g_ai_assistant.token;
+    else if (key == "endpoint") target = &g_ai_assistant.endpoint;
+    else if (key == "model") target = &g_ai_assistant.model;
+    else if (key == "prompt") target = &g_ai_assistant.prompt;
+    if (!target || !WriteConfiguredValue("ai_assistant", key, EscapeTomlBasicString(value))) return false;
+    *target = value;
+    return true;
+}
+
+bool SetConfiguredAiAssistantBool(const std::string &key, bool value)
+{
+    if (key != "enabled" || !WriteConfiguredValue("ai_assistant", key, value ? "true" : "false")) return false;
+    g_ai_assistant.enabled = value;
+    return true;
+}
+
+bool SetConfiguredAiAssistantInt(const std::string &key, int value)
+{
+    if (key != "candidate_limit" || value < 1 || value > 10 ||
+        !WriteConfiguredValue("ai_assistant", key, std::to_string(value))) return false;
+    g_ai_assistant.candidate_limit = value;
     return true;
 }

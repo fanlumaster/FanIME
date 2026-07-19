@@ -181,6 +181,13 @@ struct CloudCandidate
     std::string pinyin;
 };
 inline CloudCandidate cloud_candidate;
+struct AiCandidate
+{
+    bool added = false;
+    std::string word;
+    std::string pinyin;
+};
+inline AiCandidate ai_candidate;
 } // namespace Global
 
 namespace GlobalSettings

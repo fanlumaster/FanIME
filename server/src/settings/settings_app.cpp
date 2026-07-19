@@ -161,6 +161,7 @@ void PostConfig()
         return;
 
     const VoiceInputConfig &voice = GetConfiguredVoiceInput();
+    const AiAssistantConfig &ai = GetConfiguredAiAssistant();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -185,6 +186,10 @@ void PostConfig()
             {"polish_token", voice.polish_token}, {"polish_endpoint", voice.polish_endpoint},
             {"language", voice.language}, {"notification_sound", voice.notification_sound},
             {"polish_text", voice.polish_text}}},
+          {"ai_assistant",
+           {{"enabled", ai.enabled}, {"provider", ai.provider}, {"token", ai.token},
+            {"endpoint", ai.endpoint}, {"model", ai.model},
+            {"candidate_limit", ai.candidate_limit}, {"prompt", ai.prompt}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
             {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
@@ -247,6 +252,15 @@ bool ApplyConfigUpdate(const json::object &data)
         const json::value &value = data.at("value");
         if (value.is_bool()) return SetConfiguredVoiceInputBool(key, json::value_to<bool>(value));
         if (value.is_string()) return SetConfiguredVoiceInputString(key, json::value_to<std::string>(value));
+        return false;
+    }
+    if (path.rfind("ai_assistant.", 0) == 0)
+    {
+        const std::string key = path.substr(13);
+        const json::value &value = data.at("value");
+        if (value.is_bool()) return SetConfiguredAiAssistantBool(key, json::value_to<bool>(value));
+        if (value.is_string()) return SetConfiguredAiAssistantString(key, json::value_to<std::string>(value));
+        if (value.is_int64()) return SetConfiguredAiAssistantInt(key, static_cast<int>(value.as_int64()));
         return false;
     }
     if (path == "helpcode.show_sp_helpcode_in_candidate_window")

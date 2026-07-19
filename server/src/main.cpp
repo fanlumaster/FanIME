@@ -10,6 +10,7 @@
 #include <fmt/xchar.h>
 #include <spdlog/spdlog.h>
 #include "cloud/cloud_ime.h"
+#include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "utils/common_utils.h"
 #include "session/session_factory.h"
@@ -113,6 +114,9 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     CloudIme::Start([](const std::string &candidate, const std::string &pinyin, uint64_t generation) {
         FanyNamedPipe::EnqueueCloudCandidate(candidate, pinyin, generation);
     });
+    AiAssistant::Start([](const std::string &candidate, const std::string &identity, uint64_t generation) {
+        FanyNamedPipe::EnqueueAiCandidate(candidate, identity, generation);
+    });
     EnglishIme::Start(CommonUtils::get_ime_data_path() + "\\english.db",
                       [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
                           FanyNamedPipe::EnqueueEnglishCandidates(std::move(candidates), input, generation);
@@ -124,6 +128,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     ShutdownWebviews();
 
     EnglishIme::Stop();
+    AiAssistant::Stop();
     CloudIme::Stop();
     VoiceInput::Shutdown();
 

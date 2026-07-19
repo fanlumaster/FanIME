@@ -19,6 +19,35 @@ struct VoiceInputConfig
     bool polish_text = false;
 };
 
+struct AiAssistantConfig
+{
+    bool enabled = false;
+    std::string provider = "deepseek";
+    std::string token;
+    std::string endpoint = "https://api.deepseek.com/chat/completions";
+    std::string model = "deepseek-v4-flash";
+    int candidate_limit = 3;
+    std::string prompt = R"PROMPT(你是一个中文全拼输入法联想引擎。输入为已经切分好的拼音数组、前文上下文和候选数量。
+
+优先生成与拼音严格对应的中文候选：若有 N 段拼音，首选必须尽量为 N 个汉字，每段拼音对应一个汉字，不得随意增删或改变读音。结合上下文、常用程度、语义完整性和固定搭配排序。
+
+若去掉分词后能明显组成更合理的英文单词、缩写、产品名或技术术语，如 `deep + seek → DeepSeek`、`git + hub → GitHub`，可优先返回英文；不要生造英文或做牵强匹配。
+
+只输出合法 JSON，不要解释或输出 Markdown：
+
+{
+"candidates": [
+{
+"text": "候选内容",
+"type": "chinese或english",
+"confidence": 0.98
+}
+]
+}
+
+候选按推荐程度降序排列，数量不超过指定上限；没有合理结果时返回空数组。)PROMPT";
+};
+
 void InitImeConfig();
 bool ReloadImeConfigIfChanged();
 const std::filesystem::path &GetImeConfigPath();
@@ -65,3 +94,7 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout);
 const VoiceInputConfig &GetConfiguredVoiceInput();
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value);
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
+const AiAssistantConfig &GetConfiguredAiAssistant();
+bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value);
+bool SetConfiguredAiAssistantBool(const std::string &key, bool value);
+bool SetConfiguredAiAssistantInt(const std::string &key, int value);

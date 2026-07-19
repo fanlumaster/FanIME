@@ -28,6 +28,7 @@
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
+#include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "config/ime_config.h"
 #include "session/session_factory.h"
@@ -116,8 +117,11 @@ struct AsyncRequestOrigin
 std::mutex g_async_request_mutex;
 uint64_t g_cloud_generation = 0;
 uint64_t g_english_generation = 0;
+uint64_t g_ai_generation = 0;
 AsyncRequestOrigin g_cloud_request_origin;
 AsyncRequestOrigin g_english_request_origin;
+AsyncRequestOrigin g_ai_request_origin;
+std::string g_ai_context;
 std::mutex g_status_snapshot_mutex;
 int g_latest_status_snapshot = -1;
 HWND g_status_snapshot_window = nullptr;
@@ -179,6 +183,39 @@ void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64
                       : AsyncRequestOrigin{client_id, activation_epoch, g_english_generation, input};
 }
 
+std::vector<std::string> SplitPinyin(const std::string &segmentation)
+{
+    std::vector<std::string> result;
+    boost::split(result, segmentation, boost::is_any_of("' "), boost::token_compress_on);
+    result.erase(std::remove_if(result.begin(), result.end(), [](const std::string &item) { return item.empty(); }), result.end());
+    return result;
+}
+
+void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t activation_epoch = 0)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    const AiAssistantConfig config = GetConfiguredAiAssistant();
+    const bool usable = config.enabled && g_inputSession && g_inputSession->current_scheme_type() != SchemeType::Wubi &&
+                        g_inputSession->is_all_complete_pure_pinyin() && !identity.empty();
+    OutputDebugStringA(fmt::format("[ai-assistant] trigger check: enabled={}, scheme={}, complete={}, "
+                                  "identity={}, usable={}\n", config.enabled,
+                                  g_inputSession ? static_cast<int>(g_inputSession->current_scheme_type()) : -1,
+                                  g_inputSession && g_inputSession->is_all_complete_pure_pinyin(), identity,
+                                  usable).c_str());
+    AiAssistant::Request request;
+    if (usable)
+    {
+        request.pinyin_segments = SplitPinyin(g_inputSession->get_pinyin_segmentation());
+        request.context = g_ai_context;
+        request.identity = identity;
+        request.config = config;
+    }
+    AiAssistant::OnInputChanged(std::move(request));
+    ++g_ai_generation;
+    g_ai_request_origin = usable ? AsyncRequestOrigin{client_id, activation_epoch, g_ai_generation, identity}
+                                 : AsyncRequestOrigin{};
+}
+
 AsyncRequestOrigin FindCloudRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
@@ -196,6 +233,13 @@ AsyncRequestOrigin FindEnglishRequestOrigin(const std::string &input, uint64_t g
     {
         return g_english_request_origin;
     }
+    return {};
+}
+
+AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t generation)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    if (g_ai_request_origin.generation == generation && g_ai_request_origin.input == input) return g_ai_request_origin;
     return {};
 }
 
@@ -375,6 +419,10 @@ std::string BuildCurrentCandidatePage()
         if (item.source == CandidateSource::CloudSuggestion)
         {
             display_word += " ☁️";
+        }
+        else if (item.source == CandidateSource::AiSuggestion)
+        {
+            display_word += " 🤖";
         }
         candidate_string += display_word;
         maxCount = std::max(maxCount, static_cast<int>(utf8::distance(display_word.begin(), display_word.end())));
@@ -611,6 +659,7 @@ enum class TaskType
     PuncSwitch,
     DoubleSingleByteSwitch,
     ApplyCloudCandidate,
+    ApplyAiCandidate,
     ApplyEnglishCandidates,
     StoreUserPhrase,
     PinCandidate,
@@ -636,6 +685,9 @@ struct Task
     std::string cloud_candidate;
     std::string cloud_pinyin;
     uint64_t cloud_generation = 0;
+    std::string ai_candidate;
+    std::string ai_identity;
+    uint64_t ai_generation = 0;
     std::vector<WordItem> english_candidates;
     std::string english_input;
     uint64_t english_generation = 0;
@@ -653,6 +705,7 @@ void ClearState();
 void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch,
                          int forced_index_in_page = -1);
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
+void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word);
 void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
@@ -758,6 +811,11 @@ void WorkerThread()
 
         case TaskType::ApplyCloudCandidate: {
             ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation);
+            break;
+        }
+
+        case TaskType::ApplyAiCandidate: {
+            ApplyAiCandidate(task.ai_candidate, task.ai_identity, task.ai_generation);
             break;
         }
 
@@ -955,6 +1013,24 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
         task.cloud_candidate = candidate;
         task.cloud_pinyin = pinyin;
         task.cloud_generation = generation;
+        task.client_id = origin.client_id;
+        task.activation_epoch = origin.activation_epoch;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
+{
+    const AsyncRequestOrigin origin = FindAiRequestOrigin(identity, generation);
+    if (origin.client_id == 0 || origin.activation_epoch == 0) return;
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ApplyAiCandidate;
+        task.ai_candidate = candidate;
+        task.ai_identity = identity;
+        task.ai_generation = generation;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
@@ -1765,6 +1841,48 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     RefreshCandidatePageUi(true);
 }
 
+void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
+{
+    Global::ai_candidate.added = false;
+    const bool enabled = GetConfiguredAiAssistant().enabled;
+    const bool has_session = static_cast<bool>(g_inputSession);
+    const bool wubi = has_session && g_inputSession->current_scheme_type() == SchemeType::Wubi;
+    const bool complete = has_session && g_inputSession->is_all_complete_pure_pinyin();
+    const std::string current_identity = has_session ? g_inputSession->get_pinyin_segmentation() : std::string{};
+    if (!enabled || candidate.empty() || !has_session || wubi || !complete ||
+        GlobalIme::composition.creating_word.active || current_identity != identity)
+    {
+        OutputDebugStringA(fmt::format("[ai-assistant] candidate rejected: generation={}, enabled={}, "
+                                      "candidate_empty={}, has_session={}, wubi={}, complete={}, creating_word={}, "
+                                      "requested_identity={}, current_identity={}\n", generation, enabled,
+                                      candidate.empty(), has_session, wubi, complete,
+                                      GlobalIme::composition.creating_word.active, identity,
+                                      current_identity).c_str());
+        return;
+    }
+    auto &items = Global::candidate_ui.items;
+    items.erase(std::remove_if(items.begin(), items.end(), [](const WordItem &item) {
+                    return item.source == CandidateSource::AiSuggestion;
+                }), items.end());
+    if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
+    {
+        OutputDebugStringA(fmt::format("[ai-assistant] candidate skipped as duplicate: generation={}, candidate={}\n",
+                                      generation, candidate).c_str());
+        return;
+    }
+    const auto query = g_inputSession->get_cloud_query_state();
+    const size_t insert_index = std::min<size_t>(2, items.size());
+    items.insert(items.begin() + insert_index, WordItem(identity, candidate, 1, CandidateSource::AiSuggestion));
+    OutputDebugStringA(fmt::format("[ai-assistant] candidate inserted: generation={}, index={}, candidate={}, "
+                                  "identity={}\n", generation, insert_index + 1, candidate, identity).c_str());
+    Global::ai_candidate = {true, candidate, query.committed_pinyin};
+    Global::candidate_ui.item_total_count = static_cast<int>(items.size());
+    Global::candidate_ui.page_index = 0;
+    Global::candidate_ui.select_first_on_page();
+    Global::candidate_ui.clear_page();
+    RefreshCandidatePageUi(true);
+}
+
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
     if (!GetConfiguredEnglishCandidatesEnabled() || !EnglishIme::IsCurrent(input, generation) ||
@@ -1896,6 +2014,12 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     {
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
+
+    const bool ai_eligible = !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+                             g_inputSession->current_scheme_type() != SchemeType::Wubi &&
+                             g_inputSession->is_all_complete_pure_pinyin() &&
+                             !GlobalIme::composition.creating_word.active;
+    UpdateAiInput(ai_eligible ? g_inputSession->get_pinyin_segmentation() : std::string{}, client_id, activation_epoch);
 
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
@@ -2029,6 +2153,7 @@ void ClearState()
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
+    UpdateAiInput("");
     /* Clear dict engine state */
     g_inputSession->reset_state();
     /* 造词的状态也要清理 */
@@ -2101,9 +2226,16 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             return;
         }
         std::string cloudCommittedPinyin;
+        std::string aiCommittedPinyin;
         if (curWordItem.source == CandidateSource::CloudSuggestion)
         {
             cloudCommittedPinyin = g_inputSession->get_cloud_query_state().committed_pinyin;
+        }
+        if (curWordItem.source == CandidateSource::AiSuggestion)
+        {
+            aiCommittedPinyin = g_inputSession->is_all_complete_pure_pinyin()
+                                    ? g_inputSession->get_cloud_query_state().committed_pinyin : std::string{};
+            isNeedUpdateWeight = false;
         }
         auto selection_transition = g_inputSession->advance_composition_after_selection(curWordPinyin, curWord);
         const bool isNeedCreateWord = selection_transition.continues_composition;
@@ -2162,6 +2294,19 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             Global::cloud_candidate.added = false;
             Global::cloud_candidate.word.clear();
             Global::cloud_candidate.pinyin.clear();
+        }
+        if (curWordItem.source == CandidateSource::AiSuggestion && !aiCommittedPinyin.empty())
+        {
+            EnqueueStoreUserPhraseTask(aiCommittedPinyin, curWord);
+            Global::ai_candidate = {};
+        }
+
+        g_ai_context += curWord;
+        if (g_ai_context.size() > 1024)
+        {
+            size_t cut = g_ai_context.size() - 1024;
+            while (cut < g_ai_context.size() && (static_cast<unsigned char>(g_ai_context[cut]) & 0xC0) == 0x80) ++cut;
+            g_ai_context.erase(0, cut);
         }
 
         if (!isNeedCreateWord)

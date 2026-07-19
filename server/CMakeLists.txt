@@ -46,6 +46,8 @@ include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 
 set(SRC_FILES
+    "./src/ai/ai_assistant.cpp"
+    "./src/ai/ai_assistant.h"
     "./src/cloud/cloud_ime.cpp"
     "./src/cloud/cloud_ime.h"
     "./src/config/ime_config.cpp"
