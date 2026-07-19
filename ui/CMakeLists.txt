@@ -105,9 +105,20 @@ add_executable(msimeui-keyboard-demo WIN32
 
 target_link_libraries(msimeui-keyboard-demo PRIVATE msimeui)
 
+add_executable(msimeui-handwriting-demo WIN32
+    demos/msimeui-handwriting-demo/HandwritingPanel.cpp
+    demos/msimeui-handwriting-demo/HandwritingPanel.h
+    demos/msimeui-handwriting-demo/main.cpp
+    demos/msimeui-handwriting-demo/msimeui-handwriting-demo.rc
+    demos/msimeui-handwriting-demo/resource.h
+)
+
+target_link_libraries(msimeui-handwriting-demo PRIVATE msimeui windowsapp.lib)
+
 if(MSVC)
     target_compile_options(msimeui PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-demo PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-emoji-panel PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-keyboard-demo PRIVATE /W4 /permissive-)
+    target_compile_options(msimeui-handwriting-demo PRIVATE /W4 /permissive-)
 endif()
