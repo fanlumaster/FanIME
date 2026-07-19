@@ -1,0 +1,47 @@
+.document-page { color: #d8d8d8; }
+.document-hero { padding: 26px 28px; }
+.document-eyebrow { margin-bottom: 7px; color: var(--accent-color); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.document-hero-title { color: #eee; font-size: 18px; font-weight: 600; }
+.document-page p { margin: 8px 0 0; color: #a9a9a9; font-size: 12px; line-height: 1.7; }
+.document-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.document-card { display: flex; gap: 16px; min-height: 104px; margin-bottom: 0; }
+.help-document { padding: 0 28px; }
+.help-introduction { padding: 26px 0; }
+.help-list { padding: 4px 0 8px; }
+.help-entry { padding: 16px 0; }
+.help-faq { padding: 20px 0 12px; }
+.document-index { flex: 0 0 auto; color: rgba(154, 143, 232, .8); font: 600 13px Consolas, monospace; }
+.document-article { margin-top: 18px; }
+.document-article > p { max-width: 760px; }
+.document-row { display: grid; grid-template-columns: 190px 1fr; gap: 20px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,.055); font-size: 13px; }
+.document-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.document-row span { color: #9d9d9d; line-height: 1.6; }
+.help-faq .document-row { display: flex; flex-direction: column; gap: 6px; border-bottom: 0; }
+.about-hero { display: flex; align-items: center; gap: 20px; }
+.about-mark { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 11px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
+.about-mark img { width: 32px; height: 32px; }
+.about-links { padding-top: 0; padding-bottom: 0; }
+.about-link-row { box-sizing: border-box; display: flex; width: 100%; min-height: 66px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid rgba(255,255,255,.055); }
+.about-link-row:last-child { border-bottom: 0; }
+.about-link-title { color: #ddd; font-size: 13px; font-weight: 500; }
+.about-version { margin-top: 5px; color: #8f8f8f; font-size: 12px; }
+.about-update-button { padding: 7px 13px; color: #e5e5e5; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09); border-radius: 99px; font-family: inherit; font-size: 12px; cursor: pointer; }
+.about-update-button:hover { background: rgba(255,255,255,.09); }
+.about-document-link { padding: 0; color: inherit; background: transparent; border-top: 0; border-right: 0; border-left: 0; font: inherit; text-align: left; cursor: pointer; }
+.about-document-link:last-child { border-bottom: 0; }
+.about-document-link:hover .about-link-title { color: #fff; }
+.about-link-arrow { color: #8f8f8f; font-size: 16px; }
+.about-grid { margin-top: 0; }
+.document-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.document-meta span { padding: 6px 10px; color: #aaa; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.07); border-radius: 99px; font-size: 12px; }
+.feedback-card { display: flex; align-items: center; gap: 18px; }
+.feedback-icon { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; color: #cbc5ff; background: rgba(129,115,219,.16); border-radius: 8px; font: 600 12px Consolas, monospace; }
+.feedback-body { flex: 1; min-width: 0; }
+.feedback-title { color: #ddd; font-size: 13px; font-weight: 550; }
+.feedback-body code { display: block; margin-top: 9px; overflow: hidden; color: #aaa; font: 12px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.mock-badge { margin-left: 6px; padding: 2px 6px; color: #d4cdff; background: rgba(129,115,219,.2); border-radius: 4px; font-size: 9px; vertical-align: 2px; }
+.feedback-action { flex: 0 0 auto; padding: 7px 11px; color: #ddd; background: rgba(255,255,255,.065); border: 1px solid rgba(255,255,255,.075); border-radius: 6px; font-family: inherit; font-size: 12px; cursor: pointer; }
+.feedback-action:hover { background: rgba(255,255,255,.1); }
+.document-note { display: flex; gap: 16px; color: #aaa; font-size: 12px; line-height: 1.6; }
+.document-note strong { flex: 0 0 auto; color: #ccc; }
+@media (max-width: 820px) { .document-grid { grid-template-columns: 1fr; } .document-row { grid-template-columns: 1fr; gap: 5px; } }

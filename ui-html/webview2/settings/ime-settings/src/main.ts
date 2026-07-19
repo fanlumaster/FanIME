@@ -62,6 +62,9 @@ async function initializeApp() {
   await loadContent('tools-settings');
   await loadContent('ai-settings');
   await loadContent('shortcut');
+  await loadContent('help-settings');
+  await loadContent('about-settings');
+  await loadContent('feedback-settings');
   setupConfigSync();
 
   // 加载默认内容(通用设置)，初始化功能
