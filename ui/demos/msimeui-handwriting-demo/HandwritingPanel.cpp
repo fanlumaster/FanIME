@@ -71,6 +71,34 @@ void DrawCloseIcon(DeviceResources &resources, const RectF &rect, D2D1_COLOR_F c
     target->DrawLine({cx + half, cy - half}, {cx - half, cy + half}, brush, 1.5f);
 }
 
+void DrawInkStroke(DeviceResources &resources, const std::vector<PointF> &points, ID2D1Brush *brush)
+{
+    auto *target = resources.GetRenderTarget();
+    if (!target || !brush || points.size() < 2) return;
+
+    Microsoft::WRL::ComPtr<ID2D1Factory> factory;
+    target->GetFactory(&factory);
+    Microsoft::WRL::ComPtr<ID2D1PathGeometry> geometry;
+    Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+    if (!factory || FAILED(factory->CreatePathGeometry(&geometry)) || FAILED(geometry->Open(&sink))) return;
+
+    sink->BeginFigure({points.front().x, points.front().y}, D2D1_FIGURE_BEGIN_FILLED);
+    for (size_t i = 1; i < points.size(); ++i) sink->AddLine({points[i].x, points[i].y});
+    sink->EndFigure(D2D1_FIGURE_END_OPEN);
+    if (FAILED(sink->Close())) return;
+
+    D2D1_STROKE_STYLE_PROPERTIES properties = {};
+    properties.startCap = D2D1_CAP_STYLE_ROUND;
+    properties.endCap = D2D1_CAP_STYLE_ROUND;
+    properties.dashCap = D2D1_CAP_STYLE_ROUND;
+    properties.lineJoin = D2D1_LINE_JOIN_ROUND;
+    properties.miterLimit = 10.0f;
+    properties.dashStyle = D2D1_DASH_STYLE_SOLID;
+    Microsoft::WRL::ComPtr<ID2D1StrokeStyle> strokeStyle;
+    if (FAILED(factory->CreateStrokeStyle(properties, nullptr, 0, &strokeStyle))) return;
+    target->DrawGeometry(geometry.Get(), brush, 4.0f, strokeStyle.Get());
+}
+
 void AddUniqueCandidate(std::vector<std::wstring> &candidates, const winrt::hstring &value)
 {
     std::wstring text(value.c_str(), value.size());
@@ -146,10 +174,7 @@ void HandwritingPanel::Render(DeviceResources &resources)
     auto *inkBrush = resources.GetSolidColorBrush(D2D1::ColorF(0xF4F4F7));
     if (target && inkBrush)
     {
-        for (const auto &stroke : strokes_)
-            for (size_t i = 1; i < stroke.size(); ++i)
-                target->DrawLine(D2D1::Point2F(stroke[i - 1].x, stroke[i - 1].y),
-                                 D2D1::Point2F(stroke[i].x, stroke[i].y), inkBrush, 4.0f);
+        for (const auto &stroke : strokes_) DrawInkStroke(resources, stroke, inkBrush);
     }
     if (strokes_.empty())
         Text(resources, L"\u8bf7\u5728\u8fd9\u91cc\u4e66\u5199", canvasRect_, 18.0f, D2D1::ColorF(0x74757E));
@@ -232,7 +257,7 @@ bool HandwritingPanel::OnMouseMove(const POINT &point, WPARAM)
         PointF clipped = {std::clamp(p.x, canvasRect_.x, canvasRect_.x + canvasRect_.width),
                           std::clamp(p.y, canvasRect_.y, canvasRect_.y + canvasRect_.height)};
         const PointF last = strokes_.back().back();
-        if (std::abs(clipped.x - last.x) + std::abs(clipped.y - last.y) >= 1.5f)
+        if (std::abs(clipped.x - last.x) + std::abs(clipped.y - last.y) >= 0.5f)
         {
             strokes_.back().push_back(clipped);
             InvalidateVisual();
