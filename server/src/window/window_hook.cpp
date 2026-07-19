@@ -24,10 +24,11 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         bool ctrl = IsKeyPressed(VK_CONTROL);
         bool alt = IsKeyPressed(VK_MENU);
         bool shift = IsKeyPressed(VK_SHIFT);
+        bool win = IsKeyPressed(VK_LWIN) || IsKeyPressed(VK_RWIN);
 
-        // Ctrl + Shift + Alt + K opens the standalone screen keyboard. Consume the
+        // Ctrl + Shift + Win + K opens the standalone screen keyboard. Consume the
         // shortcut so the foreground application does not receive a stray K.
-        if (ctrl && shift && alt && p->vkCode == 'K')
+        if (ctrl && shift && win && !alt && p->vkCode == 'K')
         {
             OpenKeyboardPanelApplication();
             return 1;
