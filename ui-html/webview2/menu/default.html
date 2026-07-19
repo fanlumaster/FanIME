@@ -122,17 +122,10 @@
       </div>
     </div>
 
-    <div class="menu-item">
+    <div class="menu-item" id="about">
       <div class="menu-item-left">
         <span>ℹ️</span>
         关于
-      </div>
-    </div>
-
-    <div class="menu-item">
-      <div class="menu-item-left">
-        <span>❓</span>
-        帮助与反馈
       </div>
     </div>
   </div>
@@ -180,6 +173,14 @@
       console.log("settings");
       window.chrome.webview.postMessage(JSON.stringify({
         type: 'settings',
+      }));
+    });
+
+    // 关于：打开设置窗口并定位到“关于”分区。
+    const about = document.getElementById('about');
+    about.addEventListener('click', () => {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'about',
       }));
     });
   </script>
