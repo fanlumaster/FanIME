@@ -7,4 +7,9 @@
 .ai-grid input, .ai-prompt { box-sizing: border-box; width: 100%; padding: 10px 12px; color: #eee; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); border-radius: 6px; outline: none; font: inherit; }
 .ai-grid input:focus, .ai-prompt:focus { border-color: var(--accent-color); }
 .ai-grid input[type="password"] { font-family: Consolas, "Cascadia Mono", monospace; letter-spacing: -0.1ch; }
-.ai-prompt { min-height: 280px; resize: vertical; line-height: 1.65; }
+.ai-prompt { min-height: 280px; resize: none; line-height: 1.65; }
+.ai-prompt::-webkit-scrollbar,
+.ai-prompt::-webkit-scrollbar-track,
+.ai-prompt::-webkit-scrollbar-thumb {
+  cursor: default;
+}
