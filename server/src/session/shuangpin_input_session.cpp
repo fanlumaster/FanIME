@@ -140,9 +140,10 @@ int ShuangpinInputSession::remove_candidate(std::string pinyin, std::string word
     return dictionary_->delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
-int ShuangpinInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word)
+int ShuangpinInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word,
+                                                   CandidateSource source)
 {
-    return dictionary_->insert_word_to_cached_buffer_series(pinyin, word);
+    return dictionary_->insert_word_to_cached_buffer_series(pinyin, word, source);
 }
 
 IInputSession::SelectionTransition

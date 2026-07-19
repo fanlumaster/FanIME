@@ -34,7 +34,8 @@ class ShuangpinInputSession : public IInputSession
     int store_user_phrase(std::string pinyin, std::string word) override;
     int pin_candidate(std::string pinyin, std::string word) override;
     int remove_candidate(std::string pinyin, std::string word) override;
-    int cache_dynamic_candidate(const std::string &pinyin, const std::string &word) override;
+    int cache_dynamic_candidate(const std::string &pinyin, const std::string &word,
+                                CandidateSource source) override;
     SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin,
                                                            const std::string &selected_word) override;
     CloudQueryState get_cloud_query_state() const override;

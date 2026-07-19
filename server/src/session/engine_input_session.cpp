@@ -279,10 +279,11 @@ int EngineInputSession::remove_candidate(std::string pinyin, std::string word)
     return session_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
-int EngineInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word)
+int EngineInputSession::cache_dynamic_candidate(const std::string &pinyin, const std::string &word,
+                                                CandidateSource source)
 {
-    const int cache_result = session_.cache_dynamic_candidate(pinyin, word);
-    (void)session_.cache_dynamic_candidate_for_current_request(word);
+    const int cache_result = session_.cache_dynamic_candidate(pinyin, word, source);
+    (void)session_.cache_dynamic_candidate_for_current_request(word, source);
     return cache_result;
 }
 

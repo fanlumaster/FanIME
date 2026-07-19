@@ -1828,7 +1828,8 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     Global::candidate_ui.items.insert(Global::candidate_ui.items.begin() + insert_index,
                                       WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
     // 还需要更新一下 dictionary 中的 cache
-    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate);
+    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate,
+                                            CandidateSource::CloudSuggestion);
     // 标记一下，云候选已经被加进来了
     Global::cloud_candidate.added = true;
     Global::cloud_candidate.word = candidate;
@@ -1873,6 +1874,7 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     const auto query = g_inputSession->get_cloud_query_state();
     const size_t insert_index = std::min<size_t>(2, items.size());
     items.insert(items.begin() + insert_index, WordItem(identity, candidate, 1, CandidateSource::AiSuggestion));
+    g_inputSession->cache_dynamic_candidate(query.cache_key, candidate, CandidateSource::AiSuggestion);
     OutputDebugStringA(fmt::format("[ai-assistant] candidate inserted: generation={}, index={}, candidate={}, "
                                   "identity={}\n", generation, insert_index + 1, candidate, identity).c_str());
     Global::ai_candidate = {true, candidate, query.committed_pinyin};

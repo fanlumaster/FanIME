@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 
 namespace
 {
@@ -21,6 +22,14 @@ std::atomic<uint64_t> g_generation{0};
 AiAssistant::Request g_latest;
 std::chrono::steady_clock::time_point g_last_input;
 AiAssistant::ApplyCallback g_callback;
+std::unordered_map<std::string, std::string> g_candidate_cache;
+
+std::string BuildCacheKey(const AiAssistant::Request &request)
+{
+    nlohmann::json segments = request.pinyin_segments;
+    return request.config.provider + "\n" + request.config.endpoint + "\n" + request.config.model + "\n" +
+           segments.dump();
+}
 
 size_t WriteResponse(char *data, size_t size, size_t count, void *user)
 {
@@ -139,6 +148,19 @@ void WorkerLoop()
         if (!g_running) break;
         observed = g_generation.load();
         auto request = g_latest;
+        const auto cached = g_candidate_cache.find(BuildCacheKey(request));
+        if (!request.identity.empty() && cached != g_candidate_cache.end())
+        {
+            const std::string candidate = cached->second;
+            const uint64_t cached_generation = observed;
+            lock.unlock();
+            OutputDebugStringA(fmt::format("[ai-assistant] cache hit: generation={}, pinyin={}, candidate={}\n",
+                                          cached_generation,
+                                          nlohmann::json(request.pinyin_segments).dump(), candidate).c_str());
+            if (g_running && g_generation.load() == cached_generation && g_callback)
+                g_callback(candidate, request.identity, cached_generation);
+            continue;
+        }
         auto target = g_last_input + kIdleDelay;
         while (g_running && g_cv.wait_until(lock, target, [&] { return !g_running || g_generation.load() != observed; }))
         {
@@ -151,7 +173,16 @@ void WorkerLoop()
         if (request.identity.empty()) continue;
         const std::string candidate = Fetch(request, observed);
         if (!candidate.empty() && g_generation.load() == observed && g_callback)
+        {
+            {
+                std::lock_guard cache_lock(g_mutex);
+                g_candidate_cache[BuildCacheKey(request)] = candidate;
+            }
+            OutputDebugStringA(fmt::format("[ai-assistant] cache stored: generation={}, pinyin={}, candidate={}\n",
+                                          observed, nlohmann::json(request.pinyin_segments).dump(),
+                                          candidate).c_str());
             g_callback(candidate, request.identity, observed);
+        }
     }
 }
 } // namespace
@@ -172,6 +203,7 @@ void Stop()
     g_running = false;
     g_cv.notify_all();
     if (g_worker.joinable()) g_worker.join();
+    { std::lock_guard lock(g_mutex); g_candidate_cache.clear(); }
     curl_global_cleanup();
 }
 void OnInputChanged(Request request)
