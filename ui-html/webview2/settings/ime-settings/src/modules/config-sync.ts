@@ -25,6 +25,7 @@ export function setupConfigSync(): void {
     applyCandidateArrange(payload.data?.appearance?.candidate_window_layout);
     applyInputConfig(
       payload.data?.input?.schema,
+      payload.data?.input?.character_set,
       payload.data?.input?.shuangpin_schema,
       payload.data?.input?.wubi_schema
     );

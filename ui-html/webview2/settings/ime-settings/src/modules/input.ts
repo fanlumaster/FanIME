@@ -12,6 +12,7 @@ function updateInputConfig(path: string, value: string): void {
 
 export function applyInputConfig(
   schema: string | undefined,
+  characterSet: string | undefined,
   shuangpinSchema: string | undefined,
   wubiSchema: string | undefined
 ): void {
@@ -22,11 +23,13 @@ export function applyInputConfig(
     }
   }
 
+  applyDropdownValue('characterSetBtn', 'characterSetMenu', characterSet);
   applyDropdownValue('shuangpinSchemeBtn', 'shuangpinSchemeMenu', shuangpinSchema);
   applyDropdownValue('wubiSchemeBtn', 'wubiSchemeMenu', wubiSchema);
 }
 
 export function setupInput(): void {
+  setupDropdownMenu('characterSetBtn', 'characterSetMenu', 'changeCharacterSet', true, 'input.character_set');
   document.querySelectorAll<HTMLInputElement>('input[name="input-method"]').forEach((radio) => {
     radio.addEventListener('change', () => {
       if (!radio.checked || (radio.value !== 'quanpin' && radio.value !== 'shuangpin' && radio.value !== 'wubi')) {
