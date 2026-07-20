@@ -433,15 +433,18 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         std::wstring str = preedit + L"," + Global::CandidateString;
         InflateMeasureDivCandWnd(str);
 
-        FineTuneWindow(hwnd);
-
+        // Mark shown before scheduling FineTuneWindow so its async callback
+        // does not treat this show as a post-hide resurrection.
         ::is_global_wnd_cand_shown = true;
+        FineTuneWindow(hwnd);
 
         return 0;
     }
 
     if (message == WM_HIDE_MAIN_WINDOW)
     {
+        // Clear first so any FineTuneWindow callback already queued bails out.
+        ::is_global_wnd_cand_shown = false;
         FLOAT scale = GetForegroundWindowScale();
         if (scale < 1.5)
         {
@@ -461,7 +464,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // std::wstring str = L" ,　,　,　,　,　,　,　,　";
         // InflateCandWnd(str);
 
-        ::is_global_wnd_cand_shown = false;
         return 0;
     }
 
@@ -1298,20 +1300,24 @@ int FineTuneWindow(HWND hwnd)
                                           caretY,    //
                                           properPos, //
                                           hwnd](std::pair<double, double> containerSize) {
+        // Commit/ClearState may have hidden the window while this WebView2
+        // measure callback was still pending — do not resurrect it.
+        if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
+        {
+            return;
+        }
+
         POINT pt = {caretX, caretY};
         /* Whether need to adjust candidate window position */
-        if (caretY == Global::INVALID_Y)
-        {
-            properPos->first = caretX;
-            properPos->second = caretY;
-        }
-        else
-        {
-            AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-        }
+        AdjustCandidateWindowPosition(&pt, containerSize, properPos);
 
         std::wstring preedit = GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
+        // Empty composition with no candidates means the session already ended.
+        if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
+        {
+            return;
+        }
         InflateCandWnd(str);
 
         int newWidth = 0;
@@ -1327,6 +1333,10 @@ int FineTuneWindow(HWND hwnd)
         else
         {
             newFlag = flag | SWP_NOSIZE;
+        }
+        if (!::is_global_wnd_cand_shown)
+        {
+            return;
         }
         SetWindowPos(          //
             hwnd,              //

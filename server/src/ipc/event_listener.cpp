@@ -2282,6 +2282,18 @@ void ClearState()
     g_inputSession->reset_state();
     /* 造词的状态也要清理 */
     GlobalIme::composition.clear();
+    // Drop published candidates before any in-flight FineTuneWindow callback
+    // can re-inflate an empty-preedit + stale-candidate view.
+    Global::CandidateString.clear();
+    Global::candidate_ui.set_items({});
+    // Hide synchronously from the caller's perspective: clear the shown flag
+    // first so async FineTuneWindow callbacks refuse to resurrect the window,
+    // then post the actual hide message (idempotent with TSF's HideCandidateWnd).
+    ::is_global_wnd_cand_shown = false;
+    if (::global_hwnd && IsWindow(::global_hwnd))
+    {
+        PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+    }
 }
 
 bool ResolveCandidateItem(int one_based_index, WordItem &item)
