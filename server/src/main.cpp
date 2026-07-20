@@ -13,6 +13,7 @@
 #include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "utils/common_utils.h"
+#include "utils/single_instance.h"
 #include "session/session_factory.h"
 #include "webview2/windows_webview2.h"
 #include "voice-input/voice_input_service.h"
@@ -38,18 +39,16 @@ const char *SchemeTypeToString(SchemeType scheme_type)
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
-    // Single instance guard
-    HANDLE hSingleInstanceMutex = CreateMutexW(nullptr, TRUE, L"Local\\MetasequoiaImeServer_SingleInstance");
-    if (hSingleInstanceMutex == nullptr)
+    CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeServer_SingleInstance");
+    if (!single_instance.is_valid())
     {
         OutputDebugString(fmt::format(L"[msime]: Failed to create single instance mutex.").c_str());
         return 0;
     }
-    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    if (single_instance.already_running())
     {
         OutputDebugString(
             fmt::format(L"[msime]: Single instance already exists, MetasequoiaImeServer is already running.").c_str());
-        CloseHandle(hSingleInstanceMutex);
         return 0;
     }
 
@@ -62,7 +61,6 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
             fmt::format(L"[msime]: Failed to initialize the UI COM STA: 0x{:08X}",
                         static_cast<unsigned long>(comResult))
                 .c_str());
-        CloseHandle(hSingleInstanceMutex);
         return 1;
     }
 
@@ -143,6 +141,5 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     ::CloseIpc();
     CoUninitialize();
-    CloseHandle(hSingleInstanceMutex);
     return ret;
 }

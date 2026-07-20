@@ -4,6 +4,7 @@
 #include "settings/settings_launcher.h"
 #include "settings/dictionary_manager.h"
 #include "utils/common_utils.h"
+#include "utils/single_instance.h"
 
 #include <WebView2.h>
 #include <WebView2EnvironmentOptions.h>
@@ -780,9 +781,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     const HRESULT com_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(com_result)) return 1;
 
-    wil::unique_handle instance_mutex(CreateMutexW(nullptr, FALSE, kSingleInstanceMutex));
-    if (!instance_mutex) return 1;
-    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    CommonUtils::SingleInstanceGuard single_instance(kSingleInstanceMutex);
+    if (!single_instance.is_valid()) return 1;
+    if (single_instance.already_running())
     {
         HWND existing = FindWindowW(kWindowClass, nullptr);
         if (existing)

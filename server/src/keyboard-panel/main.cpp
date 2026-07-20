@@ -4,11 +4,16 @@
 #include "msimeui/Scene.h"
 #include "msimeui/Theme.h"
 #include "msimeui/Window.h"
+#include "utils/single_instance.h"
 
 #include <memory>
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
 {
+    CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeKeyboardPanel.SingleInstance");
+    if (!single_instance.is_valid()) return -1;
+    if (single_instance.already_running()) return 0;
+
     if (!msimeui::Application::Initialize()) return -1;
 
     msimeui::Theme theme = msimeui::ThemeManager::GetCurrent();
