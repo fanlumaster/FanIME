@@ -8,6 +8,12 @@
 
 namespace msimeui
 {
+enum class WindowInitialPlacement
+{
+    Center,
+    BottomCenter,
+};
+
 class Window
 {
   public:
@@ -36,6 +42,7 @@ class Window
     void SetWindowStyle(DWORD style, DWORD extendedStyle = 0);
     void SetDragRegionHeight(float height);
     void SetRoundedCorners(bool enabled);
+    void SetInitialPlacement(WindowInitialPlacement placement, int bottomMargin = 12);
 
     void SetScene(std::unique_ptr<Scene> scene);
 
@@ -64,5 +71,7 @@ class Window
     DWORD extendedWindowStyle_ = 0;
     float dragRegionHeight_ = 0.0f;
     bool roundedCorners_ = false;
+    WindowInitialPlacement initialPlacement_ = WindowInitialPlacement::Center;
+    int initialBottomMargin_ = 12;
 };
 } // namespace msimeui

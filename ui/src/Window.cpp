@@ -14,7 +14,8 @@ namespace msimeui
 {
 namespace
 {
-POINT GetCenteredWindowOrigin(int windowWidth, int windowHeight)
+POINT GetInitialWindowOrigin(int windowWidth, int windowHeight, WindowInitialPlacement placement,
+                             int bottomMargin)
 {
     POINT origin = {CW_USEDEFAULT, CW_USEDEFAULT};
 
@@ -33,7 +34,16 @@ POINT GetCenteredWindowOrigin(int windowWidth, int windowHeight)
     const int clampedHeight = std::min(std::max(windowHeight, 0), workHeight);
 
     origin.x = workArea.left + std::max((workWidth - clampedWidth) / 2, 0);
-    origin.y = workArea.top + std::max((workHeight - clampedHeight) / 2, 0);
+    if (placement == WindowInitialPlacement::BottomCenter)
+    {
+        const int margin = std::max(bottomMargin, 0);
+        origin.y = workArea.bottom - clampedHeight - margin;
+        if (origin.y < workArea.top) origin.y = workArea.top;
+    }
+    else
+    {
+        origin.y = workArea.top + std::max((workHeight - clampedHeight) / 2, 0);
+    }
     return origin;
 }
 } // namespace
@@ -64,7 +74,7 @@ bool Window::Create()
     windowClass.hIconSm = smallIcon;
     RegisterClassExW(&windowClass);
 
-    const POINT origin = GetCenteredWindowOrigin(width_, height_);
+    const POINT origin = GetInitialWindowOrigin(width_, height_, initialPlacement_, initialBottomMargin_);
     hwnd_ = CreateWindowExW(extendedWindowStyle_, className_.c_str(), title_.c_str(), windowStyle_, origin.x, origin.y,
                             width_, height_, nullptr, nullptr, instance_, this);
     if (hwnd_)
@@ -572,6 +582,15 @@ void Window::SetDragRegionHeight(float height)
 void Window::SetRoundedCorners(bool enabled)
 {
     roundedCorners_ = enabled;
+}
+
+void Window::SetInitialPlacement(WindowInitialPlacement placement, int bottomMargin)
+{
+    if (!hwnd_)
+    {
+        initialPlacement_ = placement;
+        initialBottomMargin_ = bottomMargin;
+    }
 }
 
 void Window::SetFocusedVisual(Visual *visual)
