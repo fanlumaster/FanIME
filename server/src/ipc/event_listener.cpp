@@ -34,6 +34,7 @@
 #include "conversion/chinese_converter.h"
 #include "session/session_factory.h"
 #include "quick-phrases/quick_phrase_query.h"
+#include "unicode/unicode_query.h"
 
 #ifdef FANY_IPC_DEBUG
 #define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
@@ -49,11 +50,34 @@ namespace
 {
 std::string BuildCurrentCandidatePage();
 bool g_quick_phrase_triggered = false;
+bool g_unicode_mode_triggered = false;
+
+bool IsHexChar(unsigned char ch)
+{
+    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+}
 
 bool IsQuickPhraseInput(const std::string &raw)
 {
     return g_quick_phrase_triggered && raw.size() > 1 && raw.front() == 'K' &&
            std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; });
+}
+
+bool IsUnicodeCompositionActive(const std::string &raw)
+{
+    if (!g_unicode_mode_triggered || raw.empty() || raw.front() != 'U') return false;
+    size_t index = 1;
+    if (index < raw.size() && raw[index] == '+') ++index;
+    return std::all_of(raw.begin() + static_cast<std::ptrdiff_t>(index), raw.end(),
+                       [](unsigned char ch) { return IsHexChar(ch); });
+}
+
+bool IsUnicodeInput(const std::string &raw)
+{
+    if (!IsUnicodeCompositionActive(raw) || raw.size() <= 1) return false;
+    size_t index = 1;
+    if (raw[index] == '+') ++index;
+    return index < raw.size();
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -304,7 +328,19 @@ bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
 
 bool IsSelectionKey(UINT keycode)
 {
-    return keycode == VK_SPACE || (keycode >= '0' && keycode <= '9');
+    if (keycode == VK_SPACE) return true;
+    if (keycode >= '0' && keycode <= '9')
+    {
+        const std::string raw = g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
+        if (IsUnicodeCompositionActive(raw))
+        {
+            // U-mode: bare digits compose hex; Shift+1..9 selects candidates.
+            const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
+            return shift_only && keycode >= '1' && keycode <= '9';
+        }
+        return true;
+    }
+    return false;
 }
 
 bool IsPagingKey(UINT keycode)
@@ -328,7 +364,7 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
     {
         composition.caret_position = raw.size();
     }
-    composition.caret_position = std::min(composition.caret_position, raw.size());
+    composition.caret_position = (std::min)(composition.caret_position, raw.size());
 
     if (keycode == VK_LEFT)
     {
@@ -366,6 +402,14 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
         else if (keycode == VK_OEM_7 && wch == L'\'')
         {
             input = '\'';
+        }
+        else if (IsUnicodeCompositionActive(raw) && keycode >= '0' && keycode <= '9')
+        {
+            input = static_cast<char>(keycode);
+        }
+        else if (IsUnicodeCompositionActive(raw) && keycode == VK_OEM_PLUS && wch == L'+' && raw == "U")
+        {
+            input = '+';
         }
         else
         {
@@ -417,8 +461,13 @@ std::string BuildCurrentCandidatePage()
         const std::string word = CandidateTextForOutput(item.word);
 
         std::string display_word = word;
+        if (item.source == CandidateSource::Generated && !item.pinyin.empty())
+        {
+            display_word += " ";
+            display_word += item.pinyin;
+        }
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
-            item.source != CandidateSource::QuickPhrase)
+            item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Generated)
         {
             // Helpcodes are derived from the dictionary's original simplified
             // candidate; only the visible/committed word is converted.
@@ -433,7 +482,7 @@ std::string BuildCurrentCandidatePage()
             display_word += " 🤖";
         }
         candidate_string += display_word;
-        maxCount = std::max(maxCount, static_cast<int>(utf8::distance(display_word.begin(), display_word.end())));
+        maxCount = (std::max)(maxCount, static_cast<int>(utf8::distance(display_word.begin(), display_word.end())));
         ui.page_words.push_back(string_to_wstring(word));
         if (i < loop - 1)
         {
@@ -920,7 +969,8 @@ void WorkerThread()
         case TaskType::UiDeleteCandidate: {
             WordItem item;
             if (!ResolveCandidateItem(task.candidate_one_based_index, item) ||
-                item.source == CandidateSource::EnglishDictionary || item.source == CandidateSource::QuickPhrase)
+                item.source == CandidateSource::EnglishDictionary || item.source == CandidateSource::QuickPhrase ||
+                item.source == CandidateSource::Generated)
             {
                 break;
             }
@@ -1809,9 +1859,19 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     auto &ui = Global::candidate_ui;
     std::string pinyin = wstring_to_string(Global::PinyinString);
     const std::string current_input = g_inputSession->get_pinyin_sequence_with_cases();
-    auto items = IsQuickPhraseInput(current_input)
-                     ? QuickPhraseQuery::QueryPrefix(current_input.substr(1))
-                     : g_inputSession->get_candidates();
+    std::vector<WordItem> items;
+    if (IsUnicodeInput(current_input))
+    {
+        items = UnicodeQuery::Query(current_input.substr(1));
+    }
+    else if (IsQuickPhraseInput(current_input))
+    {
+        items = QuickPhraseQuery::QueryPrefix(current_input.substr(1));
+    }
+    else
+    {
+        items = g_inputSession->get_candidates();
+    }
 
     if (items.empty())
     {
@@ -1823,7 +1883,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     PublishCandidateUiOwner(client_id, activation_epoch);
 
     const SchemeType scheme = g_inputSession->current_scheme_type();
-    if (!IsQuickPhraseInput(current_input) && GetConfiguredEnglishCandidatesEnabled() && scheme != SchemeType::Wubi &&
+    if (!IsQuickPhraseInput(current_input) && !IsUnicodeInput(current_input) &&
+        GetConfiguredEnglishCandidatesEnabled() && scheme != SchemeType::Wubi &&
         !GlobalIme::composition.creating_word.active)
     {
         UpdateEnglishInput(current_input, client_id, activation_epoch);
@@ -1985,6 +2046,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
     if (input_before_key.empty() && Global::Keycode == 'K' && Global::Wch == L'K' && shift_only)
         g_quick_phrase_triggered = true;
+    if (input_before_key.empty() && Global::Keycode == 'U' && Global::Wch == L'U' && shift_only)
+        g_unicode_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -1996,15 +2059,22 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         return;
     }
 
+    const bool unicode_composition_active = IsUnicodeCompositionActive(input_before_key);
     const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
     const bool is_commit_with_first_candidate_punctuation =
         !is_manual_pinyin_separator &&
         IsCommitWithFirstCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
+    const bool is_unicode_shift_digit_selection =
+        unicode_composition_active && shift_only && Global::Keycode >= '1' && Global::Keycode <= '9';
+    const bool is_unicode_hex_digit = unicode_composition_active && !is_unicode_shift_digit_selection &&
+                                      Global::Keycode >= '0' && Global::Keycode <= '9';
+    const bool is_unicode_plus = unicode_composition_active && Global::Keycode == VK_OEM_PLUS && Global::Wch == L'+';
     const bool is_composition_edit_key =
         Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT || Global::Keycode == VK_BACK ||
-        (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator;
+        (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
+        is_unicode_plus;
     const bool should_forward_key_to_session =
         !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key && !is_composition_edit_key;
 
@@ -2041,7 +2111,16 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     }
     GlobalIme::composition.segmented_pinyin = g_inputSession->get_pinyin_segmentation_with_cases();
     GlobalIme::composition.raw_input_with_cases = g_inputSession->get_pinyin_sequence_with_cases();
-    if (g_inputSession->get_pinyin_sequence_with_cases().empty()) g_quick_phrase_triggered = false;
+    if (g_inputSession->get_pinyin_sequence_with_cases().empty())
+    {
+        g_quick_phrase_triggered = false;
+        g_unicode_mode_triggered = false;
+    }
+    if (IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
+        // Keep preedit identical to the typed U/+hex sequence.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
     //
     // 先判断要不要触发云联想
     // 判断依据：
@@ -2049,12 +2128,14 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //  - 最后一个字符不是大写字母
     //
     const auto cloud_query_state = g_inputSession->get_cloud_query_state();
-    if (!IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) && cloud_query_state.should_query)
+    if (!IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) && cloud_query_state.should_query)
     {
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
 
     const bool ai_eligible = !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+                             !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
                              g_inputSession->current_scheme_type() != SchemeType::Wubi &&
                              g_inputSession->is_all_complete_pure_pinyin() &&
                              !GlobalIme::composition.creating_word.active;
@@ -2063,7 +2144,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
     //
-    if ((Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator)
+    if ((Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
+        is_unicode_plus)
     {
         if (GlobalSettings::getTsfPreeditStyle() == "pinyin")
         {
@@ -2102,8 +2184,10 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     // 空格和数字键可能会触发造词，如果数字键上屏的汉字字符串所对应的拼音比实际的拼音要短的话，
     // 那么，就可能会触发造词事件，那么，就要适时改变候选框的状态
     //
-    /* 2. VK_SPACE, 3. Digits */
-    if (Global::Keycode == VK_SPACE || Global::Keycode > '0' && Global::Keycode <= '9')
+    /* 2. VK_SPACE, 3. Digits (U-mode: Shift+1..9) */
+    if (Global::Keycode == VK_SPACE || is_unicode_shift_digit_selection ||
+        (!IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases) && Global::Keycode > '0' &&
+         Global::Keycode <= '9'))
     {
         ProcessSelectionKey(Global::Keycode, client_id, activation_epoch);
         SendCurrentDataToClient(client_id, activation_epoch, request_id);
@@ -2112,7 +2196,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     {
         RefreshCandidatePageUi(true);
     }
-    else if (IsCandidateNavigationKey(Global::Keycode))
+    else if (IsCandidateNavigationKey(Global::Keycode) && !is_unicode_plus)
     {
         auto &ui = Global::candidate_ui;
         UINT result = Global::DataFromServerMsgType::NavigationIgnored;
@@ -2189,6 +2273,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 void ClearState()
 {
     g_quick_phrase_triggered = false;
+    g_unicode_mode_triggered = false;
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
@@ -2255,13 +2340,15 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
-        if (curWordItem.source == CandidateSource::EnglishDictionary || curWordItem.source == CandidateSource::QuickPhrase)
+        if (curWordItem.source == CandidateSource::EnglishDictionary ||
+            curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Generated)
         {
             UpdateCloudInput("");
             UpdateEnglishInput("");
             g_inputSession->reset_state();
             GlobalIme::composition.clear();
             g_quick_phrase_triggered = false;
+            g_unicode_mode_triggered = false;
             return;
         }
         std::string cloudCommittedPinyin;

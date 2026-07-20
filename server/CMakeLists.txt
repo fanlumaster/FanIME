@@ -93,6 +93,8 @@ set(SRC_FILES
     "./src/log/fanylog.h"
     "./src/quick-phrases/quick_phrase_query.cpp"
     "./src/quick-phrases/quick_phrase_query.h"
+    "./src/unicode/unicode_query.cpp"
+    "./src/unicode/unicode_query.h"
     "./src/resource/resource.h"
     "./src/resource/resource.rc"
     "./src/settings/settings_launcher.cpp"
