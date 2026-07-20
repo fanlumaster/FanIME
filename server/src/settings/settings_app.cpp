@@ -14,6 +14,7 @@
 #include <wil/com.h>
 #include <windows.h>
 #include <windowsx.h>
+#include <shellapi.h>
 #include <wrl.h>
 
 #include <cmath>
@@ -22,6 +23,7 @@
 
 #pragma comment(lib, "dcomp.lib")
 #pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib, "shell32.lib")
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
@@ -315,6 +317,40 @@ int HitTestName(const std::string &name)
     return HTCLIENT;
 }
 
+bool CopyTextToClipboard(HWND hwnd, const std::wstring &text)
+{
+    if (!OpenClipboard(hwnd)) return false;
+    EmptyClipboard();
+
+    const SIZE_T bytes = (text.size() + 1) * sizeof(wchar_t);
+    HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (!memory)
+    {
+        CloseClipboard();
+        return false;
+    }
+
+    void *destination = GlobalLock(memory);
+    if (!destination)
+    {
+        GlobalFree(memory);
+        CloseClipboard();
+        return false;
+    }
+
+    memcpy(destination, text.c_str(), bytes);
+    GlobalUnlock(memory);
+    if (!SetClipboardData(CF_UNICODETEXT, memory))
+    {
+        GlobalFree(memory);
+        CloseClipboard();
+        return false;
+    }
+
+    CloseClipboard();
+    return true;
+}
+
 void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
 {
     wil::unique_cotaskmem_string raw;
@@ -377,6 +413,16 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         else if (type == "openKeyboardPanel")
         {
             OpenKeyboardPanelApplication();
+        }
+        else if (type == "openExternalUrl")
+        {
+            const std::string url = json::value_to<std::string>(value.at("data"));
+            if (url.rfind("https://", 0) == 0)
+                ShellExecuteW(hwnd, L"open", string_to_wstring(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+        else if (type == "copyText")
+        {
+            CopyTextToClipboard(hwnd, string_to_wstring(json::value_to<std::string>(value.at("data"))));
         }
         else if (type == "dictionaryRequest")
         {
