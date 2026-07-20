@@ -1,3 +1,6 @@
+import { setupToggleButton } from './shared';
+import { updateConfig } from './config-sync';
+
 type QuickPhraseRow = { code: string; word: string; weight: number };
 
 let editing: QuickPhraseRow | null = null;
@@ -72,6 +75,9 @@ function query(): void {
 }
 
 export function setupToolsSettings(): void {
+  setupToggleButton('unicodeModeToggleBtn', (active) => {
+    updateConfig('utility.unicode_mode', active);
+  });
   document.getElementById('quickPhraseSearchButton')?.addEventListener('click', query);
   document.getElementById('quickPhraseSearch')?.addEventListener('keydown', event => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('quickPhraseAddButton')?.addEventListener('click', () => openDialog());
