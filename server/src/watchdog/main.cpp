@@ -97,7 +97,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         if (!server)
         {
             Sleep(restart_delay);
-            restart_delay = std::min(restart_delay * 2, kMaximumRestartDelayMilliseconds);
+            restart_delay = (std::min)(restart_delay * 2, kMaximumRestartDelayMilliseconds);
             continue;
         }
 
@@ -118,7 +118,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         }
         else
         {
-            restart_delay = std::min(restart_delay * 2, kMaximumRestartDelayMilliseconds);
+            restart_delay = (std::min)(restart_delay * 2, kMaximumRestartDelayMilliseconds);
         }
         Sleep(restart_delay);
     }
