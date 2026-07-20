@@ -61,6 +61,8 @@ add_executable(${WATCHDOG_EXECUTABLE_NAME} WIN32
     "./src/watchdog/main.cpp"
     "./src/watchdog/watchdog_protocol.h"
     "./src/utils/single_instance.h"
+    "./src/resource/resource.h"
+    "./src/resource/resource.rc"
 )
 target_compile_definitions(${WATCHDOG_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
