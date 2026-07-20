@@ -81,6 +81,8 @@ bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
 bool GetConfiguredCloudCandidatesEnabled();
 bool SetConfiguredCloudCandidatesEnabled(bool enabled);
+bool GetConfiguredUnicodeModeEnabled();
+bool SetConfiguredUnicodeModeEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();

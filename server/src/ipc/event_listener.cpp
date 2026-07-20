@@ -2046,7 +2046,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
     if (input_before_key.empty() && Global::Keycode == 'K' && Global::Wch == L'K' && shift_only)
         g_quick_phrase_triggered = true;
-    if (input_before_key.empty() && Global::Keycode == 'U' && Global::Wch == L'U' && shift_only)
+    if (GetConfiguredUnicodeModeEnabled() && input_before_key.empty() && Global::Keycode == 'U' && Global::Wch == L'U' &&
+        shift_only)
         g_unicode_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))

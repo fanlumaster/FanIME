@@ -1253,6 +1253,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "utility.unicode_mode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredUnicodeModeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1438,6 +1446,7 @@ void PostSettingsConfig()
                                 {"paging_tab", GetConfiguredPagingTabEnabled()},
                                 {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
                                 {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
+                  {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},

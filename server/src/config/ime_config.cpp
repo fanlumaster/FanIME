@@ -26,6 +26,7 @@ bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
 bool g_english_candidates_enabled = false;
 bool g_cloud_candidates_enabled = true;
+bool g_unicode_mode_enabled = true;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
@@ -256,6 +257,7 @@ bool LoadImeConfig()
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
+        g_unicode_mode_enabled = tbl["utility"]["unicode_mode"].value_or(true);
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled =
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
@@ -790,6 +792,21 @@ bool SetConfiguredCloudCandidatesEnabled(bool enabled)
         return false;
     }
     g_cloud_candidates_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredUnicodeModeEnabled()
+{
+    return g_unicode_mode_enabled;
+}
+
+bool SetConfiguredUnicodeModeEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("utility", "unicode_mode", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_unicode_mode_enabled = enabled;
     return true;
 }
 

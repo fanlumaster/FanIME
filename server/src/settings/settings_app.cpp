@@ -206,6 +206,7 @@ void PostConfig()
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
+          {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()}}},
           {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
@@ -266,6 +267,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredEnglishCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cloud_candidates")
         return SetConfiguredCloudCandidatesEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "utility.unicode_mode")
+        return SetConfiguredUnicodeModeEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_minus_equal")
         return SetConfiguredPagingMinusEqualEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_tab")
