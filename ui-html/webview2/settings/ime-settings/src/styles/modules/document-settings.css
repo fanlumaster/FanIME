@@ -39,6 +39,8 @@
 .feedback-body { flex: 1; min-width: 0; }
 .feedback-title { color: #ddd; font-size: 13px; font-weight: 550; }
 .feedback-body code { display: block; margin-top: 9px; overflow: hidden; color: #aaa; font: 12px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.feedback-link { display: block; margin-top: 9px; overflow: hidden; color: #aaa; font: 12px Consolas, monospace; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.feedback-link:hover { color: #d0caff; text-decoration: underline; }
 .feedback-action { flex: 0 0 auto; padding: 7px 11px; color: #ddd; background: rgba(255,255,255,.065); border: 1px solid rgba(255,255,255,.075); border-radius: 6px; font-family: inherit; font-size: 12px; cursor: pointer; }
 .feedback-action:hover { background: rgba(255,255,255,.1); }
 .document-note { display: flex; gap: 16px; color: #aaa; font-size: 12px; line-height: 1.6; }
