@@ -56,6 +56,8 @@ int GetConfiguredCandidatePageSize();
 SchemeType GetConfiguredInputScheme();
 std::string GetConfiguredInputSchemeName();
 bool SetConfiguredInputScheme(const std::string &scheme);
+const std::string &GetConfiguredCharacterSet();
+bool SetConfiguredCharacterSet(const std::string &character_set);
 const std::string &GetConfiguredShuangpinSchema();
 bool SetConfiguredShuangpinSchema(const std::string &schema);
 const std::string &GetConfiguredWubiSchema();

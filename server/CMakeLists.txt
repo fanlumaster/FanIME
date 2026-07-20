@@ -20,6 +20,17 @@ find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
 
+# Build the OpenCC submodule as a static dependency of the server.
+add_subdirectory(opencc EXCLUDE_FROM_ALL)
+
+# OpenCC's Windows dictionary helper copies the library into the tools output
+# directory before MSBuild has necessarily created that directory.
+add_custom_target(opencc_tools_output_dir
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${CMAKE_BINARY_DIR}/opencc/src/tools/$<CONFIG>"
+)
+add_dependencies(copy_libopencc_to_dir_of_opencc_dict opencc_tools_output_dir)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -37,7 +48,7 @@ add_definitions(
 # )
 
 # For utf8cpp, make it use C++11 and later
-add_compile_options(/Zc:__cplusplus)
+add_compile_options(/Zc:__cplusplus /FS)
 
 include_directories("./")
 include_directories("./src/")
@@ -52,6 +63,8 @@ set(SRC_FILES
     "./src/cloud/cloud_ime.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
+    "./src/conversion/chinese_converter.cpp"
+    "./src/conversion/chinese_converter.h"
     "./src/defines/defines.h"
     "./src/english/english_ime.cpp"
     "./src/english/english_ime.h"
@@ -157,6 +170,8 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenCC::OpenCC)
+add_dependencies(${PROJECT_NAME} Dictionaries)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwmapi shell32)
@@ -286,6 +301,15 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         ${CMAKE_SOURCE_DIR}/assets/audios/start.mp3
         ${CMAKE_SOURCE_DIR}/assets/audios/end.mp3
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets/audios
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets/opencc
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/opencc/data/config/s2t.json
+        ${CMAKE_BINARY_DIR}/opencc/data/CJK_Compatibility_Ideographs.ocd2
+        ${CMAKE_BINARY_DIR}/opencc/data/STCharacters.ocd2
+        ${CMAKE_BINARY_DIR}/opencc/data/STPhrases.ocd2
+        ${CMAKE_BINARY_DIR}/opencc/data/STPhrases_GeneratedFromRegionalPhrases.ocd2
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets/opencc
 )
 
 if(BUILD_TESTING)

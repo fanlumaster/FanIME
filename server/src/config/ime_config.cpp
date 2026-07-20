@@ -12,6 +12,7 @@ namespace
 {
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
+std::string g_character_set = "simplified";
 int g_candidate_page_size = 8;
 std::string g_shuangpin_schema = "xiaohe";
 std::string g_wubi_schema = "wubi86";
@@ -234,6 +235,9 @@ bool LoadImeConfig()
         g_candidate_page_size = page_size >= 3 && page_size <= 10 ? page_size : 8;
         g_session_backend = tbl["input"]["session_backend"].value_or(std::string("legacy"));
         g_input_scheme = ParseScheme(tbl["input"]["schema"].value_or(std::string("shuangpin")));
+        const std::string character_set =
+            tbl["input"]["character_set"].value_or(std::string("simplified"));
+        g_character_set = character_set == "traditional" ? "traditional" : "simplified";
         g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
         g_wubi_schema = tbl["input"]["wubi_schema"].value_or(std::string("wubi86"));
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
@@ -473,6 +477,25 @@ bool SetConfiguredInputScheme(const std::string &scheme)
         return false;
     }
     g_input_scheme = ParseScheme(scheme);
+    return true;
+}
+
+const std::string &GetConfiguredCharacterSet()
+{
+    return g_character_set;
+}
+
+bool SetConfiguredCharacterSet(const std::string &character_set)
+{
+    if (character_set != "simplified" && character_set != "traditional")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "character_set", EscapeTomlBasicString(character_set)))
+    {
+        return false;
+    }
+    g_character_set = character_set;
     return true;
 }
 

@@ -52,6 +52,7 @@ candidate_window_layout = "vertical"
 # 输入
 #
 [input]
+character_set = "simplified" # 候选输出字形，可选："simplified", "traditional"
 # 组合说明：
 #   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
 #   legacy + quanpin   -> 自动切换为新版引擎全拼会话

@@ -31,6 +31,7 @@
 #include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "config/ime_config.h"
+#include "conversion/chinese_converter.h"
 #include "session/session_factory.h"
 #include "quick-phrases/quick_phrase_query.h"
 
@@ -243,10 +244,15 @@ AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t genera
     return {};
 }
 
+std::string CandidateTextForOutput(const std::string &text)
+{
+    return GetConfiguredCharacterSet() == "traditional" ? ChineseConverter::ToTraditional(text) : text;
+}
+
 std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases,
                                         const std::string &current_word)
 {
-    return string_to_wstring(remaining_raw_input_with_cases + "\t" + current_word);
+    return string_to_wstring(remaining_raw_input_with_cases + "\t" + CandidateTextForOutput(current_word));
 }
 
 bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wch)
@@ -408,13 +414,15 @@ std::string BuildCurrentCandidatePage()
     for (int i = 0; i < loop; i++)
     {
         const auto &item = ui.items[start + i];
-        const auto &word = item.word;
+        const std::string word = CandidateTextForOutput(item.word);
 
         std::string display_word = word;
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
             item.source != CandidateSource::QuickPhrase)
         {
-            display_word += HelpcodeUtils::compute_helpcodes(word, uppercase_all_helpcodes);
+            // Helpcodes are derived from the dictionary's original simplified
+            // candidate; only the visible/committed word is converted.
+            display_word += HelpcodeUtils::compute_helpcodes(item.word, uppercase_all_helpcodes);
         }
         if (item.source == CandidateSource::CloudSuggestion)
         {
@@ -2277,7 +2285,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 #endif
 
                 /* 更新一下被选中的候选项 */
-                Global::candidate_ui.selected_text = string_to_wstring(GlobalIme::composition.creating_word.word);
+                Global::candidate_ui.selected_text =
+                    string_to_wstring(CandidateTextForOutput(GlobalIme::composition.creating_word.word));
 
                 // 这里异步处理，不然有可能会阻塞住 TSF 端读取 pipe 导致超时
                 EnqueueStoreUserPhraseTask(GlobalIme::composition.creating_word.pinyin,
@@ -2303,7 +2312,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             Global::ai_candidate = {};
         }
 
-        g_ai_context += curWord;
+        g_ai_context += CandidateTextForOutput(curWord);
         if (g_ai_context.size() > 1024)
         {
             size_t cut = g_ai_context.size() - 1024;

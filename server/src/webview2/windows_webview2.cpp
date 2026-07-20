@@ -1180,6 +1180,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.character_set")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCharacterSet(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "input.shuangpin_schema")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -1405,6 +1413,7 @@ void PostSettingsConfig()
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
+                                {"character_set", GetConfiguredCharacterSet()},
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
                                 {"wubi_schema", GetConfiguredWubiSchema()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},

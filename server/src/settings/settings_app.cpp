@@ -193,6 +193,7 @@ void PostConfig()
         {"data",
          {{"input",
            {{"schema", GetConfiguredInputSchemeName()},
+            {"character_set", GetConfiguredCharacterSet()},
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
             {"wubi_schema", GetConfiguredWubiSchema()}}},
           {"general",
@@ -250,6 +251,8 @@ bool ApplyConfigUpdate(const json::object &data)
     const std::string path = json::value_to<std::string>(data.at("path"));
     if (path == "input.schema")
         return SetConfiguredInputScheme(json::value_to<std::string>(data.at("value")));
+    if (path == "input.character_set")
+        return SetConfiguredCharacterSet(json::value_to<std::string>(data.at("value")));
     if (path == "input.shuangpin_schema")
         return SetConfiguredShuangpinSchema(json::value_to<std::string>(data.at("value")));
     if (path == "input.wubi_schema")

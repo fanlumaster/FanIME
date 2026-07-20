@@ -4,3 +4,6 @@
 [submodule "msimeui"]
 	path = msimeui
 	url = https://github.com/metasequoiaime/msimeui.git
+[submodule "opencc"]
+	path = opencc
+	url = https://github.com/byvoid/opencc.git
