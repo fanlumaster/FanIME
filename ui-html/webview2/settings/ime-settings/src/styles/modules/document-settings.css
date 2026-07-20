@@ -10,6 +10,11 @@
 .help-list { padding: 4px 0 8px; }
 .help-entry { padding: 16px 0; }
 .help-faq { padding: 20px 0 12px; }
+.help-simple-document { padding-top: 24px; padding-bottom: 26px; }
+.help-simple-document > p { margin-top: 0; }
+.help-simple-section { margin-top: 28px; }
+.help-simple-document p { max-width: 780px; font-size: 13px; line-height: 1.8; }
+.help-simple-section .section-title { font-size: 15px; }
 .document-index { flex: 0 0 auto; color: rgba(154, 143, 232, .8); font: 600 13px Consolas, monospace; }
 .document-article { margin-top: 18px; }
 .document-article > p { max-width: 760px; }
