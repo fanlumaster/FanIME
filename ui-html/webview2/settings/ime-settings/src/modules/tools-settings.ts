@@ -75,6 +75,9 @@ function query(): void {
 }
 
 export function setupToolsSettings(): void {
+  setupToggleButton('quickPhraseToggleBtn', (active) => {
+    updateConfig('utility.quick_phrase', active);
+  });
   setupToggleButton('unicodeModeToggleBtn', (active) => {
     updateConfig('utility.unicode_mode', active);
   });
