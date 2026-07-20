@@ -55,6 +55,20 @@ include_directories("./src/")
 include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
+set(WATCHDOG_EXECUTABLE_NAME "MetasequoiaImeWatchdog")
+
+add_executable(${WATCHDOG_EXECUTABLE_NAME} WIN32
+    "./src/watchdog/main.cpp"
+    "./src/watchdog/watchdog_protocol.h"
+    "./src/utils/single_instance.h"
+)
+target_compile_definitions(${WATCHDOG_EXECUTABLE_NAME} PRIVATE
+    NOMINMAX=1
+    WIN32_LEAN_AND_MEAN=1
+)
+if(MSVC)
+    target_compile_options(${WATCHDOG_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
+endif()
 
 set(SRC_FILES
     "./src/ai/ai_assistant.cpp"
@@ -188,6 +202,7 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/emoji_panel.rc"
     "./src/emoji-panel/resource.h"
 )
+add_dependencies(${MY_EXECUTABLE_NAME} ${WATCHDOG_EXECUTABLE_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
 target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui)
 target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE

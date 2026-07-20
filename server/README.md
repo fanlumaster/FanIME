@@ -67,6 +67,15 @@ If you want to build and run in **one step**, run the following command,
 .\scripts\llaunch.ps1
 ```
 
+## Watchdog
+
+`MetasequoiaImeWatchdog.exe` is built next to the server. Starting the server directly also starts the watchdog,
+which monitors the server from the same directory and restarts it after an unexpected exit. Repeated early crashes use
+an exponential restart delay (up to 30 seconds) to avoid a restart storm.
+
+The developer terminate shortcut stops both processes. The restart shortcut asks the watchdog to start a fresh server
+after the current process exits.
+
 ## English prefix candidates
 
 Place `english.db` next to `msime.db` in `%LOCALAPPDATA%\MetasequoiaImeTsf`. Set

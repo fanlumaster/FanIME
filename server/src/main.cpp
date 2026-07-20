@@ -2,6 +2,8 @@
 #include "log/fanylog.h"
 #include "window/ime_windows.h"
 #include <commctrl.h>
+#include <cstring>
+#include <string>
 #include <thread>
 #include <utility>
 #include "ipc/ipc.h"
@@ -17,9 +19,32 @@
 #include "session/session_factory.h"
 #include "webview2/windows_webview2.h"
 #include "voice-input/voice_input_service.h"
+#include "watchdog/watchdog_protocol.h"
 
 namespace
 {
+void StartWatchdogIfNeeded(const char *command_line)
+{
+    if (command_line && std::strstr(command_line, "--watchdog-managed")) return;
+
+    wchar_t server_path[MAX_PATH]{};
+    if (!GetModuleFileNameW(nullptr, server_path, MAX_PATH)) return;
+    std::wstring watchdog_path(server_path);
+    const size_t separator = watchdog_path.find_last_of(L"\\/");
+    if (separator == std::wstring::npos) return;
+    watchdog_path.replace(separator + 1, std::wstring::npos, L"MetasequoiaImeWatchdog.exe");
+
+    std::wstring command = L"\"" + watchdog_path + L"\"";
+    STARTUPINFOW startup_info{sizeof(startup_info)};
+    PROCESS_INFORMATION process_info{};
+    if (CreateProcessW(watchdog_path.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr,
+                       &startup_info, &process_info))
+    {
+        CloseHandle(process_info.hThread);
+        CloseHandle(process_info.hProcess);
+    }
+}
+
 const char *SchemeTypeToString(SchemeType scheme_type)
 {
     switch (scheme_type)
@@ -51,6 +76,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
             fmt::format(L"[msime]: Single instance already exists, MetasequoiaImeServer is already running.").c_str());
         return 0;
     }
+
+    StartWatchdogIfNeeded(lpCmdLine);
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
