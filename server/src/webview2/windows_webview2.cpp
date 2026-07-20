@@ -1261,6 +1261,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "utility.quick_phrase")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredQuickPhraseEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1446,7 +1454,8 @@ void PostSettingsConfig()
                                 {"paging_tab", GetConfiguredPagingTabEnabled()},
                                 {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
                                 {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
-                  {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()}}},
+                  {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
+                                {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},

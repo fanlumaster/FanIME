@@ -141,6 +141,7 @@ background_img = "" # 默认是空，没有背景图片
 [utility]
 clipboard_history = "false"
 study_english_word = "false" # 背单词功能，开启后可以在候选项旁边显示英文
+quick_phrase = true # Shift+K 进入快捷短语模式
 unicode_mode = true # Shift+U 进入 Unicode 码位输入模式
 
 #

@@ -206,7 +206,9 @@ void PostConfig()
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
-          {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()}}},
+          {"utility",
+           {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
+            {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
           {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
@@ -269,6 +271,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredCloudCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "utility.unicode_mode")
         return SetConfiguredUnicodeModeEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "utility.quick_phrase")
+        return SetConfiguredQuickPhraseEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_minus_equal")
         return SetConfiguredPagingMinusEqualEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_tab")
@@ -437,7 +441,7 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
             nlohmann::json response = nlohmann::json::parse(boost::json::serialize(SettingsDictionary::HandleRequest(data)));
             response["type"] = "dictionaryResponse";
             if (const auto *request_id = data.if_contains("requestId"); request_id && request_id->is_string())
-                response["requestId"] = std::string(request_id->as_string());
+                response["requestId"] = json::value_to<std::string>(*request_id);
             const std::wstring message = string_to_wstring(response.dump());
             g_webview->PostWebMessageAsJson(message.c_str());
         }

@@ -27,6 +27,7 @@ bool g_floating_toolbar_enabled = true;
 bool g_english_candidates_enabled = false;
 bool g_cloud_candidates_enabled = true;
 bool g_unicode_mode_enabled = true;
+bool g_quick_phrase_enabled = true;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
@@ -258,6 +259,7 @@ bool LoadImeConfig()
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
         g_unicode_mode_enabled = tbl["utility"]["unicode_mode"].value_or(true);
+        g_quick_phrase_enabled = tbl["utility"]["quick_phrase"].value_or(true);
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled =
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
@@ -807,6 +809,21 @@ bool SetConfiguredUnicodeModeEnabled(bool enabled)
         return false;
     }
     g_unicode_mode_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredQuickPhraseEnabled()
+{
+    return g_quick_phrase_enabled;
+}
+
+bool SetConfiguredQuickPhraseEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("utility", "quick_phrase", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_quick_phrase_enabled = enabled;
     return true;
 }
 
