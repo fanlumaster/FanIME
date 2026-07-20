@@ -14,6 +14,7 @@
 #include "global/globals.h"
 #include "fmt/xchar.h"
 #include "ipc/ipc.h"
+#include "ipc/event_listener.h"
 #include "ipc/candidate_ui_action_policy.h"
 #include "settings/settings_launcher.h"
 #include "voice-input/voice_input_service.h"
@@ -101,6 +102,17 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
     {
         script.append(L"document.getElementById('puncCn').style.display = 'none';");
         script.append(L"document.getElementById('puncEn').style.display = 'flex';");
+    }
+
+    if (GetConfiguredCharacterSet() == "traditional")
+    {
+        script.append(L"document.getElementById('character-set-simplified').style.display = 'none';");
+        script.append(L"document.getElementById('character-set-traditional').style.display = 'flex';");
+    }
+    else
+    {
+        script.append(L"document.getElementById('character-set-simplified').style.display = 'flex';");
+        script.append(L"document.getElementById('character-set-traditional').style.display = 'none';");
     }
 
     webview->ExecuteScript(script.c_str(), nullptr);
@@ -1185,6 +1197,8 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredCharacterSet(value))
                                 {
+                                    UpdateFtbCharacterSetState(::webviewFtbWnd);
+                                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
                                     PostSettingsConfig();
                                 }
                             }
@@ -1695,6 +1709,18 @@ HRESULT OnControllerCreatedFtbWnd(      //
                                 Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn, L"");
                         }
                     }
+                    else if (type == "changeCharacterSet")
+                    {
+                        const std::string next = GetConfiguredCharacterSet() == "traditional"
+                                                     ? "simplified"
+                                                     : "traditional";
+                        if (SetConfiguredCharacterSet(next))
+                        {
+                            RenderFloatingToolbarState(sender);
+                            FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                            PostSettingsConfig();
+                        }
+                    }
                     else if (type == "openSettings")
                     {
 #ifdef FANY_DEBUG
@@ -1921,4 +1947,9 @@ void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSin
     {
         RenderFloatingToolbarState(webview.Get());
     }
+}
+
+void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview)
+{
+    RenderFloatingToolbarState(webview.Get());
 }

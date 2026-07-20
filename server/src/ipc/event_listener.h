@@ -40,5 +40,6 @@ void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index);
 void EnqueuePipeSessionInvalidatedTask(uint64_t client_id, uint64_t invalidation_epoch);
 void EnqueueReloadInputSessionTask();
 void EnqueueApplyCandidatePageSizeTask();
+void EnqueueRefreshCandidatePageTask();
 void EnqueueResetInputSessionCacheTask();
 } // namespace FanyNamedPipe

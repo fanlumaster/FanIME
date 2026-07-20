@@ -680,6 +680,7 @@ enum class TaskType
     UiDeleteCandidate,
     ReloadInputSession,
     ApplyCandidatePageSize,
+    RefreshCandidatePage,
     ResetInputSessionCache,
 };
 
@@ -968,6 +969,19 @@ void WorkerThread()
             break;
         }
 
+        case TaskType::RefreshCandidatePage: {
+            if (!Global::candidate_ui.items.empty())
+            {
+                Global::candidate_ui.clear_page();
+                const FanyImeIpc::CandidateUiOwner owner = SnapshotCandidateUiOwner();
+                if (owner && IsPipeActivationCurrent(owner.client_id, owner.activation_epoch))
+                {
+                    RefreshCandidatePageUi(true);
+                }
+            }
+            break;
+        }
+
         case TaskType::ResetInputSessionCache: {
             if (g_inputSession)
             {
@@ -1166,6 +1180,21 @@ void EnqueueApplyCandidatePageSizeTask()
         std::lock_guard lock(queueMutex);
         Task task;
         task.type = TaskType::ApplyCandidatePageSize;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueRefreshCandidatePageTask()
+{
+    if (!pipe_running)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::RefreshCandidatePage;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();

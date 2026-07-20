@@ -105,3 +105,4 @@ void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
 );
 void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState);
 void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState);
+void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview);

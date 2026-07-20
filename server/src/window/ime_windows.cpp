@@ -545,6 +545,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             const SchemeType previous_input_scheme = GetConfiguredInputScheme();
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
+            const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
@@ -556,6 +557,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     ApplyConfiguredInputScheme();
                 else if (previous_shuangpin_schema != GetConfiguredShuangpinSchema())
                     ApplyConfiguredShuangpinSchema();
+                if (previous_character_set != GetConfiguredCharacterSet())
+                {
+                    UpdateFtbCharacterSetState(::webviewFtbWnd);
+                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                     ApplyConfiguredCandidateWindowLayout();
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
@@ -985,6 +991,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         {
             const SchemeType previous_input_scheme = GetConfiguredInputScheme();
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
+            const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
@@ -998,6 +1005,11 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 else if (previous_shuangpin_schema != GetConfiguredShuangpinSchema())
                 {
                     ApplyConfiguredShuangpinSchema();
+                }
+                if (previous_character_set != GetConfiguredCharacterSet())
+                {
+                    UpdateFtbCharacterSetState(::webviewFtbWnd);
+                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
                 }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                 {
