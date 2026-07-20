@@ -7,4 +7,4 @@
 .screenkb-open-button:focus-visible { outline: 2px solid rgba(142, 140, 216, .5); outline-offset: 2px; }
 .screenkb-preview { padding: 20px 24px 30px; border-top: 1px solid var(--border-color); background: rgba(18, 18, 18, .28); }
 .screenkb-preview-label { margin-bottom: 24px; color: #8f8f8f; font-size: 12px; }
-.screenkb-preview img { display: block; width: min(100%, 760px); height: auto; margin: 0 auto; border-radius: 8px; box-shadow: 0 10px 28px rgba(0, 0, 0, .32); }
+.screenkb-preview img { display: block; width: min(100%, 760px); height: auto; margin: 0 auto; border-radius: 4px; box-shadow: 0 10px 28px rgba(0, 0, 0, .32); }
