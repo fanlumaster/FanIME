@@ -29,6 +29,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
     window.SetWindowStyle(WS_POPUP, WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST);
     window.SetDragRegionHeight(28.0f);
     window.SetRoundedCorners(true);
+    // Horizontally centered, just above the taskbar (work-area bottom).
+    window.SetInitialPlacement(msimeui::WindowInitialPlacement::BottomCenter, 12);
     if (!window.Create())
     {
         msimeui::Application::Shutdown();
