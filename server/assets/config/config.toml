@@ -46,6 +46,10 @@ page_size = 8
 candidate_window_follow_cursor = true
 # 候选窗口排列方式，可选："vertical", "horizontal"
 candidate_window_layout = "vertical"
+# 候选窗口顶部预编辑，可选："pinyin", "empty"
+#   pinyin -> 显示分词预编辑（与候选框当前行为一致）
+#   empty  -> 隐藏顶部预编辑行
+candidate_window_preedit_style = "pinyin"
 
 #
 # Input
@@ -74,7 +78,7 @@ shuangpin_preedit_mode = "shuangpin"
 #   raw    -> 原始按键序列
 #   pinyin -> 分词后的拼音序列（Server 回包 Preedit）
 #   empty  -> 行内不显示预编辑
-tsf_preedit_style = "empty"
+tsf_preedit_style = "raw"
 # tsf_preedit_style = "pinyin"
 # tsf_preedit_style = "empty"
 # 双拼方案，可选："xiaohe", "ziranma"

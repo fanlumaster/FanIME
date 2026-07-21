@@ -221,6 +221,9 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
         script.append(L"if (window.SetCandidateSelection) { window.SetCandidateSelection(");
         script.append(std::to_wstring(Global::candidate_ui.selected_index_in_page));
         script.append(L"); }\n");
+        script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
+        script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
+        script.append(L"); }\n");
         script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
 
         // OutputDebugString(fmt::format(L"[msime]: UpdateHtmlContentWithJavaScript: {}", script).c_str());
@@ -318,6 +321,9 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
         script.append(L"document.getElementById('measureContainer').innerHTML = `");
         script.append(newContent);
         script.append(L"`;\n");
+        script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
+        script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
+        script.append(L"); }\n");
 
         webview->ExecuteScript(script.c_str(), nullptr);
     }
@@ -611,7 +617,10 @@ HRESULT OnControllerCreatedCandWnd(     //
                 args->get_IsSuccess(&success);
                 if (success && ::is_global_wnd_cand_shown)
                 {
-                    std::wstring str = GetPreeditWithCaretMarker() + L"," + Global::CandidateString;
+                    const std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
+                                                     ? std::wstring{}
+                                                     : GetPreeditWithCaretMarker();
+                    std::wstring str = preedit + L"," + Global::CandidateString;
                     InflateMeasureDivCandWnd(str);
                     FineTuneWindow(hwnd);
                 }
@@ -1239,6 +1248,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.candidate_window_preedit_style")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCandidateWindowPreeditStyle(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.floating_toolbar")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -1468,7 +1485,8 @@ void PostSettingsConfig()
                                 {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
                   {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
                                 {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
-                  {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
+                  {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+                                  {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
                     {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},

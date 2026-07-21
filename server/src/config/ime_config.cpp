@@ -35,6 +35,7 @@ bool g_paging_tab_enabled = true;
 bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
+std::string g_candidate_window_preedit_style = "pinyin";
 VoiceInputConfig g_voice_input;
 AiAssistantConfig g_ai_assistant;
 std::filesystem::path g_config_path;
@@ -278,6 +279,11 @@ bool LoadImeConfig()
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
+        {
+            const std::string preedit_style =
+                tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
+            g_candidate_window_preedit_style = preedit_style == "empty" ? "empty" : "pinyin";
+        }
         g_voice_input.enabled = tbl["voice_input"]["voice_input"].value_or(true);
         g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("siliconflow"));
         g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
@@ -791,6 +797,25 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout)
         return false;
     }
     g_candidate_window_layout = layout;
+    return true;
+}
+
+const std::string &GetConfiguredCandidateWindowPreeditStyle()
+{
+    return g_candidate_window_preedit_style;
+}
+
+bool SetConfiguredCandidateWindowPreeditStyle(const std::string &style)
+{
+    if (style != "pinyin" && style != "empty")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("appearance", "candidate_window_preedit_style", EscapeTomlBasicString(style)))
+    {
+        return false;
+    }
+    g_candidate_window_preedit_style = style;
     return true;
 }
 

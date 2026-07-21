@@ -102,6 +102,8 @@ bool GetConfiguredCandidateArrowNavigationEnabled();
 bool SetConfiguredCandidateArrowNavigationEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
+const std::string &GetConfiguredCandidateWindowPreeditStyle();
+bool SetConfiguredCandidateWindowPreeditStyle(const std::string &style);
 const VoiceInputConfig &GetConfiguredVoiceInput();
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value);
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value);

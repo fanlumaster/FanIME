@@ -429,7 +429,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     {
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring preedit = GetPreeditWithCaretMarker();
+        std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
+                                   ? std::wstring{}
+                                   : GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
         InflateMeasureDivCandWnd(str);
 
@@ -1322,7 +1324,9 @@ int FineTuneWindow(HWND hwnd)
         /* Whether need to adjust candidate window position */
         AdjustCandidateWindowPosition(&pt, containerSize, properPos);
 
-        std::wstring preedit = GetPreeditWithCaretMarker();
+        std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
+                                   ? std::wstring{}
+                                   : GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
         // Empty composition with no candidates means the session already ended.
         if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())

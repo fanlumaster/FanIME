@@ -210,7 +210,9 @@ void PostConfig()
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
-          {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()}}},
+          {"appearance",
+           {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
             {"asr_provider", voice.asr_provider}, {"asr_token", voice.asr_token},
@@ -266,6 +268,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.candidate_window_preedit_style")
+        return SetConfiguredCandidateWindowPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")
