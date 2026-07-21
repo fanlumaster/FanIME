@@ -1,0 +1,10 @@
+.handwriting-card { padding: 0; overflow: hidden; }
+.handwriting-setting-row { padding: 20px 24px; }
+.handwriting-description { margin-top: 6px; color: #919191; font-size: 12px; }
+.handwriting-open-button { min-width: 68px; padding: 7px 18px; color: #fff; background: var(--accent-color); border: 0; border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; transition: filter 120ms ease, transform 80ms ease; }
+.handwriting-open-button:hover { filter: brightness(1.1); }
+.handwriting-open-button:active { transform: translateY(1px); filter: brightness(.94); }
+.handwriting-open-button:focus-visible { outline: 2px solid rgba(142, 140, 216, .5); outline-offset: 2px; }
+.handwriting-preview { padding: 20px 24px 30px; border-top: 1px solid var(--border-color); background: rgba(18, 18, 18, .28); }
+.handwriting-preview-label { margin-bottom: 24px; color: #8f8f8f; font-size: 12px; }
+.handwriting-preview img { display: block; width: min(100%, 760px); height: auto; margin: 0 auto; border-radius: 4px; box-shadow: 0 10px 28px rgba(0, 0, 0, .32); }

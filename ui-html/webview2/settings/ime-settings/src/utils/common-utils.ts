@@ -20,7 +20,7 @@ export async function loadHTML(url: string): Promise<string> {
 
 // 只显示当前的模块，隐藏其他模块
 export function showOnlyCurrentModule(moduleName: string): void {
-  const modules = ['floating-toolbar', 'appearance', 'input', 'helpcode', 'dict', 'skin', 'voice', 'screenkb-settings', 'tools-settings', 'ai-settings', 'shortcut', 'help-settings', 'about-settings', 'feedback-settings'];
+  const modules = ['floating-toolbar', 'appearance', 'input', 'helpcode', 'dict', 'skin', 'voice', 'screenkb-settings', 'handwriting-settings', 'tools-settings', 'ai-settings', 'shortcut', 'help-settings', 'about-settings', 'feedback-settings'];
   modules.forEach((module: string) => {
     if (module === moduleName) {
       document.getElementById(module)!.style.display = 'block';

@@ -5,6 +5,7 @@ import { setupHelpcode } from './helpcode';
 import { setupFloatingToolbar } from './floating-toolbar';
 import { setupVoiceInput } from './voice';
 import { setupScreenKeyboardSettings } from './screenkb-settings';
+import { setupHandwritingSettings } from './handwriting-settings';
 import { setupDictionary } from './dict';
 import { setupSkin } from './skin';
 import { setupToolsSettings } from './tools-settings';
@@ -43,6 +44,9 @@ export async function loadContent(moduleName: string) {
       break;
     case 'screenkb-settings':
       setupScreenKeyboardSettings();
+      break;
+    case 'handwriting-settings':
+      setupHandwritingSettings();
       break;
     case 'tools-settings':
       setupToolsSettings();
