@@ -63,6 +63,8 @@ bool SetConfiguredShuangpinSchema(const std::string &schema);
 const std::string &GetConfiguredWubiSchema();
 bool SetConfiguredWubiSchema(const std::string &schema);
 const std::string &GetConfiguredShuangpinPreeditMode();
+const std::string &GetConfiguredTsfPreeditStyle();
+bool SetConfiguredTsfPreeditStyle(const std::string &style);
 bool GetConfiguredShuangpinHelpcodeEnabled();
 bool SetConfiguredShuangpinHelpcodeEnabled(bool enabled);
 const std::string &GetConfiguredShuangpinHelpcodeSchema();
@@ -89,6 +91,9 @@ bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();
 bool SetConfiguredPagingCommaPeriodEnabled(bool enabled);
+// Worker payload for PagingCommaPeriodChanged: "0|raw" / "1|pinyin".
+// Legacy TSF only reads data[0] as the paging flag and ignores the rest.
+std::wstring FormatPagingCommaPeriodWorkerPayload();
 bool GetConfiguredPagingTabEnabled();
 bool SetConfiguredPagingTabEnabled(bool enabled);
 bool GetConfiguredPagingPageUpDownEnabled();

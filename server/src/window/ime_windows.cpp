@@ -552,6 +552,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
+            const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -570,11 +571,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     ApplyConfiguredFloatingToolbarVisibility();
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                     FanyNamedPipe::CancelCloudCandidateRequest();
-                if (previous_comma_period != GetConfiguredPagingCommaPeriodEnabled())
+                if (previous_comma_period != GetConfiguredPagingCommaPeriodEnabled() ||
+                    previous_tsf_preedit_style != GetConfiguredTsfPreeditStyle())
                 {
-                    SendToTsfWorkerThreadViaNamedpipe(
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
-                        GetConfiguredPagingCommaPeriodEnabled() ? L"1" : L"0");
+                        FormatPagingCommaPeriodWorkerPayload());
                 }
             }
         }
@@ -997,6 +999,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
+            const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
+            const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -1024,6 +1028,13 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                 {
                     FanyNamedPipe::CancelCloudCandidateRequest();
+                }
+                if (previous_comma_period != GetConfiguredPagingCommaPeriodEnabled() ||
+                    previous_tsf_preedit_style != GetConfiguredTsfPreeditStyle())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
+                        FormatPagingCommaPeriodWorkerPayload());
                 }
                 PostSettingsConfig();
             }

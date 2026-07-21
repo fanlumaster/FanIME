@@ -17,6 +17,7 @@ int g_candidate_page_size = 8;
 std::string g_shuangpin_schema = "xiaohe";
 std::string g_wubi_schema = "wubi86";
 std::string g_shuangpin_preedit_mode = "quanpin";
+std::string g_tsf_preedit_style = "raw";
 bool g_shuangpin_helpcode_enabled = true;
 bool g_quanpin_helpcode_enabled = true;
 std::string g_shuangpin_helpcode_schema = "lantian";
@@ -243,6 +244,12 @@ bool LoadImeConfig()
         g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
         g_wubi_schema = tbl["input"]["wubi_schema"].value_or(std::string("wubi86"));
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
+        {
+            const std::string tsf_preedit_style =
+                tbl["input"]["tsf_preedit_style"].value_or(std::string("raw"));
+            g_tsf_preedit_style = tsf_preedit_style == "pinyin" ? "pinyin" : "raw";
+            GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
+        }
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
         const std::string shuangpin_helpcode_schema =
@@ -546,6 +553,26 @@ const std::string &GetConfiguredShuangpinPreeditMode()
     return g_shuangpin_preedit_mode;
 }
 
+const std::string &GetConfiguredTsfPreeditStyle()
+{
+    return g_tsf_preedit_style;
+}
+
+bool SetConfiguredTsfPreeditStyle(const std::string &style)
+{
+    if (style != "raw" && style != "pinyin")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "tsf_preedit_style", EscapeTomlBasicString(style)))
+    {
+        return false;
+    }
+    g_tsf_preedit_style = style;
+    GlobalSettings::setTsfPreeditStyle(style);
+    return true;
+}
+
 bool GetConfiguredShuangpinHelpcodeEnabled()
 {
     return g_shuangpin_helpcode_enabled;
@@ -709,6 +736,12 @@ bool SetConfiguredPagingCommaPeriodEnabled(bool enabled)
     }
     g_paging_comma_period_enabled = enabled;
     return true;
+}
+
+std::wstring FormatPagingCommaPeriodWorkerPayload()
+{
+    // data[0] = paging flag for legacy clients; "|style" is ignored by old TSF.
+    return (g_paging_comma_period_enabled ? L"1|" : L"0|") + string_to_wstring(g_tsf_preedit_style);
 }
 
 bool GetConfiguredPagingPageUpDownEnabled()

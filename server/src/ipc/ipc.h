@@ -283,6 +283,9 @@ bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activa
                                              UINT msg_type, const std::wstring &pipeData);
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
+// Config-style notifications must reach every connected TIP, not only the
+// currently focused client (settings UI often steals activation).
+void BroadcastToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 
 namespace Global
 {
@@ -329,6 +332,8 @@ constexpr UINT FocusSessionReady = 8;
 // Worker reverse-pipe registration acknowledgement. This is always the first
 // frame written to a newly accepted worker endpoint.
 constexpr UINT PipeReady = 9;
+// Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
+constexpr UINT MaxKnown = PipeReady;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

@@ -1489,3 +1489,24 @@ void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeDa
     }
     SendWorkerPacket(active.client_id, active.epoch, true, msg_type, pipeData);
 }
+
+void BroadcastToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
+{
+    std::vector<uint64_t> client_ids;
+    {
+        std::lock_guard lock(g_pipe_clients_mutex);
+        client_ids.reserve(g_pipe_clients.size());
+        for (const auto &[client_id, session] : g_pipe_clients)
+        {
+            if (client_id != 0 && session.to_tsf_worker_thread_pipe &&
+                session.to_tsf_worker_thread_registration_id != 0 && session.to_tsf_worker_thread_ready)
+            {
+                client_ids.push_back(client_id);
+            }
+        }
+    }
+    for (const uint64_t client_id : client_ids)
+    {
+        SendToTsfWorkerThreadClientViaNamedpipe(client_id, msg_type, pipeData);
+    }
+}

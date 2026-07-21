@@ -196,7 +196,8 @@ void PostConfig()
            {{"schema", GetConfiguredInputSchemeName()},
             {"character_set", GetConfiguredCharacterSet()},
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-            {"wubi_schema", GetConfiguredWubiSchema()}}},
+            {"wubi_schema", GetConfiguredWubiSchema()},
+            {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
@@ -261,6 +262,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredShuangpinSchema(json::value_to<std::string>(data.at("value")));
     if (path == "input.wubi_schema")
         return SetConfiguredWubiSchema(json::value_to<std::string>(data.at("value")));
+    if (path == "input.tsf_preedit_style")
+        return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")

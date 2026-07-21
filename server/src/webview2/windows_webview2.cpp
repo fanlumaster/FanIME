@@ -1219,6 +1219,17 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.tsf_preedit_style")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredTsfPreeditStyle(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
+                                        FormatPagingCommaPeriodWorkerPayload());
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.candidate_window_layout")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -1290,9 +1301,9 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 const bool value = json::value_to<bool>(data.at("value"));
                                 if (SetConfiguredPagingCommaPeriodEnabled(value))
                                 {
-                                    SendToTsfWorkerThreadViaNamedpipe(
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
                                         Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
-                                        value ? L"1" : L"0");
+                                        FormatPagingCommaPeriodWorkerPayload());
                                     PostSettingsConfig();
                                 }
                             }
@@ -1445,7 +1456,8 @@ void PostSettingsConfig()
         {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
                                 {"character_set", GetConfiguredCharacterSet()},
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-                                {"wubi_schema", GetConfiguredWubiSchema()}}},
+                                {"wubi_schema", GetConfiguredWubiSchema()},
+                                {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
                                 {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},

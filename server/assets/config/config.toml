@@ -70,6 +70,11 @@ schema = "shuangpin"
 #   quanpin   -> 预编辑显示转换后的全拼分词
 #   shuangpin -> 预编辑显示原始双拼输入串
 shuangpin_preedit_mode = "shuangpin"
+# TSF 行内预编辑样式，可选："raw", "pinyin"
+#   raw    -> 原始按键序列
+#   pinyin -> 分词后的拼音序列（Server 回包 Preedit）
+tsf_preedit_style = "raw"
+# tsf_preedit_style = "pinyin"
 # 双拼方案，可选："xiaohe", "ziranma"
 # shuangpin_schema = "xiaohe"
 shuangpin_schema = "xiaohe"
