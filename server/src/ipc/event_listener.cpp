@@ -276,7 +276,13 @@ std::string CandidateTextForOutput(const std::string &text)
 std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_with_cases,
                                         const std::string &current_word)
 {
-    return string_to_wstring(remaining_raw_input_with_cases + "\t" + CandidateTextForOutput(current_word));
+    // remaining_raw \t committed_word \t display_preedit
+    // display_preedit matches the candidate-window preedit (汉字 + 剩余分词).
+    // Legacy TSF only reads the first two fields.
+    const std::wstring remaining = string_to_wstring(remaining_raw_input_with_cases);
+    const std::wstring word = string_to_wstring(CandidateTextForOutput(current_word));
+    const std::wstring preedit = word + string_to_wstring(GlobalIme::composition.segmented_pinyin);
+    return remaining + L'\t' + word + L'\t' + preedit;
 }
 
 bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wch)
