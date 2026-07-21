@@ -27,7 +27,8 @@ export function setupConfigSync(): void {
       payload.data?.input?.schema,
       payload.data?.input?.character_set,
       payload.data?.input?.shuangpin_schema,
-      payload.data?.input?.wubi_schema
+      payload.data?.input?.wubi_schema,
+      payload.data?.input?.tsf_preedit_style
     );
     if (payload.data?.voice_input && typeof payload.data.voice_input === 'object') {
       applyVoiceConfig(payload.data.voice_input);

@@ -14,7 +14,8 @@ export function applyInputConfig(
   schema: string | undefined,
   characterSet: string | undefined,
   shuangpinSchema: string | undefined,
-  wubiSchema: string | undefined
+  wubiSchema: string | undefined,
+  tsfPreeditStyle?: string | undefined
 ): void {
   if (schema === 'quanpin' || schema === 'shuangpin' || schema === 'wubi') {
     const radio = document.querySelector<HTMLInputElement>(`input[name="input-method"][value="${schema}"]`);
@@ -26,6 +27,7 @@ export function applyInputConfig(
   applyDropdownValue('characterSetBtn', 'characterSetMenu', characterSet);
   applyDropdownValue('shuangpinSchemeBtn', 'shuangpinSchemeMenu', shuangpinSchema);
   applyDropdownValue('wubiSchemeBtn', 'wubiSchemeMenu', wubiSchema);
+  applyDropdownValue('tsfPreeditStyleBtn', 'tsfPreeditStyleMenu', tsfPreeditStyle);
 }
 
 export function setupInput(): void {
@@ -48,6 +50,13 @@ export function setupInput(): void {
     'input.shuangpin_schema'
   );
   setupDropdownMenu('wubiSchemeBtn', 'wubiSchemeMenu', 'changeWubiScheme', true, 'input.wubi_schema');
+  setupDropdownMenu(
+    'tsfPreeditStyleBtn',
+    'tsfPreeditStyleMenu',
+    'changeTsfPreeditStyle',
+    true,
+    'input.tsf_preedit_style'
+  );
 
   setupPageOptions();
   setupToggleButton('zhEnToggleBtn', (active) => {
