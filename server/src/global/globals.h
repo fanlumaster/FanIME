@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <tuple>
 #include <vector>
@@ -196,14 +197,31 @@ namespace GlobalSettings
 // 支持的 TSF 预编辑格式，这里是为了和 TSF 端进行同步
 //  - raw: 原始按键序列
 //  - pinyin: 分词后的拼音序列
-//  - cand: 当前高亮的候选词序列
+//  - empty: 行内不显示预编辑
+//  - cand: 当前高亮的候选词序列（预留）
 //
 namespace TsfPreeditStyle
 {
 constexpr std::string_view Raw = "raw";
 constexpr std::string_view Pinyin = "pinyin";
+constexpr std::string_view Empty = "empty";
 constexpr std::string_view Cand = "cand";
 } // namespace TsfPreeditStyle
+
+inline bool isKnownTsfPreeditStyle(std::string_view style)
+{
+    return style == TsfPreeditStyle::Raw || style == TsfPreeditStyle::Pinyin ||
+           style == TsfPreeditStyle::Empty;
+}
+
+inline std::string normalizeTsfPreeditStyle(std::string_view style)
+{
+    if (style == TsfPreeditStyle::Pinyin || style == TsfPreeditStyle::Empty)
+    {
+        return std::string(style);
+    }
+    return std::string(TsfPreeditStyle::Raw);
+}
 
 inline std::string &tsfPreeditStyleStorage()
 {
@@ -218,6 +236,6 @@ inline const std::string &getTsfPreeditStyle()
 
 inline void setTsfPreeditStyle(std::string_view newStyle)
 {
-    tsfPreeditStyleStorage() = std::string(newStyle);
+    tsfPreeditStyleStorage() = normalizeTsfPreeditStyle(newStyle);
 }
 } // namespace GlobalSettings

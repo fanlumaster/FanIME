@@ -91,7 +91,7 @@ bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();
 bool SetConfiguredPagingCommaPeriodEnabled(bool enabled);
-// Worker payload for PagingCommaPeriodChanged: "0|raw" / "1|pinyin".
+// Worker payload for PagingCommaPeriodChanged: "0|raw" / "1|pinyin" / "0|empty".
 // Legacy TSF only reads data[0] as the paging flag and ignores the rest.
 std::wstring FormatPagingCommaPeriodWorkerPayload();
 bool GetConfiguredPagingTabEnabled();

@@ -2155,7 +2155,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if ((Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
         is_unicode_plus)
     {
-        if (GlobalSettings::getTsfPreeditStyle() == "pinyin")
+        if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
         {
             std::wstring preedit = GetPreedit();
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
@@ -2169,7 +2169,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //
     if (Global::Keycode == VK_BACK)
     {
-        if (GlobalSettings::getTsfPreeditStyle() == "pinyin")
+        if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
         {
             if (!g_inputSession->get_pinyin_sequence().empty())
             {

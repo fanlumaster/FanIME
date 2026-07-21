@@ -247,7 +247,7 @@ bool LoadImeConfig()
         {
             const std::string tsf_preedit_style =
                 tbl["input"]["tsf_preedit_style"].value_or(std::string("raw"));
-            g_tsf_preedit_style = tsf_preedit_style == "pinyin" ? "pinyin" : "raw";
+            g_tsf_preedit_style = GlobalSettings::normalizeTsfPreeditStyle(tsf_preedit_style);
             GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
         }
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
@@ -560,7 +560,7 @@ const std::string &GetConfiguredTsfPreeditStyle()
 
 bool SetConfiguredTsfPreeditStyle(const std::string &style)
 {
-    if (style != "raw" && style != "pinyin")
+    if (!GlobalSettings::isKnownTsfPreeditStyle(style))
     {
         return false;
     }
