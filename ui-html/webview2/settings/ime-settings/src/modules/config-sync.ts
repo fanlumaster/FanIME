@@ -1,4 +1,5 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
+import { applyAppearanceConfig } from './appearance';
 import { applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
@@ -23,17 +24,15 @@ export function setupConfigSync(): void {
     }
 
     applyCandidateArrange(payload.data?.appearance?.candidate_window_layout);
-    applyDropdownValue(
-      'candPreeditStyleBtn',
-      'candPreeditStyleMenu',
-      payload.data?.appearance?.candidate_window_preedit_style
+    applyAppearanceConfig(
+      payload.data?.appearance?.candidate_window_preedit_style,
+      payload.data?.appearance?.tsf_preedit_style
     );
     applyInputConfig(
       payload.data?.input?.schema,
       payload.data?.input?.character_set,
       payload.data?.input?.shuangpin_schema,
-      payload.data?.input?.wubi_schema,
-      payload.data?.input?.tsf_preedit_style
+      payload.data?.input?.wubi_schema
     );
     if (payload.data?.voice_input && typeof payload.data.voice_input === 'object') {
       applyVoiceConfig(payload.data.voice_input);

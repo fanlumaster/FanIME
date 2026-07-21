@@ -1,5 +1,13 @@
-import { setupDropdownMenu } from './shared';
+import { applyDropdownValue, setupDropdownMenu } from './shared';
 import { loadHTML } from '../utils/common-utils';
+
+export function applyAppearanceConfig(
+  candidateWindowPreeditStyle: string | undefined,
+  tsfPreeditStyle: string | undefined
+): void {
+  applyDropdownValue('candPreeditStyleBtn', 'candPreeditStyleMenu', candidateWindowPreeditStyle);
+  applyDropdownValue('tsfPreeditStyleBtn', 'tsfPreeditStyleMenu', tsfPreeditStyle);
+}
 
 export async function setupAppearance() {
   // 候选窗口预览
@@ -22,5 +30,14 @@ export async function setupAppearance() {
     'changeCandPreeditStyle',
     true,
     'appearance.candidate_window_preedit_style'
+  );
+
+  // 行内预编辑
+  setupDropdownMenu(
+    'tsfPreeditStyleBtn',
+    'tsfPreeditStyleMenu',
+    'changeTsfPreeditStyle',
+    true,
+    'appearance.tsf_preedit_style'
   );
 }
