@@ -432,6 +432,10 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         {
             OpenKeyboardPanelApplication();
         }
+        else if (type == "openHandwritingPanel")
+        {
+            OpenHandwritingPanelApplication();
+        }
         else if (type == "openExternalUrl")
         {
             const std::string url = json::value_to<std::string>(value.at("data"));
@@ -822,7 +826,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
 
     const UINT dpi = GetDpiForSystem();
     const int width = MulDiv(900, dpi, 96);
-    const int height = MulDiv(680, dpi, 96);
+    const int height = MulDiv(710, dpi, 96);
     const int x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     const int y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
     HWND hwnd = CreateWindowExW(0, kWindowClass, kWindowTitle, WS_OVERLAPPEDWINDOW,
