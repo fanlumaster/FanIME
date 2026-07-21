@@ -14,4 +14,13 @@ export async function setupAppearance() {
 
   // 候选项排列方式
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');
+
+  // 候选窗预编辑
+  setupDropdownMenu(
+    'candPreeditStyleBtn',
+    'candPreeditStyleMenu',
+    'changeCandPreeditStyle',
+    true,
+    'appearance.candidate_window_preedit_style'
+  );
 }

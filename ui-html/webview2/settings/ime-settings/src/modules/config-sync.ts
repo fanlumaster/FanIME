@@ -23,6 +23,11 @@ export function setupConfigSync(): void {
     }
 
     applyCandidateArrange(payload.data?.appearance?.candidate_window_layout);
+    applyDropdownValue(
+      'candPreeditStyleBtn',
+      'candPreeditStyleMenu',
+      payload.data?.appearance?.candidate_window_preedit_style
+    );
     applyInputConfig(
       payload.data?.input?.schema,
       payload.data?.input?.character_set,

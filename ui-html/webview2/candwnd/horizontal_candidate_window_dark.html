@@ -114,6 +114,11 @@
       visibility: hidden;
     }
 
+    /* Hide candidate-window top preedit when configured as empty */
+    .container.preedit-hidden > .row.pinyin {
+      display: none;
+    }
+
     /* Hide container when empty */
     .container:empty {
       padding: 0;
@@ -178,6 +183,12 @@
       if (index >= 0 && index < candidates.length) {
         candidates[index].classList.add('first');
       }
+    }
+
+    window.SetCandidatePreeditVisible = function (visible) {
+      const hide = !visible;
+      document.getElementById('realContainer')?.classList.toggle('preedit-hidden', hide);
+      document.getElementById('measureContainer')?.classList.toggle('preedit-hidden', hide);
     }
 
     window.SetPreeditCaret = function () {
