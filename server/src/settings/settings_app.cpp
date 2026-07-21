@@ -196,8 +196,7 @@ void PostConfig()
            {{"schema", GetConfiguredInputSchemeName()},
             {"character_set", GetConfiguredCharacterSet()},
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-            {"wubi_schema", GetConfiguredWubiSchema()},
-            {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
+            {"wubi_schema", GetConfiguredWubiSchema()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
@@ -212,7 +211,8 @@ void PostConfig()
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
-            {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()}}},
+            {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
+            {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
             {"asr_provider", voice.asr_provider}, {"asr_token", voice.asr_token},
@@ -264,7 +264,7 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredShuangpinSchema(json::value_to<std::string>(data.at("value")));
     if (path == "input.wubi_schema")
         return SetConfiguredWubiSchema(json::value_to<std::string>(data.at("value")));
-    if (path == "input.tsf_preedit_style")
+    if (path == "appearance.tsf_preedit_style")
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));

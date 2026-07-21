@@ -245,12 +245,6 @@ bool LoadImeConfig()
         g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
         g_wubi_schema = tbl["input"]["wubi_schema"].value_or(std::string("wubi86"));
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
-        {
-            const std::string tsf_preedit_style =
-                tbl["input"]["tsf_preedit_style"].value_or(std::string("raw"));
-            g_tsf_preedit_style = GlobalSettings::normalizeTsfPreeditStyle(tsf_preedit_style);
-            GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
-        }
         g_shuangpin_helpcode_enabled = tbl["helpcode"]["shuangpin_helpcode"].value_or(true);
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
         const std::string shuangpin_helpcode_schema =
@@ -283,6 +277,13 @@ bool LoadImeConfig()
             const std::string preedit_style =
                 tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
             g_candidate_window_preedit_style = preedit_style == "empty" ? "empty" : "pinyin";
+        }
+        {
+            const std::string tsf_preedit_style =
+                tbl["appearance"]["tsf_preedit_style"].value_or(
+                    tbl["input"]["tsf_preedit_style"].value_or(std::string("raw")));
+            g_tsf_preedit_style = GlobalSettings::normalizeTsfPreeditStyle(tsf_preedit_style);
+            GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
         }
         g_voice_input.enabled = tbl["voice_input"]["voice_input"].value_or(true);
         g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("siliconflow"));
@@ -570,7 +571,7 @@ bool SetConfiguredTsfPreeditStyle(const std::string &style)
     {
         return false;
     }
-    if (!WriteConfiguredValue("input", "tsf_preedit_style", EscapeTomlBasicString(style)))
+    if (!WriteConfiguredValue("appearance", "tsf_preedit_style", EscapeTomlBasicString(style)))
     {
         return false;
     }

@@ -1228,7 +1228,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
-                            else if (path == "input.tsf_preedit_style")
+                            else if (path == "appearance.tsf_preedit_style")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredTsfPreeditStyle(value))
@@ -1473,8 +1473,7 @@ void PostSettingsConfig()
         {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
                                 {"character_set", GetConfiguredCharacterSet()},
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-                                {"wubi_schema", GetConfiguredWubiSchema()},
-                                {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
+                                {"wubi_schema", GetConfiguredWubiSchema()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
                                 {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
@@ -1486,7 +1485,8 @@ void PostSettingsConfig()
                   {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
                                 {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
-                                  {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()}}},
+                                  {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
+                                  {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
                     {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
