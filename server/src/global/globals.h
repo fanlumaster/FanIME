@@ -9,8 +9,8 @@
 
 namespace GlobalIme
 {
-inline std::wstring AppName = L"MetasequoiaImeTsf";
-inline std::wstring ServerName = L"MetasequoiaImeTsf";
+inline std::wstring AppName = L"metasequoiaime";
+inline std::wstring ServerName = L"metasequoiaime";
 inline std::unordered_set<WCHAR> PUNC_SET = {
     L'`', //
     L'!', //

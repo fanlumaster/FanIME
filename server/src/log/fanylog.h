@@ -8,7 +8,7 @@
 #include "global/globals.h"
 
 inline std::string LogFilePath = fmt::format(         //
-    "C:/Users/{}/AppData/Local/MetasequoiaImeTsf/log/{}.log", //
+    "C:/Users/{}/AppData/Local/metasequoiaime/log/{}.log", //
     CommonUtils::get_username(),                      //
     wstring_to_string(GlobalIme::ServerName)          //
 );

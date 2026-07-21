@@ -20,14 +20,14 @@ Make sure vcpkg and Boost are installed by **Scoop**.
 
 ```powershell
 cd $env:LOCALAPPDATA
-mkdir MetasequoiaImeTsf
-cd MetasequoiaImeTsf
+mkdir metasequoiaime
+cd metasequoiaime
 git clone --recursive https://github.com/metasequoiaime/MetasequoiaImeDict.git
 cd .\MetasequoiaImeDict\makecikudb\xnheulpb\makedb\separated_jp_version
 python .\create_db_and_table.py
 python .\insert_data.py
 python .\create_index_for_db.py
-Copy-Item -Path .\out\msime.db -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
+Copy-Item -Path .\out\msime.db -Destination $env:LOCALAPPDATA\metasequoiaime
 ```
 
 **Then**, clone and build MetasequoiaImeServer,
@@ -41,8 +41,8 @@ Prepare environment,
 ```powershell
 cd MetasequoiaImeServer
 python .\scripts\prepare_env.py
-Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
-New-Item -ItemType SymbolicLink -Path "$env:LOCALAPPDATA\MetasequoiaImeTsf\config.toml" -Target ".\assets\config\config.toml"
+Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\metasequoiaime
+New-Item -ItemType SymbolicLink -Path "$env:LOCALAPPDATA\metasequoiaime\config.toml" -Target ".\assets\config\config.toml"
 ```
 
 e.g.
@@ -50,8 +50,8 @@ e.g.
 ```powershell
 cd MetasequoiaImeServer
 python .\scripts\prepare_env.py
-Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\MetasequoiaImeTsf
-New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\MetasequoiaImeTsf\config.toml" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeServer\assets\config\config.toml"
+Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\metasequoiaime
+New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\metasequoiaime\config.toml" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeServer\assets\config\config.toml"
 ```
 
 Then, build and run,
@@ -78,7 +78,7 @@ after the current process exits.
 
 ## English prefix candidates
 
-Place `english.db` next to `msime.db` in `%LOCALAPPDATA%\MetasequoiaImeTsf`. Set
+Place `english.db` next to `msime.db` in `%LOCALAPPDATA%\metasequoiaime`. Set
 `general.cn_en_mixed_input = true` in `config.toml` to enable asynchronous English prefix candidates for Quanpin and
 Shuangpin.
 

@@ -234,7 +234,7 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
 
 int PrepareHtmlForWnds()
 {
-    // e.g. C:\\Users\\SonnyCalcr\\AppData\\Local\\MetasequoiaImeTsf
+    // e.g. C:\\Users\\SonnyCalcr\\AppData\\Local\\metasequoiaime
     std::wstring assetPath = fmt::format( //
         L"{}\\{}",                        //
         string_to_wstring(CommonUtils::get_local_appdata_path()), GlobalIme::AppName);

@@ -60,7 +60,7 @@ std::wstring ResolveCuePath(const wchar_t *filename)
     const DWORD size = GetEnvironmentVariableW(L"LOCALAPPDATA", local_app_data, MAX_PATH);
     if (size && size < MAX_PATH)
     {
-        const std::wstring installed = std::wstring(local_app_data) + L"\\MetasequoiaImeTsf\\assets\\audios\\" + filename;
+        const std::wstring installed = std::wstring(local_app_data) + L"\\metasequoiaime\\assets\\audios\\" + filename;
         if (GetFileAttributesW(installed.c_str()) != INVALID_FILE_ATTRIBUTES) return installed;
     }
     wchar_t executable[MAX_PATH]{};
