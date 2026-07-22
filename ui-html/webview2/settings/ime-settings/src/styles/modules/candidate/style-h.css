@@ -76,8 +76,13 @@
     align-items: baseline;
   }
 
+  .cand .text {
+    line-height: 1.2;
+  }
+
   .num {
-    font-size: 12px;
+    font-size: 0.8em;
+    color: #e9e8e89d;
     margin-right: 1px;
   }
 

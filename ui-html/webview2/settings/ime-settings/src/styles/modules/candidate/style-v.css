@@ -65,6 +65,10 @@
     color: #e9e8e8;
   }
 
+  .cand .text {
+    line-height: 1.35;
+  }
+
   .pinyin {
     display: flex;
     flex-direction: row;

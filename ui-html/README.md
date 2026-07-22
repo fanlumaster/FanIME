@@ -6,14 +6,14 @@ For debug:
 
 ```shell
 git clone https://github.com/metasequoiaime/MetasequoiaImeUiHtml.git
-New-Item -ItemType SymbolicLink -Path "C:\Users\<username>\AppData\Local\MetasequoiaImeTsf\html" -Target ".\MetasequoiaImeUiHtml"
+New-Item -ItemType SymbolicLink -Path "C:\Users\<username>\AppData\Local\metasequoiaime\html" -Target ".\MetasequoiaImeUiHtml"
 ```
 
 e.g.
 
 ```shell
 git clone https://github.com/metasequoiaime/MetasequoiaImeUiHtml.git
-New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\MetasequoiaImeTsf\html" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeUiHtml"
+New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\metasequoiaime\html" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeUiHtml"
 ```
 
 Note: here we must use absolute path.
