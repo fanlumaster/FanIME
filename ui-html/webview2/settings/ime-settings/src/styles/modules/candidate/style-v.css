@@ -16,8 +16,9 @@
     display: inline-block;
     margin-left: 1px;
     width: 1.5px;
-    height: 1em;
+    height: 1.2em;
     background: var(--accent-strong);
+    transform: translateY(10%);
   }
 
   .row {
