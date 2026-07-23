@@ -620,7 +620,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                     ApplyConfiguredCandidateWindowLayout();
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
+                {
                     ApplyConfiguredFloatingToolbarVisibility();
+                    SyncMenuFloatingToolbarToggle();
+                }
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                     FanyNamedPipe::CancelCloudCandidateRequest();
                 if (previous_comma_period != GetConfiguredPagingCommaPeriodEnabled() ||
@@ -763,6 +766,8 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             ::webviewControllerMenuWnd->NotifyParentWindowPositionChanged();
             UpdateSmallWindowWebviewVisibility(hwnd, true);
         }
+        // Refresh before paint so the toggle matches Settings / config.toml.
+        SyncMenuFloatingToolbarToggle();
         SetForegroundWindow(::global_hwnd_menu);
         /* 安装鼠标钩子 */
         if (!g_mouseHook)
@@ -1101,6 +1106,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
                     ApplyConfiguredFloatingToolbarVisibility();
+                    SyncMenuFloatingToolbarToggle();
                 }
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                 {

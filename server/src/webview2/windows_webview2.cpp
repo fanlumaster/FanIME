@@ -990,6 +990,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                         }
                     })())",
                     nullptr);
+                SyncMenuFloatingToolbarToggle();
                 PostMessage(hwnd, WM_REFRESH_MENU_SIZE, 0, 0);
                 return S_OK;
             })
@@ -1474,6 +1475,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 if (SetConfiguredFloatingToolbarEnabled(value))
                                 {
                                     ApplyConfiguredFloatingToolbarVisibility();
+                                    SyncMenuFloatingToolbarToggle();
                                     PostSettingsConfig();
                                 }
                             }
@@ -1653,6 +1655,30 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
             })                                                                                          //
             .Get()                                                                                      //
     );                                                                                                  //
+}
+
+/**
+ * @brief Keep tray-menu floating-toolbar toggle aligned with config.toml.
+ */
+void SyncMenuFloatingToolbarToggle()
+{
+    if (!::webviewMenuWnd)
+    {
+        return;
+    }
+
+    // Keep the tray-menu toggle aligned with config.toml so Settings and tray
+    // never drift apart when either side writes general.floating_toolbar.
+    const wchar_t *script = GetConfiguredFloatingToolbarEnabled()
+                                ? LR"((() => {
+                                      const toggle = document.getElementById('floatingToggle');
+                                      if (toggle) toggle.classList.add('active');
+                                  })())"
+                                : LR"((() => {
+                                      const toggle = document.getElementById('floatingToggle');
+                                      if (toggle) toggle.classList.remove('active');
+                                  })())";
+    ::webviewMenuWnd->ExecuteScript(script, nullptr);
 }
 
 /**
