@@ -40,6 +40,21 @@ namespace
 int g_settings_activation_retries_remaining = 0;
 bool g_is_ime_active = false;
 
+void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
+{
+    if (!controller || !hwnd)
+    {
+        return;
+    }
+    RECT bounds{};
+    GetClientRect(hwnd, &bounds);
+    controller->put_Bounds(bounds);
+    controller->NotifyParentWindowPositionChanged();
+}
+
+// Recompute FTB outer HWND from design DIPs * current DPI. Placement used to be
+// SWP_NOSIZE-only, so a live display-scale change left the host stuck at the
+// create-time physical size while WebView content grew.
 void PlaceFloatingToolbarOnScreen(HWND hwnd)
 {
     if (!hwnd)
@@ -47,20 +62,40 @@ void PlaceFloatingToolbarOnScreen(HWND hwnd)
         return;
     }
     MonitorCoordinates coordinates = GetMainMonitorCoordinates();
-    RECT rect{};
-    GetWindowRect(hwnd, &rect);
-    const int width = rect.right - rect.left;
-    const int height = rect.bottom - rect.top;
+    const FLOAT scale = GetWindowScale(hwnd);
+    const int width = static_cast<int>(std::lround((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale));
+    const int height = static_cast<int>(std::lround((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale));
     const int taskbarHeight = GetTaskbarHeight();
     const int posX = coordinates.right - width - 10;
     const int posY = coordinates.bottom - height - taskbarHeight - 10;
     SetLastError(0);
-    const BOOL ok = SetWindowPos(hwnd, HWND_TOP, posX, posY, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+    const BOOL ok = SetWindowPos(hwnd, HWND_TOP, posX, posY, width, height, SWP_NOACTIVATE);
+    SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
     OutputDebugStringW(fmt::format(L"[msime-webview] ftb place on screen: hwnd=0x{:X}, pos=({},{}), "
-                                  L"size=({},{}), SetWindowPos={}, GetLastError={}, visible={}\n",
-                                  reinterpret_cast<uintptr_t>(hwnd), posX, posY, width, height, ok != FALSE,
+                                  L"size=({},{}), scale={}, SetWindowPos={}, GetLastError={}, visible={}\n",
+                                  reinterpret_cast<uintptr_t>(hwnd), posX, posY, width, height, scale, ok != FALSE,
                                   ok ? 0 : GetLastError(), IsWindowVisible(hwnd) != FALSE)
                            .c_str());
+}
+
+// Recompute menu host pixels from last measured CSS DIPs * scale.
+void ApplyMenuPhysicalSizeFromDips(HWND hwnd, FLOAT scale, UINT flags)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
+    const int newWidth = static_cast<int>(std::ceil(::MENU_CONTENT_WIDTH_DIP * scale));
+    const int newHeight = static_cast<int>(std::ceil(::MENU_CONTENT_HEIGHT_DIP * scale));
+    ::SCALE = scale;
+    ::MENU_WINDOW_WIDTH = newWidth;
+    ::MENU_WINDOW_HEIGHT = newHeight;
+    SetWindowPos(hwnd, nullptr, 0, 0, newWidth, newHeight, flags);
+    SyncHostWebViewBounds(::webviewControllerMenuWnd.Get(), hwnd);
 }
 
 void PrepareLayeredHostWindow(HWND hwnd)
@@ -72,6 +107,30 @@ void PrepareLayeredHostWindow(HWND hwnd)
     SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
     MARGINS mar = {-1};
     DwmExtendFrameIntoClientArea(hwnd, &mar);
+}
+
+// WebView2 needs a real on-monitor, "visible" HWND to finish controller/raster
+// setup. Cloak keeps that warmup invisible (same idea as the settings window).
+void SetHostWindowCloaked(HWND hwnd, bool cloaked)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    BOOL value = cloaked ? TRUE : FALSE;
+    DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(value));
+}
+
+// Show on a real monitor while cloaked so WebView2 can warm up without a flash.
+void WarmupHostWindowCloaked(HWND hwnd)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    SetHostWindowCloaked(hwnd, true);
+    ShowWindow(hwnd, SW_SHOWNA);
+    UpdateWindow(hwnd);
 }
 
 void ScheduleSettingsWindowActivation(HWND hwnd)
@@ -241,6 +300,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 {
     //
     // 候选框窗口
+    // Create on a real monitor and show while DWM-cloaked. Hidden / far
+    // off-screen hosts prevent WebView2 from finishing init; cloaking avoids
+    // the old (100,100)/(200,200) startup flash without breaking warmup.
     //
     DWORD dwExStyle = WS_EX_LAYERED |    //
                       WS_EX_TOOLWINDOW | //
@@ -279,26 +341,6 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
 
     ::global_hwnd = hwnd_cand;
-
-    SetWindowPos(                                                                    //
-        hwnd_cand,                                                                   //
-        HWND_TOP,                                                                    //
-        -10000,                                                                      //
-        -10000,                                                                      //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-        SWP_SHOWWINDOW                                                               //
-    );
-
-    SetWindowPos(                                                                    //
-        hwnd_cand,                                                                   //
-        HWND_TOP,                                                                    //
-        100,                                                                         //
-        100,                                                                         //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-        SWP_SHOWWINDOW                                                               //
-    );
 
     //
     // 任务栏托盘区的菜单窗口
@@ -374,14 +416,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
                                   reinterpret_cast<uintptr_t>(hwnd_ftb), ftbX, ftbY, ftbWidth, ftbHeight)
                            .c_str());
 
-    //
-    // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口、floating toolbar hover tip 窗口
-    //
-    ShowWindow(hwnd_cand, SW_SHOW);
-    ShowWindow(hwnd_menu, SW_SHOW);
+    // Cloaked show: WebView2 sees a visible on-monitor host; the user does not.
+    WarmupHostWindowCloaked(hwnd_cand);
+    WarmupHostWindowCloaked(hwnd_menu);
     ApplyConfiguredFloatingToolbarVisibility();
-    UpdateWindow(hwnd_cand);
-    UpdateWindow(hwnd_menu);
     UpdateWindow(hwnd_ftb);
 
     //
@@ -533,6 +571,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
             SWP_SHOWWINDOW                                                               //
         );
+        SetHostWindowCloaked(hwnd, true);
         UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         /* 候选词部分使用全角空格来占位 */
         // std::wstring str = L" ,　,　,　,　,　,　,　,　";
@@ -727,23 +766,32 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         int top = Global::Point[1];
         int right = Global::Keycode;
         int bottom = Global::ModifiersDown;
+        // Refresh physical size from CSS DIPs * this HWND's current DPI so a
+        // live display-scale change cannot leave a stale pixel cache.
+        const FLOAT scale = GetWindowScale(hwnd);
+        ::SCALE = scale;
+        if (::MENU_CONTENT_WIDTH_DIP <= 0.0)
+        {
+            ::MENU_CONTENT_WIDTH_DIP = 200.0;
+        }
+        if (::MENU_CONTENT_HEIGHT_DIP <= 0.0)
+        {
+            ::MENU_CONTENT_HEIGHT_DIP = 300.0;
+        }
+        ::MENU_WINDOW_WIDTH = static_cast<int>(std::ceil(::MENU_CONTENT_WIDTH_DIP * scale));
+        ::MENU_WINDOW_HEIGHT = static_cast<int>(std::ceil(::MENU_CONTENT_HEIGHT_DIP * scale));
         int iconWidth = (right - left) * ::SCALE;
         int iconHeight = (bottom - top) * ::SCALE;
         int iconMiddleX = left + iconWidth / 2;
-        if (::MENU_WINDOW_WIDTH <= 0)
-        {
-            ::MENU_WINDOW_WIDTH = static_cast<int>(200 * ::SCALE);
-        }
-        if (::MENU_WINDOW_HEIGHT <= 0)
-        {
-            ::MENU_WINDOW_HEIGHT = static_cast<int>(300 * ::SCALE);
-        }
         int menuX = iconMiddleX - ::MENU_WINDOW_WIDTH / 2;
         int menuY = top - ::MENU_WINDOW_HEIGHT;
         EnsureSmallWindowsTopmost(L"show-menu");
         // Host can appear before WebView paints; pending topmost/content refresh
-        // runs when navigations complete.
-        UINT flag = SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE;
+        // runs when navigations complete. Pass cached physical size (kept current
+        // by measure / WM_DPICHANGED) instead of SWP_NOSIZE so a stale HWND from
+        // a prior display scale cannot clip the menu.
+        SetHostWindowCloaked(::global_hwnd_menu, false);
+        UINT flag = SWP_SHOWWINDOW | SWP_NOACTIVATE;
         const HWND zorder = AreSmallWindowsTopmostApplied() ? HWND_TOPMOST : HWND_TOP;
         SetLastError(0);
         BOOL okShowMenu = SetWindowPos( //
@@ -751,14 +799,16 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             zorder,                     //
             menuX,                      //
             menuY,                      //
-            0,                          //
-            0,                          //
+            ::MENU_WINDOW_WIDTH,        //
+            ::MENU_WINDOW_HEIGHT,       //
             flag                        //
         );
         OutputDebugStringW(fmt::format(L"[msime-webview] show menu: hwnd=0x{:X}, pos=({},{}), size=({},{}), "
-                                      L"SetWindowPos={}, GetLastError={}, webview={}, controller={}, visible={}\n",
+                                      L"dip=({:.1f},{:.1f}), scale={}, SetWindowPos={}, GetLastError={}, "
+                                      L"webview={}, controller={}, visible={}\n",
                                       reinterpret_cast<uintptr_t>(::global_hwnd_menu), menuX, menuY,
-                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, okShowMenu != FALSE,
+                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, ::MENU_CONTENT_WIDTH_DIP,
+                                      ::MENU_CONTENT_HEIGHT_DIP, scale, okShowMenu != FALSE,
                                       okShowMenu ? 0 : GetLastError(), webviewMenuWnd != nullptr,
                                       webviewControllerMenuWnd != nullptr,
                                       IsWindowVisible(::global_hwnd_menu) != FALSE)
@@ -786,15 +836,42 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         break;
     }
 
+    case WM_DPICHANGED: {
+        // Prefer dip * newScale over the suggested rect alone: the menu host is
+        // content-sized, and a stale/oversized create-time rect would otherwise
+        // keep the wrong physical size across display-scale changes.
+        const FLOAT scale = HIWORD(wParam) / 96.0f;
+        const auto *suggested = reinterpret_cast<const RECT *>(lParam);
+        ::SCALE = scale;
+        ::MENU_WINDOW_WIDTH = static_cast<int>(std::ceil(::MENU_CONTENT_WIDTH_DIP * scale));
+        ::MENU_WINDOW_HEIGHT = static_cast<int>(std::ceil(::MENU_CONTENT_HEIGHT_DIP * scale));
+        if (suggested)
+        {
+            SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        else
+        {
+            ApplyMenuPhysicalSizeFromDips(hwnd, scale, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        SyncHostWebViewBounds(::webviewControllerMenuWnd.Get(), hwnd);
+        OutputDebugStringW(fmt::format(L"[msime-webview] menu WM_DPICHANGED: size=({},{}), dip=({:.1f},{:.1f}), "
+                                      L"scale={}\n",
+                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, ::MENU_CONTENT_WIDTH_DIP,
+                                      ::MENU_CONTENT_HEIGHT_DIP, scale)
+                               .c_str());
+        // Remeasure in case font/layout metrics shifted with the new DPI.
+        SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_MENU, 1, nullptr);
+        return 0;
+    }
+
     case WM_SIZE: {
         // The menu is resized to match its HTML content after WebView startup.
         // Keep the controller surface aligned with the resized host HWND so it
         // can be hidden and shown repeatedly without losing its painted area.
         if (::webviewControllerMenuWnd && wParam != SIZE_MINIMIZED)
         {
-            RECT bounds{};
-            GetClientRect(hwnd, &bounds);
-            ::webviewControllerMenuWnd->put_Bounds(bounds);
+            SyncHostWebViewBounds(::webviewControllerMenuWnd.Get(), hwnd);
         }
         break;
     }
@@ -812,28 +889,20 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 GetContainerSizeMenu(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
                     if (hwnd == ::global_hwnd_menu)
                     {
-                        UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER;
-                        FLOAT scale = GetForegroundWindowScale();
-                        // CSS layout can produce fractional pixels. Truncating
-                        // here makes the viewport fractionally smaller than the
-                        // content, which causes Chromium to add both scrollbars.
-                        int newWidth = static_cast<int>(std::ceil(containerSize.first * scale));
-                        int newHeight = static_cast<int>(std::ceil(containerSize.second * scale));
-                        ::SCALE = scale;
-                        ::MENU_WINDOW_WIDTH = newWidth;
-                        ::MENU_WINDOW_HEIGHT = newHeight;
-                        /* 调整菜单窗口 size；初始化阶段保持隐藏且不改 z-order */
-                        SetWindowPos(     //
-                            hwnd,         //
-                            nullptr,      //
-                            0,            //
-                            0,            //
-                            newWidth,     //
-                            newHeight,    //
-                            flag          //
-                        );
-                        OutputDebugStringW(fmt::format(L"[msime-webview] menu measured: size=({},{}), scale={}\n",
-                                                      newWidth, newHeight, scale)
+                        if (containerSize.first > 1.0 && containerSize.second > 1.0)
+                        {
+                            ::MENU_CONTENT_WIDTH_DIP = containerSize.first;
+                            ::MENU_CONTENT_HEIGHT_DIP = containerSize.second;
+                        }
+                        const bool wasVisible = IsWindowVisible(hwnd) != FALSE;
+                        UINT flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
+                        flag |= wasVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
+                        FLOAT scale = GetWindowScale(hwnd);
+                        ApplyMenuPhysicalSizeFromDips(hwnd, scale, flag);
+                        OutputDebugStringW(fmt::format(L"[msime-webview] menu measured: size=({},{}), "
+                                                      L"dip=({:.1f},{:.1f}), scale={}\n",
+                                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT,
+                                                      ::MENU_CONTENT_WIDTH_DIP, ::MENU_CONTENT_HEIGHT_DIP, scale)
                                                .c_str());
                     }
                 });
@@ -1357,6 +1426,22 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         break;
     }
 
+    case WM_DPICHANGED: {
+        // Recompute from design DIPs rather than only accepting the suggested
+        // rect, then snap back to the preferred bottom-right screen slot.
+        OutputDebugStringW(fmt::format(L"[msime-webview] ftb WM_DPICHANGED: dpi={}\n", HIWORD(wParam)).c_str());
+        PlaceFloatingToolbarOnScreen(hwnd);
+        return 0;
+    }
+
+    case WM_SIZE: {
+        if (::webviewControllerFtbWnd && wParam != SIZE_MINIMIZED)
+        {
+            SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
+        }
+        break;
+    }
+
     case WM_TIMER: {
         if (wParam == TIMER_ID_MOVE_WEBVIEW_FTB)
         {
@@ -1456,6 +1541,9 @@ int FineTuneWindow(HWND hwnd)
             newHeight,         //
             newFlag            //
         );
+        SetHostWindowCloaked(hwnd, false);
+        UpdateSmallWindowWebviewVisibility(hwnd, true);
+        SyncHostWebViewBounds(::webviewControllerCandWnd.Get(), hwnd);
         RECT actualRect{};
         GetWindowRect(hwnd, &actualRect);
         OutputDebugStringW(fmt::format(

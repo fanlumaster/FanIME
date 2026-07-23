@@ -33,7 +33,12 @@ inline bool is_global_wnd_cand_shown = false;
 
 //
 // 托盘区语言栏菜单窗口
+// MENU_CONTENT_*_DIP is the measured CSS size; MENU_WINDOW_* is the derived
+// physical host size (dip * current scale). Caching DIPs lets live DPI changes
+// and each show recompute physical size without a stale pixel cache.
 //
+inline double MENU_CONTENT_WIDTH_DIP = 240.0;
+inline double MENU_CONTENT_HEIGHT_DIP = 232.0;
 inline int MENU_WINDOW_WIDTH = 240;
 inline int MENU_WINDOW_HEIGHT = 232;
 
