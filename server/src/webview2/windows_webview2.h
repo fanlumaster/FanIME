@@ -5,6 +5,7 @@
 #include "fmt/xchar.h"
 #include <boost/locale.hpp>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -28,6 +29,11 @@ void UpdateHtmlContentWithJavaScript( //
     ComPtr<ICoreWebView2> webview,    //
     const std::wstring &newContent    //
 );                                    //
+void UpdateHtmlContentWithJavaScript(                       //
+    ComPtr<ICoreWebView2> webview,                          //
+    const std::wstring &newContent,                         //
+    std::function<void()> onComplete                        //
+);                                                          //
 
 //
 // 候选窗口 webview
@@ -48,10 +54,15 @@ bool ApplyConfiguredUiThemes();
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
+void InflateCandWnd(std::wstring &str, std::function<void()> onComplete);
 void InflateMeasureDivCandWnd(std::wstring &str);
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
 void ShutdownWebviews();
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+// Expand WebView bounds beyond the host client so horizontal measure/layout
+// is not constrained by a still-narrow HWND.
+void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd);
+void SyncCandidateWebViewBoundsToHost(HWND hwnd);
 
 // uiAccess + HWND WebView2: request TOPMOST on first real show. If WebViews are
 // not ready yet, the request is queued and applied after all small-window

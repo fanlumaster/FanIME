@@ -1481,6 +1481,8 @@ int FineTuneWindow(HWND hwnd)
         LogSmallWindowReadyGate(L"fine-tune-no-webview");
         return 0;
     }
+    // Give horizontal measure an unconstrained viewport before reading DOM size.
+    PrepareCandidateWebViewBoundsForMeasure(hwnd);
     std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
     GetContainerSizeCand(webviewCandWnd, [flag,      //
                                           scale,     //
@@ -1512,7 +1514,6 @@ int FineTuneWindow(HWND hwnd)
             OutputDebugStringW(L"[msime-webview] candidate fine-tune abandoned: composition and candidates empty\n");
             return;
         }
-        InflateCandWnd(str);
 
         int newWidth = 0;
         int newHeight = 0;
@@ -1532,6 +1533,10 @@ int FineTuneWindow(HWND hwnd)
         {
             return;
         }
+
+        // Resize host + WebView first, then paint visible content. Inflating
+        // into a still-narrow viewport lets horizontal candidates wrap and
+        // flash a taller intermediate frame before the final single-line layout.
         const BOOL positioned = SetWindowPos( //
             hwnd,              //
             nullptr,           //
@@ -1541,20 +1546,27 @@ int FineTuneWindow(HWND hwnd)
             newHeight,         //
             newFlag            //
         );
-        SetHostWindowCloaked(hwnd, false);
-        UpdateSmallWindowWebviewVisibility(hwnd, true);
-        SyncHostWebViewBounds(::webviewControllerCandWnd.Get(), hwnd);
-        RECT actualRect{};
-        GetWindowRect(hwnd, &actualRect);
-        OutputDebugStringW(fmt::format(
-            L"[msime-webview] candidate window positioned: requested_pos=({},{}), requested_size=({},{}), "
-            L"flags=0x{:X}, success={}, GetLastError={}, actual_rect=[{},{},{},{}], visible={}, "
-            L"topmost_applied={}, measure=({:.1f},{:.1f})\n",
-            properPos->first, properPos->second, newWidth, newHeight, newFlag, positioned != FALSE,
-            positioned ? 0 : GetLastError(), actualRect.left, actualRect.top, actualRect.right, actualRect.bottom,
-            IsWindowVisible(hwnd) != FALSE, AreSmallWindowsTopmostApplied(), containerSize.first,
-            containerSize.second)
-                               .c_str());
+        SyncCandidateWebViewBoundsToHost(hwnd);
+
+        InflateCandWnd(str, [hwnd, positioned, newWidth, newHeight, newFlag, properPos, containerSize]() {
+            if (!::is_global_wnd_cand_shown)
+            {
+                return;
+            }
+            SetHostWindowCloaked(hwnd, false);
+            UpdateSmallWindowWebviewVisibility(hwnd, true);
+            RECT actualRect{};
+            GetWindowRect(hwnd, &actualRect);
+            OutputDebugStringW(fmt::format(
+                L"[msime-webview] candidate window positioned: requested_pos=({},{}), requested_size=({},{}), "
+                L"flags=0x{:X}, success={}, GetLastError={}, actual_rect=[{},{},{},{}], visible={}, "
+                L"topmost_applied={}, measure=({:.1f},{:.1f})\n",
+                properPos->first, properPos->second, newWidth, newHeight, newFlag, positioned != FALSE,
+                positioned ? 0 : GetLastError(), actualRect.left, actualRect.top, actualRect.right, actualRect.bottom,
+                IsWindowVisible(hwnd) != FALSE, AreSmallWindowsTopmostApplied(), containerSize.first,
+                containerSize.second)
+                                   .c_str());
+        });
     });
     return 0;
 }

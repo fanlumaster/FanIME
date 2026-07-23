@@ -61,8 +61,17 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
     }
     std::wstring script = LR"(
         (function() {
-            var rect = document.getElementById("measureContainerParent").getBoundingClientRect();
-            return JSON.stringify({width: rect.width, height: rect.height});
+            var el = document.getElementById("measureContainerParent");
+            var box = document.getElementById("measureContainer");
+            if (!el) {
+                return JSON.stringify({width: 0, height: 0});
+            }
+            var rect = el.getBoundingClientRect();
+            // Prefer intrinsic content width so horizontal nowrap layouts are not
+            // under-reported when the WebView viewport is still narrow.
+            var width = Math.max(rect.width, box ? box.scrollWidth : 0, el.scrollWidth || 0);
+            var height = Math.max(rect.height, box ? box.scrollHeight : 0, el.scrollHeight || 0);
+            return JSON.stringify({width: width, height: height});
         })();
     )";
     const HRESULT submitHr = webview->ExecuteScript( //

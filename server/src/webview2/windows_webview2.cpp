@@ -366,33 +366,81 @@ inline std::wstring GetAppdataPath()
 
 void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
 {
-    if (webview != nullptr)
+    UpdateHtmlContentWithJavaScript(webview, newContent, nullptr);
+}
+
+void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent,
+                                     std::function<void()> onComplete)
+{
+    if (!webview)
     {
-        std::wstring script;
-        script.reserve(newContent.length() + 512);
-
-        script.append(L"document.getElementById('realContainer').innerHTML = `");
-        script.append(newContent);
-        script.append(L"`;\n");
-        script.append(L"window.ClearState();\n");
-        script.append(L"var el = document.getElementById('realContainerParent');\n");
-        script.append(L"if (el) {\n");
-        script.append(L"  el.style.marginTop = \"");
-        script.append(std::to_wstring(Global::MarginTop));
-        script.append(L"px\";\n");
-        script.append(L"}\n");
-        script.append(L"if (window.SetCandidateSelection) { window.SetCandidateSelection(");
-        script.append(std::to_wstring(Global::candidate_ui.selected_index_in_page));
-        script.append(L"); }\n");
-        script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
-        script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
-        script.append(L"); }\n");
-        script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
-
-        // OutputDebugString(fmt::format(L"[msime]: UpdateHtmlContentWithJavaScript: {}", script).c_str());
-
-        webview->ExecuteScript(script.c_str(), nullptr);
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return;
     }
+
+    std::wstring script;
+    script.reserve(newContent.length() + 512);
+
+    script.append(L"document.getElementById('realContainer').innerHTML = `");
+    script.append(newContent);
+    script.append(L"`;\n");
+    script.append(L"window.ClearState();\n");
+    script.append(L"var el = document.getElementById('realContainerParent');\n");
+    script.append(L"if (el) {\n");
+    script.append(L"  el.style.marginTop = \"");
+    script.append(std::to_wstring(Global::MarginTop));
+    script.append(L"px\";\n");
+    script.append(L"}\n");
+    script.append(L"if (window.SetCandidateSelection) { window.SetCandidateSelection(");
+    script.append(std::to_wstring(Global::candidate_ui.selected_index_in_page));
+    script.append(L"); }\n");
+    script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
+    script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
+    script.append(L"); }\n");
+    script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
+
+    if (!onComplete)
+    {
+        webview->ExecuteScript(script.c_str(), nullptr);
+        return;
+    }
+
+    webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+            [onComplete](HRESULT, LPCWSTR) -> HRESULT {
+                onComplete();
+                return S_OK;
+            })
+            .Get());
+}
+
+void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
+{
+    if (!webviewControllerCandWnd || !hwnd)
+    {
+        return;
+    }
+    RECT bounds{};
+    GetClientRect(hwnd, &bounds);
+    bounds.right += candidateBoundRightExtra;
+    bounds.bottom += candidateBoundBottomExtra;
+    webviewControllerCandWnd->put_Bounds(bounds);
+}
+
+void SyncCandidateWebViewBoundsToHost(HWND hwnd)
+{
+    if (!webviewControllerCandWnd || !hwnd)
+    {
+        return;
+    }
+    RECT bounds{};
+    GetClientRect(hwnd, &bounds);
+    webviewControllerCandWnd->put_Bounds(bounds);
+    webviewControllerCandWnd->NotifyParentWindowPositionChanged();
 }
 
 int PrepareHtmlForWnds()
@@ -556,6 +604,11 @@ window.mouseBlockTimeout = setTimeout(() => {
 
 void InflateCandWnd(std::wstring &str)
 {
+    InflateCandWnd(str, nullptr);
+}
+
+void InflateCandWnd(std::wstring &str, std::function<void()> onComplete)
+{
     std::wstringstream wss(str);
     std::wstring token;
     std::vector<std::wstring> words;
@@ -565,7 +618,7 @@ void InflateCandWnd(std::wstring &str)
         words.push_back(token);
     }
 
-    int size = words.size();
+    int size = static_cast<int>(words.size());
 
     while (words.size() < 9)
     {
@@ -588,11 +641,10 @@ void InflateCandWnd(std::wstring &str)
     if (size < 9)
     {
         size_t pos = result.find(fmt::format(L"<!--{}Anchor-->", size));
-        // result = result.substr(0, pos) + L"</div>";
         result = result.substr(0, pos);
     }
 
-    UpdateHtmlContentWithJavaScript(webviewCandWnd, result);
+    UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
 
 void InflateMeasureDivCandWnd(std::wstring &str)
