@@ -7,7 +7,9 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    width: fit-content;
+    /* Match candwnd: keep a single horizontal row even in a narrow preview viewport. */
+    width: max-content;
+    white-space: nowrap;
     user-select: none;
     border: 1.5px solid var(--cand-border);
   }

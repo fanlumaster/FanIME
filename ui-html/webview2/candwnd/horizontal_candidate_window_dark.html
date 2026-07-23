@@ -17,7 +17,7 @@
     }
 
     .containerParent {
-      width: fit-content;
+      width: max-content;
     }
 
     .container {
@@ -29,7 +29,9 @@
       border-radius: 6px;
       box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
       min-width: 7em;
-      width: fit-content;
+      /* Avoid wrapping in a still-narrow WebView before the host is resized. */
+      width: max-content;
+      white-space: nowrap;
       user-select: none;
       border: 1.5px solid #9b9b9b2e;
     }
