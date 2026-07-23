@@ -84,7 +84,7 @@
         <span>🖲️</span>
         悬浮工具栏
       </div>
-      <div class="toggle active" id="floatingToggle"></div>
+      <div class="toggle" id="floatingToggle"></div>
     </div>
 
     <div class="menu-item" id="emojiSymbols">
@@ -131,7 +131,8 @@
   </div>
 
   <script>
-    // 悬浮工具栏：向 C++ 端发送消息，隐藏/显示悬浮工具栏
+    // Initial state comes from C++ (SyncMenuFloatingToolbarToggle) so this
+    // toggle stays in sync with Settings / general.floating_toolbar.
     const toggle = document.getElementById('floatingToggle');
     toggle.addEventListener('click', () => {
       toggle.classList.toggle('active');
