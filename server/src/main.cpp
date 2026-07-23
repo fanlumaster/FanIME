@@ -133,7 +133,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     /* To Tsf Worker Thread Named Pipe for IPC, used to pass data to TSF */
     std::thread to_tsf_worker_thread_pipe_listener(FanyNamedPipe::ToTsfWorkerThreadPipeEventListenerLoopThread);
     ::toTsfWorkerThreadPipeThread = to_tsf_worker_thread_pipe_listener.native_handle();
-    /* Aux Named Pipe for reconnecting main pipe */
+    /* Aux Named Pipe: session-less UI notices (e.g. langbar right-click menu) */
     std::thread aux_pipe_listener(FanyNamedPipe::AuxPipeEventListenerLoopThread);
 
     CloudIme::Start([](const std::string &candidate, const std::string &pinyin, uint64_t generation) {

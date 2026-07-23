@@ -83,7 +83,7 @@ struct FanyImeSharedMemoryData
 //   1: FanyHideCandidateWndEvent
 //   2: FanyShowCandidateWndEvent
 //   3: FanyMoveCandidateWndEvent
-//   4: FanyLangbarRightClickEvent
+//   4: FanyLangbarRightClickEvent (legacy Main enum; tip sends via Aux text)
 //   7: IMESwitch
 //   8: PuncSwitch
 //   9: DoubleSingleByteSwitch

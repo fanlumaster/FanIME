@@ -35,6 +35,7 @@
 #include "session/session_factory.h"
 #include "quick-phrases/quick_phrase_query.h"
 #include "unicode/unicode_query.h"
+#include <cwchar>
 
 #ifdef FANY_IPC_DEBUG
 #define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
@@ -595,7 +596,7 @@ bool IsKnownMainPipeEvent(UINT event_type)
     case FanyImePipeEventType::HideCandidateWnd:
     case FanyImePipeEventType::ShowCandidateWnd:
     case FanyImePipeEventType::MoveCandidateWnd:
-    case FanyImePipeEventType::LangbarRightClick:
+    // LangbarRightClick is Aux-only (session-less UI); do not accept on Main.
     case FanyImePipeEventType::IMESwitch:
     case FanyImePipeEventType::PuncSwitch:
     case FanyImePipeEventType::DoubleSingleByteSwitch:
@@ -1514,11 +1515,6 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             break;
         }
 
-        case FanyImePipeEventType::LangbarRightClick: {
-            EnqueueTask(TaskType::LangbarRightClick, pipeData, activation.epoch);
-            break;
-        }
-
         case FanyImePipeEventType::IMESwitch: {
             EnqueueTask(TaskType::IMESwitch, pipeData, activation.epoch);
             break;
@@ -1832,12 +1828,25 @@ void AuxPipeEventListenerLoopThread()
                 std::wstring message(buffer, bytesRead / sizeof(wchar_t));
                 FANY_IPC_LOGF(L"[msime]: [ipc] aux-pipe message: {}", message);
 
-                // Compatibility drain only.  This protocol has no client id
-                // or activation epoch, so accepting lifecycle/status writes
-                // here lets an old TextInputHost/Win+. message overwrite the
-                // current client.  Updated TSF clients drive both visibility
-                // and status through the epoch-checked Main protocol.
-                (void)message;
+                // Aux has no client id / activation epoch. Only accept pure UI
+                // notifications that must not steal Main focus-session routing.
+                // Lifecycle and status remain on the epoch-checked Main protocol.
+                int left = 0;
+                int top = 0;
+                int right = 0;
+                int bottom = 0;
+                if (swscanf_s(message.c_str(), L"LangbarRightClick|%d|%d|%d|%d", &left, &top, &right, &bottom) == 4)
+                {
+                    FanyImeNamedpipeData pipeData = {};
+                    pipeData.event_type = FanyImePipeEventType::LangbarRightClick;
+                    pipeData.point[0] = left;
+                    pipeData.point[1] = top;
+                    pipeData.keycode = static_cast<UINT>(right);
+                    pipeData.modifiers_down = static_cast<UINT>(bottom);
+                    // client_id/epoch stay 0 so WorkerThread skips active-client
+                    // gating and never activates a suspended TIP for a menu click.
+                    EnqueueTask(TaskType::LangbarRightClick, pipeData, 0);
+                }
             }
         }
         else
