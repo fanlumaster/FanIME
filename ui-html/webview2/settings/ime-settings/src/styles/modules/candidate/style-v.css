@@ -63,7 +63,7 @@
     padding-left: 8px;
     color: var(--cand-text);
     display: flex;
-    align-items: center;
+    align-items: baseline;
   }
 
   .cand .text {
