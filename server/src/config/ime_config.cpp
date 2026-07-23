@@ -1,6 +1,7 @@
 #include "ime_config.h"
 #include <fmt/xchar.h>
 #include <Windows.h>
+#include <winreg.h>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -36,6 +37,11 @@ bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::string g_candidate_window_preedit_style = "pinyin";
+std::string g_theme_mode = "dark";
+std::string g_theme_settings = "follow";
+std::string g_theme_cand = "follow";
+std::string g_theme_ftb = "follow";
+std::string g_theme_menu = "follow";
 VoiceInputConfig g_voice_input;
 AiAssistantConfig g_ai_assistant;
 std::filesystem::path g_config_path;
@@ -278,6 +284,22 @@ bool LoadImeConfig()
                 tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
             g_candidate_window_preedit_style = preedit_style == "empty" ? "empty" : "pinyin";
         }
+        {
+            const std::string theme_mode = tbl["appearance"]["theme_mode"].value_or(std::string("dark"));
+            if (theme_mode == "light" || theme_mode == "system" || theme_mode == "auto")
+                g_theme_mode = theme_mode == "auto" ? "system" : theme_mode;
+            else
+                g_theme_mode = "dark";
+        }
+        auto normalize_surface = [](const std::string &value) -> std::string {
+            if (value == "light" || value == "dark" || value == "follow")
+                return value;
+            return "follow";
+        };
+        g_theme_settings = normalize_surface(tbl["appearance"]["theme_settings"].value_or(std::string("follow")));
+        g_theme_cand = normalize_surface(tbl["appearance"]["theme_cand"].value_or(std::string("follow")));
+        g_theme_ftb = normalize_surface(tbl["appearance"]["theme_ftb"].value_or(std::string("follow")));
+        g_theme_menu = normalize_surface(tbl["appearance"]["theme_menu"].value_or(std::string("follow")));
         {
             const std::string tsf_preedit_style =
                 tbl["appearance"]["tsf_preedit_style"].value_or(
@@ -818,6 +840,120 @@ bool SetConfiguredCandidateWindowPreeditStyle(const std::string &style)
     }
     g_candidate_window_preedit_style = style;
     return true;
+}
+
+namespace
+{
+std::string NormalizeThemeMode(const std::string &mode)
+{
+    if (mode == "light" || mode == "system")
+        return mode;
+    if (mode == "auto")
+        return "system";
+    return "dark";
+}
+
+std::string NormalizeSurfaceTheme(const std::string &theme)
+{
+    if (theme == "light" || theme == "dark" || theme == "follow")
+        return theme;
+    return "follow";
+}
+
+bool SetSurfaceThemeValue(const char *key, const std::string &theme, std::string &target)
+{
+    const std::string normalized = NormalizeSurfaceTheme(theme);
+    if (theme != "light" && theme != "dark" && theme != "follow")
+        return false;
+    if (!WriteConfiguredValue("appearance", key, EscapeTomlBasicString(normalized)))
+        return false;
+    target = normalized;
+    return true;
+}
+} // namespace
+
+bool IsSystemAppsLightTheme()
+{
+    HKEY key = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0,
+                      KEY_READ, &key) != ERROR_SUCCESS)
+    {
+        return false;
+    }
+    DWORD value = 0;
+    DWORD size = sizeof(value);
+    const LONG result = RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value),
+                                         &size);
+    RegCloseKey(key);
+    return result == ERROR_SUCCESS && value != 0;
+}
+
+std::string ResolveConfiguredTheme(const std::string &surface_theme)
+{
+    const std::string surface = NormalizeSurfaceTheme(surface_theme);
+    if (surface == "light" || surface == "dark")
+        return surface;
+    if (g_theme_mode == "light")
+        return "light";
+    if (g_theme_mode == "system" || g_theme_mode == "auto")
+        return IsSystemAppsLightTheme() ? "light" : "dark";
+    return "dark";
+}
+
+const std::string &GetConfiguredThemeMode()
+{
+    return g_theme_mode;
+}
+
+bool SetConfiguredThemeMode(const std::string &mode)
+{
+    if (mode != "dark" && mode != "light" && mode != "system" && mode != "auto")
+        return false;
+    const std::string normalized = NormalizeThemeMode(mode);
+    if (!WriteConfiguredValue("appearance", "theme_mode", EscapeTomlBasicString(normalized)))
+        return false;
+    g_theme_mode = normalized;
+    return true;
+}
+
+const std::string &GetConfiguredThemeSettings()
+{
+    return g_theme_settings;
+}
+
+bool SetConfiguredThemeSettings(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_settings", theme, g_theme_settings);
+}
+
+const std::string &GetConfiguredThemeCand()
+{
+    return g_theme_cand;
+}
+
+bool SetConfiguredThemeCand(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_cand", theme, g_theme_cand);
+}
+
+const std::string &GetConfiguredThemeFtb()
+{
+    return g_theme_ftb;
+}
+
+bool SetConfiguredThemeFtb(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_ftb", theme, g_theme_ftb);
+}
+
+const std::string &GetConfiguredThemeMenu()
+{
+    return g_theme_menu;
+}
+
+bool SetConfiguredThemeMenu(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_menu", theme, g_theme_menu);
 }
 
 const VoiceInputConfig &GetConfiguredVoiceInput()

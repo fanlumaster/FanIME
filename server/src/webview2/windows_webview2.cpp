@@ -406,18 +406,21 @@ int PrepareHtmlForWnds()
     // 候选窗口
     //
     const bool isHorizontal = GetConfiguredCandidateWindowLayout() == "horizontal";
+    const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
+    const wchar_t *candThemeSuffix = candLight ? L"light" : L"dark";
     std::wstring htmlCandWnd;
     std::wstring bodyHtmlCandWnd;
     std::wstring measureHtmlCandWnd;
     if (isHorizontal)
     {
-        htmlCandWnd = L"/html/webview2/candwnd/horizontal_candidate_window_dark.html";
+        htmlCandWnd = fmt::format(L"/html/webview2/candwnd/horizontal_candidate_window_{}.html", candThemeSuffix);
+        // Body/measure fragments are theme-agnostic markup; keep the existing dark assets.
         bodyHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark.html";
         measureHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark_measure.html";
     }
     else
     {
-        htmlCandWnd = L"/html/webview2/candwnd/vertical_candidate_window_dark.html";
+        htmlCandWnd = fmt::format(L"/html/webview2/candwnd/vertical_candidate_window_{}.html", candThemeSuffix);
         bodyHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark.html";
         measureHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark_measure.html";
     }
@@ -428,14 +431,16 @@ int PrepareHtmlForWnds()
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
     std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
     ::MeasureStringCandWnd = ReadHtmlFile(measureHtmlPathCandWnd);
-    WebviewDebugLog(fmt::format(L"candidate assets prepared: layout={}, page_chars={}, body_chars={}, measure_chars={}",
-                                isHorizontal ? L"horizontal" : L"vertical", HTMLStringCandWnd.size(),
+    WebviewDebugLog(fmt::format(L"candidate assets prepared: layout={}, theme={}, page_chars={}, body_chars={}, measure_chars={}",
+                                isHorizontal ? L"horizontal" : L"vertical", candThemeSuffix, HTMLStringCandWnd.size(),
                                 BodyStringCandWnd.size(), MeasureStringCandWnd.size()));
 
     //
     // 托盘语言区菜单窗口
     //
-    std::wstring htmlMenuWnd = L"/html/webview2/menu/default.html";
+    const bool menuLight = ResolveConfiguredTheme(GetConfiguredThemeMenu()) == "light";
+    std::wstring htmlMenuWnd =
+        menuLight ? L"/html/webview2/menu/default_light.html" : L"/html/webview2/menu/default.html";
     std::wstring entireHtmlPathMenuWnd = assetPath + htmlMenuWnd;
     ::HTMLStringMenuWnd = ReadHtmlFile(entireHtmlPathMenuWnd);
 
@@ -452,7 +457,9 @@ int PrepareHtmlForWnds()
     //
     // floating toolbar 窗口
     //
-    std::wstring htmlFtbWnd = L"/html/webview2/ftb/default.html";
+    const bool ftbLight = ResolveConfiguredTheme(GetConfiguredThemeFtb()) == "light";
+    std::wstring htmlFtbWnd =
+        ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
     ::HTMLStringFtbWnd = ReadHtmlFile(entireHtmlPathFtbWnd);
 
@@ -469,6 +476,26 @@ bool ApplyConfiguredCandidateWindowLayout()
         return false;
     }
     return SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str()));
+}
+
+bool ApplyConfiguredUiThemes()
+{
+    PrepareHtmlForWnds();
+    bool ok = true;
+    if (webviewCandWnd && !HTMLStringCandWnd.empty())
+    {
+        ok = SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str())) && ok;
+    }
+    if (webviewFtbWnd && !HTMLStringFtbWnd.empty())
+    {
+        floatingToolbarNavigationReady = false;
+        ok = SUCCEEDED(webviewFtbWnd->NavigateToString(HTMLStringFtbWnd.c_str())) && ok;
+    }
+    if (webviewMenuWnd && !HTMLStringMenuWnd.empty())
+    {
+        ok = SUCCEEDED(webviewMenuWnd->NavigateToString(HTMLStringMenuWnd.c_str())) && ok;
+    }
+    return ok;
 }
 
 //
@@ -1215,7 +1242,9 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     // WebView repaints, which looks like the window/taskbar is flashing.
     if (SUCCEEDED(webviewControllerSettingsWnd.As(&webviewController2SettingsWnd)))
     {
-        COREWEBVIEW2_COLOR backgroundColor = {255, 32, 32, 32};
+        const bool settingsLight = ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+        COREWEBVIEW2_COLOR backgroundColor =
+            settingsLight ? COREWEBVIEW2_COLOR{255, 243, 243, 243} : COREWEBVIEW2_COLOR{255, 32, 32, 32};
         webviewController2SettingsWnd->put_DefaultBackgroundColor(backgroundColor);
     }
 
@@ -1466,6 +1495,68 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredCandidateWindowPreeditStyle(value))
                                 {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.theme_mode")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredThemeMode(value))
+                                {
+                                    ApplyConfiguredUiThemes();
+                                    if (webviewController2SettingsWnd)
+                                    {
+                                        const bool settingsLight =
+                                            ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+                                        COREWEBVIEW2_COLOR backgroundColor =
+                                            settingsLight ? COREWEBVIEW2_COLOR{255, 243, 243, 243}
+                                                          : COREWEBVIEW2_COLOR{255, 32, 32, 32};
+                                        webviewController2SettingsWnd->put_DefaultBackgroundColor(backgroundColor);
+                                    }
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.theme_settings")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredThemeSettings(value))
+                                {
+                                    if (webviewController2SettingsWnd)
+                                    {
+                                        const bool settingsLight =
+                                            ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+                                        COREWEBVIEW2_COLOR backgroundColor =
+                                            settingsLight ? COREWEBVIEW2_COLOR{255, 243, 243, 243}
+                                                          : COREWEBVIEW2_COLOR{255, 32, 32, 32};
+                                        webviewController2SettingsWnd->put_DefaultBackgroundColor(backgroundColor);
+                                    }
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.theme_cand")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredThemeCand(value))
+                                {
+                                    ApplyConfiguredUiThemes();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.theme_ftb")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredThemeFtb(value))
+                                {
+                                    ApplyConfiguredUiThemes();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.theme_menu")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredThemeMenu(value))
+                                {
+                                    ApplyConfiguredUiThemes();
                                     PostSettingsConfig();
                                 }
                             }
@@ -1724,7 +1815,12 @@ void PostSettingsConfig()
                                 {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
                                   {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
-                                  {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
+                                  {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
+                                  {"theme_mode", GetConfiguredThemeMode()},
+                                  {"theme_settings", GetConfiguredThemeSettings()},
+                                  {"theme_cand", GetConfiguredThemeCand()},
+                                  {"theme_ftb", GetConfiguredThemeFtb()},
+                                  {"theme_menu", GetConfiguredThemeMenu()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
                     {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},

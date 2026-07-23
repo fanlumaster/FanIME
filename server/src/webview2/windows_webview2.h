@@ -44,6 +44,7 @@ inline std::wstring StrCandWnd = L"";
 
 int PrepareHtmlForWnds();
 bool ApplyConfiguredCandidateWindowLayout();
+bool ApplyConfiguredUiThemes();
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);

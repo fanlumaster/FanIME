@@ -34,6 +34,11 @@ clean_mode = false
 [appearance]
 # 主题模式，可选："dark", "light", "system"
 theme_mode = "dark"
+# 分表面主题，可选："follow", "dark", "light"（follow = 跟随 theme_mode）
+theme_settings = "follow"
+theme_cand = "follow"
+theme_ftb = "follow"
+theme_menu = "follow"
 # 字体
 font = "Noto Sans SC"
 # 缺省字体，如果系统中没有找到指定字体，则使用缺省字体

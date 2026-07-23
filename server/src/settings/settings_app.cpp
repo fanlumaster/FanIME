@@ -53,6 +53,7 @@ bool g_maximize_button_hover = false;
 bool g_window_active = true;
 bool g_window_minimized = false;
 bool g_open_about_on_ready = false;
+HWND g_settings_hwnd = nullptr;
 
 void ShowAboutSection()
 {
@@ -134,6 +135,23 @@ void ApplyWindowActivationAppearance()
     g_webview->ExecuteScript(script, nullptr);
 }
 
+void ApplySettingsChromeTheme(HWND hwnd = nullptr)
+{
+    const HWND target = hwnd ? hwnd : g_settings_hwnd;
+    const bool light = ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+    if (target)
+    {
+        BOOL dark = light ? FALSE : TRUE;
+        DwmSetWindowAttribute(target, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+    }
+    if (g_controller2)
+    {
+        COREWEBVIEW2_COLOR background =
+            light ? COREWEBVIEW2_COLOR{255, 243, 243, 243} : COREWEBVIEW2_COLOR{255, 32, 32, 32};
+        g_controller2->put_DefaultBackgroundColor(background);
+    }
+}
+
 void ResetTitlebarHoverAfterVisibilityChange()
 {
     if (!g_webview)
@@ -212,7 +230,12 @@ void PostConfig()
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
-            {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()}}},
+            {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
+            {"theme_mode", GetConfiguredThemeMode()},
+            {"theme_settings", GetConfiguredThemeSettings()},
+            {"theme_cand", GetConfiguredThemeCand()},
+            {"theme_ftb", GetConfiguredThemeFtb()},
+            {"theme_menu", GetConfiguredThemeMenu()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
             {"asr_provider", voice.asr_provider}, {"asr_token", voice.asr_token},
@@ -270,6 +293,16 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_preedit_style")
         return SetConfiguredCandidateWindowPreeditStyle(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_mode")
+        return SetConfiguredThemeMode(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_settings")
+        return SetConfiguredThemeSettings(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_cand")
+        return SetConfiguredThemeCand(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_ftb")
+        return SetConfiguredThemeFtb(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_menu")
+        return SetConfiguredThemeMenu(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")
@@ -426,6 +459,10 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "configUpdate" && ApplyConfigUpdate(value.at("data").as_object()))
         {
+            const auto &data = value.at("data").as_object();
+            const std::string path = json::value_to<std::string>(data.at("path"));
+            if (path == "appearance.theme_mode" || path == "appearance.theme_settings")
+                ApplySettingsChromeTheme(hwnd);
             PostConfig();
         }
         else if (type == "openKeyboardPanel")
@@ -504,8 +541,7 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
     }
     if (SUCCEEDED(g_controller.As(&g_controller2)))
     {
-        COREWEBVIEW2_COLOR background{255, 32, 32, 32};
-        g_controller2->put_DefaultBackgroundColor(background);
+        ApplySettingsChromeTheme(hwnd);
     }
 
     HRESULT hr = EnsureCompositionTree(hwnd);
@@ -771,7 +807,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         break;
     }
     case WM_TIMER:
-        if (w_param == kConfigReloadTimer && ReloadImeConfigIfChanged()) PostConfig();
+        if (w_param == kConfigReloadTimer && ReloadImeConfigIfChanged())
+        {
+            ApplySettingsChromeTheme(hwnd);
+            PostConfig();
+        }
         return 0;
     case WM_CLOSE:
         DestroyWindow(hwnd);
@@ -832,13 +872,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     HWND hwnd = CreateWindowExW(0, kWindowClass, kWindowTitle, WS_OVERLAPPEDWINDOW,
                                 x, y, width, height, nullptr, nullptr, instance, nullptr);
     if (!hwnd) return 1;
+    g_settings_hwnd = hwnd;
 
     BOOL cloak = TRUE;
-    BOOL dark = TRUE;
     DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
     DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_NONE;
     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
-    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+    ApplySettingsChromeTheme(hwnd);
     DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
     DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
     MARGINS margins{};

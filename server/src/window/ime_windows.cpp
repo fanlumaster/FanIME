@@ -605,6 +605,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
+            const std::string previous_theme_mode = GetConfiguredThemeMode();
+            const std::string previous_theme_cand = GetConfiguredThemeCand();
+            const std::string previous_theme_ftb = GetConfiguredThemeFtb();
+            const std::string previous_theme_menu = GetConfiguredThemeMenu();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -619,6 +623,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                     ApplyConfiguredCandidateWindowLayout();
+                if (previous_theme_mode != GetConfiguredThemeMode() || previous_theme_cand != GetConfiguredThemeCand() ||
+                    previous_theme_ftb != GetConfiguredThemeFtb() || previous_theme_menu != GetConfiguredThemeMenu())
+                {
+                    ApplyConfiguredUiThemes();
+                }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
                     ApplyConfiguredFloatingToolbarVisibility();
@@ -1083,6 +1092,10 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
+            const std::string previous_theme_mode = GetConfiguredThemeMode();
+            const std::string previous_theme_cand = GetConfiguredThemeCand();
+            const std::string previous_theme_ftb = GetConfiguredThemeFtb();
+            const std::string previous_theme_menu = GetConfiguredThemeMenu();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -1102,6 +1115,11 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                 {
                     ApplyConfiguredCandidateWindowLayout();
+                }
+                if (previous_theme_mode != GetConfiguredThemeMode() || previous_theme_cand != GetConfiguredThemeCand() ||
+                    previous_theme_ftb != GetConfiguredThemeFtb() || previous_theme_menu != GetConfiguredThemeMenu())
+                {
+                    ApplyConfiguredUiThemes();
                 }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
