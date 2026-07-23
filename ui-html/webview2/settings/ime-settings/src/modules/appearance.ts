@@ -1,12 +1,17 @@
 import { applyDropdownValue, setupDropdownMenu } from './shared';
 import { loadHTML } from '../utils/common-utils';
+import { applyThemeConfig, type ThemeConfig } from './theme';
 
 export function applyAppearanceConfig(
   candidateWindowPreeditStyle: string | undefined,
-  tsfPreeditStyle: string | undefined
+  tsfPreeditStyle: string | undefined,
+  themeConfig?: ThemeConfig
 ): void {
   applyDropdownValue('candPreeditStyleBtn', 'candPreeditStyleMenu', candidateWindowPreeditStyle);
   applyDropdownValue('tsfPreeditStyleBtn', 'tsfPreeditStyleMenu', tsfPreeditStyle);
+  if (themeConfig) {
+    applyThemeConfig(themeConfig);
+  }
 }
 
 export async function setupAppearance() {
@@ -17,8 +22,20 @@ export async function setupAppearance() {
   wnd_h.innerHTML = await loadHTML(`/src/partials/candidate/candidate-wnd-h.html`);
   wnd_h.style.display = 'none';
 
-  // 主题模式
-  setupDropdownMenu('themeBtn', 'themeMenu', 'changeTheme');
+  // 主题模式（全局）
+  setupDropdownMenu('themeBtn', 'themeMenu', 'changeTheme', false, 'appearance.theme_mode');
+
+  // 分表面主题
+  setupDropdownMenu(
+    'settingsThemeBtn',
+    'settingsThemeMenu',
+    'changeSettingsTheme',
+    false,
+    'appearance.theme_settings'
+  );
+  setupDropdownMenu('candThemeBtn', 'candThemeMenu', 'changeCandTheme', false, 'appearance.theme_cand');
+  setupDropdownMenu('ftbThemeBtn', 'ftbThemeMenu', 'changeFtbTheme', false, 'appearance.theme_ftb');
+  setupDropdownMenu('menuThemeBtn', 'menuThemeMenu', 'changeMenuTheme', false, 'appearance.theme_menu');
 
   // 候选项排列方式
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');

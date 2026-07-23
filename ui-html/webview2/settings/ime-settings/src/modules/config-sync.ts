@@ -26,7 +26,14 @@ export function setupConfigSync(): void {
     applyCandidateArrange(payload.data?.appearance?.candidate_window_layout);
     applyAppearanceConfig(
       payload.data?.appearance?.candidate_window_preedit_style,
-      payload.data?.appearance?.tsf_preedit_style
+      payload.data?.appearance?.tsf_preedit_style,
+      {
+        theme_mode: payload.data?.appearance?.theme_mode,
+        theme_settings: payload.data?.appearance?.theme_settings,
+        theme_cand: payload.data?.appearance?.theme_cand,
+        theme_ftb: payload.data?.appearance?.theme_ftb,
+        theme_menu: payload.data?.appearance?.theme_menu
+      }
     );
     applyInputConfig(
       payload.data?.input?.schema,

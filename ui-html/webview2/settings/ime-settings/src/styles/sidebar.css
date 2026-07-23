@@ -91,7 +91,7 @@
   transition: none;
   border-radius: 5px;
   margin: 2px 8px;
-  color: #e6e6e6;
+  color: var(--sidebar-item-color);
 }
 
 .sidebar .item:hover {
@@ -104,7 +104,7 @@
 
 .sidebar .item.active:hover {
   background: var(--sidebar-hover);
-  color: #fff;
+  color: var(--text-color);
 }
 
 /* item 左侧滑动指示条 */
@@ -149,4 +149,8 @@
 .sidebar .item:hover .icon img,
 .sidebar .item.active .icon img {
   opacity: 1;
+}
+
+html[data-theme="light"] .sidebar .icon img {
+  filter: invert(1) brightness(0.25);
 }

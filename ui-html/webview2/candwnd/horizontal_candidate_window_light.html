@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>(IME)VCandWnd</title>
+  <style>
+    body {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 16px;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .containerParent {
+      width: fit-content;
+    }
+
+    .container {
+      margin-top: 0px;
+      margin-left: 0px;
+      background: #ffffff;
+      /* background: url("https://appassets/background.jpg"); */
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
+      min-width: 7em;
+      width: fit-content;
+      user-select: none;
+      border: 1.5px solid rgba(0, 0, 0, 0.12);
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 1em;
+      background: #6b69d6;
+      transform: translate(1.3px, 6%);
+    }
+
+    .row {
+      justify-content: space-between;
+      /* padding: 2px; */
+      /* padding-right: 12px; */
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 2px;
+      margin-bottom: 1px;
+    }
+
+    .cand {
+      border-radius: 4px;
+    }
+
+    .hover-active .cand:hover {
+      background-color: #ececec;
+    }
+
+    .row-wrapper {
+      position: relative;
+      display: inline-block;
+      vertical-align: top;
+    }
+
+    .first-row-wrapper {
+      margin-left: 2px;
+    }
+
+    .first {
+      background-color: #e8e8e8;
+      border-radius: 4px;
+    }
+
+    /* bar */
+    .first::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 53%;
+      transform: translateY(-50%);
+      height: 0.8em;
+      width: 0.2em;
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+
+    .text {
+      padding-left: 5px;
+      padding-right: 5px;
+      color: #1a1a1a;
+      display: flex;
+      align-items: baseline;
+    }
+
+    .cand .text {
+      line-height: 1.2;
+    }
+
+    .num {
+      font-size: 0.8em;
+      color: rgba(26, 26, 26, 0.55);
+      margin-right: 1px;
+    }
+
+    .pinyin {
+      font-size: 14px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0;
+    }
+
+    .hidden-pinyin {
+      visibility: hidden;
+    }
+
+    /* Hide candidate-window top preedit when configured as empty */
+    .container.preedit-hidden > .row.pinyin {
+      display: none;
+    }
+
+    /* Hide container when empty */
+    .container:empty {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
+    }
+  </style>
+
+  <script>
+    let a = false;
+    document.addEventListener('DOMContentLoaded', function () {
+      document.addEventListener('click', function (e) {
+        if (e.button !== 0) {
+          return;
+        }
+
+        if (!(e.target instanceof Element)) {
+          return;
+        }
+
+        const candElement = e.target.closest('.cand');
+        if (!candElement) {
+          return;
+        }
+
+        const container = document.getElementById('realContainer');
+        if (!container) {
+          return;
+        }
+        const candidates = Array.from(container.querySelectorAll('.cand'));
+        const candIndex = candidates.indexOf(candElement) + 1;
+        if (candIndex <= 0) {
+          return;
+        }
+
+        try {
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: candIndex }));
+        } catch (error) {
+          console.error('Failed to send candidate click:', error);
+        }
+      });
+
+      document.addEventListener('mousemove', function () {
+        if (a === true) {
+          const container = document.getElementById('realContainer');
+          container.classList.add('hover-active');
+        }
+        a = true;
+      });
+    });
+
+    window.ClearState = function () {
+      a = false;
+      const container = document.getElementById('realContainer');
+      container.classList.remove('hover-active');
+    }
+
+    window.SetCandidateSelection = function (index) {
+      const candidates = document.querySelectorAll('#realContainer .cand');
+      candidates.forEach((candidate) => candidate.classList.remove('first'));
+      if (index >= 0 && index < candidates.length) {
+        candidates[index].classList.add('first');
+      }
+    }
+
+    window.SetCandidatePreeditVisible = function (visible) {
+      const hide = !visible;
+      document.getElementById('realContainer')?.classList.toggle('preedit-hidden', hide);
+      document.getElementById('measureContainer')?.classList.toggle('preedit-hidden', hide);
+    }
+
+    window.SetPreeditCaret = function () {
+      const preedit = document.querySelector('#realContainer .pinyin .text');
+      if (!preedit) return;
+      const marker = '\uE000';
+      const text = preedit.textContent || '';
+      const index = text.indexOf(marker);
+      const cleanText = text.replace(marker, '');
+      const caretIndex = index >= 0 ? index : cleanText.length;
+      preedit.textContent = '';
+      preedit.append(document.createTextNode(cleanText.slice(0, caretIndex)));
+      const caret = document.createElement('span');
+      caret.className = 'cursor';
+      preedit.append(caret);
+      preedit.append(document.createTextNode(cleanText.slice(caretIndex)));
+    }
+  </script>
+</head>
+
+<body>
+  <div id="realBody">
+    <div class="containerParent" id="realContainerParent">
+      <div class="container" id="realContainer">
+        <!--0Anchor-->
+        <div class="row pinyin">
+          <div class="text">ni'mf<span class="cursor"></span></div>
+          <div class="hidden-pinyin">n</div>
+        </div>
+        <!--1Anchor-->
+        <div class="row-wrapper first-row-wrapper">
+          <div class="row cand first">
+            <div class="text"><span class="num">1</span> 你们(rR)</div>
+          </div>
+        </div>
+        <!--2Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">2</span> 你(rX)</div>
+          </div>
+        </div>
+        <!--3Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">3</span> 尼(uV)</div>
+          </div>
+        </div>
+        <!--4Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">4</span> 妮(nV)</div>
+          </div>
+        </div>
+        <!--5Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">5</span> 泥(dV)</div>
+          </div>
+        </div>
+        <!--6Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">6</span> 逆(zQ)</div>
+          </div>
+        </div>
+        <!--7Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">7</span> 拟(fR)</div>
+          </div>
+        </div>
+        <!--8Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">8</span> 腻(oD)</div>
+          </div>
+        </div>
+        <!--9Anchor-->
+      </div>
+    </div>
+  </div>
+
+
+  <div id="measureBody" style="visibility: hidden;">
+    <div class="containerParent" id="measureContainerParent">
+      <div class="container" id="measureContainer">
+        <!--0Anchor-->
+        <div class="row pinyin">
+          <div class="text">{0}</div>
+          <div class="hidden-pinyin">n</div>
+        </div>
+        <!--1Anchor-->
+        <div class="row-wrapper first-row-wrapper">
+          <div class="row cand first">
+            <div class="text"><span class="num">1</span> {1} 你</div>
+          </div>
+        </div>
+        <!--2Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">2</span> {2} 我</div>
+          </div>
+        </div>
+        <!--3Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">3</span> {3} 什么</div>
+          </div>
+        </div>
+        <!--4Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">4</span> {4} 量子</div>
+          </div>
+        </div>
+        <!--5Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">5</span> {5} 可恶</div>
+          </div>
+        </div>
+        <!--6Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">6</span> {6} 不是</div>
+          </div>
+        </div>
+        <!--7Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">7</span> {7} 那么</div>
+          </div>
+        </div>
+        <!--8Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="num">8</span> {8} 如果</div>
+          </div>
+        </div>
+        <!--9Anchor-->
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

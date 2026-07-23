@@ -4,14 +4,14 @@
   min-height: 0;
   width: 100%;
   overflow: hidden;
-  background: #202020;
+  background: var(--chrome-bg);
 }
 
 #sidebar-container {
   display: flex;
   flex: 1;
   min-height: 0;
-  background: #202020;
+  background: var(--chrome-bg);
 }
 
 #content-container {
@@ -22,7 +22,7 @@
   min-height: 0;
   padding-left: 1rem;
   padding-right: 1.5rem;
-  background: #202020;
+  background: var(--chrome-bg);
   overflow-y: auto;
 }
 
@@ -37,5 +37,5 @@
   padding: 12px 12px;
   overflow: visible;
   margin-top: 2px;
-  background: #202020;
+  background: var(--chrome-bg);
 }

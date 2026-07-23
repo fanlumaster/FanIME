@@ -1,21 +1,143 @@
-.shortcut-settings { padding-bottom: 24px; }
-.shortcut-intro { color: #a8a8a8; font-size: 13px; line-height: 1.6; margin: -4px 8px 18px; }
-.shortcut-section { padding: 0; overflow: hidden; }
-.shortcut-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; }
-.shortcut-section-description { color: #8f8f8f; font-size: 12px; margin-top: 5px; }
-.shortcut-badge { color: #c7c5ff; background: rgba(142, 140, 216, .16); border: 1px solid rgba(142, 140, 216, .25); border-radius: 999px; font-size: 11px; padding: 3px 9px; }
-.shortcut-list { border-top: 1px solid var(--border-color); }
-.shortcut-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 22px; color: #ddd; font-size: 13px; }
-.shortcut-row + .shortcut-row { border-top: 1px solid rgba(255, 255, 255, .045); }
-.shortcut-row-danger > span { color: #e8b4b4; }
-.shortcut-system-guide { margin: 16px 22px 20px; padding: 16px 18px; color: #bdbdbd; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .075); border-radius: 8px; font-size: 12px; line-height: 1.7; }
-.shortcut-system-guide-title { margin-bottom: 4px; color: #e5e5e5; font-size: 13px; font-weight: 600; }
-.shortcut-system-guide-copy { color: #aaa; }
-.shortcut-system-guide ol { margin: 9px 0 8px; padding-left: 22px; }
-.shortcut-system-guide li + li { margin-top: 3px; }
-.shortcut-system-guide-note { color: #858585; }
-.shortcut-keys { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px; color: #777; }
-.shortcut-keys kbd { min-width: 28px; padding: 4px 8px; color: #e6e6e6; background: #303030; border: 1px solid #505050; border-bottom-color: #656565; border-radius: 5px; box-shadow: 0 1px 0 rgba(255, 255, 255, .08); font: 12px/1.25 "Segoe UI Variable", "Segoe UI", sans-serif; text-align: center; white-space: nowrap; }
-.shortcut-keys i, .shortcut-keys em { font-style: normal; font-size: 11px; }
-.shortcut-keys em { margin: 0 3px; color: #8d8d8d; }
-@media (max-width: 760px) { .shortcut-row { align-items: flex-start; flex-direction: column; gap: 9px; } .shortcut-keys { justify-content: flex-start; } }
+.shortcut-settings {
+  padding-bottom: 24px;
+}
+
+.shortcut-intro {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: -4px 8px 18px;
+}
+
+.shortcut-section {
+  padding: 0;
+  overflow: hidden;
+}
+
+.shortcut-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+}
+
+.shortcut-section-description {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.shortcut-badge {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft-border);
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 3px 9px;
+}
+
+.shortcut-list {
+  border-top: 1px solid var(--border-color);
+}
+
+.shortcut-row {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 10px 22px;
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.shortcut-row + .shortcut-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.shortcut-row-danger > span {
+  color: var(--danger-text);
+}
+
+.shortcut-system-guide {
+  margin: 16px 22px 20px;
+  padding: 16px 18px;
+  color: var(--text-secondary);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.shortcut-system-guide-title {
+  margin-bottom: 4px;
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shortcut-system-guide-copy {
+  color: var(--text-secondary);
+}
+
+.shortcut-system-guide ol {
+  margin: 9px 0 8px;
+  padding-left: 22px;
+  color: var(--text-secondary);
+}
+
+.shortcut-system-guide li + li {
+  margin-top: 3px;
+}
+
+.shortcut-system-guide-note {
+  color: var(--text-muted);
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: var(--text-subtle);
+}
+
+.shortcut-keys kbd {
+  min-width: 28px;
+  padding: 4px 8px;
+  color: var(--kbd-text);
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  border-bottom-color: var(--kbd-border-bottom);
+  border-radius: 5px;
+  box-shadow: var(--kbd-shadow);
+  font: 12px/1.25 "Segoe UI Variable", "Segoe UI", sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.shortcut-keys i,
+.shortcut-keys em {
+  font-style: normal;
+  font-size: 11px;
+}
+
+.shortcut-keys em {
+  margin: 0 3px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .shortcut-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .shortcut-keys {
+    justify-content: flex-start;
+  }
+}

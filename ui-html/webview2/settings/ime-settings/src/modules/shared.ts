@@ -1,4 +1,6 @@
 // 下拉菜单功能
+import { setSurfaceTheme, setThemeMode } from './theme';
+
 export function setupDropdownMenu(
   btnId: string,
   menuId: string,
@@ -35,7 +37,19 @@ export function setupDropdownMenu(
       // 分发给具体的函数去处理
       switch (messageAction) {
         case 'changeTheme':
-          // setTheme(item.dataset.value);
+          setThemeMode((item as HTMLElement).dataset.value);
+          break;
+        case 'changeSettingsTheme':
+          setSurfaceTheme('settings', (item as HTMLElement).dataset.value);
+          break;
+        case 'changeCandTheme':
+          setSurfaceTheme('cand', (item as HTMLElement).dataset.value);
+          break;
+        case 'changeFtbTheme':
+          setSurfaceTheme('ftb', (item as HTMLElement).dataset.value);
+          break;
+        case 'changeMenuTheme':
+          setSurfaceTheme('menu', (item as HTMLElement).dataset.value);
           break;
         case 'changeCandidateArrange':
           const htmlItem = item as HTMLElement;

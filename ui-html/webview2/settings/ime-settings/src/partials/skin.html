@@ -4,11 +4,16 @@
   <div class="section skin-theme-card">
     <div class="skin-theme-header">
       <div>
-        <div class="section-title">Fluent 主题(Dark)</div>
-        <div class="skin-theme-description">当前默认主题</div>
+        <div class="section-title" id="skinThemeTitle">Fluent 主题(Dark)</div>
+        <div class="skin-theme-description" id="skinThemeStatus">当前默认主题</div>
       </div>
-      <div class="ftb-toggle-btn active skin-theme-toggle" role="switch" aria-checked="true" aria-disabled="true">
-        <div class="ftb-toggle-knob"></div>
+      <div class="skin-theme-actions">
+        <div class="ftb-toggle-btn active skin-theme-toggle" role="switch" aria-checked="true" aria-disabled="true">
+          <div class="ftb-toggle-knob"></div>
+        </div>
+        <button type="button" class="skin-preview-switch" id="skinPreviewSwitch" title="切换明暗预览">
+          预览浅色
+        </button>
       </div>
     </div>
 

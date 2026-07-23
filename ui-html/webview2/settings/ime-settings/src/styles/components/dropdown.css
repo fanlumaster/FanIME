@@ -8,10 +8,10 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  background: rgba(45, 45, 45, 0.85);
-  border: 0px solid var(--border-color);
+  background: var(--dropdown-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #f3f3f3;
+  color: var(--text-color);
   font-size: 14px;
   padding: 4px 12px;
   padding-right: 6px;
@@ -21,7 +21,7 @@
 }
 
 .dropdown-toggle:hover {
-  background: rgba(45, 45, 45, 0.85);
+  background: var(--dropdown-bg);
   border-color: var(--border-color);
 }
 
@@ -30,11 +30,11 @@
   position: absolute;
   right: 0;
   top: calc(100% + 2px);
-  background: rgba(40, 40, 40, 0.96);
+  background: var(--dropdown-menu-bg);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   min-width: 100px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(12px);
   z-index: 999;
   overflow: hidden;
@@ -44,14 +44,14 @@
 .dropdown-item {
   margin: 2px;
   padding: 4px 8px;
-  color: #eee;
+  color: var(--dropdown-item-color);
   border-radius: 8px;
   font-size: 14px;
 }
 
 .dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--dropdown-item-hover-bg);
+  color: var(--text-color);
   border-radius: 8px;
 }
 
@@ -67,4 +67,8 @@
 .dropdown-toggle img {
   width: 18px;
   height: 18px;
+}
+
+html[data-theme="light"] .dropdown-toggle img {
+  filter: invert(1) brightness(0.25);
 }

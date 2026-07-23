@@ -2,7 +2,7 @@
   position: relative;
   width: 38px;
   height: 19px;
-  background: #555;
+  background: var(--toggle-off-bg);
   border-radius: 9px;
   flex-shrink: 0;
   transition: background 0.2s ease, border 0.2s ease;

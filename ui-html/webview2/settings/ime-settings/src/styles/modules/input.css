@@ -55,12 +55,12 @@
 
 .shuangpin-scheme-dropdown-menu div {
   font-size: 14px;
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .wubi-scheme-dropdown-menu div {
   font-size: 14px;
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 /* 添加方案 */
@@ -79,7 +79,7 @@
   border-radius: 6px;
   background: #292929;
   border: 0px solid #666;
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 14px;
   user-select: none;
   transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;

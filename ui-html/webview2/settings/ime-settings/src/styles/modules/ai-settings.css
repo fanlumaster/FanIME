@@ -1,13 +1,73 @@
-.ai-section { padding: 20px 24px; }
-.ai-heading { margin-bottom: 18px; }
-.ai-description { margin-top: 6px; color: #919191; font-size: 12px; }
-.ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.ai-grid label { display: flex; flex-direction: column; gap: 7px; color: #aaa; font-size: 12px; }
-.ai-grid .ai-wide { grid-column: 1 / -1; }
-.ai-grid input, .ai-prompt { box-sizing: border-box; width: 100%; padding: 10px 12px; color: #eee; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); border-radius: 6px; outline: none; font: inherit; }
-.ai-grid input:focus, .ai-prompt:focus { border-color: var(--accent-color); }
-.ai-grid input[type="password"] { font-family: Consolas, "Cascadia Mono", monospace; letter-spacing: -0.1ch; }
-.ai-prompt { min-height: 280px; resize: none; line-height: 1.65; }
+.ai-section {
+  padding: 20px 24px;
+}
+
+.ai-heading {
+  margin-bottom: 18px;
+}
+
+.ai-description {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.ai-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ai-grid .ai-wide {
+  grid-column: 1 / -1;
+}
+
+.ai-grid input,
+.ai-prompt {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--text-color);
+  background: var(--surface-sunken);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  outline: none;
+  font: inherit;
+}
+
+.ai-grid input::placeholder,
+.ai-prompt::placeholder {
+  color: var(--text-subtle);
+}
+
+.ai-grid input:focus,
+.ai-prompt:focus {
+  border-color: var(--accent-color);
+  background: var(--control-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent);
+}
+
+.ai-grid input[type="password"] {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  letter-spacing: -0.1ch;
+}
+
+.ai-prompt {
+  min-height: 280px;
+  resize: none;
+  line-height: 1.65;
+}
+
 .ai-prompt::-webkit-scrollbar,
 .ai-prompt::-webkit-scrollbar-track,
 .ai-prompt::-webkit-scrollbar-thumb {

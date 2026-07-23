@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>(IME)VCandWnd</title>
+  <style>
+    body {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 16px;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .containerParent {
+      width: fit-content;
+    }
+
+    .container {
+      margin-top: 0px;
+      margin-left: 0px;
+      background: #ffffff;
+      /* background: url("https://appassets/background.jpg"); */
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
+      min-width: 7em;
+      width: fit-content;
+      user-select: none;
+      border: 1.5px solid rgba(0, 0, 0, 0.12);
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 1.4em;
+      background: #6b69d6;
+      transform: translate(1.4px, 0px);
+    }
+
+    .row {
+      justify-content: space-between;
+      padding: 2px;
+      padding-right: 12px;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 2px;
+    }
+
+    .cand {
+      border-radius: 4px;
+    }
+
+    .hover-active .cand:hover {
+      background-color: #ececec;
+    }
+
+    .row-wrapper {
+      position: relative;
+    }
+
+    .first {
+      background-color: #e8e8e8;
+      border-radius: 4px;
+    }
+
+    /* bar */
+    .first::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 0.8em;
+      width: 0.2em;
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+
+    .text {
+      padding-left: 8px;
+      color: #1a1a1a;
+      display: flex;
+      align-items: center;
+    }
+
+    .cand .text {
+      line-height: 1.35;
+    }
+
+    .cand-no {
+      font-size: 0.8em;
+      color: rgba(26, 26, 26, 0.55);
+      margin-right: 3px;
+    }
+
+    .pinyin {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hidden-pinyin {
+      visibility: hidden;
+    }
+
+    /* Hide candidate-window top preedit when configured as empty */
+    .container.preedit-hidden > .row.pinyin {
+      display: none;
+    }
+
+    /* Hide container when empty */
+    .container:empty {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
+    }
+
+    /* Custom context menu */
+    .context-menu {
+      position: fixed;
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 6px;
+      box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
+      padding: 1px 0;
+      /* min-width: 80px; */
+      z-index: 1000;
+      /* 默认隐藏 */
+      /* display: none; */
+    }
+
+    .context-menu-item {
+      padding: 1px 4px;
+      margin: 2px 2px;
+      color: #1a1a1a;
+      cursor: default;
+      font-size: 0.9em;
+      border-radius: 4px;
+    }
+
+    .context-menu-item:hover {
+      background-color: #ececec;
+    }
+  </style>
+
+  <script>
+    let a = false;
+    let currentRightClickedCand = null;
+
+
+    //
+    // 判断候选项是否为单个汉字
+    //
+    function isSingleCharCandidate(candElement) {
+      const contentEl = candElement.querySelector('.cand-content');
+      if (!contentEl) return false;
+
+      let text = contentEl.textContent.trim();
+
+      // 去掉括号里的编码，例如：你们(rR) → 你们
+      text = text.replace(/\(.*?\)$/, '').trim();
+
+      // 按 Unicode code point 计数
+      return Array.from(text).length === 1;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // Disable native context menu globally
+      document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+      });
+
+      // Handle right-click on candidate items
+      document.addEventListener('contextmenu', function (e) {
+        const candElement = e.target.closest('.cand');
+        if (!candElement) {
+          return;
+        }
+
+        e.preventDefault();
+        currentRightClickedCand = candElement;
+
+        // Move .first class to the clicked candidate
+        // TODO: .first 类名需要改为更合适的
+        const container = document.getElementById('realContainer');
+        const currentFirst = container.querySelector('.cand.first');
+        if (currentFirst) {
+          currentFirst.classList.remove('first');
+        }
+        candElement.classList.add('first');
+
+        // 根据候选项是否为单字符决定是否显示删除菜单项
+        const menuDelete = document.getElementById('menuDelete');
+        const isSingle = isSingleCharCandidate(candElement);
+        if (isSingle) {
+          menuDelete.style.display = 'none';
+        } else {
+          menuDelete.style.display = 'block';
+        }
+
+        showContextMenu(e.clientX, e.clientY);
+      });
+
+      //
+      // Hide context menu when clicking elsewhere
+      //
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.context-menu')) {
+          hideContextMenu();
+        }
+
+        const candElement = e.target.closest('.cand');
+        if (candElement && e.button === 0) {
+          const candNoElement = candElement.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          if (candIndex !== null) {
+            console.log('Candidate left clicked:', candIndex);
+            try {
+              window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: Number(candIndex) }));
+              // TODO: 考虑一下，这里要不要也去做一下 html 界面的隐藏。
+            } catch (e) {
+              console.error('Failed to send message:', e);
+            }
+          }
+        }
+      });
+
+      document.addEventListener('mousemove', function () {
+        if (a === true) {
+          const container = document.getElementById('realContainer');
+          container.classList.add('hover-active');
+        }
+        a = true;
+      });
+    });
+
+    //
+    // Show context menu
+    //
+    function showContextMenu(x, y) {
+      const menu = document.getElementById('contextMenu');
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+      menu.style.display = 'block';
+    }
+
+    //
+    // Hide context menu
+    //
+    function hideContextMenu() {
+      const menu = document.getElementById('contextMenu');
+      menu.style.display = 'none';
+      currentRightClickedCand = null;
+    }
+
+    //
+    // 置顶当前候选项
+    //
+    function onPinToTop(event) {
+      // 只针对鼠标左键的点击有效
+      if (event.button !== 0) {
+        return;
+      }
+
+      try {
+        if (currentRightClickedCand) {
+          // Get the candidate index from the cand-no element
+          const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+          const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+          console.log('Pin to top:', candIndex, candContent);
+          // 通知 C++ 端置顶
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'pin', data: Number(candIndex) }));
+        }
+      } catch (e) {
+        // TODO: 处理异常
+      } finally {
+        hideContextMenu();
+      }
+    }
+
+    //
+    // 删除当前候选项
+    //
+    function onDelete(event) {
+      // 只针对鼠标左键的点击有效
+      if (event.button !== 0) {
+        return;
+      }
+
+      try {
+        if (currentRightClickedCand) {
+          // Get the candidate index from the cand-no element
+          const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+          const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+          console.log('Delete:', candIndex, candContent);
+          // 通知 C++ 端删除
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'delete', data: Number(candIndex) }));
+        }
+      } catch (e) {
+        // TODO: 处理异常
+      } finally {
+        hideContextMenu();
+      }
+    }
+
+    window.ClearState = function () {
+      a = false;
+      const container = document.getElementById('realContainer');
+      container.classList.remove('hover-active');
+      hideContextMenu();
+    }
+
+    window.SetCandidateSelection = function (index) {
+      const candidates = document.querySelectorAll('#realContainer .cand');
+      candidates.forEach((candidate) => candidate.classList.remove('first'));
+      if (index >= 0 && index < candidates.length) {
+        candidates[index].classList.add('first');
+      }
+    }
+
+    window.SetCandidatePreeditVisible = function (visible) {
+      const hide = !visible;
+      document.getElementById('realContainer')?.classList.toggle('preedit-hidden', hide);
+      document.getElementById('measureContainer')?.classList.toggle('preedit-hidden', hide);
+    }
+
+    window.SetPreeditCaret = function () {
+      const preedit = document.querySelector('#realContainer .pinyin .text');
+      if (!preedit) return;
+      const marker = '\uE000';
+      const text = preedit.textContent || '';
+      const index = text.indexOf(marker);
+      const cleanText = text.replace(marker, '');
+      const caretIndex = index >= 0 ? index : cleanText.length;
+      preedit.textContent = '';
+      preedit.append(document.createTextNode(cleanText.slice(0, caretIndex)));
+      const caret = document.createElement('span');
+      caret.className = 'cursor';
+      preedit.append(caret);
+      preedit.append(document.createTextNode(cleanText.slice(caretIndex)));
+    }
+  </script>
+</head>
+
+<body>
+  <div id="realBody">
+    <div class="containerParent" id="realContainerParent">
+      <div class="container" id="realContainer">
+        <!--0Anchor-->
+        <div class="row pinyin">
+          <div class="text">ni'mf<span class="cursor"></span></div>
+          <div class="hidden-pinyin">n</div>
+        </div>
+        <!--1Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand first">
+            <div class="text"><span class="cand-no">1</span><span class="cand-content">你们(rR)</span></div>
+          </div>
+        </div>
+        <!--2Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">2</span><span class="cand-content">你(rX)</span></div>
+          </div>
+        </div>
+        <!--3Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">3</span><span class="cand-content">尼(uV)</span></div>
+          </div>
+        </div>
+        <!--4Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">4</span><span class="cand-content">妮(nV)</span></div>
+          </div>
+        </div>
+        <!--5Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">5</span><span class="cand-content">泥(dV)</span></div>
+          </div>
+        </div>
+        <!--6Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">6</span><span class="cand-content">逆(zQ)</span></div>
+          </div>
+        </div>
+        <!--7Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">7</span><span class="cand-content">拟(fR)</span></div>
+          </div>
+        </div>
+        <!--8Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">8</span><span class="cand-content">腻(oD)</span></div>
+          </div>
+        </div>
+        <!--9Anchor-->
+      </div>
+    </div>
+  </div>
+
+
+  <div id="measureBody" style="visibility: hidden;">
+    <div class="containerParent" id="measureContainerParent">
+      <div class="container" id="measureContainer">
+        <!--0Anchor-->
+        <div class="row pinyin">
+          <div class="text">{0}</div>
+          <div class="hidden-pinyin">n</div>
+        </div>
+        <!--1Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand first">
+            <div class="text"><span class="cand-no">1</span><span class="cand-content"> {1} 你</span></div>
+          </div>
+        </div>
+        <!--2Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">2</span><span class="cand-content"> {2} 我</span></div>
+          </div>
+        </div>
+        <!--3Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">3</span><span class="cand-content"> {3} 什么</span></div>
+          </div>
+        </div>
+        <!--4Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">4</span><span class="cand-content"> {4} 量子</span></div>
+          </div>
+        </div>
+        <!--5Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">5</span><span class="cand-content"> {5} 可恶</span></div>
+          </div>
+        </div>
+        <!--6Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">6</span><span class="cand-content"> {6} 不是</span></div>
+          </div>
+        </div>
+        <!--7Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">7</span><span class="cand-content"> {7} 那么</span></div>
+          </div>
+        </div>
+        <!--8Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">8</span><span class="cand-content"> {8} 如果</span></div>
+          </div>
+        </div>
+        <!--9Anchor-->
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Custom Context Menu -->
+  <div id="contextMenu" class="context-menu">
+    <div id="menuPin" class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
+    <div id="menuDelete" class="context-menu-item" onmouseup="onDelete(event)">删除</div>
+  </div>
+</body>
+
+</html>
