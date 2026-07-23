@@ -8,6 +8,12 @@
 .shortcut-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 22px; color: #ddd; font-size: 13px; }
 .shortcut-row + .shortcut-row { border-top: 1px solid rgba(255, 255, 255, .045); }
 .shortcut-row-danger > span { color: #e8b4b4; }
+.shortcut-system-guide { margin: 16px 22px 20px; padding: 16px 18px; color: #bdbdbd; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .075); border-radius: 8px; font-size: 12px; line-height: 1.7; }
+.shortcut-system-guide-title { margin-bottom: 4px; color: #e5e5e5; font-size: 13px; font-weight: 600; }
+.shortcut-system-guide-copy { color: #aaa; }
+.shortcut-system-guide ol { margin: 9px 0 8px; padding-left: 22px; }
+.shortcut-system-guide li + li { margin-top: 3px; }
+.shortcut-system-guide-note { color: #858585; }
 .shortcut-keys { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px; color: #777; }
 .shortcut-keys kbd { min-width: 28px; padding: 4px 8px; color: #e6e6e6; background: #303030; border: 1px solid #505050; border-bottom-color: #656565; border-radius: 5px; box-shadow: 0 1px 0 rgba(255, 255, 255, .08); font: 12px/1.25 "Segoe UI Variable", "Segoe UI", sans-serif; text-align: center; white-space: nowrap; }
 .shortcut-keys i, .shortcut-keys em { font-style: normal; font-size: 11px; }

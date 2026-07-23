@@ -56,7 +56,6 @@ export function setupInput(): void {
   setupToggleButton('cloudCandidatesToggleBtn', (active) => {
     updateConfig('general.cloud_candidates', active);
   });
-
 }
 
 function setupPageOptions(): void {
