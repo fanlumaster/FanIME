@@ -28,6 +28,8 @@ int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
 void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
+bool EnsureSmallWindowsTopmost(const wchar_t *reason);
+void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 
 constexpr int candidateBoundRightExtra = 1000;
 constexpr int candidateBoundBottomExtra = 1000;
@@ -37,6 +39,11 @@ std::wstring bodyRes = L"";
 namespace
 {
 ComPtr<ICoreWebView2Environment> smallWindowWebviewEnvironment;
+
+void WebviewDebugLog(const std::wstring &message)
+{
+    OutputDebugStringW(fmt::format(L"[msime-webview] {}\n", message).c_str());
+}
 
 struct FloatingToolbarState
 {
@@ -49,6 +56,117 @@ struct FloatingToolbarState
 
 FloatingToolbarState floatingToolbarState;
 bool floatingToolbarNavigationReady = false;
+
+bool candidateNavigationReady = false;
+bool menuNavigationReady = false;
+bool smallWindowTopmostRequested = false;
+bool smallWindowTopmostApplied = false;
+
+bool AreSmallWindowWebviewsReadyUnlocked()
+{
+    return candidateNavigationReady && menuNavigationReady && floatingToolbarNavigationReady &&
+           webviewCandWnd != nullptr && webviewMenuWnd != nullptr && webviewFtbWnd != nullptr &&
+           webviewControllerCandWnd != nullptr && webviewControllerMenuWnd != nullptr &&
+           webviewControllerFtbWnd != nullptr;
+}
+
+void ResetSmallWindowTopmostGate()
+{
+    candidateNavigationReady = false;
+    menuNavigationReady = false;
+    floatingToolbarNavigationReady = false;
+    smallWindowTopmostRequested = false;
+    smallWindowTopmostApplied = false;
+    WebviewDebugLog(L"ready-gate reset");
+}
+
+void LogSmallWindowReadyGateUnlocked(const wchar_t *context)
+{
+    WebviewDebugLog(fmt::format(
+        L"ready-gate [{}]: cand_nav={}, menu_nav={}, ftb_nav={}, topmost_requested={}, topmost_applied={}, "
+        L"controllers={{cand:{},menu:{},ftb:{}}}",
+        context ? context : L"?", candidateNavigationReady, menuNavigationReady, floatingToolbarNavigationReady,
+        smallWindowTopmostRequested, smallWindowTopmostApplied, webviewControllerCandWnd != nullptr,
+        webviewControllerMenuWnd != nullptr, webviewControllerFtbWnd != nullptr));
+}
+
+void ApplyLazyTopmostUnlocked(const wchar_t *reason)
+{
+    constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
+    auto pinOne = [flag](HWND hwnd, const wchar_t *name) {
+        if (!hwnd)
+        {
+            WebviewDebugLog(fmt::format(L"lazy topmost skip {}: hwnd=null", name));
+            return;
+        }
+        SetLastError(0);
+        const BOOL ok = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flag);
+        RECT rect{};
+        GetWindowRect(hwnd, &rect);
+        WebviewDebugLog(fmt::format(
+            L"lazy topmost {}: hwnd=0x{:X}, SetWindowPos={}, GetLastError={}, visible={}, "
+            L"rect=[{},{},{},{}]",
+            name, reinterpret_cast<uintptr_t>(hwnd), ok != FALSE, ok ? 0 : GetLastError(),
+            IsWindowVisible(hwnd) != FALSE, rect.left, rect.top, rect.right, rect.bottom));
+    };
+
+    smallWindowTopmostApplied = true;
+    WebviewDebugLog(fmt::format(L"lazy topmost apply: reason={}", reason ? reason : L"?"));
+    pinOne(::global_hwnd, L"candidate");
+    pinOne(::global_hwnd_menu, L"menu");
+    pinOne(::global_hwnd_ftb, L"floating-toolbar");
+    LogSmallWindowReadyGateUnlocked(L"after-topmost-applied");
+}
+
+void TryApplyPendingLazyTopmost(const wchar_t *reason)
+{
+    if (!smallWindowTopmostRequested || smallWindowTopmostApplied)
+    {
+        return;
+    }
+    if (!AreSmallWindowWebviewsReadyUnlocked())
+    {
+        LogSmallWindowReadyGateUnlocked(L"topmost-still-waiting-webviews");
+        return;
+    }
+
+    ApplyLazyTopmostUnlocked(reason);
+    if (::is_global_wnd_cand_shown && ::global_hwnd)
+    {
+        WebviewDebugLog(L"lazy topmost follow-up: FineTuneWindow for pending candidate show");
+        FineTuneWindow(::global_hwnd);
+    }
+    if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
+    {
+        UpdateSmallWindowWebviewVisibility(::global_hwnd_menu, true);
+        if (webviewControllerMenuWnd)
+        {
+            RECT bounds{};
+            GetClientRect(::global_hwnd_menu, &bounds);
+            webviewControllerMenuWnd->put_Bounds(bounds);
+            webviewControllerMenuWnd->NotifyParentWindowPositionChanged();
+        }
+        WebviewDebugLog(L"lazy topmost follow-up: refresh visible menu webview");
+    }
+    if (::global_hwnd_ftb && IsWindowVisible(::global_hwnd_ftb))
+    {
+        UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, true);
+        WebviewDebugLog(L"lazy topmost follow-up: refresh visible floating-toolbar webview");
+    }
+}
+
+void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
+{
+    if (readyFlag)
+    {
+        WebviewDebugLog(fmt::format(L"small-window navigation ready ignored (duplicate): {}", which));
+        return;
+    }
+    readyFlag = true;
+    WebviewDebugLog(fmt::format(L"small-window navigation ready: {}", which));
+    LogSmallWindowReadyGateUnlocked(L"after-nav-ready");
+    TryApplyPendingLazyTopmost(L"pending-after-nav-ready");
+}
 
 bool UpdateBinaryState(int value, int &state)
 {
@@ -130,6 +248,40 @@ void SetWebviewMemoryUsageTarget(ComPtr<ICoreWebView2> webview, COREWEBVIEW2_MEM
 }
 }
 
+bool EnsureSmallWindowsTopmost(const wchar_t *reason)
+{
+    smallWindowTopmostRequested = true;
+    if (smallWindowTopmostApplied)
+    {
+        return true;
+    }
+    if (!AreSmallWindowWebviewsReadyUnlocked())
+    {
+        WebviewDebugLog(fmt::format(L"lazy topmost deferred until webviews ready: reason={}",
+                                    reason ? reason : L"?"));
+        LogSmallWindowReadyGateUnlocked(L"topmost-deferred");
+        return false;
+    }
+
+    ApplyLazyTopmostUnlocked(reason);
+    return true;
+}
+
+bool AreSmallWindowsTopmostApplied()
+{
+    return smallWindowTopmostApplied;
+}
+
+bool AreSmallWindowWebviewsReady()
+{
+    return AreSmallWindowWebviewsReadyUnlocked();
+}
+
+void LogSmallWindowReadyGate(const wchar_t *context)
+{
+    LogSmallWindowReadyGateUnlocked(context);
+}
+
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
 {
     ComPtr<ICoreWebView2Controller> controller;
@@ -161,12 +313,21 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
     }
     else
     {
+        WebviewDebugLog(fmt::format(L"visibility ignored: unknown hwnd=0x{:X}",
+                                    reinterpret_cast<uintptr_t>(hwnd)));
         return;
     }
 
     if (controller)
     {
-        controller->put_IsVisible(visible ? TRUE : FALSE);
+        const HRESULT hr = controller->put_IsVisible(visible ? TRUE : FALSE);
+        WebviewDebugLog(fmt::format(L"controller visibility: hwnd=0x{:X}, visible={}, hr=0x{:08X}",
+                                    reinterpret_cast<uintptr_t>(hwnd), visible, static_cast<unsigned long>(hr)));
+    }
+    else
+    {
+        WebviewDebugLog(fmt::format(L"controller visibility deferred: hwnd=0x{:X}, visible={}, controller=null",
+                                    reinterpret_cast<uintptr_t>(hwnd), visible));
     }
 
     if (lowerMemoryWhenHidden)
@@ -182,14 +343,16 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
     std::wifstream file(filePath);
     if (!file)
     {
-        // TODO: Log
+        WebviewDebugLog(fmt::format(L"HTML read failed: path='{}', GetLastError={}", filePath, GetLastError()));
         return L"";
     }
     // Use Boost Locale to handle UTF-8
     file.imbue(boost::locale::generator().generate("en_US.UTF-8"));
     std::wstringstream buffer;
     buffer << file.rdbuf();
-    return buffer.str();
+    std::wstring content = buffer.str();
+    WebviewDebugLog(fmt::format(L"HTML read succeeded: path='{}', chars={}", filePath, content.size()));
+    return content;
 }
 
 inline std::wstring GetAppdataPath()
@@ -265,6 +428,9 @@ int PrepareHtmlForWnds()
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
     std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
     ::MeasureStringCandWnd = ReadHtmlFile(measureHtmlPathCandWnd);
+    WebviewDebugLog(fmt::format(L"candidate assets prepared: layout={}, page_chars={}, body_chars={}, measure_chars={}",
+                                isHorizontal ? L"horizontal" : L"vertical", HTMLStringCandWnd.size(),
+                                BodyStringCandWnd.size(), MeasureStringCandWnd.size()));
 
     //
     // 托盘语言区菜单窗口
@@ -458,6 +624,9 @@ HRESULT OnControllerCreatedCandWnd(     //
     ICoreWebView2Controller *controller //
 )
 {
+    WebviewDebugLog(fmt::format(L"candidate controller callback: hwnd=0x{:X}, result=0x{:08X}, controller={}",
+                                reinterpret_cast<uintptr_t>(hwnd), static_cast<unsigned long>(result),
+                                controller != nullptr));
     if (!controller || FAILED(result))
     {
         ShowErrorMessage(hwnd, L"Failed to create WebView2 controller.");
@@ -465,7 +634,9 @@ HRESULT OnControllerCreatedCandWnd(     //
     }
 
     webviewControllerCandWnd = controller;
-    webviewControllerCandWnd->get_CoreWebView2(webviewCandWnd.GetAddressOf());
+    const HRESULT getWebviewHr = webviewControllerCandWnd->get_CoreWebView2(webviewCandWnd.GetAddressOf());
+    WebviewDebugLog(fmt::format(L"get candidate CoreWebView2: hr=0x{:08X}, webview={}",
+                                static_cast<unsigned long>(getWebviewHr), webviewCandWnd != nullptr));
 
     if (!webviewCandWnd)
     {
@@ -524,11 +695,13 @@ HRESULT OnControllerCreatedCandWnd(     //
         );
 
         // Assets mapping
-        webview3CandWnd->SetVirtualHostNameToFolderMapping(  //
+        const HRESULT mappingHr = webview3CandWnd->SetVirtualHostNameToFolderMapping(  //
             L"candwnd",                                      //
             assetPath.c_str(),                               //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
         );                                                   //
+        WebviewDebugLog(fmt::format(L"candidate virtual host mapping: folder='{}', hr=0x{:08X}", assetPath,
+                                    static_cast<unsigned long>(mappingHr)));
     }
 
     // Set transparent background
@@ -545,10 +718,14 @@ HRESULT OnControllerCreatedCandWnd(     //
     // measurement before its host window is resized to the measured content.
     bounds.right += candidateBoundRightExtra;
     bounds.bottom += candidateBoundBottomExtra;
-    webviewControllerCandWnd->put_Bounds(bounds);
+    const HRESULT boundsHr = webviewControllerCandWnd->put_Bounds(bounds);
+    WebviewDebugLog(fmt::format(L"candidate initial bounds: [{},{},{},{}], hr=0x{:08X}", bounds.left, bounds.top,
+                                bounds.right, bounds.bottom, static_cast<unsigned long>(boundsHr)));
 
     // Navigate to HTML
     HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
+    WebviewDebugLog(fmt::format(L"candidate NavigateToString submitted: html_chars={}, hr=0x{:08X}",
+                                HTMLStringCandWnd.size(), static_cast<unsigned long>(hr)));
     if (FAILED(hr))
     {
         ShowErrorMessage(hwnd, L"Failed to navigate to string.");
@@ -614,7 +791,24 @@ HRESULT OnControllerCreatedCandWnd(     //
         Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
             [hwnd](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
                 BOOL success = FALSE;
-                args->get_IsSuccess(&success);
+                COREWEBVIEW2_WEB_ERROR_STATUS errorStatus = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
+                const HRESULT successHr = args->get_IsSuccess(&success);
+                const HRESULT statusHr = args->get_WebErrorStatus(&errorStatus);
+                WebviewDebugLog(fmt::format(
+                    L"candidate navigation completed: success={}, shown={}, isSuccess_hr=0x{:08X}, "
+                    L"status_hr=0x{:08X}, web_error={}",
+                    success != FALSE, ::is_global_wnd_cand_shown, static_cast<unsigned long>(successHr),
+                    static_cast<unsigned long>(statusHr), static_cast<int>(errorStatus)));
+                if (success)
+                {
+                    NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
+                }
+                else
+                {
+                    WebviewDebugLog(fmt::format(
+                        L"candidate navigation failed: web_error={}, shown={}, topmost_applied={}",
+                        static_cast<int>(errorStatus), ::is_global_wnd_cand_shown, smallWindowTopmostApplied));
+                }
                 if (success && ::is_global_wnd_cand_shown)
                 {
                     const std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
@@ -627,6 +821,17 @@ HRESULT OnControllerCreatedCandWnd(     //
                 return S_OK;
             })
             .Get(),
+        nullptr);
+
+    webviewCandWnd->add_ProcessFailed(
+        Microsoft::WRL::Callback<ICoreWebView2ProcessFailedEventHandler>(
+            [](ICoreWebView2 *, ICoreWebView2ProcessFailedEventArgs *args) -> HRESULT {
+                COREWEBVIEW2_PROCESS_FAILED_KIND kind = COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
+                const HRESULT hr = args->get_ProcessFailedKind(&kind);
+                WebviewDebugLog(fmt::format(L"candidate WebView2 process failed: kind={}, hr=0x{:08X}",
+                                            static_cast<int>(kind), static_cast<unsigned long>(hr)));
+                return S_OK;
+            }).Get(),
         nullptr);
 
     return S_OK;
@@ -642,6 +847,8 @@ HRESULT OnControllerCreatedCandWnd(     //
  */
 HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env)
 {
+    WebviewDebugLog(fmt::format(L"candidate environment dispatch: hwnd=0x{:X}, result=0x{:08X}, env={}",
+                                reinterpret_cast<uintptr_t>(hwnd), static_cast<unsigned long>(result), env != nullptr));
     if (FAILED(result) || !env)
     {
         ShowErrorMessage(hwnd, L"Failed to create WebView2 environment.");
@@ -649,7 +856,7 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
     }
 
     // Create WebView2 controller
-    return env->CreateCoreWebView2Controller(                                                //
+    const HRESULT hr = env->CreateCoreWebView2Controller(                                   //
         hwnd,                                                                                //
         Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
             [hwnd](HRESULT result,                                                           //
@@ -658,6 +865,9 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
             })                                                                               //
             .Get()                                                                           //
     );                                                                                       //
+    WebviewDebugLog(fmt::format(L"candidate controller creation submitted: hr=0x{:08X}",
+                                static_cast<unsigned long>(hr)));
+    return hr;
 }
 
 //
@@ -761,8 +971,10 @@ HRESULT OnControllerCreatedMenuWnd(     //
                 BOOL success = FALSE;
                 if (!args || FAILED(args->get_IsSuccess(&success)) || !success)
                 {
+                    WebviewDebugLog(L"menu navigation failed or incomplete");
                     return S_OK;
                 }
+                NotifySmallWindowNavigationReady(menuNavigationReady, L"menu");
                 // Older menu assets already render the handwriting entry but do not
                 // give it an id or native click bridge. Wire it at runtime so existing
                 // installations gain the launcher without replacing their skin.
@@ -1631,9 +1843,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 {
                     args->get_IsSuccess(&success);
                 }
-                floatingToolbarNavigationReady = success != FALSE;
-                if (floatingToolbarNavigationReady)
+                if (success)
                 {
+                    NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
                     RenderFloatingToolbarState(sender);
                     // The toolbar template's smiley button is the second-to-last
                     // direct icon in the right section. Keep the shipped HTML and
@@ -1649,6 +1861,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
                             }
                         })())",
                         nullptr);
+                }
+                else
+                {
+                    WebviewDebugLog(L"floating-toolbar navigation failed");
                 }
                 return S_OK;
             })
@@ -1829,6 +2045,7 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
  */
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 {
+    ResetSmallWindowTopmostGate();
     auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
     options->put_AdditionalBrowserArguments( //
         L"--disable-features=TranslateUI "
@@ -1839,12 +2056,16 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
         L"--no-first-run");
 
     const std::wstring appDataPath = GetAppdataPath();
-    CreateCoreWebView2EnvironmentWithOptions(
+    WebviewDebugLog(fmt::format(L"shared environment creation starting: cand=0x{:X}, user_data='{}'",
+                                reinterpret_cast<uintptr_t>(candHwnd), appDataPath));
+    const HRESULT createHr = CreateCoreWebView2EnvironmentWithOptions(
         nullptr,
         appDataPath.c_str(),
         options.Get(),
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [candHwnd, menuHwnd, ftbHwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
+                WebviewDebugLog(fmt::format(L"shared environment callback: result=0x{:08X}, env={}",
+                                            static_cast<unsigned long>(result), env != nullptr));
                 if (FAILED(result) || !env)
                 {
                     ShowErrorMessage(candHwnd, L"Failed to create the shared WebView2 environment.");
@@ -1857,18 +2078,25 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
                 const HRESULT menuResult = OnMenuWindowEnvironmentCreated(menuHwnd, S_OK, env);
                 const HRESULT ftbResult = OnFtbWindowEnvironmentCreated(ftbHwnd, S_OK, env);
 
+                WebviewDebugLog(fmt::format(
+                    L"small-window controller submissions: candidate=0x{:08X}, menu=0x{:08X}, ftb=0x{:08X}",
+                    static_cast<unsigned long>(candResult), static_cast<unsigned long>(menuResult),
+                    static_cast<unsigned long>(ftbResult)));
+
                 if (FAILED(candResult)) return candResult;
                 if (FAILED(menuResult)) return menuResult;
                 return ftbResult;
             })
             .Get());
+    WebviewDebugLog(fmt::format(L"shared environment creation submitted: hr=0x{:08X}",
+                                static_cast<unsigned long>(createHr)));
 }
 
 void ShutdownWebviews()
 {
     // WebView2 objects are apartment-bound. Release every controller and
     // interface on the UI STA before WinMain balances CoInitializeEx.
-    floatingToolbarNavigationReady = false;
+    ResetSmallWindowTopmostGate();
 
     if (webviewControllerCandWnd)
     {

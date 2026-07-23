@@ -68,6 +68,7 @@ target_compile_definitions(${WATCHDOG_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
 )
+target_link_libraries(${WATCHDOG_EXECUTABLE_NAME} PRIVATE shell32)
 if(MSVC)
     target_compile_options(${WATCHDOG_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
 endif()

@@ -45,35 +45,48 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
     }
     catch (const std::exception &e)
     {
-        // TODO: log
+        OutputDebugStringW(fmt::format(L"[msime-webview] candidate DOM size parse failed: result='{}', error='{}'\n",
+                                      jsonResult, string_to_wstring(e.what())).c_str());
     }
     return size;
 }
 
 void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
 {
+    if (!webview)
+    {
+        OutputDebugStringW(L"[msime-webview] candidate DOM measurement skipped: webview=null\n");
+        callback({0.0, 0.0});
+        return;
+    }
     std::wstring script = LR"(
         (function() {
             var rect = document.getElementById("measureContainerParent").getBoundingClientRect();
             return JSON.stringify({width: rect.width, height: rect.height});
         })();
     )";
-    webview->ExecuteScript( //
+    const HRESULT submitHr = webview->ExecuteScript( //
         script.c_str(),     //
         Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {
             std::pair<double, double> size;
             if (SUCCEEDED(errorCode) && result)
             {
                 size = ParseDivSize(result);
-                // OutputDebugString(fmt::format(L"[msime]: GetContainerSize: {} {}", size.first,
-                // size.second).c_str());
+                OutputDebugStringW(fmt::format(L"[msime-webview] candidate DOM measurement completed: "
+                                              L"width={}, height={}, result='{}'\n",
+                                              size.first, size.second, result).c_str());
             }
             else
             {
+                OutputDebugStringW(fmt::format(L"[msime-webview] candidate DOM measurement failed: "
+                                              L"hr=0x{:08X}, result={}\n",
+                                              static_cast<unsigned long>(errorCode), result != nullptr).c_str());
             }
             callback(size);
             return S_OK;
         }).Get());
+    OutputDebugStringW(fmt::format(L"[msime-webview] candidate DOM measurement submitted: hr=0x{:08X}\n",
+                                  static_cast<unsigned long>(submitHr)).c_str());
 }
 
 void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)

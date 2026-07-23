@@ -52,6 +52,15 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
 void ShutdownWebviews();
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 
+// uiAccess + HWND WebView2: request TOPMOST on first real show. If WebViews are
+// not ready yet, the request is queued and applied after all small-window
+// navigations complete (avoid TopMost during CreateCoreWebView2Controller).
+// Returns true when TOPMOST is already in effect after the call.
+bool EnsureSmallWindowsTopmost(const wchar_t *reason);
+bool AreSmallWindowsTopmostApplied();
+bool AreSmallWindowWebviewsReady();
+void LogSmallWindowReadyGate(const wchar_t *context);
+
 //
 // 菜单窗口 webview
 //

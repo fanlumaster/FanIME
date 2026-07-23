@@ -1,6 +1,7 @@
 #include "utils/single_instance.h"
 #include "watchdog/watchdog_protocol.h"
 
+#include <shellapi.h>
 #include <tlhelp32.h>
 #include <windows.h>
 
@@ -66,16 +67,18 @@ HANDLE FindRunningServer(const std::wstring &expected_path)
 
 HANDLE StartServer(const std::wstring &server_path, const std::wstring &working_directory)
 {
-    std::wstring command_line = L"\"" + server_path + L"\" " + WatchdogProtocol::kManagedArgument;
-    STARTUPINFOW startup_info{sizeof(startup_info)};
-    PROCESS_INFORMATION process_info{};
-    if (!CreateProcessW(server_path.c_str(), command_line.data(), nullptr, nullptr, FALSE, 0, nullptr,
-                        working_directory.c_str(), &startup_info, &process_info))
-    {
-        return nullptr;
-    }
-    CloseHandle(process_info.hThread);
-    return process_info.hProcess;
+    // Server manifest has uiAccess=true; CreateProcess fails with ERROR_ELEVATION_REQUIRED
+    // (740). ShellExecuteEx matches Explorer double-click and succeeds when signed + under
+    // Program Files.
+    SHELLEXECUTEINFOW execute_info{sizeof(execute_info)};
+    execute_info.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+    execute_info.lpVerb = L"open";
+    execute_info.lpFile = server_path.c_str();
+    execute_info.lpParameters = WatchdogProtocol::kManagedArgument;
+    execute_info.lpDirectory = working_directory.c_str();
+    execute_info.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteExW(&execute_info) || !execute_info.hProcess) return nullptr;
+    return execute_info.hProcess;
 }
 } // namespace
 

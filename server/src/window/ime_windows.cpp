@@ -25,11 +25,9 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
-constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_CAND = 1;
 constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 2;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 3;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
-constexpr UINT_PTR TIMER_ID_PIN_WINDOWS_TO_TOP = 6;
 constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
 constexpr UINT_PTR TIMER_ID_SETTINGS_ACTIVATION_RETRY = 8;
 constexpr UINT WM_ACTIVATE_SETTINGS_WINDOW = WM_APP + 110;
@@ -41,6 +39,40 @@ namespace
 {
 int g_settings_activation_retries_remaining = 0;
 bool g_is_ime_active = false;
+
+void PlaceFloatingToolbarOnScreen(HWND hwnd)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    MonitorCoordinates coordinates = GetMainMonitorCoordinates();
+    RECT rect{};
+    GetWindowRect(hwnd, &rect);
+    const int width = rect.right - rect.left;
+    const int height = rect.bottom - rect.top;
+    const int taskbarHeight = GetTaskbarHeight();
+    const int posX = coordinates.right - width - 10;
+    const int posY = coordinates.bottom - height - taskbarHeight - 10;
+    SetLastError(0);
+    const BOOL ok = SetWindowPos(hwnd, HWND_TOP, posX, posY, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+    OutputDebugStringW(fmt::format(L"[msime-webview] ftb place on screen: hwnd=0x{:X}, pos=({},{}), "
+                                  L"size=({},{}), SetWindowPos={}, GetLastError={}, visible={}\n",
+                                  reinterpret_cast<uintptr_t>(hwnd), posX, posY, width, height, ok != FALSE,
+                                  ok ? 0 : GetLastError(), IsWindowVisible(hwnd) != FALSE)
+                           .c_str());
+}
+
+void PrepareLayeredHostWindow(HWND hwnd)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+    MARGINS mar = {-1};
+    DwmExtendFrameIntoClientArea(hwnd, &mar);
+}
 
 void ScheduleSettingsWindowActivation(HWND hwnd)
 {
@@ -134,9 +166,25 @@ void ApplyConfiguredFloatingToolbarVisibility()
     const bool should_show = FanyImeUi::ShouldShowFloatingToolbar(
         GetConfiguredFloatingToolbarEnabled(), fullscreen, g_is_ime_active);
     const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
-    if (is_visible != should_show)
+    OutputDebugStringW(fmt::format(L"[msime-webview] ftb visibility: should_show={}, is_visible={}, "
+                                  L"configured={}, fullscreen={}, ime_active={}, hwnd=0x{:X}\n",
+                                  should_show, is_visible, GetConfiguredFloatingToolbarEnabled(), fullscreen,
+                                  g_is_ime_active, reinterpret_cast<uintptr_t>(::global_hwnd_ftb))
+                           .c_str());
+    if (should_show)
     {
-        ShowWindow(::global_hwnd_ftb, should_show ? SW_SHOWNA : SW_HIDE);
+        PlaceFloatingToolbarOnScreen(::global_hwnd_ftb);
+        EnsureSmallWindowsTopmost(L"show-floating-toolbar");
+        if (!is_visible)
+        {
+            ShowWindow(::global_hwnd_ftb, SW_SHOWNA);
+        }
+        UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, true);
+    }
+    else if (is_visible)
+    {
+        ShowWindow(::global_hwnd_ftb, SW_HIDE);
+        UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, false);
     }
 }
 
@@ -282,6 +330,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 #endif
         return 1;
     }
+    PrepareLayeredHostWindow(hwnd_menu);
     ::global_hwnd_menu = hwnd_menu;
 
     //
@@ -291,15 +340,21 @@ int CreateCandidateWindow(HINSTANCE hInstance)
                 WS_EX_TOOLWINDOW |                           //
                 WS_EX_NOACTIVATE;                            //
                                                              // WS_EX_TOPMOST;                               //
+    MonitorCoordinates ftbMonitor = GetMainMonitorCoordinates();
+    const int ftbWidth = static_cast<int>((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale);
+    const int ftbHeight = static_cast<int>((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale);
+    const int ftbTaskbarHeight = GetTaskbarHeight();
+    const int ftbX = ftbMonitor.right - ftbWidth - 10;
+    const int ftbY = ftbMonitor.bottom - ftbHeight - ftbTaskbarHeight - 10;
     HWND hwnd_ftb = CreateWindowEx(                          //
         dwExStyle,                                           //
         szWindowClass,                                       //
         lpWindowNameFtb,                                     //
         WS_POPUP,                                            //
-        2216,                                                //
-        -12540,                                              //
-        (::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale,  //
-        (::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale, //
+        ftbX,                                                //
+        ftbY,                                                //
+        ftbWidth,                                            //
+        ftbHeight,                                           //
         nullptr,                                             //
         nullptr,                                             //
         hInstance,                                           //
@@ -312,8 +367,12 @@ int CreateCandidateWindow(HINSTANCE hInstance)
 #endif
         return 1;
     }
+    PrepareLayeredHostWindow(hwnd_ftb);
     ::global_hwnd_ftb = hwnd_ftb;
     FanyNamedPipe::RegisterStatusSnapshotWindow(hwnd_ftb);
+    OutputDebugStringW(fmt::format(L"[msime-webview] ftb created on screen: hwnd=0x{:X}, pos=({},{}), size=({},{})\n",
+                                  reinterpret_cast<uintptr_t>(hwnd_ftb), ftbX, ftbY, ftbWidth, ftbHeight)
+                           .c_str());
 
     //
     // 候选窗口、菜单窗口、settings 窗口、floating toolbar 窗口、floating toolbar hover tip 窗口
@@ -332,16 +391,13 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     /* 候选框、托盘语言区右键菜单和 floating toolbar 共用一个 WebView2 environment */
     InitSmallWindowWebviews(hwnd_cand, hwnd_menu, hwnd_ftb);
 
-    /* 调整候选框窗口 size，顺便置顶 */
-    SetTimer(hwnd_cand, TIMER_ID_INIT_WEBVIEW_CAND, 200, nullptr);
-
-    /* 调整菜单窗口 size，顺便置顶 */
+    /* 菜单窗口：首屏导航完成后量一次尺寸（暂不 TOPMOST） */
     SetTimer(hwnd_menu, TIMER_ID_INIT_WEBVIEW_MENU, 200, nullptr);
 
     /* 监听文本配置文件变化，并同步到运行中的候选框。Settings 已是独立进程。 */
     SetTimer(hwnd_cand, TIMER_ID_CONFIG_SYNC, 300, nullptr);
 
-    /* 调整 floating toolbar 窗口 position，顺便置顶 */
+    /* floating toolbar：再确认一次落在主屏右下角（不依赖 WebView 就绪） */
     SetTimer(hwnd_ftb, TIMER_ID_MOVE_WEBVIEW_FTB, 200, nullptr);
 
     //
@@ -433,6 +489,20 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                                    ? std::wstring{}
                                    : GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
+        OutputDebugStringW(fmt::format(L"[msime-webview] show candidate requested: hwnd=0x{:X}, caret=({},{}), "
+                                      L"preedit_chars={}, candidate_chars={}, webview={}, controller={}, "
+                                      L"topmost_applied={}, cand_visible={}\n",
+                                      reinterpret_cast<uintptr_t>(hwnd), Global::Point[0], Global::Point[1],
+                                      preedit.size(), Global::CandidateString.size(), webviewCandWnd != nullptr,
+                                      webviewControllerCandWnd != nullptr, AreSmallWindowsTopmostApplied(),
+                                      IsWindowVisible(hwnd) != FALSE)
+                               .c_str());
+        LogSmallWindowReadyGate(L"show-candidate");
+        if (!EnsureSmallWindowsTopmost(L"show-candidate"))
+        {
+            OutputDebugStringW(L"[msime-webview] show candidate: webviews not ready, topmost queued; "
+                               L"will FineTune after navigation\n");
+        }
         InflateMeasureDivCandWnd(str);
 
         // Mark shown before scheduling FineTuneWindow so its async callback
@@ -445,6 +515,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_HIDE_MAIN_WINDOW)
     {
+        OutputDebugStringW(fmt::format(L"[msime-webview] hide candidate requested: hwnd=0x{:X}\n",
+                                      reinterpret_cast<uintptr_t>(hwnd)).c_str());
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
         FLOAT scale = GetForegroundWindowScale();
@@ -523,29 +595,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     switch (message)
     {
     case WM_TIMER: {
-        if (wParam == TIMER_ID_INIT_WEBVIEW_CAND)
-        {
-            KillTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND);
-            if (::webviewCandWnd)
-            {
-                UINT flag = SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOMOVE;
-                SetWindowPos(      //
-                    ::global_hwnd, //
-                    HWND_TOPMOST,  //
-                    0,             //
-                    0,             //
-                    0,             //
-                    0,             //
-                    flag);
-                break;
-            }
-            else
-            {
-                SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_CAND, 100, nullptr);
-                break;
-            }
-        }
-        else if (wParam == TIMER_ID_CONFIG_SYNC)
+        if (wParam == TIMER_ID_CONFIG_SYNC)
         {
             const SchemeType previous_input_scheme = GetConfiguredInputScheme();
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
@@ -668,21 +718,44 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         int iconWidth = (right - left) * ::SCALE;
         int iconHeight = (bottom - top) * ::SCALE;
         int iconMiddleX = left + iconWidth / 2;
+        if (::MENU_WINDOW_WIDTH <= 0)
+        {
+            ::MENU_WINDOW_WIDTH = static_cast<int>(200 * ::SCALE);
+        }
+        if (::MENU_WINDOW_HEIGHT <= 0)
+        {
+            ::MENU_WINDOW_HEIGHT = static_cast<int>(300 * ::SCALE);
+        }
         int menuX = iconMiddleX - ::MENU_WINDOW_WIDTH / 2;
         int menuY = top - ::MENU_WINDOW_HEIGHT;
-        // Do not specify SWP_NOZORDER here: it would discard HWND_TOPMOST.
+        EnsureSmallWindowsTopmost(L"show-menu");
+        // Host can appear before WebView paints; pending topmost/content refresh
+        // runs when navigations complete.
         UINT flag = SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE;
+        const HWND zorder = AreSmallWindowsTopmostApplied() ? HWND_TOPMOST : HWND_TOP;
         SetLastError(0);
         BOOL okShowMenu = SetWindowPos( //
             ::global_hwnd_menu,         //
-            HWND_TOPMOST,               //
+            zorder,                     //
             menuX,                      //
             menuY,                      //
             0,                          //
             0,                          //
             flag                        //
         );
-        if (okShowMenu && ::webviewControllerMenuWnd)
+        OutputDebugStringW(fmt::format(L"[msime-webview] show menu: hwnd=0x{:X}, pos=({},{}), size=({},{}), "
+                                      L"SetWindowPos={}, GetLastError={}, webview={}, controller={}, visible={}\n",
+                                      reinterpret_cast<uintptr_t>(::global_hwnd_menu), menuX, menuY,
+                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, okShowMenu != FALSE,
+                                      okShowMenu ? 0 : GetLastError(), webviewMenuWnd != nullptr,
+                                      webviewControllerMenuWnd != nullptr,
+                                      IsWindowVisible(::global_hwnd_menu) != FALSE)
+                               .c_str());
+        if (!okShowMenu)
+        {
+            ShowWindow(::global_hwnd_menu, SW_SHOWNOACTIVATE);
+        }
+        if (::webviewControllerMenuWnd)
         {
             RECT bounds{};
             GetClientRect(hwnd, &bounds);
@@ -725,8 +798,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 GetContainerSizeMenu(webviewMenuWnd, [hwnd](std::pair<double, double> containerSize) {
                     if (hwnd == ::global_hwnd_menu)
                     {
-                        // UINT flag = SWP_NOZORDER | SWP_NOMOVE | SWP_HIDEWINDOW;
-                        UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE;
+                        UINT flag = SWP_NOMOVE | SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER;
                         FLOAT scale = GetForegroundWindowScale();
                         // CSS layout can produce fractional pixels. Truncating
                         // here makes the viewport fractionally smaller than the
@@ -736,16 +808,19 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                         ::SCALE = scale;
                         ::MENU_WINDOW_WIDTH = newWidth;
                         ::MENU_WINDOW_HEIGHT = newHeight;
-                        /* 调整菜单窗口 size */
+                        /* 调整菜单窗口 size；初始化阶段保持隐藏且不改 z-order */
                         SetWindowPos(     //
                             hwnd,         //
-                            HWND_TOPMOST, //
+                            nullptr,      //
                             0,            //
                             0,            //
                             newWidth,     //
                             newHeight,    //
                             flag          //
                         );
+                        OutputDebugStringW(fmt::format(L"[msime-webview] menu measured: size=({},{}), scale={}\n",
+                                                      newWidth, newHeight, scale)
+                                               .c_str());
                     }
                 });
             }
@@ -1262,32 +1337,11 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         if (wParam == TIMER_ID_MOVE_WEBVIEW_FTB)
         {
             KillTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_FTB);
-            if (::webviewFtbWnd)
-            {
-                // 放在屏幕右下角
-                // 获取主屏幕尺寸
-                MonitorCoordinates coordinates = GetMainMonitorCoordinates();
-                // 获取窗口尺寸
-                RECT rect;
-                GetWindowRect(hwnd, &rect);
-                // 获取任务栏高度
-                int taskbarHeight = GetTaskbarHeight();
-                // 移动窗口
-                SetWindowPos(                                                           //
-                    hwnd,                                                               //
-                    HWND_TOPMOST,                                                       //
-                    coordinates.right - (rect.right - rect.left) - 10,                  //
-                    coordinates.bottom - (rect.bottom - rect.top) - taskbarHeight - 10, //
-                    0,                                                                  //
-                    0,                                                                  //
-                    SWP_NOSIZE);
-                break;
-            }
-            else
-            {
-                // 如果 webview 还没准备好，再等一会
-                SetTimer(hwnd, TIMER_ID_MOVE_WEBVIEW_FTB, 100, nullptr);
-            }
+            // Host HWND placement must not wait for WebView2. After reboot /
+            // uiAccess, WebView can lag for a long time while the toolbar would
+            // otherwise stay off-screen or never become discoverable.
+            PlaceFloatingToolbarOnScreen(hwnd);
+            break;
         }
         break;
     }
@@ -1306,6 +1360,18 @@ int FineTuneWindow(HWND hwnd)
 
     int caretX = Global::Point[0];
     int caretY = Global::Point[1];
+    OutputDebugStringW(fmt::format(L"[msime-webview] candidate fine-tune started: hwnd=0x{:X}, caret=({},{}), "
+                                  L"scale={}, shown={}, webview={}, controller={}, topmost_applied={}\n",
+                                  reinterpret_cast<uintptr_t>(hwnd), caretX, caretY, scale,
+                                  ::is_global_wnd_cand_shown, webviewCandWnd != nullptr,
+                                  webviewControllerCandWnd != nullptr, AreSmallWindowsTopmostApplied())
+                           .c_str());
+    if (!webviewCandWnd)
+    {
+        OutputDebugStringW(L"[msime-webview] candidate fine-tune aborted: webviewCandWnd is null\n");
+        LogSmallWindowReadyGate(L"fine-tune-no-webview");
+        return 0;
+    }
     std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
     GetContainerSizeCand(webviewCandWnd, [flag,      //
                                           scale,     //
@@ -1317,6 +1383,9 @@ int FineTuneWindow(HWND hwnd)
         // measure callback was still pending — do not resurrect it.
         if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
         {
+            OutputDebugStringW(fmt::format(L"[msime-webview] candidate fine-tune abandoned after measurement: "
+                                          L"shown={}, caretY={}\n",
+                                          ::is_global_wnd_cand_shown, caretY).c_str());
             return;
         }
 
@@ -1331,6 +1400,7 @@ int FineTuneWindow(HWND hwnd)
         // Empty composition with no candidates means the session already ended.
         if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
         {
+            OutputDebugStringW(L"[msime-webview] candidate fine-tune abandoned: composition and candidates empty\n");
             return;
         }
         InflateCandWnd(str);
@@ -1353,7 +1423,7 @@ int FineTuneWindow(HWND hwnd)
         {
             return;
         }
-        SetWindowPos(          //
+        const BOOL positioned = SetWindowPos( //
             hwnd,              //
             nullptr,           //
             properPos->first,  //
@@ -1362,6 +1432,17 @@ int FineTuneWindow(HWND hwnd)
             newHeight,         //
             newFlag            //
         );
+        RECT actualRect{};
+        GetWindowRect(hwnd, &actualRect);
+        OutputDebugStringW(fmt::format(
+            L"[msime-webview] candidate window positioned: requested_pos=({},{}), requested_size=({},{}), "
+            L"flags=0x{:X}, success={}, GetLastError={}, actual_rect=[{},{},{},{}], visible={}, "
+            L"topmost_applied={}, measure=({:.1f},{:.1f})\n",
+            properPos->first, properPos->second, newWidth, newHeight, newFlag, positioned != FALSE,
+            positioned ? 0 : GetLastError(), actualRect.left, actualRect.top, actualRect.right, actualRect.bottom,
+            IsWindowVisible(hwnd) != FALSE, AreSmallWindowsTopmostApplied(), containerSize.first,
+            containerSize.second)
+                               .c_str());
     });
     return 0;
 }
