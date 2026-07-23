@@ -60,6 +60,8 @@ html[data-theme="dark"] {
   --cand-num: #e9e8e89d;
   --cand-hover: #414141;
   --cand-selected: #3e3e3eb9;
+  --scrollbar-thumb: rgba(180, 180, 180, 0.28);
+  --scrollbar-thumb-hover: rgba(220, 220, 220, 0.45);
   --titlebar-height: 32px;
 }
 
@@ -125,4 +127,6 @@ html[data-theme="light"] {
   --cand-num: rgba(26, 26, 26, 0.55);
   --cand-hover: #ececec;
   --cand-selected: #e8e8e8;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.45);
 }

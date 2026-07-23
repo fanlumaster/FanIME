@@ -31,7 +31,7 @@
 .content::-webkit-scrollbar-thumb,
 .dict-table-wrap::-webkit-scrollbar-thumb,
 .ai-prompt::-webkit-scrollbar-thumb {
-  background-color: rgba(120, 120, 120, 0.4);
+  background-color: var(--scrollbar-thumb);
   border-radius: 2px;
   transition: background-color 0.2s;
 }
@@ -40,24 +40,7 @@
 .content::-webkit-scrollbar-thumb:hover,
 .dict-table-wrap::-webkit-scrollbar-thumb:hover,
 .ai-prompt::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(160, 160, 160, 0.6);
-}
-
-@media (prefers-color-scheme: dark) {
-
-  .sidebar::-webkit-scrollbar-thumb,
-  .content::-webkit-scrollbar-thumb,
-  .dict-table-wrap::-webkit-scrollbar-thumb,
-  .ai-prompt::-webkit-scrollbar-thumb {
-    background-color: rgba(180, 180, 180, 0.25);
-  }
-
-  .sidebar::-webkit-scrollbar-thumb:hover,
-  .content::-webkit-scrollbar-thumb:hover,
-  .dict-table-wrap::-webkit-scrollbar-thumb:hover,
-  .ai-prompt::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(220, 220, 220, 0.4);
-  }
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 .sidebar-header {
