@@ -62,10 +62,18 @@
   .text {
     padding-left: 8px;
     color: var(--cand-text);
+    display: flex;
+    align-items: center;
   }
 
   .cand .text {
     line-height: 1.35;
+  }
+
+  .cand-no {
+    font-size: 0.8em;
+    color: var(--cand-num);
+    margin-right: 3px;
   }
 
   .pinyin {
