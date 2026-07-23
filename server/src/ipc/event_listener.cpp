@@ -1907,9 +1907,6 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
         return;
     (void)generation;
 
-    // 先清空状态，只需要懒清空 added 标志位即可
-    Global::cloud_candidate.added = false;
-
     if (candidate.empty())
         return;
 
@@ -1923,23 +1920,26 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     if (Global::candidate_ui.items.empty())
         return;
 
-    auto dup_it = std::find_if(Global::candidate_ui.items.begin(), Global::candidate_ui.items.end(),
-                               [&](const DictionaryUlPb::WordItem &item) { return item.word == candidate; });
-    if (dup_it != Global::candidate_ui.items.end())
+    auto &items = Global::candidate_ui.items;
+    // Same word already visible (dict / prior cloud): keep page and skip re-cache.
+    if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
+    {
+        Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
         return;
+    }
 
-    size_t insert_index = Global::candidate_ui.items.size() >= 1 ? 1 : 0;
-    Global::candidate_ui.items.insert(Global::candidate_ui.items.begin() + insert_index,
-                                      WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
-    // 还需要更新一下 dictionary 中的 cache
+    // Replace any previous cloud suggestion with the new unique text.
+    items.erase(std::remove_if(items.begin(), items.end(),
+                               [](const WordItem &item) { return item.source == CandidateSource::CloudSuggestion; }),
+                items.end());
+
+    size_t insert_index = items.size() >= 1 ? 1 : 0;
+    items.insert(items.begin() + insert_index, WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
     g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate,
                                             CandidateSource::CloudSuggestion);
-    // 标记一下，云候选已经被加进来了
-    Global::cloud_candidate.added = true;
-    Global::cloud_candidate.word = candidate;
-    Global::cloud_candidate.pinyin = cloud_query_state.committed_pinyin;
+    Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
 
-    Global::candidate_ui.item_total_count = static_cast<int>(Global::candidate_ui.items.size());
+    Global::candidate_ui.item_total_count = static_cast<int>(items.size());
     Global::candidate_ui.page_index = 0;
     Global::candidate_ui.select_first_on_page();
     Global::candidate_ui.clear_page();
@@ -1948,7 +1948,6 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
 {
-    Global::ai_candidate.added = false;
     const bool enabled = GetConfiguredAiAssistant().enabled;
     const bool has_session = static_cast<bool>(g_inputSession);
     const bool wubi = has_session && g_inputSession->current_scheme_type() == SchemeType::Wubi;
@@ -1966,16 +1965,21 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
         return;
     }
     auto &items = Global::candidate_ui.items;
-    items.erase(std::remove_if(items.begin(), items.end(), [](const WordItem &item) {
-                    return item.source == CandidateSource::AiSuggestion;
-                }), items.end());
+    const auto query = g_inputSession->get_cloud_query_state();
+    // Align with cloud: if the word is already in the list, do not erase / reinsert /
+    // reset page_index / re-cache. This stops cache-hit reapply from breaking paging.
     if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
     {
+        Global::ai_candidate = {true, candidate, query.committed_pinyin};
         OutputDebugStringA(fmt::format("[ai-assistant] candidate skipped as duplicate: generation={}, candidate={}\n",
                                       generation, candidate).c_str());
         return;
     }
-    const auto query = g_inputSession->get_cloud_query_state();
+
+    // Only replace prior AI rows when inserting a genuinely new suggestion text.
+    items.erase(std::remove_if(items.begin(), items.end(),
+                               [](const WordItem &item) { return item.source == CandidateSource::AiSuggestion; }),
+                items.end());
     const size_t insert_index = std::min<size_t>(2, items.size());
     items.insert(items.begin() + insert_index, WordItem(identity, candidate, 1, CandidateSource::AiSuggestion));
     g_inputSession->cache_dynamic_candidate(query.cache_key, candidate, CandidateSource::AiSuggestion);
@@ -2135,8 +2139,13 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //  - 拼音序列长度是偶数
     //  - 最后一个字符不是大写字母
     //
+    // Paging / selection must not bump async generations or re-apply cached
+    // cloud/AI results (that previously reset page_index and re-cached duplicates).
+    const bool suppress_async_lookup =
+        is_paging_key || is_selection_key || is_unicode_shift_digit_selection;
+
     const auto cloud_query_state = g_inputSession->get_cloud_query_state();
-    if (!IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+    if (!suppress_async_lookup && !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
         !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) && cloud_query_state.should_query)
     {
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
@@ -2147,7 +2156,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
                              g_inputSession->current_scheme_type() != SchemeType::Wubi &&
                              g_inputSession->is_all_complete_pure_pinyin() &&
                              !GlobalIme::composition.creating_word.active;
-    UpdateAiInput(ai_eligible ? g_inputSession->get_pinyin_segmentation() : std::string{}, client_id, activation_epoch);
+    if (!suppress_async_lookup)
+    {
+        UpdateAiInput(ai_eligible ? g_inputSession->get_pinyin_segmentation() : std::string{}, client_id,
+                      activation_epoch);
+    }
 
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端

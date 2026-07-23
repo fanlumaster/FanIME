@@ -205,6 +205,44 @@ TEST_CASE(EngineShuangpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuer
     REQUIRE(found->source == CandidateSource::CloudSuggestion);
 }
 
+TEST_CASE(EngineShuangpinSessionDynamicCandidateCacheDedupesRepeatedInserts)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "xitele");
+
+    const auto state = session.get_cloud_query_state();
+    REQUIRE(state.should_query);
+
+    session.cache_dynamic_candidate(state.cache_key, "云词", CandidateSource::CloudSuggestion);
+    session.cache_dynamic_candidate(state.cache_key, "云词", CandidateSource::CloudSuggestion);
+    session.cache_dynamic_candidate(state.cache_key, "AI词", CandidateSource::AiSuggestion);
+    session.cache_dynamic_candidate(state.cache_key, "AI词", CandidateSource::AiSuggestion);
+    session.cache_dynamic_candidate(state.cache_key, "AI词2", CandidateSource::AiSuggestion);
+
+    // Force a fresh query so candidates are rebuilt from the series cache.
+    session.handle_key(VK_BACK, 0, 0);
+    InputLetters(session, "e");
+
+    const auto &candidates = session.get_candidates();
+    const auto cloud_count = std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.source == CandidateSource::CloudSuggestion && item.word == "云词";
+    });
+    const auto ai_count = std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.source == CandidateSource::AiSuggestion;
+    });
+    const auto ai_latest = std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.source == CandidateSource::AiSuggestion && item.word == "AI词2";
+    });
+    const auto ai_stale = std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.source == CandidateSource::AiSuggestion && item.word == "AI词";
+    });
+
+    REQUIRE_EQ(cloud_count, 1);
+    REQUIRE_EQ(ai_count, 1);
+    REQUIRE_EQ(ai_latest, 1);
+    REQUIRE_EQ(ai_stale, 0);
+}
+
 TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
 {
     EngineInputSession session(SchemeType::Quanpin);
