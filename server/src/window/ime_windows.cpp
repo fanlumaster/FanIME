@@ -55,27 +55,49 @@ void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
 // Recompute FTB outer HWND from design DIPs * current DPI. Placement used to be
 // SWP_NOSIZE-only, so a live display-scale change left the host stuck at the
 // create-time physical size while WebView content grew.
-void PlaceFloatingToolbarOnScreen(HWND hwnd)
+//
+// reset_to_default_corner=true snaps to the primary-monitor bottom-right slot
+// (startup / first layout). false keeps the current top-left so IME activate,
+// fullscreen exit, and config toggles do not undo a user drag.
+void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
 {
     if (!hwnd)
     {
         return;
     }
-    MonitorCoordinates coordinates = GetMainMonitorCoordinates();
     const FLOAT scale = GetWindowScale(hwnd);
     const int width = static_cast<int>(std::lround((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale));
     const int height = static_cast<int>(std::lround((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale));
-    const int taskbarHeight = GetTaskbarHeight();
-    const int posX = coordinates.right - width - 10;
-    const int posY = coordinates.bottom - height - taskbarHeight - 10;
+    int posX = 0;
+    int posY = 0;
+    if (reset_to_default_corner)
+    {
+        MonitorCoordinates coordinates = GetMainMonitorCoordinates();
+        const int taskbarHeight = GetTaskbarHeight();
+        posX = coordinates.right - width - 10;
+        posY = coordinates.bottom - height - taskbarHeight - 10;
+    }
+    else
+    {
+        RECT rc{};
+        GetWindowRect(hwnd, &rc);
+        posX = rc.left;
+        posY = rc.top;
+    }
     SetLastError(0);
     const BOOL ok = SetWindowPos(hwnd, HWND_TOP, posX, posY, width, height, SWP_NOACTIVATE);
     SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
-    OutputDebugStringW(fmt::format(L"[msime-webview] ftb place on screen: hwnd=0x{:X}, pos=({},{}), "
-                                  L"size=({},{}), scale={}, SetWindowPos={}, GetLastError={}, visible={}\n",
-                                  reinterpret_cast<uintptr_t>(hwnd), posX, posY, width, height, scale, ok != FALSE,
-                                  ok ? 0 : GetLastError(), IsWindowVisible(hwnd) != FALSE)
+    OutputDebugStringW(fmt::format(L"[msime-webview] ftb layout: hwnd=0x{:X}, pos=({},{}), size=({},{}), "
+                                  L"scale={}, reset_corner={}, SetWindowPos={}, GetLastError={}, visible={}\n",
+                                  reinterpret_cast<uintptr_t>(hwnd), posX, posY, width, height, scale,
+                                  reset_to_default_corner, ok != FALSE, ok ? 0 : GetLastError(),
+                                  IsWindowVisible(hwnd) != FALSE)
                            .c_str());
+}
+
+void PlaceFloatingToolbarOnScreen(HWND hwnd)
+{
+    LayoutFloatingToolbar(hwnd, true);
 }
 
 // Recompute menu host pixels from last measured CSS DIPs * scale.
@@ -232,7 +254,9 @@ void ApplyConfiguredFloatingToolbarVisibility()
                            .c_str());
     if (should_show)
     {
-        PlaceFloatingToolbarOnScreen(::global_hwnd_ftb);
+        // Keep the dragged position across IME activate / config / fullscreen
+        // exit. Only resize for the current DPI.
+        LayoutFloatingToolbar(::global_hwnd_ftb, false);
         EnsureSmallWindowsTopmost(L"show-floating-toolbar");
         if (!is_visible)
         {
@@ -1428,9 +1452,9 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
     case WM_DPICHANGED: {
         // Recompute from design DIPs rather than only accepting the suggested
-        // rect, then snap back to the preferred bottom-right screen slot.
+        // rect. Keep the user's dragged top-left instead of snapping home.
         OutputDebugStringW(fmt::format(L"[msime-webview] ftb WM_DPICHANGED: dpi={}\n", HIWORD(wParam)).c_str());
-        PlaceFloatingToolbarOnScreen(hwnd);
+        LayoutFloatingToolbar(hwnd, false);
         return 0;
     }
 
