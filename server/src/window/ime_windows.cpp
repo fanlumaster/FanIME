@@ -84,8 +84,11 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
         posX = rc.left;
         posY = rc.top;
     }
+    // Never touch Z-order here: HWND_TOP would cover an open tray menu. Topmost
+    // for the toolbar is owned by EnsureSmallWindowsTopmost / lazy pin order.
     SetLastError(0);
-    const BOOL ok = SetWindowPos(hwnd, HWND_TOP, posX, posY, width, height, SWP_NOACTIVATE);
+    const BOOL ok =
+        SetWindowPos(hwnd, nullptr, posX, posY, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
     SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
     OutputDebugStringW(fmt::format(L"[msime-webview] ftb layout: hwnd=0x{:X}, pos=({},{}), size=({},{}), "
                                   L"scale={}, reset_corner={}, SetWindowPos={}, GetLastError={}, visible={}\n",
@@ -258,6 +261,12 @@ void ApplyConfiguredFloatingToolbarVisibility()
         // exit. Only resize for the current DPI.
         LayoutFloatingToolbar(::global_hwnd_ftb, false);
         EnsureSmallWindowsTopmost(L"show-floating-toolbar");
+        // Ensure may pin FTB last while the tray menu is open; put the menu
+        // back on top without a visible flash (menu already painted).
+        if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
+        {
+            RaiseTrayMenuAboveSmallWindows(L"after-show-floating-toolbar");
+        }
         if (!is_visible)
         {
             ShowWindow(::global_hwnd_ftb, SW_SHOWNA);
@@ -814,7 +823,10 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // runs when navigations complete. Pass cached physical size (kept current
         // by measure / WM_DPICHANGED) instead of SWP_NOSIZE so a stale HWND from
         // a prior display scale cannot clip the menu.
-        SetHostWindowCloaked(::global_hwnd_menu, false);
+        //
+        // Stay DWM-cloaked until Z-order is final: Ensure often pins FTB last
+        // because the menu is still hidden at request time; raising afterward
+        // while cloaked avoids the cover→uncover flicker.
         UINT flag = SWP_SHOWWINDOW | SWP_NOACTIVATE;
         const HWND zorder = AreSmallWindowsTopmostApplied() ? HWND_TOPMOST : HWND_TOP;
         SetLastError(0);
@@ -841,6 +853,8 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             ShowWindow(::global_hwnd_menu, SW_SHOWNOACTIVATE);
         }
+        RaiseTrayMenuAboveSmallWindows(L"show-menu");
+        SetHostWindowCloaked(::global_hwnd_menu, false);
         if (::webviewControllerMenuWnd)
         {
             RECT bounds{};

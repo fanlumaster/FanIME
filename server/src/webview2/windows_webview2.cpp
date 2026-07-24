@@ -111,10 +111,24 @@ void ApplyLazyTopmostUnlocked(const wchar_t *reason)
     };
 
     smallWindowTopmostApplied = true;
-    WebviewDebugLog(fmt::format(L"lazy topmost apply: reason={}", reason ? reason : L"?"));
+    // Later HWND_TOPMOST wins within the topmost band. When the tray menu is
+    // already showing, pin it last so FTB cannot cover it; otherwise keep FTB
+    // last so the idle toolbar stays discoverable above other small windows.
+    const bool menu_visible =
+        ::global_hwnd_menu != nullptr && IsWindowVisible(::global_hwnd_menu) != FALSE;
+    WebviewDebugLog(fmt::format(L"lazy topmost apply: reason={}, menu_visible={}",
+                                reason ? reason : L"?", menu_visible));
     pinOne(::global_hwnd, L"candidate");
-    pinOne(::global_hwnd_menu, L"menu");
-    pinOne(::global_hwnd_ftb, L"floating-toolbar");
+    if (menu_visible)
+    {
+        pinOne(::global_hwnd_ftb, L"floating-toolbar");
+        pinOne(::global_hwnd_menu, L"menu");
+    }
+    else
+    {
+        pinOne(::global_hwnd_menu, L"menu");
+        pinOne(::global_hwnd_ftb, L"floating-toolbar");
+    }
     LogSmallWindowReadyGateUnlocked(L"after-topmost-applied");
 }
 
@@ -265,6 +279,24 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason)
 
     ApplyLazyTopmostUnlocked(reason);
     return true;
+}
+
+void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
+{
+    if (!::global_hwnd_menu)
+    {
+        return;
+    }
+    // Re-assert TOPMOST after FTB (or a peer) was pinned last. A second
+    // HWND_TOPMOST is what actually lifts the menu within the topmost band;
+    // HWND_TOP alone is unreliable here with WS_EX_NOACTIVATE layered hosts.
+    constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
+    SetLastError(0);
+    const BOOL ok = SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag);
+    WebviewDebugLog(fmt::format(
+        L"raise tray menu above peers: reason={}, hwnd=0x{:X}, SetWindowPos={}, GetLastError={}, visible={}",
+        reason ? reason : L"?", reinterpret_cast<uintptr_t>(::global_hwnd_menu), ok != FALSE,
+        ok ? 0 : GetLastError(), IsWindowVisible(::global_hwnd_menu) != FALSE));
 }
 
 bool AreSmallWindowsTopmostApplied()

@@ -72,6 +72,9 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 bool AreSmallWindowsTopmostApplied();
 bool AreSmallWindowWebviewsReady();
 void LogSmallWindowReadyGate(const wchar_t *context);
+// Lift the tray menu to the front of the small-window topmost band (e.g. after
+// FTB was pinned last). Safe to call while the menu host is still DWM-cloaked.
+void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason);
 
 //
 // 菜单窗口 webview
