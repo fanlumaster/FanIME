@@ -13,6 +13,8 @@ export function setupVoiceInput(): void {
   setupToggleButton('voiceNotificationSound', value => updateConfig('voice_input.notification_sound', value));
   setupDropdownMenu('voiceLanguageBtn', 'voiceLanguageMenu', 'changeVoiceLanguage', true,
     'voice_input.language');
+  setupDropdownMenu('voiceCommitModeBtn', 'voiceCommitModeMenu', 'changeVoiceCommitMode', true,
+    'voice_input.commit_mode');
   Object.entries(fields).forEach(([id, path]) => {
     const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
     element?.addEventListener('change', () => updateConfig(path, element.value.trim()));
@@ -27,4 +29,6 @@ export function applyVoiceConfig(config: Record<string, unknown>): void {
   });
   applyDropdownValue('voiceLanguageBtn', 'voiceLanguageMenu',
     typeof config.language === 'string' ? config.language : undefined);
+  applyDropdownValue('voiceCommitModeBtn', 'voiceCommitModeMenu',
+    typeof config.commit_mode === 'string' ? config.commit_mode : undefined);
 }

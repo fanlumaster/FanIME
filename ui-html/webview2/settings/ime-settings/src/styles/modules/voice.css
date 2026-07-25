@@ -73,6 +73,11 @@
   min-width: 132px;
 }
 
-.voice-language-menu {
+.voice-commit-toggle {
+  min-width: 148px;
+}
+
+.voice-language-menu,
+.voice-commit-menu {
   min-width: 132px;
 }
