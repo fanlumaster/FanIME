@@ -17,6 +17,8 @@ struct VoiceInputConfig
     std::string language = "zh-cn";
     bool notification_sound = true;
     bool polish_text = false;
+    // tsf | sendinput | ctrl_v
+    std::string commit_mode = "tsf";
 };
 
 struct AiAssistantConfig

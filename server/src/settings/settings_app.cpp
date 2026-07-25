@@ -242,7 +242,7 @@ void PostConfig()
             {"asr_endpoint", voice.asr_endpoint}, {"polish_provider", voice.polish_provider},
             {"polish_token", voice.polish_token}, {"polish_endpoint", voice.polish_endpoint},
             {"language", voice.language}, {"notification_sound", voice.notification_sound},
-            {"polish_text", voice.polish_text}}},
+            {"polish_text", voice.polish_text}, {"commit_mode", voice.commit_mode}}},
           {"ai_assistant",
            {{"enabled", ai.enabled}, {"provider", ai.provider}, {"token", ai.token},
             {"endpoint", ai.endpoint}, {"model", ai.model},

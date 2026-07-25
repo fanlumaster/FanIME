@@ -332,8 +332,10 @@ constexpr UINT FocusSessionReady = 8;
 // Worker reverse-pipe registration acknowledgement. This is always the first
 // frame written to a newly accepted worker endpoint.
 constexpr UINT PipeReady = 9;
+// Unsolicited text insert (e.g. voice ASR). Independent of candidate finalize.
+constexpr UINT InsertText = 10;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = PipeReady;
+constexpr UINT MaxKnown = InsertText;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

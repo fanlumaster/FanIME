@@ -1,6 +1,7 @@
 #include "utils/single_instance.h"
 #include "watchdog/watchdog_protocol.h"
 
+#include <msctf.h>
 #include <shellapi.h>
 #include <tlhelp32.h>
 #include <windows.h>
@@ -16,6 +17,39 @@ constexpr wchar_t kServerFileName[] = L"MetasequoiaImeServer.exe";
 constexpr wchar_t kWatchdogMutex[] = L"Local\\MetasequoiaImeWatchdog.SingleInstance";
 constexpr DWORD kHealthyRunMilliseconds = 30'000;
 constexpr DWORD kMaximumRestartDelayMilliseconds = 30'000;
+
+// Keep these identifiers in sync with MetasequoiaImeTsf/src/Global/Globals.cpp.
+constexpr CLSID kMetasequoiaImeClsid = {
+    0xe3062e9a, 0xd834, 0x4637, {0x89, 0x58, 0xed, 0x8c, 0xfa, 0x42, 0x7d, 0x01}};
+constexpr GUID kMetasequoiaImeProfileGuid = {
+    0x4d59b1b4, 0xd503, 0x44ae, {0x92, 0x59, 0xba, 0xd9, 0xbb, 0x27, 0x78, 0xab}};
+constexpr LANGID kMetasequoiaImeLanguage =
+    MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
+
+bool IsMetasequoiaImeEnabledForCurrentUser()
+{
+    const HRESULT initialize_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(initialize_result)) return false;
+
+    ITfInputProcessorProfiles *profiles = nullptr;
+    const HRESULT create_result =
+        CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
+                         IID_ITfInputProcessorProfiles, reinterpret_cast<void **>(&profiles));
+
+    BOOL enabled = FALSE;
+    const HRESULT query_result =
+        SUCCEEDED(create_result)
+            ? profiles->IsEnabledLanguageProfile(kMetasequoiaImeClsid, kMetasequoiaImeLanguage,
+                                                 kMetasequoiaImeProfileGuid, &enabled)
+            : create_result;
+
+    if (profiles) profiles->Release();
+    CoUninitialize();
+
+    // Fail closed: if TSF cannot confirm that the profile is in this user's
+    // keyboard list, do not leave an otherwise unnecessary background service.
+    return query_result == S_OK && enabled != FALSE;
+}
 
 std::wstring GetExecutableDirectory()
 {
@@ -87,6 +121,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     CommonUtils::SingleInstanceGuard single_instance(kWatchdogMutex);
     if (!single_instance.is_valid()) return 1;
     if (single_instance.already_running()) return 0;
+    if (!IsMetasequoiaImeEnabledForCurrentUser()) return 0;
 
     const std::wstring executable_directory = GetExecutableDirectory();
     if (executable_directory.empty()) return 1;

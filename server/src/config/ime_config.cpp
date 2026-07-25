@@ -319,6 +319,12 @@ bool LoadImeConfig()
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         g_voice_input.notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
         g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
+        g_voice_input.commit_mode = tbl["voice_input"]["commit_mode"].value_or(std::string("tsf"));
+        if (g_voice_input.commit_mode != "tsf" && g_voice_input.commit_mode != "sendinput" &&
+            g_voice_input.commit_mode != "ctrl_v")
+        {
+            g_voice_input.commit_mode = "tsf";
+        }
         g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
         g_ai_assistant.provider = tbl["ai_assistant"]["provider"].value_or(std::string("deepseek"));
         g_ai_assistant.token = tbl["ai_assistant"]["token"].value_or(std::string());
@@ -964,6 +970,7 @@ const VoiceInputConfig &GetConfiguredVoiceInput()
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value)
 {
     if (key == "language" && value != "zh-cn" && value != "en" && value != "auto") return false;
+    if (key == "commit_mode" && value != "tsf" && value != "sendinput" && value != "ctrl_v") return false;
     std::string *target = nullptr;
     if (key == "asr_provider") target = &g_voice_input.asr_provider;
     else if (key == "asr_token") target = &g_voice_input.asr_token;
@@ -972,6 +979,7 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
     else if (key == "polish_token") target = &g_voice_input.polish_token;
     else if (key == "polish_endpoint") target = &g_voice_input.polish_endpoint;
     else if (key == "language") target = &g_voice_input.language;
+    else if (key == "commit_mode") target = &g_voice_input.commit_mode;
     if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value))) return false;
     *target = value;
     return true;

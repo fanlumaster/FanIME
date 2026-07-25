@@ -18,7 +18,10 @@ bool IsKeyPressed(int vk)
 
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode == HC_ACTION && wParam == WM_KEYDOWN)
+    // When Alt is held, Windows normally reports the following non-system key
+    // as WM_SYSKEYDOWN rather than WM_KEYDOWN.  Handle both; otherwise all of
+    // the Ctrl+Shift+Alt shortcuts depend on modifier press order.
+    if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN))
     {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
 
@@ -86,6 +89,10 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
                 OutputDebugString(fmt::format(L"[msime]: To delete candidate {}", idx + 1).c_str());
 #endif
                 PostMessage(::global_hwnd, WM_DELETE_CANDIDATE, idx + 1, 0);
+                // This is an IME command, not text intended for the foreground
+                // application.  Consuming it also prevents an Alt+number side
+                // effect in the application.
+                return 1;
             }
         }
     }

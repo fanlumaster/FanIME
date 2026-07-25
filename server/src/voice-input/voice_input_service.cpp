@@ -3,6 +3,7 @@
 
 #include "voice_input_service.h"
 #include "config/ime_config.h"
+#include "ipc/ipc.h"
 #include "utils/common_utils.h"
 #include "wave_overlay.h"
 #include "cue_player.h"
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <chrono>
 #include <condition_variable>
+#include <cstring>
 #include <deque>
 #include <future>
 #include <mutex>
@@ -280,16 +282,129 @@ std::string Polish(const std::string &text, const VoiceInputConfig &config)
     catch (...) { return text; }
 }
 
-void SendText(const std::string &utf8)
+void SendTextViaSendInput(const std::wstring &text)
 {
-    std::lock_guard<std::mutex> send_lock(g_send_mutex);
-    const std::wstring text = string_to_wstring(utf8);
     for (wchar_t ch : text)
     {
         INPUT input[2]{};
-        input[0].type = INPUT_KEYBOARD; input[0].ki.wScan = ch; input[0].ki.dwFlags = KEYEVENTF_UNICODE;
-        input[1] = input[0]; input[1].ki.dwFlags |= KEYEVENTF_KEYUP;
+        input[0].type = INPUT_KEYBOARD;
+        input[0].ki.wScan = ch;
+        input[0].ki.dwFlags = KEYEVENTF_UNICODE;
+        input[1] = input[0];
+        input[1].ki.dwFlags |= KEYEVENTF_KEYUP;
         SendInput(2, input, sizeof(INPUT));
+    }
+}
+
+bool CopyUnicodeTextToClipboard(const std::wstring &text)
+{
+    if (!OpenClipboard(nullptr))
+    {
+        return false;
+    }
+    EmptyClipboard();
+    const SIZE_T bytes = (text.size() + 1) * sizeof(wchar_t);
+    HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (!memory)
+    {
+        CloseClipboard();
+        return false;
+    }
+    void *destination = GlobalLock(memory);
+    if (!destination)
+    {
+        GlobalFree(memory);
+        CloseClipboard();
+        return false;
+    }
+    memcpy(destination, text.c_str(), bytes);
+    GlobalUnlock(memory);
+    if (!SetClipboardData(CF_UNICODETEXT, memory))
+    {
+        GlobalFree(memory);
+        CloseClipboard();
+        return false;
+    }
+    CloseClipboard();
+    return true;
+}
+
+void SendTextViaCtrlV(const std::wstring &text)
+{
+    if (!CopyUnicodeTextToClipboard(text))
+    {
+        SendTextViaSendInput(text);
+        return;
+    }
+    // Give the focused app a brief moment to observe the new clipboard data.
+    Sleep(30);
+    INPUT inputs[4]{};
+    inputs[0].type = INPUT_KEYBOARD;
+    inputs[0].ki.wVk = VK_CONTROL;
+    inputs[1].type = INPUT_KEYBOARD;
+    inputs[1].ki.wVk = 'V';
+    inputs[2].type = INPUT_KEYBOARD;
+    inputs[2].ki.wVk = 'V';
+    inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+    inputs[3].type = INPUT_KEYBOARD;
+    inputs[3].ki.wVk = VK_CONTROL;
+    inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(4, inputs, sizeof(INPUT));
+}
+
+bool SendTextViaTsf(const std::wstring &text)
+{
+    if (text.empty())
+    {
+        return true;
+    }
+    const PipeClientActivation active = GetActivePipeClient();
+    if (active.client_id == 0)
+    {
+        return false;
+    }
+    constexpr size_t maxCharsPerPacket =
+        (sizeof(((FanyImeNamedpipeDataToTsfWorkerThread *)nullptr)->data) / sizeof(wchar_t)) - 1;
+    size_t offset = 0;
+    while (offset < text.size())
+    {
+        const size_t chunkLen = (std::min)(maxCharsPerPacket, text.size() - offset);
+        if (!SendToTsfWorkerThreadClientViaNamedpipe(
+                active.client_id, active.epoch,
+                Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText,
+                text.substr(offset, chunkLen)))
+        {
+            return false;
+        }
+        offset += chunkLen;
+    }
+    return true;
+}
+
+void CommitRecognizedText(const std::string &utf8, const VoiceInputConfig &config)
+{
+    std::lock_guard<std::mutex> send_lock(g_send_mutex);
+    const std::wstring text = string_to_wstring(utf8);
+    if (text.empty())
+    {
+        return;
+    }
+
+    if (config.commit_mode == "ctrl_v")
+    {
+        SendTextViaCtrlV(text);
+        return;
+    }
+    if (config.commit_mode == "sendinput")
+    {
+        SendTextViaSendInput(text);
+        return;
+    }
+
+    // Default / "tsf": prefer TIP insert; fall back to SendInput when no active client.
+    if (!SendTextViaTsf(text))
+    {
+        SendTextViaSendInput(text);
     }
 }
 
@@ -355,7 +470,7 @@ void StopRecording()
         g_network_tasks.end());
     g_network_tasks.emplace_back(std::async(std::launch::async, [samples = std::move(samples), config]() {
         const std::string text = Polish(Recognize(samples, config), config);
-        if (!text.empty()) SendText(text);
+        if (!text.empty()) CommitRecognizedText(text, config);
     }));
 }
 } // namespace
