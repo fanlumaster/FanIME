@@ -89,6 +89,9 @@ HRESULT CKeyStateCategory::KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandl
     case FUNCTION_FINALIZE_CANDIDATELISTForVKReturn:
     return HandleKeyFinalizeCandidatelistForVKReturn(dto);
 
+    case FUNCTION_INSERT_TEXT:
+        return _pTextService->_HandleInsertText(dto.ec, dto.pContext, dto.prefetchedText);
+
     case FUNCTION_CONVERT: {
         return HandleKeyConvert(dto);
     }

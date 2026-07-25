@@ -657,6 +657,16 @@ bool CMetasequoiaIME::_PostAsyncKeyRequest(UINT message, UINT code, WCHAR wch, u
 
 bool CMetasequoiaIME::_PostServerCandidateCommit(_In_z_ const WCHAR *candidateText)
 {
+    return _PostServerTextDelivery(WM_CommitCandidate, candidateText);
+}
+
+bool CMetasequoiaIME::_PostServerInsertText(_In_z_ const WCHAR *text)
+{
+    return _PostServerTextDelivery(WM_InsertText, text);
+}
+
+bool CMetasequoiaIME::_PostServerTextDelivery(UINT windowMessage, _In_z_ const WCHAR *text)
+{
     constexpr size_t maxPendingServerCommits = 64;
     if (!_workerCommitReady.load(std::memory_order_acquire) ||
         _localSessionResetPending.load(std::memory_order_acquire) ||
@@ -689,10 +699,10 @@ bool CMetasequoiaIME::_PostServerCandidateCommit(_In_z_ const WCHAR *candidateTe
             token = NextWindowMessageToken();
         } while (token == 0 || _pendingServerCommitMessages.count(token) != 0);
         _pendingServerCommitMessages.emplace(
-            token, WorkerCandidateCommit{candidateText ? candidateText : L"", focusToken, compositionEpoch});
+            token, WorkerCandidateCommit{text ? text : L"", focusToken, compositionEpoch});
     }
 
-    if (!PostMessage(ownerWindow, WM_CommitCandidate, static_cast<WPARAM>(token), 0))
+    if (!PostMessage(ownerWindow, windowMessage, static_cast<WPARAM>(token), 0))
     {
         std::lock_guard<std::mutex> lock(_pendingCommitCandidateMutex);
         _pendingServerCommitMessages.erase(token);
@@ -1590,7 +1600,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         }
 
         bool validFrame = true;
-        if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CommitCurCandidate)
+        if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CommitCurCandidate ||
+            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InsertText)
         {
             bool hasTerminator = false;
             for (const wchar_t ch : buf.data)
@@ -1696,6 +1707,13 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             if (pIME->_workerCommitReady.load(std::memory_order_acquire))
             {
                 pIME->_PostServerCandidateCommit(buf.data);
+            }
+        }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InsertText)
+        {
+            if (pIME->_workerCommitReady.load(std::memory_order_acquire))
+            {
+                pIME->_PostServerInsertText(buf.data);
             }
         }
         else if (buf.msg_type >= Global::DataToTsfWorkerThreadMsgType::SwitchToEnglish &&
@@ -1989,6 +2007,38 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 _KEYSTROKE_STATE KeystrokeState;
                 KeystrokeState.Category = CATEGORY_CANDIDATE;
                 KeystrokeState.Function = FUNCTION_FINALIZE_CANDIDATELIST;
+                pIME->_InvokeKeyHandler(pContext, 0, 0, 0, KeystrokeState,
+                                        FANY_IME_UNSOLICITED_REQUEST_ID,
+                                        std::move(request.text), 0,
+                                        request.compositionEpoch,
+                                        request.focusToken);
+                pContext->Release();
+            }
+            pDocMgrFocus->Release();
+        }
+        break;
+    }
+    case WM_InsertText: {
+        CMetasequoiaIME::WorkerCandidateCommit request;
+        if (!pIME->_TakeServerCandidateCommit(static_cast<UINT>(wParam), request))
+        {
+            break;
+        }
+        if (!pIME->_IsFocusSessionCurrent(request.focusToken) ||
+            !pIME->_IsCompositionEpochCurrent(request.compositionEpoch))
+        {
+            break;
+        }
+        ITfDocumentMgr *pDocMgrFocus = nullptr;
+        ITfContext *pContext = nullptr;
+
+        if (SUCCEEDED(pIME->_GetThreadMgr()->GetFocus(&pDocMgrFocus)) && pDocMgrFocus)
+        {
+            if (SUCCEEDED(pDocMgrFocus->GetTop(&pContext)) && pContext)
+            {
+                _KEYSTROKE_STATE KeystrokeState;
+                KeystrokeState.Category = CATEGORY_COMPOSING;
+                KeystrokeState.Function = FUNCTION_INSERT_TEXT;
                 pIME->_InvokeKeyHandler(pContext, 0, 0, 0, KeystrokeState,
                                         FANY_IME_UNSOLICITED_REQUEST_ID,
                                         std::move(request.text), 0,

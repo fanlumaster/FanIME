@@ -33,6 +33,7 @@ const DWORD WM_IpcWorkerDisconnected = WM_USER + 15;
 const DWORD WM_IpcReconnect = WM_USER + 16;
 const DWORD WM_IpcSessionDirty = WM_USER + 17;
 const DWORD WM_DrainDeferredKeyDown = WM_USER + 18;
+const DWORD WM_InsertText = WM_USER + 19;
 LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND wndHandle, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 class CMetasequoiaIME : public ITfTextInputProcessorEx,
@@ -135,6 +136,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     HRESULT _HandleCompleteCommitFirst(TfEditCookie ec, _In_ ITfContext *pContext);
     HRESULT _HandleCancel(TfEditCookie ec, _In_ ITfContext *pContext);
     HRESULT _HandleToogleIMEMode(TfEditCookie ec, _In_ ITfContext *pContext);
+    HRESULT _HandleInsertText(TfEditCookie ec, _In_ ITfContext *pContext, const std::wstring &text);
 
     // key event handlers for composition object.
     HRESULT _HandleCompositionInput(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch, uint64_t requestId);
@@ -238,6 +240,8 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
         uint64_t compositionEpoch = 0;
     };
     bool _PostServerCandidateCommit(_In_z_ const WCHAR *candidateText);
+    bool _PostServerInsertText(_In_z_ const WCHAR *text);
+    bool _PostServerTextDelivery(UINT windowMessage, _In_z_ const WCHAR *text);
     bool _TakeServerCandidateCommit(UINT token, _Out_ WorkerCandidateCommit &request);
     struct WorkerCompartmentSwitch
     {

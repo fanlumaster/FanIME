@@ -286,9 +286,11 @@ constexpr UINT FocusSessionReady = 8;
 // Worker-endpoint registration acknowledgement. It is consumed before the
 // handle is published to IpcWorkerThread and before Main can be opened.
 constexpr UINT PipeReady = 9;
+// Unsolicited text insert (voice ASR, etc.). Does not finalize candidates.
+constexpr UINT InsertText = 10;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = PipeReady;
+constexpr UINT MaxKnown = InsertText;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};

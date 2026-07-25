@@ -230,6 +230,23 @@ HRESULT CMetasequoiaIME::_HandleToogleIMEMode(TfEditCookie ec, _In_ ITfContext *
     return S_OK;
 }
 
+HRESULT CMetasequoiaIME::_HandleInsertText(TfEditCookie ec, _In_ ITfContext *pContext, const std::wstring &text)
+{
+    if (text.empty())
+    {
+        return S_OK;
+    }
+
+    CStringRange insertString;
+    insertString.Set(text.c_str(), text.length());
+    HRESULT hr = _AddCharAndFinalize(ec, pContext, &insertString);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return _HandleCompleteCommitFirst(ec, pContext);
+}
+
 //+---------------------------------------------------------------------------
 //
 // _HandleCompositionInput

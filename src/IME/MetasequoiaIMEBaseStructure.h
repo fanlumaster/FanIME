@@ -59,7 +59,11 @@ enum KEYSTROKE_FUNCTION
     FUNCTION_PUNCTUATION,
 
     // Raw candidate navigation key; Server decides its configured behavior.
-    FUNCTION_SERVER_CANDIDATE_KEY
+    FUNCTION_SERVER_CANDIDATE_KEY,
+
+    // Unsolicited insert (voice ASR via worker pipe). Append-only so existing
+    // ordinals stay stable across builds.
+    FUNCTION_INSERT_TEXT
 };
 
 //---------------------------------------------------------------------
