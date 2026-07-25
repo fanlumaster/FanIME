@@ -69,12 +69,9 @@
   font-size: 14px;
 }
 
-.voice-language-toggle {
-  min-width: 132px;
-}
-
+.voice-language-toggle,
 .voice-commit-toggle {
-  min-width: 148px;
+  min-width: 132px;
 }
 
 .voice-language-menu,

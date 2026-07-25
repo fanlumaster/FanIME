@@ -26,7 +26,13 @@ export function setupDropdownMenu(
     if (useStopPropagation) {
       e.stopPropagation();
     }
-    menu.classList.toggle('open');
+    const willOpen = !menu.classList.contains('open');
+    document.querySelectorAll('.dropdown-menu.open').forEach((openMenu) => {
+      if (openMenu !== menu) {
+        openMenu.classList.remove('open');
+      }
+    });
+    menu.classList.toggle('open', willOpen);
   });
 
   const menuItems = menu.querySelectorAll('.dropdown-item');
