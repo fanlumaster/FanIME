@@ -2448,7 +2448,12 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 
     if (is_valid_selection)
     {
+        // Capture ranking keys before reset_state()/composition advance clears the
+        // input sequence. CandidateDatabaseKey() consults get_pinyin_sequence(),
+        // and for single-code lists (e.g. "n") it must keep item.pinyin ("na"/"nv")
+        // rather than falling back to the one-letter context key.
         const std::string ranking_context_key = CurrentRankingContextKey();
+        const std::string ranking_entry_key = CandidateDatabaseKey(curWordItem, ranking_context_key);
         isNeedUpdateWeight = is_digit_selection;
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
         std::string curWord = curWordItem.word;
@@ -2566,8 +2571,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             bool ranking_changed = false;
             (void)user_dictionary::adjust_candidate_ranking(
                 CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-                ranking_context_key, Global::candidate_ui.items,
-                CandidateDatabaseKey(curWordItem, ranking_context_key), curWord,
+                ranking_context_key, Global::candidate_ui.items, ranking_entry_key, curWord,
                 frequency.mode, frequency.linear_step, frequency.trigger_count, false, &ranking_changed);
             if (ranking_changed)
             {
