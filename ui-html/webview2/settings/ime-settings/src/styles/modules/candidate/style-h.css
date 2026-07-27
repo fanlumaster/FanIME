@@ -7,13 +7,11 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    /* Match candwnd: grow with content, wrap past 720 DIP. */
+    /* Keep candidates on one row; long text wraps inside .row-wrapper past 720 DIP. */
     width: min(720px, max-content);
     max-width: 720px;
     box-sizing: border-box;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    white-space: nowrap;
     user-select: none;
     border: 1.5px solid var(--cand-border);
   }
@@ -47,9 +45,12 @@
     position: relative;
     display: inline-block;
     vertical-align: top;
-    max-width: 100%;
+    max-width: 720px;
     min-width: 0;
     box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .first-row-wrapper {

@@ -30,13 +30,12 @@
       border-radius: 6px;
       box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
       min-width: 7em;
-      /* Cap long candidates (e.g. nsdd). Host resizes before paint to avoid flash. */
+      /* Keep candidates on one row even in a still-narrow WebView (avoids
+         multi-row flash). Long text wraps inside .row-wrapper instead. */
       width: min(720px, max-content);
       max-width: 720px;
       box-sizing: border-box;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      white-space: nowrap;
       user-select: none;
       border: 1.5px solid rgba(0, 0, 0, 0.12);
     }
@@ -71,9 +70,12 @@
       position: relative;
       display: inline-block;
       vertical-align: top;
-      max-width: 100%;
+      max-width: 720px;
       min-width: 0;
       box-sizing: border-box;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .first-row-wrapper {
