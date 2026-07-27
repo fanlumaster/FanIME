@@ -159,6 +159,7 @@
     let a = false;
     let currentRightClickedCand = null;
     let contextMenuTopExpansion = 0;
+    let contextMenuLeftExpansion = 0;
     function positionContextMenu(menu, x, y) {
       menu.style.left = x + 'px'; menu.style.top = y + 'px';
       menu.style.visibility = 'hidden'; menu.style.display = 'block';
@@ -182,8 +183,8 @@
       const naturalHeight = submenu.offsetHeight;
       const menuX = Number.parseFloat(menu.style.left) || 0;
       const screenRight = window.screen.availLeft + window.screen.availWidth;
-      const openLeft = menuX >= width &&
-        window.screenX + menuX + menu.offsetWidth + width + 4 > screenRight;
+      const openLeft = window.screenX + menuX + menu.offsetWidth + width + 4 > screenRight;
+      const leftExpansion = openLeft ? Math.max(0, width - menuX + 2) : 0;
       submenu.style.left = openLeft ? 'auto' : '100%';
       submenu.style.right = openLeft ? '100%' : 'auto';
       const defaultScreenTop = window.screenY + menuY + parent.offsetTop - 2;
@@ -195,7 +196,7 @@
       const height = submenu.offsetHeight;
       submenu.style.display = '';
       submenu.style.visibility = '';
-      return { width, height, topExpansion, bottom: menuY + parent.offsetTop +
+      return { width, height, topExpansion, leftExpansion, bottom: menuY + parent.offsetTop +
         Number.parseFloat(submenu.style.top) + height };
     }
     document.addEventListener('DOMContentLoaded', function () {
@@ -213,6 +214,7 @@
           width:Math.ceil(menuPosition.x+menu.offsetWidth+submenuSize.width+4),
           height:Math.ceil(Math.max(content?.offsetHeight||0,menuPosition.y+menu.offsetHeight+4,submenuSize.bottom+4)),
           topExpansion:Math.ceil(Math.max(menuPosition.topExpansion||0,submenuSize.topExpansion||0))
+          ,leftExpansion:Math.ceil(submenuSize.leftExpansion||0)
         }}));
       });
       document.addEventListener('click', function (e) {
@@ -291,13 +293,24 @@
       menu.style.top = ((Number.parseFloat(menu.style.top) || 0) + delta) + 'px';
       contextMenuTopExpansion = pixels;
     }
+    window.ApplyContextMenuLeftExpansion = function (pixels) {
+      const content = document.getElementById('realContainerParent');
+      const menu = document.getElementById('contextMenu');
+      const delta = pixels - contextMenuLeftExpansion;
+      content.style.marginLeft = ((Number.parseFloat(content.style.marginLeft) || 0) + delta) + 'px';
+      menu.style.left = ((Number.parseFloat(menu.style.left) || 0) + delta) + 'px';
+      contextMenuLeftExpansion = pixels;
+    }
     window.RestoreContextMenuTopExpansion = function () {
-      if (!contextMenuTopExpansion) return;
+      if (!contextMenuTopExpansion && !contextMenuLeftExpansion) return;
       const content = document.getElementById('realContainerParent');
       const menu = document.getElementById('contextMenu');
       content.style.marginTop = ((Number.parseFloat(content.style.marginTop) || 0) - contextMenuTopExpansion) + 'px';
       menu.style.top = ((Number.parseFloat(menu.style.top) || 0) - contextMenuTopExpansion) + 'px';
       contextMenuTopExpansion = 0;
+      content.style.marginLeft = ((Number.parseFloat(content.style.marginLeft) || 0) - contextMenuLeftExpansion) + 'px';
+      menu.style.left = ((Number.parseFloat(menu.style.left) || 0) - contextMenuLeftExpansion) + 'px';
+      contextMenuLeftExpansion = 0;
     }
 
     window.SetCandidateSelection = function (index) {
