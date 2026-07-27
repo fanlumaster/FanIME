@@ -57,7 +57,7 @@ int PrepareCandidateWindowSciterHtml()
     std::wstring bodyPath = bodyHtml;
     ::BodyString = ReadHtmlFile(bodyPath);
 #ifdef FANY_DEBUG
-    OutputDebugString(fmt::format(L"[msime]: bodyPath = {}", bodyPath).c_str());
+    (void)0;
 #endif
 
     return 0;
@@ -179,7 +179,7 @@ void SciterBridgeJs::adjustInitialWindowSize(sciter::value width, sciter::value 
         realHeight = height.get<int>();
     }
 #ifdef FANY_DEBUG
-    OutputDebugString(fmt::format(L"[msime]: Candidate Window size: {} {}", realWidth, realHeight).c_str());
+    (void)0;
 #endif
     // TODO: Adjust window size
     ::CANDIDATE_WINDOW_WIDTH = realWidth;

@@ -86,7 +86,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
             {
 // 执行候选项删除逻辑，PostMessage 给窗口过程去执行
 #ifdef FANY_DEBUG
-                OutputDebugString(fmt::format(L"[msime]: To delete candidate {}", idx + 1).c_str());
+                (void)0;
 #endif
                 PostMessage(::global_hwnd, WM_DELETE_CANDIDATE, idx + 1, 0);
                 // This is an IME command, not text intended for the foreground

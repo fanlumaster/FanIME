@@ -161,16 +161,16 @@ std::string FetchCloudCandidate(const std::string &pinyin, uint64_t generation)
     std::string response;
     if (!HttpGet(L"inputtools.google.com", path, response))
     {
-        OutputDebugString(fmt::format(L"[msime]: 请求云输入法失败").c_str());
+        (void)0;
         return "";
     }
 
     if (!g_running || g_generation.load() != generation)
         return "";
 
-    // OutputDebugString(fmt::format(L"[msime]: cloud response: {}", string_to_wstring(response)).c_str());
+    // (void)0;
     std::string candidate = ParseCandidate(response);
-    // OutputDebugString(fmt::format(L"[msime]: cloud candidate: {}", string_to_wstring(candidate)).c_str());
+    // (void)0;
     return candidate;
 }
 

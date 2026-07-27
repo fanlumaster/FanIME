@@ -37,15 +37,9 @@
 #include "unicode/unicode_query.h"
 #include <cwchar>
 
-#ifdef FANY_IPC_DEBUG
-#define FANY_IPC_LOG_RAW(message) OutputDebugString(message)
-#define FANY_IPC_LOGW(message) OutputDebugString((message).c_str())
-#define FANY_IPC_LOGF(...) OutputDebugString(fmt::format(__VA_ARGS__).c_str())
-#else
 #define FANY_IPC_LOG_RAW(message) ((void)0)
 #define FANY_IPC_LOGW(message) ((void)0)
 #define FANY_IPC_LOGF(...) ((void)0)
-#endif
 
 namespace
 {
@@ -223,11 +217,7 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
     const AiAssistantConfig config = GetConfiguredAiAssistant();
     const bool usable = config.enabled && g_inputSession && g_inputSession->current_scheme_type() != SchemeType::Wubi &&
                         g_inputSession->is_all_complete_pure_pinyin() && !identity.empty();
-    OutputDebugStringA(fmt::format("[ai-assistant] trigger check: enabled={}, scheme={}, complete={}, "
-                                  "identity={}, usable={}\n", config.enabled,
-                                  g_inputSession ? static_cast<int>(g_inputSession->current_scheme_type()) : -1,
-                                  g_inputSession && g_inputSession->is_all_complete_pure_pinyin(), identity,
-                                  usable).c_str());
+    (void)0;
     AiAssistant::Request request;
     if (usable)
     {
@@ -1295,7 +1285,7 @@ void EventListenerLoopThread()
     while (pipe_running)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: Main pipe starts to wait");
+        (void)0;
 #endif
         if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
         {
@@ -1567,7 +1557,7 @@ void ToTsfPipeEventListenerLoopThread()
     while (pipe_running)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: ToTsf Pipe starts to wait");
+        (void)0;
 #endif
         if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
         {
@@ -1582,7 +1572,7 @@ void ToTsfPipeEventListenerLoopThread()
 
         BOOL connected = WaitForPipeClient(listeningPipe);
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: ToTsf Pipe connected: {}", connected).c_str());
+        (void)0;
 #endif
         LogPipeConnectResult(L"to-tsf-pipe", connected);
         if (connected)
@@ -1636,7 +1626,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
     while (pipe_running)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: ToTsf Worker Thread Pipe starts to wait");
+        (void)0;
 #endif
         if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
         {
@@ -1655,7 +1645,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
         if (connected)
         {
 #ifdef FANY_DEBUG
-            OutputDebugString(fmt::format(L"[msime]: ToTsf Worker Thread Pipe connected: {}", connected).c_str());
+            (void)0;
 #endif
             if (!pipe_running)
             {
@@ -1965,12 +1955,7 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     if (!enabled || candidate.empty() || !has_session || wubi || !complete ||
         GlobalIme::composition.creating_word.active || current_identity != identity)
     {
-        OutputDebugStringA(fmt::format("[ai-assistant] candidate rejected: generation={}, enabled={}, "
-                                      "candidate_empty={}, has_session={}, wubi={}, complete={}, creating_word={}, "
-                                      "requested_identity={}, current_identity={}\n", generation, enabled,
-                                      candidate.empty(), has_session, wubi, complete,
-                                      GlobalIme::composition.creating_word.active, identity,
-                                      current_identity).c_str());
+        (void)0;
         return;
     }
     auto &items = Global::candidate_ui.items;
@@ -1980,8 +1965,7 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
     {
         Global::ai_candidate = {true, candidate, query.committed_pinyin};
-        OutputDebugStringA(fmt::format("[ai-assistant] candidate skipped as duplicate: generation={}, candidate={}\n",
-                                      generation, candidate).c_str());
+        (void)0;
         return;
     }
 
@@ -1992,8 +1976,7 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     const size_t insert_index = std::min<size_t>(2, items.size());
     items.insert(items.begin() + insert_index, WordItem(identity, candidate, 1, CandidateSource::AiSuggestion));
     g_inputSession->cache_dynamic_candidate(query.cache_key, candidate, CandidateSource::AiSuggestion);
-    OutputDebugStringA(fmt::format("[ai-assistant] candidate inserted: generation={}, index={}, candidate={}, "
-                                  "identity={}\n", generation, insert_index + 1, candidate, identity).c_str());
+    (void)0;
     Global::ai_candidate = {true, candidate, query.committed_pinyin};
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
     Global::candidate_ui.page_index = 0;
@@ -2436,10 +2419,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             if (creating_word_progress.completed)
             { /* 最终的造词 */
 #ifdef FANY_DEBUG
-                OutputDebugString(fmt::format(L"[msime]: create_word 造词：{} {}",
-                                              string_to_wstring(GlobalIme::composition.creating_word.word),
-                                              string_to_wstring(GlobalIme::composition.creating_word.pinyin))
-                                      .c_str());
+                (void)0;
 #endif
 
                 /* 更新一下被选中的候选项 */

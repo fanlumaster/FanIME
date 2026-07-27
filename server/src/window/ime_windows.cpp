@@ -90,12 +90,7 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
     const BOOL ok =
         SetWindowPos(hwnd, nullptr, posX, posY, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
     SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
-    OutputDebugStringW(fmt::format(L"[msime-webview] ftb layout: hwnd=0x{:X}, pos=({},{}), size=({},{}), "
-                                  L"scale={}, reset_corner={}, SetWindowPos={}, GetLastError={}, visible={}\n",
-                                  reinterpret_cast<uintptr_t>(hwnd), posX, posY, width, height, scale,
-                                  reset_to_default_corner, ok != FALSE, ok ? 0 : GetLastError(),
-                                  IsWindowVisible(hwnd) != FALSE)
-                           .c_str());
+    (void)0;
 }
 
 void PlaceFloatingToolbarOnScreen(HWND hwnd)
@@ -250,11 +245,7 @@ void ApplyConfiguredFloatingToolbarVisibility()
     const bool should_show = FanyImeUi::ShouldShowFloatingToolbar(
         GetConfiguredFloatingToolbarEnabled(), fullscreen, g_is_ime_active);
     const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
-    OutputDebugStringW(fmt::format(L"[msime-webview] ftb visibility: should_show={}, is_visible={}, "
-                                  L"configured={}, fullscreen={}, ime_active={}, hwnd=0x{:X}\n",
-                                  should_show, is_visible, GetConfiguredFloatingToolbarEnabled(), fullscreen,
-                                  g_is_ime_active, reinterpret_cast<uintptr_t>(::global_hwnd_ftb))
-                           .c_str());
+    (void)0;
     if (should_show)
     {
         // Keep the dragged position across IME activate / config / fullscreen
@@ -322,7 +313,7 @@ LRESULT RegisterIMEWindowsClass(WNDCLASSEX &wcex, HINSTANCE hInstance)
     if (!RegisterClassEx(&wcex))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Call to RegisterClassEx failed!").c_str());
+        (void)0;
 #endif
         return 1;
     }
@@ -361,7 +352,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     if (!hwnd_cand)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for candidate window failed!").c_str());
+        (void)0;
 #endif
         return 1;
     }
@@ -401,7 +392,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     if (!hwnd_menu)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for menu failed!").c_str());
+        (void)0;
 #endif
         return 1;
     }
@@ -438,16 +429,14 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     if (!hwnd_ftb)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Call to CreateWindow for floating toolbar failed!").c_str());
+        (void)0;
 #endif
         return 1;
     }
     PrepareLayeredHostWindow(hwnd_ftb);
     ::global_hwnd_ftb = hwnd_ftb;
     FanyNamedPipe::RegisterStatusSnapshotWindow(hwnd_ftb);
-    OutputDebugStringW(fmt::format(L"[msime-webview] ftb created on screen: hwnd=0x{:X}, pos=({},{}), size=({},{})\n",
-                                  reinterpret_cast<uintptr_t>(hwnd_ftb), ftbX, ftbY, ftbWidth, ftbHeight)
-                           .c_str());
+    (void)0;
 
     // Cloaked show: WebView2 sees a visible on-monitor host; the user does not.
     WarmupHostWindowCloaked(hwnd_cand);
@@ -478,12 +467,12 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     if (!g_hHook)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Kbd hook for IME failed!").c_str());
+        (void)0;
 #endif
         return 1;
     }
 #ifdef FANY_DEBUG
-    OutputDebugString(fmt::format(L"[msime]: Kbd hook for IME installed.").c_str());
+    (void)0;
 #endif
 
     HWINEVENTHOOK hook = SetWinEventHook( //
@@ -560,19 +549,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                                    ? std::wstring{}
                                    : GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
-        OutputDebugStringW(fmt::format(L"[msime-webview] show candidate requested: hwnd=0x{:X}, caret=({},{}), "
-                                      L"preedit_chars={}, candidate_chars={}, webview={}, controller={}, "
-                                      L"topmost_applied={}, cand_visible={}\n",
-                                      reinterpret_cast<uintptr_t>(hwnd), Global::Point[0], Global::Point[1],
-                                      preedit.size(), Global::CandidateString.size(), webviewCandWnd != nullptr,
-                                      webviewControllerCandWnd != nullptr, AreSmallWindowsTopmostApplied(),
-                                      IsWindowVisible(hwnd) != FALSE)
-                               .c_str());
+        (void)0;
         LogSmallWindowReadyGate(L"show-candidate");
         if (!EnsureSmallWindowsTopmost(L"show-candidate"))
         {
-            OutputDebugStringW(L"[msime-webview] show candidate: webviews not ready, topmost queued; "
-                               L"will FineTune after navigation\n");
+            (void)0;
         }
         InflateMeasureDivCandWnd(str);
 
@@ -586,8 +567,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_HIDE_MAIN_WINDOW)
     {
-        OutputDebugStringW(fmt::format(L"[msime-webview] hide candidate requested: hwnd=0x{:X}\n",
-                                      reinterpret_cast<uintptr_t>(hwnd)).c_str());
+        (void)0;
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
         FLOAT scale = GetForegroundWindowScale();
@@ -735,7 +715,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_CLS_DICT_CACHE: {
         FanyNamedPipe::EnqueueResetInputSessionCacheTask();
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Cleared dictionary buffer cache.").c_str());
+        (void)0;
 #endif
         break;
     }
@@ -743,7 +723,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_COMMIT_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Really to commit candidate {}", one_based).c_str());
+        (void)0;
 #endif
         FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::Commit, one_based);
 
@@ -753,7 +733,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_PIN_TO_TOP_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Really to pin to top candidate {}", one_based).c_str());
+        (void)0;
 #endif
         FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::Pin, one_based);
 
@@ -763,7 +743,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_DELETE_CANDIDATE: {
         int one_based = static_cast<int>(wParam);
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Really to delete candidate {}", one_based).c_str());
+        (void)0;
 #endif
         FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::Delete, one_based);
 
@@ -772,7 +752,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     case WM_CLEAR_IME_ENGINE_CACHE: {
 #ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: Clearing IME engine cache");
+        (void)0;
 #endif
         /* 清除候选词缓存 */
         FanyNamedPipe::EnqueueResetInputSessionCacheTask();
@@ -839,16 +819,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             ::MENU_WINDOW_HEIGHT,       //
             flag                        //
         );
-        OutputDebugStringW(fmt::format(L"[msime-webview] show menu: hwnd=0x{:X}, pos=({},{}), size=({},{}), "
-                                      L"dip=({:.1f},{:.1f}), scale={}, SetWindowPos={}, GetLastError={}, "
-                                      L"webview={}, controller={}, visible={}\n",
-                                      reinterpret_cast<uintptr_t>(::global_hwnd_menu), menuX, menuY,
-                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, ::MENU_CONTENT_WIDTH_DIP,
-                                      ::MENU_CONTENT_HEIGHT_DIP, scale, okShowMenu != FALSE,
-                                      okShowMenu ? 0 : GetLastError(), webviewMenuWnd != nullptr,
-                                      webviewControllerMenuWnd != nullptr,
-                                      IsWindowVisible(::global_hwnd_menu) != FALSE)
-                               .c_str());
+        (void)0;
         if (!okShowMenu)
         {
             ShowWindow(::global_hwnd_menu, SW_SHOWNOACTIVATE);
@@ -893,11 +864,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             ApplyMenuPhysicalSizeFromDips(hwnd, scale, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         }
         SyncHostWebViewBounds(::webviewControllerMenuWnd.Get(), hwnd);
-        OutputDebugStringW(fmt::format(L"[msime-webview] menu WM_DPICHANGED: size=({},{}), dip=({:.1f},{:.1f}), "
-                                      L"scale={}\n",
-                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, ::MENU_CONTENT_WIDTH_DIP,
-                                      ::MENU_CONTENT_HEIGHT_DIP, scale)
-                               .c_str());
+        (void)0;
         // Remeasure in case font/layout metrics shifted with the new DPI.
         SetTimer(hwnd, TIMER_ID_INIT_WEBVIEW_MENU, 1, nullptr);
         return 0;
@@ -937,11 +904,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                         flag |= wasVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
                         FLOAT scale = GetWindowScale(hwnd);
                         ApplyMenuPhysicalSizeFromDips(hwnd, scale, flag);
-                        OutputDebugStringW(fmt::format(L"[msime-webview] menu measured: size=({},{}), "
-                                                      L"dip=({:.1f},{:.1f}), scale={}\n",
-                                                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT,
-                                                      ::MENU_CONTENT_WIDTH_DIP, ::MENU_CONTENT_HEIGHT_DIP, scale)
-                                               .c_str());
+                        (void)0;
                     }
                 });
             }
@@ -1467,7 +1430,7 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     case WM_DPICHANGED: {
         // Recompute from design DIPs rather than only accepting the suggested
         // rect. Keep the user's dragged top-left instead of snapping home.
-        OutputDebugStringW(fmt::format(L"[msime-webview] ftb WM_DPICHANGED: dpi={}\n", HIWORD(wParam)).c_str());
+        (void)0;
         LayoutFloatingToolbar(hwnd, false);
         return 0;
     }
@@ -1507,15 +1470,10 @@ int FineTuneWindow(HWND hwnd)
 
     int caretX = Global::Point[0];
     int caretY = Global::Point[1];
-    OutputDebugStringW(fmt::format(L"[msime-webview] candidate fine-tune started: hwnd=0x{:X}, caret=({},{}), "
-                                  L"scale={}, shown={}, webview={}, controller={}, topmost_applied={}\n",
-                                  reinterpret_cast<uintptr_t>(hwnd), caretX, caretY, scale,
-                                  ::is_global_wnd_cand_shown, webviewCandWnd != nullptr,
-                                  webviewControllerCandWnd != nullptr, AreSmallWindowsTopmostApplied())
-                           .c_str());
+    (void)0;
     if (!webviewCandWnd)
     {
-        OutputDebugStringW(L"[msime-webview] candidate fine-tune aborted: webviewCandWnd is null\n");
+        (void)0;
         LogSmallWindowReadyGate(L"fine-tune-no-webview");
         return 0;
     }
@@ -1532,9 +1490,7 @@ int FineTuneWindow(HWND hwnd)
         // measure callback was still pending — do not resurrect it.
         if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
         {
-            OutputDebugStringW(fmt::format(L"[msime-webview] candidate fine-tune abandoned after measurement: "
-                                          L"shown={}, caretY={}\n",
-                                          ::is_global_wnd_cand_shown, caretY).c_str());
+            (void)0;
             return;
         }
 
@@ -1549,7 +1505,7 @@ int FineTuneWindow(HWND hwnd)
         // Empty composition with no candidates means the session already ended.
         if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
         {
-            OutputDebugStringW(L"[msime-webview] candidate fine-tune abandoned: composition and candidates empty\n");
+            (void)0;
             return;
         }
 
@@ -1595,15 +1551,7 @@ int FineTuneWindow(HWND hwnd)
             UpdateSmallWindowWebviewVisibility(hwnd, true);
             RECT actualRect{};
             GetWindowRect(hwnd, &actualRect);
-            OutputDebugStringW(fmt::format(
-                L"[msime-webview] candidate window positioned: requested_pos=({},{}), requested_size=({},{}), "
-                L"flags=0x{:X}, success={}, GetLastError={}, actual_rect=[{},{},{},{}], visible={}, "
-                L"topmost_applied={}, measure=({:.1f},{:.1f})\n",
-                properPos->first, properPos->second, newWidth, newHeight, newFlag, positioned != FALSE,
-                positioned ? 0 : GetLastError(), actualRect.left, actualRect.top, actualRect.right, actualRect.bottom,
-                IsWindowVisible(hwnd) != FALSE, AreSmallWindowsTopmostApplied(), containerSize.first,
-                containerSize.second)
-                                   .c_str());
+            (void)0;
         });
     });
     return 0;

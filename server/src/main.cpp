@@ -67,13 +67,12 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeServer_SingleInstance");
     if (!single_instance.is_valid())
     {
-        OutputDebugString(fmt::format(L"[msime]: Failed to create single instance mutex.").c_str());
+        (void)0;
         return 0;
     }
     if (single_instance.already_running())
     {
-        OutputDebugString(
-            fmt::format(L"[msime]: Single instance already exists, MetasequoiaImeServer is already running.").c_str());
+        (void)0;
         return 0;
     }
 
@@ -84,10 +83,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     const HRESULT comResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(comResult))
     {
-        OutputDebugString(
-            fmt::format(L"[msime]: Failed to initialize the UI COM STA: 0x{:08X}",
-                        static_cast<unsigned long>(comResult))
-                .c_str());
+        (void)0;
         return 1;
     }
 
@@ -110,9 +106,9 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
         "Input session backend configured={}, effective={}, scheme={}",
         configured_backend.empty() ? "legacy" : configured_backend, effective_backend,
         SchemeTypeToString(g_inputSession->current_scheme_type()));
-    spdlog::info(session_summary);
+    (void)0;
 #ifdef FANY_DEBUG
-    OutputDebugString(fmt::format(L"[msime]: {}", string_to_wstring(session_summary)).c_str());
+    (void)0;
 #endif
 
     RegisterCandidateWindowMessage();

@@ -43,12 +43,7 @@ std::string Fetch(const AiAssistant::Request &request, uint64_t generation)
     if (!config.enabled || config.token.empty() || config.endpoint.empty() || config.model.empty() ||
         request.pinyin_segments.empty() || g_generation.load() != generation)
     {
-        OutputDebugStringA(fmt::format("[ai-assistant] request skipped: enabled={}, token_configured={}, "
-                                      "endpoint_configured={}, model_configured={}, segment_count={}, "
-                                      "generation_current={}\n",
-                                      config.enabled, !config.token.empty(), !config.endpoint.empty(),
-                                      !config.model.empty(), request.pinyin_segments.size(),
-                                      g_generation.load() == generation).c_str());
+        (void)0;
         return {};
     }
 
@@ -70,11 +65,7 @@ std::string Fetch(const AiAssistant::Request &request, uint64_t generation)
     }
 
     // Deliberately exclude API token and system prompt from logs.
-    OutputDebugStringA(fmt::format("[ai-assistant] sending request: generation={}, provider={}, endpoint={}, "
-                                  "model={}, pinyin={}, context={}, candidate_limit={}\n",
-                                  generation, config.provider, config.endpoint, config.model,
-                                  nlohmann::json(request.pinyin_segments).dump(),
-                                  nlohmann::json(request.context).dump(), config.candidate_limit).c_str());
+    (void)0;
 
     CURL *curl = curl_easy_init();
     if (!curl) return {};
@@ -98,18 +89,15 @@ std::string Fetch(const AiAssistant::Request &request, uint64_t generation)
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
-    OutputDebugStringA(fmt::format("[ai-assistant] response: generation={}, curl_code={}, http_status={}, body={}\n",
-                                  generation, static_cast<int>(result), status, response).c_str());
+    (void)0;
     if (result != CURLE_OK || status < 200 || status >= 300)
     {
-        OutputDebugStringA(fmt::format("[ai-assistant] request failed: generation={}, curl_error={}, "
-                                      "http_status={}\n", generation, curl_easy_strerror(result), status).c_str());
+        (void)0;
         return {};
     }
     if (g_generation.load() != generation)
     {
-        OutputDebugStringA(fmt::format("[ai-assistant] response discarded as stale: response_generation={}, "
-                                      "current_generation={}\n", generation, g_generation.load()).c_str());
+        (void)0;
         return {};
     }
 
@@ -121,19 +109,16 @@ std::string Fetch(const AiAssistant::Request &request, uint64_t generation)
         const auto &candidates = result_json.at("candidates");
         if (!candidates.is_array() || candidates.empty())
         {
-            OutputDebugStringA(fmt::format("[ai-assistant] parsed an empty candidate list: generation={}\n",
-                                          generation).c_str());
+            (void)0;
             return {};
         }
         const std::string candidate = candidates.at(0).value("text", std::string{});
-        OutputDebugStringA(fmt::format("[ai-assistant] parsed best candidate: generation={}, candidate={}\n",
-                                      generation, candidate).c_str());
+        (void)0;
         return candidate;
     }
     catch (const std::exception &error)
     {
-        OutputDebugStringA(fmt::format("[ai-assistant] response parse failed: generation={}, error={}\n",
-                                      generation, error.what()).c_str());
+        (void)0;
         return {};
     }
 }
@@ -154,9 +139,7 @@ void WorkerLoop()
             const std::string candidate = cached->second;
             const uint64_t cached_generation = observed;
             lock.unlock();
-            OutputDebugStringA(fmt::format("[ai-assistant] cache hit: generation={}, pinyin={}, candidate={}\n",
-                                          cached_generation,
-                                          nlohmann::json(request.pinyin_segments).dump(), candidate).c_str());
+            (void)0;
             if (g_running && g_generation.load() == cached_generation && g_callback)
                 g_callback(candidate, request.identity, cached_generation);
             continue;
@@ -178,9 +161,7 @@ void WorkerLoop()
                 std::lock_guard cache_lock(g_mutex);
                 g_candidate_cache[BuildCacheKey(request)] = candidate;
             }
-            OutputDebugStringA(fmt::format("[ai-assistant] cache stored: generation={}, pinyin={}, candidate={}\n",
-                                          observed, nlohmann::json(request.pinyin_segments).dump(),
-                                          candidate).c_str());
+            (void)0;
             g_callback(candidate, request.identity, observed);
         }
     }
@@ -209,9 +190,7 @@ void Stop()
 void OnInputChanged(Request request)
 {
     { std::lock_guard lock(g_mutex); g_latest = std::move(request); g_last_input = std::chrono::steady_clock::now(); ++g_generation;
-      OutputDebugStringA(fmt::format("[ai-assistant] input updated: generation={}, identity={}, segment_count={}\n",
-                                    g_generation.load(), g_latest.identity,
-                                    g_latest.pinyin_segments.size()).c_str()); }
+      (void)0; }
     g_cv.notify_one();
 }
 void Clear() { OnInputChanged({}); }

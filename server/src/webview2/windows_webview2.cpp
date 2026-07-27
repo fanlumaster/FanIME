@@ -42,7 +42,7 @@ ComPtr<ICoreWebView2Environment> smallWindowWebviewEnvironment;
 
 void WebviewDebugLog(const std::wstring &message)
 {
-    OutputDebugStringW(fmt::format(L"[msime-webview] {}\n", message).c_str());
+    (void)0;
 }
 
 struct FloatingToolbarState
@@ -77,17 +77,12 @@ void ResetSmallWindowTopmostGate()
     floatingToolbarNavigationReady = false;
     smallWindowTopmostRequested = false;
     smallWindowTopmostApplied = false;
-    WebviewDebugLog(L"ready-gate reset");
+    (void)0;
 }
 
 void LogSmallWindowReadyGateUnlocked(const wchar_t *context)
 {
-    WebviewDebugLog(fmt::format(
-        L"ready-gate [{}]: cand_nav={}, menu_nav={}, ftb_nav={}, topmost_requested={}, topmost_applied={}, "
-        L"controllers={{cand:{},menu:{},ftb:{}}}",
-        context ? context : L"?", candidateNavigationReady, menuNavigationReady, floatingToolbarNavigationReady,
-        smallWindowTopmostRequested, smallWindowTopmostApplied, webviewControllerCandWnd != nullptr,
-        webviewControllerMenuWnd != nullptr, webviewControllerFtbWnd != nullptr));
+    (void)0;
 }
 
 void ApplyLazyTopmostUnlocked(const wchar_t *reason)
@@ -96,18 +91,14 @@ void ApplyLazyTopmostUnlocked(const wchar_t *reason)
     auto pinOne = [flag](HWND hwnd, const wchar_t *name) {
         if (!hwnd)
         {
-            WebviewDebugLog(fmt::format(L"lazy topmost skip {}: hwnd=null", name));
+            (void)0;
             return;
         }
         SetLastError(0);
         const BOOL ok = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flag);
         RECT rect{};
         GetWindowRect(hwnd, &rect);
-        WebviewDebugLog(fmt::format(
-            L"lazy topmost {}: hwnd=0x{:X}, SetWindowPos={}, GetLastError={}, visible={}, "
-            L"rect=[{},{},{},{}]",
-            name, reinterpret_cast<uintptr_t>(hwnd), ok != FALSE, ok ? 0 : GetLastError(),
-            IsWindowVisible(hwnd) != FALSE, rect.left, rect.top, rect.right, rect.bottom));
+        (void)0;
     };
 
     smallWindowTopmostApplied = true;
@@ -116,8 +107,7 @@ void ApplyLazyTopmostUnlocked(const wchar_t *reason)
     // last so the idle toolbar stays discoverable above other small windows.
     const bool menu_visible =
         ::global_hwnd_menu != nullptr && IsWindowVisible(::global_hwnd_menu) != FALSE;
-    WebviewDebugLog(fmt::format(L"lazy topmost apply: reason={}, menu_visible={}",
-                                reason ? reason : L"?", menu_visible));
+    (void)0;
     pinOne(::global_hwnd, L"candidate");
     if (menu_visible)
     {
@@ -147,7 +137,7 @@ void TryApplyPendingLazyTopmost(const wchar_t *reason)
     ApplyLazyTopmostUnlocked(reason);
     if (::is_global_wnd_cand_shown && ::global_hwnd)
     {
-        WebviewDebugLog(L"lazy topmost follow-up: FineTuneWindow for pending candidate show");
+        (void)0;
         FineTuneWindow(::global_hwnd);
     }
     if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
@@ -160,12 +150,12 @@ void TryApplyPendingLazyTopmost(const wchar_t *reason)
             webviewControllerMenuWnd->put_Bounds(bounds);
             webviewControllerMenuWnd->NotifyParentWindowPositionChanged();
         }
-        WebviewDebugLog(L"lazy topmost follow-up: refresh visible menu webview");
+        (void)0;
     }
     if (::global_hwnd_ftb && IsWindowVisible(::global_hwnd_ftb))
     {
         UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, true);
-        WebviewDebugLog(L"lazy topmost follow-up: refresh visible floating-toolbar webview");
+        (void)0;
     }
 }
 
@@ -173,11 +163,11 @@ void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
 {
     if (readyFlag)
     {
-        WebviewDebugLog(fmt::format(L"small-window navigation ready ignored (duplicate): {}", which));
+        (void)0;
         return;
     }
     readyFlag = true;
-    WebviewDebugLog(fmt::format(L"small-window navigation ready: {}", which));
+    (void)0;
     LogSmallWindowReadyGateUnlocked(L"after-nav-ready");
     TryApplyPendingLazyTopmost(L"pending-after-nav-ready");
 }
@@ -271,8 +261,7 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason)
     }
     if (!AreSmallWindowWebviewsReadyUnlocked())
     {
-        WebviewDebugLog(fmt::format(L"lazy topmost deferred until webviews ready: reason={}",
-                                    reason ? reason : L"?"));
+        (void)0;
         LogSmallWindowReadyGateUnlocked(L"topmost-deferred");
         return false;
     }
@@ -293,10 +282,7 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
     SetLastError(0);
     const BOOL ok = SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag);
-    WebviewDebugLog(fmt::format(
-        L"raise tray menu above peers: reason={}, hwnd=0x{:X}, SetWindowPos={}, GetLastError={}, visible={}",
-        reason ? reason : L"?", reinterpret_cast<uintptr_t>(::global_hwnd_menu), ok != FALSE,
-        ok ? 0 : GetLastError(), IsWindowVisible(::global_hwnd_menu) != FALSE));
+    (void)0;
 }
 
 bool AreSmallWindowsTopmostApplied()
@@ -345,21 +331,18 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
     }
     else
     {
-        WebviewDebugLog(fmt::format(L"visibility ignored: unknown hwnd=0x{:X}",
-                                    reinterpret_cast<uintptr_t>(hwnd)));
+        (void)0;
         return;
     }
 
     if (controller)
     {
         const HRESULT hr = controller->put_IsVisible(visible ? TRUE : FALSE);
-        WebviewDebugLog(fmt::format(L"controller visibility: hwnd=0x{:X}, visible={}, hr=0x{:08X}",
-                                    reinterpret_cast<uintptr_t>(hwnd), visible, static_cast<unsigned long>(hr)));
+        (void)0;
     }
     else
     {
-        WebviewDebugLog(fmt::format(L"controller visibility deferred: hwnd=0x{:X}, visible={}, controller=null",
-                                    reinterpret_cast<uintptr_t>(hwnd), visible));
+        (void)0;
     }
 
     if (lowerMemoryWhenHidden)
@@ -375,7 +358,7 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
     std::wifstream file(filePath);
     if (!file)
     {
-        WebviewDebugLog(fmt::format(L"HTML read failed: path='{}', GetLastError={}", filePath, GetLastError()));
+        (void)0;
         return L"";
     }
     // Use Boost Locale to handle UTF-8
@@ -383,7 +366,7 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
     std::wstringstream buffer;
     buffer << file.rdbuf();
     std::wstring content = buffer.str();
-    WebviewDebugLog(fmt::format(L"HTML read succeeded: path='{}', chars={}", filePath, content.size()));
+    (void)0;
     return content;
 }
 
@@ -511,9 +494,7 @@ int PrepareHtmlForWnds()
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
     std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
     ::MeasureStringCandWnd = ReadHtmlFile(measureHtmlPathCandWnd);
-    WebviewDebugLog(fmt::format(L"candidate assets prepared: layout={}, theme={}, page_chars={}, body_chars={}, measure_chars={}",
-                                isHorizontal ? L"horizontal" : L"vertical", candThemeSuffix, HTMLStringCandWnd.size(),
-                                BodyStringCandWnd.size(), MeasureStringCandWnd.size()));
+    (void)0;
 
     //
     // 托盘语言区菜单窗口
@@ -735,9 +716,7 @@ HRESULT OnControllerCreatedCandWnd(     //
     ICoreWebView2Controller *controller //
 )
 {
-    WebviewDebugLog(fmt::format(L"candidate controller callback: hwnd=0x{:X}, result=0x{:08X}, controller={}",
-                                reinterpret_cast<uintptr_t>(hwnd), static_cast<unsigned long>(result),
-                                controller != nullptr));
+    (void)0;
     if (!controller || FAILED(result))
     {
         ShowErrorMessage(hwnd, L"Failed to create WebView2 controller.");
@@ -746,8 +725,7 @@ HRESULT OnControllerCreatedCandWnd(     //
 
     webviewControllerCandWnd = controller;
     const HRESULT getWebviewHr = webviewControllerCandWnd->get_CoreWebView2(webviewCandWnd.GetAddressOf());
-    WebviewDebugLog(fmt::format(L"get candidate CoreWebView2: hr=0x{:08X}, webview={}",
-                                static_cast<unsigned long>(getWebviewHr), webviewCandWnd != nullptr));
+    (void)0;
 
     if (!webviewCandWnd)
     {
@@ -811,8 +789,7 @@ HRESULT OnControllerCreatedCandWnd(     //
             assetPath.c_str(),                               //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
         );                                                   //
-        WebviewDebugLog(fmt::format(L"candidate virtual host mapping: folder='{}', hr=0x{:08X}", assetPath,
-                                    static_cast<unsigned long>(mappingHr)));
+        (void)0;
     }
 
     // Set transparent background
@@ -830,13 +807,11 @@ HRESULT OnControllerCreatedCandWnd(     //
     bounds.right += candidateBoundRightExtra;
     bounds.bottom += candidateBoundBottomExtra;
     const HRESULT boundsHr = webviewControllerCandWnd->put_Bounds(bounds);
-    WebviewDebugLog(fmt::format(L"candidate initial bounds: [{},{},{},{}], hr=0x{:08X}", bounds.left, bounds.top,
-                                bounds.right, bounds.bottom, static_cast<unsigned long>(boundsHr)));
+    (void)0;
 
     // Navigate to HTML
     HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
-    WebviewDebugLog(fmt::format(L"candidate NavigateToString submitted: html_chars={}, hr=0x{:08X}",
-                                HTMLStringCandWnd.size(), static_cast<unsigned long>(hr)));
+    (void)0;
     if (FAILED(hr))
     {
         ShowErrorMessage(hwnd, L"Failed to navigate to string.");
@@ -887,8 +862,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                     catch (const std::exception &e)
                     {
 #ifdef FANY_DEBUG
-                        OutputDebugString(
-                            fmt::format(L"[msime]: Exception happens when parsing cand wnd webview2 message").c_str());
+                        (void)0;
 #endif
                         return S_OK;
                     }
@@ -905,20 +879,14 @@ HRESULT OnControllerCreatedCandWnd(     //
                 COREWEBVIEW2_WEB_ERROR_STATUS errorStatus = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
                 const HRESULT successHr = args->get_IsSuccess(&success);
                 const HRESULT statusHr = args->get_WebErrorStatus(&errorStatus);
-                WebviewDebugLog(fmt::format(
-                    L"candidate navigation completed: success={}, shown={}, isSuccess_hr=0x{:08X}, "
-                    L"status_hr=0x{:08X}, web_error={}",
-                    success != FALSE, ::is_global_wnd_cand_shown, static_cast<unsigned long>(successHr),
-                    static_cast<unsigned long>(statusHr), static_cast<int>(errorStatus)));
+                (void)0;
                 if (success)
                 {
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
                 }
                 else
                 {
-                    WebviewDebugLog(fmt::format(
-                        L"candidate navigation failed: web_error={}, shown={}, topmost_applied={}",
-                        static_cast<int>(errorStatus), ::is_global_wnd_cand_shown, smallWindowTopmostApplied));
+                    (void)0;
                 }
                 if (success && ::is_global_wnd_cand_shown)
                 {
@@ -939,8 +907,7 @@ HRESULT OnControllerCreatedCandWnd(     //
             [](ICoreWebView2 *, ICoreWebView2ProcessFailedEventArgs *args) -> HRESULT {
                 COREWEBVIEW2_PROCESS_FAILED_KIND kind = COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
                 const HRESULT hr = args->get_ProcessFailedKind(&kind);
-                WebviewDebugLog(fmt::format(L"candidate WebView2 process failed: kind={}, hr=0x{:08X}",
-                                            static_cast<int>(kind), static_cast<unsigned long>(hr)));
+                (void)0;
                 return S_OK;
             }).Get(),
         nullptr);
@@ -958,8 +925,7 @@ HRESULT OnControllerCreatedCandWnd(     //
  */
 HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env)
 {
-    WebviewDebugLog(fmt::format(L"candidate environment dispatch: hwnd=0x{:X}, result=0x{:08X}, env={}",
-                                reinterpret_cast<uintptr_t>(hwnd), static_cast<unsigned long>(result), env != nullptr));
+    (void)0;
     if (FAILED(result) || !env)
     {
         ShowErrorMessage(hwnd, L"Failed to create WebView2 environment.");
@@ -976,8 +942,7 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
             })                                                                               //
             .Get()                                                                           //
     );                                                                                       //
-    WebviewDebugLog(fmt::format(L"candidate controller creation submitted: hr=0x{:08X}",
-                                static_cast<unsigned long>(hr)));
+    (void)0;
     return hr;
 }
 
@@ -1004,7 +969,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
     if (!controller || FAILED(result))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to create menu window webview2 controller.").c_str());
+        (void)0;
 #endif
         return E_FAIL;
     }
@@ -1016,7 +981,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
     if (!webviewMenuWnd)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.").c_str());
+        (void)0;
 #endif
         return E_FAIL;
     }
@@ -1082,7 +1047,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                 BOOL success = FALSE;
                 if (!args || FAILED(args->get_IsSuccess(&success)) || !success)
                 {
-                    WebviewDebugLog(L"menu navigation failed or incomplete");
+                    (void)0;
                     return S_OK;
                 }
                 NotifySmallWindowNavigationReady(menuNavigationReady, L"menu");
@@ -1113,7 +1078,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
     if (FAILED(hr))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
+        (void)0;
 #endif
     }
 
@@ -1193,7 +1158,7 @@ HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2E
     if (FAILED(result) || !env)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to create menu window webview2 environment.").c_str());
+        (void)0;
 #endif
         return result;
     }
@@ -1267,7 +1232,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     if (!controller || FAILED(result))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to create settings window webview2 controller.").c_str());
+        (void)0;
 #endif
         return E_FAIL;
     }
@@ -1277,7 +1242,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     if (FAILED(webviewCompositionControllerSettingsWnd.As(&webviewControllerSettingsWnd)))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to get the base WebView2 controller.").c_str());
+        (void)0;
 #endif
         return E_NOINTERFACE;
     }
@@ -1287,7 +1252,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     if (!webviewSettingsWnd)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.").c_str());
+        (void)0;
 #endif
         return E_FAIL;
     }
@@ -1336,7 +1301,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     if (FAILED(compositionResult))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to initialize DirectComposition.").c_str());
+        (void)0;
 #endif
         return compositionResult;
     }
@@ -1346,7 +1311,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     if (FAILED(rootVisualResult))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to attach the WebView root visual.").c_str());
+        (void)0;
 #endif
         return rootVisualResult;
     }
@@ -1365,7 +1330,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
     if (FAILED(hr))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
+        (void)0;
 #endif
     }
 
@@ -1379,8 +1344,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                 {
 // 隐藏窗口
 #ifdef FANY_DEBUG
-                    OutputDebugString(
-                        fmt::format(L"[msime]: Webview2 settings window loaded and already hidden window").c_str());
+                    (void)0;
 #endif
                     BOOL cloak = FALSE;
                     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
@@ -1807,7 +1771,7 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
     if (FAILED(result) || !env)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to create settings window webview2 environment.").c_str());
+        (void)0;
 #endif
         return result;
     }
@@ -1816,7 +1780,7 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
     if (FAILED(env->QueryInterface(IID_PPV_ARGS(&env3))) || !env3)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to get ICoreWebView2Environment3 for composition.").c_str());
+        (void)0;
 #endif
         return E_NOINTERFACE;
     }
@@ -1961,8 +1925,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     if (!controller || FAILED(result))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(
-            fmt::format(L"[msime]: Failed to create floating toolbar window webview2 controller.").c_str());
+        (void)0;
 #endif
         return E_FAIL;
     }
@@ -1974,7 +1937,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     if (!webviewFtbWnd)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to get webview2 instance.").c_str());
+        (void)0;
 #endif
         return E_FAIL;
     }
@@ -2070,7 +2033,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 }
                 else
                 {
-                    WebviewDebugLog(L"floating-toolbar navigation failed");
+                    (void)0;
                 }
                 return S_OK;
             })
@@ -2079,10 +2042,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     if (FAILED(navigationCompletedResult))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(
-            fmt::format(L"[msime]: Failed to register floating toolbar navigation callback: 0x{:08X}",
-                        static_cast<unsigned long>(navigationCompletedResult))
-                .c_str());
+        (void)0;
 #endif
         return navigationCompletedResult;
     }
@@ -2092,7 +2052,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     if (FAILED(hr))
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: Failed to navigate to string.").c_str());
+        (void)0;
 #endif
         return hr;
     }
@@ -2125,7 +2085,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         if (mode == "cn") // Change to CN
                         {
 #ifdef FANY_DEBUG
-                            OutputDebugString(fmt::format(L"[msime]: Change to CN").c_str());
+                            (void)0;
 #endif
                             SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn,
                                                               L"");
@@ -2133,7 +2093,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         else if (mode == "en") // Change to EN
                         {
 #ifdef FANY_DEBUG
-                            OutputDebugString(fmt::format(L"[msime]: Change to EN").c_str());
+                            (void)0;
 #endif
                             SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn,
                                                               L"");
@@ -2145,7 +2105,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         if (mode == "fullwidth")
                         {
 #ifdef FANY_DEBUG
-                            OutputDebugString(fmt::format(L"[msime]: Change to fullwidth").c_str());
+                            (void)0;
 #endif
                             SendToTsfWorkerThreadViaNamedpipe(
                                 Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth, L"");
@@ -2153,7 +2113,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         else if (mode == "halfwidth")
                         {
 #ifdef FANY_DEBUG
-                            OutputDebugString(fmt::format(L"[msime]: Change to halfwidth").c_str());
+                            (void)0;
 #endif
                             SendToTsfWorkerThreadViaNamedpipe(
                                 Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth, L"");
@@ -2165,7 +2125,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         if (mode == "puncEn")
                         {
 #ifdef FANY_DEBUG
-                            OutputDebugString(fmt::format(L"[msime]: Change to puncEn").c_str());
+                            (void)0;
 #endif
                             SendToTsfWorkerThreadViaNamedpipe(
                                 Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn, L"");
@@ -2173,7 +2133,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         else if (mode == "puncCn")
                         {
 #ifdef FANY_DEBUG
-                            OutputDebugString(fmt::format(L"[msime]: Change to puncCn").c_str());
+                            (void)0;
 #endif
                             SendToTsfWorkerThreadViaNamedpipe(
                                 Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn, L"");
@@ -2194,14 +2154,14 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     else if (type == "openSettings")
                     {
 #ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Open settings").c_str());
+                        (void)0;
 #endif
                         OpenSettingsApplication();
                     }
                     else if (type == "openEmojiPanel")
                     {
 #ifdef FANY_DEBUG
-                        OutputDebugString(fmt::format(L"[msime]: Open emoji panel").c_str());
+                        (void)0;
 #endif
                         OpenEmojiPanelApplication();
                     }
@@ -2228,8 +2188,7 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
     if (FAILED(result) || !env)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(
-            fmt::format(L"[msime]: Failed to create floating toolbar window webview2 environment.").c_str());
+        (void)0;
 #endif
         return result;
     }
@@ -2262,16 +2221,14 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
         L"--no-first-run");
 
     const std::wstring appDataPath = GetAppdataPath();
-    WebviewDebugLog(fmt::format(L"shared environment creation starting: cand=0x{:X}, user_data='{}'",
-                                reinterpret_cast<uintptr_t>(candHwnd), appDataPath));
+    (void)0;
     const HRESULT createHr = CreateCoreWebView2EnvironmentWithOptions(
         nullptr,
         appDataPath.c_str(),
         options.Get(),
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [candHwnd, menuHwnd, ftbHwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
-                WebviewDebugLog(fmt::format(L"shared environment callback: result=0x{:08X}, env={}",
-                                            static_cast<unsigned long>(result), env != nullptr));
+                (void)0;
                 if (FAILED(result) || !env)
                 {
                     ShowErrorMessage(candHwnd, L"Failed to create the shared WebView2 environment.");
@@ -2284,18 +2241,14 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
                 const HRESULT menuResult = OnMenuWindowEnvironmentCreated(menuHwnd, S_OK, env);
                 const HRESULT ftbResult = OnFtbWindowEnvironmentCreated(ftbHwnd, S_OK, env);
 
-                WebviewDebugLog(fmt::format(
-                    L"small-window controller submissions: candidate=0x{:08X}, menu=0x{:08X}, ftb=0x{:08X}",
-                    static_cast<unsigned long>(candResult), static_cast<unsigned long>(menuResult),
-                    static_cast<unsigned long>(ftbResult)));
+                (void)0;
 
                 if (FAILED(candResult)) return candResult;
                 if (FAILED(menuResult)) return menuResult;
                 return ftbResult;
             })
             .Get());
-    WebviewDebugLog(fmt::format(L"shared environment creation submitted: hr=0x{:08X}",
-                                static_cast<unsigned long>(createHr)));
+    (void)0;
 }
 
 void ShutdownWebviews()

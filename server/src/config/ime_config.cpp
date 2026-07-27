@@ -340,7 +340,7 @@ bool LoadImeConfig()
     catch (const toml::parse_error &)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: TOML parse error\n");
+        (void)0;
 #endif
         return false;
     }
@@ -420,7 +420,7 @@ void MigrateLegacyVoiceInputConfig()
     catch (const toml::parse_error &)
     {
 #ifdef FANY_DEBUG
-        OutputDebugString(L"[msime]: Legacy voice input config migration skipped: TOML parse error\n");
+        (void)0;
 #endif
     }
 }
@@ -451,17 +451,16 @@ void InitImeConfig()
     {
         MigrateLegacyVoiceInputConfig();
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: session_backend = {}", string_to_wstring(g_session_backend)).c_str());
+        (void)0;
 #endif
 #ifdef FANY_DEBUG
-        OutputDebugString(
-            fmt::format(L"[msime]: shuangpin_preedit_mode = {}", string_to_wstring(g_shuangpin_preedit_mode)).c_str());
+        (void)0;
 #endif
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: shuangpin_helpcode = {}", g_shuangpin_helpcode_enabled).c_str());
+        (void)0;
 #endif
 #ifdef FANY_DEBUG
-        OutputDebugString(fmt::format(L"[msime]: quanpin_helpcode = {}", g_quanpin_helpcode_enabled).c_str());
+        (void)0;
 #endif
     }
 }
