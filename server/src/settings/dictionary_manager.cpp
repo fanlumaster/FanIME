@@ -5,6 +5,7 @@
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
+#include "MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
 
 #include <sqlite3.h>
 #include <algorithm>
@@ -168,6 +169,8 @@ json::object MutateChinese(const json::object &request)
         if (!stmt || !BindText(stmt.get(), 1, key) || !BindText(stmt.get(), 2, quanpin::segments_to_jianpin(segments)) ||
             !BindText(stmt.get(), 3, word) || sqlite3_bind_int(stmt.get(), 4, weight) != SQLITE_OK || sqlite3_step(stmt.get()) != SQLITE_DONE)
             return Result(false, "新增失败：" + std::string(sqlite3_errmsg(db.get())));
+        (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                             user_dictionary::DictionaryKind::Pinyin, key, word, weight);
         return Result(true, "词条新增成功");
     }
 
@@ -184,6 +187,8 @@ json::object MutateChinese(const json::object &request)
         Stmt stmt = Prepare(db.get(), "DELETE FROM \"" + old_table + "\" WHERE key=?1 AND value=?2", error);
         if (!stmt || !BindText(stmt.get(), 1, old_key) || !BindText(stmt.get(), 2, old_word) || sqlite3_step(stmt.get()) != SQLITE_DONE)
             return Result(false, "删除失败：" + std::string(sqlite3_errmsg(db.get())));
+        (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                             user_dictionary::DictionaryKind::Pinyin, old_key, old_word);
         return Result(true, "词条删除成功");
     }
 
@@ -197,6 +202,14 @@ json::object MutateChinese(const json::object &request)
         BindText(insert.get(), 2, quanpin::segments_to_jianpin(segments)) && BindText(insert.get(), 3, word) &&
         sqlite3_bind_int(insert.get(), 4, weight) == SQLITE_OK && sqlite3_step(insert.get()) == SQLITE_DONE;
     sqlite3_exec(db.get(), ok ? "COMMIT" : "ROLLBACK", nullptr, nullptr, nullptr);
+    if (ok)
+    {
+        if (old_key != key || old_word != word)
+            (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::Pinyin, old_key, old_word);
+        (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                             user_dictionary::DictionaryKind::Pinyin, key, word, weight);
+    }
     return Result(ok, ok ? "词条修改成功" : "修改失败：" + std::string(sqlite3_errmsg(db.get())));
 }
 
@@ -232,6 +245,20 @@ json::object HandleEnglish(const json::object &request)
     if (ok && action != "delete") ok = BindText(stmt.get(), 2, display);
     if (ok && action == "update") ok = BindText(stmt.get(), 3, old_word);
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
+    if (ok)
+    {
+        if (action == "delete")
+            (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::English, old_word, old_word);
+        else
+        {
+            if (action == "update" && old_word != word)
+                (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                     user_dictionary::DictionaryKind::English, old_word, old_word);
+            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::English, word, word, 0, display);
+        }
+    }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
     return Result(ok, ok ? std::string("英文词条") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
 }
@@ -277,6 +304,20 @@ json::object HandleWubi(const json::object &request)
         if (ok && action == "update") ok = BindText(stmt.get(), 4, old_code) && BindText(stmt.get(), 5, old_word);
     }
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
+    if (ok)
+    {
+        if (action == "delete")
+            (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::Wubi, old_code, old_word);
+        else
+        {
+            if (action == "update" && (old_code != code || old_word != word))
+                (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                     user_dictionary::DictionaryKind::Wubi, old_code, old_word);
+            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::Wubi, code, word, weight);
+        }
+    }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
     return Result(ok, ok ? std::string("五笔词条") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
 }
@@ -330,6 +371,23 @@ json::object HandleQuickPhrase(const json::object &request)
         if (ok && action == "update") ok = BindText(stmt.get(), 4, old_code) && BindText(stmt.get(), 5, old_phrase);
     }
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
+    if (ok)
+    {
+        if (action == "delete")
+            (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::QuickPhrase,
+                                                 old_code, old_phrase);
+        else
+        {
+            if (action == "update" && (old_code != code || old_phrase != phrase))
+                (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
+                                                     user_dictionary::DictionaryKind::QuickPhrase,
+                                                     old_code, old_phrase);
+            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::QuickPhrase,
+                                                 code, phrase, weight);
+        }
+    }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
     return Result(ok, ok ? std::string("快捷短语") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
 }

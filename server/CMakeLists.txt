@@ -56,6 +56,7 @@ include_directories("./MetasequoiaImeEngine/utfcpp/source/")
 
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 set(WATCHDOG_EXECUTABLE_NAME "MetasequoiaImeWatchdog")
+set(DICTIONARY_REPLAY_EXECUTABLE_NAME "MetasequoiaImeDictionaryReplay")
 
 add_executable(${WATCHDOG_EXECUTABLE_NAME} WIN32
     "./src/watchdog/main.cpp"
@@ -153,6 +154,8 @@ set(SRC_FILES_IME_ENGINE
     "./MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
     "./MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
     "./MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
+    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
+    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
 )
 
 set(SRC_FILES_GOOGLEIME
@@ -194,6 +197,17 @@ add_dependencies(${PROJECT_NAME} Dictionaries)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwmapi shell32)
+
+add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
+    "./src/user-dictionary-replay/main.cpp"
+    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
+    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
+)
+target_link_libraries(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE
+    unofficial::sqlite3::sqlite3
+)
+target_compile_definitions(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE NOMINMAX=1)
+add_dependencies(${PROJECT_NAME} ${DICTIONARY_REPLAY_EXECUTABLE_NAME})
 
 # Keep msimeui as an independently versioned GUI framework submodule. The
 # product-owned emoji panel lives under src/emoji-panel so it can evolve separately
@@ -271,6 +285,8 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/settings_launcher.h"
     "./src/settings/dictionary_manager.cpp"
     "./src/settings/dictionary_manager.h"
+    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
+    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/utils/common_utils.cpp"
