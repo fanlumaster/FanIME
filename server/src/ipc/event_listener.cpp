@@ -851,6 +851,12 @@ void WorkerThread()
         {
         case TaskType::ShowCandidate: {
             static int cnt = 0;
+            // A TSF ShowCandidate packet owns a complete candidate payload,
+            // including the caret anchor. Read it here rather than inside
+            // PrepareCandidateList: that function is also used for server-side
+            // refreshes (creating-word progress and candidate context-menu
+            // actions), whose current packet does not carry a valid point.
+            ::ReadDataFromNamedPipe(0b111111);
             PrepareCandidateList(task.client_id, task.activation_epoch);
             PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
             break;
@@ -1924,7 +1930,6 @@ void AuxPipeEventListenerLoopThread()
 
 void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
 {
-    ::ReadDataFromNamedPipe(0b111111);
     auto &ui = Global::candidate_ui;
     std::string pinyin = wstring_to_string(Global::PinyinString);
     const std::string current_input = g_inputSession->get_pinyin_sequence_with_cases();
