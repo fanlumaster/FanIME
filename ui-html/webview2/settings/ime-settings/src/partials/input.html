@@ -28,6 +28,23 @@
     </div>
   </div>
 
+  <div class="section">
+    <div class="section-header"><div class="section-title">数字键调频</div></div>
+    <div class="input-option-content">
+      <label>方式
+        <select id="frequencyMode">
+          <option value="disabled">关闭</option><option value="pin">一次置顶</option>
+          <option value="halve">折半调频</option><option value="linear">线性调频</option>
+          <option value="promote">一次置前</option>
+        </select>
+      </label>
+      <div class="input-option-divider"></div>
+      <label>每 <input id="frequencyTriggerCount" type="number" min="1" max="10" value="1"> 次触发</label>
+      <div class="input-option-divider"></div>
+      <label>线性步长 <input id="frequencyLinearStep" type="number" min="1" max="10" value="1"></label>
+    </div>
+  </div>
+
   <!-- 双拼方案 -->
   <div class="section shuangpin-option-content">
     <div class="section-header">

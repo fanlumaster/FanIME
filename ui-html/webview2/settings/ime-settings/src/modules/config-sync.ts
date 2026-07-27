@@ -1,6 +1,6 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 import { applyAppearanceConfig } from './appearance';
-import { applyInputConfig } from './input';
+import { applyFrequencyConfig, applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
 
@@ -41,6 +41,7 @@ export function setupConfigSync(): void {
       payload.data?.input?.shuangpin_schema,
       payload.data?.input?.wubi_schema
     );
+    applyFrequencyConfig(payload.data?.frequency_adjustment);
     if (payload.data?.voice_input && typeof payload.data.voice_input === 'object') {
       applyVoiceConfig(payload.data.voice_input);
       if (typeof payload.data.voice_input.enabled === 'boolean') applyToggleState('voiceEnabled', payload.data.voice_input.enabled);

@@ -156,6 +156,12 @@
     .context-menu-item:hover {
       background-color: #414141;
     }
+    .context-menu-parent { position: relative; padding-right: 20px; }
+    .context-menu-parent::after { content: "›"; position: absolute; right: 6px; }
+    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 108px;
+      background: #2d2d2d; border: 1px solid #9b9b9b2e; border-radius: 6px; padding: 1px 0; }
+    .context-menu-parent:hover > .context-submenu { display: block; }
+    .context-menu-separator { height: 1px; margin: 3px 5px; background: #ffffff20; }
   </style>
 
   <script>
@@ -257,6 +263,12 @@
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
       menu.style.display = 'block';
+      const submenu = menu.querySelector('.context-submenu');
+      const content = document.getElementById('realContainer');
+      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuResize', data:{
+        width: Math.ceil(x + menu.offsetWidth + (submenu?.offsetWidth || 120) + 4),
+        height: Math.ceil(Math.max(content?.offsetHeight || 0, y + Math.max(menu.offsetHeight, submenu?.offsetHeight || 180) + 4))
+      }}));
     }
 
     //
@@ -264,8 +276,10 @@
     //
     function hideContextMenu() {
       const menu = document.getElementById('contextMenu');
+      const wasVisible = menu.style.display === 'block';
       menu.style.display = 'none';
       currentRightClickedCand = null;
+      if (wasVisible) window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
     }
 
     //
@@ -326,6 +340,23 @@
       a = false;
       const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
+      hideContextMenu();
+    }
+
+    function candidateMenuIndex() {
+      const number = currentRightClickedCand?.querySelector('.cand-no');
+      return number ? Number(number.textContent.trim()) : null;
+    }
+    function onFixPosition(event, position) {
+      if (event.button !== 0) return;
+      const index = candidateMenuIndex();
+      if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'fixPosition', data:{index,position}}));
+      hideContextMenu();
+    }
+    function onClearPosition(event) {
+      if (event.button !== 0) return;
+      const index = candidateMenuIndex();
+      if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'clearPosition', data:index}));
       hideContextMenu();
     }
 
@@ -489,6 +520,17 @@
   <!-- Custom Context Menu -->
   <div id="contextMenu" class="context-menu">
     <div id="menuPin" class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
+    <div class="context-menu-item context-menu-parent">固定排位
+      <div class="context-submenu">
+        <div class="context-menu-item" onmouseup="onFixPosition(event,1)">固定到第 1 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,2)">固定到第 2 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,3)">固定到第 3 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,4)">固定到第 4 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,5)">固定到第 5 位</div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onmouseup="onClearPosition(event)">取消固定</div>
+      </div>
+    </div>
     <div id="menuDelete" class="context-menu-item" onmouseup="onDelete(event)">删除</div>
   </div>
 </body>

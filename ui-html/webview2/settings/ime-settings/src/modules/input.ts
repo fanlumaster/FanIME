@@ -28,6 +28,15 @@ export function applyInputConfig(
   applyDropdownValue('wubiSchemeBtn', 'wubiSchemeMenu', wubiSchema);
 }
 
+export function applyFrequencyConfig(config: any): void {
+  const mode = document.getElementById('frequencyMode') as HTMLSelectElement | null;
+  const trigger = document.getElementById('frequencyTriggerCount') as HTMLInputElement | null;
+  const step = document.getElementById('frequencyLinearStep') as HTMLInputElement | null;
+  if (mode && typeof config?.mode === 'string') mode.value = config.mode;
+  if (trigger && Number.isInteger(config?.trigger_count)) trigger.value = String(config.trigger_count);
+  if (step && Number.isInteger(config?.linear_step)) step.value = String(config.linear_step);
+}
+
 export function setupInput(): void {
   setupDropdownMenu('characterSetBtn', 'characterSetMenu', 'changeCharacterSet', true, 'input.character_set');
   document.querySelectorAll<HTMLInputElement>('input[name="input-method"]').forEach((radio) => {
@@ -50,12 +59,27 @@ export function setupInput(): void {
   setupDropdownMenu('wubiSchemeBtn', 'wubiSchemeMenu', 'changeWubiScheme', true, 'input.wubi_schema');
 
   setupPageOptions();
+  setupFrequencyOptions();
   setupToggleButton('zhEnToggleBtn', (active) => {
     updateConfig('general.cn_en_mixed_input', active);
   });
   setupToggleButton('cloudCandidatesToggleBtn', (active) => {
     updateConfig('general.cloud_candidates', active);
   });
+}
+
+function setupFrequencyOptions(): void {
+  document.getElementById('frequencyMode')?.addEventListener('change', (event) => {
+    updateConfig('frequency_adjustment.mode', (event.target as HTMLSelectElement).value);
+  });
+  for (const [id, key] of [['frequencyTriggerCount', 'trigger_count'], ['frequencyLinearStep', 'linear_step']]) {
+    document.getElementById(id)?.addEventListener('change', (event) => {
+      const input = event.target as HTMLInputElement;
+      const value = Math.max(1, Math.min(10, Number(input.value) || 1));
+      input.value = String(value);
+      updateConfig(`frequency_adjustment.${key}`, value);
+    });
+  }
 }
 
 function setupPageOptions(): void {
