@@ -1,16 +1,19 @@
 #include "settings/dictionary_manager.h"
 
 #include "config/ime_config.h"
+#include "defines/defines.h"
 #include "utils/common_utils.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
 
+#include <windows.h>
 #include <sqlite3.h>
 #include <algorithm>
 #include <cctype>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 namespace SettingsDictionary
@@ -26,6 +29,12 @@ using Stmt = std::unique_ptr<sqlite3_stmt, StmtCloser>;
 json::object Result(bool ok, std::string message)
 {
     return {{"ok", ok}, {"message", std::move(message)}, {"rows", json::array{}}};
+}
+
+void NotifyImeServerClearDictCache()
+{
+    if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", nullptr))
+        PostMessageW(hwnd, WM_CLS_DICT_CACHE, 0, 0);
 }
 
 std::string StringValue(const json::object &obj, const char *key)
@@ -80,10 +89,34 @@ bool BindText(sqlite3_stmt *stmt, int index, const std::string &value)
 bool NormalizePinyin(const std::string &mode, const std::string &input, quanpin::Segments &segments,
                      std::string &normalized, std::string &message)
 {
+    (void)mode;
     std::string source = input;
     source.erase(std::remove_if(source.begin(), source.end(), [](unsigned char ch) { return std::isspace(ch); }), source.end());
     std::transform(source.begin(), source.end(), source.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    source.erase(std::remove(source.begin(), source.end(), '\''), source.end());
+
+    // Prefer user-provided syllable boundaries, e.g. cheng'wei'he'tao'dan'gao.
+    if (source.find('\'') != std::string::npos)
+    {
+        quanpin::Segments parts = quanpin::split_segments(source);
+        const auto &valid = quanpin::intact_pinyin_set();
+        if (parts.empty())
+        {
+            message = "全拼拼音不合法";
+            return false;
+        }
+        for (const auto &part : parts)
+        {
+            if (part.empty() || valid.find(part) == valid.end())
+            {
+                message = "全拼拼音不合法";
+                return false;
+            }
+        }
+        segments = std::move(parts);
+        normalized = quanpin::join_segments(segments);
+        return true;
+    }
+
     const auto cuts = quanpin::cut_pinyin_by_mode(source, "correction");
     std::string joined = cuts.empty() ? std::string{} : quanpin::join_segments(cuts.front());
     std::string joined_without_delimiters = joined;
@@ -148,6 +181,154 @@ bool ChineseExists(sqlite3 *db, const quanpin::Segments &segments, const std::st
     return sqlite3_step(stmt.get()) == SQLITE_ROW;
 }
 
+bool InsertChineseWord(sqlite3 *db, const quanpin::Segments &segments, const std::string &key,
+                       const std::string &word, int weight, std::string &error)
+{
+    const std::string table = quanpin::build_table_name(segments);
+    Stmt stmt = Prepare(db, "INSERT INTO \"" + table + "\"(key,jp,value,weight) VALUES(?1,?2,?3,?4)", error);
+    if (!stmt || !BindText(stmt.get(), 1, key) || !BindText(stmt.get(), 2, quanpin::segments_to_jianpin(segments)) ||
+        !BindText(stmt.get(), 3, word) || sqlite3_bind_int(stmt.get(), 4, weight) != SQLITE_OK ||
+        sqlite3_step(stmt.get()) != SQLITE_DONE)
+    {
+        error = sqlite3_errmsg(db);
+        return false;
+    }
+    (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                         user_dictionary::DictionaryKind::Pinyin, key, word, weight);
+    return true;
+}
+
+bool ParseImportLine(const std::string &line, std::string &word, std::string &code, int &weight, std::string &message)
+{
+    std::istringstream iss(line);
+    std::string weight_str;
+    std::string extra;
+    if (!(iss >> word >> code >> weight_str) || (iss >> extra))
+    {
+        message = "格式错误，应为：词语 全拼 权重（全拼可用 ' 分音节）";
+        return false;
+    }
+    if (word.empty() || code.empty())
+    {
+        message = "词语和拼音不能为空";
+        return false;
+    }
+    if (weight_str.empty() || !std::all_of(weight_str.begin(), weight_str.end(),
+                                           [](unsigned char ch) { return std::isdigit(ch); }))
+    {
+        message = "权重必须是非负整数";
+        return false;
+    }
+    try
+    {
+        weight = (std::max)(0, std::stoi(weight_str));
+    }
+    catch (...)
+    {
+        message = "权重数值无效";
+        return false;
+    }
+    return true;
+}
+
+json::object ImportChinese(const json::object &request)
+{
+    std::string content = StringValue(request, "content");
+    if (content.size() >= 3 && static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB && static_cast<unsigned char>(content[2]) == 0xBF)
+        content.erase(0, 3);
+
+    if (content.find_first_not_of(" \t\r\n") == std::string::npos)
+        return Result(false, "文件内容为空");
+
+    std::string error;
+    Db db = OpenDatabase("msime.db", error);
+    if (!db) return Result(false, "打开拼音词库失败：" + error);
+
+    int inserted = 0;
+    int skipped = 0;
+    int failed = 0;
+    std::vector<std::string> error_details;
+    const auto append_error = [&](int line_no, const std::string &detail) {
+        ++failed;
+        if (error_details.size() < 5)
+            error_details.push_back("第 " + std::to_string(line_no) + " 行：" + detail);
+    };
+
+    sqlite3_exec(db.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    std::istringstream stream(content);
+    std::string line;
+    int line_no = 0;
+    while (std::getline(stream, line))
+    {
+        ++line_no;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        const auto begin = line.find_first_not_of(" \t");
+        if (begin == std::string::npos) continue;
+        const auto end = line.find_last_not_of(" \t");
+        line = line.substr(begin, end - begin + 1);
+
+        std::string word, code;
+        int weight = 0;
+        std::string message;
+        if (!ParseImportLine(line, word, code, weight, message))
+        {
+            append_error(line_no, message);
+            continue;
+        }
+
+        quanpin::Segments segments;
+        std::string key;
+        if (!ValidateChineseEntry("quanpin", code, word, segments, key, message))
+        {
+            append_error(line_no, message);
+            continue;
+        }
+        if (ChineseExists(db.get(), segments, key, word))
+        {
+            ++skipped;
+            continue;
+        }
+        if (!InsertChineseWord(db.get(), segments, key, word, weight, message))
+        {
+            append_error(line_no, "写入失败：" + message);
+            continue;
+        }
+        ++inserted;
+    }
+    sqlite3_exec(db.get(), "COMMIT", nullptr, nullptr, nullptr);
+
+    if (inserted == 0 && skipped == 0 && failed == 0)
+        return Result(false, "文件中没有可导入的词条");
+
+    std::string message;
+    if (inserted > 0) message += "成功导入 " + std::to_string(inserted) + " 条";
+    if (skipped > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "跳过 " + std::to_string(skipped) + " 条（已存在）";
+    }
+    if (failed > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "失败 " + std::to_string(failed) + " 条";
+        if (!error_details.empty())
+        {
+            message += "。";
+            for (size_t i = 0; i < error_details.size(); ++i)
+            {
+                if (i) message += "；";
+                message += error_details[i];
+            }
+            if (static_cast<int>(error_details.size()) < failed)
+                message += "等";
+        }
+    }
+    if (message.empty()) message = "没有导入任何词条";
+    if (inserted > 0) NotifyImeServerClearDictCache();
+    return Result(inserted > 0 || (failed == 0 && skipped > 0), message);
+}
+
 json::object MutateChinese(const json::object &request)
 {
     const std::string mode = StringValue(request, "dictionary");
@@ -160,17 +341,13 @@ json::object MutateChinese(const json::object &request)
     if (!ValidateChineseEntry(mode, code, word, segments, key, error)) return Result(false, error);
     Db db = OpenDatabase("msime.db", error);
     if (!db) return Result(false, "打开拼音词库失败：" + error);
-    const std::string table = quanpin::build_table_name(segments);
 
     if (action == "create")
     {
         if (ChineseExists(db.get(), segments, key, word)) return Result(false, "词条已经存在");
-        Stmt stmt = Prepare(db.get(), "INSERT INTO \"" + table + "\"(key,jp,value,weight) VALUES(?1,?2,?3,?4)", error);
-        if (!stmt || !BindText(stmt.get(), 1, key) || !BindText(stmt.get(), 2, quanpin::segments_to_jianpin(segments)) ||
-            !BindText(stmt.get(), 3, word) || sqlite3_bind_int(stmt.get(), 4, weight) != SQLITE_OK || sqlite3_step(stmt.get()) != SQLITE_DONE)
-            return Result(false, "新增失败：" + std::string(sqlite3_errmsg(db.get())));
-        (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
-                                             user_dictionary::DictionaryKind::Pinyin, key, word, weight);
+        if (!InsertChineseWord(db.get(), segments, key, word, weight, error))
+            return Result(false, "新增失败：" + error);
+        NotifyImeServerClearDictCache();
         return Result(true, "词条新增成功");
     }
 
@@ -189,11 +366,13 @@ json::object MutateChinese(const json::object &request)
             return Result(false, "删除失败：" + std::string(sqlite3_errmsg(db.get())));
         (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                              user_dictionary::DictionaryKind::Pinyin, old_key, old_word);
+        NotifyImeServerClearDictCache();
         return Result(true, "词条删除成功");
     }
 
     if (action != "update") return Result(false, "未知操作");
     if ((old_key != key || old_word != word) && ChineseExists(db.get(), segments, key, word)) return Result(false, "修改后的词条已经存在");
+    const std::string table = quanpin::build_table_name(segments);
     sqlite3_exec(db.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
     Stmt remove = Prepare(db.get(), "DELETE FROM \"" + old_table + "\" WHERE key=?1 AND value=?2", error);
     Stmt insert = Prepare(db.get(), "INSERT INTO \"" + table + "\"(key,jp,value,weight) VALUES(?1,?2,?3,?4)", error);
@@ -209,6 +388,7 @@ json::object MutateChinese(const json::object &request)
                                                  user_dictionary::DictionaryKind::Pinyin, old_key, old_word);
         (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
                                              user_dictionary::DictionaryKind::Pinyin, key, word, weight);
+        NotifyImeServerClearDictCache();
     }
     return Result(ok, ok ? "词条修改成功" : "修改失败：" + std::string(sqlite3_errmsg(db.get())));
 }
@@ -402,6 +582,7 @@ json::object HandleRequest(const json::object &request)
     if (dictionary == "quick") return HandleQuickPhrase(request);
     if (dictionary != "quanpin") return Result(false, "未知词库");
     if (action == "query") return QueryChinese(dictionary, StringValue(request, "code"));
+    if (action == "import") return ImportChinese(request);
     return MutateChinese(request);
 }
 }
