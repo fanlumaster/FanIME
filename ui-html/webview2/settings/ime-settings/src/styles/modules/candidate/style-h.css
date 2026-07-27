@@ -7,9 +7,13 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    /* Match candwnd: keep a single horizontal row even in a narrow preview viewport. */
-    width: max-content;
-    white-space: nowrap;
+    /* Match candwnd: grow with content, wrap past 600 DIP. */
+    width: min(600px, max-content);
+    max-width: 600px;
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     user-select: none;
     border: 1.5px solid var(--cand-border);
   }
@@ -43,6 +47,9 @@
     position: relative;
     display: inline-block;
     vertical-align: top;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .first-row-wrapper {
@@ -71,8 +78,11 @@
     padding-left: 5px;
     padding-right: 5px;
     color: var(--cand-text);
-    display: flex;
-    align-items: baseline;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .cand .text {

@@ -17,7 +17,8 @@
     }
 
     .containerParent {
-      width: max-content;
+      width: fit-content;
+      max-width: 600px;
     }
 
     .container {
@@ -29,9 +30,13 @@
       border-radius: 6px;
       box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
       min-width: 7em;
-      /* Avoid wrapping in a still-narrow WebView before the host is resized. */
-      width: max-content;
-      white-space: nowrap;
+      /* Cap long candidates (e.g. nsdd). Host resizes before paint to avoid flash. */
+      width: min(600px, max-content);
+      max-width: 600px;
+      box-sizing: border-box;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
       user-select: none;
       border: 1.5px solid rgba(0, 0, 0, 0.12);
     }
@@ -66,6 +71,9 @@
       position: relative;
       display: inline-block;
       vertical-align: top;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
 
     .first-row-wrapper {
@@ -94,8 +102,11 @@
       padding-left: 5px;
       padding-right: 5px;
       color: #1a1a1a;
-      display: flex;
-      align-items: baseline;
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .cand .text {

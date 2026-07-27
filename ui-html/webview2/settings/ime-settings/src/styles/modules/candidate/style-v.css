@@ -7,7 +7,11 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    width: fit-content;
+    width: min(600px, fit-content);
+    max-width: 600px;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     user-select: none;
     border: 1.5px solid var(--cand-border);
   }
@@ -63,8 +67,11 @@
   .text {
     padding-left: 8px;
     color: var(--cand-text);
-    display: flex;
-    align-items: baseline;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .cand .text {

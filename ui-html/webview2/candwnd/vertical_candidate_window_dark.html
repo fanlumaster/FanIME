@@ -18,6 +18,7 @@
 
     .containerParent {
       width: fit-content;
+      max-width: 600px;
     }
 
     .container {
@@ -29,7 +30,11 @@
       border-radius: 6px;
       box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
       min-width: 7em;
-      width: fit-content;
+      width: min(600px, fit-content);
+      max-width: 600px;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
+      word-break: break-word;
       user-select: none;
       border: 1.5px solid #9b9b9b2e;
     }
@@ -84,8 +89,11 @@
     .text {
       padding-left: 8px;
       color: #e9e8e8;
-      display: flex;
-      align-items: baseline;
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .cand .text {
