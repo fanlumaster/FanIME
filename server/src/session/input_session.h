@@ -46,6 +46,7 @@ class IInputSession
     virtual void reset_cache() = 0;
 
     virtual const std::vector<WordItem> &get_candidates() const = 0;
+    virtual bool expand_initial_candidates() = 0;
 
     virtual const std::string &get_pinyin_sequence() const = 0;
     virtual const std::string &get_pinyin_sequence_with_cases() const = 0;

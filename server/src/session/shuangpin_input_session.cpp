@@ -80,6 +80,11 @@ const std::vector<IInputSession::WordItem> &ShuangpinInputSession::get_candidate
     return dictionary_->get_cur_candiate_list();
 }
 
+bool ShuangpinInputSession::expand_initial_candidates()
+{
+    return dictionary_->expand_initial_candidates();
+}
+
 const std::string &ShuangpinInputSession::get_pinyin_sequence() const
 {
     return dictionary_->get_pinyin_sequence();
@@ -137,6 +142,10 @@ int ShuangpinInputSession::pin_candidate(std::string pinyin, std::string word)
 
 int ShuangpinInputSession::remove_candidate(std::string pinyin, std::string word)
 {
+    if (dictionary_->get_pinyin_sequence().size() == 1)
+    {
+        return -1;
+    }
     return dictionary_->delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 

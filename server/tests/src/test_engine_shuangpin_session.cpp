@@ -282,3 +282,40 @@ TEST_CASE(LegacyShuangpinDictionaryUsesZiranmaProfile)
 
     REQUIRE_EQ(dictionary.get_quanpin(), std::string("xiang"));
 }
+
+TEST_CASE(EngineShuangpinInitialVQueriesZhCandidatesAndExpands)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "v");
+
+    const auto &initial_candidates = session.get_candidates();
+    REQUIRE_EQ(initial_candidates.size(), static_cast<std::size_t>(24));
+    REQUIRE(std::all_of(initial_candidates.begin(), initial_candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.pinyin.rfind("zh", 0) == 0;
+    }));
+    const auto initial_count = initial_candidates.size();
+
+    REQUIRE(session.expand_initial_candidates());
+    const auto &expanded_candidates = session.get_candidates();
+    REQUIRE(expanded_candidates.size() > initial_count);
+    REQUIRE(std::all_of(expanded_candidates.begin(), expanded_candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.pinyin.rfind("zh", 0) == 0;
+    }));
+}
+
+TEST_CASE(EngineQuanpinInitialCandidatesStartLimitedAndExpand)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "z");
+
+    const auto &initial_candidates = session.get_candidates();
+    REQUIRE_EQ(initial_candidates.size(), static_cast<std::size_t>(24));
+    REQUIRE(std::all_of(initial_candidates.begin(), initial_candidates.end(), [](const IInputSession::WordItem &item) {
+        return item.pinyin.rfind("z", 0) == 0;
+    }));
+    const auto initial_count = initial_candidates.size();
+
+    REQUIRE(session.expand_initial_candidates());
+    const auto &expanded_candidates = session.get_candidates();
+    REQUIRE(expanded_candidates.size() > initial_count);
+}

@@ -5,6 +5,8 @@
 #include "defines/defines.h"
 #include "defines/globals.h"
 #include <debugapi.h>
+#include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <minwindef.h>
 #include <string>
@@ -39,6 +41,8 @@ namespace
 {
 int g_settings_activation_retries_remaining = 0;
 bool g_is_ime_active = false;
+// Drop stale FineTune measure callbacks when a newer show/update supersedes them.
+std::atomic<uint64_t> g_candidate_finetune_generation{0};
 
 void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
 {
@@ -555,12 +559,18 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             (void)0;
         }
-        InflateMeasureDivCandWnd(str);
-
-        // Mark shown before scheduling FineTuneWindow so its async callback
-        // does not treat this show as a post-hide resurrection.
+        // Mark shown before measure/FineTune so in-flight work is not treated as
+        // a post-hide resurrection; the measure callback still re-checks the flag.
         ::is_global_wnd_cand_shown = true;
-        FineTuneWindow(hwnd);
+        // Invalidate any FineTune still measuring the previous keystroke.
+        ++g_candidate_finetune_generation;
+        InflateMeasureDivCandWnd(str, [hwnd]() {
+            if (!::is_global_wnd_cand_shown)
+            {
+                return;
+            }
+            FineTuneWindow(hwnd);
+        });
 
         return 0;
     }
@@ -570,6 +580,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         (void)0;
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
+        ++g_candidate_finetune_generation;
         FLOAT scale = GetForegroundWindowScale();
         if (scale < 1.5)
         {
@@ -1477,14 +1488,16 @@ int FineTuneWindow(HWND hwnd)
         LogSmallWindowReadyGate(L"fine-tune-no-webview");
         return 0;
     }
+    const uint64_t generation = ++g_candidate_finetune_generation;
     // Give horizontal measure an unconstrained viewport before reading DOM size.
     PrepareCandidateWebViewBoundsForMeasure(hwnd);
     std::shared_ptr<std::pair<int, int>> properPos = std::make_shared<std::pair<int, int>>();
-    GetContainerSizeCand(webviewCandWnd, [flag,      //
-                                          scale,     //
-                                          caretX,    //
-                                          caretY,    //
-                                          properPos, //
+    GetContainerSizeCand(webviewCandWnd, [flag,       //
+                                          scale,      //
+                                          caretX,     //
+                                          caretY,     //
+                                          properPos,  //
+                                          generation, //
                                           hwnd](std::pair<double, double> containerSize) {
         // Commit/ClearState may have hidden the window while this WebView2
         // measure callback was still pending — do not resurrect it.
@@ -1493,6 +1506,15 @@ int FineTuneWindow(HWND hwnd)
             (void)0;
             return;
         }
+        // A newer show/update already queued another FineTune — ignore this one.
+        if (generation != g_candidate_finetune_generation.load())
+        {
+            return;
+        }
+
+        // Parentheses keep Windows min() macro from eating std::min.
+        containerSize.first =
+            (std::min)(containerSize.first, static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP));
 
         POINT pt = {caretX, caretY};
         /* Whether need to adjust candidate window position */
@@ -1512,18 +1534,24 @@ int FineTuneWindow(HWND hwnd)
         int newWidth = 0;
         int newHeight = 0;
         UINT newFlag = flag;
-        /* 默认情况下，输入法候选框是不用动的 */
-        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH)
+        // Host height must stay >= the flip-up slot (MarginTop + content) so few
+        // vertical candidates still pin near the caret. Grow past the default
+        // when horizontal wrap makes content taller than CANDIDATE_WINDOW_HEIGHT.
+        double heightDip = (std::max)(containerSize.second, static_cast<double>(::CANDIDATE_WINDOW_HEIGHT));
+        if (Global::MarginTop > 0)
+        {
+            heightDip = containerSize.second + static_cast<double>(Global::MarginTop);
+        }
+        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH || heightDip > ::CANDIDATE_WINDOW_HEIGHT)
         {
             newWidth = (containerSize.first + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale;
-            newHeight = (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale;
-            // newHeight = (containerSize.second + ::SHADOW_WIDTH) * scale;
+            newHeight = (heightDip + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale;
         }
         else
         {
             newFlag = flag | SWP_NOSIZE;
         }
-        if (!::is_global_wnd_cand_shown)
+        if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
         {
             return;
         }
@@ -1542,8 +1570,9 @@ int FineTuneWindow(HWND hwnd)
         );
         SyncCandidateWebViewBoundsToHost(hwnd);
 
-        InflateCandWnd(str, [hwnd, positioned, newWidth, newHeight, newFlag, properPos, containerSize]() {
-            if (!::is_global_wnd_cand_shown)
+        InflateCandWnd(str, [hwnd, positioned, newWidth, newHeight, newFlag, properPos, containerSize,
+                             generation]() {
+            if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
                 return;
             }

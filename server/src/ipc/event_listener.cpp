@@ -2217,6 +2217,12 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
         const auto move_page = [&](int offset, UINT response_type) {
             result = response_type;
+            if (offset > 0 && ui.page_index == 0 && g_inputSession->expand_initial_candidates())
+            {
+                const int current_page = ui.page_index;
+                ui.set_items(g_inputSession->get_candidates());
+                ui.page_index = current_page;
+            }
             if (offset < 0 ? ui.has_prev_page() : ui.has_next_page())
             {
                 ui.page_index += offset;

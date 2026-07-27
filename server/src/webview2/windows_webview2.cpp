@@ -565,22 +565,47 @@ bool ApplyConfiguredUiThemes()
 //
 //
 
+void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent,
+                                        std::function<void()> onComplete)
+{
+    if (webview == nullptr)
+    {
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return;
+    }
+
+    std::wstring script;
+    script.reserve(newContent.length() + 256);
+
+    script.append(L"document.getElementById('measureContainer').innerHTML = `");
+    script.append(newContent);
+    script.append(L"`;\n");
+    script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
+    script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
+    script.append(L"); }\n");
+
+    if (!onComplete)
+    {
+        webview->ExecuteScript(script.c_str(), nullptr);
+        return;
+    }
+
+    webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+            [onComplete](HRESULT, LPCWSTR) -> HRESULT {
+                onComplete();
+                return S_OK;
+            })
+            .Get());
+}
+
 void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
 {
-    if (webview != nullptr)
-    {
-        std::wstring script;
-        script.reserve(256);
-
-        script.append(L"document.getElementById('measureContainer').innerHTML = `");
-        script.append(newContent);
-        script.append(L"`;\n");
-        script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
-        script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
-        script.append(L"); }\n");
-
-        webview->ExecuteScript(script.c_str(), nullptr);
-    }
+    UpdateMeasureContentWithJavaScript(webview, newContent, nullptr);
 }
 
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
@@ -662,6 +687,11 @@ void InflateCandWnd(std::wstring &str, std::function<void()> onComplete)
 
 void InflateMeasureDivCandWnd(std::wstring &str)
 {
+    InflateMeasureDivCandWnd(str, nullptr);
+}
+
+void InflateMeasureDivCandWnd(std::wstring &str, std::function<void()> onComplete)
+{
     str.erase(std::remove(str.begin(), str.end(), L'\uE000'), str.end());
     std::wstringstream wss(str);
     std::wstring token;
@@ -699,7 +729,7 @@ void InflateMeasureDivCandWnd(std::wstring &str)
         result = result.substr(0, pos);
     }
 
-    UpdateMeasureContentWithJavaScript(webviewCandWnd, result);
+    UpdateMeasureContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
 
 /**
@@ -894,8 +924,13 @@ HRESULT OnControllerCreatedCandWnd(     //
                                                      ? std::wstring{}
                                                      : GetPreeditWithCaretMarker();
                     std::wstring str = preedit + L"," + Global::CandidateString;
-                    InflateMeasureDivCandWnd(str);
-                    FineTuneWindow(hwnd);
+                    InflateMeasureDivCandWnd(str, [hwnd]() {
+                        if (!::is_global_wnd_cand_shown)
+                        {
+                            return;
+                        }
+                        FineTuneWindow(hwnd);
+                    });
                 }
                 return S_OK;
             })

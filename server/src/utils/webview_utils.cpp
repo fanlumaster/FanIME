@@ -58,21 +58,40 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
         callback({0.0, 0.0});
         return;
     }
-    std::wstring script = LR"(
-        (function() {
-            var el = document.getElementById("measureContainerParent");
+    std::wstring script = fmt::format(LR"(
+        (function() {{
             var box = document.getElementById("measureContainer");
-            if (!el) {
-                return JSON.stringify({width: 0, height: 0});
-            }
-            var rect = el.getBoundingClientRect();
-            // Prefer intrinsic content width so horizontal nowrap layouts are not
-            // under-reported when the WebView viewport is still narrow.
-            var width = Math.max(rect.width, box ? box.scrollWidth : 0, el.scrollWidth || 0);
-            var height = Math.max(rect.height, box ? box.scrollHeight : 0, el.scrollHeight || 0);
-            return JSON.stringify({width: width, height: height});
-        })();
-    )";
+            var el = document.getElementById("measureContainerParent");
+            var target = box || el;
+            if (!target) {{
+                return JSON.stringify({{width: 0, height: 0}});
+            }}
+            var maxW = {0};
+            if (box) {{
+                box.style.maxWidth = maxW + "px";
+                box.style.width = "fit-content";
+                box.style.boxSizing = "border-box";
+                box.style.whiteSpace = "normal";
+                box.style.overflowWrap = "anywhere";
+                box.style.wordBreak = "break-word";
+                box.querySelectorAll(".row-wrapper, .cand .text").forEach(function (node) {{
+                    node.style.minWidth = "0";
+                    node.style.maxWidth = "100%";
+                }});
+            }}
+            if (el) {{
+                el.style.maxWidth = maxW + "px";
+                el.style.width = "fit-content";
+            }}
+            // Force layout after applying wrap constraints.
+            void target.offsetWidth;
+            var rect = target.getBoundingClientRect();
+            var width = Math.min(maxW, Math.max(rect.width, target.offsetWidth || 0));
+            var height = Math.max(rect.height, target.scrollHeight || 0, target.offsetHeight || 0);
+            return JSON.stringify({{width: width, height: height}});
+        }})();
+    )",
+                                      ::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
     const HRESULT submitHr = webview->ExecuteScript( //
         script.c_str(),     //
         Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {

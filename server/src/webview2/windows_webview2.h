@@ -56,6 +56,7 @@ void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete);
 void InflateMeasureDivCandWnd(std::wstring &str);
+void InflateMeasureDivCandWnd(std::wstring &str, std::function<void()> onComplete);
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
 void ShutdownWebviews();
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);

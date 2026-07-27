@@ -19,6 +19,7 @@ class ShuangpinInputSession : public IInputSession
     void reset_cache() override;
 
     const std::vector<WordItem> &get_candidates() const override;
+    bool expand_initial_candidates() override;
 
     const std::string &get_pinyin_sequence() const override;
     const std::string &get_pinyin_sequence_with_cases() const override;

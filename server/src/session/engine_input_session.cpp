@@ -169,6 +169,11 @@ const std::vector<IInputSession::WordItem> &EngineInputSession::get_candidates()
     return session_.get_candidates();
 }
 
+bool EngineInputSession::expand_initial_candidates()
+{
+    return session_.expand_initial_candidates();
+}
+
 const QueryRequest &EngineInputSession::request() const
 {
     return session_.get_request();
@@ -276,6 +281,10 @@ int EngineInputSession::pin_candidate(std::string pinyin, std::string word)
 
 int EngineInputSession::remove_candidate(std::string pinyin, std::string word)
 {
+    if (!is_wubi() && remove_delimiters(request().raw_input).size() == 1)
+    {
+        return -1;
+    }
     return session_.delete_by_pinyin_and_word(std::move(pinyin), std::move(word));
 }
 
