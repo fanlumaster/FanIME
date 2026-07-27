@@ -16,7 +16,7 @@ function post(action: string, data: Record<string, unknown> = {}): void {
   }));
 }
 
-function showToast(message: string, ok: boolean): void {
+function showToast(message: string, ok: boolean, durationMs = 3200): void {
   const toast = document.getElementById('dictToast');
   if (!toast) return;
   const table = document.querySelector<HTMLElement>('.dict-table-wrap');
@@ -33,7 +33,7 @@ function showToast(message: string, ok: boolean): void {
   toastTimer = window.setTimeout(() => {
     toast.classList.remove('visible');
     toastTimer = null;
-  }, 3200);
+  }, durationMs);
 }
 
 function renderRows(rows: DictionaryRow[]): void {
@@ -87,13 +87,18 @@ function syncTableHeaderWidth(): void {
 
 function updateMode(): void {
   const english = dictionary === 'english';
+  const quanpin = dictionary === 'quanpin';
   const search = document.getElementById('dictSearch') as HTMLInputElement;
   search.value = '';
-  search.placeholder = english ? '输入英文前缀，例如 meta' : dictionary === 'quanpin'
+  search.placeholder = english ? '输入英文前缀，例如 meta' : quanpin
     ? '输入完整全拼，例如 nihao' : '输入五笔编码前缀';
   document.getElementById('dictHint')!.textContent = english
     ? '按英文前缀查询全部匹配结果'
-    : dictionary === 'quanpin' ? '全拼新增会校验拼音合法性、汉字数量和重复词条' : '管理 86 五笔编码、词条及权重';
+    : quanpin
+      ? '全拼新增会校验拼音合法性、汉字数量和重复词条；批量导入格式为：词语 全拼 权重（空格或 Tab 分隔，全拼可用 \' 分音节，如 ni\'hao）'
+      : '管理 86 五笔编码、词条及权重';
+  const importButton = document.getElementById('dictImportButton') as HTMLButtonElement | null;
+  if (importButton) importButton.style.display = quanpin ? '' : 'none';
   document.getElementById('dictTableHeader')!.innerHTML = english
     ? '<th class="dict-index-column">No.</th><th>单词</th><th>显示内容</th><th>操作</th>'
     : '<th class="dict-index-column">No.</th><th>编码</th><th>词条</th><th>权重</th><th>操作</th>';
@@ -133,6 +138,23 @@ export function setupDictionary(): void {
   document.getElementById('dictSearchButton')?.addEventListener('click', query);
   document.getElementById('dictSearch')?.addEventListener('keydown', (event) => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('dictAddButton')?.addEventListener('click', () => openDialog());
+  document.getElementById('dictImportButton')?.addEventListener('click', () => {
+    if (dictionary !== 'quanpin') { showToast('批量导入仅支持全拼词库', false); return; }
+    (document.getElementById('dictImportFile') as HTMLInputElement | null)?.click();
+  });
+  document.getElementById('dictImportFile')?.addEventListener('change', async (event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const content = await file.text();
+      if (!content.trim()) { showToast('文件内容为空', false); return; }
+      post('import', { content });
+    } catch {
+      showToast('读取文件失败', false);
+    }
+  });
   document.getElementById('dictCancelButton')?.addEventListener('click', closeDialog);
   document.getElementById('dictToastClose')?.addEventListener('click', () => {
     document.getElementById('dictToast')?.classList.remove('visible');
@@ -158,7 +180,12 @@ export function setupDictionary(): void {
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
-    showToast(payload.message ?? (payload.ok ? '操作成功' : '操作失败'), Boolean(payload.ok));
+    const isImport = lastAction === 'import';
+    showToast(
+      payload.message ?? (payload.ok ? '操作成功' : '操作失败'),
+      Boolean(payload.ok),
+      isImport ? 5600 : 3200,
+    );
     if (Array.isArray(payload.rows)) renderRows(payload.rows);
     if (payload.ok && lastAction !== 'query') { closeDialog(); if (lastQuery) query(); }
   });
