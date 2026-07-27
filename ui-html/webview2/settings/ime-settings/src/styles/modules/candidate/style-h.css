@@ -7,9 +7,9 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    /* Match candwnd: grow with content, wrap past 600 DIP. */
-    width: min(600px, max-content);
-    max-width: 600px;
+    /* Match candwnd: grow with content, wrap past 720 DIP. */
+    width: min(720px, max-content);
+    max-width: 720px;
     box-sizing: border-box;
     white-space: normal;
     overflow-wrap: anywhere;

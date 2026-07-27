@@ -7,8 +7,8 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    width: min(600px, fit-content);
-    max-width: 600px;
+    width: min(720px, fit-content);
+    max-width: 720px;
     box-sizing: border-box;
     overflow-wrap: anywhere;
     word-break: break-word;
