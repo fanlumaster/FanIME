@@ -31,6 +31,15 @@ add_custom_target(opencc_tools_output_dir
 )
 add_dependencies(copy_libopencc_to_dir_of_opencc_dict opencc_tools_output_dir)
 
+# cpp-pinyin: settings uses it to annotate pure-Chinese phrase imports.
+set(_cpp_pinyin_saved_shared_libs "${BUILD_SHARED_LIBS}")
+set(BUILD_SHARED_LIBS OFF)
+set(CPP_PINYIN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(CPP_PINYIN_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(cpp-pinyin EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS "${_cpp_pinyin_saved_shared_libs}")
+unset(_cpp_pinyin_saved_shared_libs)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -309,6 +318,7 @@ target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     unofficial::sqlite3::sqlite3
     spdlog::spdlog
+    cpp-pinyin::cpp-pinyin
     dwmapi
     dcomp
     shell32
@@ -323,6 +333,9 @@ add_custom_command(TARGET ${SETTINGS_EXECUTABLE_NAME} POST_BUILD
         $<$<CONFIG:Debug>:${WEBVIEW2_VCPKG_ROOT}/debug/bin/WebView2Loader.dll>
         $<$<CONFIG:Release>:${WEBVIEW2_VCPKG_ROOT}/bin/WebView2Loader.dll>
         $<TARGET_FILE_DIR:${SETTINGS_EXECUTABLE_NAME}>
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/cpp-pinyin/res/dict"
+        "$<TARGET_FILE_DIR:${SETTINGS_EXECUTABLE_NAME}>/dict"
 )
 
 # Ensure the loader DLL is next to the executable

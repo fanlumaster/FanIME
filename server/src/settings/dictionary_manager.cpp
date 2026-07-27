@@ -8,11 +8,17 @@
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
 
+#include <cpp-pinyin/G2pglobal.h>
+#include <cpp-pinyin/Pinyin.h>
+
 #include <windows.h>
 #include <sqlite3.h>
+#include <utf8.h>
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <vector>
 
@@ -35,6 +41,107 @@ void NotifyImeServerClearDictCache()
 {
     if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", nullptr))
         PostMessageW(hwnd, WM_CLS_DICT_CACHE, 0, 0);
+}
+
+std::filesystem::path SettingsExecutableDirectory()
+{
+    wchar_t path[MAX_PATH] = {};
+    const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    if (length == 0 || length >= MAX_PATH) return {};
+    return std::filesystem::path(path).parent_path();
+}
+
+Pinyin::Pinyin &PinyinAnnotator()
+{
+    static std::once_flag once;
+    static std::unique_ptr<Pinyin::Pinyin> engine;
+    std::call_once(once, [] {
+        const auto dict_path = SettingsExecutableDirectory() / "dict";
+        Pinyin::setDictionaryPath(dict_path);
+        engine = std::make_unique<Pinyin::Pinyin>();
+    });
+    return *engine;
+}
+
+std::string NormalizeAnnotatedSyllable(std::string syllable)
+{
+    // cpp-pinyin may emit ü; IME quanpin keys use v.
+    const std::string ue = "\xC3\xBC"; // ü
+    const std::string UE = "\xC3\x9C"; // Ü
+    for (std::string::size_type pos = 0; (pos = syllable.find(ue, pos)) != std::string::npos; )
+        syllable.replace(pos, ue.size(), "v");
+    for (std::string::size_type pos = 0; (pos = syllable.find(UE, pos)) != std::string::npos; )
+        syllable.replace(pos, UE.size(), "v");
+    std::transform(syllable.begin(), syllable.end(), syllable.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    syllable.erase(std::remove_if(syllable.begin(), syllable.end(),
+                                  [](unsigned char ch) { return ch < 'a' || ch > 'z'; }),
+                   syllable.end());
+    return syllable;
+}
+
+bool IsPureHanPhrase(const std::string &word)
+{
+    if (word.empty()) return false;
+    try
+    {
+        auto it = word.begin();
+        size_t count = 0;
+        while (it != word.end())
+        {
+            const uint32_t codepoint = utf8::next(it, word.end());
+            // cpp-pinyin only supports CJK Unified Ideographs in [0x4E00, 0x9FFF].
+            if (codepoint < 0x4E00 || codepoint > 0x9FFF) return false;
+            ++count;
+        }
+        return count > 0;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+bool AnnotateHansToPinyin(const std::string &word, std::string &code, std::string &message)
+{
+    if (word.empty())
+    {
+        message = "词条不能为空";
+        return false;
+    }
+    if (!IsPureHanPhrase(word))
+    {
+        message = "仅支持纯汉字词组";
+        return false;
+    }
+
+    const auto results = PinyinAnnotator().hanziToPinyin(
+        word, Pinyin::ManTone::Style::NORMAL, Pinyin::Error::Default, false, false, false);
+    if (results.empty())
+    {
+        message = "注音失败";
+        return false;
+    }
+
+    std::string joined;
+    for (const auto &item : results)
+    {
+        if (item.error)
+        {
+            message = "注音失败：无法识别的汉字";
+            return false;
+        }
+        const std::string syllable = NormalizeAnnotatedSyllable(item.pinyin);
+        if (syllable.empty())
+        {
+            message = "注音失败：拼音为空";
+            return false;
+        }
+        if (!joined.empty()) joined.push_back('\'');
+        joined += syllable;
+    }
+    code = std::move(joined);
+    return true;
 }
 
 std::string StringValue(const json::object &obj, const char *key)
@@ -329,6 +436,115 @@ json::object ImportChinese(const json::object &request)
     return Result(inserted > 0 || (failed == 0 && skipped > 0), message);
 }
 
+json::object ImportHans(const json::object &request)
+{
+    std::string content = StringValue(request, "content");
+    if (content.size() >= 3 && static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB && static_cast<unsigned char>(content[2]) == 0xBF)
+        content.erase(0, 3);
+
+    if (content.find_first_not_of(" \t\r\n") == std::string::npos)
+        return Result(false, "文件内容为空");
+
+    try
+    {
+        (void)PinyinAnnotator();
+    }
+    catch (...)
+    {
+        return Result(false, "拼音注音引擎初始化失败");
+    }
+    if (!PinyinAnnotator().initialized())
+        return Result(false, "拼音词典未就绪，请确认 dict 目录与设置程序同级");
+
+    std::string error;
+    Db db = OpenDatabase("msime.db", error);
+    if (!db) return Result(false, "打开拼音词库失败：" + error);
+
+    constexpr int kDefaultWeight = 10000;
+    int inserted = 0;
+    int skipped = 0;
+    int failed = 0;
+    std::vector<std::string> error_details;
+    const auto append_error = [&](int line_no, const std::string &detail) {
+        ++failed;
+        if (error_details.size() < 5)
+            error_details.push_back("第 " + std::to_string(line_no) + " 行：" + detail);
+    };
+
+    sqlite3_exec(db.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    std::istringstream stream(content);
+    std::string line;
+    int line_no = 0;
+    while (std::getline(stream, line))
+    {
+        ++line_no;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        const auto begin = line.find_first_not_of(" \t");
+        if (begin == std::string::npos) continue;
+        const auto end = line.find_last_not_of(" \t");
+        const std::string word = line.substr(begin, end - begin + 1);
+
+        std::string code;
+        std::string message;
+        if (!AnnotateHansToPinyin(word, code, message))
+        {
+            append_error(line_no, message);
+            continue;
+        }
+
+        quanpin::Segments segments;
+        std::string key;
+        if (!ValidateChineseEntry("quanpin", code, word, segments, key, message))
+        {
+            append_error(line_no, message);
+            continue;
+        }
+        if (ChineseExists(db.get(), segments, key, word))
+        {
+            ++skipped;
+            continue;
+        }
+        if (!InsertChineseWord(db.get(), segments, key, word, kDefaultWeight, message))
+        {
+            append_error(line_no, "写入失败：" + message);
+            continue;
+        }
+        ++inserted;
+    }
+    sqlite3_exec(db.get(), "COMMIT", nullptr, nullptr, nullptr);
+
+    if (inserted == 0 && skipped == 0 && failed == 0)
+        return Result(false, "文件中没有可导入的词条");
+
+    std::string message;
+    if (inserted > 0) message += "成功导入 " + std::to_string(inserted) + " 条";
+    if (skipped > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "跳过 " + std::to_string(skipped) + " 条（已存在）";
+    }
+    if (failed > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "失败 " + std::to_string(failed) + " 条";
+        if (!error_details.empty())
+        {
+            message += "。";
+            for (size_t i = 0; i < error_details.size(); ++i)
+            {
+                if (i) message += "；";
+                message += error_details[i];
+            }
+            if (static_cast<int>(error_details.size()) < failed)
+                message += "等";
+        }
+    }
+    if (message.empty()) message = "没有导入任何词条";
+    if (inserted > 0) NotifyImeServerClearDictCache();
+    return Result(inserted > 0 || (failed == 0 && skipped > 0), message);
+}
+
 json::object MutateChinese(const json::object &request)
 {
     const std::string mode = StringValue(request, "dictionary");
@@ -577,6 +793,8 @@ json::object HandleRequest(const json::object &request)
 {
     const std::string dictionary = StringValue(request, "dictionary");
     const std::string action = StringValue(request, "action");
+    // Pure-Chinese import always targets the quanpin dictionary.
+    if (action == "importHans") return ImportHans(request);
     if (dictionary == "english") return HandleEnglish(request);
     if (dictionary == "wubi") return HandleWubi(request);
     if (dictionary == "quick") return HandleQuickPhrase(request);

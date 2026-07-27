@@ -7,3 +7,6 @@
 [submodule "opencc"]
 	path = opencc
 	url = https://github.com/byvoid/opencc.git
+[submodule "cpp-pinyin"]
+	path = cpp-pinyin
+	url = https://github.com/wolfgitpr/cpp-pinyin.git
