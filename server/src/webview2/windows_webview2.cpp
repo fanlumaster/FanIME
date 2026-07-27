@@ -408,6 +408,9 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     script.append(L"  el.style.marginTop = \"");
     script.append(std::to_wstring(Global::MarginTop));
     script.append(L"px\";\n");
+    script.append(L"  el.style.marginLeft = \"");
+    script.append(std::to_wstring(Global::MarginLeft));
+    script.append(L"px\";\n");
     script.append(L"}\n");
     script.append(L"if (window.SetCandidateSelection) { window.SetCandidateSelection(");
     script.append(std::to_wstring(Global::candidate_ui.selected_index_in_page));

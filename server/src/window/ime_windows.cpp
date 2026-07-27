@@ -581,6 +581,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
         ++g_candidate_finetune_generation;
+        Global::MarginTop = 0;
+        Global::MarginLeft = 0;
         FLOAT scale = GetForegroundWindowScale();
         if (scale < 1.5)
         {
@@ -1525,7 +1527,9 @@ int FineTuneWindow(HWND hwnd)
             (std::min)(containerSize.first, static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP));
 
         POINT pt = {caretX, caretY};
-        /* Whether need to adjust candidate window position */
+        // properPos here is the desired top-left of the opaque card (content), not
+        // necessarily the host HWND — host may stay clamped while the card slides
+        // via MarginLeft/MarginTop inside a stable larger window.
         AdjustCandidateWindowPosition(&pt, containerSize, properPos);
 
         std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
@@ -1539,51 +1543,103 @@ int FineTuneWindow(HWND hwnd)
             return;
         }
 
-        int newWidth = 0;
-        int newHeight = 0;
-        UINT newFlag = flag;
-        // Host height must stay >= the flip-up slot (MarginTop + content) so few
-        // vertical candidates still pin near the caret. Grow past the default
-        // when horizontal wrap makes content taller than CANDIDATE_WINDOW_HEIGHT.
+        // Stable host: keep the transparent HWND at wrap-cap width and at least
+        // the default height so right-edge growth does not SetWindowPos-move the
+        // host (which flashes through layered transparency). The card is offset
+        // inside with MarginLeft / MarginTop instead.
         double heightDip = (std::max)(containerSize.second, static_cast<double>(::CANDIDATE_WINDOW_HEIGHT));
         if (Global::MarginTop > 0)
         {
             heightDip = containerSize.second + static_cast<double>(Global::MarginTop);
         }
-        if (containerSize.first > ::CANDIDATE_WINDOW_WIDTH || heightDip > ::CANDIDATE_WINDOW_HEIGHT)
+        const double hostContentWidthDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+        const double hostContentHeightDip = heightDip;
+
+        const int hostWidthPx =
+            static_cast<int>((hostContentWidthDip + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale);
+        const int hostHeightPx =
+            static_cast<int>((hostContentHeightDip + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale);
+
+        MonitorCoordinates coordinates = GetMonitorCoordinates();
+        int hostX = properPos->first;
+        int hostY = properPos->second;
+        if (hostX < coordinates.left)
         {
-            newWidth = (containerSize.first + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale;
-            newHeight = (heightDip + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale;
+            hostX = coordinates.left + 2;
         }
-        else
+        if (hostY < coordinates.top)
         {
-            newFlag = flag | SWP_NOSIZE;
+            hostY = coordinates.top + 2;
         }
+        if (hostX + hostWidthPx > coordinates.right)
+        {
+            hostX = coordinates.right - hostWidthPx - 2;
+        }
+        if (hostY + hostHeightPx > coordinates.bottom)
+        {
+            hostY = coordinates.bottom - hostHeightPx - 2;
+        }
+
+        // CSS dips inside the WebView (same units as measured containerSize).
+        const int offsetXDip =
+            static_cast<int>(std::lround((properPos->first - hostX) / static_cast<double>(scale)));
+        const int offsetYDip =
+            static_cast<int>(std::lround((properPos->second - hostY) / static_cast<double>(scale)));
+        Global::MarginLeft = (std::max)(0, offsetXDip);
+        // Keep vertical packing from Adjust, then add clamp-induced Y offset.
+        Global::MarginTop = (std::max)(0, Global::MarginTop) + (std::max)(0, offsetYDip);
+
+        int newWidth = hostWidthPx;
+        int newHeight = hostHeightPx;
+        UINT newFlag = flag;
+
+        RECT currentRect{};
+        if (GetWindowRect(hwnd, &currentRect))
+        {
+            const int curW = currentRect.right - currentRect.left;
+            const int curH = currentRect.bottom - currentRect.top;
+            if (curW == newWidth && curH == newHeight)
+            {
+                newFlag |= SWP_NOSIZE;
+            }
+            // Prefer not to move the host when only the internal card offset changed.
+            if (currentRect.left == hostX && currentRect.top == hostY)
+            {
+                newFlag |= SWP_NOMOVE;
+            }
+        }
+
         if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
         {
             return;
         }
 
-        // Resize host + WebView first, then paint visible content. Inflating
-        // into a still-narrow viewport lets horizontal candidates wrap and
-        // flash a taller intermediate frame before the final single-line layout.
+        // Geometry changes are rare now (stable 720 DIP host). Do not cloak —
+        // card motion is CSS margin inside the already-placed transparent host.
         const BOOL positioned = SetWindowPos( //
-            hwnd,              //
-            nullptr,           //
-            properPos->first,  //
-            properPos->second, //
-            newWidth,          //
-            newHeight,         //
-            newFlag            //
+            hwnd,   //
+            nullptr, //
+            hostX,  //
+            hostY,  //
+            newWidth,  //
+            newHeight, //
+            newFlag    //
         );
-        SyncCandidateWebViewBoundsToHost(hwnd);
+        if ((newFlag & SWP_NOSIZE) == 0)
+        {
+            SyncCandidateWebViewBoundsToHost(hwnd);
+        }
+        else if (webviewControllerCandWnd)
+        {
+            webviewControllerCandWnd->NotifyParentWindowPositionChanged();
+        }
 
-        InflateCandWnd(str, [hwnd, positioned, newWidth, newHeight, newFlag, properPos, containerSize,
-                             generation]() {
+        InflateCandWnd(str, [hwnd, positioned, generation]() {
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
                 return;
             }
+            // Hide/warmup leave the host DWM-cloaked; reveal after content is ready.
             SetHostWindowCloaked(hwnd, false);
             UpdateSmallWindowWebviewVisibility(hwnd, true);
             RECT actualRect{};

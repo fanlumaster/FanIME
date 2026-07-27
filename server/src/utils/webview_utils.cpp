@@ -1,6 +1,7 @@
 #include "webview_utils.h"
 #include "defines/globals.h"
 #include "fmt/xchar.h"
+#include "global/globals.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include <boost/json.hpp>
@@ -71,12 +72,22 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
                 box.style.maxWidth = maxW + "px";
                 box.style.width = "fit-content";
                 box.style.boxSizing = "border-box";
-                box.style.whiteSpace = "normal";
-                box.style.overflowWrap = "anywhere";
-                box.style.wordBreak = "break-word";
-                box.querySelectorAll(".row-wrapper, .cand .text").forEach(function (node) {{
+                // Match horizontal CSS: keep candidates on one row; wrap only
+                // inside each candidate when its own text exceeds maxW.
+                box.style.whiteSpace = "nowrap";
+                box.querySelectorAll(".row-wrapper").forEach(function (node) {{
+                    node.style.minWidth = "0";
+                    node.style.maxWidth = maxW + "px";
+                    node.style.whiteSpace = "normal";
+                    node.style.overflowWrap = "anywhere";
+                    node.style.wordBreak = "break-word";
+                }});
+                box.querySelectorAll(".cand .text").forEach(function (node) {{
                     node.style.minWidth = "0";
                     node.style.maxWidth = "100%";
+                    node.style.whiteSpace = "normal";
+                    node.style.overflowWrap = "anywhere";
+                    node.style.wordBreak = "break-word";
                 }});
             }}
             if (el) {{
@@ -150,6 +161,9 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
     script.append(L"if (el) {");
     script.append(L"el.style.marginTop = '");
     script.append(std::to_wstring(marginTop));
+    script.append(L"px';");
+    script.append(L"el.style.marginLeft = '");
+    script.append(std::to_wstring(Global::MarginLeft));
     script.append(L"px';");
     script.append(L"}");
 #ifdef FANY_DEBUG

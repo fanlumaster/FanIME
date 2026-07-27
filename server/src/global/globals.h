@@ -90,6 +90,8 @@ namespace Global
 {
 inline LONG INVALID_Y = -100000;
 inline int MarginTop = 0;
+// Horizontal offset of the opaque card inside the stable (often 720 DIP-wide) host.
+inline int MarginLeft = 0;
 
 using CandidateWordItem = WordItem;
 
