@@ -1941,8 +1941,11 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = g_inputSession->get_candidates();
         user_dictionary::apply_fixed_positions(
-            CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-            CurrentRankingContextKey(), items, g_inputSession->get_pinyin_sequence().size() == 1);
+            user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items,
+            g_inputSession->get_pinyin_sequence().size() == 1,
+            [](const std::string &key, const std::string &value) {
+                return g_inputSession->find_candidate(key, value);
+            });
         if (g_inputSession->get_pinyin_sequence().size() == 1 && items.size() > 24) items.resize(24);
     }
 
@@ -2087,7 +2090,7 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
             ++insert_index;
         }
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
-        user_dictionary::apply_fixed_positions(CommonUtils::get_ime_data_path() + "\\msime.db",
+        user_dictionary::apply_fixed_positions(
             user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items, false);
         for (size_t index = 1; index < unique_candidates.size(); ++index)
         {
@@ -2292,8 +2295,10 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
                 const int current_page = ui.page_index;
                 auto expanded = g_inputSession->get_candidates();
                 user_dictionary::apply_fixed_positions(
-                    CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-                    CurrentRankingContextKey(), expanded, true);
+                    user_dictionary::default_user_db_path(), CurrentRankingContextKey(), expanded, true,
+                    [](const std::string &key, const std::string &value) {
+                        return g_inputSession->find_candidate(key, value);
+                    });
                 ui.set_items(std::move(expanded));
                 ui.page_index = current_page;
             }

@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 class IInputSession
 {
@@ -47,6 +48,10 @@ class IInputSession
 
     virtual const std::vector<WordItem> &get_candidates() const = 0;
     virtual bool expand_initial_candidates() = 0;
+    virtual std::optional<WordItem> find_candidate(const std::string &, const std::string &)
+    {
+        return std::nullopt;
+    }
 
     virtual const std::string &get_pinyin_sequence() const = 0;
     virtual const std::string &get_pinyin_sequence_with_cases() const = 0;

@@ -20,6 +20,8 @@ class EngineInputSession : public IInputSession
 
     const std::vector<WordItem> &get_candidates() const override;
     bool expand_initial_candidates() override;
+    std::optional<WordItem> find_candidate(const std::string &key,
+                                           const std::string &value) override;
 
     const std::string &get_pinyin_sequence() const override;
     const std::string &get_pinyin_sequence_with_cases() const override;

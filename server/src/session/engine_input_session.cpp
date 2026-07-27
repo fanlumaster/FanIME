@@ -174,6 +174,12 @@ bool EngineInputSession::expand_initial_candidates()
     return session_.expand_initial_candidates();
 }
 
+std::optional<WordItem> EngineInputSession::find_candidate(
+    const std::string &key, const std::string &value)
+{
+    return session_.find_candidate(key, value);
+}
+
 const QueryRequest &EngineInputSession::request() const
 {
     return session_.get_request();

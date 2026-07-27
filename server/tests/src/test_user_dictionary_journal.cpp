@@ -124,7 +124,7 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
     REQUIRE(!user_dictionary::set_fixed_position(user_path.string(), "ni", "ni", "己", 6));
     candidates.insert(candidates.begin() + 1, {"ni", "云", 1, CandidateSource::CloudSuggestion});
     candidates.insert(candidates.begin() + 2, {"ni", "AI", 1, CandidateSource::AiSuggestion});
-    user_dictionary::apply_fixed_positions(main_path.string(), user_path.string(), "ni", candidates, false);
+    user_dictionary::apply_fixed_positions(user_path.string(), "ni", candidates, false);
     REQUIRE_EQ(candidates[1].word, std::string("云"));
     REQUIRE_EQ(candidates[2].word, std::string("AI"));
     REQUIRE_EQ(candidates[3].word, std::string("己"));
