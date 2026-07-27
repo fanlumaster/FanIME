@@ -132,6 +132,7 @@
 
     /* Custom context menu */
     .context-menu {
+      display: none;
       position: fixed;
       background: #ffffff;
       border: 1px solid rgba(0, 0, 0, 0.12);
@@ -149,7 +150,9 @@
       margin: 2px 2px;
       color: #1a1a1a;
       cursor: default;
-      font-size: 0.9em;
+      font-size: 14px;
+      line-height: 20px;
+      white-space: nowrap;
       border-radius: 4px;
     }
 
@@ -158,7 +161,7 @@
     }
     .context-menu-parent { position: relative; padding-right: 20px; }
     .context-menu-parent::after { content: "›"; position: absolute; right: 6px; }
-    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 108px;
+    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 128px;
       background: #fff; border: 1px solid rgba(0,0,0,.12); border-radius: 6px; padding: 1px 0; }
     .context-menu-parent:hover > .context-submenu { display: block; }
     .context-menu-separator { height: 1px; margin: 3px 5px; background: #00000020; }
@@ -167,6 +170,7 @@
   <script>
     let a = false;
     let currentRightClickedCand = null;
+    let contextMenuTopExpansion = 0;
 
 
     //
@@ -258,16 +262,58 @@
     //
     // Show context menu
     //
-    function showContextMenu(x, y) {
-      const menu = document.getElementById('contextMenu');
+    function positionContextMenu(menu, x, y) {
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
+      menu.style.visibility = 'hidden';
       menu.style.display = 'block';
+      const screenRight = window.screen.availLeft + window.screen.availWidth;
+      const screenBottom = window.screen.availTop + window.screen.availHeight;
+      const adjustedX = x - Math.max(0, window.screenX + x + menu.offsetWidth + 4 - screenRight);
+      const adjustedY = y - Math.max(0, window.screenY + y + menu.offsetHeight + 4 - screenBottom);
+      menu.style.left = Math.max(0, adjustedX) + 'px';
+      menu.style.top = adjustedY + 'px';
+      menu.style.visibility = '';
+      return { x: Math.max(0, adjustedX), y: adjustedY, topExpansion: Math.max(0, 2 - adjustedY) };
+    }
+
+    function positionContextSubmenu(menu, menuY) {
+      const parent = menu.querySelector('.context-menu-parent');
       const submenu = menu.querySelector('.context-submenu');
+      if (!parent || !submenu) return { width: 132, bottom: menuY + menu.offsetHeight };
+      submenu.style.top = '-2px';
+      submenu.style.visibility = 'hidden';
+      submenu.style.display = 'block';
+      const width = submenu.offsetWidth;
+      const naturalHeight = submenu.offsetHeight;
+      const menuX = Number.parseFloat(menu.style.left) || 0;
+      const screenRight = window.screen.availLeft + window.screen.availWidth;
+      const openLeft = menuX >= width &&
+        window.screenX + menuX + menu.offsetWidth + width + 4 > screenRight;
+      submenu.style.left = openLeft ? 'auto' : '100%';
+      submenu.style.right = openLeft ? '100%' : 'auto';
+      const defaultScreenTop = window.screenY + menuY + parent.offsetTop - 2;
+      const screenBottom = window.screen.availTop + window.screen.availHeight;
+      const targetScreenTop = Math.max(window.screen.availTop + 4,
+        Math.min(defaultScreenTop, screenBottom - naturalHeight - 4));
+      const topExpansion = Math.max(0, window.screenY + 2 - targetScreenTop);
+      submenu.style.top = (targetScreenTop - window.screenY - menuY - parent.offsetTop) + 'px';
+      const height = submenu.offsetHeight;
+      submenu.style.display = '';
+      submenu.style.visibility = '';
+      return { width, topExpansion, bottom: menuY + parent.offsetTop +
+        Number.parseFloat(submenu.style.top) + height };
+    }
+
+    function showContextMenu(x, y) {
+      const menu = document.getElementById('contextMenu');
+      const menuPosition = positionContextMenu(menu, x, y);
+      const submenuSize = positionContextSubmenu(menu, menuPosition.y);
       const content = document.getElementById('realContainer');
       window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuResize', data:{
-        width: Math.ceil(x + menu.offsetWidth + (submenu?.offsetWidth || 120) + 4),
-        height: Math.ceil(Math.max(content?.offsetHeight || 0, y + Math.max(menu.offsetHeight, submenu?.offsetHeight || 180) + 4))
+        width: Math.ceil(menuPosition.x + menu.offsetWidth + submenuSize.width + 4),
+        height: Math.ceil(Math.max(content?.offsetHeight || 0, menuPosition.y + menu.offsetHeight + 4, submenuSize.bottom + 4)),
+        topExpansion: Math.ceil(Math.max(menuPosition.topExpansion || 0, submenuSize.topExpansion || 0))
       }}));
     }
 
@@ -279,6 +325,7 @@
       const wasVisible = menu.style.display === 'block';
       menu.style.display = 'none';
       currentRightClickedCand = null;
+      window.RestoreContextMenuTopExpansion();
       if (wasVisible) window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
     }
 
@@ -352,6 +399,22 @@
       const index = candidateMenuIndex();
       if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'fixPosition', data:{index,position}}));
       hideContextMenu();
+    }
+    window.ApplyContextMenuTopExpansion = function (pixels) {
+      const content = document.getElementById('realContainerParent');
+      const menu = document.getElementById('contextMenu');
+      const delta = pixels - contextMenuTopExpansion;
+      content.style.marginTop = ((Number.parseFloat(content.style.marginTop) || 0) + delta) + 'px';
+      menu.style.top = ((Number.parseFloat(menu.style.top) || 0) + delta) + 'px';
+      contextMenuTopExpansion = pixels;
+    }
+    window.RestoreContextMenuTopExpansion = function () {
+      if (!contextMenuTopExpansion) return;
+      const content = document.getElementById('realContainerParent');
+      const menu = document.getElementById('contextMenu');
+      content.style.marginTop = ((Number.parseFloat(content.style.marginTop) || 0) - contextMenuTopExpansion) + 'px';
+      menu.style.top = ((Number.parseFloat(menu.style.top) || 0) - contextMenuTopExpansion) + 'px';
+      contextMenuTopExpansion = 0;
     }
     function onClearPosition(event) {
       if (event.button !== 0) return;
