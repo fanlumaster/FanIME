@@ -25,6 +25,8 @@
 #include <utf8.h>
 #include "global/globals.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
+#include "MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
@@ -478,8 +480,13 @@ std::string BuildCurrentCandidatePage()
         {
             display_word += " 🤖";
         }
+        const int display_length = static_cast<int>(utf8::distance(display_word.begin(), display_word.end()));
+        if (item.fixed_position > 0)
+        {
+            display_word = "<span style=\"color:#379AD3\">" + display_word + "</span>";
+        }
         candidate_string += display_word;
-        maxCount = (std::max)(maxCount, static_cast<int>(utf8::distance(display_word.begin(), display_word.end())));
+        maxCount = (std::max)(maxCount, display_length);
         ui.page_words.push_back(string_to_wstring(word));
         if (i < loop - 1)
         {
@@ -724,6 +731,8 @@ enum class TaskType
     UiCommitCandidate,
     UiPinCandidate,
     UiDeleteCandidate,
+    UiFixCandidatePosition,
+    UiClearCandidatePosition,
     ReloadInputSession,
     ApplyCandidatePageSize,
     RefreshCandidatePage,
@@ -749,7 +758,29 @@ struct Task
     std::string session_pinyin;
     std::string session_word;
     int candidate_one_based_index = 0;
+    int fixed_position = 0;
 };
+
+std::string CurrentRankingContextKey()
+{
+    std::string converted = g_inputSession->get_quanpin();
+    if (converted.empty()) converted = g_inputSession->get_pinyin_segmentation();
+    if (g_inputSession->get_pinyin_sequence().size() == 1) return converted;
+    std::string plain = converted;
+    plain.erase(std::remove(plain.begin(), plain.end(), '\''), plain.end());
+    const auto cuts = quanpin::cut_pinyin_by_mode(plain, "correction");
+    return cuts.empty() ? converted : quanpin::join_segments(cuts.front());
+}
+
+std::string CandidateDatabaseKey(const WordItem &item, const std::string &context_key)
+{
+    if (g_inputSession->get_pinyin_sequence().size() == 1) return item.pinyin;
+    auto segments = quanpin::split_segments(context_key);
+    const size_t han_count = HelpcodeUtils::count_han_chars(item.word);
+    if (segments.empty() || han_count == 0) return item.pinyin;
+    if (segments.size() > han_count) segments.resize(han_count);
+    return quanpin::join_segments(segments);
+}
 
 std::queue<Task> taskQueue;
 std::mutex queueMutex;
@@ -801,7 +832,9 @@ void WorkerThread()
 
         const bool candidateUiAction = task.type == TaskType::UiCommitCandidate ||
                                        task.type == TaskType::UiPinCandidate ||
-                                       task.type == TaskType::UiDeleteCandidate;
+                                       task.type == TaskType::UiDeleteCandidate ||
+                                       task.type == TaskType::UiFixCandidatePosition ||
+                                       task.type == TaskType::UiClearCandidatePosition;
         if (candidateUiAction &&
             !CandidateUiOwnerIsCurrent({task.client_id, task.activation_epoch}))
         {
@@ -963,7 +996,9 @@ void WorkerThread()
         }
 
         case TaskType::UiPinCandidate:
-        case TaskType::UiDeleteCandidate: {
+        case TaskType::UiDeleteCandidate:
+        case TaskType::UiFixCandidatePosition:
+        case TaskType::UiClearCandidatePosition: {
             WordItem item;
             if (!ResolveCandidateItem(task.candidate_one_based_index, item) ||
                 item.source == CandidateSource::EnglishDictionary || item.source == CandidateSource::QuickPhrase ||
@@ -974,15 +1009,34 @@ void WorkerThread()
 
             if (task.type == TaskType::UiPinCandidate)
             {
-                g_inputSession->pin_candidate(item.pinyin, item.word);
+                const std::string context_key = CurrentRankingContextKey();
+                const std::string entry_key = CandidateDatabaseKey(item, context_key);
+                (void)user_dictionary::adjust_candidate_ranking(
+                    CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
+                    context_key, Global::candidate_ui.items, entry_key, item.word,
+                    "pin", 1, 1, true);
             }
-            else
+            else if (task.type == TaskType::UiDeleteCandidate)
             {
                 if (utf8::distance(item.word.begin(), item.word.end()) == 1)
                 {
                     break;
                 }
                 g_inputSession->remove_candidate(item.pinyin, item.word);
+            }
+            else if (task.type == TaskType::UiFixCandidatePosition)
+            {
+                const std::string context_key = CurrentRankingContextKey();
+                (void)user_dictionary::set_fixed_position(
+                    user_dictionary::default_user_db_path(), context_key,
+                    CandidateDatabaseKey(item, context_key), item.word, task.fixed_position);
+            }
+            else
+            {
+                const std::string context_key = CurrentRankingContextKey();
+                (void)user_dictionary::clear_fixed_position(
+                    user_dictionary::default_user_db_path(), context_key,
+                    CandidateDatabaseKey(item, context_key), item.word);
             }
             g_inputSession->reset_cache();
             g_inputSession->recompute_candidates();
@@ -1167,7 +1221,7 @@ void EnqueuePipeSessionInvalidatedTask(uint64_t client_id, uint64_t invalidation
     EnqueueTask(TaskType::ClientSuspended, disconnectData, invalidation_epoch);
 }
 
-void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index)
+void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index, int fixed_position)
 {
     if (!pipe_running || one_based_index <= 0 || one_based_index > 10)
     {
@@ -1189,6 +1243,15 @@ void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index)
     {
         type = TaskType::UiDeleteCandidate;
     }
+    else if (action == CandidateUiAction::FixPosition)
+    {
+        if (fixed_position < 1 || fixed_position > 5) return;
+        type = TaskType::UiFixCandidatePosition;
+    }
+    else if (action == CandidateUiAction::ClearPosition)
+    {
+        type = TaskType::UiClearCandidatePosition;
+    }
 
     {
         std::lock_guard lock(queueMutex);
@@ -1197,6 +1260,7 @@ void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index)
         task.client_id = owner.client_id;
         task.activation_epoch = owner.activation_epoch;
         task.candidate_one_based_index = one_based_index;
+        task.fixed_position = fixed_position;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -1876,6 +1940,10 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     else
     {
         items = g_inputSession->get_candidates();
+        user_dictionary::apply_fixed_positions(
+            CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
+            CurrentRankingContextKey(), items, g_inputSession->get_pinyin_sequence().size() == 1);
+        if (g_inputSession->get_pinyin_sequence().size() == 1 && items.size() > 24) items.resize(24);
     }
 
     if (items.empty())
@@ -2019,6 +2087,8 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
             ++insert_index;
         }
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
+        user_dictionary::apply_fixed_positions(CommonUtils::get_ime_data_path() + "\\msime.db",
+            user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items, false);
         for (size_t index = 1; index < unique_candidates.size(); ++index)
         {
             items.push_back(std::move(unique_candidates[index]));
@@ -2220,7 +2290,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             if (offset > 0 && ui.page_index == 0 && g_inputSession->expand_initial_candidates())
             {
                 const int current_page = ui.page_index;
-                ui.set_items(g_inputSession->get_candidates());
+                auto expanded = g_inputSession->get_candidates();
+                user_dictionary::apply_fixed_positions(
+                    CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
+                    CurrentRankingContextKey(), expanded, true);
+                ui.set_items(std::move(expanded));
                 ui.page_index = current_page;
             }
             if (offset < 0 ? ui.has_prev_page() : ui.has_next_page())
@@ -2364,10 +2438,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 
     if (is_valid_selection)
     {
-        if (!is_space)
-        {
-            isNeedUpdateWeight = true;
-        }
+        const std::string ranking_context_key = CurrentRankingContextKey();
+        isNeedUpdateWeight = is_digit_selection;
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
@@ -2480,7 +2552,17 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 
         if (isNeedUpdateWeight)
         {
-            EnqueuePinCandidateTask(curWordPinyin, curWord);
+            const auto &frequency = GetConfiguredFrequencyAdjustment();
+            bool ranking_changed = false;
+            (void)user_dictionary::adjust_candidate_ranking(
+                CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
+                ranking_context_key, Global::candidate_ui.items,
+                CandidateDatabaseKey(curWordItem, ranking_context_key), curWord,
+                frequency.mode, frequency.linear_step, frequency.trigger_count, false, &ranking_changed);
+            if (ranking_changed)
+            {
+                g_inputSession->reset_cache();
+            }
         }
     }
     else

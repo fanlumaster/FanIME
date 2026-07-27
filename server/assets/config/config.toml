@@ -27,6 +27,14 @@ cloud_candidates = true
 # TODO: 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。
 clean_mode = false
 
+[frequency_adjustment]
+# disabled / pin / halve / linear / promote
+mode = "promote"
+# 每选中几次执行一次调频，范围 1~10
+trigger_count = 1
+# 线性调频每次前移数量，范围 1~10
+linear_step = 1
+
 #
 # Appearance
 # 外观
@@ -106,7 +114,7 @@ show_sp_helpcode_in_candidate_window = true
 # 全拼辅助码
 quanpin_helpcode = true
 # 全拼辅助码方案，可选："lantian", "ziranma"
-quanpin_helpcode_schema = "lantian"
+quanpin_helpcode_schema = "ziranma"
 # 是否在候选窗口中显示全拼辅助码
 show_qp_helpcode_in_candidate_window = true
 

@@ -97,3 +97,68 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
 
     std::filesystem::remove_all(directory);
 }
+
+TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
+{
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("msime-ranking-" + std::to_string(GetCurrentProcessId()));
+    std::filesystem::create_directories(directory);
+    const auto user_path = directory / "msime_user.db";
+    const auto main_path = directory / "msime.db";
+    {
+        TestDatabase db(main_path);
+        db.exec("CREATE TABLE tbl_1_n(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+                "INSERT INTO tbl_1_n VALUES('ni','n','甲',100);"
+                "INSERT INTO tbl_1_n VALUES('ni','n','乙',90);"
+                "INSERT INTO tbl_1_n VALUES('ni','n','丙',80);"
+                "INSERT INTO tbl_1_n VALUES('ni','n','丁',70);"
+                "INSERT INTO tbl_1_n VALUES('ni','n','戊',60);"
+                "INSERT INTO tbl_1_n VALUES('ni','n','己',50);");
+    }
+    std::vector<WordItem> candidates = {
+        {"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80},
+        {"ni","丁",70}, {"ni","戊",60}, {"ni","己",50}
+    };
+
+    REQUIRE(user_dictionary::set_fixed_position(user_path.string(), "ni", "ni", "己", 2));
+    REQUIRE(!user_dictionary::set_fixed_position(user_path.string(), "ni", "ni", "己", 6));
+    candidates.insert(candidates.begin() + 1, {"ni", "云", 1, CandidateSource::CloudSuggestion});
+    candidates.insert(candidates.begin() + 2, {"ni", "AI", 1, CandidateSource::AiSuggestion});
+    user_dictionary::apply_fixed_positions(main_path.string(), user_path.string(), "ni", candidates, false);
+    REQUIRE_EQ(candidates[1].word, std::string("云"));
+    REQUIRE_EQ(candidates[2].word, std::string("AI"));
+    REQUIRE_EQ(candidates[3].word, std::string("己"));
+    REQUIRE_EQ(candidates[3].fixed_position, 2);
+
+    REQUIRE(user_dictionary::clear_fixed_position(user_path.string(), "ni", "ni", "己"));
+    candidates = {{"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80},
+                  {"ni","丁",70}, {"ni","戊",60}, {"ni","己",50}};
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",
+        candidates, "ni", "己", "linear", 2, 2, false));
+    {
+        TestDatabase db(main_path);
+        REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='己'"), 50);
+    }
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",
+        candidates, "ni", "己", "linear", 2, 2, false));
+    {
+        TestDatabase db(main_path);
+        REQUIRE(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='己'") > 70);
+    }
+
+    {
+        TestDatabase db(main_path);
+        db.exec("UPDATE tbl_1_n SET weight=100 WHERE value='甲';"
+                "UPDATE tbl_1_n SET weight=99 WHERE value='乙';"
+                "UPDATE tbl_1_n SET weight=98 WHERE value='丙';");
+    }
+    candidates = {{"ni","甲",100}, {"ni","乙",99}, {"ni","丙",98}};
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",
+        candidates, "ni", "丙", "linear", 1, 1, false));
+    {
+        TestDatabase db(main_path);
+        REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='丙'"), 101);
+        REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='乙'"), 99);
+    }
+    std::filesystem::remove_all(directory);
+}

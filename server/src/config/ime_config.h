@@ -50,6 +50,13 @@ struct AiAssistantConfig
 候选按推荐程度降序排列，数量不超过指定上限；没有合理结果时返回空数组。)PROMPT";
 };
 
+struct FrequencyAdjustmentConfig
+{
+    std::string mode = "promote"; // disabled | pin | halve | linear | promote
+    int trigger_count = 1;
+    int linear_step = 1;
+};
+
 void InitImeConfig();
 bool ReloadImeConfigIfChanged();
 const std::filesystem::path &GetImeConfigPath();
@@ -123,6 +130,9 @@ const VoiceInputConfig &GetConfiguredVoiceInput();
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value);
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
 const AiAssistantConfig &GetConfiguredAiAssistant();
+const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment();
+bool SetConfiguredFrequencyAdjustmentString(const std::string &key, const std::string &value);
+bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value);
 bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value);
 bool SetConfiguredAiAssistantBool(const std::string &key, bool value);
 bool SetConfiguredAiAssistantInt(const std::string &key, int value);

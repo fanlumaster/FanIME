@@ -880,6 +880,44 @@ HRESULT OnControllerCreatedCandWnd(     //
                                 PostMessage(::global_hwnd, WM_PIN_TO_TOP_CANDIDATE, idx, 0);
                             }
                         }
+                        else if (type == "fixPosition")
+                        {
+                            int idx = json::value_to<int>(val.at("data").at("index"));
+                            int position = json::value_to<int>(val.at("data").at("position"));
+                            if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx) && position >= 1 && position <= 5)
+                                PostMessage(::global_hwnd, WM_FIX_CANDIDATE_POSITION, idx, position);
+                        }
+                        else if (type == "clearPosition")
+                        {
+                            int idx = json::value_to<int>(val.at("data"));
+                            if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx))
+                                PostMessage(::global_hwnd, WM_CLEAR_CANDIDATE_POSITION, idx, 0);
+                        }
+                        else if (type == "contextMenuResize")
+                        {
+                            const auto &data = val.at("data");
+                            const int width = json::value_to<int>(data.at("width"));
+                            const int height = json::value_to<int>(data.at("height"));
+                            RECT window_rect{};
+                            GetWindowRect(hwnd, &window_rect);
+                            const FLOAT scale = static_cast<FLOAT>(GetDpiForWindow(hwnd)) / 96.0f;
+                            const int current_width = static_cast<int>(window_rect.right - window_rect.left);
+                            const int current_height = static_cast<int>(window_rect.bottom - window_rect.top);
+                            SetWindowPos(hwnd, nullptr, window_rect.left, window_rect.top,
+                                         (std::max)(current_width, static_cast<int>(std::ceil(width * scale))),
+                                         (std::max)(current_height, static_cast<int>(std::ceil(height * scale))),
+                                         SWP_NOZORDER | SWP_NOACTIVATE);
+                            RECT bounds{};
+                            GetClientRect(hwnd, &bounds);
+                            webviewControllerCandWnd->put_Bounds(bounds);
+                        }
+                        else if (type == "contextMenuClosed")
+                        {
+                            const std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
+                                ? std::wstring{} : GetPreeditWithCaretMarker();
+                            std::wstring measurement = preedit + L"," + Global::CandidateString;
+                            InflateMeasureDivCandWnd(measurement, [hwnd]() { FineTuneWindow(hwnd); });
+                        }
                         else if (type == "candidate")
                         {
                             int idx = json::value_to<int>(val.at("data"));

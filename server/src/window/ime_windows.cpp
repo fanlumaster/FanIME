@@ -760,6 +760,14 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
         break;
     }
+    case WM_FIX_CANDIDATE_POSITION:
+        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::FixPosition,
+                                                static_cast<int>(wParam), static_cast<int>(lParam));
+        break;
+    case WM_CLEAR_CANDIDATE_POSITION:
+        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::ClearPosition,
+                                                static_cast<int>(wParam));
+        break;
 
     case WM_CLEAR_IME_ENGINE_CACHE: {
 #ifdef FANY_DEBUG

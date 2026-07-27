@@ -207,6 +207,7 @@ void PostConfig()
 
     const VoiceInputConfig &voice = GetConfiguredVoiceInput();
     const AiAssistantConfig &ai = GetConfiguredAiAssistant();
+    const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -224,6 +225,9 @@ void PostConfig()
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
+          {"frequency_adjustment",
+           {{"mode", frequency.mode}, {"trigger_count", frequency.trigger_count},
+            {"linear_step", frequency.linear_step}}},
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
@@ -323,6 +327,16 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredPagingPageUpDownEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.candidate_arrow_navigation")
         return SetConfiguredCandidateArrowNavigationEnabled(json::value_to<bool>(data.at("value")));
+    if (path.rfind("frequency_adjustment.", 0) == 0)
+    {
+        const std::string key = path.substr(21);
+        const json::value &value = data.at("value");
+        if (value.is_string())
+            return SetConfiguredFrequencyAdjustmentString(key, json::value_to<std::string>(value));
+        if (value.is_int64())
+            return SetConfiguredFrequencyAdjustmentInt(key, static_cast<int>(value.as_int64()));
+        return false;
+    }
     if (path.rfind("voice_input.", 0) == 0)
     {
         const std::string key = path.substr(12);

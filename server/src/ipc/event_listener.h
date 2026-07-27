@@ -21,6 +21,8 @@ enum class CandidateUiAction
     Commit,
     Pin,
     Delete,
+    FixPosition,
+    ClearPosition,
 };
 
 void WorkerThread();
@@ -36,7 +38,7 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
 void EnqueueAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void CancelCloudCandidateRequest();
 void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
-void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index);
+void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index, int fixed_position = 0);
 void EnqueuePipeSessionInvalidatedTask(uint64_t client_id, uint64_t invalidation_epoch);
 void EnqueueReloadInputSessionTask();
 void EnqueueApplyCandidatePageSizeTask();

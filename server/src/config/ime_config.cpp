@@ -44,6 +44,7 @@ std::string g_theme_ftb = "follow";
 std::string g_theme_menu = "follow";
 VoiceInputConfig g_voice_input;
 AiAssistantConfig g_ai_assistant;
+FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
 
@@ -277,6 +278,17 @@ bool LoadImeConfig()
             tbl["general"]["paging_tab"].value_or(legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
+        {
+            const std::string mode =
+                tbl["frequency_adjustment"]["mode"].value_or(std::string("promote"));
+            g_frequency_adjustment.mode =
+                mode == "disabled" || mode == "pin" || mode == "halve" || mode == "linear" || mode == "promote"
+                    ? mode : "promote";
+            const int trigger = tbl["frequency_adjustment"]["trigger_count"].value_or(1);
+            const int step = tbl["frequency_adjustment"]["linear_step"].value_or(1);
+            g_frequency_adjustment.trigger_count = trigger >= 1 && trigger <= 10 ? trigger : 1;
+            g_frequency_adjustment.linear_step = step >= 1 && step <= 10 ? step : 1;
+        }
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         {
@@ -1043,6 +1055,31 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
 const AiAssistantConfig &GetConfiguredAiAssistant()
 {
     return g_ai_assistant;
+}
+
+const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment()
+{
+    return g_frequency_adjustment;
+}
+
+bool SetConfiguredFrequencyAdjustmentString(const std::string &key, const std::string &value)
+{
+    if (key != "mode" ||
+        (value != "disabled" && value != "pin" && value != "halve" && value != "linear" && value != "promote") ||
+        !WriteConfiguredValue("frequency_adjustment", key, EscapeTomlBasicString(value)))
+        return false;
+    g_frequency_adjustment.mode = value;
+    return true;
+}
+
+bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value)
+{
+    if ((key != "trigger_count" && key != "linear_step") || value < 1 || value > 10 ||
+        !WriteConfiguredValue("frequency_adjustment", key, std::to_string(value)))
+        return false;
+    if (key == "trigger_count") g_frequency_adjustment.trigger_count = value;
+    else g_frequency_adjustment.linear_step = value;
+    return true;
 }
 
 bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value)
