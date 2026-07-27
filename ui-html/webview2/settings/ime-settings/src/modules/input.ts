@@ -29,12 +29,9 @@ export function applyInputConfig(
 }
 
 export function applyFrequencyConfig(config: any): void {
-  const mode = document.getElementById('frequencyMode') as HTMLSelectElement | null;
-  const trigger = document.getElementById('frequencyTriggerCount') as HTMLInputElement | null;
-  const step = document.getElementById('frequencyLinearStep') as HTMLInputElement | null;
-  if (mode && typeof config?.mode === 'string') mode.value = config.mode;
-  if (trigger && Number.isInteger(config?.trigger_count)) trigger.value = String(config.trigger_count);
-  if (step && Number.isInteger(config?.linear_step)) step.value = String(config.linear_step);
+  applyDropdownValue('frequencyModeBtn', 'frequencyModeMenu', config?.mode);
+  applyDropdownValue('frequencyTriggerCountBtn', 'frequencyTriggerCountMenu', String(config?.trigger_count ?? 1));
+  applyDropdownValue('frequencyLinearStepBtn', 'frequencyLinearStepMenu', String(config?.linear_step ?? 1));
 }
 
 export function setupInput(): void {
@@ -69,17 +66,11 @@ export function setupInput(): void {
 }
 
 function setupFrequencyOptions(): void {
-  document.getElementById('frequencyMode')?.addEventListener('change', (event) => {
-    updateConfig('frequency_adjustment.mode', (event.target as HTMLSelectElement).value);
-  });
-  for (const [id, key] of [['frequencyTriggerCount', 'trigger_count'], ['frequencyLinearStep', 'linear_step']]) {
-    document.getElementById(id)?.addEventListener('change', (event) => {
-      const input = event.target as HTMLInputElement;
-      const value = Math.max(1, Math.min(10, Number(input.value) || 1));
-      input.value = String(value);
-      updateConfig(`frequency_adjustment.${key}`, value);
-    });
-  }
+  setupDropdownMenu('frequencyModeBtn', 'frequencyModeMenu', '', true, 'frequency_adjustment.mode');
+  setupDropdownMenu('frequencyTriggerCountBtn', 'frequencyTriggerCountMenu', '', true,
+    'frequency_adjustment.trigger_count', Number);
+  setupDropdownMenu('frequencyLinearStepBtn', 'frequencyLinearStepMenu', '', true,
+    'frequency_adjustment.linear_step', Number);
 }
 
 function setupPageOptions(): void {

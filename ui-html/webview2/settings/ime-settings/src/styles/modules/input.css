@@ -6,6 +6,19 @@
   gap: 8px;
 }
 
+.frequency-option-content {
+  margin-top: 8px;
+}
+
+.frequency-option-row {
+  padding: 10px 0;
+}
+
+.frequency-dropdown-toggle,
+.frequency-dropdown-menu {
+  min-width: 110px;
+}
+
 /* 输入 -> 双拼方案 */
 .shuangpin-option-content {
   display: flex;

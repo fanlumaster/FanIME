@@ -6,7 +6,8 @@ export function setupDropdownMenu(
   menuId: string,
   messageAction: string,
   useStopPropagation: boolean = false,
-  configPath?: string
+  configPath?: string,
+  valueTransform: (value: string) => unknown = (value) => value
 ): void {
   const btn = document.getElementById(btnId);
   const menu = document.getElementById(menuId);
@@ -71,7 +72,7 @@ export function setupDropdownMenu(
           type: 'configUpdate',
           data: {
             path: configPath,
-            value: htmlItem.dataset.value
+            value: valueTransform(htmlItem.dataset.value ?? '')
           }
         }));
       } else if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {

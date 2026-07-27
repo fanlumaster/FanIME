@@ -28,23 +28,6 @@
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-header"><div class="section-title">数字键调频</div></div>
-    <div class="input-option-content">
-      <label>方式
-        <select id="frequencyMode">
-          <option value="disabled">关闭</option><option value="pin">一次置顶</option>
-          <option value="halve">折半调频</option><option value="linear">线性调频</option>
-          <option value="promote">一次置前</option>
-        </select>
-      </label>
-      <div class="input-option-divider"></div>
-      <label>每 <input id="frequencyTriggerCount" type="number" min="1" max="10" value="1"> 次触发</label>
-      <div class="input-option-divider"></div>
-      <label>线性步长 <input id="frequencyLinearStep" type="number" min="1" max="10" value="1"></label>
-    </div>
-  </div>
-
   <!-- 双拼方案 -->
   <div class="section shuangpin-option-content">
     <div class="section-header">
@@ -126,6 +109,55 @@
       <div class="section-title">云候选</div>
       <div class="ftb-toggle-btn active" id="cloudCandidatesToggleBtn" role="switch" aria-checked="true" tabindex="0">
         <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header"><div class="section-title">拼音方案调频</div></div>
+    <div class="frequency-option-content">
+      <div class="section-header frequency-option-row">
+        <div class="section-title">调频方式</div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="frequencyModeBtn">
+            <span>一次置前</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="frequencyModeMenu">
+            <div class="dropdown-item" data-value="disabled">关闭</div>
+            <div class="dropdown-item" data-value="pin">一次置顶</div>
+            <div class="dropdown-item" data-value="halve">折半调频</div>
+            <div class="dropdown-item" data-value="linear">线性调频</div>
+            <div class="dropdown-item" data-value="promote">一次置前</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
+      <div class="section-header frequency-option-row">
+        <div class="section-title">触发频次(第几次上屏触发)</div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="frequencyTriggerCountBtn">
+            <span>1</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="frequencyTriggerCountMenu">
+            <div class="dropdown-item" data-value="1">1</div><div class="dropdown-item" data-value="2">2</div>
+            <div class="dropdown-item" data-value="3">3</div><div class="dropdown-item" data-value="4">4</div>
+            <div class="dropdown-item" data-value="5">5</div><div class="dropdown-item" data-value="6">6</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
+      <div class="section-header frequency-option-row">
+        <div class="section-title">线性调频步长</div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="frequencyLinearStepBtn">
+            <span>1</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="frequencyLinearStepMenu">
+            <div class="dropdown-item" data-value="1">1</div><div class="dropdown-item" data-value="2">2</div>
+            <div class="dropdown-item" data-value="3">3</div><div class="dropdown-item" data-value="4">4</div>
+            <div class="dropdown-item" data-value="5">5</div><div class="dropdown-item" data-value="6">6</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
