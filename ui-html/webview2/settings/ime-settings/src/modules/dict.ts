@@ -155,6 +155,22 @@ export function setupDictionary(): void {
       showToast('读取文件失败', false);
     }
   });
+  document.getElementById('dictImportHansButton')?.addEventListener('click', () => {
+    (document.getElementById('dictImportHansFile') as HTMLInputElement | null)?.click();
+  });
+  document.getElementById('dictImportHansFile')?.addEventListener('change', async (event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const content = await file.text();
+      if (!content.trim()) { showToast('文件内容为空', false); return; }
+      post('importHans', { content });
+    } catch {
+      showToast('读取文件失败', false);
+    }
+  });
   document.getElementById('dictCancelButton')?.addEventListener('click', closeDialog);
   document.getElementById('dictToastClose')?.addEventListener('click', () => {
     document.getElementById('dictToast')?.classList.remove('visible');
@@ -180,7 +196,7 @@ export function setupDictionary(): void {
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
-    const isImport = lastAction === 'import';
+    const isImport = lastAction === 'import' || lastAction === 'importHans';
     showToast(
       payload.message ?? (payload.ok ? '操作成功' : '操作失败'),
       Boolean(payload.ok),

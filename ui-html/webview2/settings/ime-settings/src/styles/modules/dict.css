@@ -4,6 +4,18 @@
   background: var(--card-bg-solid);
   overflow: hidden;
   box-shadow: var(--card-shadow);
+  margin-bottom: 18px;
+}
+
+.dict-hans-import-section .section-title {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.dict-hans-import-section .dict-button {
+  flex-shrink: 0;
+  min-width: 88px;
 }
 
 .dict-tabs {
