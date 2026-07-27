@@ -1615,8 +1615,16 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         {
             PerfTimer asyncPuncTimer;
             std::wstring punctuationCommitText;
-            const WCHAR *punctuation = _pCompositionProcessorEngine->GetPunctuation(wch);
-            punctuationCommitText = punctuation ? punctuation : L"";
+            // Numpad '.' (VK_DECIMAL) keeps ASCII '.' in Chinese punctuation mode.
+            if (code == VK_DECIMAL)
+            {
+                punctuationCommitText = L".";
+            }
+            else
+            {
+                const WCHAR *punctuation = _pCompositionProcessorEngine->GetPunctuation(wch);
+                punctuationCommitText = punctuation ? punctuation : L"";
+            }
             const bool shouldFinalizeFirstCandidateWithPunctuation =
                 _candidateMode != CANDIDATE_NONE && _pCandidateListUIPresenter &&
                 Global::CommitWithFirstCandPunc.count(wch) > 0;

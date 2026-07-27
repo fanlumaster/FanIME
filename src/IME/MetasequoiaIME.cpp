@@ -212,7 +212,7 @@ class CPunctuationCommitEditSession : public CEditSessionBase
             return S_FALSE;
         }
         PerfTimer timer;
-        HRESULT hr = _pTextService->_HandleCompositionPunctuation(ec, _pContext, _wch, _requestId,
+        HRESULT hr = _pTextService->_HandleCompositionPunctuation(ec, _pContext, _code, _wch, _requestId,
                                                                    _prefetchedText);
         completion.applied = hr == S_OK;
         LARGE_INTEGER freq = {};
@@ -2183,9 +2183,13 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 pIME->_CompleteDeferredKeyReplay(request.deferredReplayToken);
                 break;
             }
-            const WCHAR *punctuation = pIME->_pCompositionProcessorEngine->GetPunctuation(wch);
             std::wstring commitText = receivedData->candidate_string;
-            if (punctuation)
+            if (code == VK_DECIMAL)
+            {
+                commitText.append(L".");
+            }
+            else if (const WCHAR *punctuation =
+                         pIME->_pCompositionProcessorEngine->GetPunctuation(wch))
             {
                 commitText.append(punctuation);
             }

@@ -860,8 +860,8 @@ Exit:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch,
-                                                       uint64_t requestId,
+HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfContext *pContext, UINT code,
+                                                       WCHAR wch, uint64_t requestId,
                                                        const std::wstring &prefetchedText)
 {
     HRESULT hr = S_OK;
@@ -878,6 +878,12 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
     if (hasPendingPunctuationCommitText)
     {
         punctuationStr = std::move(pendingPunctuationCommitText);
+    }
+    else if (code == VK_DECIMAL)
+    {
+        // Numpad decimal should always commit ASCII '.' even in Chinese
+        // punctuation mode (main-keyboard '.' still maps to '。').
+        punctuationStr = L".";
     }
     else
     {
