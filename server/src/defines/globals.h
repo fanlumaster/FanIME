@@ -18,7 +18,7 @@ inline int SHADOW_HEIGHT = 15;
 inline int CANDIDATE_WINDOW_WIDTH = 120;
 inline int CANDIDATE_WINDOW_HEIGHT = 232;
 // Horizontal (and long vertical) candidates wrap beyond this CSS DIP width.
-inline constexpr int CANDIDATE_WINDOW_MAX_WIDTH_DIP = 600;
+inline constexpr int CANDIDATE_WINDOW_MAX_WIDTH_DIP = 720;
 
 inline int DEFAULT_WINDOW_WIDTH = CANDIDATE_WINDOW_WIDTH;
 inline int DEFAULT_WINDOW_HEIGHT = CANDIDATE_WINDOW_HEIGHT;
