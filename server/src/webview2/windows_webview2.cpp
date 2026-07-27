@@ -898,18 +898,32 @@ HRESULT OnControllerCreatedCandWnd(     //
                             const auto &data = val.at("data");
                             const int width = json::value_to<int>(data.at("width"));
                             const int height = json::value_to<int>(data.at("height"));
+                            int top_expansion = 0;
+                            if (const auto *value = data.as_object().if_contains("topExpansion"))
+                                top_expansion = (std::max)(0, json::value_to<int>(*value));
                             RECT window_rect{};
                             GetWindowRect(hwnd, &window_rect);
                             const FLOAT scale = static_cast<FLOAT>(GetDpiForWindow(hwnd)) / 96.0f;
                             const int current_width = static_cast<int>(window_rect.right - window_rect.left);
                             const int current_height = static_cast<int>(window_rect.bottom - window_rect.top);
-                            SetWindowPos(hwnd, nullptr, window_rect.left, window_rect.top,
+                            const int top_expansion_px =
+                                static_cast<int>(std::ceil(top_expansion * scale));
+                            SetWindowPos(hwnd, nullptr, window_rect.left, window_rect.top - top_expansion_px,
                                          (std::max)(current_width, static_cast<int>(std::ceil(width * scale))),
-                                         (std::max)(current_height, static_cast<int>(std::ceil(height * scale))),
+                                         (std::max)(current_height, static_cast<int>(std::ceil(height * scale))) +
+                                             top_expansion_px,
                                          SWP_NOZORDER | SWP_NOACTIVATE);
                             RECT bounds{};
                             GetClientRect(hwnd, &bounds);
                             webviewControllerCandWnd->put_Bounds(bounds);
+                            if (top_expansion > 0)
+                            {
+                                const std::wstring script =
+                                    L"if(window.ApplyContextMenuTopExpansion)"
+                                    L"window.ApplyContextMenuTopExpansion(" +
+                                    std::to_wstring(top_expansion) + L");";
+                                webviewCandWnd->ExecuteScript(script.c_str(), nullptr);
+                            }
                         }
                         else if (type == "contextMenuClosed")
                         {
