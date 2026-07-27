@@ -196,37 +196,44 @@ HRESULT CMetasequoiaIME::_HandleToogleIMEMode(TfEditCookie ec, _In_ ITfContext *
     CStringRange keyStrokebuffer = _pCompositionProcessorEngine->GetKeystrokeBuffer();
     std::wstring commitString;
 
-    _RemoveDummyCompositionForComposing(ec, _pComposition);
     if (keyStrokebuffer.GetLength())
     {
         commitString.assign(keyStrokebuffer.Get(), keyStrokebuffer.GetLength());
-        CStringRange commitStringRange;
-        commitStringRange.Set(commitString.c_str(), commitString.length());
-        HRESULT hr = _AddCharAndFinalize(ec, pContext, &commitStringRange);
-        if (FAILED(hr))
-        {
-            FanyUtils::SendKeys(commitString);
-        }
     }
     else if (!g_toggleImeFallbackBuffer.empty())
     {
         commitString = g_toggleImeFallbackBuffer;
-        // 实测这个在管理员窗口也是可以正常运行的
-        FanyUtils::SendKeys(commitString);
     }
 
+    // Claim the reading string before ending composition so a second toggle
+    // edit session cannot commit the same text again.
+    _pCompositionProcessorEngine->PurgeVirtualKey();
     g_toggleImeFallbackBuffer.clear();
 
-    // _DeleteCandidateList(FALSE, pContext);
-    // _TerminateComposition(ec, pContext);
+    if (!commitString.empty())
+    {
+        // Keyboard OPENCLOSE is still open here when Shift deferred the close.
+        // Finalize in place; closing first makes CUAS/Win32 EDIT double-insert.
+        CStringRange commitStringRange;
+        commitStringRange.Set(commitString.c_str(), commitString.length());
+        const HRESULT hr = _AddCharAndFinalize(ec, pContext, &commitStringRange);
+        if (SUCCEEDED(hr))
+        {
+            _HandleComplete(ec, pContext);
+        }
+        else
+        {
+            _HandleCancel(ec, pContext);
+            FanyUtils::SendKeys(commitString);
+        }
+    }
+    else
+    {
+        _HandleComplete(ec, pContext);
+    }
 
-    _HandleComplete(ec, pContext);
-
-    // CCompositionProcessorEngine *pCompositionProcessorEngine;
-    // pCompositionProcessorEngine = _pCompositionProcessorEngine;
-
-    // pCompositionProcessorEngine->ToggleIMEMode(_GetThreadMgr(), _GetClientId());
-
+    _pCompositionProcessorEngine->ApplyPendingImeModeAfterCompositionCommit(
+        _GetThreadMgr(), _GetClientId());
     return S_OK;
 }
 

@@ -87,6 +87,11 @@ class CCompositionProcessorEngine
     void ToggleIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
     void SetIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL bOpen);
     BOOL CCompositionProcessorEngine::GetIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
+    // Apply CN/EN compartment change deferred until after composition commit.
+    // Closing KEYBOARD_OPENCLOSE before EndComposition makes CUAS/Win32 EDIT
+    // finalize the same preedit twice (Chrome/TSF-only hosts are unaffected).
+    void ApplyPendingImeModeAfterCompositionCommit(_In_ ITfThreadMgr *pThreadMgr,
+                                                    TfClientId tfClientId);
     void SetPunctuationMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL bOpen);
     BOOL GetPunctuationMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
     void SetDoubleSingleByteMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL bOpen);
@@ -179,6 +184,8 @@ class CCompositionProcessorEngine
     void KeyboardOpenCompartmentUpdated(_In_ ITfThreadMgr *pThreadMgr);
     HRESULT SetKeyboardOpenCompartment(_In_ ITfThreadMgr *pThreadMgr,
                                        TfClientId tfClientId, BOOL isOpen);
+    void SyncPunctuationWithImeMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                                    BOOL isOpen);
     void CommitCompositionOnExternalKeyboardClose();
 
   private:
@@ -254,6 +261,8 @@ class CCompositionProcessorEngine
     BOOL _keyboardOpen;
     BOOL _keyboardOpenKnown;
     BOOL _suppressKeyboardCloseCommit;
+    BOOL _hasPendingImeModeAfterCompositionCommit;
+    BOOL _pendingImeModeAfterCompositionCommit;
 
     // Configuration data
     BOOL _isWildcard : 1;

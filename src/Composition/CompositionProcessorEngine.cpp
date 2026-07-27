@@ -119,6 +119,8 @@ CCompositionProcessorEngine::CCompositionProcessorEngine(
     _keyboardOpen = FALSE;
     _keyboardOpenKnown = FALSE;
     _suppressKeyboardCloseCommit = FALSE;
+    _hasPendingImeModeAfterCompositionCommit = FALSE;
+    _pendingImeModeAfterCompositionCommit = FALSE;
 
     _hasWildcardIncludedInKeystrokeBuffer = FALSE;
 
@@ -919,79 +921,46 @@ void CCompositionProcessorEngine::OnPreservedKey( //
     BOOL notifyServer                             //
 )
 {
-    if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid))
+    if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) ||
+        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid))
     {
-        if (!isPrevalidated &&
-            !CheckShiftKeyOnly(&_PreservedKey_IMEMode.TSFPreservedKeyTable))
+        if (!isPrevalidated)
         {
-            *pIsEaten = FALSE;
-            return;
+            const BOOL eligible =
+                IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid)
+                    ? CheckShiftKeyOnly(&_PreservedKey_IMEMode.TSFPreservedKeyTable)
+                    : CheckShiftKeyOnly(&_PreservedKey_IMEMode02.TSFPreservedKeyTable);
+            if (!eligible)
+            {
+                *pIsEaten = FALSE;
+                return;
+            }
         }
         BOOL isOpen = FALSE;
         CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
         CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
         isOpen = isOpen ? FALSE : TRUE;
-        SetKeyboardOpenCompartment(pThreadMgr, tfClientId, isOpen);
 
-        // Also toggle punctuation mode
-        BOOL isPunctuation = FALSE;
-        CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-        CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
-        if (!isOpen && isPunctuation)
+        // Closing CN→EN while composing: keep KEYBOARD_OPENCLOSE open until
+        // after EndComposition. CUAS/Win32 EDIT double-commits if we close
+        // first and finalize later (Ctrl+Space / Chrome are fine).
+        const BOOL deferCloseUntilCompositionCommit =
+            !isOpen && _pTextService && _pTextService->_IsComposing();
+        if (deferCloseUntilCompositionCommit)
         {
-            CompartmentPunctuation._SetCompartmentBOOL(FALSE);
+            _pendingImeModeAfterCompositionCommit = isOpen;
+            _hasPendingImeModeAfterCompositionCommit = TRUE;
         }
-        else if (isOpen && !isPunctuation)
-        {
-            CompartmentPunctuation._SetCompartmentBOOL(TRUE);
-        }
-
-        *pIsEaten = TRUE;
-        *pNeedToggleIMEMode = TRUE;
-
-        Global::Keycode = VK_SHIFT;
-        if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0)
-            Global::ModifiersDown |= 0b00000001;
         else
-            Global::ModifiersDown &= ~0b00000001;
-        if (notifyServer)
         {
-            WriteDataToSharedMemory(Global::Keycode, L'\0', Global::ModifiersDown, nullptr, 0, L"", 0b000111);
-            SendKeyEventToUIProcess();
-            ClearNamedpipeDataIfExists();
-        }
-    }
-    else if (IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid))
-    {
-        if (!isPrevalidated &&
-            !CheckShiftKeyOnly(&_PreservedKey_IMEMode02.TSFPreservedKeyTable))
-        {
-            *pIsEaten = FALSE;
-            return;
-        }
-        BOOL isOpen = FALSE;
-        CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
-        CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
-        isOpen = isOpen ? FALSE : TRUE;
-        SetKeyboardOpenCompartment(pThreadMgr, tfClientId, isOpen);
-
-        // Also toggle punctuation mode
-        BOOL isPunctuation = FALSE;
-        CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-        CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
-        if (!isOpen && isPunctuation)
-        {
-            CompartmentPunctuation._SetCompartmentBOOL(FALSE);
-        }
-        else if (isOpen && !isPunctuation)
-        {
-            CompartmentPunctuation._SetCompartmentBOOL(TRUE);
+            _hasPendingImeModeAfterCompositionCommit = FALSE;
+            SetKeyboardOpenCompartment(pThreadMgr, tfClientId, isOpen);
+            SyncPunctuationWithImeMode(pThreadMgr, tfClientId, isOpen);
         }
 
         *pIsEaten = TRUE;
         *pNeedToggleIMEMode = TRUE;
 
-        // Pretend to be a shift key
         Global::Keycode = VK_SHIFT;
         if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0)
             Global::ModifiersDown |= 0b00000001;
@@ -1087,6 +1056,36 @@ HRESULT CCompositionProcessorEngine::SetKeyboardOpenCompartment(
     const HRESULT result = compartment._SetCompartmentBOOL(isOpen);
     _suppressKeyboardCloseCommit = previousSuppression;
     return result;
+}
+
+void CCompositionProcessorEngine::SyncPunctuationWithImeMode(
+    _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isOpen)
+{
+    BOOL isPunctuation = FALSE;
+    CCompartment CompartmentPunctuation(pThreadMgr, tfClientId,
+                                        Global::MetasequoiaIMEGuidCompartmentPunctuation);
+    CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
+    if (!isOpen && isPunctuation)
+    {
+        CompartmentPunctuation._SetCompartmentBOOL(FALSE);
+    }
+    else if (isOpen && !isPunctuation)
+    {
+        CompartmentPunctuation._SetCompartmentBOOL(TRUE);
+    }
+}
+
+void CCompositionProcessorEngine::ApplyPendingImeModeAfterCompositionCommit(
+    _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
+{
+    if (!_hasPendingImeModeAfterCompositionCommit)
+    {
+        return;
+    }
+    _hasPendingImeModeAfterCompositionCommit = FALSE;
+    const BOOL isOpen = _pendingImeModeAfterCompositionCommit;
+    SetKeyboardOpenCompartment(pThreadMgr, tfClientId, isOpen);
+    SyncPunctuationWithImeMode(pThreadMgr, tfClientId, isOpen);
 }
 
 /**
