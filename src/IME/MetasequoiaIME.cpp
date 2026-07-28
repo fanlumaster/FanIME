@@ -1363,6 +1363,8 @@ STDAPI CMetasequoiaIME::Deactivate()
     // Send this synchronously before destroying the message window. OnKill can
     // queue the same lifecycle event, but that queued message may never run
     // during a rapid TIP deactivation; the server treats duplicates as idempotent.
+    const uint64_t deactivatedFocusToken =
+        _expectedWorkerFocusToken.load(std::memory_order_acquire);
     Global::g_connected = false;
     _workerCommitReady.store(false, std::memory_order_release);
     BeginNamedpipeLocalSessionReset(); // invalidate queued dirty-reset messages
@@ -1371,7 +1373,7 @@ STDAPI CMetasequoiaIME::Deactivate()
     _queuedLocalResetToken = 0;
     _ClearDeferredKeyDowns();
     MarkNamedpipeFocusLost();
-    FlushNamedpipeImeDeactivation();
+    FlushNamedpipeImeDeactivation(deactivatedFocusToken);
     _ClearPendingIpcRequests();
 
     // 注销此输入法时，向 server 端发送一个注销的消息

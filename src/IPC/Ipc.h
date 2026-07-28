@@ -175,7 +175,7 @@ void MarkNamedpipeSessionDirty();
 bool MarkNamedpipeSessionDirtyForOwner(_In_ const void *owner);
 bool EnsureNamedpipeFocusSessionActivated();
 bool FlushNamedpipeFocusSessionReset();
-bool FlushNamedpipeImeDeactivation();
+bool FlushNamedpipeImeDeactivation(uint64_t focusToken = 0);
 
 //
 // For shared memory
@@ -197,7 +197,7 @@ int SendLangbarRightClickEventToUIProcess(const RECT *prcArea);
 int SendIMEActivationEventToUIProcessViaNamedPipe();
 int SendIMEDeactivationEventToUIProcessViaNamedPipe();
 int SendClientActivatedEventToServerViaNamedPipe(uint64_t focusToken);
-int SendClientDeactivatedEventToServerViaNamedPipe();
+int SendClientDeactivatedEventToServerViaNamedPipe(uint64_t focusToken = 0);
 int SendClientSuspendedEventToServerViaNamedPipe();
 int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen);
 int SendIMEStatusEventToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen);
@@ -205,7 +205,8 @@ int SendIMESwitchEventToUIProcessViaNamedPipe(UINT uImeStatus);
 int SendPuncSwitchEventToUIProcessViaNamedPipe(BOOL isPunc);
 int SendDoubleSingleByteSwitchEventToUIProcessViaNamedPipe(BOOL isDoubleSingleByte);
 
-void SendToAuxNamedpipe(std::wstring pipeData);
+bool SendToAuxNamedpipe(const std::wstring &pipeData,
+                        bool waitForAcknowledgement = false);
 
 //
 // For named pipe

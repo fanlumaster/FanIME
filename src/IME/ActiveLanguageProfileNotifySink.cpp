@@ -1,5 +1,6 @@
 #include "Private.h"
 #include "Globals.h"
+#include "Ipc.h"
 #include "MetasequoiaIME.h"
 #include "CompositionProcessorEngine.h"
 
@@ -31,6 +32,14 @@ STDAPI CMetasequoiaIME::OnActivated(_In_ REFCLSID clsid, _In_ REFGUID guidProfil
     if (isActivated)
     {
         _AddTextProcessorEngine();
+    }
+    else
+    {
+        // Profile deactivation is the earliest authoritative signal that the
+        // user selected another TIP. Deactivate() sends the same idempotent
+        // event again during teardown, but may run after the Main pipe has
+        // already become unavailable.
+        FlushNamedpipeImeDeactivation();
     }
 
     if (nullptr == _pCompositionProcessorEngine)

@@ -1109,7 +1109,8 @@ struct FanyImeNamedpipeDataToTsf *ReadDataFromServerViaNamedPipe(uint64_t expect
  *
  * @param pipeData
  */
-void SendToAuxNamedpipe(std::wstring pipeData)
+bool SendToAuxNamedpipe(const std::wstring &pipeData,
+                        bool waitForAcknowledgement)
 {
     HANDLE hAuxPipe = INVALID_HANDLE_VALUE;
 
@@ -1136,7 +1137,7 @@ void SendToAuxNamedpipe(std::wstring pipeData)
     }
     if (!hAuxPipe || hAuxPipe == INVALID_HANDLE_VALUE)
     {
-        return;
+        return false;
     }
     DWORD bytesWritten = 0;
     BOOL ret = WriteFile(                    //
@@ -1146,10 +1147,43 @@ void SendToAuxNamedpipe(std::wstring pipeData)
         &bytesWritten,                       //
         NULL                                 //
     );
-    if (!ret || bytesWritten != pipeData.length() * sizeof(wchar_t))
+    const bool sent =
+        ret && bytesWritten == pipeData.length() * sizeof(wchar_t);
+    if (!sent || !waitForAcknowledgement)
     {
+        CloseHandle(hAuxPipe);
+        return sent;
+    }
+
+    DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
+    if (!SetNamedPipeHandleState(hAuxPipe, &pipeMode, nullptr, nullptr))
+    {
+        CloseHandle(hAuxPipe);
+        return false;
+    }
+
+    bool acknowledged = false;
+    const ULONGLONG deadline = GetTickCount64() + 150;
+    while (GetTickCount64() < deadline)
+    {
+        wchar_t acknowledgement[2] = {};
+        DWORD bytesRead = 0;
+        if (ReadFile(hAuxPipe, acknowledgement, sizeof(acknowledgement),
+                     &bytesRead, nullptr))
+        {
+            acknowledged = bytesRead == sizeof(acknowledgement) &&
+                           acknowledgement[0] == L'O' &&
+                           acknowledgement[1] == L'K';
+            break;
+        }
+        if (GetLastError() != ERROR_NO_DATA)
+        {
+            break;
+        }
+        Sleep(1);
     }
     CloseHandle(hAuxPipe);
+    return acknowledged;
 }
 
 /**
@@ -1268,10 +1302,11 @@ int SendClientActivatedEventToServerViaNamedPipe(uint64_t focusToken)
     return SendToNamedpipe() ? 0 : -1;
 }
 
-int SendClientDeactivatedEventToServerViaNamedPipe()
+int SendClientDeactivatedEventToServerViaNamedPipe(uint64_t focusToken)
 {
     namedpipeData = {};
     namedpipeData.event_type = FanyImePipeEventType::ClientDeactivated;
+    namedpipeData.request_id = focusToken;
     return SendToNamedpipe() ? 0 : -1;
 }
 
@@ -1296,11 +1331,27 @@ bool FlushNamedpipeFocusSessionReset()
     return true;
 }
 
-bool FlushNamedpipeImeDeactivation()
+bool FlushNamedpipeImeDeactivation(uint64_t focusToken)
 {
-    if (SendClientDeactivatedEventToServerViaNamedPipe() != 0)
+    if (focusToken == 0 && boundExpectedWorkerFocusToken)
     {
-        return false;
+        focusToken =
+            boundExpectedWorkerFocusToken->load(std::memory_order_acquire);
+    }
+    if (SendClientDeactivatedEventToServerViaNamedPipe(focusToken) != 0)
+    {
+        // Deactivate is about to destroy the message window and all persistent
+        // pipes, so its normal reconnect path cannot repair this final write.
+        // Use a PID-validated, focus-token-checked Aux request and wait briefly
+        // for the Server to confirm that it fenced the exact old session.
+        if (focusToken == 0 ||
+            !SendToAuxNamedpipe(
+                fmt::format(L"TerminalDeactivation|{}|{}",
+                            GetPipeClientId(), focusToken),
+                true))
+        {
+            return false;
+        }
     }
     if (boundFocusResetPending)
     {
