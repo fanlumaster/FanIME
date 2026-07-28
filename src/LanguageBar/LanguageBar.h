@@ -49,6 +49,7 @@ class CLangBarItemButton : public ITfLangBarItemButton, public ITfSource
     void CleanUp();
 
     void SetStatus(DWORD dwStatus, BOOL fSet);
+    void RefreshIcon();
 
   private:
     ITfLangBarItemSink *_pLangBarItemSink;

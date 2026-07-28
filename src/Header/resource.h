@@ -15,6 +15,8 @@
 #define IDS_PUNCTUATION 26
 #define IDI_PUNCTUATION_ON 27
 #define IDI_PUNCTUATION_OFF 28
+#define IDI_IME_MODE_ON_DARK 29
+#define IDI_IME_MODE_OFF_DARK 30
 #define IDR_VERSION2 107
 
 // Next default values for new objects

@@ -15,6 +15,40 @@
 #include "Ipc.h"
 #include "fmt/xchar.h"
 
+namespace
+{
+// Taskbar/system tray follows SystemUsesLightTheme (0 = dark).
+bool IsSystemDarkMode()
+{
+    DWORD value = 1; // default to light
+    DWORD size = sizeof(value);
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                     L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &value, &size) != ERROR_SUCCESS)
+    {
+        return false;
+    }
+    return value == 0;
+}
+
+DWORD ResolveThemeIconIndex(DWORD lightIconIndex)
+{
+    if (!IsSystemDarkMode())
+    {
+        return lightIconIndex;
+    }
+
+    if (lightIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX))
+    {
+        return static_cast<DWORD>(IME_MODE_ON_DARK_ICON_INDEX);
+    }
+    if (lightIconIndex == static_cast<DWORD>(IME_MODE_OFF_ICON_INDEX))
+    {
+        return static_cast<DWORD>(IME_MODE_OFF_DARK_ICON_INDEX);
+    }
+    return lightIconIndex;
+}
+} // namespace
+
 //+---------------------------------------------------------------------------
 //
 // CMetasequoiaIME::_UpdateLanguageBarOnSetFocus
@@ -89,6 +123,22 @@ VOID CCompositionProcessorEngine::SetLanguageBarStatus(DWORD status, BOOL isSet)
     if (_pLanguageBar_Punctuation)
     {
         _pLanguageBar_Punctuation->SetStatus(status, isSet);
+    }
+}
+
+void CCompositionProcessorEngine::RefreshLanguageBarIcons()
+{
+    if (_pLanguageBar_IMEMode)
+    {
+        _pLanguageBar_IMEMode->RefreshIcon();
+    }
+    if (_pLanguageBar_DoubleSingleByte)
+    {
+        _pLanguageBar_DoubleSingleByte->RefreshIcon();
+    }
+    if (_pLanguageBar_Punctuation)
+    {
+        _pLanguageBar_Punctuation->RefreshIcon();
     }
 }
 
@@ -337,6 +387,20 @@ void CLangBarItemButton::SetStatus(DWORD dwStatus, BOOL fSet)
 
 //+---------------------------------------------------------------------------
 //
+// RefreshIcon
+//
+//----------------------------------------------------------------------------
+
+void CLangBarItemButton::RefreshIcon()
+{
+    if (_pLangBarItemSink)
+    {
+        _pLangBarItemSink->OnUpdate(TF_LBI_ICON);
+    }
+}
+
+//+---------------------------------------------------------------------------
+//
 // Show
 //
 //----------------------------------------------------------------------------
@@ -447,21 +511,13 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
         desiredSize = _isSecureMode ? 24 : 16;
     }
 
-    if (isOn && !(status & TF_LBI_STATUS_DISABLED))
+    const DWORD iconIndex =
+        ResolveThemeIconIndex((isOn && !(status & TF_LBI_STATUS_DISABLED)) ? _onIconIndex : _offIconIndex);
+
+    if (Global::dllInstanceHandle)
     {
-        if (Global::dllInstanceHandle)
-        {
-            *phIcon = reinterpret_cast<HICON>(LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(_onIconIndex),
-                                                        IMAGE_ICON, desiredSize, desiredSize, 0));
-        }
-    }
-    else
-    {
-        if (Global::dllInstanceHandle)
-        {
-            *phIcon = reinterpret_cast<HICON>(LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(_offIconIndex),
-                                                        IMAGE_ICON, desiredSize, desiredSize, 0));
-        }
+        *phIcon = reinterpret_cast<HICON>(LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(iconIndex), IMAGE_ICON,
+                                                    desiredSize, desiredSize, 0));
     }
 
     return (*phIcon != NULL) ? S_OK : E_FAIL;

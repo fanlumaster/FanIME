@@ -134,6 +134,7 @@ class CCompositionProcessorEngine
 
     void ShowAllLanguageBarIcons();
     void HideAllLanguageBarIcons();
+    void RefreshLanguageBarIcons();
 
     inline CCandidateRange *GetCandidateListIndexRange()
     {

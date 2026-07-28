@@ -2252,6 +2252,17 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         pIME->_DrainPendingCandidatePresenterCleanup();
         break;
     }
+    case WM_SETTINGCHANGE: {
+        if (lParam && _wcsicmp(reinterpret_cast<LPCWSTR>(lParam), L"ImmersiveColorSet") == 0)
+        {
+            CCompositionProcessorEngine *pEngine = pIME->GetCompositionProcessorEngine();
+            if (pEngine)
+            {
+                pEngine->RefreshLanguageBarIcons();
+            }
+        }
+        break;
+    }
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
