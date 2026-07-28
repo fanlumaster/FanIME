@@ -83,6 +83,72 @@ void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
     controller->NotifyParentWindowPositionChanged();
 }
 
+void ClearCandidateWindowRegion(HWND hwnd)
+{
+    if (hwnd)
+    {
+        // A null region restores the full host rectangle. This is needed while
+        // the candidate context menu temporarily grows beyond the card.
+        SetWindowRgn(hwnd, nullptr, TRUE);
+    }
+}
+
+void ClipCandidateWindowToContent(
+    HWND hwnd,
+    const std::pair<double, double> &containerSize,
+    FLOAT scale)
+{
+    if (!hwnd || scale <= 0.0f)
+    {
+        return;
+    }
+
+    RECT client{};
+    if (!GetClientRect(hwnd, &client))
+    {
+        return;
+    }
+
+    // Keep the large, stable WebView host used to avoid resize flashes, but
+    // remove its transparent reserve from the native window region. Child
+    // windows (including WebView2) are clipped by the parent region, so points
+    // outside the real candidate card fall through to the editor and preserve
+    // its I-beam cursor.
+    const int left = (std::max)(
+        static_cast<int>(client.left),
+        static_cast<int>(std::floor(Global::MarginLeft * static_cast<double>(scale))));
+    const int top = (std::max)(
+        static_cast<int>(client.top),
+        static_cast<int>(std::floor(Global::MarginTop * static_cast<double>(scale))));
+    const int right = (std::min)(
+        static_cast<int>(client.right),
+        static_cast<int>(std::ceil(
+            (Global::MarginLeft + containerSize.first + ::SHADOW_WIDTH) *
+            static_cast<double>(scale))));
+    const int bottom = (std::min)(
+        static_cast<int>(client.bottom),
+        static_cast<int>(std::ceil(
+            (Global::MarginTop + containerSize.second + ::SHADOW_HEIGHT) *
+            static_cast<double>(scale))));
+
+    if (right <= left || bottom <= top)
+    {
+        ClearCandidateWindowRegion(hwnd);
+        return;
+    }
+
+    HRGN region = CreateRectRgn(left, top, right, bottom);
+    if (!region)
+    {
+        return;
+    }
+    // On success Windows owns the region handle; on failure it remains ours.
+    if (SetWindowRgn(hwnd, region, TRUE) == 0)
+    {
+        DeleteObject(region);
+    }
+}
+
 // Recompute FTB outer HWND from design DIPs * current DPI. Placement used to be
 // SWP_NOSIZE-only, so a live display-scale change left the host stuck at the
 // create-time physical size while WebView content grew.
@@ -618,6 +684,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         ++g_candidate_finetune_generation;
         Global::MarginTop = 0;
         Global::MarginLeft = 0;
+        ClearCandidateWindowRegion(hwnd);
         FLOAT scale = GetForegroundWindowScale();
         if (scale < 1.5)
         {
@@ -1709,11 +1776,14 @@ int FineTuneWindow(HWND hwnd)
             webviewControllerCandWnd->NotifyParentWindowPositionChanged();
         }
 
-        InflateCandWnd(str, [hwnd, positioned, generation]() {
+        InflateCandWnd(str, [hwnd, positioned, generation, containerSize, scale]() {
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
                 return;
             }
+            // Apply the native clip only after the DOM has received the same
+            // margins and content dimensions, avoiding a transient mismatch.
+            ClipCandidateWindowToContent(hwnd, containerSize, scale);
             // Hide/warmup leave the host DWM-cloaked; reveal after content is ready.
             SetHostWindowCloaked(hwnd, false);
             UpdateSmallWindowWebviewVisibility(hwnd, true);

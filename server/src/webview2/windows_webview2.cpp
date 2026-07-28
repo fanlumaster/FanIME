@@ -978,6 +978,11 @@ HRESULT OnControllerCreatedCandWnd(     //
                                          (std::max)(current_height, static_cast<int>(std::ceil(height * scale))) +
                                              top_expansion_px,
                                          SWP_NOZORDER | SWP_NOACTIVATE);
+                            // FineTuneWindow clips the stable candidate host to
+                            // the card. The context menu is allowed to use the
+                            // temporarily expanded host and FineTuneWindow
+                            // reapplies the tight region after it closes.
+                            SetWindowRgn(hwnd, nullptr, TRUE);
                             RECT bounds{};
                             GetClientRect(hwnd, &bounds);
                             webviewControllerCandWnd->put_Bounds(bounds);
