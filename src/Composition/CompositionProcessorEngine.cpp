@@ -1327,10 +1327,11 @@ void CCompositionProcessorEngine::SetupPunctuationPair()
 void CCompositionProcessorEngine::InitializeMetasequoiaIMECompartment(_In_ ITfThreadMgr *pThreadMgr,
                                                                       TfClientId tfClientId)
 {
-    // set initial mode
+    // Default CN/EN on IME activate / switch-in (input.default_ime_mode).
+    const BOOL openChinese = FanyUtils::ReadConfiguredDefaultImeModeChinese();
     CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
-    CompartmentKeyboardOpen._SetCompartmentBOOL(TRUE);
-    _keyboardOpen = TRUE;
+    CompartmentKeyboardOpen._SetCompartmentBOOL(openChinese);
+    _keyboardOpen = openChinese;
     _keyboardOpenKnown = TRUE;
 
     CCompartment CompartmentDoubleSingleByte(pThreadMgr, tfClientId,
@@ -1338,7 +1339,7 @@ void CCompositionProcessorEngine::InitializeMetasequoiaIMECompartment(_In_ ITfTh
     CompartmentDoubleSingleByte._SetCompartmentBOOL(FALSE);
 
     CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-    CompartmentPunctuation._SetCompartmentBOOL(TRUE);
+    CompartmentPunctuation._SetCompartmentBOOL(openChinese);
 
     PrivateCompartmentsUpdated(pThreadMgr);
 }

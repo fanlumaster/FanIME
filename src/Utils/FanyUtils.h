@@ -1,4 +1,5 @@
 #pragma once
+#include <Windows.h>
 #include <string>
 
 namespace FanyUtils
@@ -10,4 +11,7 @@ std::string wstring_to_string(const std::wstring &wstr);
 std::string to_lower_copy(const std::string &str);
 std::wstring GetCurrentProcessName();
 std::string::size_type count_utf8_chars(const std::string &str);
+// Read input.default_ime_mode from %LOCALAPPDATA%\metasequoiaime\config.toml.
+// Returns TRUE for Chinese (default), FALSE for English.
+BOOL ReadConfiguredDefaultImeModeChinese();
 } // namespace FanyUtils

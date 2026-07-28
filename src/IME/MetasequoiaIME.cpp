@@ -1307,7 +1307,7 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
         goto ExitError;
     }
 
-    // Reset to Chinese mode whenever switch back to this IME
+    // Apply configured default CN/EN whenever switching back to this IME
     _pCompositionProcessorEngine->InitializeMetasequoiaIMECompartment(pThreadMgr, tfClientId);
 
     // The first connect timer can run before the engine exists. Re-arm after

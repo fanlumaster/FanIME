@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <fstream>
+#include <string>
 #include "Define.h"
 #include "Globals.h"
 #include "FanyUtils.h"
@@ -14,6 +16,88 @@ std::string GetIMEDataDirPath()
     const char *localAppDataPath = std::getenv("LOCALAPPDATA");
     std::string IMEDataPath = std::string(localAppDataPath) + "\\" + wstring_to_string(std::wstring(IME_NAME));
     return IMEDataPath;
+}
+
+namespace
+{
+std::string TrimAscii(const std::string &value)
+{
+    size_t begin = 0;
+    while (begin < value.size() && (value[begin] == ' ' || value[begin] == '\t' || value[begin] == '\r'))
+    {
+        ++begin;
+    }
+    size_t end = value.size();
+    while (end > begin && (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r'))
+    {
+        --end;
+    }
+    return value.substr(begin, end - begin);
+}
+
+std::string UnquoteTomlBasicString(const std::string &value)
+{
+    if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+    {
+        return value.substr(1, value.size() - 2);
+    }
+    return value;
+}
+} // namespace
+
+BOOL ReadConfiguredDefaultImeModeChinese()
+{
+    const char *localAppDataPath = std::getenv("LOCALAPPDATA");
+    if (!localAppDataPath)
+    {
+        return TRUE;
+    }
+
+    // Shared with MetasequoiaImeServer: %LOCALAPPDATA%\metasequoiaime\config.toml
+    const std::string configPath = std::string(localAppDataPath) + "\\metasequoiaime\\config.toml";
+    std::ifstream input(configPath);
+    if (!input)
+    {
+        return TRUE;
+    }
+
+    bool inInputSection = false;
+    std::string line;
+    while (std::getline(input, line))
+    {
+        const size_t comment = line.find('#');
+        if (comment != std::string::npos)
+        {
+            line = line.substr(0, comment);
+        }
+        line = TrimAscii(line);
+        if (line.empty())
+        {
+            continue;
+        }
+        if (line.front() == '[' && line.back() == ']')
+        {
+            inInputSection = (line == "[input]");
+            continue;
+        }
+        if (!inInputSection)
+        {
+            continue;
+        }
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos)
+        {
+            continue;
+        }
+        const std::string key = TrimAscii(line.substr(0, eq));
+        if (key != "default_ime_mode")
+        {
+            continue;
+        }
+        const std::string value = to_lower_copy(UnquoteTomlBasicString(TrimAscii(line.substr(eq + 1))));
+        return value != "english";
+    }
+    return TRUE;
 }
 
 void SendKeys(std::wstring pinyin)
