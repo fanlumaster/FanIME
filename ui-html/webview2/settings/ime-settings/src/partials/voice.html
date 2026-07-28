@@ -5,6 +5,21 @@
     <div class="section-header"><div><div class="section-title">启用语音输入</div><div class="voice-description">在右键菜单中点击“语音输入”开始或停止录音</div></div><div class="ftb-toggle-btn active" id="voiceEnabled" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
   </div>
 
+  <div class="section voice-section shortcut-section section-page-option">
+    <div class="shortcut-section-heading"><div><div class="section-title">语音输入快捷键</div><div class="shortcut-section-description">勾选启用对应快捷键；长按快捷键松开后停止录音，录音时按 Space 可锁定</div></div></div>
+    <div class="content-page-option">
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyRAltCheckbox" value="ralt" checked><span>RAlt（长按录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyCtrlWinCheckbox" value="ctrl-win"><span>Ctrl + Win（长按录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyRCtrlRAltCheckbox" value="rctrl-ralt"><span>RCtrl + RAlt（长按录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyHoldSpaceLockCheckbox" value="hold-space-lock" checked><span>长按快捷键 + Space（锁定录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyCtrlF9Checkbox" value="ctrl-f9" checked><span>Ctrl + F9（开始 / 停止录音）</span></label>
+    </div>
+  </div>
+
   <div class="section voice-section">
     <div class="section-title voice-heading">ASR API</div>
     <div class="voice-grid">

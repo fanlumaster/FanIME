@@ -11,6 +11,19 @@ export function setupVoiceInput(): void {
   setupToggleButton('voiceEnabled', value => updateConfig('voice_input.voice_input', value));
   setupToggleButton('voicePolishText', value => updateConfig('voice_input.polish_text', value));
   setupToggleButton('voiceNotificationSound', value => updateConfig('voice_input.notification_sound', value));
+  const hotkeyPaths: Record<string, string> = {
+    ralt: 'voice_input.hotkey_ralt',
+    'ctrl-f9': 'voice_input.hotkey_ctrl_f9',
+    'ctrl-win': 'voice_input.hotkey_ctrl_win',
+    'rctrl-ralt': 'voice_input.hotkey_rctrl_ralt',
+    'hold-space-lock': 'voice_input.hotkey_hold_space_lock'
+  };
+  document.querySelectorAll<HTMLInputElement>('input[name="voice-hotkey"]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const path = hotkeyPaths[checkbox.value];
+      if (path) updateConfig(path, checkbox.checked);
+    });
+  });
   setupDropdownMenu('voiceLanguageBtn', 'voiceLanguageMenu', 'changeVoiceLanguage', true,
     'voice_input.language');
   setupDropdownMenu('voiceCommitModeBtn', 'voiceCommitModeMenu', 'changeVoiceCommitMode', true,
@@ -22,6 +35,17 @@ export function setupVoiceInput(): void {
 }
 
 export function applyVoiceConfig(config: Record<string, unknown>): void {
+  const hotkeyCheckboxes: Record<string, string> = {
+    voiceHotkeyRAltCheckbox: 'hotkey_ralt',
+    voiceHotkeyCtrlF9Checkbox: 'hotkey_ctrl_f9',
+    voiceHotkeyCtrlWinCheckbox: 'hotkey_ctrl_win',
+    voiceHotkeyRCtrlRAltCheckbox: 'hotkey_rctrl_ralt',
+    voiceHotkeyHoldSpaceLockCheckbox: 'hotkey_hold_space_lock'
+  };
+  Object.entries(hotkeyCheckboxes).forEach(([id, key]) => {
+    const checkbox = document.getElementById(id) as HTMLInputElement | null;
+    if (checkbox && typeof config[key] === 'boolean') checkbox.checked = config[key] as boolean;
+  });
   Object.entries(fields).forEach(([id, path]) => {
     const key = path.split('.')[1];
     const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
