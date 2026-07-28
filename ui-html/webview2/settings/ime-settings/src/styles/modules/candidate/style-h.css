@@ -1,4 +1,10 @@
 .wnd-h {
+  /* Preview card is narrower than a real candwnd host; constrain to parent. */
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+
   .container {
     margin-top: 0px;
     margin-left: 0px;
@@ -7,11 +13,14 @@
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
-    /* Keep candidates on one row; long text wraps inside .row-wrapper past 720 DIP. */
-    width: min(720px, max-content);
-    max-width: 720px;
+    /* Allow wrapping so the sample row is not clipped in settings preview.
+       Live candwnd keeps nowrap separately. */
+    width: fit-content;
+    max-width: 100%;
     box-sizing: border-box;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     user-select: none;
     border: 1.5px solid var(--cand-border);
   }
@@ -45,7 +54,7 @@
     position: relative;
     display: inline-block;
     vertical-align: top;
-    max-width: 720px;
+    max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
     white-space: normal;
