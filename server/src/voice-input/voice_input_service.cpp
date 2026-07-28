@@ -37,7 +37,7 @@ std::mutex g_send_mutex;
 std::thread g_control_thread;
 std::mutex g_control_mutex;
 std::condition_variable g_control_cv;
-enum class ControlCommand { Start, Stop, Toggle, Lock, Exit };
+enum class ControlCommand { Start, Stop, Toggle, Lock, Cancel, Exit };
 std::deque<ControlCommand> g_control_commands;
 std::atomic<bool> g_recording{false};
 bool g_initialized = false;
@@ -54,6 +54,7 @@ constexpr UINT kStartRecordingMessage = WM_APP + 181;
 constexpr UINT kStopRecordingMessage = WM_APP + 182;
 constexpr UINT kToggleRecordingMessage = WM_APP + 183;
 constexpr UINT kLockRecordingMessage = WM_APP + 184;
+constexpr UINT kCancelRecordingMessage = WM_APP + 185;
 constexpr wchar_t kMessageWindowClass[] = L"MetasequoiaImeVoiceInputMessageWindow";
 
 std::wstring ResolveCuePath(const wchar_t *filename)
@@ -76,6 +77,7 @@ std::wstring ResolveCuePath(const wchar_t *filename)
 
 bool StartRecording();
 void StopRecording();
+void CancelRecording();
 
 void EnqueueControlCommand(ControlCommand command)
 {
@@ -106,6 +108,7 @@ void ControlLoop()
             else StartRecording();
         }
         else if (command == ControlCommand::Lock) g_ralt_lock_mode = true;
+        else if (command == ControlCommand::Cancel) CancelRecording();
     }
 }
 
@@ -128,6 +131,7 @@ LRESULT CALLBACK VoiceMessageWindowProc(HWND hwnd, UINT message, WPARAM wparam, 
     case kStopRecordingMessage: EnqueueControlCommand(ControlCommand::Stop); return 0;
     case kToggleRecordingMessage: EnqueueControlCommand(ControlCommand::Toggle); return 0;
     case kLockRecordingMessage: EnqueueControlCommand(ControlCommand::Lock); return 0;
+    case kCancelRecordingMessage: EnqueueControlCommand(ControlCommand::Cancel); return 0;
     default: return DefWindowProcW(hwnd, message, wparam, lparam);
     }
 }
@@ -174,6 +178,11 @@ LRESULT CALLBACK KeyboardHookProc(int code, WPARAM wparam, LPARAM lparam)
     else if (key->vkCode == VK_SPACE && g_ralt_pressed)
     {
         if (down && !g_ralt_lock_mode) PostMessageW(g_message_window, kLockRecordingMessage, 0, 0);
+        return 1;
+    }
+    else if (key->vkCode == VK_ESCAPE && g_recording)
+    {
+        if (down) PostMessageW(g_message_window, kCancelRecordingMessage, 0, 0);
         return 1;
     }
     return CallNextHookEx(g_keyboard_hook, code, wparam, lparam);
@@ -472,6 +481,21 @@ void StopRecording()
         const std::string text = Polish(Recognize(samples, config), config);
         if (!text.empty()) CommitRecognizedText(text, config);
     }));
+}
+
+void CancelRecording()
+{
+    if (!g_recording) return;
+    const VoiceInputConfig config = GetConfiguredVoiceInput();
+    g_recording = false;
+    ma_device_uninit(&g_device);
+    g_ralt_lock_mode = false;
+    g_overlay.set_listening(false);
+    g_overlay.set_input_level(0.0f);
+    g_overlay.hide();
+    if (config.notification_sound) g_cue_player.play_end();
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_samples.clear();
 }
 } // namespace
 
