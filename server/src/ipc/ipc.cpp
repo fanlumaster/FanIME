@@ -21,6 +21,7 @@
 #include "ipc/event_listener.h"
 #include "ipc/outbound_session_state.h"
 #include "ipc/pipe_write_policy.h"
+#include "ipc/terminal_deactivation_policy.h"
 #include "utils/common_utils.h"
 #include "fmt/xchar.h"
 
@@ -204,6 +205,7 @@ struct PipeClientSession
     uint64_t to_tsf_worker_thread_registration_id = 0;
     bool to_tsf_worker_thread_ready = false;
     uint64_t focus_token = 0;
+    uint64_t inactive_focus_token = 0;
     FanyImeIpc::OutboundSessionState outbound_state;
 };
 
@@ -729,6 +731,7 @@ uint64_t RegisterMainPipeClient(uint64_t client_id, HANDLE pipe)
             // A new main connection is a new logical session even when the
             // PID/TID-derived client id is unchanged. Advancing the epoch here
             // invalidates queued work and late replies from the old reader.
+            session.inactive_focus_token = session.focus_token;
             invalidation_epoch = g_active_client_state.deactivate(client_id);
         }
         session.focus_token = 0;
@@ -932,6 +935,7 @@ PipeClientUnregisterResult UnregisterPipeClientHandle(uint64_t client_id, UINT p
             it->second.main_registration_id = 0;
             if (g_active_client_state.is_current(client_id))
             {
+                it->second.inactive_focus_token = it->second.focus_token;
                 result.deactivation_epoch = g_active_client_state.deactivate(client_id);
             }
             it->second.focus_token = 0;
@@ -947,6 +951,7 @@ PipeClientUnregisterResult UnregisterPipeClientHandle(uint64_t client_id, UINT p
             it->second.outbound_state.mark_failed(FanyImeIpc::OutboundRoute::Reply);
             if (g_active_client_state.is_current(client_id))
             {
+                it->second.inactive_focus_token = it->second.focus_token;
                 result.deactivation_epoch = g_active_client_state.deactivate(client_id);
                 it->second.focus_token = 0;
             }
@@ -962,6 +967,7 @@ PipeClientUnregisterResult UnregisterPipeClientHandle(uint64_t client_id, UINT p
             it->second.outbound_state.mark_failed(FanyImeIpc::OutboundRoute::Worker);
             if (g_active_client_state.is_current(client_id))
             {
+                it->second.inactive_focus_token = it->second.focus_token;
                 result.deactivation_epoch = g_active_client_state.deactivate(client_id);
                 it->second.focus_token = 0;
             }
@@ -1065,6 +1071,10 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
         new_focus_session && previous.client_id == client_id
             ? g_active_client_state.renew(client_id)
             : g_active_client_state.activate(client_id);
+    if (transition.client_id != 0)
+    {
+        session.inactive_focus_token = 0;
+    }
     return {transition.client_id, transition.epoch, transition.changed, session.focus_token};
 }
 
@@ -1080,9 +1090,44 @@ uint64_t DeactivatePipeClient(uint64_t client_id, uint64_t main_registration_id)
     const uint64_t epoch = g_active_client_state.deactivate(client_id);
     if (epoch != 0)
     {
+        it->second.inactive_focus_token = it->second.focus_token;
         it->second.focus_token = 0;
     }
     return epoch;
+}
+
+uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id,
+                                          uint64_t focus_token)
+{
+    std::lock_guard lock(g_pipe_clients_mutex);
+    const auto it = g_pipe_clients.find(client_id);
+    if (it == g_pipe_clients.end())
+    {
+        return 0;
+    }
+
+    const FanyImeIpc::ActiveClientTransition active =
+        g_active_client_state.snapshot();
+    const uint64_t inactive_epoch =
+        g_active_client_state.terminal_deactivation_epoch(client_id);
+    if (!FanyImeIpc::CanApplyTerminalDeactivationFallback(
+            client_id, focus_token, active.client_id, it->second.focus_token,
+            inactive_epoch != 0, it->second.inactive_focus_token))
+    {
+        return 0;
+    }
+
+    if (active.client_id == client_id)
+    {
+        const uint64_t epoch = g_active_client_state.deactivate(client_id);
+        if (epoch != 0)
+        {
+            it->second.inactive_focus_token = it->second.focus_token;
+            it->second.focus_token = 0;
+        }
+        return epoch;
+    }
+    return inactive_epoch;
 }
 
 uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id,
@@ -1334,6 +1379,7 @@ bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, 
                 invalidation_epoch = g_active_client_state.invalidate(client_id, activation_epoch);
                 if (invalidation_epoch != 0)
                 {
+                    it->second.inactive_focus_token = it->second.focus_token;
                     it->second.focus_token = 0;
                 }
                 failed_endpoint_removed = true;
@@ -1411,6 +1457,7 @@ bool SendWorkerPacket(uint64_t client_id, uint64_t activation_epoch, bool requir
                     invalidation_epoch = g_active_client_state.invalidate(client_id, active.epoch);
                     if (invalidation_epoch != 0)
                     {
+                        it->second.inactive_focus_token = it->second.focus_token;
                         it->second.focus_token = 0;
                     }
                 }

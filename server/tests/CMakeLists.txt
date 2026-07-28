@@ -16,6 +16,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_action_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_ipc_protocol_constants.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_floating_toolbar_visibility_policy.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_terminal_deactivation_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_user_dictionary_journal.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/english/english_dictionary.cpp"
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"

@@ -1947,9 +1947,9 @@ void AuxPipeEventListenerLoopThread()
                 std::wstring message(buffer, bytesRead / sizeof(wchar_t));
                 FANY_IPC_LOGF(L"[msime]: [ipc] aux-pipe message: {}", message);
 
-                // Aux has no client id / activation epoch. Only accept pure UI
-                // notifications that must not steal Main focus-session routing.
-                // Lifecycle and status remain on the epoch-checked Main protocol.
+                // Aux normally carries session-less UI notifications. Terminal
+                // deactivation is the one lifecycle exception: it is a bounded,
+                // token-checked fallback for a failed Main-pipe teardown write.
                 int left = 0;
                 int top = 0;
                 int right = 0;
@@ -1965,6 +1965,39 @@ void AuxPipeEventListenerLoopThread()
                     // client_id/epoch stay 0 so WorkerThread skips active-client
                     // gating and never activates a suspended TIP for a menu click.
                     EnqueueTask(TaskType::LangbarRightClick, pipeData, 0);
+                }
+                else
+                {
+                    unsigned long long clientId = 0;
+                    unsigned long long focusToken = 0;
+                    if (swscanf_s(message.c_str(),
+                                  L"TerminalDeactivation|%llu|%llu",
+                                  &clientId, &focusToken) == 2 &&
+                        PipeClientIdMatchesConnectedProcess(
+                            listeningPipe, static_cast<uint64_t>(clientId)))
+                    {
+                        const uint64_t deactivationEpoch =
+                            DeactivatePipeClientByFocusToken(
+                                static_cast<uint64_t>(clientId),
+                                static_cast<uint64_t>(focusToken));
+                        if (deactivationEpoch != 0)
+                        {
+                            FanyImeNamedpipeData pipeData = {};
+                            pipeData.event_type =
+                                FanyImePipeEventType::ClientDeactivated;
+                            pipeData.client_id =
+                                static_cast<uint64_t>(clientId);
+                            EnqueueTask(TaskType::ClientDeactivated, pipeData,
+                                        deactivationEpoch);
+
+                            constexpr wchar_t acknowledgement[] = L"OK";
+                            DWORD bytesWritten = 0;
+                            WriteFile(listeningPipe, acknowledgement,
+                                      sizeof(acknowledgement) -
+                                          sizeof(wchar_t),
+                                      &bytesWritten, nullptr);
+                        }
+                    }
                 }
             }
         }

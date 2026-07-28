@@ -269,6 +269,8 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
                                         bool wait_for_reverse_pipe = false, uint64_t focus_token = 0,
                                         bool update_focus_token = false);
 uint64_t DeactivatePipeClient(uint64_t client_id, uint64_t main_registration_id);
+uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id,
+                                          uint64_t focus_token);
 uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id,
                                                     uint64_t transition_epoch = 0);
 PipeClientActivation GetActivePipeClient();
