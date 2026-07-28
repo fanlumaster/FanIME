@@ -9,6 +9,11 @@
 struct VoiceInputConfig
 {
     bool enabled = true;
+    bool hotkey_ralt = true;
+    bool hotkey_ctrl_f9 = true;
+    bool hotkey_ctrl_win = false;
+    bool hotkey_rctrl_ralt = false;
+    bool hotkey_hold_space_lock = true;
     std::string asr_provider = "siliconflow";
     std::string asr_token;
     std::string asr_endpoint = "https://api.siliconflow.cn/v1/audio/transcriptions";

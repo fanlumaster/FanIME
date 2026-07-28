@@ -22,6 +22,7 @@
 #include "utils/ime_utils.h"
 #include "window_hook.h"
 #include "window/floating_toolbar_visibility_policy.h"
+#include "voice-input/voice_input_service.h"
 #include <windowsx.h>
 #include "resource/resource.h"
 
@@ -798,6 +799,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_default_font = GetConfiguredCandidateDefaultFont();
             const int previous_font_size = GetConfiguredCandidateFontSize();
             const std::string previous_cand_text_color = GetConfiguredCandidateTextColor();
+            const VoiceInputConfig previous_voice_input = GetConfiguredVoiceInput();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -843,6 +845,15 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
                         FormatPagingCommaPeriodWorkerPayload());
+                }
+                const VoiceInputConfig &voice_input = GetConfiguredVoiceInput();
+                if (previous_voice_input.enabled != voice_input.enabled ||
+                    previous_voice_input.hotkey_ralt != voice_input.hotkey_ralt ||
+                    previous_voice_input.hotkey_ctrl_f9 != voice_input.hotkey_ctrl_f9 ||
+                    previous_voice_input.hotkey_ctrl_win != voice_input.hotkey_ctrl_win ||
+                    previous_voice_input.hotkey_rctrl_ralt != voice_input.hotkey_rctrl_ralt)
+                {
+                    VoiceInput::RefreshKeyboardHook();
                 }
             }
         }

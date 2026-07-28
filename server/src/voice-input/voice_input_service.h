@@ -3,6 +3,7 @@
 namespace VoiceInput
 {
 bool Initialize();
+void RefreshKeyboardHook();
 void Shutdown();
 void ToggleRecording();
 bool IsRecording();

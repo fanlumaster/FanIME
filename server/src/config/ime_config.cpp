@@ -413,6 +413,12 @@ bool LoadImeConfig()
             GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
         }
         g_voice_input.enabled = tbl["voice_input"]["voice_input"].value_or(true);
+        g_voice_input.hotkey_ralt = tbl["voice_input"]["hotkey_ralt"].value_or(true);
+        g_voice_input.hotkey_ctrl_f9 = tbl["voice_input"]["hotkey_ctrl_f9"].value_or(true);
+        g_voice_input.hotkey_ctrl_win = tbl["voice_input"]["hotkey_ctrl_win"].value_or(false);
+        g_voice_input.hotkey_rctrl_ralt = tbl["voice_input"]["hotkey_rctrl_ralt"].value_or(false);
+        g_voice_input.hotkey_hold_space_lock =
+            tbl["voice_input"]["hotkey_hold_space_lock"].value_or(true);
         g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("siliconflow"));
         g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
         g_voice_input.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
@@ -1439,6 +1445,11 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
 {
     bool *target = nullptr;
     if (key == "voice_input") target = &g_voice_input.enabled;
+    else if (key == "hotkey_ralt") target = &g_voice_input.hotkey_ralt;
+    else if (key == "hotkey_ctrl_f9") target = &g_voice_input.hotkey_ctrl_f9;
+    else if (key == "hotkey_ctrl_win") target = &g_voice_input.hotkey_ctrl_win;
+    else if (key == "hotkey_rctrl_ralt") target = &g_voice_input.hotkey_rctrl_ralt;
+    else if (key == "hotkey_hold_space_lock") target = &g_voice_input.hotkey_hold_space_lock;
     else if (key == "notification_sound") target = &g_voice_input.notification_sound;
     else if (key == "polish_text") target = &g_voice_input.polish_text;
     if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false")) return false;

@@ -48,8 +48,15 @@ HWND g_message_window = nullptr;
 std::atomic<bool> g_ralt_pressed{false};
 std::atomic<bool> g_lctrl_pressed{false};
 std::atomic<bool> g_rctrl_pressed{false};
+std::atomic<bool> g_lwin_pressed{false};
+std::atomic<bool> g_rwin_pressed{false};
 std::atomic<bool> g_f9_pressed{false};
+std::atomic<bool> g_ctrl_f9_consumed{false};
 std::atomic<bool> g_ralt_lock_mode{false};
+std::atomic<bool> g_suppress_ralt_until_up{false};
+std::atomic<bool> g_suppress_win_until_up{false};
+enum class HoldShortcut { None, RAlt, CtrlWin, RCtrlRAlt };
+std::atomic<HoldShortcut> g_active_hold_shortcut{HoldShortcut::None};
 constexpr UINT kStartRecordingMessage = WM_APP + 181;
 constexpr UINT kStopRecordingMessage = WM_APP + 182;
 constexpr UINT kToggleRecordingMessage = WM_APP + 183;
@@ -113,6 +120,50 @@ void ControlLoop()
 }
 
 bool IsCtrlPressed() { return g_lctrl_pressed || g_rctrl_pressed; }
+bool IsWinPressed() { return g_lwin_pressed || g_rwin_pressed; }
+
+bool ShouldInstallKeyboardHook(const VoiceInputConfig &config)
+{
+    return config.enabled &&
+           (config.hotkey_ralt || config.hotkey_ctrl_f9 || config.hotkey_ctrl_win ||
+            config.hotkey_rctrl_ralt);
+}
+
+void ResetKeyboardShortcutState()
+{
+    g_ralt_pressed = false;
+    g_lctrl_pressed = false;
+    g_rctrl_pressed = false;
+    g_lwin_pressed = false;
+    g_rwin_pressed = false;
+    g_f9_pressed = false;
+    g_ctrl_f9_consumed = false;
+    g_suppress_ralt_until_up = false;
+    g_suppress_win_until_up = false;
+    g_active_hold_shortcut = HoldShortcut::None;
+}
+
+bool IsHoldShortcutPressed(HoldShortcut shortcut)
+{
+    switch (shortcut)
+    {
+    case HoldShortcut::RAlt: return g_ralt_pressed;
+    case HoldShortcut::CtrlWin: return IsCtrlPressed() && IsWinPressed();
+    case HoldShortcut::RCtrlRAlt: return g_rctrl_pressed && g_ralt_pressed;
+    default: return false;
+    }
+}
+
+void ActivateHoldShortcut(HoldShortcut shortcut)
+{
+    g_active_hold_shortcut = shortcut;
+    if (shortcut == HoldShortcut::RAlt || shortcut == HoldShortcut::RCtrlRAlt)
+        g_suppress_ralt_until_up = true;
+    else if (shortcut == HoldShortcut::CtrlWin)
+        g_suppress_win_until_up = true;
+    PostMessageW(
+        g_message_window, g_ralt_lock_mode ? kStopRecordingMessage : kStartRecordingMessage, 0, 0);
+}
 
 void ForceReleaseRAlt()
 {
@@ -144,47 +195,84 @@ LRESULT CALLBACK KeyboardHookProc(int code, WPARAM wparam, LPARAM lparam)
     const bool down = wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN;
     const bool up = wparam == WM_KEYUP || wparam == WM_SYSKEYUP;
 
+    const VoiceInputConfig config = GetConfiguredVoiceInput();
+    const HoldShortcut active_before = g_active_hold_shortcut.load();
+
     if (key->vkCode == VK_LCONTROL || key->vkCode == VK_RCONTROL)
     {
         auto &state = key->vkCode == VK_LCONTROL ? g_lctrl_pressed : g_rctrl_pressed;
         if (down) state = true;
         else if (up) state = false;
     }
-    else if (key->vkCode == VK_F9)
+    else if (key->vkCode == VK_LWIN || key->vkCode == VK_RWIN)
+    {
+        auto &state = key->vkCode == VK_LWIN ? g_lwin_pressed : g_rwin_pressed;
+        if (down) state = true;
+        else if (up) state = false;
+    }
+    else if (key->vkCode == VK_RMENU)
+    {
+        if (down) g_ralt_pressed = true;
+        else if (up) g_ralt_pressed = false;
+    }
+
+    if (key->vkCode == VK_F9 && config.hotkey_ctrl_f9)
     {
         if (down && !g_f9_pressed.exchange(true) && IsCtrlPressed())
         {
+            g_ctrl_f9_consumed = true;
             PostMessageW(g_message_window, kToggleRecordingMessage, 0, 0);
             return 1;
         }
         if (up)
         {
             g_f9_pressed = false;
-            if (IsCtrlPressed()) return 1;
+            if (g_ctrl_f9_consumed.exchange(false)) return 1;
         }
     }
-    else if (key->vkCode == VK_RMENU)
+    else if (key->vkCode == VK_F9 && up)
     {
-        if (down && !g_ralt_pressed.exchange(true))
-        {
-            PostMessageW(g_message_window, g_ralt_lock_mode ? kStopRecordingMessage : kStartRecordingMessage, 0, 0);
-        }
-        else if (up && g_ralt_pressed.exchange(false) && !g_ralt_lock_mode)
-        {
-            PostMessageW(g_message_window, kStopRecordingMessage, 0, 0);
-        }
-        return 1;
+        g_f9_pressed = false;
+        g_ctrl_f9_consumed = false;
     }
-    else if (key->vkCode == VK_SPACE && g_ralt_pressed)
+
+    if (active_before == HoldShortcut::None && down)
+    {
+        if (config.hotkey_rctrl_ralt && key->vkCode == VK_RMENU && g_rctrl_pressed)
+            ActivateHoldShortcut(HoldShortcut::RCtrlRAlt);
+        else if (config.hotkey_ctrl_win &&
+                 (key->vkCode == VK_LWIN || key->vkCode == VK_RWIN) && IsCtrlPressed())
+            ActivateHoldShortcut(HoldShortcut::CtrlWin);
+        else if (config.hotkey_ralt && key->vkCode == VK_RMENU)
+            ActivateHoldShortcut(HoldShortcut::RAlt);
+    }
+    else if (active_before != HoldShortcut::None && up && !IsHoldShortcutPressed(active_before))
+    {
+        g_active_hold_shortcut = HoldShortcut::None;
+        if (!g_ralt_lock_mode) PostMessageW(g_message_window, kStopRecordingMessage, 0, 0);
+    }
+
+    const HoldShortcut active_now = g_active_hold_shortcut.load();
+    if (key->vkCode == VK_SPACE && active_now != HoldShortcut::None &&
+        config.hotkey_hold_space_lock)
     {
         if (down && !g_ralt_lock_mode) PostMessageW(g_message_window, kLockRecordingMessage, 0, 0);
         return 1;
     }
-    else if (key->vkCode == VK_ESCAPE && g_recording)
+    if (key->vkCode == VK_ESCAPE && g_recording)
     {
         if (down) PostMessageW(g_message_window, kCancelRecordingMessage, 0, 0);
         return 1;
     }
+
+    // 组合键按书写顺序触发（先 Ctrl，后 Win/RAlt），只屏蔽第二个键的完整
+    // 按下/抬起周期。这样既不会打开开始菜单或触发 Alt 行为，也不会制造粘键。
+    const bool suppress_ralt = key->vkCode == VK_RMENU && g_suppress_ralt_until_up;
+    const bool suppress_win =
+        (key->vkCode == VK_LWIN || key->vkCode == VK_RWIN) && g_suppress_win_until_up;
+    if (up && key->vkCode == VK_RMENU) g_suppress_ralt_until_up = false;
+    if (up && (key->vkCode == VK_LWIN || key->vkCode == VK_RWIN)) g_suppress_win_until_up = false;
+    if (suppress_ralt || suppress_win) return 1;
     return CallNextHookEx(g_keyboard_hook, code, wparam, lparam);
 }
 
@@ -515,10 +603,39 @@ bool VoiceInput::Initialize()
     g_message_window = CreateWindowExW(0, kMessageWindowClass, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, instance, nullptr);
     if (!g_message_window) return false;
     g_control_thread = std::thread(ControlLoop);
-    g_keyboard_hook = SetWindowsHookExW(WH_KEYBOARD_LL, KeyboardHookProc, instance, 0);
-    if (!g_keyboard_hook) return false;
+    if (ShouldInstallKeyboardHook(GetConfiguredVoiceInput()))
+    {
+        g_keyboard_hook = SetWindowsHookExW(WH_KEYBOARD_LL, KeyboardHookProc, instance, 0);
+        if (!g_keyboard_hook) return false;
+    }
     g_initialized = true;
     return true;
+}
+
+void VoiceInput::RefreshKeyboardHook()
+{
+    if (!g_initialized) return;
+
+    const VoiceInputConfig config = GetConfiguredVoiceInput();
+    const bool release_ralt = g_suppress_ralt_until_up;
+    const bool stop_recording = g_active_hold_shortcut != HoldShortcut::None ||
+                                (!config.enabled && g_recording);
+
+    if (g_keyboard_hook)
+    {
+        UnhookWindowsHookEx(g_keyboard_hook);
+        g_keyboard_hook = nullptr;
+    }
+    if (stop_recording) EnqueueControlCommand(ControlCommand::Stop);
+    ResetKeyboardShortcutState();
+    g_ralt_lock_mode = false;
+    if (release_ralt) ForceReleaseRAlt();
+
+    if (ShouldInstallKeyboardHook(config))
+    {
+        g_keyboard_hook =
+            SetWindowsHookExW(WH_KEYBOARD_LL, KeyboardHookProc, GetModuleHandleW(nullptr), 0);
+    }
 }
 
 void VoiceInput::ToggleRecording()
@@ -530,6 +647,7 @@ bool VoiceInput::IsRecording() { return g_recording; }
 
 void VoiceInput::Shutdown()
 {
+    const bool release_ralt = g_suppress_ralt_until_up;
     if (g_keyboard_hook) { UnhookWindowsHookEx(g_keyboard_hook); g_keyboard_hook = nullptr; }
     if (g_recording) EnqueueControlCommand(ControlCommand::Stop);
     EnqueueControlCommand(ControlCommand::Exit);
@@ -539,9 +657,9 @@ void VoiceInput::Shutdown()
     if (g_message_window) { DestroyWindow(g_message_window); g_message_window = nullptr; }
     g_cue_player.shutdown();
     g_overlay.shutdown();
-    g_ralt_pressed = false;
+    ResetKeyboardShortcutState();
     g_ralt_lock_mode = false;
-    ForceReleaseRAlt();
+    if (release_ralt) ForceReleaseRAlt();
     if (g_initialized) curl_global_cleanup();
     g_initialized = false;
 }

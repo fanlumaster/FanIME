@@ -267,6 +267,9 @@ void PostConfig()
             {"system_fonts", GetSystemFontFamilies()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
+            {"hotkey_ralt", voice.hotkey_ralt}, {"hotkey_ctrl_f9", voice.hotkey_ctrl_f9},
+            {"hotkey_ctrl_win", voice.hotkey_ctrl_win}, {"hotkey_rctrl_ralt", voice.hotkey_rctrl_ralt},
+            {"hotkey_hold_space_lock", voice.hotkey_hold_space_lock},
             {"asr_provider", voice.asr_provider}, {"asr_token", voice.asr_token},
             {"asr_endpoint", voice.asr_endpoint}, {"polish_provider", voice.polish_provider},
             {"polish_token", voice.polish_token}, {"polish_endpoint", voice.polish_endpoint},
@@ -398,7 +401,10 @@ bool ApplyConfigUpdate(const json::object &data)
     {
         const std::string key = path.substr(12);
         const json::value &value = data.at("value");
-        if (value.is_bool()) return SetConfiguredVoiceInputBool(key, json::value_to<bool>(value));
+        if (value.is_bool())
+        {
+            return SetConfiguredVoiceInputBool(key, json::value_to<bool>(value));
+        }
         if (value.is_string()) return SetConfiguredVoiceInputString(key, json::value_to<std::string>(value));
         return false;
     }
