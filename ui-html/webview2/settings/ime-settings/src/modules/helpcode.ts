@@ -1,5 +1,6 @@
 import { setupDropdownMenu, setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
+import { updateCandidatePreviewHelpcode } from './appearance';
 
 export function setupHelpcode(): void {
   // 双拼辅助码方案
@@ -13,20 +14,24 @@ export function setupHelpcode(): void {
   // 双拼辅助码开关
   setupToggleButton('shuangpinHelpcodeToggleBtn', (active) => {
     updateConfig('helpcode.shuangpin_helpcode', active);
+    updateCandidatePreviewHelpcode({ shuangpin_helpcode: active });
   });
 
   // 全拼辅助码开关
   setupToggleButton('quanpinHelpcodeToggleBtn', (active) => {
     updateConfig('helpcode.quanpin_helpcode', active);
+    updateCandidatePreviewHelpcode({ quanpin_helpcode: active });
   });
 
   // 是否在候选窗口中显示双拼辅助码
   setupToggleButton('showShuangpinHelpcodeToggleBtn', (active) => {
     updateConfig('helpcode.show_sp_helpcode_in_candidate_window', active);
+    updateCandidatePreviewHelpcode({ show_sp_helpcode_in_candidate_window: active });
   });
 
   // 是否在候选窗口中显示全拼辅助码
   setupToggleButton('showQuanpinHelpcodeToggleBtn', (active) => {
     updateConfig('helpcode.show_qp_helpcode_in_candidate_window', active);
+    updateCandidatePreviewHelpcode({ show_qp_helpcode_in_candidate_window: active });
   });
 }

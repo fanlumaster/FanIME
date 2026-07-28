@@ -36,64 +36,68 @@ export function setupDropdownMenu(
     menu.classList.toggle('open', willOpen);
   });
 
-  const menuItems = menu.querySelectorAll('.dropdown-item');
-  menuItems.forEach((item: Element) => {
-    item.addEventListener('click', () => {
-      textSpan.textContent = item.textContent;
+  // Event delegation so dynamically rebuilt items (e.g. system fonts) keep working.
+  menu.addEventListener('click', (event: Event) => {
+    const item = (event.target as HTMLElement | null)?.closest('.dropdown-item') as HTMLElement | null;
+    if (!item || !menu.contains(item)) {
+      return;
+    }
 
-      // 分发给具体的函数去处理
-      switch (messageAction) {
-        case 'changeTheme':
-          setThemeMode((item as HTMLElement).dataset.value);
-          break;
-        case 'changeSettingsTheme':
-          setSurfaceTheme('settings', (item as HTMLElement).dataset.value);
-          break;
-        case 'changeCandTheme':
-          setSurfaceTheme('cand', (item as HTMLElement).dataset.value);
-          break;
-        case 'changeFtbTheme':
-          setSurfaceTheme('ftb', (item as HTMLElement).dataset.value);
-          break;
-        case 'changeMenuTheme':
-          setSurfaceTheme('menu', (item as HTMLElement).dataset.value);
-          break;
-        case 'changeCandidateArrange':
-          const htmlItem = item as HTMLElement;
-          applyCandidateArrange(htmlItem.dataset.value);
-          break;
-        default:
-          break;
-      }
+    textSpan.textContent = item.textContent;
 
-      if (window.chrome?.webview && configPath) {
-        const htmlItem = item as HTMLElement;
-        window.chrome.webview.postMessage(JSON.stringify({
-          type: 'configUpdate',
-          data: {
-            path: configPath,
-            value: valueTransform(htmlItem.dataset.value ?? '')
-          }
-        }));
-      } else if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {
-        const htmlItem = item as HTMLElement;
-        window.chrome.webview.postMessage(JSON.stringify({
-          type: 'configUpdate',
-          data: {
-            path: 'appearance.candidate_window_layout',
-            value: htmlItem.dataset.value
-          }
-        }));
-      } else if (window.chrome?.webview) {
-        const htmlItem = item as HTMLElement;
-        window.chrome.webview.postMessage(JSON.stringify({
-          type: messageAction,
-          data: htmlItem.dataset.value
-        }));
-      }
+    switch (messageAction) {
+      case 'changeTheme':
+        setThemeMode(item.dataset.value);
+        break;
+      case 'changeSettingsTheme':
+        setSurfaceTheme('settings', item.dataset.value);
+        break;
+      case 'changeCandTheme':
+        setSurfaceTheme('cand', item.dataset.value);
+        break;
+      case 'changeFtbTheme':
+        setSurfaceTheme('ftb', item.dataset.value);
+        break;
+      case 'changeMenuTheme':
+        setSurfaceTheme('menu', item.dataset.value);
+        break;
+      case 'changeCandidateArrange':
+        applyCandidateArrange(item.dataset.value);
+        break;
+      default:
+        break;
+    }
 
-      menu.classList.remove('open');
-    });
+    // Always run transform first so local preview updates even without WebView2
+    // (e.g. vite browser preview).
+    const nextValue = configPath
+      ? valueTransform(item.dataset.value ?? '')
+      : (item.dataset.value ?? '');
+
+    if (window.chrome?.webview && configPath) {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'configUpdate',
+        data: {
+          path: configPath,
+          value: nextValue
+        }
+      }));
+    } else if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'configUpdate',
+        data: {
+          path: 'appearance.candidate_window_layout',
+          value: item.dataset.value
+        }
+      }));
+    } else if (window.chrome?.webview) {
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: messageAction,
+        data: item.dataset.value
+      }));
+    }
+
+    menu.classList.remove('open');
   });
 
   // 点击外部关闭
@@ -111,10 +115,45 @@ export function applyDropdownValue(btnId: string, menuId: string, value: string 
   }
 
   const btnLabel = document.querySelector<HTMLElement>(`#${btnId} span`);
-  const item = document.querySelector<HTMLElement>(`#${menuId} .dropdown-item[data-value="${value}"]`);
-  if (btnLabel && item) {
-    btnLabel.textContent = item.textContent;
+  if (!btnLabel) {
+    return;
   }
+
+  const item = Array.from(document.querySelectorAll<HTMLElement>(`#${menuId} .dropdown-item`)).find(
+    (el) => el.dataset.value === value
+  );
+  btnLabel.textContent = item?.textContent || value;
+}
+
+export function populateDropdownMenu(
+  menuId: string,
+  values: string[],
+  options?: { selected?: string; previewFont?: boolean }
+): void {
+  const menu = document.getElementById(menuId);
+  if (!menu) {
+    return;
+  }
+
+  const names = [...values];
+  const selected = options?.selected;
+  if (selected && !names.includes(selected)) {
+    names.unshift(selected);
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const name of names) {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.dataset.value = name;
+    item.textContent = name;
+    if (options?.previewFont) {
+      const quoted = /\s/.test(name) ? `"${name.replace(/"/g, '\\"')}"` : name;
+      item.style.fontFamily = `${quoted}, sans-serif`;
+    }
+    fragment.appendChild(item);
+  }
+  menu.replaceChildren(fragment);
 }
 
 // 切换按钮功能

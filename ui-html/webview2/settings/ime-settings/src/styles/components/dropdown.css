@@ -59,6 +59,41 @@
   display: block;
 }
 
+/* Show exactly 6 rows; scroll for the rest (fonts / long numeric lists). */
+.dropdown-menu.compact-scroll-menu {
+  --compact-item-line: 20px;
+  --compact-item-pad-y: 4px;
+  --compact-item-margin-y: 2px;
+  /* 6 content boxes + 5 collapsed inter-item margins + outer top/bottom margins */
+  max-height: calc(
+    6 * (var(--compact-item-line) + 2 * var(--compact-item-pad-y)) +
+      5 * var(--compact-item-margin-y) +
+      2 * var(--compact-item-margin-y)
+  );
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.dropdown-menu.compact-scroll-menu .dropdown-item {
+  line-height: var(--compact-item-line);
+  padding-top: var(--compact-item-pad-y);
+  padding-bottom: var(--compact-item-pad-y);
+  margin-top: var(--compact-item-margin-y);
+  margin-bottom: var(--compact-item-margin-y);
+}
+
+.dropdown-menu.font-dropdown-menu {
+  /* Match the toggle button width (.dropdown is sized by the button). */
+  left: 0;
+  right: 0;
+  min-width: 0;
+  max-width: none;
+}
+
+.dropdown:has(> .font-dropdown-menu) .dropdown-toggle {
+  min-width: 168px;
+}
+
 .arrow {
   width: 18px;
   height: 18px;

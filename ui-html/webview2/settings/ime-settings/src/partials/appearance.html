@@ -12,6 +12,87 @@
     </div>
   </div>
 
+  <!-- 候选窗样式 -->
+  <div class="section sec-cand-style">
+    <div class="section-header">
+      <div class="section-title">候选窗主字体</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candEnglishFontBtn">
+          <span>Segoe UI</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu font-dropdown-menu compact-scroll-menu" id="candEnglishFontMenu"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗中文补充字体</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candFontBtn">
+          <span>Noto Sans SC</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu font-dropdown-menu compact-scroll-menu" id="candFontMenu"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗字号</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candFontSizeBtn">
+          <span>16</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="candFontSizeMenu">
+          <div class="dropdown-item" data-value="12">12</div>
+          <div class="dropdown-item" data-value="13">13</div>
+          <div class="dropdown-item" data-value="14">14</div>
+          <div class="dropdown-item" data-value="15">15</div>
+          <div class="dropdown-item" data-value="16">16</div>
+          <div class="dropdown-item" data-value="18">18</div>
+          <div class="dropdown-item" data-value="20">20</div>
+          <div class="dropdown-item" data-value="22">22</div>
+          <div class="dropdown-item" data-value="24">24</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选文字颜色</div>
+      <div class="cand-color-control">
+        <input type="color" id="candTextColorInput" value="#e9e8e8" title="自定义颜色">
+        <button type="button" class="cand-color-reset" id="candTextColorResetBtn">跟随主题</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">每页候选项数量</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candPageSizeBtn">
+          <span>8</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="candPageSizeMenu">
+          <div class="dropdown-item" data-value="3">3</div>
+          <div class="dropdown-item" data-value="4">4</div>
+          <div class="dropdown-item" data-value="5">5</div>
+          <div class="dropdown-item" data-value="6">6</div>
+          <div class="dropdown-item" data-value="7">7</div>
+          <div class="dropdown-item" data-value="8">8</div>
+          <div class="dropdown-item" data-value="9">9</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 主题模式（全局） -->
   <div class="section sec-theme">
     <div class="section-header theme-toggle-header">

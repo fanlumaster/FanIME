@@ -1,5 +1,6 @@
 import { applyDropdownValue, setupDropdownMenu, setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
+import { updateCandidatePreviewHelpcode } from './appearance';
 
 type InputScheme = 'quanpin' | 'shuangpin' | 'wubi';
 
@@ -21,6 +22,7 @@ export function applyInputConfig(
     if (radio) {
       radio.checked = true;
     }
+    updateCandidatePreviewHelpcode({ input_schema: schema });
   }
 
   applyDropdownValue('characterSetBtn', 'characterSetMenu', characterSet);
@@ -43,6 +45,7 @@ export function setupInput(): void {
       }
       const schema = radio.value as InputScheme;
       updateInputConfig('input.schema', schema);
+      updateCandidatePreviewHelpcode({ input_schema: schema });
     });
   });
 

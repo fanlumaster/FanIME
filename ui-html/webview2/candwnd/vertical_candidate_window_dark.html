@@ -6,9 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>(IME)VCandWnd</title>
   <style>
+    :root {
+      --cand-font-family: 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      --cand-font-size: 16px;
+      --cand-text: #e9e8e8;
+      --cand-num: #e9e8e89d;
+    }
+
     body {
-      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
-      font-size: 16px;
+      font-family: var(--cand-font-family);
+      font-size: var(--cand-font-size);
       height: 100vh;
       margin: 0;
       overflow: hidden;
@@ -88,7 +95,7 @@
 
     .text {
       padding-left: 8px;
-      color: #e9e8e8;
+      color: var(--cand-text);
       display: block;
       min-width: 0;
       max-width: 100%;
@@ -102,7 +109,7 @@
 
     .cand-no {
       font-size: 0.8em;
-      color: #e9e8e89d;
+      color: var(--cand-num);
       margin-right: 3px;
     }
 

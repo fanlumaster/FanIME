@@ -1,5 +1,5 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
-import { applyAppearanceConfig } from './appearance';
+import { applyAppearanceConfig, updateCandidatePreviewHelpcode } from './appearance';
 import { applyFrequencyConfig, applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
@@ -33,6 +33,15 @@ export function setupConfigSync(): void {
         theme_cand: payload.data?.appearance?.theme_cand,
         theme_ftb: payload.data?.appearance?.theme_ftb,
         theme_menu: payload.data?.appearance?.theme_menu
+      },
+      {
+        font: payload.data?.appearance?.font,
+        english_font: payload.data?.appearance?.english_font,
+        default_font: payload.data?.appearance?.default_font,
+        font_size: payload.data?.appearance?.font_size,
+        cand_text_color: payload.data?.appearance?.cand_text_color,
+        page_size: payload.data?.appearance?.page_size,
+        system_fonts: payload.data?.appearance?.system_fonts
       }
     );
     applyInputConfig(
@@ -41,6 +50,13 @@ export function setupConfigSync(): void {
       payload.data?.input?.shuangpin_schema,
       payload.data?.input?.wubi_schema
     );
+    updateCandidatePreviewHelpcode({
+      input_schema: payload.data?.input?.schema,
+      shuangpin_helpcode: payload.data?.helpcode?.shuangpin_helpcode,
+      quanpin_helpcode: payload.data?.helpcode?.quanpin_helpcode,
+      show_sp_helpcode_in_candidate_window: payload.data?.helpcode?.show_sp_helpcode_in_candidate_window,
+      show_qp_helpcode_in_candidate_window: payload.data?.helpcode?.show_qp_helpcode_in_candidate_window
+    });
     applyFrequencyConfig(payload.data?.frequency_adjustment);
     if (payload.data?.voice_input && typeof payload.data.voice_input === 'object') {
       applyVoiceConfig(payload.data.voice_input);

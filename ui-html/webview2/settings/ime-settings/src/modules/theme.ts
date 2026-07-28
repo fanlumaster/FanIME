@@ -1,4 +1,5 @@
 import { syncSkinPreviewTheme } from './skin';
+import { onCandidateSurfaceThemeChanged } from './appearance';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 export type SurfaceTheme = 'follow' | 'dark' | 'light';
@@ -77,6 +78,7 @@ export function applyCandidatePreviewTheme(theme: ResolvedTheme): void {
     element.classList.toggle('theme-light', theme === 'light');
     element.classList.toggle('theme-dark', theme === 'dark');
   });
+  onCandidateSurfaceThemeChanged(theme);
 }
 
 function ensureSystemThemeListener(onChange: () => void): void {
