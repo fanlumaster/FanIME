@@ -146,6 +146,13 @@ AsyncRequestOrigin g_ai_request_origin;
 std::string g_ai_context;
 std::mutex g_status_snapshot_mutex;
 int g_latest_status_snapshot = -1;
+// Global CN/EN authority for input.ime_mode_scope = "global".
+// -1 until first StatusSnapshot or lazy seed from default_ime_mode.
+int g_authoritative_cn_mode = -1;
+uint64_t g_last_status_snapshot_client_id = 0;
+// After switching away from this IME, the next StatusSnapshot must restore the
+// global mode even when the same process/thread client_id reconnects.
+bool g_force_global_ime_sync = false;
 HWND g_status_snapshot_window = nullptr;
 std::mutex g_candidate_ui_owner_mutex;
 FanyImeIpc::CandidateUiOwnerState g_candidate_ui_owner;
@@ -182,6 +189,16 @@ void PublishStatusSnapshotValue(int packed_state)
     {
         PostMessage(g_status_snapshot_window, UPDATE_FTB_STATUS, packed_state, 0);
     }
+}
+
+int EnsureAuthoritativeCnMode()
+{
+    if (g_authoritative_cn_mode < 0)
+    {
+        ReloadImeConfigIfChanged();
+        g_authoritative_cn_mode = GetConfiguredDefaultImeMode() == "english" ? 0 : 1;
+    }
+    return g_authoritative_cn_mode;
 }
 
 void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
@@ -944,6 +961,7 @@ void WorkerThread()
         case TaskType::ClientDeactivated: {
             // Unlike a route-only suspension, terminal TIP deactivation means
             // the user switched to another input method.
+            g_force_global_ime_sync = true;
             PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
             PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             ClearState();
@@ -960,11 +978,52 @@ void WorkerThread()
         }
 
         case TaskType::StatusSnapshot: {
+            ReloadImeConfigIfChanged();
             const int cn_state = task.pipe_data.keycode != 0 ? 1 : 0;
             const int fullwidth_state = task.pipe_data.modifiers_down != 0 ? 1 : 0;
             const int punctuation_state = task.pipe_data.pinyin_length != 0 ? 1 : 0;
-            const int packed_state = (cn_state << 2) | (fullwidth_state << 1) | punctuation_state;
-            if (FanyImeIpc::ShouldResetCompositionForImeMode(cn_state != 0))
+            int effective_cn = cn_state;
+            const bool force_global_sync = g_force_global_ime_sync;
+            g_force_global_ime_sync = false;
+
+            if (IsConfiguredImeModeScopeGlobal())
+            {
+                const int authoritative = EnsureAuthoritativeCnMode();
+                const bool client_changed =
+                    g_last_status_snapshot_client_id != 0 && task.client_id != g_last_status_snapshot_client_id;
+                if (client_changed || force_global_sync)
+                {
+                    // Focus moved to another app, or switched back to this IME:
+                    // keep the unified mode.
+                    effective_cn = authoritative;
+                    if (cn_state != authoritative && task.client_id != 0)
+                    {
+                        SendToTsfWorkerThreadClientViaNamedpipe(
+                            task.client_id, task.activation_epoch,
+                            authoritative != 0 ? Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn
+                                               : Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn,
+                            L"");
+                    }
+                }
+                else
+                {
+                    // Same client (or first report): accept as the new authority.
+                    g_authoritative_cn_mode = cn_state;
+                    effective_cn = cn_state;
+                }
+            }
+            else
+            {
+                g_authoritative_cn_mode = cn_state;
+            }
+
+            if (task.client_id != 0)
+            {
+                g_last_status_snapshot_client_id = task.client_id;
+            }
+
+            const int packed_state = (effective_cn << 2) | (fullwidth_state << 1) | punctuation_state;
+            if (FanyImeIpc::ShouldResetCompositionForImeMode(effective_cn != 0))
             {
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
                 ClearState();

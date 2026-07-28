@@ -92,6 +92,10 @@ tsf_preedit_style = "raw"
 #
 [input]
 character_set = "simplified" # 候选输出字形，可选："simplified", "traditional"
+# 启动/从其他输入法切换到本输入法时的默认中英文，可选："chinese", "english"
+default_ime_mode = "chinese"
+# 中英文状态范围，可选："app"（按应用分别记忆）, "global"（所有应用保持统一）
+ime_mode_scope = "app"
 # 组合说明：
 #   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
 #   legacy + quanpin   -> 自动切换为新版引擎全拼会话

@@ -81,6 +81,13 @@ std::string GetConfiguredInputSchemeName();
 bool SetConfiguredInputScheme(const std::string &scheme);
 const std::string &GetConfiguredCharacterSet();
 bool SetConfiguredCharacterSet(const std::string &character_set);
+// "chinese" | "english" — default CN/EN when activating this IME.
+const std::string &GetConfiguredDefaultImeMode();
+bool SetConfiguredDefaultImeMode(const std::string &mode);
+// "app" | "global" — per-app memory vs unified CN/EN across apps.
+const std::string &GetConfiguredImeModeScope();
+bool SetConfiguredImeModeScope(const std::string &scope);
+bool IsConfiguredImeModeScopeGlobal();
 const std::string &GetConfiguredShuangpinSchema();
 bool SetConfiguredShuangpinSchema(const std::string &schema);
 const std::string &GetConfiguredWubiSchema();

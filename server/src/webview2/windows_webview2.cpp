@@ -1662,6 +1662,22 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.default_ime_mode")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredDefaultImeMode(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "input.ime_mode_scope")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredImeModeScope(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "input.shuangpin_schema")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -2087,6 +2103,8 @@ void PostSettingsConfig()
         {"type", "configSnapshot"},
         {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
                                 {"character_set", GetConfiguredCharacterSet()},
+                                {"default_ime_mode", GetConfiguredDefaultImeMode()},
+                                {"ime_mode_scope", GetConfiguredImeModeScope()},
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
                                 {"wubi_schema", GetConfiguredWubiSchema()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},

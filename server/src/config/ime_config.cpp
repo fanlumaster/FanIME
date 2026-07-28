@@ -17,6 +17,8 @@ namespace
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
 std::string g_character_set = "simplified";
+std::string g_default_ime_mode = "chinese";
+std::string g_ime_mode_scope = "app";
 int g_candidate_page_size = 8;
 std::string g_candidate_font = "Noto Sans SC";
 std::string g_candidate_english_font = "Segoe UI";
@@ -282,6 +284,16 @@ bool LoadImeConfig()
         const std::string character_set =
             tbl["input"]["character_set"].value_or(std::string("simplified"));
         g_character_set = character_set == "traditional" ? "traditional" : "simplified";
+        {
+            const std::string mode =
+                tbl["input"]["default_ime_mode"].value_or(std::string("chinese"));
+            g_default_ime_mode = mode == "english" ? "english" : "chinese";
+        }
+        {
+            const std::string scope =
+                tbl["input"]["ime_mode_scope"].value_or(std::string("app"));
+            g_ime_mode_scope = scope == "global" ? "global" : "app";
+        }
         g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
         g_wubi_schema = tbl["input"]["wubi_schema"].value_or(std::string("wubi86"));
         g_shuangpin_preedit_mode = tbl["input"]["shuangpin_preedit_mode"].value_or(std::string("quanpin"));
@@ -749,6 +761,49 @@ bool SetConfiguredCharacterSet(const std::string &character_set)
     }
     g_character_set = character_set;
     return true;
+}
+
+const std::string &GetConfiguredDefaultImeMode()
+{
+    return g_default_ime_mode;
+}
+
+bool SetConfiguredDefaultImeMode(const std::string &mode)
+{
+    if (mode != "chinese" && mode != "english")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "default_ime_mode", EscapeTomlBasicString(mode)))
+    {
+        return false;
+    }
+    g_default_ime_mode = mode;
+    return true;
+}
+
+const std::string &GetConfiguredImeModeScope()
+{
+    return g_ime_mode_scope;
+}
+
+bool SetConfiguredImeModeScope(const std::string &scope)
+{
+    if (scope != "app" && scope != "global")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "ime_mode_scope", EscapeTomlBasicString(scope)))
+    {
+        return false;
+    }
+    g_ime_mode_scope = scope;
+    return true;
+}
+
+bool IsConfiguredImeModeScopeGlobal()
+{
+    return g_ime_mode_scope == "global";
 }
 
 const std::string &GetConfiguredShuangpinSchema()

@@ -216,6 +216,8 @@ void PostConfig()
          {{"input",
            {{"schema", GetConfiguredInputSchemeName()},
             {"character_set", GetConfiguredCharacterSet()},
+            {"default_ime_mode", GetConfiguredDefaultImeMode()},
+            {"ime_mode_scope", GetConfiguredImeModeScope()},
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
             {"wubi_schema", GetConfiguredWubiSchema()}}},
           {"general",
@@ -306,6 +308,10 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredInputScheme(json::value_to<std::string>(data.at("value")));
     if (path == "input.character_set")
         return SetConfiguredCharacterSet(json::value_to<std::string>(data.at("value")));
+    if (path == "input.default_ime_mode")
+        return SetConfiguredDefaultImeMode(json::value_to<std::string>(data.at("value")));
+    if (path == "input.ime_mode_scope")
+        return SetConfiguredImeModeScope(json::value_to<std::string>(data.at("value")));
     if (path == "input.shuangpin_schema")
         return SetConfiguredShuangpinSchema(json::value_to<std::string>(data.at("value")));
     if (path == "input.wubi_schema")
