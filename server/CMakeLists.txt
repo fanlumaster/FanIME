@@ -296,6 +296,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 set(SETTINGS_EXECUTABLE_NAME "MetasequoiaImeSettings")
 add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/settings_app.cpp"
+    "./src/settings/settings_splash.cpp"
+    "./src/settings/settings_splash.h"
     "./src/settings/settings_launcher.cpp"
     "./src/settings/settings_launcher.h"
     "./src/settings/dictionary_manager.cpp"
@@ -327,6 +329,8 @@ target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
     cpp-pinyin::cpp-pinyin
     dwmapi
     dcomp
+    d2d1
+    dwrite
     shell32
     $<$<CONFIG:Debug>:${WEBVIEW2_LOADER_DEBUG}>
     $<$<CONFIG:Release>:${WEBVIEW2_LOADER_RELEASE}>

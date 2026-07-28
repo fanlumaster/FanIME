@@ -2,6 +2,7 @@
 #include "global/globals.h"
 #include "resource/resource.h"
 #include "settings/settings_launcher.h"
+#include "settings/settings_splash.h"
 #include "settings/dictionary_manager.h"
 #include "utils/common_utils.h"
 #include "utils/single_instance.h"
@@ -593,7 +594,11 @@ HRESULT EnsureCompositionTree(HWND hwnd)
 
 HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionController *controller)
 {
-    if (FAILED(result) || !controller) return FAILED(result) ? result : E_FAIL;
+    if (FAILED(result) || !controller)
+    {
+        SettingsSplash::Dismiss();
+        return FAILED(result) ? result : E_FAIL;
+    }
     g_composition_controller = controller;
     if (FAILED(g_composition_controller.As(&g_controller))) return E_NOINTERFACE;
     if (FAILED(g_controller->get_CoreWebView2(&g_webview)) || !g_webview) return E_FAIL;
@@ -637,10 +642,9 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
             [hwnd](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
                 BOOL success = FALSE;
                 args->get_IsSuccess(&success);
+                SettingsSplash::Dismiss();
                 if (success)
                 {
-                    BOOL cloak = FALSE;
-                    DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
                     PostWindowState(hwnd);
                     PostConfig();
                     ApplyWindowActivationAppearance();
@@ -674,9 +678,17 @@ void InitWebView(HWND hwnd)
         nullptr, user_data.c_str(), nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [hwnd](HRESULT result, ICoreWebView2Environment *environment) -> HRESULT {
-                if (FAILED(result) || !environment) return FAILED(result) ? result : E_FAIL;
+                if (FAILED(result) || !environment)
+                {
+                    SettingsSplash::Dismiss();
+                    return FAILED(result) ? result : E_FAIL;
+                }
                 ComPtr<ICoreWebView2Environment3> environment3;
-                if (FAILED(environment->QueryInterface(IID_PPV_ARGS(&environment3)))) return E_NOINTERFACE;
+                if (FAILED(environment->QueryInterface(IID_PPV_ARGS(&environment3))))
+                {
+                    SettingsSplash::Dismiss();
+                    return E_NOINTERFACE;
+                }
                 return environment3->CreateCoreWebView2CompositionController(
                     hwnd,
                     Callback<ICoreWebView2CreateCoreWebView2CompositionControllerCompletedHandler>(
@@ -792,6 +804,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     case WM_MOVE:
     case WM_MOVING:
         if (g_controller) g_controller->NotifyParentWindowPositionChanged();
+        if (SettingsSplash::IsVisible()) SettingsSplash::SyncToOwner();
         break;
     case WM_SETFOCUS:
         if (g_controller) g_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
@@ -856,7 +869,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     {
         RECT client{};
         GetClientRect(hwnd, &client);
-        HBRUSH brush = CreateSolidBrush(RGB(32, 32, 32));
+        const bool light = ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+        HBRUSH brush = CreateSolidBrush(light ? RGB(243, 243, 243) : RGB(32, 32, 32));
         FillRect(reinterpret_cast<HDC>(w_param), &client, brush);
         DeleteObject(brush);
         return 1;
@@ -881,6 +895,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             g_controller->put_Bounds(bounds);
             PostWindowState(hwnd);
         }
+        if (SettingsSplash::IsVisible()) SettingsSplash::SyncToOwner();
         break;
     }
     case WM_TIMER:
@@ -895,6 +910,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         return 0;
     case WM_DESTROY:
         KillTimer(hwnd, kConfigReloadTimer);
+        SettingsSplash::Dismiss();
         g_webview.Reset();
         g_controller2.Reset();
         g_controller.Reset();
@@ -951,10 +967,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     if (!hwnd) return 1;
     g_settings_hwnd = hwnd;
 
-    BOOL cloak = TRUE;
     DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
     DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_NONE;
-    DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
     ApplySettingsChromeTheme(hwnd);
     DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
     DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
@@ -969,6 +983,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
 
     ShowWindow(hwnd, show_command == SW_HIDE ? SW_SHOWNORMAL : show_command);
     UpdateWindow(hwnd);
+    SettingsSplash::Show(hwnd);
     SetTimer(hwnd, kConfigReloadTimer, 300, nullptr);
     InitWebView(hwnd);
 
