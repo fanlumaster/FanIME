@@ -15,7 +15,9 @@ export function applyInputConfig(
   schema: string | undefined,
   characterSet: string | undefined,
   shuangpinSchema: string | undefined,
-  wubiSchema: string | undefined
+  wubiSchema: string | undefined,
+  defaultImeMode?: string | undefined,
+  imeModeScope?: string | undefined
 ): void {
   if (schema === 'quanpin' || schema === 'shuangpin' || schema === 'wubi') {
     const radio = document.querySelector<HTMLInputElement>(`input[name="input-method"][value="${schema}"]`);
@@ -28,6 +30,8 @@ export function applyInputConfig(
   applyDropdownValue('characterSetBtn', 'characterSetMenu', characterSet);
   applyDropdownValue('shuangpinSchemeBtn', 'shuangpinSchemeMenu', shuangpinSchema);
   applyDropdownValue('wubiSchemeBtn', 'wubiSchemeMenu', wubiSchema);
+  applyDropdownValue('defaultImeModeBtn', 'defaultImeModeMenu', defaultImeMode);
+  applyDropdownValue('imeModeScopeBtn', 'imeModeScopeMenu', imeModeScope);
 }
 
 export function applyFrequencyConfig(config: any): void {
@@ -38,6 +42,8 @@ export function applyFrequencyConfig(config: any): void {
 
 export function setupInput(): void {
   setupDropdownMenu('characterSetBtn', 'characterSetMenu', 'changeCharacterSet', true, 'input.character_set');
+  setupDropdownMenu('defaultImeModeBtn', 'defaultImeModeMenu', '', true, 'input.default_ime_mode');
+  setupDropdownMenu('imeModeScopeBtn', 'imeModeScopeMenu', '', true, 'input.ime_mode_scope');
   document.querySelectorAll<HTMLInputElement>('input[name="input-method"]').forEach((radio) => {
     radio.addEventListener('change', () => {
       if (!radio.checked || (radio.value !== 'quanpin' && radio.value !== 'shuangpin' && radio.value !== 'wubi')) {
