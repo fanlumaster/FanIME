@@ -235,6 +235,10 @@ void PostConfig()
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
+          {"keybindings",
+           {{"switch_language_shift", GetConfiguredSwitchLanguageShiftEnabled()},
+            {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
+            {"switch_language_ctrl_alt_space", GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
           {"frequency_adjustment",
            {{"mode", frequency.mode}, {"trigger_count", frequency.trigger_count},
             {"linear_step", frequency.linear_step}}},
@@ -374,6 +378,12 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredPagingPageUpDownEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.candidate_arrow_navigation")
         return SetConfiguredCandidateArrowNavigationEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "keybindings.switch_language_shift")
+        return SetConfiguredSwitchLanguageShiftEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "keybindings.switch_language_ctrl")
+        return SetConfiguredSwitchLanguageCtrlEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "keybindings.switch_language_ctrl_alt_space")
+        return SetConfiguredSwitchLanguageCtrlAltSpaceEnabled(json::value_to<bool>(data.at("value")));
     if (path.rfind("frequency_adjustment.", 0) == 0)
     {
         const std::string key = path.substr(21);

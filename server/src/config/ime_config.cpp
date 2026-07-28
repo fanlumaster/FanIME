@@ -19,6 +19,9 @@ SchemeType g_input_scheme = SchemeType::Shuangpin;
 std::string g_character_set = "simplified";
 std::string g_default_ime_mode = "chinese";
 std::string g_ime_mode_scope = "app";
+bool g_switch_language_shift_enabled = true;
+bool g_switch_language_ctrl_enabled = false;
+bool g_switch_language_ctrl_alt_space_enabled = true;
 int g_candidate_page_size = 8;
 std::string g_candidate_font = "Noto Sans SC";
 std::string g_candidate_english_font = "Segoe UI";
@@ -335,6 +338,33 @@ bool LoadImeConfig()
             tbl["general"]["paging_tab"].value_or(legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
+        {
+            // Prefer explicit bool keys; fall back to legacy switch_language array.
+            const auto legacy = tbl["keybindings"]["switch_language"].as_array();
+            bool legacy_shift = true;
+            bool legacy_ctrl_alt_space = true;
+            if (legacy)
+            {
+                legacy_shift = false;
+                legacy_ctrl_alt_space = false;
+                for (const auto &item : *legacy)
+                {
+                    const auto value = item.value<std::string>();
+                    if (!value)
+                        continue;
+                    if (*value == "Shift")
+                        legacy_shift = true;
+                    else if (*value == "Ctrl+Alt+Space" || *value == "Ctrl+Space")
+                        legacy_ctrl_alt_space = true;
+                }
+            }
+            g_switch_language_shift_enabled =
+                tbl["keybindings"]["switch_language_shift"].value_or(legacy_shift);
+            g_switch_language_ctrl_enabled =
+                tbl["keybindings"]["switch_language_ctrl"].value_or(false);
+            g_switch_language_ctrl_alt_space_enabled =
+                tbl["keybindings"]["switch_language_ctrl_alt_space"].value_or(legacy_ctrl_alt_space);
+        }
         {
             const std::string mode =
                 tbl["frequency_adjustment"]["mode"].value_or(std::string("promote"));
@@ -804,6 +834,51 @@ bool SetConfiguredImeModeScope(const std::string &scope)
 bool IsConfiguredImeModeScopeGlobal()
 {
     return g_ime_mode_scope == "global";
+}
+
+bool GetConfiguredSwitchLanguageShiftEnabled()
+{
+    return g_switch_language_shift_enabled;
+}
+
+bool SetConfiguredSwitchLanguageShiftEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("keybindings", "switch_language_shift", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_switch_language_shift_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredSwitchLanguageCtrlEnabled()
+{
+    return g_switch_language_ctrl_enabled;
+}
+
+bool SetConfiguredSwitchLanguageCtrlEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("keybindings", "switch_language_ctrl", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_switch_language_ctrl_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()
+{
+    return g_switch_language_ctrl_alt_space_enabled;
+}
+
+bool SetConfiguredSwitchLanguageCtrlAltSpaceEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("keybindings", "switch_language_ctrl_alt_space", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_switch_language_ctrl_alt_space_enabled = enabled;
+    return true;
 }
 
 const std::string &GetConfiguredShuangpinSchema()

@@ -1946,6 +1946,30 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "keybindings.switch_language_shift")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredSwitchLanguageShiftEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "keybindings.switch_language_ctrl")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredSwitchLanguageCtrlEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "keybindings.switch_language_ctrl_alt_space")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredSwitchLanguageCtrlAltSpaceEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "helpcode.show_sp_helpcode_in_candidate_window")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2121,6 +2145,10 @@ void PostSettingsConfig()
                                 {"paging_tab", GetConfiguredPagingTabEnabled()},
                                 {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
                                 {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
+                  {"keybindings", {{"switch_language_shift", GetConfiguredSwitchLanguageShiftEnabled()},
+                                   {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
+                                   {"switch_language_ctrl_alt_space",
+                                    GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
                   {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
                                 {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
                   {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},

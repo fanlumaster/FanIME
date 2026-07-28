@@ -38,7 +38,7 @@ clean_mode = false
 # disabled / pin / halve / linear / promote
 mode = "promote"
 # 每选中几次执行一次调频，范围 1~10
-trigger_count = 1
+trigger_count = 2
 # 线性调频每次前移数量，范围 1~10
 linear_step = 1
 
@@ -142,8 +142,10 @@ show_qp_helpcode_in_candidate_window = true
 # 快捷键
 #
 [keybindings]
-# 切换中英文输入法，数组中的元素可选："Ctrl+Space", "Shift"
-switch_language = ["Ctrl+Space", "Shift"]
+# 中英文切换快捷键（Ctrl+Space 由 Windows 系统管理，此处不控制）
+switch_language_shift = true
+switch_language_ctrl = false
+switch_language_ctrl_alt_space = true
 
 #
 # Dictionary
