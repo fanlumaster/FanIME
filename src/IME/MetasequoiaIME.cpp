@@ -32,6 +32,8 @@ namespace
 {
 constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
 constexpr UINT_PTR TIMER_CONNECT_TO_TSF_NAMEDPIPE = 2;
+constexpr UINT_PTR TIMER_REFRESH_LANG_BAR_THEME = 3;
+constexpr UINT REFRESH_LANG_BAR_THEME_DELAY_MS = 150;
 constexpr UINT CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS = 50;
 constexpr UINT CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS = 2000;
 constexpr wchar_t WATCHDOG_MUTEX_NAME[] = L"Local\\MetasequoiaImeWatchdog.SingleInstance";
@@ -379,6 +381,10 @@ CMetasequoiaIME::CMetasequoiaIME()
     _pSIPIMEOnOffCompartment = nullptr;
     _dwSIPIMEOnOffCompartmentSinkCookie = 0;
     _msgWndHandle = nullptr;
+    _themeRegKey = nullptr;
+    _themeRegEvent = nullptr;
+    _pThemeWatcherThread = nullptr;
+    _stopThemeWatcher = false;
 
     _pContext = nullptr;
 
@@ -1244,6 +1250,7 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
     }
     SetWindowLongPtr(_msgWndHandle, GWLP_USERDATA, (LONG_PTR)this);
     Global::msgWndHandle = _msgWndHandle;
+    _StartThemeRegistryWatcher();
 
     BOOL hasThreadFocus = FALSE;
     const HRESULT threadFocusResult = _pThreadMgr->IsThreadFocus(&hasThreadFocus);
@@ -1473,10 +1480,12 @@ STDAPI CMetasequoiaIME::Deactivate()
     }
 
     /* 清理消息窗口 */
+    _StopThemeRegistryWatcher();
     if (_msgWndHandle)
     {
         KillTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE);
         KillTimer(_msgWndHandle, TIMER_CONNECT_TO_TSF_NAMEDPIPE);
+        KillTimer(_msgWndHandle, TIMER_REFRESH_LANG_BAR_THEME);
         DestroyWindow(_msgWndHandle);
         if (Global::msgWndHandle == _msgWndHandle)
         {
@@ -1737,6 +1746,122 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
 
 //+---------------------------------------------------------------------------
 //
+// Theme registry watcher / language bar icon refresh
+//
+//----------------------------------------------------------------------------
+
+void CMetasequoiaIME::_RefreshLanguageBarThemeIcons()
+{
+    CCompositionProcessorEngine *pEngine = GetCompositionProcessorEngine();
+    if (pEngine)
+    {
+        pEngine->RefreshLanguageBarIcons();
+    }
+}
+
+void CMetasequoiaIME::_StartThemeRegistryWatcher()
+{
+    if (_pThemeWatcherThread)
+    {
+        return;
+    }
+
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0,
+                      KEY_NOTIFY, &_themeRegKey) != ERROR_SUCCESS)
+    {
+        return;
+    }
+
+    _themeRegEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!_themeRegEvent)
+    {
+        RegCloseKey(_themeRegKey);
+        _themeRegKey = nullptr;
+        return;
+    }
+
+    if (RegNotifyChangeKeyValue(_themeRegKey, FALSE, REG_NOTIFY_CHANGE_LAST_SET, _themeRegEvent, TRUE) != ERROR_SUCCESS)
+    {
+        CloseHandle(_themeRegEvent);
+        _themeRegEvent = nullptr;
+        RegCloseKey(_themeRegKey);
+        _themeRegKey = nullptr;
+        return;
+    }
+
+    _stopThemeWatcher.store(false);
+    _pThemeWatcherThread = new (std::nothrow) std::thread([this]() {
+        while (!_stopThemeWatcher.load(std::memory_order_acquire))
+        {
+            const DWORD wait = WaitForSingleObject(_themeRegEvent, INFINITE);
+            if (_stopThemeWatcher.load(std::memory_order_acquire))
+            {
+                break;
+            }
+            if (wait != WAIT_OBJECT_0)
+            {
+                continue;
+            }
+            if (_stopThemeWatcher.load(std::memory_order_acquire))
+            {
+                break;
+            }
+
+            ResetEvent(_themeRegEvent);
+            RegNotifyChangeKeyValue(_themeRegKey, FALSE, REG_NOTIFY_CHANGE_LAST_SET, _themeRegEvent, TRUE);
+
+            const HWND ownerWindow = _msgWndHandle;
+            if (ownerWindow && IsWindow(ownerWindow))
+            {
+                PostMessage(ownerWindow, WM_RefreshLanguageBarTheme, 0, 0);
+            }
+        }
+    });
+
+    if (!_pThemeWatcherThread)
+    {
+        CloseHandle(_themeRegEvent);
+        _themeRegEvent = nullptr;
+        RegCloseKey(_themeRegKey);
+        _themeRegKey = nullptr;
+    }
+}
+
+void CMetasequoiaIME::_StopThemeRegistryWatcher()
+{
+    _stopThemeWatcher.store(true, std::memory_order_release);
+    if (_themeRegEvent)
+    {
+        SetEvent(_themeRegEvent);
+    }
+
+    if (_pThemeWatcherThread)
+    {
+        if (_pThemeWatcherThread->joinable())
+        {
+            _pThemeWatcherThread->join();
+        }
+        delete _pThemeWatcherThread;
+        _pThemeWatcherThread = nullptr;
+    }
+
+    if (_themeRegEvent)
+    {
+        CloseHandle(_themeRegEvent);
+        _themeRegEvent = nullptr;
+    }
+
+    if (_themeRegKey)
+    {
+        RegCloseKey(_themeRegKey);
+        _themeRegKey = nullptr;
+    }
+
+    _stopThemeWatcher.store(false, std::memory_order_release);
+}
+
+//+---------------------------------------------------------------------------
+//
 // CMetasequoiaIME_WindowProc
 //
 //----------------------------------------------------------------------------
@@ -1957,6 +2082,13 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 KillTimer(hWnd, TIMER_CONNECT_TO_TSF_NAMEDPIPE);
                 break;
             }
+            break;
+        }
+
+        if (wParam == TIMER_REFRESH_LANG_BAR_THEME)
+        {
+            KillTimer(hWnd, TIMER_REFRESH_LANG_BAR_THEME);
+            pIME->_RefreshLanguageBarThemeIcons();
             break;
         }
         break;
@@ -2252,14 +2384,15 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         pIME->_DrainPendingCandidatePresenterCleanup();
         break;
     }
+    case WM_RefreshLanguageBarTheme: {
+        SetTimer(hWnd, TIMER_REFRESH_LANG_BAR_THEME, REFRESH_LANG_BAR_THEME_DELAY_MS, nullptr);
+        break;
+    }
     case WM_SETTINGCHANGE: {
+        // Registry may not be flushed yet when the broadcast arrives.
         if (lParam && _wcsicmp(reinterpret_cast<LPCWSTR>(lParam), L"ImmersiveColorSet") == 0)
         {
-            CCompositionProcessorEngine *pEngine = pIME->GetCompositionProcessorEngine();
-            if (pEngine)
-            {
-                pEngine->RefreshLanguageBarIcons();
-            }
+            SetTimer(hWnd, TIMER_REFRESH_LANG_BAR_THEME, REFRESH_LANG_BAR_THEME_DELAY_MS, nullptr);
         }
         break;
     }

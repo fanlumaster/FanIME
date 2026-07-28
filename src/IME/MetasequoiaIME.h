@@ -34,6 +34,7 @@ const DWORD WM_IpcReconnect = WM_USER + 16;
 const DWORD WM_IpcSessionDirty = WM_USER + 17;
 const DWORD WM_DrainDeferredKeyDown = WM_USER + 18;
 const DWORD WM_InsertText = WM_USER + 19;
+const DWORD WM_RefreshLanguageBarTheme = WM_USER + 20;
 LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND wndHandle, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 class CMetasequoiaIME : public ITfTextInputProcessorEx,
@@ -401,6 +402,10 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
 
     BOOL _AddTextProcessorEngine();
 
+    void _StartThemeRegistryWatcher();
+    void _StopThemeRegistryWatcher();
+    void _RefreshLanguageBarThemeIcons();
+
     BOOL VerifyMetasequoiaIMECLSID(_In_ REFCLSID clsid);
 
     friend LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND wndHandle, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -447,6 +452,10 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     DWORD _dwSIPIMEOnOffCompartmentSinkCookie;
 
     HWND _msgWndHandle;
+    HKEY _themeRegKey;
+    HANDLE _themeRegEvent;
+    std::thread *_pThemeWatcherThread;
+    std::atomic<bool> _stopThemeWatcher;
     std::thread *_pIpcThread;
     std::atomic<HANDLE> _hToTsfWorkerThreadPipe;
     std::atomic<UINT> _workerPipeGeneration;

@@ -395,7 +395,7 @@ void CLangBarItemButton::RefreshIcon()
 {
     if (_pLangBarItemSink)
     {
-        _pLangBarItemSink->OnUpdate(TF_LBI_ICON);
+        _pLangBarItemSink->OnUpdate(TF_LBI_ICON | TF_LBI_STATUS | TF_LBI_TOOLTIP);
     }
 }
 
