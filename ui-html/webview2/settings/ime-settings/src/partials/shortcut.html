@@ -1,13 +1,19 @@
 <div class="content shortcut-settings" id="shortcut-settings">
   <div class="content-header"><span>快捷键</span></div>
-  <div class="shortcut-intro">输入法快捷键仅在对应输入状态或候选窗口显示时生效。翻页方式可在“通用”中启用或关闭。</div>
+  <div class="shortcut-intro">输入法快捷键仅在对应输入状态或候选窗口显示时生效。翻页方式可在“输入”中启用或关闭。</div>
 
   <div class="section shortcut-section">
-    <div class="shortcut-section-heading"><div><div class="section-title">中英文切换</div><div class="shortcut-section-description">Shift 由水杉输入法处理；Ctrl+Space 由 Windows 管理</div></div></div>
-    <div class="shortcut-list">
-      <div class="shortcut-row"><span>水杉输入法内切换中 / 英文</span><div class="shortcut-keys"><kbd>Shift</kbd></div></div>
+    <div class="shortcut-section-heading"><div><div class="section-title">中英文切换</div><div class="shortcut-section-description">勾选启用对应快捷键；Ctrl+Space 由 Windows 系统管理，此处不控制</div></div></div>
+    <div class="content-page-option">
+      <label class="check-option"><input type="checkbox" name="switch-language" id="switchLanguageShiftCheckbox" value="shift" checked><span>Shift</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="switch-language" id="switchLanguageCtrlCheckbox" value="ctrl"><span>Ctrl</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="switch-language" id="switchLanguageCtrlAltSpaceCheckbox" value="ctrl-alt-space" checked><span>Ctrl + Alt + Space</span></label>
+    </div>
+    <div class="shortcut-list" style="margin-top: 12px;">
       <div class="shortcut-system-guide">
-        <div class="shortcut-system-guide-title">修改或关闭 Ctrl+Space</div>
+        <div class="shortcut-system-guide-title">修改或关闭 Ctrl+Space（系统）</div>
         <div class="shortcut-system-guide-copy">请前往 Windows 系统设置修改“输入法 / 非输入法切换”的按键顺序：</div>
         <ol>
           <li>打开“设置”，进入“时间和语言” → “输入”。</li>

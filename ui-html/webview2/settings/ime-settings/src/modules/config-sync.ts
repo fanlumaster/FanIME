@@ -4,6 +4,7 @@ import { applyFrequencyConfig, applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
 import { applyFloatingToolbarItemsConfig } from './floating-toolbar';
+import { applyShortcutConfig } from './shortcut';
 
 function safeParseJson(value: string): unknown {
   try {
@@ -120,6 +121,7 @@ export function setupConfigSync(): void {
       const checkbox = document.getElementById('candidateArrowNavigationCheckbox') as HTMLInputElement | null;
       if (checkbox) checkbox.checked = payload.data.general.candidate_arrow_navigation;
     }
+    applyShortcutConfig(payload.data?.keybindings);
     if (typeof payload.data?.helpcode?.show_sp_helpcode_in_candidate_window === 'boolean') {
       applyToggleState(
         'showShuangpinHelpcodeToggleBtn',
