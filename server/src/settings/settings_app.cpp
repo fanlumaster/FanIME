@@ -240,6 +240,10 @@ void PostConfig()
             {"theme_cand", GetConfiguredThemeCand()},
             {"theme_ftb", GetConfiguredThemeFtb()},
             {"theme_menu", GetConfiguredThemeMenu()},
+            {"theme_emoji", GetConfiguredThemeEmoji()},
+            {"theme_screen_keyboard", GetConfiguredThemeScreenKeyboard()},
+            {"theme_handwriting", GetConfiguredThemeHandwriting()},
+            {"theme_voice", GetConfiguredThemeVoice()},
             {"page_size", GetConfiguredCandidatePageSize()},
             {"font", GetConfiguredCandidateFont()},
             {"english_font", GetConfiguredCandidateEnglishFont()},
@@ -324,6 +328,14 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredThemeFtb(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.theme_menu")
         return SetConfiguredThemeMenu(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_emoji")
+        return SetConfiguredThemeEmoji(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_screen_keyboard")
+        return SetConfiguredThemeScreenKeyboard(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_handwriting")
+        return SetConfiguredThemeHandwriting(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.theme_voice")
+        return SetConfiguredThemeVoice(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")

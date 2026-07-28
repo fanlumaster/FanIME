@@ -10,6 +10,7 @@ namespace msimeui
 class HandwritingPanel final : public Visual
 {
   public:
+    explicit HandwritingPanel(bool lightTheme) : lightTheme_(lightTheme) {}
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
     void Render(DeviceResources &resources) override;
@@ -42,6 +43,6 @@ class HandwritingPanel final : public Visual
     bool closePressed_ = false;
     size_t hoveredCandidate_ = static_cast<size_t>(-1);
     size_t pressedCandidate_ = static_cast<size_t>(-1);
+    bool lightTheme_ = false;
 };
 } // namespace msimeui
-

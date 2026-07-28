@@ -10,7 +10,7 @@ namespace msimeui
 class KeyboardPanel final : public Visual
 {
   public:
-    KeyboardPanel();
+    explicit KeyboardPanel(bool lightTheme);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -51,5 +51,6 @@ class KeyboardPanel final : public Visual
     bool ctrlActive_ = false;
     bool altActive_ = false;
     bool winActive_ = false;
+    bool lightTheme_ = false;
 };
 } // namespace msimeui

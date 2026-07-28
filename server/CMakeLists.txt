@@ -229,6 +229,8 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/main.cpp"
     "./src/emoji-panel/emoji_panel.rc"
     "./src/emoji-panel/resource.h"
+    "./src/utils/surface_theme_config.cpp"
+    "./src/utils/surface_theme_config.h"
 )
 add_dependencies(${MY_EXECUTABLE_NAME} ${WATCHDOG_EXECUTABLE_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
@@ -249,6 +251,8 @@ add_executable(${KEYBOARD_EXECUTABLE_NAME} WIN32
     "./src/keyboard-panel/main.cpp"
     "./src/keyboard-panel/keyboard_panel.rc"
     "./src/keyboard-panel/resource.h"
+    "./src/utils/surface_theme_config.cpp"
+    "./src/utils/surface_theme_config.h"
 )
 target_link_libraries(${KEYBOARD_EXECUTABLE_NAME} PRIVATE msimeui)
 target_compile_definitions(${KEYBOARD_EXECUTABLE_NAME} PRIVATE
@@ -267,6 +271,8 @@ add_executable(${HANDWRITING_EXECUTABLE_NAME} WIN32
     "./src/handwriting-panel/main.cpp"
     "./src/handwriting-panel/handwriting_panel.rc"
     "./src/handwriting-panel/resource.h"
+    "./src/utils/surface_theme_config.cpp"
+    "./src/utils/surface_theme_config.h"
 )
 target_link_libraries(${HANDWRITING_EXECUTABLE_NAME} PRIVATE msimeui windowsapp.lib)
 target_compile_definitions(${HANDWRITING_EXECUTABLE_NAME} PRIVATE

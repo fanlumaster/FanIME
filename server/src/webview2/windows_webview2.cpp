@@ -1786,6 +1786,26 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.theme_emoji")
+                            {
+                                if (SetConfiguredThemeEmoji(json::value_to<std::string>(data.at("value"))))
+                                    PostSettingsConfig();
+                            }
+                            else if (path == "appearance.theme_screen_keyboard")
+                            {
+                                if (SetConfiguredThemeScreenKeyboard(json::value_to<std::string>(data.at("value"))))
+                                    PostSettingsConfig();
+                            }
+                            else if (path == "appearance.theme_handwriting")
+                            {
+                                if (SetConfiguredThemeHandwriting(json::value_to<std::string>(data.at("value"))))
+                                    PostSettingsConfig();
+                            }
+                            else if (path == "appearance.theme_voice")
+                            {
+                                if (SetConfiguredThemeVoice(json::value_to<std::string>(data.at("value"))))
+                                    PostSettingsConfig();
+                            }
                             else if (path == "general.floating_toolbar")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2047,6 +2067,10 @@ void PostSettingsConfig()
                                   {"theme_cand", GetConfiguredThemeCand()},
                                   {"theme_ftb", GetConfiguredThemeFtb()},
                                   {"theme_menu", GetConfiguredThemeMenu()},
+                                  {"theme_emoji", GetConfiguredThemeEmoji()},
+                                  {"theme_screen_keyboard", GetConfiguredThemeScreenKeyboard()},
+                                  {"theme_handwriting", GetConfiguredThemeHandwriting()},
+                                  {"theme_voice", GetConfiguredThemeVoice()},
                                   {"page_size", GetConfiguredCandidatePageSize()},
                                   {"font", GetConfiguredCandidateFont()},
                                   {"english_font", GetConfiguredCandidateEnglishFont()},

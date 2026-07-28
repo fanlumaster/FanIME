@@ -50,6 +50,10 @@ std::string g_theme_settings = "follow";
 std::string g_theme_cand = "follow";
 std::string g_theme_ftb = "follow";
 std::string g_theme_menu = "follow";
+std::string g_theme_emoji = "follow";
+std::string g_theme_screen_keyboard = "follow";
+std::string g_theme_handwriting = "follow";
+std::string g_theme_voice = "follow";
 VoiceInputConfig g_voice_input;
 AiAssistantConfig g_ai_assistant;
 FrequencyAdjustmentConfig g_frequency_adjustment;
@@ -340,6 +344,12 @@ bool LoadImeConfig()
         g_theme_cand = normalize_surface(tbl["appearance"]["theme_cand"].value_or(std::string("follow")));
         g_theme_ftb = normalize_surface(tbl["appearance"]["theme_ftb"].value_or(std::string("follow")));
         g_theme_menu = normalize_surface(tbl["appearance"]["theme_menu"].value_or(std::string("follow")));
+        g_theme_emoji = normalize_surface(tbl["appearance"]["theme_emoji"].value_or(std::string("follow")));
+        g_theme_screen_keyboard =
+            normalize_surface(tbl["appearance"]["theme_screen_keyboard"].value_or(std::string("follow")));
+        g_theme_handwriting =
+            normalize_surface(tbl["appearance"]["theme_handwriting"].value_or(std::string("follow")));
+        g_theme_voice = normalize_surface(tbl["appearance"]["theme_voice"].value_or(std::string("follow")));
         {
             const std::string tsf_preedit_style =
                 tbl["appearance"]["tsf_preedit_style"].value_or(
@@ -1143,6 +1153,46 @@ const std::string &GetConfiguredThemeMenu()
 bool SetConfiguredThemeMenu(const std::string &theme)
 {
     return SetSurfaceThemeValue("theme_menu", theme, g_theme_menu);
+}
+
+const std::string &GetConfiguredThemeEmoji()
+{
+    return g_theme_emoji;
+}
+
+bool SetConfiguredThemeEmoji(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_emoji", theme, g_theme_emoji);
+}
+
+const std::string &GetConfiguredThemeScreenKeyboard()
+{
+    return g_theme_screen_keyboard;
+}
+
+bool SetConfiguredThemeScreenKeyboard(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_screen_keyboard", theme, g_theme_screen_keyboard);
+}
+
+const std::string &GetConfiguredThemeHandwriting()
+{
+    return g_theme_handwriting;
+}
+
+bool SetConfiguredThemeHandwriting(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_handwriting", theme, g_theme_handwriting);
+}
+
+const std::string &GetConfiguredThemeVoice()
+{
+    return g_theme_voice;
+}
+
+bool SetConfiguredThemeVoice(const std::string &theme)
+{
+    return SetSurfaceThemeValue("theme_voice", theme, g_theme_voice);
 }
 
 const VoiceInputConfig &GetConfiguredVoiceInput()

@@ -137,6 +137,14 @@ const std::string &GetConfiguredThemeFtb();
 bool SetConfiguredThemeFtb(const std::string &theme);
 const std::string &GetConfiguredThemeMenu();
 bool SetConfiguredThemeMenu(const std::string &theme);
+const std::string &GetConfiguredThemeEmoji();
+bool SetConfiguredThemeEmoji(const std::string &theme);
+const std::string &GetConfiguredThemeScreenKeyboard();
+bool SetConfiguredThemeScreenKeyboard(const std::string &theme);
+const std::string &GetConfiguredThemeHandwriting();
+bool SetConfiguredThemeHandwriting(const std::string &theme);
+const std::string &GetConfiguredThemeVoice();
+bool SetConfiguredThemeVoice(const std::string &theme);
 // Resolve effective "dark" / "light" for a surface override ("follow" | "dark" | "light").
 std::string ResolveConfiguredTheme(const std::string &surface_theme);
 bool IsSystemAppsLightTheme();

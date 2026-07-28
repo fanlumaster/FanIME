@@ -46,6 +46,7 @@ class WaveOverlay
     float amplitudes_[kLevelCount] = {};
     float phases_[kLevelCount] = {};
     float freqs_[kLevelCount] = {};
+    bool light_theme_ = false;
 
     struct ID2D1Factory *factory_ = nullptr;
     struct ID2D1HwndRenderTarget *render_target_ = nullptr;
@@ -53,5 +54,4 @@ class WaveOverlay
     struct ID2D1SolidColorBrush *bg_brush_ = nullptr;
     struct ID2D1SolidColorBrush *border_brush_ = nullptr;
 };
-
 

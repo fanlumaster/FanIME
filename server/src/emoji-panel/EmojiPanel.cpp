@@ -145,7 +145,7 @@ bool CopyToClipboard(HWND hwnd, const std::wstring &text)
 }
 } // namespace
 
-EmojiPanel::EmojiPanel()
+EmojiPanel::EmojiPanel(bool lightTheme) : lightTheme_(lightTheme)
 {
     searchBox_ = std::make_shared<TextBox>(kSearchHeight * kPanelScale, L"Search emoji, kaomoji, and symbols");
     searchBox_->SetFontSize(14.0f);
@@ -425,6 +425,13 @@ void EmojiPanel::ActivateItem(size_t index)
 
 void EmojiPanel::Render(DeviceResources &resources)
 {
+    const D2D1_COLOR_F background = D2D1::ColorF(lightTheme_ ? 0xF7F7FA : 0x202027);
+    const D2D1_COLOR_F text = D2D1::ColorF(lightTheme_ ? 0x202027 : 0xF5F5F7);
+    const D2D1_COLOR_F mutedText = D2D1::ColorF(lightTheme_ ? 0x686873 : 0xAFAFB7);
+    const D2D1_COLOR_F hover = D2D1::ColorF(lightTheme_ ? 0xE9E7ED : 0x303038);
+    const D2D1_COLOR_F selected = D2D1::ColorF(lightTheme_ ? 0xE0D7E5 : 0x3B3B44);
+    const D2D1_COLOR_F pressed = D2D1::ColorF(lightTheme_ ? 0xD3C7D9 : 0x555560);
+    const D2D1_COLOR_F accent = D2D1::ColorF(lightTheme_ ? 0x7A3E91 : 0xD88BDE);
     auto *target = resources.GetRenderTarget();
     if (!target)
     {
@@ -434,16 +441,16 @@ void EmojiPanel::Render(DeviceResources &resources)
     target->GetTransform(&oldTransform);
     target->SetTransform(D2D1::Matrix3x2F::Scale(kPanelScale, kPanelScale) * oldTransform);
 
-    FillRect(resources, bounds_, D2D1::ColorF(0x202027));
+    FillRect(resources, bounds_, background);
     DrawText(resources, L"Emoji and more", {bounds_.x + 24.0f, bounds_.y, 240.0f, kHeaderHeight}, 18.0f,
-             D2D1::ColorF(0xF7F7FA), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
+             text, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
 
     const RectF close = CloseRect();
     if (closeHovered_ || closePressed_)
     {
-        FillRect(resources, close, closePressed_ ? D2D1::ColorF(0x4B4B55) : D2D1::ColorF(0x36363F), 7.0f);
+        FillRect(resources, close, closePressed_ ? pressed : hover, 7.0f);
     }
-    DrawCloseIcon(resources, close, D2D1::ColorF(0xF4F4F7));
+    DrawCloseIcon(resources, close, text);
 
     const wchar_t *categories[] = {L"\u2665", L"\u263A", L"GIF", L";-)" , L"\u2605", L"\u25A3"};
     for (size_t index = 0; index < 6; ++index)
@@ -451,15 +458,15 @@ void EmojiPanel::Render(DeviceResources &resources)
         const RectF rect = CategoryRect(bounds_, index);
         if (hoveredCategory_ == index && activeCategory_ != index)
         {
-            FillRect(resources, rect, D2D1::ColorF(0x303038), 6.0f);
+            FillRect(resources, rect, hover, 6.0f);
         }
-        DrawText(resources, categories[index], rect, index == 2 ? 14.0f : 25.0f, D2D1::ColorF(0xF5F5F8),
+        DrawText(resources, categories[index], rect, index == 2 ? 14.0f : 25.0f, text,
                  L"Segoe UI Symbol", DWRITE_TEXT_ALIGNMENT_CENTER,
                  index == 2 ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL);
     }
     const RectF activeRect = CategoryRect(bounds_, activeCategory_);
     FillRect(resources, {activeRect.x + (activeRect.width - 29.0f) * 0.5f, bounds_.y + 121.0f, 29.0f, 4.0f},
-             D2D1::ColorF(0xD88BDE), 2.0f);
+             accent, 2.0f);
 
     const RectF viewport = {bounds_.x, bounds_.y + kContentTop, bounds_.width, bounds_.height - kContentTop};
     target->PushAxisAlignedClip(D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width,
@@ -470,7 +477,7 @@ void EmojiPanel::Render(DeviceResources &resources)
     for (const auto &group : groups)
     {
         DrawText(resources, group.title, {bounds_.x + 24.0f, y, bounds_.width - 48.0f, 42.0f}, 19.0f,
-                 D2D1::ColorF(0xF4F4F7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
+                 text, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
         y += 42.0f;
         for (size_t index = 0; index < group.items.size(); ++index, ++flatIndex)
         {
@@ -479,14 +486,14 @@ void EmojiPanel::Render(DeviceResources &resources)
                                 kCellSize - 8.0f};
             if (flatIndex == selectedItem_ || flatIndex == hoveredItem_ || flatIndex == pressedItem_)
             {
-                FillRect(resources, cell, flatIndex == pressedItem_ ? D2D1::ColorF(0x555560) : D2D1::ColorF(0x3B3B44), 6.0f);
+                FillRect(resources, cell, flatIndex == pressedItem_ ? pressed : selected, 6.0f);
                 if (flatIndex == selectedItem_)
                 {
-                    StrokeRect(resources, cell, D2D1::ColorF(0xF0F0F4), 6.0f, 2.0f);
+                    StrokeRect(resources, cell, lightTheme_ ? accent : D2D1::ColorF(0xF0F0F4), 6.0f, 2.0f);
                 }
             }
             const bool longText = group.items[index]->text.size() > 4;
-            DrawText(resources, group.items[index]->text, cell, longText ? 15.0f : 30.0f, D2D1::ColorF(0xFFFFFF),
+            DrawText(resources, group.items[index]->text, cell, longText ? 15.0f : 30.0f, text,
                      longText ? L"Segoe UI" : L"Segoe UI Emoji", DWRITE_TEXT_ALIGNMENT_CENTER);
         }
         y += static_cast<float>((group.items.size() + kColumns - 1) / kColumns) * kCellSize + 22.0f;
@@ -502,19 +509,19 @@ void EmojiPanel::Render(DeviceResources &resources)
         else if (activeCategory_ == 5)
             emptyText = L"Clipboard history can be connected here";
         DrawText(resources, emptyText, {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 60.0f},
-                 20.0f, D2D1::ColorF(0xAFAFB7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+                 20.0f, mutedText, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     if (!statusText_.empty())
     {
         DrawText(resources, statusText_, {bounds_.x + 24.0f, bounds_.y + bounds_.height - 38.0f, bounds_.width - 48.0f, 30.0f},
-                 13.0f, D2D1::ColorF(0xD88BDE), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+                 13.0f, accent, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     target->PopAxisAlignedClip();
 
     const RectF scrollbarThumb = ScrollbarThumbRect();
     if (scrollbarThumb.height > 0.0f)
     {
-        FillRect(resources, scrollbarThumb, D2D1::ColorF(0xB8B8C0), 3.0f);
+        FillRect(resources, scrollbarThumb, D2D1::ColorF(lightTheme_ ? 0x8B8790 : 0xB8B8C0), 3.0f);
     }
 
     target->SetTransform(oldTransform);

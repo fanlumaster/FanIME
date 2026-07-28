@@ -1,5 +1,6 @@
 #include "wave_overlay.h"
 #include "mvi_utils.h"
+#include "config/ime_config.h"
 
 #include <d2d1.h>
 #include <d2d1helper.h>
@@ -119,6 +120,13 @@ void WaveOverlay::show()
 {
     if (hwnd_)
     {
+        ReloadImeConfigIfChanged();
+        const bool light_theme = ResolveConfiguredTheme(GetConfiguredThemeVoice()) == "light";
+        if (light_theme != light_theme_)
+        {
+            light_theme_ = light_theme;
+            release_render_target();
+        }
         // 每次显示时根据当前显示器重新定位
         RECT rc = mvi_utils::GetMonitorCoordinates();
         const int taskbar_height = mvi_utils::GetTaskbarHeight();
@@ -228,19 +236,26 @@ bool WaveOverlay::ensure_render_target()
         return false;
     }
 
-    if (FAILED(render_target_->CreateSolidColorBrush(D2D1::ColorF(0.07f, 0.08f, 0.10f, 0.90f), &bg_brush_)))
+    const D2D1_COLOR_F background =
+        light_theme_ ? D2D1::ColorF(0.98f, 0.98f, 0.99f, 0.94f) : D2D1::ColorF(0.07f, 0.08f, 0.10f, 0.90f);
+    const D2D1_COLOR_F bars =
+        light_theme_ ? D2D1::ColorF(0.35f, 0.18f, 0.42f) : D2D1::ColorF(D2D1::ColorF::White);
+    const D2D1_COLOR_F border =
+        light_theme_ ? D2D1::ColorF(0.20f, 0.20f, 0.24f, 0.22f) : D2D1::ColorF(0.90f, 0.93f, 1.0f, 0.20f);
+
+    if (FAILED(render_target_->CreateSolidColorBrush(background, &bg_brush_)))
     {
         release_render_target();
         return false;
     }
 
-    if (FAILED(render_target_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &bar_brush_)))
+    if (FAILED(render_target_->CreateSolidColorBrush(bars, &bar_brush_)))
     {
         release_render_target();
         return false;
     }
 
-    if (FAILED(render_target_->CreateSolidColorBrush(D2D1::ColorF(0.90f, 0.93f, 1.0f, 0.20f), &border_brush_)))
+    if (FAILED(render_target_->CreateSolidColorBrush(border, &border_brush_)))
     {
         release_render_target();
         return false;
@@ -360,5 +375,3 @@ void WaveOverlay::draw()
         release_render_target();
     }
 }
-
-

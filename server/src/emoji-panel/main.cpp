@@ -5,6 +5,7 @@
 #include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 #include "utils/single_instance.h"
+#include "utils/surface_theme_config.h"
 
 #include <memory>
 
@@ -19,14 +20,23 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
         return -1;
     }
 
-    msimeui::Theme theme = msimeui::ThemeManager::GetCurrent();
-    theme.windowBackground = D2D1::ColorF(0x202027);
-    theme.surface = D2D1::ColorF(0x202027);
-    theme.borderStrong = D2D1::ColorF(0x45454F);
-    theme.primary = D2D1::ColorF(0x8C55A2);
-    theme.primaryFocusStrong = D2D1::ColorF(0xD88BDE);
-    theme.textPrimary = D2D1::ColorF(0xF5F5F7);
-    theme.textSecondary = D2D1::ColorF(0xC9C9D0);
+    const bool lightTheme = SurfaceThemeConfig::IsLight("theme_emoji");
+    msimeui::Theme theme;
+    if (!lightTheme)
+    {
+        theme.windowBackground = D2D1::ColorF(0x202027);
+        theme.surface = D2D1::ColorF(0x202027);
+        theme.borderStrong = D2D1::ColorF(0x45454F);
+        theme.primary = D2D1::ColorF(0x8C55A2);
+        theme.primaryFocusStrong = D2D1::ColorF(0xD88BDE);
+        theme.textPrimary = D2D1::ColorF(0xF5F5F7);
+        theme.textSecondary = D2D1::ColorF(0xC9C9D0);
+    }
+    else
+    {
+        theme.primary = D2D1::ColorF(0x7A3E91);
+        theme.primaryFocusStrong = D2D1::ColorF(0x9A62AD);
+    }
     msimeui::ThemeManager::SetCurrent(std::move(theme));
 
     // Window sizes are physical pixels for a per-monitor-DPI-aware Win32 popup. The panel renders
@@ -42,7 +52,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
     }
 
     auto scene = std::make_unique<msimeui::Scene>();
-    scene->SetRoot(std::make_shared<msimeui::EmojiPanel>());
+    scene->SetRoot(std::make_shared<msimeui::EmojiPanel>(lightTheme));
     window.SetScene(std::move(scene));
     const int result = window.Run(nCmdShow);
     msimeui::Application::Shutdown();

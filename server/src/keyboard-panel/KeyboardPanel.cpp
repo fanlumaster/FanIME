@@ -67,7 +67,7 @@ void DrawCloseIcon(DeviceResources &resources, const RectF &rect, const D2D1_COL
 }
 } // namespace
 
-KeyboardPanel::KeyboardPanel()
+KeyboardPanel::KeyboardPanel(bool lightTheme) : lightTheme_(lightTheme)
 {
     rows_ = {
         {{L"`", L"~"}, {L"1", L"!"}, {L"2", L"@"}, {L"3", L"#"}, {L"4", L"$"}, {L"5", L"%"},
@@ -122,11 +122,18 @@ void KeyboardPanel::RebuildLayout()
 
 void KeyboardPanel::Render(DeviceResources &resources)
 {
-    FillRounded(resources, bounds_, D2D1::ColorF(0x17181D), 8.0f);
+    const D2D1_COLOR_F background = D2D1::ColorF(lightTheme_ ? 0xECEEF2 : 0x17181D);
+    const D2D1_COLOR_F text = D2D1::ColorF(lightTheme_ ? 0x202124 : 0xF1F1F3);
+    const D2D1_COLOR_F headerText = D2D1::ColorF(lightTheme_ ? 0x555861 : 0xD7D8DD);
+    const D2D1_COLOR_F keyFill = D2D1::ColorF(lightTheme_ ? 0xFFFFFF : 0x2B2D34);
+    const D2D1_COLOR_F keyHover = D2D1::ColorF(lightTheme_ ? 0xE1E4EA : 0x41434D);
+    const D2D1_COLOR_F keyActive = D2D1::ColorF(lightTheme_ ? 0xD7D0E0 : 0x535866);
+    const D2D1_COLOR_F keyPressed = D2D1::ColorF(lightTheme_ ? 0xC7C9D0 : 0x666A77);
+    FillRounded(resources, bounds_, background, 8.0f);
     DrawLabel(resources, L"Touch keyboard", {bounds_.x + 10.0f, bounds_.y, 160.0f, kHeaderHeight}, 12.0f,
-              D2D1::ColorF(0xD7D8DD), DWRITE_TEXT_ALIGNMENT_LEADING);
-    if (closeHovered_ || closePressed_) FillRounded(resources, closeRect_, D2D1::ColorF(0x3B3D46), 4.0f);
-    DrawCloseIcon(resources, closeRect_, D2D1::ColorF(0xF5F5F7));
+              headerText, DWRITE_TEXT_ALIGNMENT_LEADING);
+    if (closeHovered_ || closePressed_) FillRounded(resources, closeRect_, keyHover, 4.0f);
+    DrawCloseIcon(resources, closeRect_, text);
 
     size_t flatIndex = 0;
     for (const auto &row : rows_)
@@ -136,13 +143,11 @@ void KeyboardPanel::Render(DeviceResources &resources)
             const bool active = IsKeyActive(key);
             const bool hovered = flatIndex == hoveredKey_;
             const bool pressed = flatIndex == pressedKey_;
-            const D2D1_COLOR_F fill = pressed ? D2D1::ColorF(0x666A77)
-                                              : (active ? D2D1::ColorF(0x535866)
-                                                        : (hovered ? D2D1::ColorF(0x41434D) : D2D1::ColorF(0x2B2D34)));
+            const D2D1_COLOR_F fill = pressed ? keyPressed : (active ? keyActive : (hovered ? keyHover : keyFill));
             FillRounded(resources, key.rect, fill, 5.0f);
             const bool characterKey = key.normal.size() == 1 && key.normal != L" ";
             const std::wstring label = characterKey && shiftActive_ && !key.shifted.empty() ? key.shifted : key.normal;
-            DrawLabel(resources, label, key.rect, characterKey ? 15.0f : 12.0f, D2D1::ColorF(0xF1F1F3));
+            DrawLabel(resources, label, key.rect, characterKey ? 15.0f : 12.0f, text);
             ++flatIndex;
         }
     }

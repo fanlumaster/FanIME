@@ -159,33 +159,41 @@ void HandwritingPanel::RebuildLayout()
 
 void HandwritingPanel::Render(DeviceResources &resources)
 {
-    Fill(resources, bounds_, D2D1::ColorF(0x202027));
-    Fill(resources, headerRect_, D2D1::ColorF(0x202027));
+    const D2D1_COLOR_F background = D2D1::ColorF(lightTheme_ ? 0xF7F7FA : 0x202027);
+    const D2D1_COLOR_F canvas = D2D1::ColorF(lightTheme_ ? 0xFFFFFF : 0x25262D);
+    const D2D1_COLOR_F surface = D2D1::ColorF(lightTheme_ ? 0xFFFFFF : 0x292A31);
+    const D2D1_COLOR_F surfaceHover = D2D1::ColorF(lightTheme_ ? 0xF0E8F2 : 0x3B3240);
+    const D2D1_COLOR_F border = D2D1::ColorF(lightTheme_ ? 0xC8C8D0 : 0x45454F);
+    const D2D1_COLOR_F accent = D2D1::ColorF(lightTheme_ ? 0x7A3E91 : 0xD88BDE);
+    const D2D1_COLOR_F text = D2D1::ColorF(lightTheme_ ? 0x202027 : 0xF5F5F7);
+    const D2D1_COLOR_F mutedText = D2D1::ColorF(lightTheme_ ? 0x686873 : 0xB8B8C0);
+    Fill(resources, bounds_, background);
+    Fill(resources, headerRect_, background);
     Text(resources, L"\u6c34\u6749\u624b\u5199\u8bc6\u522b\u677f",
-         {headerRect_.x + 14.0f, headerRect_.y, 220.0f, headerRect_.height}, 14.0f, D2D1::ColorF(0xF5F5F7),
+         {headerRect_.x + 14.0f, headerRect_.y, 220.0f, headerRect_.height}, 14.0f, text,
          DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_NORMAL);
     if (closeHovered_ || closePressed_)
-        Fill(resources, closeRect_, closePressed_ ? D2D1::ColorF(0x4A4B55) : D2D1::ColorF(0x363740), 5.0f);
-    DrawCloseIcon(resources, closeRect_, D2D1::ColorF(0xF4F4F7));
+        Fill(resources, closeRect_, closePressed_ ? surfaceHover : surface, 5.0f);
+    DrawCloseIcon(resources, closeRect_, text);
 
-    Fill(resources, canvasRect_, D2D1::ColorF(0x25262D), 8.0f);
-    Outline(resources, canvasRect_, D2D1::ColorF(0x45454F), 1.0f, 8.0f);
+    Fill(resources, canvasRect_, canvas, 8.0f);
+    Outline(resources, canvasRect_, border, 1.0f, 8.0f);
     auto *target = resources.GetRenderTarget();
-    auto *inkBrush = resources.GetSolidColorBrush(D2D1::ColorF(0xF4F4F7));
+    auto *inkBrush = resources.GetSolidColorBrush(text);
     if (target && inkBrush)
     {
         for (const auto &stroke : strokes_) DrawInkStroke(resources, stroke, inkBrush);
     }
     if (strokes_.empty())
-        Text(resources, L"\u8bf7\u5728\u8fd9\u91cc\u4e66\u5199", canvasRect_, 18.0f, D2D1::ColorF(0x74757E));
+        Text(resources, L"\u8bf7\u5728\u8fd9\u91cc\u4e66\u5199", canvasRect_, 18.0f, mutedText);
 
     Text(resources, L"\u8bc6\u522b\u7ed3\u679c", {resultsRect_.x, resultsRect_.y, resultsRect_.width, 30.0f}, 18.0f,
-         D2D1::ColorF(0xF5F5F7), DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
+         text, DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
     for (size_t i = 0; i < candidateRects_.size(); ++i)
     {
         const bool hovered = i == hoveredCandidate_;
-        Fill(resources, candidateRects_[i], hovered ? D2D1::ColorF(0x3B3240) : D2D1::ColorF(0x292A31), 6.0f);
-        Outline(resources, candidateRects_[i], hovered ? D2D1::ColorF(0xD88BDE) : D2D1::ColorF(0x45454F),
+        Fill(resources, candidateRects_[i], hovered ? surfaceHover : surface, 6.0f);
+        Outline(resources, candidateRects_[i], hovered ? accent : border,
                 hovered ? 2.0f : 1.0f, 5.0f);
         if (i < candidates_.size())
         {
@@ -197,18 +205,18 @@ void HandwritingPanel::Render(DeviceResources &resources)
                 13.0f, 34.0f);
             const RectF textRect = {candidateRects_[i].x + 3.0f, candidateRects_[i].y + 2.0f,
                                     candidateRects_[i].width - 6.0f, candidateRects_[i].height - 4.0f};
-            Text(resources, candidates_[i], textRect, fontSize, D2D1::ColorF(0xF5F5F7));
+            Text(resources, candidates_[i], textRect, fontSize, text);
         }
     }
     Text(resources, hint_, {resultsRect_.x, resultsRect_.y + resultsRect_.height - 34.0f, resultsRect_.width, 28.0f},
-         14.0f, D2D1::ColorF(0xB8B8C0), DWRITE_TEXT_ALIGNMENT_LEADING);
+         14.0f, mutedText, DWRITE_TEXT_ALIGNMENT_LEADING);
 
-    Fill(resources, undoRect_, D2D1::ColorF(0x292A31), 6.0f);
-    Fill(resources, clearRect_, D2D1::ColorF(0x292A31), 6.0f);
-    Outline(resources, undoRect_, D2D1::ColorF(0x45454F), 1.0f, 6.0f);
-    Outline(resources, clearRect_, D2D1::ColorF(0x45454F), 1.0f, 6.0f);
-    Text(resources, L"\u21b6  \u64a4\u9500", undoRect_, 15.0f, D2D1::ColorF(0xF5F5F7));
-    Text(resources, L"\u2715  \u91cd\u5199", clearRect_, 15.0f, D2D1::ColorF(0xF5F5F7));
+    Fill(resources, undoRect_, surface, 6.0f);
+    Fill(resources, clearRect_, surface, 6.0f);
+    Outline(resources, undoRect_, border, 1.0f, 6.0f);
+    Outline(resources, clearRect_, border, 1.0f, 6.0f);
+    Text(resources, L"\u21b6  \u64a4\u9500", undoRect_, 15.0f, text);
+    Text(resources, L"\u2715  \u91cd\u5199", clearRect_, 15.0f, text);
 }
 
 bool HandwritingPanel::HitTest(const PointF &point) const { return Contains(bounds_, point); }
@@ -411,4 +419,3 @@ void HandwritingPanel::Clear()
 
 HCURSOR HandwritingPanel::GetCursor() const { return LoadCursor(nullptr, drawing_ ? IDC_CROSS : IDC_HAND); }
 } // namespace msimeui
-

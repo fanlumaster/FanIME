@@ -5,6 +5,7 @@
 #include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 #include "utils/single_instance.h"
+#include "utils/surface_theme_config.h"
 
 #include <memory>
 
@@ -16,14 +17,18 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
 
     if (!msimeui::Application::Initialize()) return -1;
 
-    msimeui::Theme theme = msimeui::ThemeManager::GetCurrent();
-    theme.windowBackground = D2D1::ColorF(0x17181D);
-    theme.surface = D2D1::ColorF(0x17181D);
-    theme.textPrimary = D2D1::ColorF(0xF1F1F3);
-    theme.textSecondary = D2D1::ColorF(0xAEB0B7);
+    const bool lightTheme = SurfaceThemeConfig::IsLight("theme_screen_keyboard");
+    msimeui::Theme theme;
+    if (!lightTheme)
+    {
+        theme.windowBackground = D2D1::ColorF(0x17181D);
+        theme.surface = D2D1::ColorF(0x17181D);
+        theme.textPrimary = D2D1::ColorF(0xF1F1F3);
+        theme.textSecondary = D2D1::ColorF(0xAEB0B7);
+    }
     msimeui::ThemeManager::SetCurrent(std::move(theme));
 
-    msimeui::Window window(L"msimeui.KeyboardDemo", L"Dark touch keyboard", 1100, 400);
+    msimeui::Window window(L"msimeui.KeyboardDemo", L"Touch keyboard", 1100, 400);
     // Keep the keyboard visible above the active application without taking
     // focus away from the text field that should receive its synthetic input.
     window.SetWindowStyle(WS_POPUP, WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST);
@@ -38,7 +43,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
     }
 
     auto scene = std::make_unique<msimeui::Scene>();
-    scene->SetRoot(std::make_shared<msimeui::KeyboardPanel>());
+    scene->SetRoot(std::make_shared<msimeui::KeyboardPanel>(lightTheme));
     window.SetScene(std::move(scene));
     const int result = window.Run(nCmdShow);
     msimeui::Application::Shutdown();

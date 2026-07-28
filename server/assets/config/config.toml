@@ -47,6 +47,10 @@ theme_settings = "follow"
 theme_cand = "follow"
 theme_ftb = "follow"
 theme_menu = "follow"
+theme_emoji = "follow"
+theme_screen_keyboard = "follow"
+theme_handwriting = "follow"
+theme_voice = "follow"
 # 字体（中文）
 font = "Noto Sans SC"
 # 英文字体（拉丁字母优先使用；汉字仍回落到 font）

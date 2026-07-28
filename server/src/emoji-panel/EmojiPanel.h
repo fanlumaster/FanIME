@@ -10,7 +10,7 @@ namespace msimeui
 class EmojiPanel final : public Visual
 {
   public:
-    EmojiPanel();
+    explicit EmojiPanel(bool lightTheme);
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
     void Render(DeviceResources &deviceResources) override;
@@ -119,5 +119,6 @@ class EmojiPanel final : public Visual
     bool closePressed_ = false;
     bool scrollbarDragging_ = false;
     float scrollbarDragOffsetY_ = 0.0f;
+    bool lightTheme_ = false;
 };
 } // namespace msimeui
