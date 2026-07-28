@@ -28,6 +28,10 @@
   margin-top: 5px;
 }
 
+.shortcut-section .content-page-option {
+  padding: 0 24px 4px;
+}
+
 .shortcut-badge {
   color: var(--accent-strong);
   background: var(--accent-soft);
