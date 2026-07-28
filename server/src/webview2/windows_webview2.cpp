@@ -562,6 +562,38 @@ bool ApplyConfiguredUiThemes()
     return ok;
 }
 
+bool ApplyConfiguredCandidateAppearance()
+{
+    if (!webviewCandWnd)
+    {
+        return false;
+    }
+
+    nlohmann::json cfg = {{"font", GetConfiguredCandidateFont()},
+                          {"english_font", GetConfiguredCandidateEnglishFont()},
+                          {"default_font", GetConfiguredCandidateDefaultFont()},
+                          {"font_size", GetConfiguredCandidateFontSize()},
+                          {"cand_text_color", GetConfiguredCandidateTextColor()}};
+    const std::wstring script =
+        L"(function(c){"
+        L"const root=document.documentElement;"
+        L"const quote=function(f){return /\\s/.test(f)?'\"'+String(f).replace(/\"/g,'\\\\\"')+'\"':String(f);};"
+        L"const family=[c.english_font,c.font,c.default_font,'sans-serif'].filter(Boolean).map(quote).join(', ');"
+        L"root.style.setProperty('--cand-font-family', family);"
+        L"root.style.setProperty('--cand-font-size', String(c.font_size||16)+'px');"
+        L"const color=(c.cand_text_color||'auto');"
+        L"if(color&&color!=='auto'){"
+        L"root.style.setProperty('--cand-text', color);"
+        L"root.style.setProperty('--cand-num', color.length===7?color+'9d':color);"
+        L"}else{"
+        L"root.style.removeProperty('--cand-text');"
+        L"root.style.removeProperty('--cand-num');"
+        L"}"
+        L"})(" +
+        string_to_wstring(cfg.dump()) + L");";
+    return SUCCEEDED(webviewCandWnd->ExecuteScript(script.c_str(), nullptr));
+}
+
 //
 //
 // 候选窗口 webview
@@ -978,6 +1010,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                 if (success)
                 {
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
+                    ApplyConfiguredCandidateAppearance();
                 }
                 else
                 {
@@ -1646,6 +1679,51 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.page_size")
+                            {
+                                const int value = static_cast<int>(data.at("value").as_int64());
+                                if (SetConfiguredCandidatePageSize(value))
+                                {
+                                    FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.font")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCandidateFont(value))
+                                {
+                                    ApplyConfiguredCandidateAppearance();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.english_font")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCandidateEnglishFont(value))
+                                {
+                                    ApplyConfiguredCandidateAppearance();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.font_size")
+                            {
+                                const int value = static_cast<int>(data.at("value").as_int64());
+                                if (SetConfiguredCandidateFontSize(value))
+                                {
+                                    ApplyConfiguredCandidateAppearance();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.cand_text_color")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCandidateTextColor(value))
+                                {
+                                    ApplyConfiguredCandidateAppearance();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.theme_mode")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -1968,7 +2046,14 @@ void PostSettingsConfig()
                                   {"theme_settings", GetConfiguredThemeSettings()},
                                   {"theme_cand", GetConfiguredThemeCand()},
                                   {"theme_ftb", GetConfiguredThemeFtb()},
-                                  {"theme_menu", GetConfiguredThemeMenu()}}},
+                                  {"theme_menu", GetConfiguredThemeMenu()},
+                                  {"page_size", GetConfiguredCandidatePageSize()},
+                                  {"font", GetConfiguredCandidateFont()},
+                                  {"english_font", GetConfiguredCandidateEnglishFont()},
+                                  {"default_font", GetConfiguredCandidateDefaultFont()},
+                                  {"font_size", GetConfiguredCandidateFontSize()},
+                                  {"cand_text_color", GetConfiguredCandidateTextColor()},
+                                  {"system_fonts", GetSystemFontFamilies()}}},
                   {"helpcode",
                    {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
                     {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},

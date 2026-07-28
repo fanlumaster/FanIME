@@ -4,6 +4,7 @@
 #include <toml++/toml.h>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 struct VoiceInputConfig
 {
@@ -62,6 +63,19 @@ bool ReloadImeConfigIfChanged();
 const std::filesystem::path &GetImeConfigPath();
 const std::string &GetConfiguredSessionBackend();
 int GetConfiguredCandidatePageSize();
+bool SetConfiguredCandidatePageSize(int page_size);
+const std::string &GetConfiguredCandidateFont();
+bool SetConfiguredCandidateFont(const std::string &font);
+const std::string &GetConfiguredCandidateEnglishFont();
+bool SetConfiguredCandidateEnglishFont(const std::string &font);
+const std::string &GetConfiguredCandidateDefaultFont();
+bool SetConfiguredCandidateDefaultFont(const std::string &font);
+int GetConfiguredCandidateFontSize();
+bool SetConfiguredCandidateFontSize(int font_size);
+const std::string &GetConfiguredCandidateTextColor();
+bool SetConfiguredCandidateTextColor(const std::string &color);
+// Installed font family names for settings dropdowns (cached after first call).
+const std::vector<std::string> &GetSystemFontFamilies();
 SchemeType GetConfiguredInputScheme();
 std::string GetConfiguredInputSchemeName();
 bool SetConfiguredInputScheme(const std::string &scheme);

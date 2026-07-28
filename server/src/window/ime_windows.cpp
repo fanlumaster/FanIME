@@ -674,6 +674,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_theme_cand = GetConfiguredThemeCand();
             const std::string previous_theme_ftb = GetConfiguredThemeFtb();
             const std::string previous_theme_menu = GetConfiguredThemeMenu();
+            const std::string previous_font = GetConfiguredCandidateFont();
+            const std::string previous_english_font = GetConfiguredCandidateEnglishFont();
+            const std::string previous_default_font = GetConfiguredCandidateDefaultFont();
+            const int previous_font_size = GetConfiguredCandidateFontSize();
+            const std::string previous_cand_text_color = GetConfiguredCandidateTextColor();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -692,6 +697,14 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     previous_theme_ftb != GetConfiguredThemeFtb() || previous_theme_menu != GetConfiguredThemeMenu())
                 {
                     ApplyConfiguredUiThemes();
+                }
+                else if (previous_font != GetConfiguredCandidateFont() ||
+                         previous_english_font != GetConfiguredCandidateEnglishFont() ||
+                         previous_default_font != GetConfiguredCandidateDefaultFont() ||
+                         previous_font_size != GetConfiguredCandidateFontSize() ||
+                         previous_cand_text_color != GetConfiguredCandidateTextColor())
+                {
+                    ApplyConfiguredCandidateAppearance();
                 }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
@@ -1187,6 +1200,11 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_theme_cand = GetConfiguredThemeCand();
             const std::string previous_theme_ftb = GetConfiguredThemeFtb();
             const std::string previous_theme_menu = GetConfiguredThemeMenu();
+            const std::string previous_font = GetConfiguredCandidateFont();
+            const std::string previous_english_font = GetConfiguredCandidateEnglishFont();
+            const std::string previous_default_font = GetConfiguredCandidateDefaultFont();
+            const int previous_font_size = GetConfiguredCandidateFontSize();
+            const std::string previous_cand_text_color = GetConfiguredCandidateTextColor();
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
@@ -1211,6 +1229,14 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     previous_theme_ftb != GetConfiguredThemeFtb() || previous_theme_menu != GetConfiguredThemeMenu())
                 {
                     ApplyConfiguredUiThemes();
+                }
+                else if (previous_font != GetConfiguredCandidateFont() ||
+                         previous_english_font != GetConfiguredCandidateEnglishFont() ||
+                         previous_default_font != GetConfiguredCandidateDefaultFont() ||
+                         previous_font_size != GetConfiguredCandidateFontSize() ||
+                         previous_cand_text_color != GetConfiguredCandidateTextColor())
+                {
+                    ApplyConfiguredCandidateAppearance();
                 }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {

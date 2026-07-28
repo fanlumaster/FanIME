@@ -239,7 +239,14 @@ void PostConfig()
             {"theme_settings", GetConfiguredThemeSettings()},
             {"theme_cand", GetConfiguredThemeCand()},
             {"theme_ftb", GetConfiguredThemeFtb()},
-            {"theme_menu", GetConfiguredThemeMenu()}}},
+            {"theme_menu", GetConfiguredThemeMenu()},
+            {"page_size", GetConfiguredCandidatePageSize()},
+            {"font", GetConfiguredCandidateFont()},
+            {"english_font", GetConfiguredCandidateEnglishFont()},
+            {"default_font", GetConfiguredCandidateDefaultFont()},
+            {"font_size", GetConfiguredCandidateFontSize()},
+            {"cand_text_color", GetConfiguredCandidateTextColor()},
+            {"system_fonts", GetSystemFontFamilies()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
             {"asr_provider", voice.asr_provider}, {"asr_token", voice.asr_token},
@@ -297,6 +304,16 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_preedit_style")
         return SetConfiguredCandidateWindowPreeditStyle(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.page_size")
+        return SetConfiguredCandidatePageSize(static_cast<int>(data.at("value").as_int64()));
+    if (path == "appearance.font")
+        return SetConfiguredCandidateFont(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.english_font")
+        return SetConfiguredCandidateEnglishFont(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.font_size")
+        return SetConfiguredCandidateFontSize(static_cast<int>(data.at("value").as_int64()));
+    if (path == "appearance.cand_text_color")
+        return SetConfiguredCandidateTextColor(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.theme_mode")
         return SetConfiguredThemeMode(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.theme_settings")

@@ -2442,7 +2442,11 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
                           : (is_space ? Global::candidate_ui.selected_index_in_page
                                       : static_cast<int>(keycode - '1'));
     WordItem curWordItem;
-    const bool is_valid_selection = (is_direct_selection || is_space || is_digit_selection) && index >= 0 &&
+    const int page_size = Global::candidate_ui.page_size > 0 ? Global::candidate_ui.page_size
+                                                            : GetConfiguredCandidatePageSize();
+    const bool within_page_size = !is_digit_selection || index < page_size;
+    const bool is_valid_selection = within_page_size &&
+                                    (is_direct_selection || is_space || is_digit_selection) && index >= 0 &&
                                     static_cast<size_t>(index) < Global::candidate_ui.page_words.size() &&
                                     ResolveCandidateItem(index + 1, curWordItem);
 

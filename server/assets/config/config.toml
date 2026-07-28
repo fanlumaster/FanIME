@@ -47,13 +47,17 @@ theme_settings = "follow"
 theme_cand = "follow"
 theme_ftb = "follow"
 theme_menu = "follow"
-# 字体
+# 字体（中文）
 font = "Noto Sans SC"
+# 英文字体（拉丁字母优先使用；汉字仍回落到 font）
+english_font = "Segoe UI"
 # 缺省字体，如果系统中没有找到指定字体，则使用缺省字体
 default_font = "Microsoft YaHei"
-# 字体大小
-font_size = 14
-# 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9, 10
+# 字体大小（px），可选：12–24
+font_size = 16
+# 候选文字颜色，"auto" 跟随主题，或 #RRGGBB
+cand_text_color = "auto"
+# 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9
 page_size = 8
 # 候选窗口跟随光标
 candidate_window_follow_cursor = true
