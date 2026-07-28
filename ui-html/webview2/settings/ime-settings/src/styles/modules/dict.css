@@ -15,7 +15,31 @@
 
 .dict-hans-import-section .dict-button {
   flex-shrink: 0;
-  min-width: 88px;
+  min-width: 68px;
+}
+
+.dict-export-section {
+  padding-top: 18px;
+  padding-bottom: 0;
+}
+
+.dict-export-title {
+  padding-bottom: 14px;
+}
+
+.dict-export-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 62px;
+  border-top: 1px solid var(--divider-color);
+  color: var(--text-color);
+}
+
+.dict-export-row .dict-button {
+  flex-shrink: 0;
+  min-width: 68px;
 }
 
 .dict-tabs {
@@ -42,6 +66,7 @@
 
 .dict-toolbar {
   display: flex;
+  align-items: center;
   gap: 10px;
   padding: 20px 22px 10px;
 }
@@ -75,12 +100,13 @@
 }
 
 .dict-button {
-  height: 42px;
-  padding: 0 18px;
+  height: 34px;
+  padding: 0 13px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #fff;
   font: inherit;
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
 }

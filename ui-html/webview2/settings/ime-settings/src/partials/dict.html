@@ -32,6 +32,26 @@
   </div>
   <input id="dictImportHansFile" type="file" accept=".txt,text/plain" hidden>
 
+  <div class="section dict-export-section">
+    <div class="section-title dict-export-title">导出词库</div>
+    <div class="dict-export-row">
+      <span>导出拼音用户词库</span>
+      <button class="dict-button primary" type="button" data-export-dictionary="quanpin">导出</button>
+    </div>
+    <div class="dict-export-row">
+      <span>导出五笔用户词库</span>
+      <button class="dict-button primary" type="button" data-export-dictionary="wubi">导出</button>
+    </div>
+    <div class="dict-export-row">
+      <span>导出英文用户词库</span>
+      <button class="dict-button primary" type="button" data-export-dictionary="english">导出</button>
+    </div>
+    <div class="dict-export-row">
+      <span>导出快捷短语用户词库</span>
+      <button class="dict-button primary" type="button" data-export-dictionary="quick">导出</button>
+    </div>
+  </div>
+
   <div id="dictModal" class="dict-modal" aria-hidden="true">
     <div class="dict-dialog" role="dialog" aria-modal="true">
       <div class="dict-dialog-title" id="dictDialogTitle">新增词条</div>

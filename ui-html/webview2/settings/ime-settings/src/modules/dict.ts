@@ -130,6 +130,21 @@ function query(): void {
   post('query', dictionary === 'english' ? { word: lastQuery } : { code: lastQuery });
 }
 
+function downloadExport(content: string, filename: string): void {
+  const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), content], {
+    type: 'text/plain;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function setupDictionary(): void {
   document.querySelectorAll<HTMLButtonElement>('.dict-tab').forEach((tab) => tab.addEventListener('click', () => {
     document.querySelector('.dict-tab.active')?.classList.remove('active'); tab.classList.add('active');
@@ -171,6 +186,13 @@ export function setupDictionary(): void {
       showToast('读取文件失败', false);
     }
   });
+  document.querySelectorAll<HTMLButtonElement>('[data-export-dictionary]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const exportDictionary = button.dataset.exportDictionary as DictionaryType | 'quick' | undefined;
+      if (!exportDictionary) return;
+      post('export', { dictionary: exportDictionary });
+    });
+  });
   document.getElementById('dictCancelButton')?.addEventListener('click', closeDialog);
   document.getElementById('dictToastClose')?.addEventListener('click', () => {
     document.getElementById('dictToast')?.classList.remove('visible');
@@ -197,13 +219,17 @@ export function setupDictionary(): void {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
     const isImport = lastAction === 'import' || lastAction === 'importHans';
+    const isExport = lastAction === 'export';
+    if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {
+      downloadExport(payload.content, payload.filename);
+    }
     showToast(
       payload.message ?? (payload.ok ? '操作成功' : '操作失败'),
       Boolean(payload.ok),
       isImport ? 5600 : 3200,
     );
     if (Array.isArray(payload.rows)) renderRows(payload.rows);
-    if (payload.ok && lastAction !== 'query') { closeDialog(); if (lastQuery) query(); }
+    if (payload.ok && lastAction !== 'query' && !isExport) { closeDialog(); if (lastQuery) query(); }
   });
   updateMode();
 }
