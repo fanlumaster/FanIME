@@ -3,6 +3,12 @@
 .floating-toolbar-description { margin-top: 6px; color: var(--text-muted); font-size: 12px; }
 .floating-toolbar-preview { min-height: 190px; padding: 20px 24px 30px; border-top: 1px solid var(--border-color); background: var(--surface-subtle); }
 .floating-toolbar-preview-label { margin-bottom: 28px; color: var(--text-muted); font-size: 12px; }
+.floating-toolbar-components { overflow: hidden; }
+.floating-toolbar-component-list { padding: 0 20px 10px; }
+.floating-toolbar-component-list .check-option { min-height: 34px; padding: 8px 4px; }
+.floating-toolbar-required-option { cursor: default; }
+.floating-toolbar-required-option input:disabled { opacity: 0.72; }
+.floating-toolbar-required-label { margin-left: auto; color: var(--text-muted) !important; font-size: 12px !important; }
 .ftb-preview-host { display: flex; justify-content: center; padding: 14px 0 22px; pointer-events: none; }
 .ftb-preview-host .status-bar { position: relative; display: flex; align-items: center; height: 35px; padding: 0 4px 0 8px; gap: 6px; background-color: #1a1a1a; border: 1.4px solid rgba(255, 255, 255, 0.15); border-radius: 8px; box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); }
 .ftb-preview-host .drag-handle { position: relative; width: 2.5px; height: 14px; margin-right: 0; border-radius: 2px; background: #8e8cd8; }
@@ -38,4 +44,3 @@ html[data-theme="light"] .floating-toolbar-description,
 html[data-theme="light"] .floating-toolbar-preview-label {
   color: var(--text-muted);
 }
-

@@ -1,5 +1,7 @@
 import { syncSkinPreviewTheme } from './skin';
 import { onCandidateSurfaceThemeChanged } from './appearance';
+import { applyScreenKeyboardPreviewTheme } from './screenkb-settings';
+import { applyHandwritingPreviewTheme } from './handwriting-settings';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 export type SurfaceTheme = 'follow' | 'dark' | 'light';
@@ -11,6 +13,10 @@ export type ThemeConfig = {
   theme_cand?: string;
   theme_ftb?: string;
   theme_menu?: string;
+  theme_emoji?: string;
+  theme_screen_keyboard?: string;
+  theme_handwriting?: string;
+  theme_voice?: string;
 };
 
 const THEME_MODE_LABELS: Record<ThemeMode, string> = {
@@ -102,12 +108,22 @@ export function applyThemeConfig(config: ThemeConfig | undefined): void {
   applyDocumentTheme(settingsResolved);
   applyCandidatePreviewTheme(candResolved);
   applyFtbPreviewTheme(resolveTheme(mode, normalizeSurfaceTheme(config?.theme_ftb)));
+  applyScreenKeyboardPreviewTheme(
+    resolveTheme(mode, normalizeSurfaceTheme(config?.theme_screen_keyboard))
+  );
+  applyHandwritingPreviewTheme(
+    resolveTheme(mode, normalizeSurfaceTheme(config?.theme_handwriting))
+  );
 
   applyDropdownLabel('themeBtn', THEME_MODE_LABELS[mode]);
   applyDropdownLabel('settingsThemeBtn', SURFACE_THEME_LABELS[settingsTheme]);
   applyDropdownLabel('candThemeBtn', SURFACE_THEME_LABELS[candTheme]);
   applyDropdownLabel('ftbThemeBtn', SURFACE_THEME_LABELS[normalizeSurfaceTheme(config?.theme_ftb)]);
   applyDropdownLabel('menuThemeBtn', SURFACE_THEME_LABELS[normalizeSurfaceTheme(config?.theme_menu)]);
+  applyDropdownLabel('emojiThemeBtn', SURFACE_THEME_LABELS[normalizeSurfaceTheme(config?.theme_emoji)]);
+  applyDropdownLabel('screenKeyboardThemeBtn', SURFACE_THEME_LABELS[normalizeSurfaceTheme(config?.theme_screen_keyboard)]);
+  applyDropdownLabel('handwritingThemeBtn', SURFACE_THEME_LABELS[normalizeSurfaceTheme(config?.theme_handwriting)]);
+  applyDropdownLabel('voiceThemeBtn', SURFACE_THEME_LABELS[normalizeSurfaceTheme(config?.theme_voice)]);
 
   ensureSystemThemeListener(() => {
     const modeNow = normalizeThemeMode(config?.theme_mode);
@@ -115,11 +131,19 @@ export function applyThemeConfig(config: ThemeConfig | undefined): void {
     const candNow = normalizeSurfaceTheme(config?.theme_cand);
     const ftbNow = normalizeSurfaceTheme(config?.theme_ftb);
     const menuNow = normalizeSurfaceTheme(config?.theme_menu);
+    const emojiNow = normalizeSurfaceTheme(config?.theme_emoji);
+    const screenKeyboardNow = normalizeSurfaceTheme(config?.theme_screen_keyboard);
+    const handwritingNow = normalizeSurfaceTheme(config?.theme_handwriting);
+    const voiceNow = normalizeSurfaceTheme(config?.theme_voice);
     if (modeNow !== 'system' &&
         settingsNow !== 'follow' &&
         candNow !== 'follow' &&
         ftbNow !== 'follow' &&
-        menuNow !== 'follow') {
+        menuNow !== 'follow' &&
+        emojiNow !== 'follow' &&
+        screenKeyboardNow !== 'follow' &&
+        handwritingNow !== 'follow' &&
+        voiceNow !== 'follow') {
       return;
     }
     applyThemeConfig(config);
@@ -166,13 +190,17 @@ export function setThemeMode(value: string | undefined): void {
     theme_settings: readSurfaceFromUi('settingsThemeMenu', 'settingsThemeBtn'),
     theme_cand: readSurfaceFromUi('candThemeMenu', 'candThemeBtn'),
     theme_ftb: readSurfaceFromUi('ftbThemeMenu', 'ftbThemeBtn'),
-    theme_menu: readSurfaceFromUi('menuThemeMenu', 'menuThemeBtn')
+    theme_menu: readSurfaceFromUi('menuThemeMenu', 'menuThemeBtn'),
+    theme_emoji: readSurfaceFromUi('emojiThemeMenu', 'emojiThemeBtn'),
+    theme_screen_keyboard: readSurfaceFromUi('screenKeyboardThemeMenu', 'screenKeyboardThemeBtn'),
+    theme_handwriting: readSurfaceFromUi('handwritingThemeMenu', 'handwritingThemeBtn'),
+    theme_voice: readSurfaceFromUi('voiceThemeMenu', 'voiceThemeBtn')
   };
   applyThemeConfig(current);
 }
 
 export function setSurfaceTheme(
-  surface: 'settings' | 'cand' | 'ftb' | 'menu',
+  surface: 'settings' | 'cand' | 'ftb' | 'menu' | 'emoji' | 'screenKeyboard' | 'handwriting' | 'voice',
   value: string | undefined
 ): void {
   const current: ThemeConfig = {
@@ -180,13 +208,21 @@ export function setSurfaceTheme(
     theme_settings: readSurfaceFromUi('settingsThemeMenu', 'settingsThemeBtn'),
     theme_cand: readSurfaceFromUi('candThemeMenu', 'candThemeBtn'),
     theme_ftb: readSurfaceFromUi('ftbThemeMenu', 'ftbThemeBtn'),
-    theme_menu: readSurfaceFromUi('menuThemeMenu', 'menuThemeBtn')
+    theme_menu: readSurfaceFromUi('menuThemeMenu', 'menuThemeBtn'),
+    theme_emoji: readSurfaceFromUi('emojiThemeMenu', 'emojiThemeBtn'),
+    theme_screen_keyboard: readSurfaceFromUi('screenKeyboardThemeMenu', 'screenKeyboardThemeBtn'),
+    theme_handwriting: readSurfaceFromUi('handwritingThemeMenu', 'handwritingThemeBtn'),
+    theme_voice: readSurfaceFromUi('voiceThemeMenu', 'voiceThemeBtn')
   };
 
   if (surface === 'settings') current.theme_settings = normalizeSurfaceTheme(value);
   if (surface === 'cand') current.theme_cand = normalizeSurfaceTheme(value);
   if (surface === 'ftb') current.theme_ftb = normalizeSurfaceTheme(value);
   if (surface === 'menu') current.theme_menu = normalizeSurfaceTheme(value);
+  if (surface === 'emoji') current.theme_emoji = normalizeSurfaceTheme(value);
+  if (surface === 'screenKeyboard') current.theme_screen_keyboard = normalizeSurfaceTheme(value);
+  if (surface === 'handwriting') current.theme_handwriting = normalizeSurfaceTheme(value);
+  if (surface === 'voice') current.theme_voice = normalizeSurfaceTheme(value);
 
   applyThemeConfig(current);
 }

@@ -61,6 +61,18 @@ export function setupDropdownMenu(
       case 'changeMenuTheme':
         setSurfaceTheme('menu', item.dataset.value);
         break;
+      case 'changeEmojiTheme':
+        setSurfaceTheme('emoji', item.dataset.value);
+        break;
+      case 'changeScreenKeyboardTheme':
+        setSurfaceTheme('screenKeyboard', item.dataset.value);
+        break;
+      case 'changeHandwritingTheme':
+        setSurfaceTheme('handwriting', item.dataset.value);
+        break;
+      case 'changeVoiceTheme':
+        setSurfaceTheme('voice', item.dataset.value);
+        break;
       case 'changeCandidateArrange':
         applyCandidateArrange(item.dataset.value);
         break;

@@ -236,6 +236,10 @@ export async function setupAppearance() {
   setupDropdownMenu('candThemeBtn', 'candThemeMenu', 'changeCandTheme', false, 'appearance.theme_cand');
   setupDropdownMenu('ftbThemeBtn', 'ftbThemeMenu', 'changeFtbTheme', false, 'appearance.theme_ftb');
   setupDropdownMenu('menuThemeBtn', 'menuThemeMenu', 'changeMenuTheme', false, 'appearance.theme_menu');
+  setupDropdownMenu('emojiThemeBtn', 'emojiThemeMenu', 'changeEmojiTheme', false, 'appearance.theme_emoji');
+  setupDropdownMenu('screenKeyboardThemeBtn', 'screenKeyboardThemeMenu', 'changeScreenKeyboardTheme', false, 'appearance.theme_screen_keyboard');
+  setupDropdownMenu('handwritingThemeBtn', 'handwritingThemeMenu', 'changeHandwritingTheme', false, 'appearance.theme_handwriting');
+  setupDropdownMenu('voiceThemeBtn', 'voiceThemeMenu', 'changeVoiceTheme', false, 'appearance.theme_voice');
 
   // 候选项排列方式
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');

@@ -3,6 +3,7 @@ import { applyAppearanceConfig, updateCandidatePreviewHelpcode } from './appeara
 import { applyFrequencyConfig, applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
+import { applyFloatingToolbarItemsConfig } from './floating-toolbar';
 
 function safeParseJson(value: string): unknown {
   try {
@@ -32,7 +33,11 @@ export function setupConfigSync(): void {
         theme_settings: payload.data?.appearance?.theme_settings,
         theme_cand: payload.data?.appearance?.theme_cand,
         theme_ftb: payload.data?.appearance?.theme_ftb,
-        theme_menu: payload.data?.appearance?.theme_menu
+        theme_menu: payload.data?.appearance?.theme_menu,
+        theme_emoji: payload.data?.appearance?.theme_emoji,
+        theme_screen_keyboard: payload.data?.appearance?.theme_screen_keyboard,
+        theme_handwriting: payload.data?.appearance?.theme_handwriting,
+        theme_voice: payload.data?.appearance?.theme_voice
       },
       {
         font: payload.data?.appearance?.font,
@@ -73,6 +78,14 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
+    applyFloatingToolbarItemsConfig({
+      fullwidth: payload.data?.general?.floating_toolbar_fullwidth,
+      punctuation: payload.data?.general?.floating_toolbar_punctuation,
+      character_set: payload.data?.general?.floating_toolbar_character_set,
+      emoji: payload.data?.general?.floating_toolbar_emoji,
+      screen_keyboard: payload.data?.general?.floating_toolbar_screen_keyboard,
+      settings: payload.data?.general?.floating_toolbar_settings
+    });
     if (typeof payload.data?.general?.cn_en_mixed_input === 'boolean') {
       applyToggleState('zhEnToggleBtn', payload.data.general.cn_en_mixed_input);
     }
