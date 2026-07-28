@@ -181,6 +181,21 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
         GetWindowRect(hwnd, &rc);
         posX = rc.left;
         posY = rc.top;
+
+        // When optional buttons are added, the toolbar grows to the right from
+        // the existing top-left. Clamp it back onto the current monitor so the
+        // resized host stays fully reachable.
+        HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO monitorInfo{sizeof(monitorInfo)};
+        if (monitor && GetMonitorInfo(monitor, &monitorInfo))
+        {
+            const int monitorLeft = static_cast<int>(monitorInfo.rcMonitor.left);
+            const int monitorTop = static_cast<int>(monitorInfo.rcMonitor.top);
+            const int maxX = static_cast<int>(monitorInfo.rcMonitor.right) - width;
+            const int maxY = static_cast<int>(monitorInfo.rcMonitor.bottom) - height;
+            posX = (std::max)(monitorLeft, (std::min)(posX, maxX));
+            posY = (std::max)(monitorTop, (std::min)(posY, maxY));
+        }
     }
     // Never touch Z-order here: HWND_TOP would cover an open tray menu. Topmost
     // for the toolbar is owned by EnsureSmallWindowsTopmost / lazy pin order.
