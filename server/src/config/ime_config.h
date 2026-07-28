@@ -102,6 +102,17 @@ bool GetConfiguredShowQuanpinHelpcodeInCandidateWindow();
 bool SetConfiguredShowQuanpinHelpcodeInCandidateWindow(bool enabled);
 bool GetConfiguredFloatingToolbarEnabled();
 bool SetConfiguredFloatingToolbarEnabled(bool enabled);
+struct FloatingToolbarItemsConfig
+{
+    bool fullwidth = true;
+    bool punctuation = true;
+    bool character_set = true;
+    bool emoji = true;
+    bool screen_keyboard = false;
+    bool settings = true;
+};
+const FloatingToolbarItemsConfig &GetConfiguredFloatingToolbarItems();
+bool SetConfiguredFloatingToolbarItemEnabled(const std::string &item, bool enabled);
 bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
 bool GetConfiguredCloudCandidatesEnabled();

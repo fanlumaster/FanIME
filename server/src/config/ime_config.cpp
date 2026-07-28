@@ -34,6 +34,7 @@ std::string g_quanpin_helpcode_schema = "lantian";
 bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
+FloatingToolbarItemsConfig g_floating_toolbar_items;
 bool g_english_candidates_enabled = false;
 bool g_cloud_candidates_enabled = true;
 bool g_unicode_mode_enabled = true;
@@ -297,6 +298,18 @@ bool LoadImeConfig()
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
+        g_floating_toolbar_items.fullwidth =
+            tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
+        g_floating_toolbar_items.punctuation =
+            tbl["general"]["floating_toolbar_punctuation"].value_or(true);
+        g_floating_toolbar_items.character_set =
+            tbl["general"]["floating_toolbar_character_set"].value_or(true);
+        g_floating_toolbar_items.emoji =
+            tbl["general"]["floating_toolbar_emoji"].value_or(true);
+        g_floating_toolbar_items.screen_keyboard =
+            tbl["general"]["floating_toolbar_screen_keyboard"].value_or(false);
+        g_floating_toolbar_items.settings =
+            tbl["general"]["floating_toolbar_settings"].value_or(true);
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
         g_unicode_mode_enabled = tbl["utility"]["unicode_mode"].value_or(true);
@@ -903,6 +916,35 @@ bool SetConfiguredFloatingToolbarEnabled(bool enabled)
         return false;
     }
     g_floating_toolbar_enabled = enabled;
+    return true;
+}
+
+const FloatingToolbarItemsConfig &GetConfiguredFloatingToolbarItems()
+{
+    return g_floating_toolbar_items;
+}
+
+bool SetConfiguredFloatingToolbarItemEnabled(const std::string &item, bool enabled)
+{
+    bool *target = nullptr;
+    if (item == "fullwidth")
+        target = &g_floating_toolbar_items.fullwidth;
+    else if (item == "punctuation")
+        target = &g_floating_toolbar_items.punctuation;
+    else if (item == "character_set")
+        target = &g_floating_toolbar_items.character_set;
+    else if (item == "emoji")
+        target = &g_floating_toolbar_items.emoji;
+    else if (item == "screen_keyboard")
+        target = &g_floating_toolbar_items.screen_keyboard;
+    else if (item == "settings")
+        target = &g_floating_toolbar_items.settings;
+    else
+        return false;
+
+    if (!WriteConfiguredValue("general", "floating_toolbar_" + item, enabled ? "true" : "false"))
+        return false;
+    *target = enabled;
     return true;
 }
 

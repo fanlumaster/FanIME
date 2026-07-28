@@ -12,6 +12,13 @@ theme = "dark"
 [general]
 # 悬浮工具栏
 floating_toolbar = true
+# 悬浮工具栏组件（中英文切换始终显示）
+floating_toolbar_fullwidth = true
+floating_toolbar_punctuation = true
+floating_toolbar_character_set = true
+floating_toolbar_emoji = true
+floating_toolbar_screen_keyboard = false
+floating_toolbar_settings = true
 # Emoji
 enable_emoji = true
 # 翻页方式

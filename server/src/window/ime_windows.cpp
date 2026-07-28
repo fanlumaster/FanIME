@@ -44,6 +44,33 @@ bool g_is_ime_active = false;
 // Drop stale FineTune measure callbacks when a newer show/update supersedes them.
 std::atomic<uint64_t> g_candidate_finetune_generation{0};
 
+int ConfiguredFloatingToolbarWidth()
+{
+    const FloatingToolbarItemsConfig &items = GetConfiguredFloatingToolbarItems();
+    const int optional_item_count =
+        static_cast<int>(items.fullwidth) +
+        static_cast<int>(items.punctuation) +
+        static_cast<int>(items.character_set) +
+        static_cast<int>(items.emoji) +
+        static_cast<int>(items.screen_keyboard) +
+        static_cast<int>(items.settings);
+    // 57 DIPs covers the drag handle, divider, mandatory CN/EN button and
+    // container padding. Each optional button adds 24 DIPs plus the 6-DIP gap.
+    return 57 + optional_item_count * 30;
+}
+
+bool FloatingToolbarItemsEqual(
+    const FloatingToolbarItemsConfig &left,
+    const FloatingToolbarItemsConfig &right)
+{
+    return left.fullwidth == right.fullwidth &&
+           left.punctuation == right.punctuation &&
+           left.character_set == right.character_set &&
+           left.emoji == right.emoji &&
+           left.screen_keyboard == right.screen_keyboard &&
+           left.settings == right.settings;
+}
+
 void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
 {
     if (!controller || !hwnd)
@@ -69,6 +96,7 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
     {
         return;
     }
+    ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
     const FLOAT scale = GetWindowScale(hwnd);
     const int width = static_cast<int>(std::lround((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale));
     const int height = static_cast<int>(std::lround((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale));
@@ -275,6 +303,12 @@ void ApplyConfiguredFloatingToolbarVisibility()
     }
 }
 
+void ApplyConfiguredFloatingToolbarSize()
+{
+    ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
+    LayoutFloatingToolbar(::global_hwnd_ftb, false);
+}
+
 void ApplyConfiguredInputScheme()
 {
     FanyNamedPipe::EnqueueReloadInputSessionTask();
@@ -406,6 +440,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // floating toolbar 窗口
     //
+    ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
     dwExStyle = WS_EX_LAYERED |                              //
                 WS_EX_TOOLWINDOW |                           //
                 WS_EX_NOACTIVATE;                            //
@@ -667,6 +702,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
+            const FloatingToolbarItemsConfig previous_floating_toolbar_items =
+                GetConfiguredFloatingToolbarItems();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
@@ -710,6 +747,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 {
                     ApplyConfiguredFloatingToolbarVisibility();
                     SyncMenuFloatingToolbarToggle();
+                }
+                if (!FloatingToolbarItemsEqual(
+                        previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
+                {
+                    ApplyConfiguredFloatingToolbarItems();
                 }
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                     FanyNamedPipe::CancelCloudCandidateRequest();
@@ -1193,6 +1235,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
+            const FloatingToolbarItemsConfig previous_floating_toolbar_items =
+                GetConfiguredFloatingToolbarItems();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
@@ -1242,6 +1286,11 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 {
                     ApplyConfiguredFloatingToolbarVisibility();
                     SyncMenuFloatingToolbarToggle();
+                }
+                if (!FloatingToolbarItemsEqual(
+                        previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
+                {
+                    ApplyConfiguredFloatingToolbarItems();
                 }
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                 {

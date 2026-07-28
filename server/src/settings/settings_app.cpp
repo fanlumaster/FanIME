@@ -21,6 +21,7 @@
 #include <cmath>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 #pragma comment(lib, "dcomp.lib")
 #pragma comment(lib, "dwmapi.lib")
@@ -208,6 +209,7 @@ void PostConfig()
     const VoiceInputConfig &voice = GetConfiguredVoiceInput();
     const AiAssistantConfig &ai = GetConfiguredAiAssistant();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
+    const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -218,6 +220,12 @@ void PostConfig()
             {"wubi_schema", GetConfiguredWubiSchema()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+            {"floating_toolbar_fullwidth", toolbar.fullwidth},
+            {"floating_toolbar_punctuation", toolbar.punctuation},
+            {"floating_toolbar_character_set", toolbar.character_set},
+            {"floating_toolbar_emoji", toolbar.emoji},
+            {"floating_toolbar_screen_keyboard", toolbar.screen_keyboard},
+            {"floating_toolbar_settings", toolbar.settings},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
@@ -338,6 +346,10 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredThemeVoice(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
+    constexpr std::string_view toolbar_prefix = "general.floating_toolbar_";
+    if (path.rfind(toolbar_prefix, 0) == 0)
+        return SetConfiguredFloatingToolbarItemEnabled(
+            path.substr(toolbar_prefix.size()), json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")
         return SetConfiguredEnglishCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cloud_candidates")

@@ -26,6 +26,7 @@ namespace json = boost::json;
 
 int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility();
+void ApplyConfiguredFloatingToolbarSize();
 void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
@@ -236,6 +237,28 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
         script.append(L"document.getElementById('character-set-simplified').style.display = 'flex';");
         script.append(L"document.getElementById('character-set-traditional').style.display = 'none';");
     }
+
+    const FloatingToolbarItemsConfig &items = GetConfiguredFloatingToolbarItems();
+    script.append(L"window.setToolbarItem=(id,shown)=>{const item=document.getElementById(id);"
+                  L"if(item)item.style.display=shown?'flex':'none';};");
+    script.append(items.fullwidth
+                      ? L"window.setToolbarItem('char-width-mode',true);"
+                      : L"window.setToolbarItem('char-width-mode',false);");
+    script.append(items.punctuation
+                      ? L"window.setToolbarItem('punctuation-mode',true);"
+                      : L"window.setToolbarItem('punctuation-mode',false);");
+    script.append(items.character_set
+                      ? L"window.setToolbarItem('character-set',true);"
+                      : L"window.setToolbarItem('character-set',false);");
+    script.append(items.emoji
+                      ? L"window.setToolbarItem('emoji-panel',true);"
+                      : L"window.setToolbarItem('emoji-panel',false);");
+    script.append(items.screen_keyboard
+                      ? L"window.setToolbarItem('screen-keyboard',true);"
+                      : L"window.setToolbarItem('screen-keyboard',false);");
+    script.append(items.settings
+                      ? L"window.setToolbarItem('settings',true);"
+                      : L"window.setToolbarItem('settings',false);");
 
     webview->ExecuteScript(script.c_str(), nullptr);
 }
@@ -1816,6 +1839,17 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path.rfind("general.floating_toolbar_", 0) == 0)
+                            {
+                                const std::string item =
+                                    path.substr(std::string("general.floating_toolbar_").size());
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredFloatingToolbarItemEnabled(item, value))
+                                {
+                                    ApplyConfiguredFloatingToolbarItems();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.cn_en_mixed_input")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2043,6 +2077,7 @@ void PostSettingsConfig()
         return;
     }
 
+    const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
@@ -2050,6 +2085,12 @@ void PostSettingsConfig()
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
                                 {"wubi_schema", GetConfiguredWubiSchema()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+                                {"floating_toolbar_fullwidth", toolbar.fullwidth},
+                                {"floating_toolbar_punctuation", toolbar.punctuation},
+                                {"floating_toolbar_character_set", toolbar.character_set},
+                                {"floating_toolbar_emoji", toolbar.emoji},
+                                {"floating_toolbar_screen_keyboard", toolbar.screen_keyboard},
+                                {"floating_toolbar_settings", toolbar.settings},
                                 {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
                                 {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
                                 {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
@@ -2225,20 +2266,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 {
                     NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
                     RenderFloatingToolbarState(sender);
-                    // The toolbar template's smiley button is the second-to-last
-                    // direct icon in the right section. Keep the shipped HTML and
-                    // SVG styling untouched and add only the native launch bridge.
-                    sender->ExecuteScript(
-                        LR"((() => {
-                            const emojiButton = document.querySelector('.right-section > .icon:nth-last-of-type(2)');
-                            if (emojiButton && !emojiButton.dataset.nativeEmojiLauncher) {
-                                emojiButton.dataset.nativeEmojiLauncher = 'true';
-                                emojiButton.addEventListener('click', () => {
-                                    window.chrome.webview.postMessage(JSON.stringify({ type: 'openEmojiPanel' }));
-                                });
-                            }
-                        })())",
-                        nullptr);
+                    ApplyConfiguredFloatingToolbarSize();
                 }
                 else
                 {
@@ -2373,6 +2401,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         (void)0;
 #endif
                         OpenEmojiPanelApplication();
+                    }
+                    else if (type == "openKeyboardPanel")
+                    {
+                        OpenKeyboardPanelApplication();
                     }
                 }
 
@@ -2596,4 +2628,10 @@ void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSin
 void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview)
 {
     RenderFloatingToolbarState(webview.Get());
+}
+
+void ApplyConfiguredFloatingToolbarItems()
+{
+    RenderFloatingToolbarState(::webviewFtbWnd.Get());
+    ApplyConfiguredFloatingToolbarSize();
 }
