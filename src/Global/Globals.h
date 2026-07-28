@@ -107,6 +107,7 @@ extern const CLSID MetasequoiaIMECLSID;
 extern const GUID MetasequoiaIMEGuidProfile;
 extern const GUID MetasequoiaIMEGuidImeModePreserveKey;
 extern const GUID MetasequoiaIMEGuidImeModePreserveKey02;
+extern const GUID MetasequoiaIMEGuidImeModePreserveKey03;
 extern const GUID MetasequoiaIMEGuidDoubleSingleBytePreserveKey;
 extern const GUID MetasequoiaIMEGuidPunctuationPreserveKey;
 
@@ -143,6 +144,7 @@ extern const WCHAR StringDelimiter;
 
 extern const WCHAR ImeModeDescription[];
 extern const WCHAR ImeModeDescription02[];
+extern const WCHAR ImeModeDescription03[];
 extern const int ImeModeOnIcoIndex;
 extern const int ImeModeOffIcoIndex;
 

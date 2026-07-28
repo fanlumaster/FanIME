@@ -504,11 +504,17 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
     DWORD status = 0;
     GetStatus(&status);
 
-    // If IME is working on the UAC mode, the size of ICON should be 24 x 24.
-    int desiredSize = 16;
-    if (_isSecureMode) // detect UAC mode
+    // Use the system small-icon size so HiDPI taskbars get 20/24/32px assets
+    // instead of upscaling a forced 16x16 (which looks blurry).
+    int desiredSize = GetSystemMetrics(SM_CXSMICON);
+    if (desiredSize <= 0)
     {
-        desiredSize = _isSecureMode ? 24 : 16;
+        desiredSize = 16;
+    }
+    // UAC/secure desktop historically expects at least 24x24.
+    if (_isSecureMode && desiredSize < 24)
+    {
+        desiredSize = 24;
     }
 
     const DWORD iconIndex =

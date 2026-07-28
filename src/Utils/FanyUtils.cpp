@@ -43,18 +43,40 @@ std::string UnquoteTomlBasicString(const std::string &value)
     }
     return value;
 }
-} // namespace
 
-BOOL ReadConfiguredDefaultImeModeChinese()
+bool ParseTomlBool(const std::string &raw, bool fallback)
+{
+    const std::string value = to_lower_copy(UnquoteTomlBasicString(TrimAscii(raw)));
+    if (value == "true" || value == "1")
+    {
+        return true;
+    }
+    if (value == "false" || value == "0")
+    {
+        return false;
+    }
+    return fallback;
+}
+
+std::string SharedConfigPath()
 {
     const char *localAppDataPath = std::getenv("LOCALAPPDATA");
     if (!localAppDataPath)
     {
+        return {};
+    }
+    return std::string(localAppDataPath) + "\\metasequoiaime\\config.toml";
+}
+} // namespace
+
+BOOL ReadConfiguredDefaultImeModeChinese()
+{
+    const std::string configPath = SharedConfigPath();
+    if (configPath.empty())
+    {
         return TRUE;
     }
 
-    // Shared with MetasequoiaImeServer: %LOCALAPPDATA%\metasequoiaime\config.toml
-    const std::string configPath = std::string(localAppDataPath) + "\\metasequoiaime\\config.toml";
     std::ifstream input(configPath);
     if (!input)
     {
@@ -98,6 +120,81 @@ BOOL ReadConfiguredDefaultImeModeChinese()
         return value != "english";
     }
     return TRUE;
+}
+
+SwitchLanguageHotkeys ReadConfiguredSwitchLanguageHotkeys()
+{
+    SwitchLanguageHotkeys result;
+    const std::string configPath = SharedConfigPath();
+    if (configPath.empty())
+    {
+        return result;
+    }
+
+    std::ifstream input(configPath);
+    if (!input)
+    {
+        return result;
+    }
+
+    bool inKeybindings = false;
+    bool sawShift = false;
+    bool sawCtrl = false;
+    bool sawCtrlAltSpace = false;
+    std::string line;
+    while (std::getline(input, line))
+    {
+        const size_t comment = line.find('#');
+        if (comment != std::string::npos)
+        {
+            line = line.substr(0, comment);
+        }
+        line = TrimAscii(line);
+        if (line.empty())
+        {
+            continue;
+        }
+        if (line.front() == '[' && line.back() == ']')
+        {
+            inKeybindings = (line == "[keybindings]");
+            continue;
+        }
+        if (!inKeybindings)
+        {
+            continue;
+        }
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos)
+        {
+            continue;
+        }
+        const std::string key = TrimAscii(line.substr(0, eq));
+        const std::string raw = line.substr(eq + 1);
+        if (key == "switch_language_shift")
+        {
+            result.shift = ParseTomlBool(raw, true);
+            sawShift = true;
+        }
+        else if (key == "switch_language_ctrl")
+        {
+            result.ctrl = ParseTomlBool(raw, false);
+            sawCtrl = true;
+        }
+        else if (key == "switch_language_ctrl_alt_space")
+        {
+            result.ctrl_alt_space = ParseTomlBool(raw, true);
+            sawCtrlAltSpace = true;
+        }
+        else if (key == "switch_language" && !sawShift && !sawCtrlAltSpace)
+        {
+            // Legacy array: switch_language = ["Ctrl+Space", "Shift"]
+            result.shift = raw.find("Shift") != std::string::npos;
+            result.ctrl_alt_space = raw.find("Ctrl+Alt+Space") != std::string::npos ||
+                                    raw.find("Ctrl+Space") != std::string::npos;
+        }
+    }
+    (void)sawCtrl;
+    return result;
 }
 
 void SendKeys(std::wstring pinyin)

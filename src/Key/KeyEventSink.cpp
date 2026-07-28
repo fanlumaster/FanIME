@@ -1764,7 +1764,8 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
             _acknowledgedWorkerFocusToken.load(std::memory_order_acquire) !=
                 expectedToken;
         if (isShift && Global::PureShiftKeyUp && transportUnavailable &&
-            _pCompositionProcessorEngine && _DeferredKeyQueueHasCapacity())
+            _pCompositionProcessorEngine && _DeferredKeyQueueHasCapacity() &&
+            FanyUtils::ReadConfiguredSwitchLanguageHotkeys().shift)
         {
             // A preserved Shift is not delivered while the reconnect barrier
             // owns the keystroke stream. Apply the local compartment toggle

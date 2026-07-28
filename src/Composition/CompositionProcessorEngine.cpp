@@ -735,6 +735,16 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
         &_PreservedKey_IMEMode02                        //
     );
 
+    TF_PRESERVEDKEY preservedKeyImeMode03;
+    preservedKeyImeMode03.uVKey = VK_CONTROL;
+    preservedKeyImeMode03.uModifiers = _TF_MOD_ON_KEYUP_CONTROL_ONLY;
+    SetPreservedKey(                                    //
+        Global::MetasequoiaIMEGuidImeModePreserveKey03, //
+        preservedKeyImeMode03,                          //
+        Global::ImeModeDescription03,                   //
+        &_PreservedKey_IMEMode03                        //
+    );
+
     TF_PRESERVEDKEY preservedKeyDoubleSingleByte;
     preservedKeyDoubleSingleByte.uVKey = VK_SPACE;
     preservedKeyDoubleSingleByte.uModifiers = TF_MOD_SHIFT | TF_MOD_CONTROL;
@@ -755,9 +765,10 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
         &_PreservedKey_Punctuation                        //
     );
 
-    /* Shift or Ctrl + Alt + Space: toggle IME mode, cn/en */
+    /* Shift / Ctrl / Ctrl+Alt+Space: toggle IME mode, cn/en */
     InitPreservedKey(&_PreservedKey_IMEMode, pThreadMgr, tfClientId);
     InitPreservedKey(&_PreservedKey_IMEMode02, pThreadMgr, tfClientId);
+    InitPreservedKey(&_PreservedKey_IMEMode03, pThreadMgr, tfClientId);
     /* Shift + Ctrl + Space: toggle DoubleSingleByte */
     InitPreservedKey(&_PreservedKey_DoubleSingleByte, pThreadMgr, tfClientId);
     /* Ctrl + .: toggle Punctuation */
@@ -872,13 +883,18 @@ BOOL CCompositionProcessorEngine::CheckShiftKeyOnly(_In_ CMetasequoiaImeArray<TF
 
 BOOL CCompositionProcessorEngine::IsPreservedKeyEligible(REFGUID rguid)
 {
+    const FanyUtils::SwitchLanguageHotkeys hotkeys = FanyUtils::ReadConfiguredSwitchLanguageHotkeys();
     if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid))
     {
-        return CheckShiftKeyOnly(&_PreservedKey_IMEMode.TSFPreservedKeyTable);
+        return hotkeys.shift && CheckShiftKeyOnly(&_PreservedKey_IMEMode.TSFPreservedKeyTable);
     }
     if (IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid))
     {
-        return CheckShiftKeyOnly(&_PreservedKey_IMEMode02.TSFPreservedKeyTable);
+        return hotkeys.ctrl_alt_space && CheckShiftKeyOnly(&_PreservedKey_IMEMode02.TSFPreservedKeyTable);
+    }
+    if (IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
+    {
+        return hotkeys.ctrl && CheckShiftKeyOnly(&_PreservedKey_IMEMode03.TSFPreservedKeyTable);
     }
     if (IsEqualGUID(rguid, _PreservedKey_DoubleSingleByte.Guid))
     {
@@ -895,7 +911,8 @@ CCompositionProcessorEngine::PreservedKeyAction
 CCompositionProcessorEngine::GetPreservedKeyAction(REFGUID rguid) const
 {
     if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) ||
-        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid))
+        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid) ||
+        IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
     {
         return PreservedKeyAction::ToggleImeMode;
     }
@@ -922,15 +939,21 @@ void CCompositionProcessorEngine::OnPreservedKey( //
 )
 {
     if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) ||
-        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid))
+        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid) ||
+        IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
     {
         if (!isPrevalidated)
         {
-            const BOOL eligible =
-                IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid)
-                    ? CheckShiftKeyOnly(&_PreservedKey_IMEMode.TSFPreservedKeyTable)
-                    : CheckShiftKeyOnly(&_PreservedKey_IMEMode02.TSFPreservedKeyTable);
-            if (!eligible)
+            CMetasequoiaImeArray<TF_PRESERVEDKEY> *table = &_PreservedKey_IMEMode.TSFPreservedKeyTable;
+            if (IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid))
+            {
+                table = &_PreservedKey_IMEMode02.TSFPreservedKeyTable;
+            }
+            else if (IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
+            {
+                table = &_PreservedKey_IMEMode03.TSFPreservedKeyTable;
+            }
+            if (!CheckShiftKeyOnly(table) || !IsPreservedKeyEligible(rguid))
             {
                 *pIsEaten = FALSE;
                 return;
