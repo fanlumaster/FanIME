@@ -193,6 +193,104 @@ bool BindText(sqlite3_stmt *stmt, int index, const std::string &value)
     return sqlite3_bind_text(stmt, index, value.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK;
 }
 
+std::string SanitizeExportField(std::string value)
+{
+    std::replace(value.begin(), value.end(), '\t', ' ');
+    std::replace(value.begin(), value.end(), '\r', ' ');
+    std::replace(value.begin(), value.end(), '\n', ' ');
+    return value;
+}
+
+json::object ExportUserDictionary(const std::string &dictionary)
+{
+    std::string journal_kind;
+    std::string filename;
+    if (dictionary == "quanpin")
+    {
+        journal_kind = "pinyin";
+        filename = "水杉IME-拼音用户词库.txt";
+    }
+    else if (dictionary == "wubi")
+    {
+        journal_kind = "wubi";
+        filename = "水杉IME-五笔用户词库.txt";
+    }
+    else if (dictionary == "english")
+    {
+        journal_kind = "english";
+        filename = "水杉IME-英文用户词库.txt";
+    }
+    else if (dictionary == "quick")
+    {
+        journal_kind = "quick";
+        filename = "水杉IME-快捷短语用户词库.txt";
+    }
+    else
+    {
+        return Result(false, "未知词库");
+    }
+
+    const std::string path = user_dictionary::default_user_db_path();
+    if (!std::filesystem::exists(path))
+        return Result(false, "当前没有可导出的用户新增词条");
+    if (!user_dictionary::ensure_user_database(path))
+        return Result(false, "升级用户词库格式失败");
+
+    sqlite3 *raw = nullptr;
+    if (sqlite3_open_v2(path.c_str(), &raw, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nullptr) != SQLITE_OK)
+    {
+        const std::string error = raw ? sqlite3_errmsg(raw) : "无法打开用户词库";
+        if (raw) sqlite3_close(raw);
+        return Result(false, "打开用户词库失败：" + error);
+    }
+    Db db(raw);
+    sqlite3_busy_timeout(db.get(), 3000);
+
+    std::string error;
+    const std::string export_filter = dictionary == "quanpin"
+        ? "WHERE dictionary=?1 AND operation='upsert' "
+        : "WHERE dictionary=?1 AND operation='upsert' AND user_inserted=1 ";
+    Stmt stmt = Prepare(db.get(),
+        "SELECT key,value,weight,display FROM user_dictionary_operations " +
+        export_filter + "ORDER BY key,value", error);
+    if (!stmt || !BindText(stmt.get(), 1, journal_kind))
+        return Result(false, "读取用户词库失败：" + error);
+
+    std::ostringstream content;
+    int count = 0;
+    while (sqlite3_step(stmt.get()) == SQLITE_ROW)
+    {
+        const auto text = [&](int column) {
+            const unsigned char *value = sqlite3_column_text(stmt.get(), column);
+            return SanitizeExportField(value ? reinterpret_cast<const char *>(value) : "");
+        };
+        const std::string key = text(0);
+        const std::string value = text(1);
+        const auto weight = sqlite3_column_int64(stmt.get(), 2);
+        const std::string display = text(3);
+
+        if (dictionary == "quanpin" && HelpcodeUtils::count_utf8_chars(value) <= 1)
+            continue;
+        if (dictionary == "quanpin" || dictionary == "wubi")
+            content << value << '\t' << key << '\t' << weight << '\n';
+        else if (dictionary == "quick")
+            content << key << '\t' << value << '\t' << weight << '\n';
+        else
+            content << key << '\t' << display << '\n';
+        ++count;
+    }
+    if (count == 0)
+        return Result(false, dictionary == "quanpin"
+            ? "当前没有可导出的多字拼音词条"
+            : "当前没有可导出的用户新增词条");
+
+    json::object result = Result(true, "已导出 " + std::to_string(count) + " 条用户词条");
+    result["content"] = content.str();
+    result["filename"] = std::move(filename);
+    result["entryCount"] = count;
+    return result;
+}
+
 bool NormalizePinyin(const std::string &mode, const std::string &input, quanpin::Segments &segments,
                      std::string &normalized, std::string &message)
 {
@@ -300,8 +398,8 @@ bool InsertChineseWord(sqlite3 *db, const quanpin::Segments &segments, const std
         error = sqlite3_errmsg(db);
         return false;
     }
-    (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
-                                         user_dictionary::DictionaryKind::Pinyin, key, word, weight);
+    (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                              user_dictionary::DictionaryKind::Pinyin, key, word, weight);
     return true;
 }
 
@@ -599,11 +697,20 @@ json::object MutateChinese(const json::object &request)
     sqlite3_exec(db.get(), ok ? "COMMIT" : "ROLLBACK", nullptr, nullptr, nullptr);
     if (ok)
     {
+        const bool user_inserted = user_dictionary::is_user_inserted(
+            user_dictionary::default_user_db_path(), user_dictionary::DictionaryKind::Pinyin,
+            old_key, old_word);
         if (old_key != key || old_word != word)
             (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                  user_dictionary::DictionaryKind::Pinyin, old_key, old_word);
-        (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
-                                             user_dictionary::DictionaryKind::Pinyin, key, word, weight);
+        if (user_inserted)
+            (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                      user_dictionary::DictionaryKind::Pinyin,
+                                                      key, word, weight);
+        else
+            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                 user_dictionary::DictionaryKind::Pinyin,
+                                                 key, word, weight);
         NotifyImeServerClearDictCache();
     }
     return Result(ok, ok ? "词条修改成功" : "修改失败：" + std::string(sqlite3_errmsg(db.get())));
@@ -643,6 +750,9 @@ json::object HandleEnglish(const json::object &request)
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
     if (ok)
     {
+        const bool user_inserted = action == "create" || user_dictionary::is_user_inserted(
+            user_dictionary::default_user_db_path(), user_dictionary::DictionaryKind::English,
+            old_word, old_word);
         if (action == "delete")
             (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                  user_dictionary::DictionaryKind::English, old_word, old_word);
@@ -651,8 +761,14 @@ json::object HandleEnglish(const json::object &request)
             if (action == "update" && old_word != word)
                 (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                      user_dictionary::DictionaryKind::English, old_word, old_word);
-            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
-                                                 user_dictionary::DictionaryKind::English, word, word, 0, display);
+            if (user_inserted)
+                (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                          user_dictionary::DictionaryKind::English,
+                                                          word, word, 0, display);
+            else
+                (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                     user_dictionary::DictionaryKind::English,
+                                                     word, word, 0, display);
         }
     }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
@@ -702,6 +818,9 @@ json::object HandleWubi(const json::object &request)
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
     if (ok)
     {
+        const bool user_inserted = action == "create" || user_dictionary::is_user_inserted(
+            user_dictionary::default_user_db_path(), user_dictionary::DictionaryKind::Wubi,
+            old_code, old_word);
         if (action == "delete")
             (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                  user_dictionary::DictionaryKind::Wubi, old_code, old_word);
@@ -710,8 +829,14 @@ json::object HandleWubi(const json::object &request)
             if (action == "update" && (old_code != code || old_word != word))
                 (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                      user_dictionary::DictionaryKind::Wubi, old_code, old_word);
-            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
-                                                 user_dictionary::DictionaryKind::Wubi, code, word, weight);
+            if (user_inserted)
+                (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                          user_dictionary::DictionaryKind::Wubi,
+                                                          code, word, weight);
+            else
+                (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                     user_dictionary::DictionaryKind::Wubi,
+                                                     code, word, weight);
         }
     }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
@@ -769,6 +894,9 @@ json::object HandleQuickPhrase(const json::object &request)
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
     if (ok)
     {
+        const bool user_inserted = action == "create" || user_dictionary::is_user_inserted(
+            user_dictionary::default_user_db_path(), user_dictionary::DictionaryKind::QuickPhrase,
+            old_code, old_phrase);
         if (action == "delete")
             (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                  user_dictionary::DictionaryKind::QuickPhrase,
@@ -779,9 +907,14 @@ json::object HandleQuickPhrase(const json::object &request)
                 (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
                                                      user_dictionary::DictionaryKind::QuickPhrase,
                                                      old_code, old_phrase);
-            (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
-                                                 user_dictionary::DictionaryKind::QuickPhrase,
-                                                 code, phrase, weight);
+            if (user_inserted)
+                (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                          user_dictionary::DictionaryKind::QuickPhrase,
+                                                          code, phrase, weight);
+            else
+                (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
+                                                     user_dictionary::DictionaryKind::QuickPhrase,
+                                                     code, phrase, weight);
         }
     }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
@@ -793,6 +926,7 @@ json::object HandleRequest(const json::object &request)
 {
     const std::string dictionary = StringValue(request, "dictionary");
     const std::string action = StringValue(request, "action");
+    if (action == "export") return ExportUserDictionary(dictionary);
     // Pure-Chinese import always targets the quanpin dictionary.
     if (action == "importHans") return ImportHans(request);
     if (dictionary == "english") return HandleEnglish(request);

@@ -98,6 +98,47 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
     std::filesystem::remove_all(directory);
 }
 
+TEST_CASE(UserDictionaryTracksOnlyExplicitUserInsertionsForExport)
+{
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("msime-user-insert-" + std::to_string(GetCurrentProcessId()));
+    std::filesystem::create_directories(directory);
+    const auto user_path = directory / "msime_user.db";
+
+    {
+        TestDatabase legacy_db(user_path);
+        legacy_db.exec(
+            "CREATE TABLE user_dictionary_operations("
+            "dictionary TEXT NOT NULL,key TEXT NOT NULL,value TEXT NOT NULL,"
+            "operation TEXT NOT NULL,weight INTEGER NOT NULL DEFAULT 0,"
+            "display TEXT NOT NULL DEFAULT '',updated_at INTEGER NOT NULL DEFAULT(unixepoch()),"
+            "PRIMARY KEY(dictionary,key,value));"
+            "INSERT INTO user_dictionary_operations VALUES("
+            "'pinyin','yi','一','upsert',999999,'',unixepoch());");
+    }
+
+    REQUIRE(user_dictionary::ensure_user_database(user_path.string()));
+    REQUIRE(!user_dictionary::is_user_inserted(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yi", "一"));
+
+    REQUIRE(user_dictionary::record_upsert(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xi'tong", "系统", 100));
+    REQUIRE(!user_dictionary::is_user_inserted(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xi'tong", "系统"));
+
+    REQUIRE(user_dictionary::record_user_insert(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户", 10000));
+    REQUIRE(user_dictionary::is_user_inserted(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户"));
+
+    REQUIRE(user_dictionary::record_upsert(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户", 20000));
+    REQUIRE(user_dictionary::is_user_inserted(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户"));
+
+    std::filesystem::remove_all(directory);
+}
+
 TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
 {
     const auto directory = std::filesystem::temp_directory_path() /
@@ -159,6 +200,37 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
         TestDatabase db(main_path);
         REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='丙'"), 101);
         REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='乙'"), 99);
+    }
+    std::filesystem::remove_all(directory);
+}
+
+TEST_CASE(UserDictionaryRebalanceKeepsWeightsBounded)
+{
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("msime-bounded-ranking-" + std::to_string(GetCurrentProcessId()));
+    std::filesystem::create_directories(directory);
+    const auto user_path = directory / "msime_user.db";
+    const auto main_path = directory / "msime.db";
+    {
+        TestDatabase db(main_path);
+        db.exec("CREATE TABLE tbl_1_y(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+                "INSERT INTO tbl_1_y VALUES('yi','y','甲',1000000000000);"
+                "INSERT INTO tbl_1_y VALUES('yi','y','乙',999999000000);"
+                "INSERT INTO tbl_1_y VALUES('yi','y','丙',999998000000);");
+    }
+    std::vector<WordItem> candidates = {
+        {"yi","甲",1000000000000LL},
+        {"yi","乙",999999000000LL},
+        {"yi","丙",999998000000LL},
+    };
+
+    REQUIRE(user_dictionary::adjust_candidate_ranking(
+        main_path.string(), user_path.string(), "yi", candidates,
+        "yi", "丙", "pin", 1, 1, true));
+    {
+        TestDatabase db(main_path);
+        REQUIRE_EQ(db.scalar_int("SELECT COUNT(*) FROM tbl_1_y WHERE weight > 100000000"), 0);
+        REQUIRE_EQ(db.scalar_int("SELECT COUNT(*) FROM tbl_1_y WHERE value='丙' AND weight=100000000"), 1);
     }
     std::filesystem::remove_all(directory);
 }
