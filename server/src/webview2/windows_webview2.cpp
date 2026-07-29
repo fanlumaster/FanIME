@@ -1860,6 +1860,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.word_to_character")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredWordToCharacterEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("general.floating_toolbar_", 0) == 0)
                             {
                                 const std::string item =
@@ -2130,7 +2138,8 @@ void PostSettingsConfig()
                                 {"default_ime_mode", GetConfiguredDefaultImeMode()},
                                 {"ime_mode_scope", GetConfiguredImeModeScope()},
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-                                {"wubi_schema", GetConfiguredWubiSchema()}}},
+                                {"wubi_schema", GetConfiguredWubiSchema()},
+                                {"word_to_character", GetConfiguredWordToCharacterEnabled()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"floating_toolbar_fullwidth", toolbar.fullwidth},
                                 {"floating_toolbar_punctuation", toolbar.punctuation},

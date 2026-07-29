@@ -49,6 +49,7 @@ bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
 bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
+bool g_word_to_character_enabled = false;
 std::string g_candidate_window_layout = "vertical";
 std::string g_candidate_window_preedit_style = "pinyin";
 std::string g_theme_mode = "dark";
@@ -338,6 +339,7 @@ bool LoadImeConfig()
             tbl["general"]["paging_tab"].value_or(legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
+        g_word_to_character_enabled = tbl["input"]["word_to_character"].value_or(false);
         {
             // Prefer explicit bool keys; fall back to legacy switch_language array.
             const auto legacy = tbl["keybindings"]["switch_language"].as_array();
@@ -1177,6 +1179,21 @@ bool SetConfiguredCandidateArrowNavigationEnabled(bool enabled)
         return false;
     }
     g_candidate_arrow_navigation_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredWordToCharacterEnabled()
+{
+    return g_word_to_character_enabled;
+}
+
+bool SetConfiguredWordToCharacterEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("input", "word_to_character", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_word_to_character_enabled = enabled;
     return true;
 }
 

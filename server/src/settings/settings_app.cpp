@@ -220,7 +220,8 @@ void PostConfig()
             {"default_ime_mode", GetConfiguredDefaultImeMode()},
             {"ime_mode_scope", GetConfiguredImeModeScope()},
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-            {"wubi_schema", GetConfiguredWubiSchema()}}},
+            {"wubi_schema", GetConfiguredWubiSchema()},
+            {"word_to_character", GetConfiguredWordToCharacterEnabled()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
@@ -324,6 +325,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredShuangpinSchema(json::value_to<std::string>(data.at("value")));
     if (path == "input.wubi_schema")
         return SetConfiguredWubiSchema(json::value_to<std::string>(data.at("value")));
+    if (path == "input.word_to_character")
+        return SetConfiguredWordToCharacterEnabled(json::value_to<bool>(data.at("value")));
     if (path == "appearance.tsf_preedit_style")
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")

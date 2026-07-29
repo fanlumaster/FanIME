@@ -16,6 +16,8 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
 {
     REQUIRE_EQ(Global::DataFromServerMsgType::PipeReady, 9u);
     REQUIRE(Global::DataFromServerMsgType::PipeReady > Global::DataFromServerMsgType::MovePageNext);
+    REQUIRE_EQ(Global::DataFromServerMsgType::CommitExactText, 10u);
+    REQUIRE(Global::DataFromServerMsgType::CommitExactText > Global::DataFromServerMsgType::PipeReady);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady, 8u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady, 9u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText, 10u);

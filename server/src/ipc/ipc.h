@@ -311,6 +311,8 @@ constexpr UINT MoveSelectionNext = 6;
 constexpr UINT MovePagePrevious = 7;
 constexpr UINT MovePageNext = 8;
 constexpr UINT PipeReady = 9;
+// Commit candidate_string verbatim and finish the active composition.
+constexpr UINT CommitExactText = 10;
 } // namespace DataFromServerMsgType
 
 inline UINT MsgTypeToTsf = DataFromServerMsgType::Normal; // 默认为 Normal

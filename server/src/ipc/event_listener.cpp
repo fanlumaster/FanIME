@@ -11,6 +11,7 @@
 #include <thread>
 #include "Ipc.h"
 #include "ipc/candidate_ui_owner.h"
+#include "ipc/candidate_text_policy.h"
 #include "ipc/focus_session_policy.h"
 #include "ipc/input_key_policy.h"
 #include "defines/defines.h"
@@ -295,7 +296,7 @@ std::wstring BuildCreateWordPipePayload(const std::string &remaining_raw_input_w
     return remaining + L'\t' + word + L'\t' + preedit;
 }
 
-bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wch)
+bool IsCommitWithHighlightedCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wch)
 {
     if (keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB)
     {
@@ -308,7 +309,7 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wc
         return false;
     }
 
-    static const std::unordered_set<WCHAR> kCommitWithFirstCandidatePunctuation = {
+    static const std::unordered_set<WCHAR> kCommitWithHighlightedCandidatePunctuation = {
         L'`',  //
         L'!',  //
         L'@',  //
@@ -333,7 +334,8 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT keycode, WCHAR wc
         L'>',  //
         L'?'   //
     };
-    return kCommitWithFirstCandidatePunctuation.find(wch) != kCommitWithFirstCandidatePunctuation.end();
+    return kCommitWithHighlightedCandidatePunctuation.find(wch) !=
+           kCommitWithHighlightedCandidatePunctuation.end();
 }
 
 bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
@@ -1404,7 +1406,9 @@ bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint
                   ::Global::candidate_ui.selected_text);
     const bool sent = SendToTsfClientViaNamedpipe(client_id, activation_epoch, msg_type, request_id,
                                                   ::Global::candidate_ui.selected_text);
-    if (sent && msg_type == Global::DataFromServerMsgType::Normal &&
+    if (sent &&
+        (msg_type == Global::DataFromServerMsgType::Normal ||
+         msg_type == Global::DataFromServerMsgType::CommitExactText) &&
         IsPipeActivationCurrent(client_id, activation_epoch))
     {
         ClearState();
@@ -2242,9 +2246,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool unicode_composition_active = IsUnicodeCompositionActive(input_before_key);
     const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
-    const bool is_commit_with_first_candidate_punctuation =
+    const bool is_commit_with_highlighted_candidate_punctuation =
         !is_manual_pinyin_separator &&
-        IsCommitWithFirstCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
+        IsCommitWithHighlightedCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
     const bool is_unicode_shift_digit_selection =
         unicode_composition_active && shift_only && Global::Keycode >= '1' && Global::Keycode <= '9';
@@ -2256,20 +2260,41 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
         is_unicode_plus;
     const bool should_forward_key_to_session =
-        !is_commit_with_first_candidate_punctuation && !is_selection_key && !is_paging_key && !is_composition_edit_key;
+        !is_commit_with_highlighted_candidate_punctuation && !is_selection_key && !is_paging_key &&
+        !is_composition_edit_key;
 
-    // Punctuation needs a synchronous first-candidate response on the TSF pipe.
+    // Punctuation needs a synchronous highlighted-candidate response on the TSF pipe.
     // Reply before cloud-query and candidate recomputation work so the TSF-side
     // timeout sentinel keeps its original meaning instead of masking latency here.
-    if (is_commit_with_first_candidate_punctuation)
+    if (is_commit_with_highlighted_candidate_punctuation)
     {
         Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
         const bool has_active_composition = g_inputSession != nullptr && !g_inputSession->get_pinyin_sequence().empty();
         if (has_active_composition)
         {
             EnsureCandidatePageReady();
-            Global::candidate_ui.selected_text =
-                Global::candidate_ui.page_words.empty() ? L"" : Global::candidate_ui.page_words[0];
+            auto &ui = Global::candidate_ui;
+            ui.selected_text =
+                FanyImeIpc::HighlightedCandidateText(ui.page_words, ui.selected_index_in_page);
+
+            const bool is_word_to_character_key =
+                (Global::Wch == L'[' || Global::Wch == L']') &&
+                GetConfiguredWordToCharacterEnabled();
+            WordItem highlighted_item;
+            if (is_word_to_character_key &&
+                ResolveCandidateItem(ui.selected_index_in_page + 1, highlighted_item))
+            {
+                const auto edge = Global::Wch == L'['
+                                      ? FanyImeIpc::HanCharacterEdge::First
+                                      : FanyImeIpc::HanCharacterEdge::Last;
+                const auto character =
+                    FanyImeIpc::ExtractHanCharacter(CandidateTextForOutput(highlighted_item.word), edge);
+                if (character)
+                {
+                    Global::MsgTypeToTsf = Global::DataFromServerMsgType::CommitExactText;
+                    ui.selected_text = string_to_wstring(*character);
+                }
+            }
             SendCurrentDataToClient(client_id, activation_epoch, request_id);
         }
         else
@@ -2363,17 +2388,14 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     }
 
     //
-    // 当在一些情况下，TSF 端会请求第一个候选字符串
-    //  - 标点，标点会和第一个候选项一起上屏
+    // 在以下情况下，TSF 端会请求候选字符串
     //  - 空格，会上屏第一个候选项
     //  - 数字，会上屏相应序号对应的候选项
-    //
-    /* 1. Punctuations */
     //
     // 空格和数字键可能会触发造词，如果数字键上屏的汉字字符串所对应的拼音比实际的拼音要短的话，
     // 那么，就可能会触发造词事件，那么，就要适时改变候选框的状态
     //
-    /* 2. VK_SPACE, 3. Digits (U-mode: Shift+1..9) */
+    /* VK_SPACE, Digits (U-mode: Shift+1..9) */
     if (Global::Keycode == VK_SPACE || is_unicode_shift_digit_selection ||
         (!IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases) && Global::Keycode > '0' &&
          Global::Keycode <= '9'))
