@@ -81,67 +81,12 @@ void WebviewDebugLog(const std::wstring &message)
     (void)0;
 }
 
-// Minimal standalone trace for the tray-menu WebView bring-up. The regular log
-// calls in this file are compiled out, which makes watchdog-launch-only failures
-// impossible to tell apart from an empty menu asset.
-void TrayMenuDiag(const std::wstring &message)
-{
-    const std::string dir = CommonUtils::get_local_appdata_path();
-    if (dir.empty()) return;
-    const std::wstring path = string_to_wstring(dir) + L"\\" + GlobalIme::AppName + L"\\traymenu-diag.log";
-    HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return;
-    SYSTEMTIME now{};
-    GetLocalTime(&now);
-    const std::string line = wstring_to_string(fmt::format(L"{:02}:{:02}:{:02}.{:03} {}\r\n", now.wHour, now.wMinute,
-                                                           now.wSecond, now.wMilliseconds, message));
-    DWORD written = 0;
-    WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
-    CloseHandle(file);
-}
-
 void ScheduleSmallWindowWebviewRetry(DWORD delay_ms);
 void BeginSmallWindowWebviewEnvironmentCreate();
 void RequestNextSmallWindowController();
 void OnSmallWindowWebviewInitFailed(HRESULT hr);
 void MaybeFlushPendingTrayMenuShow();
 void ResetSmallWindowTopmostGate();
-
-std::wstring DescribeHostWindow(const wchar_t *name, HWND hwnd)
-{
-    if (!hwnd)
-    {
-        return fmt::format(L"{}=null", name);
-    }
-    RECT rect{};
-    GetWindowRect(hwnd, &rect);
-    int cloaked = 0;
-    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
-    const LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-    struct ChildProbe
-    {
-        int count = 0;
-        wchar_t firstClass[64]{};
-    } probe;
-    EnumChildWindows(
-        hwnd,
-        [](HWND child, LPARAM lp) -> BOOL {
-            auto *p = reinterpret_cast<ChildProbe *>(lp);
-            if (p->count == 0)
-            {
-                GetClassNameW(child, p->firstClass, 64);
-            }
-            ++p->count;
-            return TRUE;
-        },
-        reinterpret_cast<LPARAM>(&probe));
-    return fmt::format(L"{}=[valid={} vis={} cloaked={} rect={},{},{}x{} dpi={} ex=0x{:08X} topmost={} children={}{}]",
-                       name, IsWindow(hwnd) ? 1 : 0, IsWindowVisible(hwnd) ? 1 : 0, cloaked, rect.left, rect.top,
-                       rect.right - rect.left, rect.bottom - rect.top, GetDpiForWindow(hwnd),
-                       static_cast<unsigned>(exStyle), (exStyle & WS_EX_TOPMOST) ? 1 : 0, probe.count,
-                       probe.count > 0 ? fmt::format(L" firstChild={}", probe.firstClass) : L"");
-}
 
 void CALLBACK SmallWindowWebviewRetryTimerProc(HWND hwnd, UINT /*msg*/, UINT_PTR id, DWORD /*time*/)
 {
@@ -185,8 +130,6 @@ void OnSmallWindowWebviewInitFailed(HRESULT hr)
 {
     smallWindowInitState = SmallWindowInitState::Failed;
     smallWindowWebviewEnvironment.Reset();
-    TrayMenuDiag(fmt::format(L"env-create-failed hr=0x{:08X} attempt={}", static_cast<unsigned>(hr),
-                             smallWindowInitAttempts));
     ScheduleSmallWindowRetryWithBackoff();
 }
 
@@ -223,7 +166,6 @@ void RequestNextSmallWindowController()
         {
             return;
         }
-        TrayMenuDiag(L"request-controller-timeout");
         smallWindowControllerRequestInFlight = false;
     }
 
@@ -265,11 +207,7 @@ void RequestNextSmallWindowController()
     if (GetWindowLongPtrW(host.hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)
     {
         SetWindowPos(host.hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        TrayMenuDiag(fmt::format(L"strip-topmost {}", host.name));
     }
-
-    TrayMenuDiag(fmt::format(L"request-controller {} attempt={} {}", host.name, smallWindowInitAttempts,
-                             DescribeHostWindow(host.name, host.hwnd)));
 
     smallWindowControllerRequestInFlight = true;
     smallWindowControllerRequestStartTick = GetTickCount64();
@@ -279,7 +217,6 @@ void RequestNextSmallWindowController()
     {
         smallWindowControllerRequestInFlight = false;
         lastFailedSmallWindowHostIndex = chosen;
-        TrayMenuDiag(fmt::format(L"request-controller-rejected {} hr=0x{:08X}", host.name, static_cast<unsigned>(hr)));
         ++smallWindowInitAttempts;
         ScheduleSmallWindowRetryWithBackoff();
     }
@@ -351,7 +288,6 @@ void BeginSmallWindowWebviewEnvironmentCreate()
                 smallWindowWebviewEnvironment = env;
                 smallWindowInitState = SmallWindowInitState::Ready;
                 smallWindowInitAttempts = 0;
-                TrayMenuDiag(fmt::format(L"env-ok menuHtmlLen={}", ::HTMLStringMenuWnd.size()));
                 RequestNextSmallWindowController();
                 return S_OK;
             })
@@ -619,7 +555,6 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     // (WebView2Feedback #486). Nothing needs raising before content exists.
     if (!webviewControllerMenuWnd)
     {
-        TrayMenuDiag(fmt::format(L"raise-menu-skipped reason={}", reason ? reason : L""));
         return;
     }
     // Re-assert TOPMOST after FTB (or a peer) was pinned last. A second
@@ -869,7 +804,6 @@ int PrepareHtmlForWnds()
     std::wstring entireHtmlPathMenuWnd = assetPath + htmlMenuWnd;
     ::HTMLStringMenuWnd =
         ReadHtmlFileWithFallback(entireHtmlPathMenuWnd, assetPath + L"/html/webview2/menu/default.html");
-    TrayMenuDiag(fmt::format(L"menu-html path={} len={}", entireHtmlPathMenuWnd, ::HTMLStringMenuWnd.size()));
 
     //
     // settings 窗口
@@ -1147,19 +1081,15 @@ HRESULT OnControllerCreatedCandWnd(     //
 {
     if (!controller || FAILED(result))
     {
-        TrayMenuDiag(fmt::format(L"cand-controller-failed hr=0x{:08X} attempt={} {}", static_cast<unsigned>(result),
-                                 smallWindowInitAttempts, DescribeHostWindow(L"candWnd", hwnd)));
         OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
-    TrayMenuDiag(L"cand-controller-ok");
 
     webviewControllerCandWnd = controller;
     const HRESULT getWebviewHr = webviewControllerCandWnd->get_CoreWebView2(webviewCandWnd.GetAddressOf());
 
     if (!webviewCandWnd)
     {
-        TrayMenuDiag(fmt::format(L"cand-get-webview-failed hr=0x{:08X}", static_cast<unsigned>(getWebviewHr)));
         webviewControllerCandWnd.Reset();
         OnSmallWindowControllerSettled(FAILED(getWebviewHr) ? getWebviewHr : E_FAIL);
         return E_FAIL;
@@ -1474,8 +1404,6 @@ HRESULT OnControllerCreatedMenuWnd(     //
 {
     if (!controller || FAILED(result))
     {
-        TrayMenuDiag(fmt::format(L"menu-controller-failed hr=0x{:08X} attempt={} {}", static_cast<unsigned>(result),
-                                 smallWindowInitAttempts, DescribeHostWindow(L"menuWnd", hwnd)));
         OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
@@ -1486,7 +1414,6 @@ HRESULT OnControllerCreatedMenuWnd(     //
 
     if (!webviewMenuWnd)
     {
-        TrayMenuDiag(fmt::format(L"menu-get-webview-failed hr=0x{:08X}", static_cast<unsigned>(getMenuWebviewHr)));
         webviewControllerMenuWnd.Reset();
         OnSmallWindowControllerSettled(FAILED(getMenuWebviewHr) ? getMenuWebviewHr : E_FAIL);
         return E_FAIL;
@@ -1580,9 +1507,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
         &menuNavigationCompletedToken);
 
     // Navigate to HTML
-    HRESULT hr = webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
-    TrayMenuDiag(fmt::format(L"menu-controller-ok navigate=0x{:08X} htmlLen={}", static_cast<unsigned>(hr),
-                             ::HTMLStringMenuWnd.size()));
+    webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
 
     /* Debug console */
     // webviewMenuWindow->OpenDevToolsWindow();
@@ -2576,12 +2501,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
 {
     if (!controller || FAILED(result))
     {
-        TrayMenuDiag(fmt::format(L"ftb-controller-failed hr=0x{:08X} attempt={} {}", static_cast<unsigned>(result),
-                                 smallWindowInitAttempts, DescribeHostWindow(L"ftbWnd", hwnd)));
         OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
-    TrayMenuDiag(L"ftb-controller-ok");
 
     /* 给 controller 和 webview 赋值 */
     webviewControllerFtbWnd = controller;
@@ -2589,7 +2511,6 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
     if (!webviewFtbWnd)
     {
-        TrayMenuDiag(fmt::format(L"ftb-get-webview-failed hr=0x{:08X}", static_cast<unsigned>(getFtbWebviewHr)));
         webviewControllerFtbWnd.Reset();
         OnSmallWindowControllerSettled(FAILED(getFtbWebviewHr) ? getFtbWebviewHr : E_FAIL);
         return E_FAIL;
@@ -2875,10 +2796,6 @@ bool PrepareTrayMenuWebviewForShow()
     }
 
     pendingTrayMenuShow = true;
-    TrayMenuDiag(fmt::format(L"right-click-deferred controller={} navReady={} htmlLen={} initState={} attempts={}",
-                             webviewControllerMenuWnd ? 1 : 0, menuNavigationReady ? 1 : 0,
-                             ::HTMLStringMenuWnd.size(), static_cast<int>(smallWindowInitState),
-                             smallWindowInitAttempts));
 
     if (webviewControllerMenuWnd)
     {
