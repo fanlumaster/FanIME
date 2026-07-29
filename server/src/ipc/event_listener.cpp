@@ -2391,11 +2391,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         UINT result = Global::DataFromServerMsgType::NavigationIgnored;
         bool refresh = false;
 
-        const auto move_page = [&](int offset, UINT response_type) {
-            result = response_type;
-            if (offset > 0 && ui.page_index == 0 && g_inputSession->expand_initial_candidates())
+        const auto expand_initial_candidates = [&] {
+            if (g_inputSession->expand_initial_candidates())
             {
                 const int current_page = ui.page_index;
+                const int current_selection = ui.selected_index_in_page;
                 auto expanded = g_inputSession->get_candidates();
                 user_dictionary::apply_fixed_positions(
                     user_dictionary::default_user_db_path(), CurrentRankingContextKey(), expanded, true,
@@ -2404,6 +2404,16 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
                     });
                 ui.set_items(std::move(expanded));
                 ui.page_index = current_page;
+                ui.selected_index_in_page = current_selection;
+                return true;
+            }
+            return false;
+        };
+        const auto move_page = [&](int offset, UINT response_type) {
+            result = response_type;
+            if (offset > 0 && ui.page_index == 0)
+            {
+                expand_initial_candidates();
             }
             if (offset < 0 ? ui.has_prev_page() : ui.has_next_page())
             {
@@ -2413,6 +2423,10 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         };
         const auto move_selection = [&](int offset, UINT response_type) {
             result = response_type;
+            if (offset > 0 && ui.selected_index_in_page + 1 >= ui.current_page_count())
+            {
+                expand_initial_candidates();
+            }
             if (ui.move_selection(offset))
             {
                 refresh = true;

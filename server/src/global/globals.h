@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -132,18 +133,26 @@ struct CandidateUiState
 
     bool move_selection(int offset)
     {
+        if (page_size <= 0)
+        {
+            page_index = 0;
+            selected_index_in_page = 0;
+            return false;
+        }
         const int count = current_page_count();
         if (count <= 0)
         {
             selected_index_in_page = 0;
             return false;
         }
-        const int next = selected_index_in_page + offset;
-        if (next < 0 || next >= count)
+        selected_index_in_page = std::clamp(selected_index_in_page, 0, count - 1);
+        const int next = current_page_start() + selected_index_in_page + offset;
+        if (next < 0 || next >= item_total_count)
         {
             return false;
         }
-        selected_index_in_page = next;
+        page_index = next / page_size;
+        selected_index_in_page = next % page_size;
         return true;
     }
 
