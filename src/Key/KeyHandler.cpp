@@ -906,11 +906,10 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
     if (!hasPendingPunctuationCommitText && _candidateMode != CANDIDATE_NONE && _pCandidateListUIPresenter)
     {
         //
-        // 请求第一个候选词
+        // 请求当前高亮候选词；服务端也可能返回以词定字的精确提交文本。
         //
-        if (Global::CommitWithFirstCandPunc.count(wch) > 0)
+        if (Global::CommitWithHighlightedCandPunc.count(wch) > 0)
         {
-            /* 这里我们不需要考虑下标超出范围，因为我们总是可以取到第一个候选词 */
             PerfTimer pipeReadTimer;
             struct FanyImeNamedpipeDataToTsf *receivedData = TryReadDataFromServerPipeWithTimeout(requestId);
             pipeReadElapsedMs = pipeReadTimer.ElapsedMs();
@@ -926,14 +925,21 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
             // client connects or a setting changes, so a comma/period may have
             // entered this punctuation path while the Server already treated it
             // as navigation. Never turn such a response into committed text.
-            if (receivedData->msg_type != Global::DataFromServerMsgType::Normal)
+            if (receivedData->msg_type == Global::DataFromServerMsgType::CommitExactText)
+            {
+                punctuationStr.assign(receivedData->candidate_string);
+            }
+            else if (receivedData->msg_type != Global::DataFromServerMsgType::Normal)
             {
                 // The Server already updated the authoritative candidate state.
                 // Consuming the response is sufficient; advancing the TSF-side
                 // presenter here would apply the same navigation a second time.
                 return S_OK;
             }
-            punctuationStr = std::wstring(receivedData->candidate_string) + punctuationStr;
+            else
+            {
+                punctuationStr = std::wstring(receivedData->candidate_string) + punctuationStr;
+            }
         }
     }
 

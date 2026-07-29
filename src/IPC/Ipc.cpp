@@ -147,7 +147,7 @@ void RequestNamedpipeReconnect()
 
 bool IsValidServerReply(const FanyImeNamedpipeDataToTsf &reply)
 {
-    if (reply.msg_type > Global::DataFromServerMsgType::PipeReady)
+    if (reply.msg_type > Global::DataFromServerMsgType::CommitExactText)
     {
         return false;
     }

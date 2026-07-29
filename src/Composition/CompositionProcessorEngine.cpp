@@ -558,7 +558,7 @@ BOOL CCompositionProcessorEngine::IsPunctuation(WCHAR wch)
 
 namespace
 {
-bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT uCode, WCHAR wch, CANDIDATE_MODE candidateMode)
+bool IsCommitWithHighlightedCandidatePunctuationInCandidateMode(UINT uCode, WCHAR wch, CANDIDATE_MODE candidateMode)
 {
     if (candidateMode == CANDIDATE_NONE)
     {
@@ -566,7 +566,7 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT uCode, WCHAR wch,
     }
 
     // Candidate paging keys must keep their navigation semantics even if the
-    // corresponding character is also listed in CommitWithFirstCandPunc.
+    // corresponding character is also listed in CommitWithHighlightedCandPunc.
     switch (uCode)
     {
     case VK_PRIOR:
@@ -583,7 +583,7 @@ bool IsCommitWithFirstCandidatePunctuationInCandidateMode(UINT uCode, WCHAR wch,
         break;
     }
 
-    return wch != 0 && Global::CommitWithFirstCandPunc.count(wch) > 0;
+    return wch != 0 && Global::CommitWithHighlightedCandPunc.count(wch) > 0;
 }
 
 bool IsManualPinyinSeparatorInComposition(WCHAR wch, BOOL fComposing, CANDIDATE_MODE candidateMode, DWORD_PTR keystrokeLength)
@@ -2038,7 +2038,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
 
     // The Server owns the configurable comma/period behavior. Always route
     // these keys through it while candidates are active; its response decides
-    // whether the key navigates or commits the first candidate with punctuation.
+    // whether the key navigates or commits the highlighted candidate with punctuation.
     const bool isCommaPeriodPagingKey = uCode == VK_OEM_COMMA || uCode == VK_OEM_PERIOD;
     if (candidateMode != CANDIDATE_NONE &&
         (uCode == VK_OEM_MINUS || uCode == VK_OEM_PLUS || isCommaPeriodPagingKey || uCode == VK_TAB ||
@@ -2072,7 +2072,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
         return TRUE;
     }
 
-    if (IsCommitWithFirstCandidatePunctuationInCandidateMode(uCode, pwch ? *pwch : 0, candidateMode))
+    if (IsCommitWithHighlightedCandidatePunctuationInCandidateMode(uCode, pwch ? *pwch : 0, candidateMode))
     {
         if (pKeyState)
         {

@@ -268,6 +268,8 @@ constexpr UINT MovePageNext = 8;
 // Reverse-pipe registration acknowledgement. This frame is consumed during
 // the ToTsf pipe handshake and is never exposed as a key reply.
 constexpr UINT PipeReady = 9;
+// candidate_string is the complete text to commit; do not append punctuation.
+constexpr UINT CommitExactText = 10;
 // Local-only result. It is never sent over the pipe and must never be
 // interpreted as candidate text to commit.
 constexpr UINT TransportUnavailable = static_cast<UINT>(-1);

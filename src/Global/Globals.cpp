@@ -269,9 +269,9 @@ extern const struct _PUNCTUATION PunctuationTable[23] = {
 };
 
 //
-// Will commit first candidate string with punctuation char
+// Will commit the highlighted candidate string with a punctuation character.
 //
-extern const std::unordered_set<WCHAR> CommitWithFirstCandPunc = {
+extern const std::unordered_set<WCHAR> CommitWithHighlightedCandPunc = {
     L'`',  //
     L'!',  //
     L'@',  //

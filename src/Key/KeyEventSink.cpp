@@ -881,8 +881,9 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
         {
             return setKeyState(CATEGORY_COMPOSING, FUNCTION_INPUT);
         }
-        if (shadow.punctuationOpen &&
-            _pCompositionProcessorEngine->IsPunctuation(*classifiedWch))
+        if (Global::CommitWithHighlightedCandPunc.count(*classifiedWch) > 0 ||
+            (shadow.punctuationOpen &&
+             _pCompositionProcessorEngine->IsPunctuation(*classifiedWch)))
         {
             return setKeyState(CATEGORY_COMPOSING, FUNCTION_PUNCTUATION);
         }
@@ -1625,10 +1626,10 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
                 const WCHAR *punctuation = _pCompositionProcessorEngine->GetPunctuation(wch);
                 punctuationCommitText = punctuation ? punctuation : L"";
             }
-            const bool shouldFinalizeFirstCandidateWithPunctuation =
+            const bool shouldFinalizeHighlightedCandidateWithPunctuation =
                 _candidateMode != CANDIDATE_NONE && _pCandidateListUIPresenter &&
-                Global::CommitWithFirstCandPunc.count(wch) > 0;
-            if (!shouldFinalizeFirstCandidateWithPunctuation)
+                Global::CommitWithHighlightedCandPunc.count(wch) > 0;
+            if (!shouldFinalizeHighlightedCandidateWithPunctuation)
             {
                 // The text is carried by this exact async request. No global
                 // single-slot cache can be overwritten by the next key.
