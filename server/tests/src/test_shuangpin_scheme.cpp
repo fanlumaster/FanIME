@@ -50,6 +50,21 @@ TEST_CASE(ShuangpinSchemeSpaceDoesNotResetComposition)
     REQUIRE_EQ(request.raw_input, std::string("xi"));
 }
 
+TEST_CASE(ShuangpinSchemeDeduplicatesConsecutiveManualSeparators)
+{
+    ShuangpinScheme scheme;
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, 'I', L'i');
+    InputKey(scheme, VK_OEM_7, L'\'');
+    InputKey(scheme, VK_OEM_7, L'\'');
+    InputKey(scheme, VK_OEM_7, L'\'');
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.raw_input, std::string("xi'"));
+    REQUIRE_EQ(request.key_strokes.size(), static_cast<size_t>(3));
+}
+
 TEST_CASE(ShuangpinSchemeEnterResetsComposition)
 {
     ShuangpinScheme scheme;

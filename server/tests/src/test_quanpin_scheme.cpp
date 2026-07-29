@@ -48,12 +48,15 @@ TEST_CASE(QuanpinSchemeTrailingApostropheIsPreservedInPreeditSegmentation)
     InputKey(scheme, 'N', L'n');
     InputKey(scheme, 'G', L'g');
     InputKey(scheme, VK_OEM_7, L'\'');
+    InputKey(scheme, VK_OEM_7, L'\'');
+    InputKey(scheme, VK_OEM_7, L'\'');
 
     const QueryRequest request = scheme.build_request();
     REQUIRE(request.valid);
     REQUIRE_EQ(request.raw_input, std::string("fang'"));
     REQUIRE_EQ(request.normalized_segmentation, std::string("fang"));
     REQUIRE_EQ(request.raw_segmentation, std::string("fang'"));
+    REQUIRE_EQ(request.key_strokes.size(), static_cast<size_t>(5));
 }
 
 TEST_CASE(QuanpinCandidateCacheKeepsManualSegmentationBoundariesDistinct)

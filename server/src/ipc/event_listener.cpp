@@ -431,6 +431,12 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
         {
             return false;
         }
+        if (input == '\'' &&
+            ((composition.caret_position > 0 && raw[composition.caret_position - 1] == '\'') ||
+             (composition.caret_position < raw.size() && raw[composition.caret_position] == '\'')))
+        {
+            return true;
+        }
         raw.insert(raw.begin() + static_cast<std::ptrdiff_t>(composition.caret_position), input);
         ++composition.caret_position;
     }
