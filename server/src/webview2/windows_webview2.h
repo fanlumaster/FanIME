@@ -25,6 +25,19 @@ const std::wstring LocalAssetsPath = fmt::format(             //
     GlobalIme::AppName                                        //
 );
 
+inline std::wstring GetLocalAssetsPath()
+{
+    // Prefer a live lookup: static LocalAssetsPath can be empty if CRT init ran
+    // before the user profile environment was fully available.
+    const std::wstring live = fmt::format(L"{}\\{}\\assets", //
+                                          string_to_wstring(CommonUtils::get_local_appdata_path()), GlobalIme::AppName);
+    if (live.empty() || live[0] == L'\\')
+    {
+        return LocalAssetsPath;
+    }
+    return live;
+}
+
 void UpdateHtmlContentWithJavaScript( //
     ComPtr<ICoreWebView2> webview,    //
     const std::wstring &newContent    //
@@ -61,6 +74,9 @@ void InflateMeasureDivCandWnd(std::wstring &str, std::function<void()> onComplet
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
 void ShutdownWebviews();
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+// Kick (or retry) shared small-window WebView2 init. Returns true when the menu
+// controller already exists and the tray menu may be shown.
+bool PrepareTrayMenuWebviewForShow();
 // Expand WebView bounds beyond the host client so horizontal measure/layout
 // is not constrained by a still-narrow HWND.
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd);

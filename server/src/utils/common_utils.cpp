@@ -1,6 +1,8 @@
 #include "common_utils.h"
 #include <boost/locale.hpp>
 #include "global/globals.h"
+#include <shlobj.h>
+#include <memory>
 
 using namespace std;
 
@@ -78,7 +80,21 @@ string get_local_appdata_path()
         localAppDataDirStr = std::string(localAppDataDir);
     }
     std::unique_ptr<char, decltype(&free)> dirPtr(localAppDataDir, free);
-    return localAppDataDirStr.empty() ? "" : localAppDataDirStr;
+    if (!localAppDataDirStr.empty())
+    {
+        return localAppDataDirStr;
+    }
+
+    // ShellExecute / early logon can occasionally leave LOCALAPPDATA unset while
+    // the known-folder API still resolves the profile path correctly.
+    PWSTR known_path = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &known_path)) &&
+        known_path)
+    {
+        localAppDataDirStr = wstring_to_string(known_path);
+        CoTaskMemFree(known_path);
+    }
+    return localAppDataDirStr;
 }
 
 string get_ime_data_path()

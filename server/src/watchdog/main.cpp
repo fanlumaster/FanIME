@@ -110,7 +110,7 @@ HANDLE StartServer(const std::wstring &server_path, const std::wstring &working_
     execute_info.lpFile = server_path.c_str();
     execute_info.lpParameters = WatchdogProtocol::kManagedArgument;
     execute_info.lpDirectory = working_directory.c_str();
-    execute_info.nShow = SW_SHOWNORMAL;
+    execute_info.nShow = SW_SHOWNOACTIVATE;
     if (!ShellExecuteExW(&execute_info) || !execute_info.hProcess) return nullptr;
     return execute_info.hProcess;
 }
@@ -152,11 +152,13 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         }
         else if (GetTickCount64() - started_at >= kHealthyRunMilliseconds)
         {
-            restart_delay = 1'000;
+            // Unclean exit (Task Manager kill, crash): give orphaned WebView2
+            // processes time to release the shared user-data folder lock.
+            restart_delay = 2'000;
         }
         else
         {
-            restart_delay = (std::min)(restart_delay * 2, kMaximumRestartDelayMilliseconds);
+            restart_delay = (std::min)((std::max)(restart_delay * 2, DWORD{2000}), kMaximumRestartDelayMilliseconds);
         }
         Sleep(restart_delay);
     }

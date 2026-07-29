@@ -10,13 +10,26 @@
 
 FLOAT GetWindowScale(HWND hwnd)
 {
-    UINT dpi = GetDpiForWindow(hwnd);
+    // GetDpiForWindow returns 0 for an invalid HWND. A 0 scale silently collapses
+    // every host window to 0x0, which breaks WebView2 bring-up and hides the
+    // floating toolbar, so fall back to the system DPI instead.
+    UINT dpi = hwnd ? GetDpiForWindow(hwnd) : 0;
+    if (dpi == 0)
+    {
+        dpi = GetDpiForSystem();
+    }
+    if (dpi == 0)
+    {
+        dpi = USER_DEFAULT_SCREEN_DPI;
+    }
     FLOAT scale = dpi / 96.0f;
     return scale;
 }
 
 FLOAT GetForegroundWindowScale()
 {
+    // There is often no foreground window while the IME is being switched or
+    // right after logon, which is exactly when the server gets relaunched.
     HWND hwnd = GetForegroundWindow();
     FLOAT scale = GetWindowScale(hwnd);
     return scale;

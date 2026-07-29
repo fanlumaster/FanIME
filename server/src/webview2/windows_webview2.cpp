@@ -19,6 +19,7 @@
 #include "settings/settings_launcher.h"
 #include "voice-input/voice_input_service.h"
 #include <WebView2EnvironmentOptions.h>
+#include <algorithm>
 
 #pragma comment(lib, "dcomp.lib")
 
@@ -31,6 +32,10 @@ void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+std::wstring GetAppdataPath();
+HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
+HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
+HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
 
 constexpr int candidateBoundRightExtra = 1000;
 constexpr int candidateBoundBottomExtra = 1000;
@@ -41,9 +46,321 @@ namespace
 {
 ComPtr<ICoreWebView2Environment> smallWindowWebviewEnvironment;
 
+HWND smallWindowCandHwnd = nullptr;
+HWND smallWindowMenuHwnd = nullptr;
+HWND smallWindowFtbHwnd = nullptr;
+
+enum class SmallWindowInitState
+{
+    Idle,
+    InProgress,
+    Ready,
+    Failed
+};
+
+SmallWindowInitState smallWindowInitState = SmallWindowInitState::Idle;
+int smallWindowInitAttempts = 0;
+bool pendingTrayMenuShow = false;
+// WebView2 rejects a CreateCoreWebView2Controller request with E_INVALIDARG when
+// another controller creation on the same environment is still in flight. The
+// three small windows must therefore be brought up strictly one at a time.
+bool smallWindowControllerRequestInFlight = false;
+ULONGLONG smallWindowControllerRequestStartTick = 0;
+constexpr ULONGLONG kSmallWindowControllerRequestTimeoutMs = 15000;
+constexpr int kMaxSmallWindowInitAttempts = 12;
+constexpr UINT_PTR kRetrySmallWindowWebviewTimerId = 9001;
+
+bool candidateNavigationReady = false;
+bool menuNavigationReady = false;
+bool floatingToolbarNavigationReady = false;
+bool smallWindowTopmostRequested = false;
+bool smallWindowTopmostApplied = false;
+
 void WebviewDebugLog(const std::wstring &message)
 {
     (void)0;
+}
+
+// Minimal standalone trace for the tray-menu WebView bring-up. The regular log
+// calls in this file are compiled out, which makes watchdog-launch-only failures
+// impossible to tell apart from an empty menu asset.
+void TrayMenuDiag(const std::wstring &message)
+{
+    const std::string dir = CommonUtils::get_local_appdata_path();
+    if (dir.empty()) return;
+    const std::wstring path = string_to_wstring(dir) + L"\\" + GlobalIme::AppName + L"\\traymenu-diag.log";
+    HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    const std::string line = wstring_to_string(fmt::format(L"{:02}:{:02}:{:02}.{:03} {}\r\n", now.wHour, now.wMinute,
+                                                           now.wSecond, now.wMilliseconds, message));
+    DWORD written = 0;
+    WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
+    CloseHandle(file);
+}
+
+void ScheduleSmallWindowWebviewRetry(DWORD delay_ms);
+void BeginSmallWindowWebviewEnvironmentCreate();
+void RequestNextSmallWindowController();
+void OnSmallWindowWebviewInitFailed(HRESULT hr);
+void MaybeFlushPendingTrayMenuShow();
+void ResetSmallWindowTopmostGate();
+
+std::wstring DescribeHostWindow(const wchar_t *name, HWND hwnd)
+{
+    if (!hwnd)
+    {
+        return fmt::format(L"{}=null", name);
+    }
+    RECT rect{};
+    GetWindowRect(hwnd, &rect);
+    int cloaked = 0;
+    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    const LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    struct ChildProbe
+    {
+        int count = 0;
+        wchar_t firstClass[64]{};
+    } probe;
+    EnumChildWindows(
+        hwnd,
+        [](HWND child, LPARAM lp) -> BOOL {
+            auto *p = reinterpret_cast<ChildProbe *>(lp);
+            if (p->count == 0)
+            {
+                GetClassNameW(child, p->firstClass, 64);
+            }
+            ++p->count;
+            return TRUE;
+        },
+        reinterpret_cast<LPARAM>(&probe));
+    return fmt::format(L"{}=[valid={} vis={} cloaked={} rect={},{},{}x{} dpi={} ex=0x{:08X} topmost={} children={}{}]",
+                       name, IsWindow(hwnd) ? 1 : 0, IsWindowVisible(hwnd) ? 1 : 0, cloaked, rect.left, rect.top,
+                       rect.right - rect.left, rect.bottom - rect.top, GetDpiForWindow(hwnd),
+                       static_cast<unsigned>(exStyle), (exStyle & WS_EX_TOPMOST) ? 1 : 0, probe.count,
+                       probe.count > 0 ? fmt::format(L" firstChild={}", probe.firstClass) : L"");
+}
+
+void CALLBACK SmallWindowWebviewRetryTimerProc(HWND hwnd, UINT /*msg*/, UINT_PTR id, DWORD /*time*/)
+{
+    KillTimer(hwnd, id);
+    // An existing environment must never be rebuilt: that would replace the
+    // candidate / floating-toolbar controllers that are already working and make
+    // the toolbar disappear. Only fill in the controllers that are missing.
+    if (smallWindowWebviewEnvironment)
+    {
+        RequestNextSmallWindowController();
+        return;
+    }
+    BeginSmallWindowWebviewEnvironmentCreate();
+}
+
+void ScheduleSmallWindowWebviewRetry(DWORD delay_ms)
+{
+    HWND timer_hwnd = smallWindowCandHwnd ? smallWindowCandHwnd : ::global_hwnd;
+    if (!timer_hwnd)
+    {
+        return;
+    }
+    KillTimer(timer_hwnd, kRetrySmallWindowWebviewTimerId);
+    SetTimer(timer_hwnd, kRetrySmallWindowWebviewTimerId, delay_ms, SmallWindowWebviewRetryTimerProc);
+}
+
+void ScheduleSmallWindowRetryWithBackoff()
+{
+    if (smallWindowInitAttempts >= kMaxSmallWindowInitAttempts)
+    {
+        return;
+    }
+    // 1s, 2s, 4s, 8s capped at 10s: covers user-data-folder locks left by
+    // orphaned WebView2 processes and slow bring-up right after logon.
+    const DWORD delay_ms =
+        (std::min)(DWORD{1000} << (std::min)((std::max)(smallWindowInitAttempts - 1, 0), 3), DWORD{10000});
+    ScheduleSmallWindowWebviewRetry(delay_ms);
+}
+
+void OnSmallWindowWebviewInitFailed(HRESULT hr)
+{
+    smallWindowInitState = SmallWindowInitState::Failed;
+    smallWindowWebviewEnvironment.Reset();
+    TrayMenuDiag(fmt::format(L"env-create-failed hr=0x{:08X} attempt={}", static_cast<unsigned>(hr),
+                             smallWindowInitAttempts));
+    ScheduleSmallWindowRetryWithBackoff();
+}
+
+void MaybeFlushPendingTrayMenuShow()
+{
+    if (!pendingTrayMenuShow || !webviewControllerMenuWnd || !menuNavigationReady || !::global_hwnd_menu)
+    {
+        return;
+    }
+    pendingTrayMenuShow = false;
+    // Global::Point / Keycode / ModifiersDown still hold the langbar rect from
+    // the right-click that arrived while the menu WebView was not ready.
+    PostMessage(::global_hwnd_menu, WM_LANGBAR_RIGHTCLICK, 0, 0);
+}
+
+int currentSmallWindowHostIndex = -1;
+int lastFailedSmallWindowHostIndex = -1;
+
+// Request a controller for exactly one host at a time, and only for hosts that
+// do not have one yet, so neither concurrency nor a retry can disturb siblings
+// that already came up. The scan starts after the host that failed last so a
+// persistently failing host cannot starve its siblings.
+void RequestNextSmallWindowController()
+{
+    ICoreWebView2Environment *env = smallWindowWebviewEnvironment.Get();
+    if (!env)
+    {
+        return;
+    }
+    if (smallWindowControllerRequestInFlight)
+    {
+        // A completion handler that never runs would otherwise wedge the queue.
+        if (GetTickCount64() - smallWindowControllerRequestStartTick < kSmallWindowControllerRequestTimeoutMs)
+        {
+            return;
+        }
+        TrayMenuDiag(L"request-controller-timeout");
+        smallWindowControllerRequestInFlight = false;
+    }
+
+    struct Host
+    {
+        const wchar_t *name;
+        HWND hwnd;
+        bool hasController;
+        HRESULT (*request)(HWND, HRESULT, ICoreWebView2Environment *);
+    };
+    const Host hosts[] = {
+        {L"cand", smallWindowCandHwnd, webviewControllerCandWnd != nullptr, &OnEnvironmentCreated},
+        {L"menu", smallWindowMenuHwnd, webviewControllerMenuWnd != nullptr, &OnMenuWindowEnvironmentCreated},
+        {L"ftb", smallWindowFtbHwnd, webviewControllerFtbWnd != nullptr, &OnFtbWindowEnvironmentCreated},
+    };
+
+    int chosen = -1;
+    for (int step = 1; step <= 3; ++step)
+    {
+        const int i = (lastFailedSmallWindowHostIndex + step) % 3;
+        if (!hosts[i].hasController && hosts[i].hwnd)
+        {
+            chosen = i;
+            break;
+        }
+    }
+    if (chosen < 0)
+    {
+        MaybeFlushPendingTrayMenuShow();
+        return;
+    }
+    const Host &host = hosts[chosen];
+
+    // In a uiAccess=true process a TOPMOST parent makes WebView2's internal
+    // cross-process SetParent fail with E_INVALIDARG (WebView2Feedback #486),
+    // and the failure persists as long as WS_EX_TOPMOST stays on the window.
+    // Demote before creating; the lazy-topmost gate re-pins once all three
+    // WebViews are ready.
+    if (GetWindowLongPtrW(host.hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)
+    {
+        SetWindowPos(host.hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        TrayMenuDiag(fmt::format(L"strip-topmost {}", host.name));
+    }
+
+    TrayMenuDiag(fmt::format(L"request-controller {} attempt={} {}", host.name, smallWindowInitAttempts,
+                             DescribeHostWindow(host.name, host.hwnd)));
+
+    smallWindowControllerRequestInFlight = true;
+    smallWindowControllerRequestStartTick = GetTickCount64();
+    currentSmallWindowHostIndex = chosen;
+    const HRESULT hr = host.request(host.hwnd, S_OK, env);
+    if (FAILED(hr))
+    {
+        smallWindowControllerRequestInFlight = false;
+        lastFailedSmallWindowHostIndex = chosen;
+        TrayMenuDiag(fmt::format(L"request-controller-rejected {} hr=0x{:08X}", host.name, static_cast<unsigned>(hr)));
+        ++smallWindowInitAttempts;
+        ScheduleSmallWindowRetryWithBackoff();
+    }
+}
+
+// Called from every controller-created handler so the next host is only started
+// once the previous creation has fully settled.
+void OnSmallWindowControllerSettled(HRESULT hr)
+{
+    smallWindowControllerRequestInFlight = false;
+    if (FAILED(hr))
+    {
+        lastFailedSmallWindowHostIndex = currentSmallWindowHostIndex;
+        ++smallWindowInitAttempts;
+        ScheduleSmallWindowRetryWithBackoff();
+        return;
+    }
+    // Forward progress: give the remaining hosts a full attempt budget.
+    smallWindowInitAttempts = 0;
+    ScheduleSmallWindowWebviewRetry(1);
+}
+
+void BeginSmallWindowWebviewEnvironmentCreate()
+{
+    if (!smallWindowCandHwnd || !smallWindowMenuHwnd || !smallWindowFtbHwnd)
+    {
+        return;
+    }
+    if (smallWindowInitState == SmallWindowInitState::InProgress)
+    {
+        return;
+    }
+    if (smallWindowWebviewEnvironment)
+    {
+        RequestNextSmallWindowController();
+        return;
+    }
+
+    smallWindowInitState = SmallWindowInitState::InProgress;
+    ++smallWindowInitAttempts;
+
+    ResetSmallWindowTopmostGate();
+    auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
+    options->put_AdditionalBrowserArguments( //
+        L"--disable-features=TranslateUI "
+        L"--disable-background-networking "
+        L"--disable-default-apps "
+        L"--disable-sync "
+        L"--disable-prompt-on-repost "
+        L"--no-first-run");
+
+    const std::wstring appDataPath = GetAppdataPath();
+    if (appDataPath.empty() || appDataPath[0] == L'\\')
+    {
+        OnSmallWindowWebviewInitFailed(E_INVALIDARG);
+        return;
+    }
+
+    const HRESULT createHr = CreateCoreWebView2EnvironmentWithOptions(
+        nullptr, appDataPath.c_str(), options.Get(),
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+            [](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
+                if (FAILED(result) || !env)
+                {
+                    OnSmallWindowWebviewInitFailed(FAILED(result) ? result : E_FAIL);
+                    return FAILED(result) ? result : E_FAIL;
+                }
+
+                smallWindowWebviewEnvironment = env;
+                smallWindowInitState = SmallWindowInitState::Ready;
+                smallWindowInitAttempts = 0;
+                TrayMenuDiag(fmt::format(L"env-ok menuHtmlLen={}", ::HTMLStringMenuWnd.size()));
+                RequestNextSmallWindowController();
+                return S_OK;
+            })
+            .Get());
+
+    if (FAILED(createHr))
+    {
+        OnSmallWindowWebviewInitFailed(createHr);
+    }
 }
 
 struct FloatingToolbarState
@@ -56,12 +373,6 @@ struct FloatingToolbarState
 };
 
 FloatingToolbarState floatingToolbarState;
-bool floatingToolbarNavigationReady = false;
-
-bool candidateNavigationReady = false;
-bool menuNavigationReady = false;
-bool smallWindowTopmostRequested = false;
-bool smallWindowTopmostApplied = false;
 
 bool AreSmallWindowWebviewsReadyUnlocked()
 {
@@ -171,6 +482,7 @@ void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
     (void)0;
     LogSmallWindowReadyGateUnlocked(L"after-nav-ready");
     TryApplyPendingLazyTopmost(L"pending-after-nav-ready");
+    MaybeFlushPendingTrayMenuShow();
 }
 
 bool UpdateBinaryState(int value, int &state)
@@ -299,6 +611,17 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     {
         return;
     }
+    // During startup the menu host is shown DWM-cloaked for WebView2 warmup, so
+    // IsWindowVisible() based callers can reach this before the menu controller
+    // exists. Making the host TOPMOST at that point is fatal in a uiAccess=true
+    // process: UIPI then blocks WebView2's cross-process SetParent and every
+    // CreateCoreWebView2Controller for this window fails with E_INVALIDARG
+    // (WebView2Feedback #486). Nothing needs raising before content exists.
+    if (!webviewControllerMenuWnd)
+    {
+        TrayMenuDiag(fmt::format(L"raise-menu-skipped reason={}", reason ? reason : L""));
+        return;
+    }
     // Re-assert TOPMOST after FTB (or a peer) was pinned last. A second
     // HWND_TOPMOST is what actually lifts the menu within the topmost band;
     // HWND_TOP alone is unreliable here with WS_EX_NOACTIVATE layered hosts.
@@ -393,13 +716,25 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
     return content;
 }
 
-inline std::wstring GetAppdataPath()
+std::wstring GetAppdataPath()
 {
     return string_to_wstring(CommonUtils::get_local_appdata_path()) + //
            LR"(\)" +                                                  //
            GlobalIme::AppName +                                       //
            LR"(\)" +                                                  //
            LR"(webview2)";
+}
+
+// An unreadable themed asset must never turn into an empty NavigateToString:
+// that renders a blank, title-less page which looks like a dead WebView.
+std::wstring ReadHtmlFileWithFallback(const std::wstring &primaryPath, const std::wstring &fallbackPath)
+{
+    std::wstring content = ReadHtmlFile(primaryPath);
+    if (content.empty() && primaryPath != fallbackPath)
+    {
+        content = ReadHtmlFile(fallbackPath);
+    }
+    return content;
 }
 
 void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
@@ -515,7 +850,10 @@ int PrepareHtmlForWnds()
     }
 
     std::wstring entireHtmlPathCandWnd = assetPath + htmlCandWnd;
-    ::HTMLStringCandWnd = ReadHtmlFile(entireHtmlPathCandWnd);
+    ::HTMLStringCandWnd = ReadHtmlFileWithFallback(
+        entireHtmlPathCandWnd,
+        assetPath + (isHorizontal ? L"/html/webview2/candwnd/horizontal_candidate_window_dark.html"
+                                  : L"/html/webview2/candwnd/vertical_candidate_window_dark.html"));
     std::wstring bodyHtmlPathCandWnd = assetPath + bodyHtmlCandWnd;
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
     std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
@@ -529,7 +867,9 @@ int PrepareHtmlForWnds()
     std::wstring htmlMenuWnd =
         menuLight ? L"/html/webview2/menu/default_light.html" : L"/html/webview2/menu/default.html";
     std::wstring entireHtmlPathMenuWnd = assetPath + htmlMenuWnd;
-    ::HTMLStringMenuWnd = ReadHtmlFile(entireHtmlPathMenuWnd);
+    ::HTMLStringMenuWnd =
+        ReadHtmlFileWithFallback(entireHtmlPathMenuWnd, assetPath + L"/html/webview2/menu/default.html");
+    TrayMenuDiag(fmt::format(L"menu-html path={} len={}", entireHtmlPathMenuWnd, ::HTMLStringMenuWnd.size()));
 
     //
     // settings 窗口
@@ -548,7 +888,8 @@ int PrepareHtmlForWnds()
     std::wstring htmlFtbWnd =
         ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
-    ::HTMLStringFtbWnd = ReadHtmlFile(entireHtmlPathFtbWnd);
+    ::HTMLStringFtbWnd =
+        ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
 
     return 0;
 }
@@ -804,20 +1145,23 @@ HRESULT OnControllerCreatedCandWnd(     //
     ICoreWebView2Controller *controller //
 )
 {
-    (void)0;
     if (!controller || FAILED(result))
     {
-        ShowErrorMessage(hwnd, L"Failed to create WebView2 controller.");
+        TrayMenuDiag(fmt::format(L"cand-controller-failed hr=0x{:08X} attempt={} {}", static_cast<unsigned>(result),
+                                 smallWindowInitAttempts, DescribeHostWindow(L"candWnd", hwnd)));
+        OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
+    TrayMenuDiag(L"cand-controller-ok");
 
     webviewControllerCandWnd = controller;
     const HRESULT getWebviewHr = webviewControllerCandWnd->get_CoreWebView2(webviewCandWnd.GetAddressOf());
-    (void)0;
 
     if (!webviewCandWnd)
     {
-        ShowErrorMessage(hwnd, L"Failed to get WebView2 instance.");
+        TrayMenuDiag(fmt::format(L"cand-get-webview-failed hr=0x{:08X}", static_cast<unsigned>(getWebviewHr)));
+        webviewControllerCandWnd.Reset();
+        OnSmallWindowControllerSettled(FAILED(getWebviewHr) ? getWebviewHr : E_FAIL);
         return E_FAIL;
     }
 
@@ -1073,6 +1417,7 @@ HRESULT OnControllerCreatedCandWnd(     //
             }).Get(),
         nullptr);
 
+    OnSmallWindowControllerSettled(S_OK);
     return S_OK;
 }
 
@@ -1129,21 +1474,21 @@ HRESULT OnControllerCreatedMenuWnd(     //
 {
     if (!controller || FAILED(result))
     {
-#ifdef FANY_DEBUG
-        (void)0;
-#endif
+        TrayMenuDiag(fmt::format(L"menu-controller-failed hr=0x{:08X} attempt={} {}", static_cast<unsigned>(result),
+                                 smallWindowInitAttempts, DescribeHostWindow(L"menuWnd", hwnd)));
+        OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
 
     /* 给 controller 和 webview 赋值 */
     webviewControllerMenuWnd = controller;
-    webviewControllerMenuWnd->get_CoreWebView2(webviewMenuWnd.GetAddressOf());
+    const HRESULT getMenuWebviewHr = webviewControllerMenuWnd->get_CoreWebView2(webviewMenuWnd.GetAddressOf());
 
     if (!webviewMenuWnd)
     {
-#ifdef FANY_DEBUG
-        (void)0;
-#endif
+        TrayMenuDiag(fmt::format(L"menu-get-webview-failed hr=0x{:08X}", static_cast<unsigned>(getMenuWebviewHr)));
+        webviewControllerMenuWnd.Reset();
+        OnSmallWindowControllerSettled(FAILED(getMenuWebviewHr) ? getMenuWebviewHr : E_FAIL);
         return E_FAIL;
     }
 
@@ -1184,7 +1529,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
         // Assets mapping
         webview3MenuWnd->SetVirtualHostNameToFolderMapping(  //
             L"appassets",                                    //
-            ::LocalAssetsPath.c_str(),                       //
+            GetLocalAssetsPath().c_str(),                    //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
         );                                                   //
     }
@@ -1236,12 +1581,8 @@ HRESULT OnControllerCreatedMenuWnd(     //
 
     // Navigate to HTML
     HRESULT hr = webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
-    if (FAILED(hr))
-    {
-#ifdef FANY_DEBUG
-        (void)0;
-#endif
-    }
+    TrayMenuDiag(fmt::format(L"menu-controller-ok navigate=0x{:08X} htmlLen={}", static_cast<unsigned>(hr),
+                             ::HTMLStringMenuWnd.size()));
 
     /* Debug console */
     // webviewMenuWindow->OpenDevToolsWindow();
@@ -1303,6 +1644,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
             .Get(),
         nullptr);
 
+    OnSmallWindowControllerSettled(S_OK);
     return S_OK;
 }
 
@@ -2234,21 +2576,22 @@ HRESULT OnControllerCreatedFtbWnd(      //
 {
     if (!controller || FAILED(result))
     {
-#ifdef FANY_DEBUG
-        (void)0;
-#endif
+        TrayMenuDiag(fmt::format(L"ftb-controller-failed hr=0x{:08X} attempt={} {}", static_cast<unsigned>(result),
+                                 smallWindowInitAttempts, DescribeHostWindow(L"ftbWnd", hwnd)));
+        OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
+    TrayMenuDiag(L"ftb-controller-ok");
 
     /* 给 controller 和 webview 赋值 */
     webviewControllerFtbWnd = controller;
-    webviewControllerFtbWnd->get_CoreWebView2(webviewFtbWnd.GetAddressOf());
+    const HRESULT getFtbWebviewHr = webviewControllerFtbWnd->get_CoreWebView2(webviewFtbWnd.GetAddressOf());
 
     if (!webviewFtbWnd)
     {
-#ifdef FANY_DEBUG
-        (void)0;
-#endif
+        TrayMenuDiag(fmt::format(L"ftb-get-webview-failed hr=0x{:08X}", static_cast<unsigned>(getFtbWebviewHr)));
+        webviewControllerFtbWnd.Reset();
+        OnSmallWindowControllerSettled(FAILED(getFtbWebviewHr) ? getFtbWebviewHr : E_FAIL);
         return E_FAIL;
     }
 
@@ -2292,7 +2635,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
         // Assets mapping
         webview3FtbWnd->SetVirtualHostNameToFolderMapping(   //
             L"appassets",                                    //
-            ::LocalAssetsPath.c_str(),                       //
+            GetLocalAssetsPath().c_str(),                    //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
         );                                                   //
     }
@@ -2473,6 +2816,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
             .Get(),
         nullptr);
 
+    OnSmallWindowControllerSettled(S_OK);
     return S_OK;
 }
 
@@ -2511,45 +2855,55 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
  */
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 {
-    ResetSmallWindowTopmostGate();
-    auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
-    options->put_AdditionalBrowserArguments( //
-        L"--disable-features=TranslateUI "
-        L"--disable-background-networking "
-        L"--disable-default-apps "
-        L"--disable-sync "
-        L"--disable-prompt-on-repost "
-        L"--no-first-run");
+    smallWindowCandHwnd = candHwnd;
+    smallWindowMenuHwnd = menuHwnd;
+    smallWindowFtbHwnd = ftbHwnd;
+    smallWindowInitAttempts = 0;
+    smallWindowInitState = SmallWindowInitState::Idle;
+    smallWindowControllerRequestInFlight = false;
+    currentSmallWindowHostIndex = -1;
+    lastFailedSmallWindowHostIndex = -1;
+    pendingTrayMenuShow = false;
+    BeginSmallWindowWebviewEnvironmentCreate();
+}
 
-    const std::wstring appDataPath = GetAppdataPath();
-    (void)0;
-    const HRESULT createHr = CreateCoreWebView2EnvironmentWithOptions(
-        nullptr,
-        appDataPath.c_str(),
-        options.Get(),
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [candHwnd, menuHwnd, ftbHwnd](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
-                (void)0;
-                if (FAILED(result) || !env)
-                {
-                    ShowErrorMessage(candHwnd, L"Failed to create the shared WebView2 environment.");
-                    return FAILED(result) ? result : E_FAIL;
-                }
+bool PrepareTrayMenuWebviewForShow()
+{
+    if (webviewControllerMenuWnd && menuNavigationReady)
+    {
+        return true;
+    }
 
-                smallWindowWebviewEnvironment = env;
+    pendingTrayMenuShow = true;
+    TrayMenuDiag(fmt::format(L"right-click-deferred controller={} navReady={} htmlLen={} initState={} attempts={}",
+                             webviewControllerMenuWnd ? 1 : 0, menuNavigationReady ? 1 : 0,
+                             ::HTMLStringMenuWnd.size(), static_cast<int>(smallWindowInitState),
+                             smallWindowInitAttempts));
 
-                const HRESULT candResult = OnEnvironmentCreated(candHwnd, S_OK, env);
-                const HRESULT menuResult = OnMenuWindowEnvironmentCreated(menuHwnd, S_OK, env);
-                const HRESULT ftbResult = OnFtbWindowEnvironmentCreated(ftbHwnd, S_OK, env);
+    if (webviewControllerMenuWnd)
+    {
+        // Controller exists but nothing ever painted. An unreadable menu asset
+        // makes NavigateToString run on an empty string, which yields a blank
+        // document with no title (and therefore no visible WebView2 child entry).
+        if (::HTMLStringMenuWnd.empty())
+        {
+            PrepareHtmlForWnds();
+        }
+        if (webviewMenuWnd && !::HTMLStringMenuWnd.empty())
+        {
+            webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
+        }
+        return false;
+    }
 
-                (void)0;
-
-                if (FAILED(candResult)) return candResult;
-                if (FAILED(menuResult)) return menuResult;
-                return ftbResult;
-            })
-            .Get());
-    (void)0;
+    if (smallWindowInitState != SmallWindowInitState::InProgress)
+    {
+        // An explicit right-click is a fresh user intent: reset the attempt
+        // budget so a long-idle session can still recover the menu.
+        smallWindowInitAttempts = 0;
+        ScheduleSmallWindowWebviewRetry(200);
+    }
+    return false;
 }
 
 void ShutdownWebviews()
@@ -2557,6 +2911,13 @@ void ShutdownWebviews()
     // WebView2 objects are apartment-bound. Release every controller and
     // interface on the UI STA before WinMain balances CoInitializeEx.
     ResetSmallWindowTopmostGate();
+    pendingTrayMenuShow = false;
+    smallWindowInitState = SmallWindowInitState::Idle;
+    smallWindowControllerRequestInFlight = false;
+    if (smallWindowCandHwnd)
+    {
+        KillTimer(smallWindowCandHwnd, kRetrySmallWindowWebviewTimerId);
+    }
 
     if (webviewControllerCandWnd)
     {

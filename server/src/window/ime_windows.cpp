@@ -944,6 +944,13 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     switch (message)
     {
     case WM_LANGBAR_RIGHTCLICK: {
+        // Host HWND alone is an invisible click-blocker. Do not show it until the
+        // menu WebView controller exists (watchdog relaunch / early logon can
+        // leave init pending; Prepare queues a retry and re-posts this message).
+        if (!PrepareTrayMenuWebviewForShow())
+        {
+            break;
+        }
         int left = Global::Point[0];
         int top = Global::Point[1];
         int right = Global::Keycode;
