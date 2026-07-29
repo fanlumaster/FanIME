@@ -81,6 +81,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
+    if (typeof payload.data?.input?.word_to_character === 'boolean') {
+      applyToggleState('wordToCharacterToggleBtn', payload.data.input.word_to_character);
+    }
     applyFloatingToolbarItemsConfig({
       fullwidth: payload.data?.general?.floating_toolbar_fullwidth,
       punctuation: payload.data?.general?.floating_toolbar_punctuation,

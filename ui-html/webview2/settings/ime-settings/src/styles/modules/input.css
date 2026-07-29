@@ -19,6 +19,12 @@
   min-width: 110px;
 }
 
+.input-setting-description {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 5px;
+}
+
 /* 输入 -> 双拼方案 */
 .shuangpin-option-content {
   display: flex;

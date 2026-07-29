@@ -66,6 +66,9 @@ export function setupInput(): void {
 
   setupPageOptions();
   setupFrequencyOptions();
+  setupToggleButton('wordToCharacterToggleBtn', (active) => {
+    updateConfig('input.word_to_character', active);
+  });
   setupToggleButton('zhEnToggleBtn', (active) => {
     updateConfig('general.cn_en_mixed_input', active);
   });
