@@ -1,8 +1,10 @@
 #include "tests/includes/test_framework.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_dictionary.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/schemes/quanpin_scheme.h"
+#include <algorithm>
 
 namespace
 {
@@ -36,6 +38,39 @@ TEST_CASE(QuanpinSchemeApostropheIsPreservedInRawInput)
     REQUIRE(request.valid);
     REQUIRE_EQ(request.raw_input, std::string("x'i"));
     REQUIRE_EQ(request.normalized_input, std::string("xi"));
+}
+
+TEST_CASE(QuanpinSchemeTrailingApostropheIsPreservedInPreeditSegmentation)
+{
+    QuanpinScheme scheme;
+    InputKey(scheme, 'F', L'f');
+    InputKey(scheme, 'A', L'a');
+    InputKey(scheme, 'N', L'n');
+    InputKey(scheme, 'G', L'g');
+    InputKey(scheme, VK_OEM_7, L'\'');
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.raw_input, std::string("fang'"));
+    REQUIRE_EQ(request.normalized_segmentation, std::string("fang"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("fang'"));
+}
+
+TEST_CASE(QuanpinCandidateCacheKeepsManualSegmentationBoundariesDistinct)
+{
+    QuanpinDictionary dictionary;
+    const std::string automatic_only_candidate = "__automatic_fan_gan__";
+    REQUIRE_EQ(dictionary.insert_word_to_series_cache(
+                   "fangan", automatic_only_candidate, CandidateSource::CloudSuggestion),
+               QuanpinDictionary::OK);
+
+    const auto automatic_candidates = dictionary.query("fangan", "fan'gan");
+    REQUIRE(std::any_of(automatic_candidates.begin(), automatic_candidates.end(),
+                        [&](const WordItem &item) { return item.word == automatic_only_candidate; }));
+
+    const auto manual_candidates = dictionary.query("fang'an", "fang'an");
+    REQUIRE(std::none_of(manual_candidates.begin(), manual_candidates.end(),
+                         [&](const WordItem &item) { return item.word == automatic_only_candidate; }));
 }
 
 TEST_CASE(QuanpinSchemePreservesUppercaseRawInputForHelpcodes)
