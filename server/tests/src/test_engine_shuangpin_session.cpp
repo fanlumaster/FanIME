@@ -117,6 +117,17 @@ TEST_CASE(EngineShuangpinSessionCloudCommitUsesRawShuangpinSequence)
     REQUIRE_EQ(state.committed_pinyin, std::string("vh"));
 }
 
+TEST_CASE(EngineShuangpinSessionStoresMultiSyllableDynamicPhrase)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+
+    // Cloud and AI candidates are committed with their raw shuangpin sequence.
+    // "vsgo" must retain the converted boundary "zhong'guo" before entering
+    // the strict canonical-pinyin storage path. "中国" already exists in the
+    // shipped dictionary, so this verifies the route without mutating user data.
+    REQUIRE_EQ(session.store_user_phrase("vsgo", "中国"), 0);
+}
+
 TEST_CASE(EngineQuanpinSessionCloudQueryDoesNotTriggerWhenHelpcodesApply)
 {
     EngineInputSession session(SchemeType::Quanpin);
