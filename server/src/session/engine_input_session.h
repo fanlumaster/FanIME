@@ -35,12 +35,15 @@ class EngineInputSession : public IInputSession
     void set_pinyin_sequence_with_cases(const std::string &pinyin_sequence) override;
 
     int store_user_phrase(std::string pinyin, std::string word) override;
+    int store_user_phrase_from_canonical_pinyin(std::string pinyin, std::string word) override;
     int pin_candidate(std::string pinyin, std::string word) override;
     int remove_candidate(std::string pinyin, std::string word) override;
     int cache_dynamic_candidate(const std::string &pinyin, const std::string &word,
                                 CandidateSource source) override;
-    SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin,
-                                                            const std::string &selected_word) override;
+    SelectionTransition advance_composition_after_selection(
+        const std::string &selected_pinyin,
+        const std::string &selected_word,
+        const std::string &selected_canonical_pinyin) override;
     CloudQueryState get_cloud_query_state() const override;
     CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
                                                        const std::string &current_word,

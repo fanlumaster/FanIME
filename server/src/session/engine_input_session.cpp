@@ -45,6 +45,58 @@ size_t raw_length_for_normalized_prefix(const std::string &raw_input, size_t nor
     return raw_length;
 }
 
+void remove_consumed_leading_separators(std::string &raw_input, std::string &raw_input_with_cases)
+{
+    size_t count = 0;
+    while (count < raw_input.size() && raw_input[count] == '\'')
+    {
+        ++count;
+    }
+    raw_input.erase(0, count);
+
+    count = 0;
+    while (count < raw_input_with_cases.size() && raw_input_with_cases[count] == '\'')
+    {
+        ++count;
+    }
+    raw_input_with_cases.erase(0, count);
+}
+
+std::string normalize_canonical_pinyin_for_word(const std::string &pinyin, const std::string &word)
+{
+    if (pinyin.empty())
+    {
+        return {};
+    }
+
+    const auto segments = quanpin::split_segments(pinyin);
+    if (segments.empty() || segments.size() != HelpcodeUtils::count_han_chars(word))
+    {
+        return {};
+    }
+    for (const auto &segment : segments)
+    {
+        if (segment.empty() || !quanpin::is_complete_pinyin_input(segment))
+        {
+            return {};
+        }
+    }
+    return quanpin::join_segments(segments);
+}
+
+std::string append_canonical_pinyin(const std::string &prefix, const std::string &suffix)
+{
+    if (prefix.empty())
+    {
+        return suffix;
+    }
+    if (suffix.empty())
+    {
+        return {};
+    }
+    return prefix + "'" + suffix;
+}
+
 struct ShuangpinCompositionBase
 {
     std::string raw_input;
@@ -67,8 +119,27 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
         return base;
     }
 
+    const auto has_complete_unseparated_base = [&](size_t helpcode_length) {
+        if (base.effective_raw_input.size() <= helpcode_length)
+        {
+            return false;
+        }
+        const size_t pure_length = base.effective_raw_input.size() - helpcode_length;
+        const size_t raw_prefix_length =
+            raw_length_for_normalized_prefix(base.raw_input, pure_length);
+        // An apostrophe immediately before the suffix makes that suffix a
+        // user-defined pinyin segment, not an auxiliary code.
+        if (raw_prefix_length < base.raw_input.size() &&
+            base.raw_input[raw_prefix_length] == '\'')
+        {
+            return false;
+        }
+        return shuangpin::is_complete_input(
+            base.raw_input.substr(0, raw_prefix_length), profile);
+    };
+
     if (ShuangpinUtil::IsFullHelpMode(base.effective_raw_input_with_cases, profile) &&
-        base.effective_raw_input.size() >= 2)
+        has_complete_unseparated_base(2))
     {
         base.helpcode_length = 2;
         return base;
@@ -76,8 +147,7 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
 
     if (base.effective_raw_input.size() % 2 == 1 && base.effective_raw_input.size() > 1)
     {
-        const std::string pure_raw_input = base.effective_raw_input.substr(0, base.effective_raw_input.size() - 1);
-        if (shuangpin::is_complete_input(pure_raw_input, profile))
+        if (has_complete_unseparated_base(1))
         {
             base.helpcode_length = 1;
         }
@@ -280,6 +350,14 @@ int EngineInputSession::store_user_phrase(std::string pinyin, std::string word)
     return session_.create_word(std::move(pinyin), std::move(word));
 }
 
+int EngineInputSession::store_user_phrase_from_canonical_pinyin(std::string pinyin, std::string word)
+{
+    // Both quanpin and shuangpin ultimately share the canonical quanpin
+    // dictionary.  Do not feed a complete quanpin key back through the active
+    // shuangpin profile a second time.
+    return quanpin_engine_.create_word_from_canonical_pinyin(std::move(pinyin), std::move(word));
+}
+
 int EngineInputSession::pin_candidate(std::string pinyin, std::string word)
 {
     return session_.update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
@@ -303,9 +381,12 @@ int EngineInputSession::cache_dynamic_candidate(const std::string &pinyin, const
 }
 
 IInputSession::SelectionTransition EngineInputSession::advance_composition_after_selection(
-    const std::string &selected_pinyin, const std::string &selected_word)
+    const std::string &selected_pinyin,
+    const std::string &selected_word,
+    const std::string &selected_canonical_pinyin)
 {
     SelectionTransition transition;
+    transition.selected_canonical_pinyin = selected_canonical_pinyin;
     if (is_wubi())
     {
         transition.full_pure_pinyin = request().normalized_input;
@@ -338,9 +419,11 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
                 const size_t rest_end = raw_length_for_normalized_prefix(base.raw_input_with_cases,
                                                                          total_input_length - base.helpcode_length);
                 const std::string rest_pinyin_sequence = base.raw_input.substr(rest_start, rest_end - rest_start);
-                const std::string rest_pinyin_sequence_with_cases =
+                std::string normalized_rest = rest_pinyin_sequence;
+                std::string cased_rest =
                     base.raw_input_with_cases.substr(rest_start, rest_end - rest_start);
-                session_.replace_shuangpin_raw_input(rest_pinyin_sequence, rest_pinyin_sequence_with_cases);
+                remove_consumed_leading_separators(normalized_rest, cased_rest);
+                session_.replace_shuangpin_raw_input(normalized_rest, cased_rest);
             }
         }
         else
@@ -351,7 +434,7 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
             }
 
             transition.continues_composition =
-                consumed_length < transition.full_pure_pinyin.size() && is_all_complete_pure_pinyin();
+                consumed_length < transition.full_pure_pinyin.size();
 
             if (transition.continues_composition)
             {
@@ -361,7 +444,10 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
                     base.raw_input.substr(consumed_raw_length, base.raw_input.size() - consumed_raw_length);
                 const std::string rest_pinyin_sequence_with_cases = base.raw_input_with_cases.substr(
                     consumed_raw_length, base.raw_input_with_cases.size() - consumed_raw_length);
-                session_.replace_shuangpin_raw_input(rest_pinyin_sequence, rest_pinyin_sequence_with_cases);
+                std::string normalized_rest = rest_pinyin_sequence;
+                std::string cased_rest = rest_pinyin_sequence_with_cases;
+                remove_consumed_leading_separators(normalized_rest, cased_rest);
+                session_.replace_shuangpin_raw_input(normalized_rest, cased_rest);
             }
         }
 
@@ -385,13 +471,14 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 
     transition.continues_composition = !selected_pure_pinyin.empty() &&
                                        selected_pure_pinyin.size() < transition.full_pure_pinyin.size() &&
-                                       is_all_complete_pure_pinyin();
+                                       consumed_raw_length < raw_input_without_helpcodes.size();
 
     if (transition.continues_composition)
     {
-        const std::string rest_raw_input = raw_input_without_helpcodes.substr(consumed_raw_length);
-        const std::string rest_raw_input_with_cases =
+        std::string rest_raw_input = raw_input_without_helpcodes.substr(consumed_raw_length);
+        std::string rest_raw_input_with_cases =
             raw_input_with_cases_without_helpcodes.substr(consumed_raw_length);
+        remove_consumed_leading_separators(rest_raw_input, rest_raw_input_with_cases);
         session_.replace_quanpin_raw_input(rest_raw_input, rest_raw_input_with_cases);
         transition.current_segmentation = get_pinyin_segmentation();
         transition.current_segmentation_with_cases = get_pinyin_segmentation_with_cases();
@@ -469,19 +556,23 @@ IInputSession::CreatingWordProgress EngineInputSession::update_creating_word_pro
         progress.word = current_word + selected_word;
         progress.preedit = progress.word;
         progress.completed = true;
-        return progress;
-    }
-    progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
-    progress.word = current_word + selected_word;
-    progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
-    if (is_shuangpin())
-    {
-        progress.completed = HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size();
+        progress.can_store = false;
         return progress;
     }
 
-    const auto cuts = quanpin::cut_pinyin_by_mode(progress.pinyin, "correction");
-    progress.completed = !cuts.empty() && cuts.front().size() == HelpcodeUtils::count_han_chars(progress.word);
+    const std::string selected_canonical =
+        normalize_canonical_pinyin_for_word(selection_transition.selected_canonical_pinyin, selected_word);
+    const bool prior_parts_are_storeable = current_word.empty() || !current_pinyin.empty();
+    if (prior_parts_are_storeable && !selected_canonical.empty())
+    {
+        progress.pinyin = append_canonical_pinyin(current_pinyin, selected_canonical);
+    }
+    progress.word = current_word + selected_word;
+    progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
+    progress.completed = !selection_transition.continues_composition;
+    progress.can_store =
+        progress.completed &&
+        !normalize_canonical_pinyin_for_word(progress.pinyin, progress.word).empty();
     return progress;
 }
 

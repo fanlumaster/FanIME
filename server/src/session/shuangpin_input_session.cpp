@@ -1,7 +1,10 @@
 #include "shuangpin_input_session.h"
 #include "config/ime_config.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
+#include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
+#include <algorithm>
 #include <stdexcept>
 
 namespace
@@ -135,6 +138,11 @@ int ShuangpinInputSession::store_user_phrase(std::string pinyin, std::string wor
     return dictionary_->create_word(std::move(pinyin), std::move(word));
 }
 
+int ShuangpinInputSession::store_user_phrase_from_canonical_pinyin(std::string pinyin, std::string word)
+{
+    return dictionary_->create_word_from_quanpin(std::move(pinyin), std::move(word));
+}
+
 int ShuangpinInputSession::pin_candidate(std::string pinyin, std::string word)
 {
     return dictionary_->update_weight_by_pinyin_and_word(std::move(pinyin), std::move(word));
@@ -157,14 +165,16 @@ int ShuangpinInputSession::cache_dynamic_candidate(const std::string &pinyin, co
 
 IInputSession::SelectionTransition
 ShuangpinInputSession::advance_composition_after_selection(const std::string &selected_pinyin,
-                                                           const std::string &selected_word)
+                                                           const std::string &selected_word,
+                                                           const std::string &selected_canonical_pinyin)
 {
     (void)selected_word;
     SelectionTransition transition;
+    transition.selected_canonical_pinyin = selected_canonical_pinyin;
     transition.full_pure_pinyin = dictionary_->get_pure_pinyin_sequence();
 
     transition.continues_composition =
-        selected_pinyin.size() < transition.full_pure_pinyin.size() && dictionary_->is_all_complete_pure_pinyin();
+        !selected_pinyin.empty() && selected_pinyin.size() < transition.full_pure_pinyin.size();
 
     if (transition.continues_composition)
     {
@@ -216,9 +226,26 @@ ShuangpinInputSession::update_creating_word_progress(const std::string &current_
                                                      const SelectionTransition &selection_transition) const
 {
     CreatingWordProgress progress;
-    progress.pinyin = current_pinyin.empty() ? selection_transition.full_pure_pinyin : current_pinyin;
+    const auto canonical_segments =
+        quanpin::split_segments(selection_transition.selected_canonical_pinyin);
+    const bool selected_is_canonical =
+        !canonical_segments.empty() &&
+        canonical_segments.size() == HelpcodeUtils::count_han_chars(selected_word) &&
+        std::all_of(canonical_segments.begin(), canonical_segments.end(), [](const std::string &segment) {
+            return !segment.empty() && quanpin::is_complete_pinyin_input(segment);
+        });
+    const bool prior_parts_are_storeable = current_word.empty() || !current_pinyin.empty();
+    if (selected_is_canonical && prior_parts_are_storeable)
+    {
+        const std::string selected = quanpin::join_segments(canonical_segments);
+        progress.pinyin = current_pinyin.empty() ? selected : current_pinyin + "'" + selected;
+    }
     progress.word = current_word + selected_word;
     progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
-    progress.completed = HelpcodeUtils::count_han_chars(progress.word) * 2 == progress.pinyin.size();
+    progress.completed = !selection_transition.continues_composition;
+    const auto all_segments = quanpin::split_segments(progress.pinyin);
+    progress.can_store =
+        progress.completed && !progress.pinyin.empty() &&
+        all_segments.size() == HelpcodeUtils::count_han_chars(progress.word);
     return progress;
 }

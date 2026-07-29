@@ -782,6 +782,7 @@ struct Task
     uint64_t english_generation = 0;
     std::string session_pinyin;
     std::string session_word;
+    bool session_pinyin_is_canonical = false;
     int candidate_one_based_index = 0;
     int fixed_position = 0;
 };
@@ -799,6 +800,7 @@ std::string CurrentRankingContextKey()
 
 std::string CandidateDatabaseKey(const WordItem &item, const std::string &context_key)
 {
+    if (!item.canonical_pinyin.empty()) return item.canonical_pinyin;
     if (g_inputSession->get_pinyin_sequence().size() == 1) return item.pinyin;
     auto segments = quanpin::split_segments(context_key);
     const size_t han_count = HelpcodeUtils::count_han_chars(item.word);
@@ -818,7 +820,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
-void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word);
+void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word,
+                                bool pinyin_is_canonical = false);
 void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
 bool ResolveCandidateItem(int one_based_index, WordItem &item);
 bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
@@ -944,7 +947,15 @@ void WorkerThread()
         }
 
         case TaskType::StoreUserPhrase: {
-            g_inputSession->store_user_phrase(task.session_pinyin, task.session_word);
+            if (task.session_pinyin_is_canonical)
+            {
+                g_inputSession->store_user_phrase_from_canonical_pinyin(task.session_pinyin,
+                                                                        task.session_word);
+            }
+            else
+            {
+                g_inputSession->store_user_phrase(task.session_pinyin, task.session_word);
+            }
             g_inputSession->reset_cache();
             break;
         }
@@ -1255,7 +1266,8 @@ void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::strin
     pipe_queueCv.notify_one();
 }
 
-void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word)
+void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word,
+                                bool pinyin_is_canonical)
 {
     {
         std::lock_guard lock(queueMutex);
@@ -1263,6 +1275,7 @@ void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &wo
         task.type = TaskType::StoreUserPhrase;
         task.session_pinyin = pinyin;
         task.session_word = word;
+        task.session_pinyin_is_canonical = pinyin_is_canonical;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -2619,11 +2632,11 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
                                     ? g_inputSession->get_cloud_query_state().committed_pinyin : std::string{};
             isNeedUpdateWeight = false;
         }
-        auto selection_transition = g_inputSession->advance_composition_after_selection(curWordPinyin, curWord);
+        auto selection_transition = g_inputSession->advance_composition_after_selection(
+            curWordPinyin, curWord, curWordItem.canonical_pinyin);
         const bool isNeedCreateWord = selection_transition.continues_composition;
         if (isNeedCreateWord)
-        { /* 将上屏的汉字字符串所对应的拼音比实际的拼音要短的话，同时，preedit
-             拼音的纯拼音版本(去除辅助码)的每一个分词都是完整的拼音 */
+        { /* 候选只消耗了输入的一部分，继续使用剩余输入造词。完整拼音和简拼均可进入。 */
             /* 打开造词开关 */
             GlobalIme::composition.creating_word.active = true;
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::NeedToCreateWord;
@@ -2657,9 +2670,13 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
                 Global::candidate_ui.selected_text =
                     string_to_wstring(CandidateTextForOutput(GlobalIme::composition.creating_word.word));
 
-                // 这里异步处理，不然有可能会阻塞住 TSF 端读取 pipe 导致超时
-                EnqueueStoreUserPhraseTask(GlobalIme::composition.creating_word.pinyin,
-                                           GlobalIme::composition.creating_word.word);
+                if (creating_word_progress.can_store)
+                {
+                    // 这里异步处理，不然有可能会阻塞住 TSF 端读取 pipe 导致超时
+                    EnqueueStoreUserPhraseTask(GlobalIme::composition.creating_word.pinyin,
+                                               GlobalIme::composition.creating_word.word,
+                                               /*pinyin_is_canonical=*/true);
+                }
 
                 /* 清理 */
                 GlobalIme::composition.clear_creating_word();
