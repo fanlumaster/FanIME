@@ -72,12 +72,13 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
                 box.style.maxWidth = maxW + "px";
                 box.style.width = "fit-content";
                 box.style.boxSizing = "border-box";
-                // Match horizontal CSS: keep candidates on one row; wrap only
-                // inside each candidate when its own text exceeds maxW.
-                box.style.whiteSpace = "nowrap";
+                // Let complete candidate items wrap once their combined width
+                // reaches maxW. An individual overlong item can still wrap
+                // internally because its wrapper is capped to the container.
+                box.style.whiteSpace = "normal";
                 box.querySelectorAll(".row-wrapper").forEach(function (node) {{
                     node.style.minWidth = "0";
-                    node.style.maxWidth = maxW + "px";
+                    node.style.maxWidth = "100%";
                     node.style.whiteSpace = "normal";
                     node.style.overflowWrap = "anywhere";
                     node.style.wordBreak = "break-word";
