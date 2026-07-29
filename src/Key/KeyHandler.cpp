@@ -305,8 +305,12 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
     }
 
     // Add virtual key to composition processor engine
-    pCompositionProcessorEngine->AddVirtualKey(wch);
-    g_toggleImeFallbackBuffer.push_back(wch);
+    const DWORD_PTR previousLength = pCompositionProcessorEngine->GetVirtualKeyLength();
+    if (pCompositionProcessorEngine->AddVirtualKey(wch) &&
+        pCompositionProcessorEngine->GetVirtualKeyLength() > previousLength)
+    {
+        g_toggleImeFallbackBuffer.push_back(wch);
+    }
 
     workerResult = _HandleCompositionInputWorker(
         pCompositionProcessorEngine, ec, pContext, requestId);

@@ -274,8 +274,17 @@ BOOL CCompositionProcessorEngine::AddVirtualKey(WCHAR wch)
         return FALSE;
     }
 
+    DWORD_PTR srgKeystrokeBufLen = _keystrokeBuffer.GetLength();
+    _caretPosition = min(_caretPosition, srgKeystrokeBufLen);
+    if (wch == L'\'' &&
+        ((_caretPosition > 0 && _keystrokeBuffer.Get()[_caretPosition - 1] == L'\'') ||
+         (_caretPosition < srgKeystrokeBufLen && _keystrokeBuffer.Get()[_caretPosition] == L'\'')))
+    {
+        return TRUE;
+    }
+
     // Check if the keystroke buffer has reached the maximum length
-    if (_keystrokeBuffer.GetLength() >= MAX_PINYIN_LENGTH)
+    if (srgKeystrokeBufLen >= MAX_PINYIN_LENGTH)
     {
         return FALSE;
     }
@@ -283,14 +292,12 @@ BOOL CCompositionProcessorEngine::AddVirtualKey(WCHAR wch)
     //
     // Insert at the logical composition caret.
     //
-    DWORD_PTR srgKeystrokeBufLen = _keystrokeBuffer.GetLength();
     PWCHAR pwch = new (std::nothrow) WCHAR[srgKeystrokeBufLen + 1];
     if (!pwch)
     {
         return FALSE;
     }
 
-    _caretPosition = min(_caretPosition, srgKeystrokeBufLen);
     memcpy(pwch, _keystrokeBuffer.Get(), _caretPosition * sizeof(WCHAR));
     pwch[_caretPosition] = wch;
     memcpy(pwch + _caretPosition + 1, _keystrokeBuffer.Get() + _caretPosition,
