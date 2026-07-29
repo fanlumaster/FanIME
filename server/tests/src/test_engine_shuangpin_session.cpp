@@ -507,3 +507,55 @@ TEST_CASE(EngineQuanpinInitialCandidatesStartLimitedAndExpand)
     const auto &expanded_candidates = session.get_candidates();
     REQUIRE(expanded_candidates.size() > initial_count);
 }
+
+TEST_CASE(EngineQuanpinSegmentedInitialCandidatesExpandInPlace)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputSequence(session, "l'shi");
+
+    const auto count_initials = [](const std::vector<IInputSession::WordItem> &items) {
+        return std::count_if(items.begin(), items.end(), [](const IInputSession::WordItem &item) {
+            return item.source == CandidateSource::Database && item.pinyin == "l";
+        });
+    };
+    const auto count_other_candidates = [](const std::vector<IInputSession::WordItem> &items) {
+        return std::count_if(items.begin(), items.end(), [](const IInputSession::WordItem &item) {
+            return item.source != CandidateSource::Database || item.pinyin != "l";
+        });
+    };
+
+    const auto initial_candidates = session.get_candidates();
+    REQUIRE_EQ(count_initials(initial_candidates), 24);
+    const auto other_count = count_other_candidates(initial_candidates);
+
+    REQUIRE(session.expand_initial_candidates());
+    const auto &expanded_candidates = session.get_candidates();
+    REQUIRE(count_initials(expanded_candidates) > 24);
+    REQUIRE_EQ(count_other_candidates(expanded_candidates), other_count);
+}
+
+TEST_CASE(EngineShuangpinSegmentedInitialCandidatesExpandInPlace)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputSequence(session, "v'ui");
+
+    const auto count_initials = [](const std::vector<IInputSession::WordItem> &items) {
+        return std::count_if(items.begin(), items.end(), [](const IInputSession::WordItem &item) {
+            return item.source == CandidateSource::Database && item.pinyin == "v";
+        });
+    };
+    const auto count_other_candidates = [](const std::vector<IInputSession::WordItem> &items) {
+        return std::count_if(items.begin(), items.end(), [](const IInputSession::WordItem &item) {
+            return item.source != CandidateSource::Database || item.pinyin != "v";
+        });
+    };
+
+    const auto initial_candidates = session.get_candidates();
+    REQUIRE_EQ(count_initials(initial_candidates), 24);
+    const auto other_count = count_other_candidates(initial_candidates);
+
+    REQUIRE(session.expand_initial_candidates());
+    const auto &expanded_candidates = session.get_candidates();
+    REQUIRE(count_initials(expanded_candidates) > 24);
+    REQUIRE_EQ(count_other_candidates(expanded_candidates), other_count);
+}

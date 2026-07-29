@@ -2446,9 +2446,23 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         };
         const auto move_page = [&](int offset, UINT response_type) {
             result = response_type;
-            if (offset > 0 && ui.page_index == 0)
+            if (offset > 0 && ui.is_next_page_partial_last_page())
             {
+                // Populate the last partial page before entering it, so the
+                // first display of that page is already full.
                 expand_initial_candidates();
+            }
+            else if (offset > 0 && !ui.has_next_page())
+            {
+                const bool current_page_was_full = ui.is_current_page_full();
+                if (expand_initial_candidates() && !current_page_was_full)
+                {
+                    // Newly loaded items first fill the unused slots on the
+                    // current last page. Refresh that page instead of skipping
+                    // those items by advancing immediately.
+                    refresh = true;
+                    return;
+                }
             }
             if (offset < 0 ? ui.has_prev_page() : ui.has_next_page())
             {
@@ -2458,7 +2472,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         };
         const auto move_selection = [&](int offset, UINT response_type) {
             result = response_type;
-            if (offset > 0 && ui.selected_index_in_page + 1 >= ui.current_page_count())
+            if (offset > 0 &&
+                (ui.is_selection_at_last_candidate() ||
+                 (ui.is_selection_at_current_page_end() && ui.is_next_page_partial_last_page())))
             {
                 expand_initial_candidates();
             }

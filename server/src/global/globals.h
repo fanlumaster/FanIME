@@ -180,6 +180,37 @@ struct CandidateUiState
     {
         return page_index < (item_total_count - 1) / page_size;
     }
+
+    bool is_current_page_full() const
+    {
+        return page_size > 0 && current_page_count() == page_size;
+    }
+
+    bool is_next_page_partial_last_page() const
+    {
+        if (page_size <= 0 || item_total_count <= 0 || item_total_count % page_size == 0)
+        {
+            return false;
+        }
+        const int last_page = (item_total_count - 1) / page_size;
+        return page_index + 1 == last_page;
+    }
+
+    bool is_selection_at_current_page_end() const
+    {
+        const int count = current_page_count();
+        return count > 0 && selected_index_in_page + 1 >= count;
+    }
+
+    bool is_selection_at_last_candidate() const
+    {
+        if (page_size <= 0 || item_total_count <= 0 || current_page_count() <= 0)
+        {
+            return false;
+        }
+        const int selected = std::clamp(selected_index_in_page, 0, current_page_count() - 1);
+        return current_page_start() + selected == item_total_count - 1;
+    }
 };
 inline CandidateUiState candidate_ui;
 
