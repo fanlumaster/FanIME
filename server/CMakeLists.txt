@@ -211,6 +211,8 @@ add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
     "./src/user-dictionary-replay/main.cpp"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
+    "./src/resource/resource.h"
+    "./src/resource/resource.rc"
 )
 target_link_libraries(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE
     unofficial::sqlite3::sqlite3
