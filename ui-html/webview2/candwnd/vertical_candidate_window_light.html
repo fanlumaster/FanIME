@@ -168,7 +168,7 @@
     }
     .context-menu-parent { position: relative; padding-right: 20px; }
     .context-menu-parent::after { content: "›"; position: absolute; right: 6px; }
-    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 128px;
+    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 0;
       background: #fff; border: 1px solid rgba(0,0,0,.12); border-radius: 6px; padding: 1px 0; }
     .context-menu-parent:hover > .context-submenu { display: block; }
     .context-menu-separator { height: 1px; margin: 3px 5px; background: #00000020; }
@@ -235,13 +235,16 @@
       });
 
       //
-      // Hide context menu when clicking elsewhere
+      // Dismiss only when clicking blank areas inside the rendered candidate card.
       //
+      document.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        if (!(e.target instanceof Element)) return;
+        if (e.target.closest('.context-menu')) return;
+        if (!e.target.closest('#realContainer')) return;
+        hideContextMenu();
+      });
       document.addEventListener('click', function (e) {
-        if (!e.target.closest('.context-menu')) {
-          hideContextMenu();
-        }
-
         const candElement = e.target.closest('.cand');
         if (candElement && e.button === 0) {
           const candNoElement = candElement.querySelector('.cand-no');
@@ -288,7 +291,7 @@
     function positionContextSubmenu(menu, menuY) {
       const parent = menu.querySelector('.context-menu-parent');
       const submenu = menu.querySelector('.context-submenu');
-      if (!parent || !submenu) return { width: 132, bottom: menuY + menu.offsetHeight };
+      if (!parent || !submenu) return { width: 80, bottom: menuY + menu.offsetHeight };
       submenu.style.top = '-2px';
       submenu.style.visibility = 'hidden';
       submenu.style.display = 'block';
@@ -331,11 +334,11 @@
     //
     function hideContextMenu() {
       const menu = document.getElementById('contextMenu');
-      const wasVisible = menu.style.display === 'block';
+      if (!menu || menu.style.display !== 'block') return;
       menu.style.display = 'none';
       currentRightClickedCand = null;
       window.RestoreContextMenuTopExpansion();
-      if (wasVisible) window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
+      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
     }
 
     //
@@ -605,11 +608,11 @@
     <div id="menuPin" class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
     <div class="context-menu-item context-menu-parent">固定排位
       <div class="context-submenu">
-        <div class="context-menu-item" onmouseup="onFixPosition(event,1)">固定到第 1 位</div>
-        <div class="context-menu-item" onmouseup="onFixPosition(event,2)">固定到第 2 位</div>
-        <div class="context-menu-item" onmouseup="onFixPosition(event,3)">固定到第 3 位</div>
-        <div class="context-menu-item" onmouseup="onFixPosition(event,4)">固定到第 4 位</div>
-        <div class="context-menu-item" onmouseup="onFixPosition(event,5)">固定到第 5 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,1)">第 1 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,2)">第 2 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,3)">第 3 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,4)">第 4 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,5)">第 5 位</div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onmouseup="onClearPosition(event)">取消固定</div>
       </div>

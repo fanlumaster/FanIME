@@ -157,8 +157,9 @@
     .context-menu-item { position:relative; padding:1px 20px 1px 4px; margin:2px; border-radius:4px; cursor:default; white-space:nowrap; }
     .context-menu-item:hover { background:#414141; }
     .context-menu-parent::after { content:"›"; position:absolute; right:6px; }
-    .context-submenu { display:none; position:absolute; left:100%; top:-2px; min-width:128px;
+    .context-submenu { display:none; position:absolute; left:100%; top:-2px; min-width:0;
       background:#2d2d2d; border:1px solid #9b9b9b2e; border-radius:6px; padding:1px 0; }
+    .context-submenu .context-menu-item { padding-right: 8px; }
     .context-menu-parent:hover>.context-submenu { display:block; }
     .context-menu-separator { height:1px; margin:3px 5px; background:#ffffff20; }
   </style>
@@ -183,7 +184,7 @@
     function positionContextSubmenu(menu, menuY) {
       const parent = menu.querySelector('.context-menu-parent');
       const submenu = menu.querySelector('.context-submenu');
-      if (!parent || !submenu) return { width: 132, height: 180, bottom: menuY + menu.offsetHeight };
+      if (!parent || !submenu) return { width: 80, height: 180, bottom: menuY + menu.offsetHeight };
       submenu.style.top = '-2px';
       submenu.style.visibility = 'hidden';
       submenu.style.display = 'block';
@@ -225,15 +226,15 @@
           ,leftExpansion:Math.ceil(submenuSize.leftExpansion||0)
         }}));
       });
+      // Dismiss only when clicking blank areas inside the rendered candidate card.
+      document.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        if (!(e.target instanceof Element)) return;
+        if (e.target.closest('.context-menu')) return;
+        if (!e.target.closest('#realContainer')) return;
+        hideContextMenu();
+      });
       document.addEventListener('click', function (e) {
-        if (!(e.target instanceof Element) || !e.target.closest('.context-menu')) {
-          const menu=document.getElementById('contextMenu');
-          if(menu.style.display==='block') {
-            window.RestoreContextMenuTopExpansion();
-            window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
-          }
-          menu.style.display='none';
-        }
         if (e.button !== 0) {
           return;
         }
@@ -272,11 +273,17 @@
         a = true;
       });
     });
+    function hideContextMenu() {
+      const menu = document.getElementById('contextMenu');
+      if (!menu || menu.style.display !== 'block') return;
+      menu.style.display = 'none';
+      currentRightClickedCand = null;
+      window.RestoreContextMenuTopExpansion();
+      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
+    }
     function menuIndex(){ return Array.from(document.querySelectorAll('#realContainer .cand')).indexOf(currentRightClickedCand)+1; }
     function sendMenu(type,data){ window.chrome.webview.postMessage(JSON.stringify({type,data}));
-      document.getElementById('contextMenu').style.display='none';
-      window.RestoreContextMenuTopExpansion();
-      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'})); }
+      hideContextMenu(); }
     function onPinToTop(e){ if(e.button===0) sendMenu('pin',menuIndex()); }
     function onDelete(e){ if(e.button===0) sendMenu('delete',menuIndex()); }
     function onFixPosition(e,position){ if(e.button===0) sendMenu('fixPosition',{index:menuIndex(),position}); }
@@ -286,12 +293,7 @@
       a = false;
       const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
-      const menu = document.getElementById('contextMenu');
-      const wasVisible = menu.style.display === 'block';
-      menu.style.display = 'none';
-      currentRightClickedCand = null;
-      window.RestoreContextMenuTopExpansion();
-      if (wasVisible) window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
+      hideContextMenu();
     }
     window.ApplyContextMenuTopExpansion = function (pixels) {
       const content = document.getElementById('realContainerParent');
@@ -479,11 +481,11 @@
 <div id="contextMenu" class="context-menu">
   <div class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
   <div class="context-menu-item context-menu-parent">固定排位<div class="context-submenu">
-    <div class="context-menu-item" onmouseup="onFixPosition(event,1)">固定到第 1 位</div>
-    <div class="context-menu-item" onmouseup="onFixPosition(event,2)">固定到第 2 位</div>
-    <div class="context-menu-item" onmouseup="onFixPosition(event,3)">固定到第 3 位</div>
-    <div class="context-menu-item" onmouseup="onFixPosition(event,4)">固定到第 4 位</div>
-    <div class="context-menu-item" onmouseup="onFixPosition(event,5)">固定到第 5 位</div>
+    <div class="context-menu-item" onmouseup="onFixPosition(event,1)">第 1 位</div>
+    <div class="context-menu-item" onmouseup="onFixPosition(event,2)">第 2 位</div>
+    <div class="context-menu-item" onmouseup="onFixPosition(event,3)">第 3 位</div>
+    <div class="context-menu-item" onmouseup="onFixPosition(event,4)">第 4 位</div>
+    <div class="context-menu-item" onmouseup="onFixPosition(event,5)">第 5 位</div>
     <div class="context-menu-separator"></div><div class="context-menu-item" onmouseup="onClearPosition(event)">取消固定</div>
   </div></div>
   <div id="menuDelete" class="context-menu-item" onmouseup="onDelete(event)">删除</div>
