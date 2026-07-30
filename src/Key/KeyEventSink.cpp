@@ -1258,13 +1258,20 @@ void CMetasequoiaIME::_DrainOneDeferredKeyDown()
         PostOwnerMessageWithSyncFallback(_msgWndHandle, WM_IpcReconnect);
         return;
     }
-    if (!_serverUnavailableFallbackActive &&
-        !EnsureNamedpipeFocusSessionActivated())
+    if (_serverUnavailableFallbackActive)
+    {
+        // Every key typed into the offline lane is one more request for the
+        // Server. Re-probing the transport here is not allowed while the local
+        // composition owns the keystroke stream, so count the key itself.
+        _NoteKeyEventIpcFailure();
+    }
+    else if (!EnsureNamedpipeFocusSessionActivated())
     {
         // Do not strand an eaten key when the Server cannot establish a
         // focus session. The queued FIFO becomes an isolated local/raw-input
         // lane until its composition has been finalized.
         _serverUnavailableFallbackActive = true;
+        _NoteKeyEventIpcFailure();
     }
 
     _deferredKeyInFlight = _deferredKeyDowns.front();

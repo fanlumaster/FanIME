@@ -10,7 +10,7 @@
 #include <winnt.h>
 #include <winuser.h>
 #include <Windows.h>
-#include <shlobj.h>
+#include <shellapi.h>
 #include <shellscalingapi.h>
 #include <algorithm>
 #include <atomic>
@@ -36,109 +36,82 @@ constexpr UINT_PTR TIMER_REFRESH_LANG_BAR_THEME = 3;
 constexpr UINT REFRESH_LANG_BAR_THEME_DELAY_MS = 150;
 constexpr UINT CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS = 50;
 constexpr UINT CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS = 2000;
-constexpr wchar_t WATCHDOG_MUTEX_NAME[] = L"Local\\MetasequoiaImeWatchdog.SingleInstance";
-constexpr wchar_t WATCHDOG_RELATIVE_PATH[] = L"metasequoiaime\\server\\MetasequoiaImeWatchdog.exe";
-constexpr ULONGLONG WATCHDOG_START_RETRY_INTERVAL_MS = 60'000;
-// FOLDERID_ProgramFilesX64 is not declared by every Windows SDK header when
-// compiling an x86 target. The KNOWNFOLDERID itself is architecture-neutral,
-// so keep its documented value locally for both TSF builds.
-constexpr GUID PROGRAM_FILES_X64_FOLDER_ID = {
-    0x6D809377, 0x6AF0, 0x444B, {0x89, 0x57, 0xA3, 0x77, 0x3F, 0x02, 0x20, 0x0E}};
+constexpr UINT IPC_FAILURES_BEFORE_SERVER_LAUNCH = 6;
+constexpr UINT SERVER_LAUNCH_RECONNECT_DELAY_MS = 500;
+constexpr wchar_t SERVER_MUTEX_NAME[] = L"Local\\MetasequoiaImeServer_SingleInstance";
+constexpr wchar_t SERVER_LAUNCH_MUTEX_NAME[] = L"Local\\MetasequoiaImeServer.Launch";
+constexpr wchar_t INSTALL_REGISTRY_KEY[] = L"Software\\Metasequoia\\MetasequoiaIME";
+constexpr wchar_t SERVER_PATH_REGISTRY_VALUE[] = L"ServerPath";
 std::atomic<UINT> nextWindowMessageToken{0};
-std::atomic<ULONGLONG> lastWatchdogStartAttempt{0};
 
-bool IsWatchdogAlreadyRunning()
+bool IsServerAlreadyRunning()
 {
-    HANDLE mutex = OpenMutexW(SYNCHRONIZE, FALSE, WATCHDOG_MUTEX_NAME);
+    HANDLE mutex = OpenMutexW(SYNCHRONIZE, FALSE, SERVER_MUTEX_NAME);
     if (mutex)
     {
         CloseHandle(mutex);
         return true;
     }
 
-    // A watchdog at another integrity level may own the mutex while denying
-    // this host access. Treat that as running instead of creating a process
-    // storm from every application that loads the TIP.
+    // uiAccess can put the Server at a different integrity level. Access
+    // denied still proves that the named mutex exists.
     return GetLastError() == ERROR_ACCESS_DENIED;
 }
 
-std::wstring ReadWatchdogPath()
+std::wstring ReadServerPath()
 {
-    PWSTR programFiles = nullptr;
-    const HRESULT result = SHGetKnownFolderPath(PROGRAM_FILES_X64_FOLDER_ID, KF_FLAG_DEFAULT, nullptr, &programFiles);
-    if (FAILED(result) || !programFiles)
+    wchar_t path[32768]{};
+    DWORD bytes = sizeof(path);
+    const LSTATUS status =
+        RegGetValueW(HKEY_LOCAL_MACHINE, INSTALL_REGISTRY_KEY, SERVER_PATH_REGISTRY_VALUE,
+                     RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, path, &bytes);
+    if (status != ERROR_SUCCESS || path[0] == L'\0')
     {
         return {};
     }
-
-    std::wstring path(programFiles);
-    CoTaskMemFree(programFiles);
-    if (path.empty())
-    {
-        return {};
-    }
-    if (path.back() != L'\\' && path.back() != L'/')
-    {
-        path.push_back(L'\\');
-    }
-    path.append(WATCHDOG_RELATIVE_PATH);
     return path;
 }
 
-void EnsureWatchdogRunning()
+bool LaunchServerIfNeeded()
 {
-    if (IsWatchdogAlreadyRunning())
+    if (IsServerAlreadyRunning())
     {
-        return;
+        return true;
     }
 
-    const ULONGLONG now = GetTickCount64();
-    ULONGLONG previous = lastWatchdogStartAttempt.load(std::memory_order_relaxed);
-    for (;;)
+    HANDLE launchMutex = CreateMutexW(nullptr, TRUE, SERVER_LAUNCH_MUTEX_NAME);
+    if (!launchMutex)
     {
-        if (previous != 0 && now - previous < WATCHDOG_START_RETRY_INTERVAL_MS)
-        {
-            return;
-        }
-        if (lastWatchdogStartAttempt.compare_exchange_weak(previous, now == 0 ? 1 : now,
-                                                            std::memory_order_relaxed))
-        {
-            break;
-        }
+        // Another integrity level may own the launch gate.
+        return GetLastError() == ERROR_ACCESS_DENIED;
+    }
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        CloseHandle(launchMutex);
+        return true;
     }
 
-    // Recheck after winning the process-local throttle. Another TSF host may
-    // have started the watchdog between the first check and this point.
-    if (IsWatchdogAlreadyRunning())
+    const std::wstring serverPath = ReadServerPath();
+    if (serverPath.empty() || GetFileAttributesW(serverPath.c_str()) == INVALID_FILE_ATTRIBUTES)
     {
-        return;
+        OutputDebugStringW(L"[msime]: Server path is unavailable; cannot revive Server.\n");
+        ReleaseMutex(launchMutex);
+        CloseHandle(launchMutex);
+        return false;
     }
 
-    const std::wstring watchdogPath = ReadWatchdogPath();
-    if (watchdogPath.empty() || GetFileAttributesW(watchdogPath.c_str()) == INVALID_FILE_ATTRIBUTES)
-    {
-        OutputDebugStringW(L"[msime]: Watchdog path is unavailable; skipping TSF keepalive repair.\n");
-        return;
-    }
-
-    const size_t separator = watchdogPath.find_last_of(L"\\/");
+    const size_t separator = serverPath.find_last_of(L"\\/");
     const std::wstring workingDirectory = separator == std::wstring::npos
                                               ? std::wstring{}
-                                              : watchdogPath.substr(0, separator);
-    std::wstring commandLine = L"\"" + watchdogPath + L"\"";
-    STARTUPINFOW startupInfo{sizeof(startupInfo)};
-    PROCESS_INFORMATION processInfo{};
-    if (CreateProcessW(watchdogPath.c_str(), commandLine.data(), nullptr, nullptr, FALSE, 0, nullptr,
-                       workingDirectory.empty() ? nullptr : workingDirectory.c_str(),
-                       &startupInfo, &processInfo))
-    {
-        CloseHandle(processInfo.hThread);
-        CloseHandle(processInfo.hProcess);
-    }
-    else
-    {
-        OutputDebugStringW(L"[msime]: TSF keepalive repair could not start the watchdog.\n");
-    }
+                                              : serverPath.substr(0, separator);
+    const HINSTANCE result =
+        ShellExecuteW(nullptr, L"open", serverPath.c_str(), nullptr,
+                      workingDirectory.empty() ? nullptr : workingDirectory.c_str(),
+                      SW_SHOWNOACTIVATE);
+    const bool launched = reinterpret_cast<INT_PTR>(result) > 32;
+    ReleaseMutex(launchMutex);
+    CloseHandle(launchMutex);
+    return launched;
 }
 
 UINT NextWindowMessageToken()
@@ -398,6 +371,7 @@ CMetasequoiaIME::CMetasequoiaIME()
     _ipcStopEvent = nullptr;
     _shouldStopIpcThread = false;
     _ipcReconnectDelayMs = CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS;
+    _ipcConsecutiveFailures = 0;
     _workerCommitReady.store(false);
     _expectedWorkerFocusToken.store(0);
     _acknowledgedWorkerFocusToken.store(0);
@@ -1512,14 +1486,6 @@ STDAPI CMetasequoiaIME::Deactivate()
 //----------------------------------------------------------------------------
 void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
 {
-    // Never attempt to escape an AppContainer or a secure/COM-less TSF host.
-    // This runs on the owned IPC worker so ActivateEx remains non-blocking and
-    // no detached code can outlive the TIP DLL during host shutdown.
-    if (!pIME->_IsStoreAppMode() && !pIME->_IsSecureMode() && !pIME->_IsComLess())
-    {
-        EnsureWatchdogRunning();
-    }
-
     const auto notifyDisconnected = [pIME](HANDLE disconnectedPipe, UINT disconnectedGeneration) {
         if (disconnectedGeneration == 0 ||
             pIME->_workerPipeGeneration.load(std::memory_order_acquire) != disconnectedGeneration)
@@ -1864,6 +1830,40 @@ void CMetasequoiaIME::_StopThemeRegistryWatcher()
 
 //+---------------------------------------------------------------------------
 //
+// _NoteKeyEventIpcFailure
+//
+//----------------------------------------------------------------------------
+void CMetasequoiaIME::_NoteKeyEventIpcFailure()
+{
+    // Only a real keystroke counts as evidence that the user wants the Server
+    // back. The background reconnect timer must never revive it on its own,
+    // otherwise merely focusing a text box resurrects a deliberately killed
+    // Server.
+    if (++_ipcConsecutiveFailures < IPC_FAILURES_BEFORE_SERVER_LAUNCH)
+    {
+        return;
+    }
+
+    _ipcConsecutiveFailures = 0;
+    if (IsServerAlreadyRunning())
+    {
+        // A live Server that has merely lost its focus session is recovered by
+        // the ordinary reconnect timer. Do not disturb that schedule.
+        return;
+    }
+    if (_IsSecureMode() || _IsComLess() || !LaunchServerIfNeeded())
+    {
+        return;
+    }
+    if (Global::g_connected && _msgWndHandle && IsWindow(_msgWndHandle))
+    {
+        _ipcReconnectDelayMs = SERVER_LAUNCH_RECONNECT_DELAY_MS;
+        SetTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE, _ipcReconnectDelayMs, nullptr);
+    }
+}
+
+//+---------------------------------------------------------------------------
+//
 // CMetasequoiaIME_WindowProc
 //
 //----------------------------------------------------------------------------
@@ -1961,6 +1961,7 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         KillTimer(hWnd, TIMER_CONNECT_TO_TSF_NAMEDPIPE);
         FlushNamedpipeFocusSessionReset();
         pIME->_ipcReconnectDelayMs = CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS;
+        pIME->_ipcConsecutiveFailures = 0;
         break;
     }
     case WM_ConnectToTsfNamedpipe: {
@@ -2025,6 +2026,7 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
             {
                 KillTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE);
                 pIME->_ipcReconnectDelayMs = CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS;
+                pIME->_ipcConsecutiveFailures = 0;
                 pIME->_TryLeaveServerUnavailableFallback();
                 SendCurrentImeStatusSnapshot(pIME);
                 pIME->_ScheduleDeferredKeyDownDrain();
@@ -2042,6 +2044,7 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
             if (!Global::g_connected)
             {
                 KillTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE);
+                pIME->_ipcConsecutiveFailures = 0;
                 break;
             }
 
@@ -2065,6 +2068,7 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
             {
                 KillTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE);
                 pIME->_ipcReconnectDelayMs = CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS;
+                pIME->_ipcConsecutiveFailures = 0;
                 SendCurrentImeStatusSnapshot(pIME);
                 pIME->_ScheduleDeferredKeyDownDrain();
                 break;

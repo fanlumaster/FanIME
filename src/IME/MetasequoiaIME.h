@@ -305,6 +305,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _ScheduleDeferredKeyDownDrain();
     void _DrainOneDeferredKeyDown();
     void _TryLeaveServerUnavailableFallback();
+    void _NoteKeyEventIpcFailure();
     HRESULT _RequestDeferredApplicationTextEditSession(
         _In_ ITfContext *pContext, WCHAR wch, uint64_t expectedFocusToken,
         uint64_t expectedFocusGeneration, uint64_t deferredReplayToken);
@@ -462,6 +463,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     HANDLE _ipcStopEvent;
     std::atomic<bool> _shouldStopIpcThread;
     UINT _ipcReconnectDelayMs;
+    UINT _ipcConsecutiveFailures;
     std::mutex _pendingCommitCandidateMutex;
     std::map<UINT, WorkerCandidateCommit> _pendingServerCommitMessages;
     std::map<UINT, WorkerCompartmentSwitch> _pendingWorkerSwitchMessages;
