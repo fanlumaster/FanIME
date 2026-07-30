@@ -748,9 +748,12 @@ void SyncCandidateWebViewBoundsToHost(HWND hwnd)
     {
         return;
     }
-    RECT bounds{};
-    GetClientRect(hwnd, &bounds);
-    webviewControllerCandWnd->put_Bounds(bounds);
+    // Keep the measure-time reserve instead of shrinking the viewport to the
+    // host client. MarginLeft pushes the card towards the right of the viewport
+    // near a screen edge, so an exactly-sized viewport leaves the card less
+    // room than it was measured with and it wraps into a taller card that the
+    // window region then clips.
+    PrepareCandidateWebViewBoundsForMeasure(hwnd);
     webviewControllerCandWnd->NotifyParentWindowPositionChanged();
 }
 
