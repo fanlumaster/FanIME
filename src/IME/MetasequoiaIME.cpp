@@ -43,6 +43,7 @@ constexpr wchar_t SERVER_LAUNCH_MUTEX_NAME[] = L"Local\\MetasequoiaImeServer.Lau
 constexpr wchar_t INSTALL_REGISTRY_KEY[] = L"Software\\Metasequoia\\MetasequoiaIME";
 constexpr wchar_t SERVER_PATH_REGISTRY_VALUE[] = L"ServerPath";
 std::atomic<UINT> nextWindowMessageToken{0};
+std::atomic<bool> serverLaunchInFlight{false};
 
 bool IsServerAlreadyRunning()
 {
@@ -112,6 +113,58 @@ bool LaunchServerIfNeeded()
     ReleaseMutex(launchMutex);
     CloseHandle(launchMutex);
     return launched;
+}
+
+DWORD WINAPI ServerLaunchThreadProc(LPVOID parameter)
+{
+    const HRESULT comInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    LaunchServerIfNeeded();
+    if (SUCCEEDED(comInit))
+    {
+        CoUninitialize();
+    }
+    serverLaunchInFlight.store(false, std::memory_order_release);
+    // The reference taken in RequestServerLaunch keeps the TIP mapped even if
+    // the host deactivates it while the shell is still resolving the Server.
+    FreeLibraryAndExitThread(static_cast<HMODULE>(parameter), 0);
+    return 0;
+}
+
+// Starting the uiAccess Server goes through the shell, which can block for
+// seconds. Every caller here is on the host's TSF/UI thread, where a stall
+// freezes the application's message pump and makes cross-apartment calls into
+// this TIP (ITfLangBarItemButton::GetIcon among them) fail. Hand the launch to
+// a throwaway thread and let the reconnect timer discover the Server.
+//
+// Returns true when the Server is running or a launch is under way.
+bool RequestServerLaunch()
+{
+    if (IsServerAlreadyRunning())
+    {
+        return true;
+    }
+    if (serverLaunchInFlight.exchange(true, std::memory_order_acq_rel))
+    {
+        return true;
+    }
+
+    HMODULE selfModule = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                            reinterpret_cast<LPCWSTR>(&ServerLaunchThreadProc), &selfModule))
+    {
+        serverLaunchInFlight.store(false, std::memory_order_release);
+        return false;
+    }
+
+    const HANDLE launchThread = CreateThread(nullptr, 0, ServerLaunchThreadProc, selfModule, 0, nullptr);
+    if (!launchThread)
+    {
+        FreeLibrary(selfModule);
+        serverLaunchInFlight.store(false, std::memory_order_release);
+        return false;
+    }
+    CloseHandle(launchThread);
+    return true;
 }
 
 UINT NextWindowMessageToken()
@@ -1166,6 +1219,10 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
 
     _tfClientId = tfClientId;
     _dwActivateFlags = dwFlags;
+    // Match Weasel's activation-time recovery: switching to this TIP is an
+    // explicit user request, so revive a missing Server immediately. Merely
+    // focusing another text box still uses reconnect-only behavior.
+    _WakeServerIfNeeded();
     _focusResetPending = false;
     _activationRequired = false;
     _workerCommitReady.store(false, std::memory_order_release);
@@ -1299,9 +1356,9 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
         PostMessage(_msgWndHandle, WM_ThreadFocus, 0, 0);
     }
 
-    // TSF lifecycle is still published on the epoch-checked Main pipe, but it
-    // deliberately does not control the floating toolbar.  The Server keeps
-    // that toolbar resident and only applies real status changes to it.
+    // TSF lifecycle is published on the epoch-checked Main pipe. The Server
+    // uses terminal activation/deactivation to reconcile floating-toolbar
+    // visibility and status snapshots to update its displayed mode.
 
     {
         HWND hwndTarget = GetFocus();
@@ -1830,6 +1887,24 @@ void CMetasequoiaIME::_StopThemeRegistryWatcher()
 
 //+---------------------------------------------------------------------------
 //
+// _WakeServerIfNeeded
+//
+//----------------------------------------------------------------------------
+void CMetasequoiaIME::_WakeServerIfNeeded()
+{
+    if (_IsSecureMode() || _IsComLess() || IsServerAlreadyRunning()) return;
+    if (!RequestServerLaunch()) return;
+
+    _ipcConsecutiveFailures = 0;
+    if (Global::g_connected && _msgWndHandle && IsWindow(_msgWndHandle))
+    {
+        _ipcReconnectDelayMs = SERVER_LAUNCH_RECONNECT_DELAY_MS;
+        SetTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE, _ipcReconnectDelayMs, nullptr);
+    }
+}
+
+//+---------------------------------------------------------------------------
+//
 // _NoteKeyEventIpcFailure
 //
 //----------------------------------------------------------------------------
@@ -1851,7 +1926,7 @@ void CMetasequoiaIME::_NoteKeyEventIpcFailure()
         // the ordinary reconnect timer. Do not disturb that schedule.
         return;
     }
-    if (_IsSecureMode() || _IsComLess() || !LaunchServerIfNeeded())
+    if (_IsSecureMode() || _IsComLess() || !RequestServerLaunch())
     {
         return;
     }

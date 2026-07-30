@@ -31,6 +31,11 @@ STDAPI CMetasequoiaIME::OnActivated(_In_ REFCLSID clsid, _In_ REFGUID guidProfil
 
     if (isActivated)
     {
+        // ActivateEx covers the first load; this callback covers later
+        // profile switches in an already-running host. Use the same
+        // ShellExecute-based wake path so packaged/UWP hosts do not pass
+        // their package identity to the Server.
+        _WakeServerIfNeeded();
         _AddTextProcessorEngine();
     }
     else

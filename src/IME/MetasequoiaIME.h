@@ -305,6 +305,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _ScheduleDeferredKeyDownDrain();
     void _DrainOneDeferredKeyDown();
     void _TryLeaveServerUnavailableFallback();
+    void _WakeServerIfNeeded();
     void _NoteKeyEventIpcFailure();
     HRESULT _RequestDeferredApplicationTextEditSession(
         _In_ ITfContext *pContext, WCHAR wch, uint64_t expectedFocusToken,
