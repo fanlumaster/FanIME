@@ -2591,6 +2591,11 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
                     RenderFloatingToolbarState(sender);
                     ApplyConfiguredFloatingToolbarSize();
+                    // The first apply runs before this controller exists, so a
+                    // client that activated during startup left the toolbar
+                    // hidden with no further trigger. Re-evaluate now that the
+                    // toolbar can actually paint.
+                    ApplyConfiguredFloatingToolbarVisibility();
                 }
                 else
                 {

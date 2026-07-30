@@ -17,6 +17,8 @@ constexpr wchar_t kServerFileName[] = L"MetasequoiaImeServer.exe";
 constexpr wchar_t kWatchdogMutex[] = L"Local\\MetasequoiaImeWatchdog.SingleInstance";
 constexpr DWORD kHealthyRunMilliseconds = 30'000;
 constexpr DWORD kMaximumRestartDelayMilliseconds = 30'000;
+constexpr DWORD kProfileReadyTimeoutMilliseconds = 30'000;
+constexpr DWORD kProfileReadyRetryIntervalMilliseconds = 1'000;
 
 // Keep these identifiers in sync with MetasequoiaImeTsf/src/Global/Globals.cpp.
 constexpr CLSID kMetasequoiaImeClsid = {
@@ -49,6 +51,24 @@ bool IsMetasequoiaImeEnabledForCurrentUser()
     // Fail closed: if TSF cannot confirm that the profile is in this user's
     // keyboard list, do not leave an otherwise unnecessary background service.
     return query_result == S_OK && enabled != FALSE;
+}
+
+bool WaitForMetasequoiaImeEnabledForCurrentUser()
+{
+    // At logon Task Scheduler can start us before TSF has finished publishing
+    // the current user's enabled profile list. Query immediately, then retry
+    // once per second for at most 30 seconds instead of treating that startup
+    // race as a permanent "not installed for this user" result.
+    const ULONGLONG deadline = GetTickCount64() + kProfileReadyTimeoutMilliseconds;
+    for (;;)
+    {
+        if (IsMetasequoiaImeEnabledForCurrentUser()) return true;
+
+        const ULONGLONG now = GetTickCount64();
+        if (now >= deadline) return false;
+        Sleep(static_cast<DWORD>((std::min)(
+            static_cast<ULONGLONG>(kProfileReadyRetryIntervalMilliseconds), deadline - now)));
+    }
 }
 
 std::wstring GetExecutableDirectory()
@@ -121,7 +141,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     CommonUtils::SingleInstanceGuard single_instance(kWatchdogMutex);
     if (!single_instance.is_valid()) return 1;
     if (single_instance.already_running()) return 0;
-    if (!IsMetasequoiaImeEnabledForCurrentUser()) return 0;
+    if (!WaitForMetasequoiaImeEnabledForCurrentUser()) return 0;
 
     const std::wstring executable_directory = GetExecutableDirectory();
     if (executable_directory.empty()) return 1;

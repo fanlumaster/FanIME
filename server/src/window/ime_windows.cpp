@@ -354,6 +354,17 @@ void ApplyConfiguredFloatingToolbarVisibility()
     {
         return;
     }
+    // WM_IMEACTIVATE is the only thing that raises this flag, and it is skipped
+    // whenever ActivatePipeClient reports an unchanged activation or the post
+    // lands before the toolbar HWND exists. The IPC active client is the
+    // authority, so repair the flag here instead of leaving the toolbar hidden
+    // until the user switches IME away and back. Only the false->true direction
+    // is derived: a route suspension clears the active client on purpose while
+    // the toolbar must stay up.
+    if (!g_is_ime_active && GetActivePipeClient().client_id != 0)
+    {
+        g_is_ime_active = true;
+    }
     const HWND foreground = GetForegroundWindow();
     const bool fullscreen = foreground && CheckFullscreen(foreground);
     const bool should_show = FanyImeUi::ShouldShowFloatingToolbar(
@@ -562,6 +573,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // Cloaked show: WebView2 sees a visible on-monitor host; the user does not.
     WarmupHostWindowCloaked(hwnd_cand);
     WarmupHostWindowCloaked(hwnd_menu);
+    // Pipe threads start before this HWND exists, so a ClientActivated that
+    // arrived during that window had its PostMessage(WM_IMEACTIVATE) dropped on
+    // a null global_hwnd. The apply below reconciles that from the IPC state.
     ApplyConfiguredFloatingToolbarVisibility();
     UpdateWindow(hwnd_ftb);
 
