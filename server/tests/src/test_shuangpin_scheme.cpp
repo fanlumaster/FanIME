@@ -139,9 +139,47 @@ TEST_CASE(ZiranmaProfileDecodesZeroInitialSyllables)
     }
 }
 
-TEST_CASE(ShuangpinProfileResolverSelectsZiranmaAndFallsBackToXiaohe)
+TEST_CASE(ShoudaoProfileDecodesKeyboardLayout)
+{
+    const auto &profile = GetShoudaoShuangpinProfile();
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"jq", "jiu"},   {"gw", "gua"},   {"he", "he"},     {"dr", "die"},
+        {"gt", "guan"},  {"dy", "dang"},  {"du", "du"},     {"li", "li"},
+        {"bo", "bo"},    {"lo", "luo"},   {"dp", "diao"},   {"da", "da"},
+        {"ds", "dou"},   {"dd", "dao"},   {"df", "deng"},   {"gg", "guai"},
+        {"mg", "ming"},  {"dh", "dong"},  {"jh", "jiong"},  {"dj", "dan"},
+        {"hk", "hen"},   {"xk", "xia"},   {"dl", "dai"},    {"jl", "jue"},
+        {"yl", "yue"},   {"dz", "dun"},   {"xx", "xiang"},  {"gx", "guang"},
+        {"lc", "lin"},   {"lv", "lv"},    {"dv", "dui"},    {"lb", "lve"},
+        {"dn", "dian"},  {"fm", "fei"},   {"vy", "zhang"},  {"iy", "chang"},
+        {"ey", "shang"}, {"ei", "shi"},
+    };
+
+    for (const auto &[input, expected] : cases)
+    {
+        REQUIRE_EQ(shuangpin::normalize_input(input, profile), expected);
+    }
+}
+
+TEST_CASE(ShoudaoProfileDecodesZeroInitialSyllables)
+{
+    const auto &profile = GetShoudaoShuangpinProfile();
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"aa", "a"},   {"ai", "ai"},  {"an", "an"},  {"ay", "ang"}, {"ao", "ao"},
+        {"ue", "e"},   {"ui", "ei"},  {"en", "en"},  {"uf", "eng"}, {"er", "er"},
+        {"oo", "o"},   {"ou", "ou"},
+    };
+
+    for (const auto &[input, expected] : cases)
+    {
+        REQUIRE_EQ(shuangpin::normalize_input(input, profile), expected);
+    }
+}
+
+TEST_CASE(ShuangpinProfileResolverSelectsNamedProfileAndFallsBackToXiaohe)
 {
     REQUIRE_EQ(GetShuangpinProfile("ziranma").name, std::string("ziranma"));
+    REQUIRE_EQ(GetShuangpinProfile("shoudao").name, std::string("shoudao"));
     REQUIRE_EQ(GetShuangpinProfile("xiaohe").name, std::string("xiaohe"));
     REQUIRE_EQ(GetShuangpinProfile("unknown").name, std::string("xiaohe"));
 }

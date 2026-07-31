@@ -1125,7 +1125,7 @@ const std::string &GetConfiguredShuangpinSchema()
 
 bool SetConfiguredShuangpinSchema(const std::string &schema)
 {
-    if (schema != "xiaohe" && schema != "ziranma")
+    if (schema != "xiaohe" && schema != "ziranma" && schema != "shoudao")
     {
         return false;
     }
