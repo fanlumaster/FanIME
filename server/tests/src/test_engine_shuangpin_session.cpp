@@ -450,6 +450,38 @@ TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
     REQUIRE(found->source == CandidateSource::CloudSuggestion);
 }
 
+TEST_CASE(EngineShuangpinSessionHasActiveHelpcodeTracksCloudQueryGate)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "xitele");
+
+    REQUIRE(session.is_all_complete_pure_pinyin());
+    REQUIRE(!session.has_active_helpcode());
+    REQUIRE(session.get_cloud_query_state().should_query);
+
+    InputLetters(session, "a");
+
+    REQUIRE(session.is_all_complete_pure_pinyin());
+    REQUIRE(session.has_active_helpcode());
+    REQUIRE(!session.get_cloud_query_state().should_query);
+}
+
+TEST_CASE(EngineQuanpinSessionHasActiveHelpcodeTracksCloudQueryGate)
+{
+    EngineInputSession session(SchemeType::Quanpin);
+    InputLetters(session, "xitele");
+
+    REQUIRE(session.is_all_complete_pure_pinyin());
+    REQUIRE(!session.has_active_helpcode());
+    REQUIRE(session.get_cloud_query_state().should_query);
+
+    InputLetters(session, "A");
+
+    REQUIRE(session.is_all_complete_pure_pinyin());
+    REQUIRE(session.has_active_helpcode());
+    REQUIRE(!session.get_cloud_query_state().should_query);
+}
+
 TEST_CASE(EngineShuangpinSessionUsesZiranmaProfileEndToEnd)
 {
     EngineInputSession session(SchemeType::Shuangpin, GetZiranmaShuangpinProfile());

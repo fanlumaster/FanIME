@@ -62,6 +62,7 @@ class IInputSession
     virtual std::string get_pinyin_segmentation_with_cases() const = 0;
     virtual std::string get_quanpin() const = 0;
     virtual bool is_all_complete_pure_pinyin() const = 0;
+    virtual bool has_active_helpcode() const = 0;
 
     virtual void set_pinyin_sequence(const std::string &pinyin_sequence) = 0;
     virtual void set_pinyin_sequence_with_cases(const std::string &pinyin_sequence) = 0;

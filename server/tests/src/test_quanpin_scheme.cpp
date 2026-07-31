@@ -229,3 +229,114 @@ TEST_CASE(QuanpinSparsePinyinFallbackSegmentsPreserveSuffixSegments)
     REQUIRE_EQ(quanpin::join_segments(dia_fallbacks[0]), std::string("di'a'wo"));
     REQUIRE_EQ(quanpin::join_segments(dia_fallbacks[1]), std::string("di"));
 }
+
+namespace
+{
+struct HelpcodeSample
+{
+    char help_code = 0;
+    std::string first_matched_a;
+    std::string first_matched_b;
+    std::string unmatched;
+};
+
+// Picks a helpcode letter that has at least two candidates matching on the
+// leading part plus one candidate that does not match at all, which is enough
+// to observe how the single-helpcode reordering treats the buckets.
+HelpcodeSample FindSplitBucketHelpcode()
+{
+    const auto &keymap = HelpcodeUtils::helpcode_keymap();
+    for (char letter = 'a'; letter <= 'z'; ++letter)
+    {
+        std::vector<std::string> firsts;
+        std::vector<std::string> unmatched;
+        for (const auto &entry : keymap)
+        {
+            if (entry.second.size() < 2 || HelpcodeUtils::count_han_chars(entry.first) != 1)
+            {
+                continue;
+            }
+            if (entry.second[0] == letter)
+            {
+                firsts.push_back(entry.first);
+            }
+            else if (entry.second[1] != letter)
+            {
+                unmatched.push_back(entry.first);
+            }
+        }
+        if (firsts.size() < 2 || unmatched.empty())
+        {
+            continue;
+        }
+        std::sort(firsts.begin(), firsts.end());
+        std::sort(unmatched.begin(), unmatched.end());
+        return {letter, firsts[0], firsts[1], unmatched[0]};
+    }
+    return {};
+}
+}
+
+// Mirrors typing a helpcode that filters out the candidates above the AI
+// suggestion: the suggestion has to move up with them instead of staying pinned
+// to its old slot.
+TEST_CASE(SingleHelpcodeReorderKeepsAiSuggestionAheadOfLaterCandidates)
+{
+    const HelpcodeSample sample = FindSplitBucketHelpcode();
+    REQUIRE(sample.help_code != 0);
+
+    const std::vector<WordItem> base{
+        WordItem("py", sample.unmatched, 10, CandidateSource::Database),
+        WordItem("py", sample.first_matched_a, 1, CandidateSource::AiSuggestion),
+        WordItem("py", sample.first_matched_b, 8, CandidateSource::Database),
+    };
+
+    const auto result =
+        HelpcodeUtils::reorder_candidates_with_single_helpcode(base, std::string(1, sample.help_code));
+
+    REQUIRE_EQ(result.size(), base.size());
+    REQUIRE(result[0].source == CandidateSource::AiSuggestion);
+    REQUIRE_EQ(result[1].word, sample.first_matched_b);
+    REQUIRE_EQ(result[2].word, sample.unmatched);
+}
+
+TEST_CASE(DoubleHelpcodeFilterPreservesCloudAndAiRelativeOrder)
+{
+    const auto &keymap = HelpcodeUtils::helpcode_keymap();
+    std::unordered_map<std::string, std::vector<std::string>> words_by_helpcode;
+    for (const auto &entry : keymap)
+    {
+        if (entry.second.size() < 2 || HelpcodeUtils::count_han_chars(entry.first) != 1)
+        {
+            continue;
+        }
+        words_by_helpcode[entry.second].push_back(entry.first);
+    }
+
+    std::string help_codes;
+    std::vector<std::string> words;
+    for (const auto &entry : words_by_helpcode)
+    {
+        if (entry.second.size() >= 3 && (help_codes.empty() || entry.first < help_codes))
+        {
+            help_codes = entry.first;
+            words = entry.second;
+        }
+    }
+    REQUIRE(!help_codes.empty());
+    std::sort(words.begin(), words.end());
+    words.resize(3);
+
+    const std::vector<WordItem> base{
+        WordItem("py", words[0], 10, CandidateSource::Database),
+        WordItem("py", words[1], 1, CandidateSource::CloudSuggestion),
+        WordItem("py", words[2], 1, CandidateSource::AiSuggestion),
+    };
+
+    const auto result = HelpcodeUtils::filter_candidates_with_double_helpcodes(base, help_codes);
+
+    REQUIRE_EQ(result.size(), base.size());
+    REQUIRE_EQ(result[0].word, words[0]);
+    REQUIRE(result[1].source == CandidateSource::CloudSuggestion);
+    REQUIRE(result[2].source == CandidateSource::AiSuggestion);
+}

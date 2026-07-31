@@ -333,6 +333,19 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
     return !segmentation.empty() && quanpin::is_complete_pinyin_input(segmentation);
 }
 
+bool EngineInputSession::has_active_helpcode() const
+{
+    if (is_wubi())
+    {
+        return false;
+    }
+    if (is_shuangpin())
+    {
+        return ResolveShuangpinCompositionBase(request(), shuangpin_profile_).helpcode_length > 0;
+    }
+    return HasActiveQuanpinHelpcode(request());
+}
+
 void EngineInputSession::set_pinyin_sequence(const std::string &pinyin_sequence)
 {
     pending_pinyin_sequence_ = pinyin_sequence;
@@ -507,16 +520,12 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
         state.cache_key = ResolveShuangpinCloudCacheKey(request(), shuangpin_profile_);
         state.committed_pinyin = shuangpin::remove_manual_delimiters(state.cache_key);
 
-        if (base.helpcode_length > 0)
+        if (has_active_helpcode())
         {
             return state;
         }
 
-        const std::string base_input_with_cases =
-            base.helpcode_length > 0 && base.effective_raw_input_with_cases.size() >= base.helpcode_length
-                ? base.effective_raw_input_with_cases.substr(0, base.effective_raw_input_with_cases.size() -
-                                                                    base.helpcode_length)
-                : base.effective_raw_input_with_cases;
+        const std::string &base_input_with_cases = base.effective_raw_input_with_cases;
 
         if (!base_input_with_cases.empty() && base_input_with_cases.size() % 2 == 0)
         {
@@ -532,14 +541,13 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
     }
 
     state.committed_pinyin = request().normalized_input;
+    state.cache_key = ResolveQuanpinCloudCacheKey(request());
 
-    if (HasActiveQuanpinHelpcode(request()))
+    if (has_active_helpcode())
     {
-        state.cache_key = ResolveQuanpinCloudCacheKey(request());
         return state;
     }
 
-    state.cache_key = ResolveQuanpinCloudCacheKey(request());
     state.should_query = !request().normalized_input.empty();
     state.query_text = request().normalized_input;
     return state;

@@ -237,7 +237,8 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
     std::lock_guard lock(g_async_request_mutex);
     const AiAssistantConfig config = GetConfiguredAiAssistant();
     const bool usable = config.enabled && g_inputSession && g_inputSession->current_scheme_type() != SchemeType::Wubi &&
-                        g_inputSession->is_all_complete_pure_pinyin() && !identity.empty();
+                        g_inputSession->is_all_complete_pure_pinyin() && !g_inputSession->has_active_helpcode() &&
+                        !identity.empty();
     (void)0;
     AiAssistant::Request request;
     if (usable)
@@ -2087,7 +2088,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
             g_inputSession->get_pinyin_sequence().size() == 1,
             [](const std::string &key, const std::string &value) {
                 return g_inputSession->find_candidate(key, value);
-            });
+            },
+            g_inputSession->has_active_helpcode());
         if (g_inputSession->get_pinyin_sequence().size() == 1 && items.size() > 24) items.resize(24);
     }
 
@@ -2164,8 +2166,9 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     const bool has_session = static_cast<bool>(g_inputSession);
     const bool wubi = has_session && g_inputSession->current_scheme_type() == SchemeType::Wubi;
     const bool complete = has_session && g_inputSession->is_all_complete_pure_pinyin();
+    const bool helpcode_active = has_session && g_inputSession->has_active_helpcode();
     const std::string current_identity = has_session ? g_inputSession->get_pinyin_segmentation() : std::string{};
-    if (!enabled || candidate.empty() || !has_session || wubi || !complete ||
+    if (!enabled || candidate.empty() || !has_session || wubi || !complete || helpcode_active ||
         GlobalIme::composition.creating_word.active || current_identity != identity)
     {
         (void)0;
@@ -2233,7 +2236,8 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
         }
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
         user_dictionary::apply_fixed_positions(
-            user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items, false);
+            user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items, false, {},
+            g_inputSession->has_active_helpcode());
         for (size_t index = 1; index < unique_candidates.size(); ++index)
         {
             items.push_back(std::move(unique_candidates[index]));
@@ -2383,6 +2387,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
                              !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
                              g_inputSession->current_scheme_type() != SchemeType::Wubi &&
                              g_inputSession->is_all_complete_pure_pinyin() &&
+                             !g_inputSession->has_active_helpcode() &&
                              !GlobalIme::composition.creating_word.active;
     if (!suppress_async_lookup)
     {
@@ -2458,7 +2463,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
                     user_dictionary::default_user_db_path(), CurrentRankingContextKey(), expanded, true,
                     [](const std::string &key, const std::string &value) {
                         return g_inputSession->find_candidate(key, value);
-                    });
+                    },
+                    g_inputSession->has_active_helpcode());
                 ui.set_items(std::move(expanded));
                 ui.page_index = current_page;
                 ui.selected_index_in_page = current_selection;

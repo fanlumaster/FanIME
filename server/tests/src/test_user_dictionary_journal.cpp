@@ -172,6 +172,16 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
     REQUIRE_EQ(candidates[3].fixed_position, 2);
 
     REQUIRE(user_dictionary::clear_fixed_position(user_path.string(), "ni", "ni", "己"));
+
+    // With a helpcode active the caller already ordered the suggestions, so they
+    // must not be hoisted back to slots 1 and 2.
+    candidates = {{"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80}};
+    candidates.insert(candidates.begin(), {"ni", "AI", 1, CandidateSource::AiSuggestion});
+    candidates.insert(candidates.begin() + 3, {"ni", "云", 1, CandidateSource::CloudSuggestion});
+    user_dictionary::apply_fixed_positions(user_path.string(), "ni", candidates, false, {}, true);
+    REQUIRE_EQ(candidates[0].word, std::string("AI"));
+    REQUIRE_EQ(candidates[3].word, std::string("云"));
+
     candidates = {{"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80},
                   {"ni","丁",70}, {"ni","戊",60}, {"ni","己",50}};
     REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",

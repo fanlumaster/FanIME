@@ -123,6 +123,11 @@ bool ShuangpinInputSession::is_all_complete_pure_pinyin() const
     return dictionary_->is_all_complete_pure_pinyin();
 }
 
+bool ShuangpinInputSession::has_active_helpcode() const
+{
+    return HasActiveShuangpinHelpcode(*this);
+}
+
 void ShuangpinInputSession::set_pinyin_sequence(const std::string &pinyin_sequence)
 {
     dictionary_->set_pinyin_sequence(pinyin_sequence);
@@ -200,7 +205,7 @@ IInputSession::CloudQueryState ShuangpinInputSession::get_cloud_query_state() co
     state.cache_key = dictionary_->get_pinyin_sequence();
     state.committed_pinyin = dictionary_->get_pure_pinyin_sequence();
 
-    if (HasActiveShuangpinHelpcode(*this))
+    if (has_active_helpcode())
     {
         return state;
     }

@@ -30,6 +30,7 @@ class EngineInputSession : public IInputSession
     std::string get_pinyin_segmentation_with_cases() const override;
     std::string get_quanpin() const override;
     bool is_all_complete_pure_pinyin() const override;
+    bool has_active_helpcode() const override;
 
     void set_pinyin_sequence(const std::string &pinyin_sequence) override;
     void set_pinyin_sequence_with_cases(const std::string &pinyin_sequence) override;
