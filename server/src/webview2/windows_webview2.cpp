@@ -76,8 +76,35 @@ bool menuNavigationReady = false;
 bool floatingToolbarNavigationReady = false;
 bool smallWindowTopmostRequested = false;
 bool smallWindowTopmostApplied = false;
-// Guards against queueing more than one deferred topmost flush.
-bool smallWindowTopmostFlushPosted = false;
+// Guards against scheduling the staggered pin more than once.
+bool smallWindowTopmostScheduled = false;
+
+// The three small-window hosts enter the topmost band one at a time, on their
+// own timers, rather than together. Under uiAccess a TOPMOST transition is
+// exactly what breaks a WebView2 that is still bringing up its first frames, so
+// the first step waits well past navigation-ready; the gaps after it only need
+// to keep two hosts from changing bands in the same frame. The tray menu goes
+// last because later HWND_TOPMOST wins within the band, which is the order an
+// open menu needs. Steps must stay listed in firing order: the timer id is the
+// enum value, and the delays are indexed by it.
+enum class SmallWindowTopmostStep
+{
+    Candidate,
+    FloatingToolbar,
+    TrayMenu,
+};
+constexpr UINT_PTR kTopmostStepTimerIdBase = 9100;
+constexpr UINT kTopmostStepCount = 3;
+constexpr UINT kCandidateTopmostDelayMs = 1000;
+constexpr UINT kFloatingToolbarTopmostDelayMs = 1200;
+constexpr UINT kTrayMenuTopmostDelayMs = 1400;
+// Remembered so the pending steps can be cancelled. Leaving them armed across a
+// controller rebuild would let a stale step pin a host TOPMOST while WebView2 is
+// creating a controller for it, which fails with E_INVALIDARG under uiAccess.
+HWND smallWindowTopmostTimerHost = nullptr;
+// Counted down rather than finalizing in whichever case happens to be last, so
+// reordering the steps cannot silently leave the gate open or strand a timer.
+UINT smallWindowTopmostStepsPending = 0;
 
 void WebviewDebugLog(const std::wstring &message)
 {
@@ -321,14 +348,29 @@ bool AreSmallWindowWebviewsReadyUnlocked()
            webviewControllerFtbWnd != nullptr;
 }
 
+void CancelStaggeredTopmost()
+{
+    smallWindowTopmostStepsPending = 0;
+    if (!smallWindowTopmostTimerHost)
+    {
+        return;
+    }
+    for (UINT_PTR step = 0; step < kTopmostStepCount; ++step)
+    {
+        KillTimer(smallWindowTopmostTimerHost, kTopmostStepTimerIdBase + step);
+    }
+    smallWindowTopmostTimerHost = nullptr;
+}
+
 void ResetSmallWindowTopmostGate()
 {
+    CancelStaggeredTopmost();
     candidateNavigationReady = false;
     menuNavigationReady = false;
     floatingToolbarNavigationReady = false;
     smallWindowTopmostRequested = false;
     smallWindowTopmostApplied = false;
-    smallWindowTopmostFlushPosted = false;
+    smallWindowTopmostScheduled = false;
     (void)0;
 }
 
@@ -337,96 +379,113 @@ void LogSmallWindowReadyGateUnlocked(const wchar_t *context)
     (void)0;
 }
 
-void ApplyLazyTopmostUnlocked(const wchar_t *reason)
+void PinHostTopmost(HWND hwnd)
 {
+    if (!hwnd)
+    {
+        return;
+    }
     constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
-    auto pinOne = [flag](HWND hwnd, const wchar_t *name) {
-        if (!hwnd)
-        {
-            (void)0;
-            return;
-        }
-        SetLastError(0);
-        const BOOL ok = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flag);
-        RECT rect{};
-        GetWindowRect(hwnd, &rect);
-        (void)0;
-    };
-
-    smallWindowTopmostApplied = true;
-    // Later HWND_TOPMOST wins within the topmost band. When the tray menu is
-    // already showing, pin it last so FTB cannot cover it; otherwise keep FTB
-    // last so the idle toolbar stays discoverable above other small windows.
-    const bool menu_visible =
-        ::global_hwnd_menu != nullptr && IsWindowVisible(::global_hwnd_menu) != FALSE;
-    (void)0;
-    pinOne(::global_hwnd, L"candidate");
-    if (menu_visible)
-    {
-        pinOne(::global_hwnd_ftb, L"floating-toolbar");
-        pinOne(::global_hwnd_menu, L"menu");
-    }
-    else
-    {
-        pinOne(::global_hwnd_menu, L"menu");
-        pinOne(::global_hwnd_ftb, L"floating-toolbar");
-    }
-    LogSmallWindowReadyGateUnlocked(L"after-topmost-applied");
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flag);
 }
 
-void ApplyPendingLazyTopmostNow(const wchar_t *reason)
+// HWND_TOPMOST moves the host between z-bands. In a uiAccess process a WebView2
+// that is not told about it keeps compositing against the old parent state: the
+// host stays visible with correct bounds while nothing is ever painted into it.
+void RenotifyControllerAfterPin(ICoreWebView2Controller *controller, HWND hwnd)
 {
-    if (!smallWindowTopmostRequested || smallWindowTopmostApplied)
+    if (!controller || !hwnd || !IsWindowVisible(hwnd))
     {
         return;
     }
-    if (!AreSmallWindowWebviewsReadyUnlocked())
+    UpdateSmallWindowWebviewVisibility(hwnd, true);
+    RECT bounds{};
+    GetClientRect(hwnd, &bounds);
+    controller->put_Bounds(bounds);
+    controller->NotifyParentWindowPositionChanged();
+}
+
+void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
+{
+    FTB_DIAG_LOGF(L"topmost step {} applying",
+                  step == SmallWindowTopmostStep::Candidate        ? L"candidate"
+                  : step == SmallWindowTopmostStep::FloatingToolbar ? L"floating-toolbar"
+                                                                   : L"tray-menu");
+    switch (step)
     {
-        LogSmallWindowReadyGateUnlocked(L"topmost-still-waiting-webviews");
-        return;
+    case SmallWindowTopmostStep::Candidate:
+        PinHostTopmost(::global_hwnd);
+        if (::is_global_wnd_cand_shown && ::global_hwnd)
+        {
+            FineTuneWindow(::global_hwnd);
+        }
+        break;
+
+    case SmallWindowTopmostStep::FloatingToolbar:
+        PinHostTopmost(::global_hwnd_ftb);
+        RenotifyControllerAfterPin(webviewControllerFtbWnd.Get(), ::global_hwnd_ftb);
+        // The menu step lands a moment later and would fix the order anyway;
+        // raising now keeps an already-open menu from being covered in between.
+        if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
+        {
+            RaiseTrayMenuAboveSmallWindows(L"after-staggered-topmost");
+        }
+        break;
+
+    case SmallWindowTopmostStep::TrayMenu:
+        PinHostTopmost(::global_hwnd_menu);
+        RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
+        break;
     }
 
-    ApplyLazyTopmostUnlocked(reason);
-    if (::is_global_wnd_cand_shown && ::global_hwnd)
+    if (smallWindowTopmostStepsPending > 0 && --smallWindowTopmostStepsPending == 0)
     {
-        (void)0;
-        FineTuneWindow(::global_hwnd);
-    }
-    if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
-    {
-        UpdateSmallWindowWebviewVisibility(::global_hwnd_menu, true);
-        if (webviewControllerMenuWnd)
-        {
-            RECT bounds{};
-            GetClientRect(::global_hwnd_menu, &bounds);
-            webviewControllerMenuWnd->put_Bounds(bounds);
-            webviewControllerMenuWnd->NotifyParentWindowPositionChanged();
-        }
-        (void)0;
-    }
-    if (::global_hwnd_ftb && IsWindowVisible(::global_hwnd_ftb))
-    {
-        UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, true);
-        // The toolbar used to be the only small window not renotified here.
-        // HWND_TOPMOST moves the host between z-bands, and in a uiAccess
-        // process a WebView2 that is not told about it keeps compositing
-        // against the old parent state: the host stays visible with correct
-        // bounds while nothing is ever painted into it.
-        if (webviewControllerFtbWnd)
-        {
-            RECT bounds{};
-            GetClientRect(::global_hwnd_ftb, &bounds);
-            webviewControllerFtbWnd->put_Bounds(bounds);
-            webviewControllerFtbWnd->NotifyParentWindowPositionChanged();
-        }
+        // Only now is the whole band in effect, and no timer is left to cancel.
+        smallWindowTopmostApplied = true;
+        smallWindowTopmostTimerHost = nullptr;
+        LogSmallWindowReadyGateUnlocked(L"after-topmost-applied");
     }
 }
 
-// The gate normally opens inside the toolbar's own navigation-completed
-// handler, which is the worst possible moment to pin z-order: the first paint
-// has not happened yet. Hand the first application to the message loop so the
-// pending frame goes through, then pin. Later requests find topmost already
-// applied and cost nothing.
+void CALLBACK SmallWindowTopmostTimerProc(HWND hwnd, UINT, UINT_PTR timerId, DWORD)
+{
+    KillTimer(hwnd, timerId);
+    ApplySmallWindowTopmostStep(
+        static_cast<SmallWindowTopmostStep>(timerId - kTopmostStepTimerIdBase));
+}
+
+// Returns false when there is no host window to hang the timers on, leaving the
+// caller to pin inline rather than never.
+bool ScheduleStaggeredTopmost()
+{
+    const HWND timer_host = ::global_hwnd_ftb ? ::global_hwnd_ftb : ::global_hwnd;
+    if (!timer_host)
+    {
+        return false;
+    }
+    const UINT delays[kTopmostStepCount] = {kCandidateTopmostDelayMs, kFloatingToolbarTopmostDelayMs,
+                                            kTrayMenuTopmostDelayMs};
+    UINT scheduled = 0;
+    for (UINT_PTR step = 0; step < kTopmostStepCount; ++step)
+    {
+        if (SetTimer(timer_host, kTopmostStepTimerIdBase + step, delays[step],
+                     SmallWindowTopmostTimerProc) != 0)
+        {
+            ++scheduled;
+        }
+    }
+    // Counting what was armed rather than kTopmostStepCount keeps the countdown
+    // able to reach zero if SetTimer fails for one of the steps.
+    smallWindowTopmostStepsPending = scheduled;
+    smallWindowTopmostTimerHost = scheduled > 0 ? timer_host : nullptr;
+    return scheduled > 0;
+}
+
+// Pinning z-order is what breaks WebView2 rendering under uiAccess, and the
+// gate normally opens inside the toolbar's own navigation-completed handler --
+// before it has painted a single frame. Spread the three transitions out in
+// time so each WebView2 is well settled before its host moves, and so that no
+// two hosts change bands close enough together to interact.
 void TryApplyPendingLazyTopmost(const wchar_t *reason)
 {
     if (!smallWindowTopmostRequested || smallWindowTopmostApplied)
@@ -438,20 +497,28 @@ void TryApplyPendingLazyTopmost(const wchar_t *reason)
         LogSmallWindowReadyGateUnlocked(L"topmost-still-waiting-webviews");
         return;
     }
-    // A flush is already queued. Falling through here would pin z-order from
-    // whatever is running right now, which is the navigation-completed handler
-    // this deferral exists to stay out of: the toolbar reports ready last, so
-    // its own apply immediately asks for topmost again a few lines later.
-    if (smallWindowTopmostFlushPosted)
+    // Already scheduled. Falling through here would pin z-order from whatever
+    // is running right now, which is the navigation-completed handler this
+    // deferral exists to stay out of: the toolbar reports ready last, so its
+    // own apply asks for topmost again a few lines later.
+    if (smallWindowTopmostScheduled)
     {
         return;
     }
-    if (::global_hwnd_ftb && PostMessage(::global_hwnd_ftb, WM_APPLY_SMALL_WINDOW_TOPMOST, 0, 0))
+    smallWindowTopmostScheduled = true;
+    if (ScheduleStaggeredTopmost())
     {
-        smallWindowTopmostFlushPosted = true;
+        FTB_DIAG_LOGF(L"topmost staggered from reason={}: candidate +{}ms, floating-toolbar +{}ms, "
+                      L"tray-menu +{}ms",
+                      reason, kCandidateTopmostDelayMs, kFloatingToolbarTopmostDelayMs,
+                      kTrayMenuTopmostDelayMs);
         return;
     }
-    ApplyPendingLazyTopmostNow(reason);
+    FTB_DIAG_LOGF(L"topmost timers unavailable for reason={}, pinning inline", reason);
+    smallWindowTopmostStepsPending = kTopmostStepCount;
+    ApplySmallWindowTopmostStep(SmallWindowTopmostStep::Candidate);
+    ApplySmallWindowTopmostStep(SmallWindowTopmostStep::FloatingToolbar);
+    ApplySmallWindowTopmostStep(SmallWindowTopmostStep::TrayMenu);
 }
 
 void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
@@ -584,10 +651,9 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason)
         return false;
     }
 
-    // Shares the deferred path so the pin lands on a clean stack and the small
-    // windows get renotified afterwards. This used to pin inline and skip the
-    // renotification entirely, which is reachable from the toolbar's own
-    // navigation-completed handler.
+    // Shares the staggered path so the pin never lands on the stack of a
+    // navigation-completed handler and every host gets renotified afterwards.
+    // This used to pin all three inline and skip the renotification entirely.
     TryApplyPendingLazyTopmost(reason);
     return smallWindowTopmostApplied;
 }
@@ -615,11 +681,6 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     SetLastError(0);
     const BOOL ok = SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag);
     (void)0;
-}
-
-void FlushPendingSmallWindowTopmost(const wchar_t *reason)
-{
-    ApplyPendingLazyTopmostNow(reason);
 }
 
 bool AreSmallWindowsTopmostApplied()

@@ -87,9 +87,9 @@ void SyncCandidateWebViewBoundsToHost(HWND hwnd);
 // navigations complete (avoid TopMost during CreateCoreWebView2Controller).
 // Returns true when TOPMOST is already in effect after the call.
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
-// Run a topmost request that was deferred so it would not land inside a
-// navigation-completed handler. Idempotent once topmost has been applied.
-void FlushPendingSmallWindowTopmost(const wchar_t *reason);
+// True only once all three hosts have reached the topmost band. The band is
+// entered one host at a time on a timer, so this stays false for a few seconds
+// after the WebViews report ready.
 bool AreSmallWindowsTopmostApplied();
 bool AreSmallWindowWebviewsReady();
 // True once the floating toolbar's WebView2 has completed its first navigation

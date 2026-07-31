@@ -1803,13 +1803,6 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         break;
     }
 
-    case WM_APPLY_SMALL_WINDOW_TOPMOST: {
-        FTB_DIAG_LOGF(L"deferred topmost flush {}", DescribeFloatingToolbarHostState());
-        FlushPendingSmallWindowTopmost(L"deferred-after-nav-ready");
-        FTB_DIAG_LOGF(L"  after topmost {}", DescribeFloatingToolbarHostState());
-        break;
-    }
-
     case WM_DPICHANGED: {
         // Recompute from design DIPs rather than only accepting the suggested
         // rect. Keep the user's dragged top-left instead of snapping home.

@@ -3,6 +3,7 @@
 #include "ime_windows.h"
 #include "settings/settings_launcher.h"
 #include "utils/webview_utils.h"
+#include "webview2/windows_webview2.h"
 #include "defines/globals.h"
 #include "defines/defines.h"
 #include "watchdog/watchdog_protocol.h"
@@ -140,6 +141,15 @@ static bool g_isHiddenDueToFullscreen = false;
 void OnWinEvent(HWND hwnd)
 {
     if (!IsWindow(hwnd) || !IsWindowVisible(hwnd))
+        return;
+
+    // Stay out of the way until the toolbar can actually paint. While WebView2 is
+    // warming up the host is deliberately kept "visible" (DWM-cloaked), so the
+    // check below would happily act on a toolbar that is not on screen yet and
+    // leave g_isHiddenDueToFullscreen set for a restore nobody asked for.
+    // Skipping loses nothing: the apply that runs on navigation-completed
+    // evaluates fullscreen itself.
+    if (!IsFloatingToolbarWebviewReady())
         return;
 
     hwnd = GetForegroundWindow();

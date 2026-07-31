@@ -231,11 +231,18 @@ bool IsActuallyFullscreen(HWND hwnd)
         return false;
 
     // 2. 过滤掉桌面、任务栏等系统窗口
+    //
+    // 后两个是 shell 自己的覆盖层，不是真正的全屏客户端：Alt-Tab / 任务视图 /
+    // 贴靠辅助用的 XAML 岛，以及前台切换过程中的中转窗口。它们都铺满整个显示器
+    // 且没有 WS_CAPTION，能干净地通过下面每一项检查，于是每按一次 Alt-Tab 工具栏
+    // 就会被藏一次——误判和"工具栏根本没弹出来"在现象上无法区分。
     char className[256];
     if (GetClassNameA(hwnd, className, sizeof(className)))
     {
         if (strcmp(className, "Progman") == 0 || strcmp(className, "WorkerW") == 0 ||
-            strcmp(className, "Shell_TrayWnd") == 0)
+            strcmp(className, "Shell_TrayWnd") == 0 ||
+            strcmp(className, "XamlExplorerHostIslandWindow") == 0 ||
+            strcmp(className, "ForegroundStaging") == 0)
         {
             return false;
         }
