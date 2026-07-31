@@ -135,7 +135,7 @@ std::filesystem::path ResolveLogPath()
         return std::filesystem::path(kLogFileName);
     }
 
-    std::filesystem::path log_dir = std::filesystem::path(buffer) / "MetasequoiaImeTsf" / "log";
+    std::filesystem::path log_dir = std::filesystem::path(buffer) / "metasequoiaime" / "log";
     std::error_code ec;
     std::filesystem::create_directories(log_dir, ec);
     if (ec)
