@@ -38,4 +38,5 @@ cmake --preset=$presetName
 
 if ($LASTEXITCODE -eq 0) {
     cmake --build $buildFolderPath --config $buildConfig
+    . "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\mt.exe" -manifest .\MetasequoiaImeServer.manifest -outputresource:.\build-release\bin\Release\MetasequoiaImeServer.exe; 1
 }
