@@ -5,6 +5,8 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <map>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -240,6 +242,228 @@ bool InsertTomlValuePreservingFormatting(std::string &text, const std::string &s
 
     text.insert(insert_pos, key + " = " + value + "\n");
     return true;
+}
+
+// 安装包装入的本版出厂模板，以及上次合并时用的那份模板（升级基线）。
+const char *const kConfigTemplateFileName = "config.default.toml";
+const char *const kConfigBaselineFileName = "config.base.toml";
+
+std::string ReadFileText(const std::filesystem::path &path)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input)
+    {
+        return {};
+    }
+    return std::string((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+}
+
+bool WriteFileTextAtomically(const std::filesystem::path &path, const std::string &text)
+{
+    std::filesystem::path temp_path = path;
+    temp_path += ".tmp";
+    {
+        std::ofstream output(temp_path, std::ios::binary | std::ios::trunc);
+        if (!output)
+        {
+            return false;
+        }
+        output.write(text.data(), static_cast<std::streamsize>(text.size()));
+        output.close();
+        if (!output)
+        {
+            return false;
+        }
+    }
+    std::error_code error;
+    std::filesystem::rename(temp_path, path, error);
+    if (error)
+    {
+        std::filesystem::remove(temp_path, error);
+        return false;
+    }
+    return true;
+}
+
+// 与 FindTomlValueEnd 相同，但值可以跨行（ai_assistant.prompt 用的是 """ 多行字符串）。
+size_t FindTomlValueEndInText(const std::string &text, size_t value_begin)
+{
+    for (const char *delimiter : {"\"\"\"", "'''"})
+    {
+        if (value_begin + 3 > text.size() || text.compare(value_begin, 3, delimiter) != 0)
+        {
+            continue;
+        }
+        const bool escapable = delimiter[0] == '"';
+        size_t i = value_begin + 3;
+        while (i + 3 <= text.size())
+        {
+            if (escapable && text[i] == '\\')
+            {
+                i += 2;
+                continue;
+            }
+            if (text.compare(i, 3, delimiter) == 0)
+            {
+                return i + 3;
+            }
+            ++i;
+        }
+        return text.size();
+    }
+
+    const size_t newline = text.find('\n', value_begin);
+    const size_t line_end = newline == std::string::npos ? text.size() : newline;
+    return value_begin + FindTomlValueEnd(text.substr(value_begin, line_end - value_begin), 0);
+}
+
+using TomlAssignmentVisitor =
+    std::function<void(const std::string &section, const std::string &key, size_t value_begin, size_t value_end)>;
+
+void ForEachTomlAssignment(const std::string &text, const TomlAssignmentVisitor &visit)
+{
+    std::string section;
+    size_t line_begin = 0;
+    while (line_begin < text.size())
+    {
+        const size_t newline = text.find('\n', line_begin);
+        const size_t line_end = newline == std::string::npos ? text.size() : newline;
+        const std::string line = text.substr(line_begin, line_end - line_begin);
+        const std::string trimmed = Trim(line);
+        size_t next_line_begin = newline == std::string::npos ? text.size() : newline + 1;
+
+        if (!trimmed.empty() && trimmed.front() == '[')
+        {
+            const size_t close = trimmed.find(']');
+            section = close == std::string::npos ? std::string() : Trim(trimmed.substr(1, close - 1));
+        }
+        else if (!trimmed.empty() && trimmed.front() != '#')
+        {
+            const size_t equals = line.find('=');
+            const std::string key = equals == std::string::npos ? std::string() : Trim(line.substr(0, equals));
+            const size_t value_offset = equals == std::string::npos ? std::string::npos
+                                                                    : line.find_first_not_of(" \t", equals + 1);
+            if (!key.empty() && value_offset != std::string::npos)
+            {
+                const size_t value_begin = line_begin + value_offset;
+                const size_t value_end = FindTomlValueEndInText(text, value_begin);
+                visit(section, key, value_begin, value_end);
+                if (value_end > line_end)
+                {
+                    // 多行值：跳过它占用的所有行，避免把字符串内容当成新的键。
+                    const size_t after = text.find('\n', value_end);
+                    next_line_begin = after == std::string::npos ? text.size() : after + 1;
+                }
+            }
+        }
+
+        line_begin = next_line_begin;
+    }
+}
+
+std::string MakeTomlAssignmentId(const std::string &section, const std::string &key)
+{
+    return section + '\x01' + key;
+}
+
+std::map<std::string, std::string> ParseTomlAssignments(const std::string &text)
+{
+    std::map<std::string, std::string> values;
+    ForEachTomlAssignment(text, [&](const std::string &section, const std::string &key, size_t value_begin,
+                                    size_t value_end) {
+        values[MakeTomlAssignmentId(section, key)] = text.substr(value_begin, value_end - value_begin);
+    });
+    return values;
+}
+
+// 以新模板为骨架（注释、分节顺序、新增项都来自新版），只把用户改过的值填回去。
+std::string MergeTomlIntoTemplate(const std::string &template_text,
+                                  const std::map<std::string, std::string> &user_values,
+                                  const std::map<std::string, std::string> &baseline_values)
+{
+    struct ValuePatch
+    {
+        size_t begin;
+        size_t end;
+        std::string value;
+    };
+    std::vector<ValuePatch> patches;
+
+    ForEachTomlAssignment(template_text, [&](const std::string &section, const std::string &key, size_t value_begin,
+                                             size_t value_end) {
+        const std::string id = MakeTomlAssignmentId(section, key);
+        const auto user = user_values.find(id);
+        if (user == user_values.end())
+        {
+            return;
+        }
+        // 仍等于上一版默认值，说明用户没动过这一项，让新版默认值生效。
+        const auto baseline = baseline_values.find(id);
+        if (baseline != baseline_values.end() && baseline->second == user->second)
+        {
+            return;
+        }
+        patches.push_back({value_begin, value_end, user->second});
+    });
+
+    std::string merged = template_text;
+    for (auto patch = patches.rbegin(); patch != patches.rend(); ++patch)
+    {
+        merged.replace(patch->begin, patch->end - patch->begin, patch->value);
+    }
+    return merged;
+}
+
+// 升级后把用户配置迁移到新版模板上：保留用户改过的值，带入新增项，丢掉废弃项。
+void SyncConfigWithInstalledTemplate()
+{
+    const std::filesystem::path data_dir = g_config_path.parent_path();
+    const std::filesystem::path template_path = data_dir / kConfigTemplateFileName;
+    const std::string template_text = ReadFileText(template_path);
+    if (template_text.empty())
+    {
+        return;
+    }
+
+    ConfigFileLock lock;
+    if (!lock)
+    {
+        return;
+    }
+
+    const std::filesystem::path baseline_path = data_dir / kConfigBaselineFileName;
+    std::error_code error;
+    if (!std::filesystem::exists(g_config_path, error))
+    {
+        if (WriteFileTextAtomically(g_config_path, template_text))
+        {
+            WriteFileTextAtomically(baseline_path, template_text);
+        }
+        return;
+    }
+
+    const std::string baseline_text = ReadFileText(baseline_path);
+    if (baseline_text == template_text)
+    {
+        return;
+    }
+
+    const std::string merged = MergeTomlIntoTemplate(template_text, ParseTomlAssignments(ReadFileText(g_config_path)),
+                                                     ParseTomlAssignments(baseline_text));
+    try
+    {
+        (void)toml::parse(merged);
+    }
+    catch (const toml::parse_error &)
+    {
+        // 合并结果无法解析时保留原配置，宁可少一批新默认值也不能弄坏用户的设置。
+        return;
+    }
+
+    if (WriteFileTextAtomically(g_config_path, merged))
+    {
+        WriteFileTextAtomically(baseline_path, template_text);
+    }
 }
 
 void RememberConfigWriteTime()
@@ -552,14 +776,19 @@ SchemeType ParseScheme(const std::string &value)
 }
 } // namespace
 
+std::string MergeConfigIntoTemplate(const std::string &template_text, const std::string &user_text,
+                                    const std::string &baseline_text)
+{
+    return MergeTomlIntoTemplate(template_text, ParseTomlAssignments(user_text),
+                                 ParseTomlAssignments(baseline_text));
+}
+
 void InitImeConfig()
 {
     g_config_path = std::filesystem::path(CommonUtils::get_ime_data_path()) / "config.toml";
-    if (!std::filesystem::exists(g_config_path))
-    {
-        std::filesystem::create_directories(g_config_path.parent_path());
-        // TODO: 写入默认配置
-    }
+    std::error_code create_error;
+    std::filesystem::create_directories(g_config_path.parent_path(), create_error);
+    SyncConfigWithInstalledTemplate();
     if (LoadImeConfig())
     {
         MigrateLegacyVoiceInputConfig();
