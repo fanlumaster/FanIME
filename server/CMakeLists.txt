@@ -102,6 +102,8 @@ set(SRC_FILES
     "./src/ipc/ipc.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
+    "./src/log/ftb_diag_log.cpp"
+    "./src/log/ftb_diag_log.h"
     "./src/quick-phrases/quick_phrase_query.cpp"
     "./src/quick-phrases/quick_phrase_query.h"
     "./src/unicode/unicode_query.cpp"

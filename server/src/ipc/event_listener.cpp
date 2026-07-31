@@ -38,6 +38,7 @@
 #include "session/session_factory.h"
 #include "quick-phrases/quick_phrase_query.h"
 #include "unicode/unicode_query.h"
+#include "log/ftb_diag_log.h"
 #include <cwchar>
 
 #define FANY_IPC_LOG_RAW(message) ((void)0)
@@ -847,6 +848,10 @@ void WorkerThread()
         {
             if (!IsPipeActivationCurrent(0, task.activation_epoch))
             {
+                FTB_DIAG_LOGF(L"task {} epoch={} rejected as stale",
+                              task.type == TaskType::ClientDeactivated ? L"ClientDeactivated"
+                                                                       : L"ClientSuspended",
+                              task.activation_epoch);
                 continue;
             }
         }
@@ -971,6 +976,10 @@ void WorkerThread()
             // previous focus session. A terminal TIP activation also makes
             // the configured floating toolbar visible. Re-activation after a
             // suspension is idempotent and therefore does not flash it.
+            // A null window means the post is about to be dropped on this pipe
+            // thread's own queue, which is one way the edge goes missing.
+            FTB_DIAG_LOGF(L"task ClientActivated -> post WM_IMEACTIVATE (candidate window exists={})",
+                          ::global_hwnd != nullptr);
             PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
             PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             ClearState();
@@ -981,6 +990,8 @@ void WorkerThread()
             // Unlike a route-only suspension, terminal TIP deactivation means
             // the user switched to another input method.
             g_force_global_ime_sync = true;
+            FTB_DIAG_LOGF(L"task ClientDeactivated -> post WM_IMEDEACTIVATE (candidate window exists={})",
+                          ::global_hwnd != nullptr);
             PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
             PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             ClearState();
@@ -1577,6 +1588,12 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             LogClientLifecycle(L"activated", clientId, pipeData.event_type);
             const PipeClientActivation activation =
                 ActivatePipeClient(clientId, mainRegistrationId, true, pipeData.request_id, true);
+            // client_id 0 means the reverse pipes never reported ready inside the
+            // 100ms budget, so the whole packet is about to be discarded.
+            FTB_DIAG_LOGF(L"ClientActivated client={} focus_token={} -> active_client={} epoch={} changed={}{}",
+                          clientId, pipeData.request_id, activation.client_id, activation.epoch,
+                          activation.changed,
+                          activation.client_id == 0 ? L" DROPPED (reverse pipes not ready)" : L"");
             SendFocusSessionReady(activation);
             if (activation.changed)
             {
@@ -1599,6 +1616,9 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
                 deactivationEpoch =
                     ResolvePipeClientTerminalDeactivationEpoch(clientId);
             }
+            FTB_DIAG_LOGF(L"{} client={} -> epoch={}{}",
+                          terminalDeactivation ? L"ClientDeactivated" : L"ClientSuspended", clientId,
+                          deactivationEpoch, deactivationEpoch == 0 ? L" DROPPED" : L"");
             if (deactivationEpoch != 0)
             {
                 EnqueueTask(terminalDeactivation ? TaskType::ClientDeactivated
@@ -1620,6 +1640,8 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             SendFocusSessionReady(activation);
             if (activation.changed)
             {
+                FTB_DIAG_LOGF(L"implicit activation from key: client={} epoch={}", clientId,
+                              activation.epoch);
                 EnqueueTask(TaskType::ClientActivated, pipeData, activation.epoch);
             }
         }

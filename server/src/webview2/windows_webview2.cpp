@@ -16,6 +16,7 @@
 #include "ipc/ipc.h"
 #include "ipc/event_listener.h"
 #include "ipc/candidate_ui_action_policy.h"
+#include "log/ftb_diag_log.h"
 #include "settings/settings_launcher.h"
 #include "voice-input/voice_input_service.h"
 #include <WebView2EnvironmentOptions.h>
@@ -26,7 +27,7 @@
 namespace json = boost::json;
 
 int FineTuneWindow(HWND hwnd);
-void ApplyConfiguredFloatingToolbarVisibility();
+void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason);
 void ApplyConfiguredFloatingToolbarSize();
 void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
@@ -75,6 +76,8 @@ bool menuNavigationReady = false;
 bool floatingToolbarNavigationReady = false;
 bool smallWindowTopmostRequested = false;
 bool smallWindowTopmostApplied = false;
+// Guards against queueing more than one deferred topmost flush.
+bool smallWindowTopmostFlushPosted = false;
 
 void WebviewDebugLog(const std::wstring &message)
 {
@@ -325,6 +328,7 @@ void ResetSmallWindowTopmostGate()
     floatingToolbarNavigationReady = false;
     smallWindowTopmostRequested = false;
     smallWindowTopmostApplied = false;
+    smallWindowTopmostFlushPosted = false;
     (void)0;
 }
 
@@ -370,7 +374,7 @@ void ApplyLazyTopmostUnlocked(const wchar_t *reason)
     LogSmallWindowReadyGateUnlocked(L"after-topmost-applied");
 }
 
-void TryApplyPendingLazyTopmost(const wchar_t *reason)
+void ApplyPendingLazyTopmostNow(const wchar_t *reason)
 {
     if (!smallWindowTopmostRequested || smallWindowTopmostApplied)
     {
@@ -403,8 +407,51 @@ void TryApplyPendingLazyTopmost(const wchar_t *reason)
     if (::global_hwnd_ftb && IsWindowVisible(::global_hwnd_ftb))
     {
         UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, true);
-        (void)0;
+        // The toolbar used to be the only small window not renotified here.
+        // HWND_TOPMOST moves the host between z-bands, and in a uiAccess
+        // process a WebView2 that is not told about it keeps compositing
+        // against the old parent state: the host stays visible with correct
+        // bounds while nothing is ever painted into it.
+        if (webviewControllerFtbWnd)
+        {
+            RECT bounds{};
+            GetClientRect(::global_hwnd_ftb, &bounds);
+            webviewControllerFtbWnd->put_Bounds(bounds);
+            webviewControllerFtbWnd->NotifyParentWindowPositionChanged();
+        }
     }
+}
+
+// The gate normally opens inside the toolbar's own navigation-completed
+// handler, which is the worst possible moment to pin z-order: the first paint
+// has not happened yet. Hand the first application to the message loop so the
+// pending frame goes through, then pin. Later requests find topmost already
+// applied and cost nothing.
+void TryApplyPendingLazyTopmost(const wchar_t *reason)
+{
+    if (!smallWindowTopmostRequested || smallWindowTopmostApplied)
+    {
+        return;
+    }
+    if (!AreSmallWindowWebviewsReadyUnlocked())
+    {
+        LogSmallWindowReadyGateUnlocked(L"topmost-still-waiting-webviews");
+        return;
+    }
+    // A flush is already queued. Falling through here would pin z-order from
+    // whatever is running right now, which is the navigation-completed handler
+    // this deferral exists to stay out of: the toolbar reports ready last, so
+    // its own apply immediately asks for topmost again a few lines later.
+    if (smallWindowTopmostFlushPosted)
+    {
+        return;
+    }
+    if (::global_hwnd_ftb && PostMessage(::global_hwnd_ftb, WM_APPLY_SMALL_WINDOW_TOPMOST, 0, 0))
+    {
+        smallWindowTopmostFlushPosted = true;
+        return;
+    }
+    ApplyPendingLazyTopmostNow(reason);
 }
 
 void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
@@ -537,8 +584,12 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason)
         return false;
     }
 
-    ApplyLazyTopmostUnlocked(reason);
-    return true;
+    // Shares the deferred path so the pin lands on a clean stack and the small
+    // windows get renotified afterwards. This used to pin inline and skip the
+    // renotification entirely, which is reachable from the toolbar's own
+    // navigation-completed handler.
+    TryApplyPendingLazyTopmost(reason);
+    return smallWindowTopmostApplied;
 }
 
 void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
@@ -566,6 +617,11 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     (void)0;
 }
 
+void FlushPendingSmallWindowTopmost(const wchar_t *reason)
+{
+    ApplyPendingLazyTopmostNow(reason);
+}
+
 bool AreSmallWindowsTopmostApplied()
 {
     return smallWindowTopmostApplied;
@@ -574,6 +630,26 @@ bool AreSmallWindowsTopmostApplied()
 bool AreSmallWindowWebviewsReady()
 {
     return AreSmallWindowWebviewsReadyUnlocked();
+}
+
+bool IsFloatingToolbarWebviewReady()
+{
+    return floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr;
+}
+
+bool GetFloatingToolbarWebviewState(bool &isVisible, RECT &bounds)
+{
+    isVisible = false;
+    bounds = RECT{};
+    if (!webviewControllerFtbWnd)
+    {
+        return false;
+    }
+    BOOL visible = FALSE;
+    webviewControllerFtbWnd->get_IsVisible(&visible);
+    isVisible = visible != FALSE;
+    webviewControllerFtbWnd->get_Bounds(&bounds);
+    return true;
 }
 
 void LogSmallWindowReadyGate(const wchar_t *context)
@@ -1532,7 +1608,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                         bool needShown = json::value_to<bool>(val.at("data"));
                         if (SetConfiguredFloatingToolbarEnabled(needShown))
                         {
-                            ApplyConfiguredFloatingToolbarVisibility();
+                            ApplyConfiguredFloatingToolbarVisibility(L"tray-menu-toggle");
                             PostSettingsConfig();
                         }
                     }
@@ -2125,7 +2201,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 const bool value = json::value_to<bool>(data.at("value"));
                                 if (SetConfiguredFloatingToolbarEnabled(value))
                                 {
-                                    ApplyConfiguredFloatingToolbarVisibility();
+                                    ApplyConfiguredFloatingToolbarVisibility(L"settings-toggle");
                                     SyncMenuFloatingToolbarToggle();
                                     PostSettingsConfig();
                                 }
@@ -2519,6 +2595,14 @@ HRESULT OnControllerCreatedFtbWnd(      //
         return E_FAIL;
     }
 
+    // WebView2 only completes raster setup against an on-monitor visible host.
+    // If this ever reports host_visible=false, the toolbar for this session will
+    // stay blank no matter how often it is later shown. Cloaked is the healthy
+    // warmup state: visible to WebView2, invisible to the user.
+    DWORD hostCloaked = 0;
+    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &hostCloaked, sizeof(hostCloaked));
+    FTB_DIAG_LOGF(L"ftb controller created host_visible={} host_cloaked={}",
+                  IsWindowVisible(hwnd) != FALSE, hostCloaked != 0);
     UpdateSmallWindowWebviewVisibility(hwnd, IsWindowVisible(hwnd) != FALSE);
 
     // Configure webviewFtbWindow settings
@@ -2594,11 +2678,9 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
                     RenderFloatingToolbarState(sender);
                     ApplyConfiguredFloatingToolbarSize();
-                    // The first apply runs before this controller exists, so a
-                    // client that activated during startup left the toolbar
-                    // hidden with no further trigger. Re-evaluate now that the
-                    // toolbar can actually paint.
-                    ApplyConfiguredFloatingToolbarVisibility();
+                    // Host is warmed up cloaked. Uncloak (or hide) only after
+                    // the first navigation, when there is something to paint.
+                    ApplyConfiguredFloatingToolbarVisibility(L"ftb-navigation-completed");
                 }
                 else
                 {

@@ -6,6 +6,7 @@
 #include "defines/globals.h"
 #include "defines/defines.h"
 #include "watchdog/watchdog_protocol.h"
+#include "log/ftb_diag_log.h"
 #include <fmt/xchar.h>
 #include <winuser.h>
 
@@ -149,7 +150,20 @@ void OnWinEvent(HWND hwnd)
     {
         if (IsWindowVisible(::global_hwnd_ftb))
         {
-            ShowWindow(::global_hwnd_ftb, SW_HIDE);
+            // This hides the toolbar for as long as the foreground window keeps
+            // looking fullscreen, so a false positive here is indistinguishable
+            // from the toolbar failing to appear. Name the window that caused
+            // it: an overlay from a screenshot tool or a borderless app is very
+            // hard to tell apart from a real fullscreen client afterwards.
+            wchar_t foreground_class[64] = {};
+            GetClassNameW(hwnd, foreground_class, ARRAYSIZE(foreground_class));
+            RECT foreground_rect{};
+            GetWindowRect(hwnd, &foreground_rect);
+            FTB_DIAG_LOGF(L"fullscreen detected: class={} rect=({},{},{}x{}) -> hiding toolbar",
+                          foreground_class, foreground_rect.left, foreground_rect.top,
+                          foreground_rect.right - foreground_rect.left,
+                          foreground_rect.bottom - foreground_rect.top);
+            HideFloatingToolbarHost();
             g_isHiddenDueToFullscreen = true;
         }
     }
@@ -157,7 +171,7 @@ void OnWinEvent(HWND hwnd)
     {
         if (g_isHiddenDueToFullscreen)
         {
-            ApplyConfiguredFloatingToolbarVisibility();
+            ApplyConfiguredFloatingToolbarVisibility(L"fullscreen-exit");
             g_isHiddenDueToFullscreen = false;
         }
     }

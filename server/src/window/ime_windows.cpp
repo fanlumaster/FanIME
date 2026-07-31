@@ -22,6 +22,7 @@
 #include "utils/ime_utils.h"
 #include "window_hook.h"
 #include "window/floating_toolbar_visibility_policy.h"
+#include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <windowsx.h>
 #include "resource/resource.h"
@@ -255,6 +256,109 @@ void SetHostWindowCloaked(HWND hwnd, bool cloaked)
     DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(value));
 }
 
+// A cloaked host is still "visible" to IsWindowVisible and still reports its
+// rect to window enumeration, so the trace has to distinguish the two.
+bool IsHostWindowCloaked(HWND hwnd)
+{
+    DWORD cloaked = 0;
+    if (!hwnd || FAILED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))))
+    {
+        return false;
+    }
+    return cloaked != 0;
+}
+
+// Who cloaked it matters: the app value is ours, while shell/inherited means
+// something outside this process (virtual desktop switch, shell policy) took
+// the toolbar off screen and no amount of ShowWindow will bring it back.
+std::wstring DescribeCloak(DWORD cloaked)
+{
+    if (cloaked == 0)
+    {
+        return L"no";
+    }
+    std::wstring description;
+    if (cloaked & DWM_CLOAKED_APP)
+    {
+        description += L"app,";
+    }
+    if (cloaked & DWM_CLOAKED_SHELL)
+    {
+        description += L"shell,";
+    }
+    if (cloaked & DWM_CLOAKED_INHERITED)
+    {
+        description += L"inherited,";
+    }
+    if (description.empty())
+    {
+        return L"yes(" + std::to_wstring(cloaked) + L")";
+    }
+    description.back() = L')';
+    return L"yes(" + description;
+}
+
+// The toolbar can be fully transparent while every ordinary check says it is
+// fine, which is what "invisible but the screenshot tool can still frame it"
+// means. Only a handful of things produce that, and none of them are visible
+// from IsWindowVisible: a layered window whose alpha was lost or whose
+// WS_EX_LAYERED style went away paints nothing at all, a controller that
+// believes it is hidden or was given empty bounds paints nothing either, and a
+// host parked off every monitor has nowhere to paint. Record all of them
+// together so a blank toolbar can be attributed instead of guessed at.
+std::wstring DescribeFloatingToolbarHostState()
+{
+    const HWND hwnd = ::global_hwnd_ftb;
+    if (!hwnd)
+    {
+        return L"host=none";
+    }
+
+    RECT window_rect{};
+    GetWindowRect(hwnd, &window_rect);
+    RECT client_rect{};
+    GetClientRect(hwnd, &client_rect);
+
+    DWORD cloaked = 0;
+    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+
+    COLORREF color_key = 0;
+    BYTE alpha = 0;
+    DWORD layered_flags = 0;
+    const bool layered_ok =
+        GetLayeredWindowAttributes(hwnd, &color_key, &alpha, &layered_flags) != FALSE;
+    const LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+
+    bool webview_visible = false;
+    RECT webview_bounds{};
+    const bool has_controller = GetFloatingToolbarWebviewState(webview_visible, webview_bounds);
+
+    // WebView2 hosts its renderer in a child HWND. If that child is missing or
+    // zero-sized the host is an empty shell no matter how healthy it looks.
+    const HWND child = FindWindowExW(hwnd, nullptr, nullptr, nullptr);
+    wchar_t child_class[64] = {};
+    RECT child_rect{};
+    if (child)
+    {
+        GetClassNameW(child, child_class, ARRAYSIZE(child_class));
+        GetWindowRect(child, &child_rect);
+    }
+
+    return fmt::format(
+        L"rect=({},{},{}x{}) client={}x{} on_monitor={} visible={} cloaked={} "
+        L"layered_attrs={} alpha={} lwa_flags={:#x} ex_layered={} ex_topmost={} "
+        L"controller={} wv_visible={} wv_bounds={}x{} child={} child_visible={} child_size={}x{}",
+        window_rect.left, window_rect.top, window_rect.right - window_rect.left,
+        window_rect.bottom - window_rect.top, client_rect.right, client_rect.bottom,
+        MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL) != nullptr, IsWindowVisible(hwnd) != FALSE,
+        DescribeCloak(cloaked), layered_ok ? L"ok" : L"MISSING", static_cast<unsigned>(alpha),
+        layered_flags, (ex_style & WS_EX_LAYERED) != 0, (ex_style & WS_EX_TOPMOST) != 0,
+        has_controller, webview_visible, webview_bounds.right - webview_bounds.left,
+        webview_bounds.bottom - webview_bounds.top, child ? child_class : L"NONE",
+        child && IsWindowVisible(child) != FALSE, child_rect.right - child_rect.left,
+        child_rect.bottom - child_rect.top);
+}
+
 // Show on a real monitor while cloaked so WebView2 can warm up without a flash.
 void WarmupHostWindowCloaked(HWND hwnd)
 {
@@ -348,29 +452,41 @@ void RequestSettingsWindowActivation(HWND hwnd)
     ScheduleSettingsWindowActivation(hwnd);
 }
 
-void ApplyConfiguredFloatingToolbarVisibility()
+void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
 {
     if (!::global_hwnd_ftb)
     {
+        FTB_DIAG_LOGF(L"apply reason={} skipped: toolbar window not created yet", reason);
         return;
-    }
-    // WM_IMEACTIVATE is the only thing that raises this flag, and it is skipped
-    // whenever ActivatePipeClient reports an unchanged activation or the post
-    // lands before the toolbar HWND exists. The IPC active client is the
-    // authority, so repair the flag here instead of leaving the toolbar hidden
-    // until the user switches IME away and back. Only the false->true direction
-    // is derived: a route suspension clears the active client on purpose while
-    // the toolbar must stay up.
-    if (!g_is_ime_active && GetActivePipeClient().client_id != 0)
-    {
-        g_is_ime_active = true;
     }
     const HWND foreground = GetForegroundWindow();
     const bool fullscreen = foreground && CheckFullscreen(foreground);
-    const bool should_show = FanyImeUi::ShouldShowFloatingToolbar(
-        GetConfiguredFloatingToolbarEnabled(), fullscreen, g_is_ime_active);
+    const bool configured = GetConfiguredFloatingToolbarEnabled();
+    const bool should_show =
+        FanyImeUi::ShouldShowFloatingToolbar(configured, fullscreen, g_is_ime_active);
     const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
-    (void)0;
+    // Every input of the decision, so a blank toolbar can be attributed to a
+    // specific term rather than guessed at. Cloak and webview readiness matter
+    // more than IsWindowVisible once the host is warmed up.
+    FTB_DIAG_LOGF(L"apply reason={} active_client={} ime_active={} configured={} fullscreen={} "
+                  L"should_show={} was_visible={} was_cloaked={} webview_ready={}",
+                  reason, GetActivePipeClient().client_id, g_is_ime_active, configured, fullscreen,
+                  should_show, is_visible, IsHostWindowCloaked(::global_hwnd_ftb),
+                  IsFloatingToolbarWebviewReady());
+    // The decision above only explains a hidden toolbar. A blank one needs the
+    // host and controller state, which nothing else in the trace reports.
+    FTB_DIAG_LOGF(L"  state before reason={} {}", reason, DescribeFloatingToolbarHostState());
+    // Whatever the decision was, record what it actually produced. A show that
+    // leaves the state unchanged is the failure being hunted here.
+    struct StateAfter
+    {
+        const wchar_t *reason;
+        ~StateAfter()
+        {
+            FTB_DIAG_LOGF(L"  state after  reason={} {}", reason, DescribeFloatingToolbarHostState());
+        }
+    } state_after{reason};
+
     if (should_show)
     {
         // Keep the dragged position across IME activate / config / fullscreen
@@ -388,12 +504,41 @@ void ApplyConfiguredFloatingToolbarVisibility()
             ShowWindow(::global_hwnd_ftb, SW_SHOWNA);
         }
         UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, true);
+        // Reveal only once there is something to reveal. Before the first
+        // navigation completes the host is deliberately visible-but-cloaked for
+        // warmup, and uncloaking it there would just park an empty transparent
+        // rectangle on screen. The navigation-completed apply repeats this call.
+        if (IsFloatingToolbarWebviewReady())
+        {
+            SetHostWindowCloaked(::global_hwnd_ftb, false);
+        }
     }
     else if (is_visible)
     {
-        ShowWindow(::global_hwnd_ftb, SW_HIDE);
-        UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, false);
+        HideFloatingToolbarHost();
     }
+}
+
+// Hiding the host before its WebView2 has painted once is what leaves the
+// toolbar permanently blank, so during warmup the hide is expressed as a cloak:
+// invisible to the user, still on-monitor and "visible" to WebView2.
+void HideFloatingToolbarHost()
+{
+    if (!::global_hwnd_ftb)
+    {
+        return;
+    }
+    // The fullscreen hook calls this directly, so without a line here the trace
+    // shows a toolbar that became hidden with no apply to account for it.
+    FTB_DIAG_LOGF(L"hide host webview_ready={} (cloak-only while warming up)",
+                  IsFloatingToolbarWebviewReady());
+    if (!IsFloatingToolbarWebviewReady())
+    {
+        SetHostWindowCloaked(::global_hwnd_ftb, true);
+        return;
+    }
+    ShowWindow(::global_hwnd_ftb, SW_HIDE);
+    UpdateSmallWindowWebviewVisibility(::global_hwnd_ftb, false);
 }
 
 void ApplyConfiguredFloatingToolbarSize()
@@ -573,10 +718,13 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // Cloaked show: WebView2 sees a visible on-monitor host; the user does not.
     WarmupHostWindowCloaked(hwnd_cand);
     WarmupHostWindowCloaked(hwnd_menu);
-    // Pipe threads start before this HWND exists, so a ClientActivated that
-    // arrived during that window had its PostMessage(WM_IMEACTIVATE) dropped on
-    // a null global_hwnd. The apply below reconciles that from the IPC state.
-    ApplyConfiguredFloatingToolbarVisibility();
+    // The toolbar used to be the one small window left out of this, so whenever
+    // no client was active at startup its controller was created against a
+    // hidden host. WebView2 then never finished raster setup, and the later
+    // ShowWindow produced a layered window that reports a correct rect to window
+    // enumeration while painting nothing at all.
+    WarmupHostWindowCloaked(hwnd_ftb);
+    ApplyConfiguredFloatingToolbarVisibility(L"startup");
     UpdateWindow(hwnd_ftb);
 
     //
@@ -665,14 +813,14 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     if (message == WM_IMEACTIVATE)
     {
         g_is_ime_active = true;
-        ApplyConfiguredFloatingToolbarVisibility();
+        ApplyConfiguredFloatingToolbarVisibility(L"wm-imeactivate");
         return 0;
     }
 
     if (message == WM_IMEDEACTIVATE)
     {
         g_is_ime_active = false;
-        ApplyConfiguredFloatingToolbarVisibility();
+        ApplyConfiguredFloatingToolbarVisibility(L"wm-imedeactivate");
         return 0;
     }
 
@@ -843,7 +991,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
-                    ApplyConfiguredFloatingToolbarVisibility();
+                    ApplyConfiguredFloatingToolbarVisibility(L"config-sync");
                     SyncMenuFloatingToolbarToggle();
                 }
                 if (!FloatingToolbarItemsEqual(
@@ -1398,7 +1546,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
-                    ApplyConfiguredFloatingToolbarVisibility();
+                    ApplyConfiguredFloatingToolbarVisibility(L"config-sync");
                     SyncMenuFloatingToolbarToggle();
                 }
                 if (!FloatingToolbarItemsEqual(
@@ -1634,6 +1782,13 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         int doubleSingleByteState = (wParam >> 1) & 0x1;
         int puncState = wParam & 0x1;
         UpdateFtbCnEnAndDoubleSingleAndPuncState(::webviewFtbWnd, cnEnState, doubleSingleByteState, puncState);
+        break;
+    }
+
+    case WM_APPLY_SMALL_WINDOW_TOPMOST: {
+        FTB_DIAG_LOGF(L"deferred topmost flush {}", DescribeFloatingToolbarHostState());
+        FlushPendingSmallWindowTopmost(L"deferred-after-nav-ready");
+        FTB_DIAG_LOGF(L"  after topmost {}", DescribeFloatingToolbarHostState());
         break;
     }
 

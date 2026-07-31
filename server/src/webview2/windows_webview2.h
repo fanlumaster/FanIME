@@ -87,8 +87,19 @@ void SyncCandidateWebViewBoundsToHost(HWND hwnd);
 // navigations complete (avoid TopMost during CreateCoreWebView2Controller).
 // Returns true when TOPMOST is already in effect after the call.
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
+// Run a topmost request that was deferred so it would not land inside a
+// navigation-completed handler. Idempotent once topmost has been applied.
+void FlushPendingSmallWindowTopmost(const wchar_t *reason);
 bool AreSmallWindowsTopmostApplied();
 bool AreSmallWindowWebviewsReady();
+// True once the floating toolbar's WebView2 has completed its first navigation
+// and can actually paint. Its host must stay on-monitor and "visible" until
+// then, otherwise WebView2 never finishes raster setup for it.
+bool IsFloatingToolbarWebviewReady();
+// Controller-side view of the toolbar for the diagnostic trace: what WebView2
+// itself believes about visibility and the area it was told to paint. Returns
+// false when no controller exists yet. Must be called on the UI thread.
+bool GetFloatingToolbarWebviewState(bool &isVisible, RECT &bounds);
 void LogSmallWindowReadyGate(const wchar_t *context);
 // Lift the tray menu to the front of the small-window topmost band (e.g. after
 // FTB was pinned last). Safe to call while the menu host is still DWM-cloaked.

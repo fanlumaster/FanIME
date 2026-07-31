@@ -23,3 +23,7 @@ inline const UINT WM_CLEAR_IME_ENGINE_CACHE = WM_USER + 111;
 inline const UINT WM_REFRESH_MENU_SIZE = WM_USER + 112;
 inline const UINT WM_FIX_CANDIDATE_POSITION = WM_USER + 113;
 inline const UINT WM_CLEAR_CANDIDATE_POSITION = WM_USER + 114;
+// Posted so the small-window TOPMOST flush runs on a later message-loop turn
+// instead of inside the navigation-completed handler that is still setting up
+// the toolbar's first paint.
+inline const UINT WM_APPLY_SMALL_WINDOW_TOPMOST = WM_USER + 115;
