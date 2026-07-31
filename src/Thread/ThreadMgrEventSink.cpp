@@ -54,6 +54,17 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
         _focusLostToWindowsTextInputHost ||
         _CaptureWindowsTextInputHostFocusLoss();
 
+    if (pDocMgrFocus && _focusLossDeferPending)
+    {
+        // Focus returned within the deferral window: Excel (and other apps)
+        // briefly route document focus through NULL when entering an in-app
+        // editor (e.g. cell edit mode) without actually leaving the app.
+        // Cancel the deferral so the client session and its candidate window
+        // survive the first keystroke.
+        KillTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS);
+        _focusLossDeferPending = false;
+    }
+
     // bcaf34e used document focus as the authoritative reconnect boundary.
     // The modern protocol preserves that behavior with a new activation epoch
     // on the existing healthy transport; EnsureNamedpipeFocusSessionActivated
@@ -69,9 +80,17 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
     }
     else if (!pDocMgrFocus && Global::g_connected)
     {
-        MarkNamedpipeFocusLost();
-        Global::g_connected = false;
-        PostMessage(_msgWndHandle, WM_DisconnectNamedpipe, 0, 0);
+        if (!_focusLossDeferPending)
+        {
+            // Defer the disconnect: an immediate suspension here hides the
+            // candidate window that the first keystroke just displayed when
+            // Excel enters cell-edit mode (transient NULL document focus).
+            // If focus does not return within FOCUS_LOSS_DEFER_MS, the timer
+            // performs the normal MarkNamedpipeFocusLost + disconnect.
+            _focusLossDeferPending = true;
+            SetTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS,
+                     FOCUS_LOSS_DEFER_MS, nullptr);
+        }
     }
 
     _InitTextEditSink(pDocMgrFocus);

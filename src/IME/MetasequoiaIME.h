@@ -35,6 +35,11 @@ const DWORD WM_IpcSessionDirty = WM_USER + 17;
 const DWORD WM_DrainDeferredKeyDown = WM_USER + 18;
 const DWORD WM_InsertText = WM_USER + 19;
 const DWORD WM_RefreshLanguageBarTheme = WM_USER + 20;
+constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
+constexpr UINT_PTR TIMER_CONNECT_TO_TSF_NAMEDPIPE = 2;
+constexpr UINT_PTR TIMER_REFRESH_LANG_BAR_THEME = 3;
+constexpr UINT_PTR TIMER_DEFERRED_FOCUS_LOSS = 4;
+constexpr UINT FOCUS_LOSS_DEFER_MS = 300;
 LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND wndHandle, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 class CMetasequoiaIME : public ITfTextInputProcessorEx,
@@ -480,6 +485,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     bool _focusResetPending;
     bool _activationRequired;
     bool _focusLostToWindowsTextInputHost;
+    bool _focusLossDeferPending;
     bool _hasPendingServerCandidate;
     UINT _pendingServerCandidateMsgType;
     std::wstring _pendingServerCandidateString;

@@ -30,9 +30,6 @@
 
 namespace
 {
-constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
-constexpr UINT_PTR TIMER_CONNECT_TO_TSF_NAMEDPIPE = 2;
-constexpr UINT_PTR TIMER_REFRESH_LANG_BAR_THEME = 3;
 constexpr UINT REFRESH_LANG_BAR_THEME_DELAY_MS = 150;
 constexpr UINT CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS = 50;
 constexpr UINT CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS = 2000;
@@ -436,6 +433,7 @@ CMetasequoiaIME::CMetasequoiaIME()
     _focusResetPending = false;
     _activationRequired = false;
     _focusLostToWindowsTextInputHost = false;
+    _focusLossDeferPending = false;
     _hasPendingServerCandidate = false;
     _pendingServerCandidateMsgType = Global::DataFromServerMsgType::OutofRange;
     _hasDeferredKeyInFlight = false;
@@ -1225,6 +1223,7 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
     _WakeServerIfNeeded();
     _focusResetPending = false;
     _activationRequired = false;
+    _focusLossDeferPending = false;
     _workerCommitReady.store(false, std::memory_order_release);
     _acknowledgedWorkerFocusToken.store(0, std::memory_order_release);
     _localSessionResetPending.store(false, std::memory_order_release);
@@ -1519,6 +1518,7 @@ STDAPI CMetasequoiaIME::Deactivate()
         KillTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE);
         KillTimer(_msgWndHandle, TIMER_CONNECT_TO_TSF_NAMEDPIPE);
         KillTimer(_msgWndHandle, TIMER_REFRESH_LANG_BAR_THEME);
+        KillTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS);
         DestroyWindow(_msgWndHandle);
         if (Global::msgWndHandle == _msgWndHandle)
         {
@@ -1531,6 +1531,7 @@ STDAPI CMetasequoiaIME::Deactivate()
     UnbindNamedpipeFocusState(this);
     _focusResetPending = false;
     _activationRequired = false;
+    _focusLossDeferPending = false;
 
     return S_OK;
 }
@@ -2113,6 +2114,21 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         break;
     }
     case WM_TIMER: {
+        if (wParam == TIMER_DEFERRED_FOCUS_LOSS)
+        {
+            KillTimer(hWnd, TIMER_DEFERRED_FOCUS_LOSS);
+            pIME->_focusLossDeferPending = false;
+            if (Global::g_connected)
+            {
+                // The document focus did not return within the deferral
+                // window, so this is a real focus loss (app switch), not a
+                // transient in-app route change (Excel cell-edit entry).
+                MarkNamedpipeFocusLost();
+                Global::g_connected = false;
+                PostMessage(hWnd, WM_DisconnectNamedpipe, 0, 0);
+            }
+            break;
+        }
         if (wParam == TIMER_CONNECT_ALL_NAMEDPIPE)
         {
             // 如果用户已经切换走了，就不用继续重试

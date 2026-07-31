@@ -1488,7 +1488,6 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
             translatedWch        //
         );
     }
-
     if (expectedFocusGeneration == 0 ||
         expectedFocusGeneration != _deferredKeyFocusGeneration)
     {
@@ -1532,11 +1531,27 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         // write or asynchronous TSF edit session is started.  Consequently a
         // write success followed by a reply/edit failure follows the same
         // exact retry path as a key that arrived behind a reconnect barrier.
-        *pIsEaten = _QueueDeferredKeyDown(
-                        pContext, wParam, lParam, wch, capturedModifiers,
-                        KeystrokeState)
-                        ? TRUE
-                        : FALSE;
+        const bool healthyImmediateDispatch =
+            _deferredKeyDowns.empty() && !_hasDeferredKeyInFlight;
+        const bool queued = _QueueDeferredKeyDown(
+                                pContext, wParam, lParam, wch,
+                                capturedModifiers, KeystrokeState) != FALSE;
+        *pIsEaten = queued ? TRUE : FALSE;
+        if (queued && healthyImmediateDispatch)
+        {
+            // Healthy fast path: drain the FIFO synchronously inside
+            // OnKeyDown instead of waiting for the posted
+            // WM_DrainDeferredKeyDown.  In Excel, the first keydown is what
+            // puts the selected cell into edit mode; the app pushes a new TSF
+            // context during that same message, and OnPushContext clears the
+            // deferred queue before the posted drain could run, swallowing
+            // the first key.  Dispatching immediately restores the
+            // reference-sample timing while retaining the replay-token
+            // machinery for IPC/edit-session failures.  If the transport or
+            // focus session is not ready, _DrainOneDeferredKeyDown leaves the
+            // key queued for the ordinary asynchronous retry path.
+            _DrainOneDeferredKeyDown();
+        }
         return KeyDownDispatchResult::Complete;
     }
 
