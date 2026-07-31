@@ -459,33 +459,80 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         FTB_DIAG_LOGF(L"apply reason={} skipped: toolbar window not created yet", reason);
         return;
     }
+    // IPC ownership and this flag can only disagree in one direction. Terminal
+    // deactivation clears the active client, so a live client alongside an
+    // inactive flag is never legitimate: it means a WM_IMEACTIVATE edge was
+    // lost, most often because the activation raced candidate-window creation.
+    // Nothing else re-evaluates visibility afterwards, so the toolbar would stay
+    // hidden until the user changed focus again.
+    const uint64_t active_client = GetActivePipeClient().client_id;
+    if (active_client != 0 && !g_is_ime_active)
+    {
+        FTB_DIAG_LOGF(L"reconcile reason={} active_client={} repairs ime_active false -> true",
+                      reason, active_client);
+        g_is_ime_active = true;
+    }
+
     const HWND foreground = GetForegroundWindow();
     const bool fullscreen = foreground && CheckFullscreen(foreground);
     const bool configured = GetConfiguredFloatingToolbarEnabled();
     const bool should_show =
         FanyImeUi::ShouldShowFloatingToolbar(configured, fullscreen, g_is_ime_active);
     const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
-    // Every input of the decision, so a blank toolbar can be attributed to a
-    // specific term rather than guessed at. Cloak and webview readiness matter
-    // more than IsWindowVisible once the host is warmed up.
-    FTB_DIAG_LOGF(L"apply reason={} active_client={} ime_active={} configured={} fullscreen={} "
-                  L"should_show={} was_visible={} was_cloaked={} webview_ready={}",
-                  reason, GetActivePipeClient().client_id, g_is_ime_active, configured, fullscreen,
-                  should_show, is_visible, IsHostWindowCloaked(::global_hwnd_ftb),
-                  IsFloatingToolbarWebviewReady());
-    // The decision above only explains a hidden toolbar. A blank one needs the
-    // host and controller state, which nothing else in the trace reports.
-    FTB_DIAG_LOGF(L"  state before reason={} {}", reason, DescribeFloatingToolbarHostState());
+
+    // Each host-state snapshot crosses into DWM and walks the child windows, and
+    // a burst of queued activations can drive hundreds of applies through here on
+    // the UI thread. Collapsing identical consecutive records keeps the trace
+    // complete without letting the diagnostics starve WebView2 initialisation.
+    bool trace = false;
+    if (::FtbDiag::IsEnabled())
+    {
+        // Every input of the decision, so a blank toolbar can be attributed to a
+        // specific term rather than guessed at. Cloak and webview readiness
+        // matter more than IsWindowVisible once the host is warmed up.
+        std::wstring decision = fmt::format(
+            L"apply reason={} active_client={} ime_active={} configured={} fullscreen={} "
+            L"should_show={} was_visible={} was_cloaked={} webview_ready={}",
+            reason, active_client, g_is_ime_active, configured, fullscreen, should_show, is_visible,
+            IsHostWindowCloaked(::global_hwnd_ftb), IsFloatingToolbarWebviewReady());
+
+        // Applies are confined to the UI thread, so plain statics suffice.
+        static std::wstring last_decision;
+        static unsigned long long repeats = 0;
+        trace = decision != last_decision;
+        if (!trace)
+        {
+            ++repeats;
+        }
+        else
+        {
+            if (repeats != 0)
+            {
+                FTB_DIAG_LOGF(L"  (preceding apply record repeated {} more times)", repeats);
+                repeats = 0;
+            }
+            last_decision = decision;
+            ::FtbDiag::Write(decision);
+            // The decision above only explains a hidden toolbar. A blank one
+            // needs the host and controller state, which nothing else reports.
+            FTB_DIAG_LOGF(L"  state before reason={} {}", reason, DescribeFloatingToolbarHostState());
+        }
+    }
     // Whatever the decision was, record what it actually produced. A show that
     // leaves the state unchanged is the failure being hunted here.
     struct StateAfter
     {
         const wchar_t *reason;
+        bool trace;
         ~StateAfter()
         {
-            FTB_DIAG_LOGF(L"  state after  reason={} {}", reason, DescribeFloatingToolbarHostState());
+            if (trace)
+            {
+                FTB_DIAG_LOGF(L"  state after  reason={} {}", reason,
+                              DescribeFloatingToolbarHostState());
+            }
         }
-    } state_after{reason};
+    } state_after{reason, trace};
 
     if (should_show)
     {
@@ -641,6 +688,12 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
 
     ::global_hwnd = hwnd_cand;
+
+    // A client can activate while the pipe server is already listening but this
+    // window does not exist yet, which is the race that leaves the toolbar
+    // hidden after a server restart. The queued message waits for the loop that
+    // starts once the remaining windows are up.
+    FanyNamedPipe::ReplayDeferredClientActivation();
 
     //
     // 任务栏托盘区的菜单窗口

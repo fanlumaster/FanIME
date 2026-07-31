@@ -31,6 +31,10 @@ void AuxPipeEventListenerLoopThread();
 void ToTsfPipeEventListenerLoopThread();
 void ToTsfWorkerThreadPipeEventListenerLoopThread();
 
+// Delivers an activation that arrived before the candidate window existed. Call
+// once the window is available; a no-op when nothing was deferred.
+void ReplayDeferredClientActivation();
+
 void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch);
 void ClearState();
 void RegisterStatusSnapshotWindow(HWND toolbar_window);

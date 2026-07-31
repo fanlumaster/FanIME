@@ -97,7 +97,7 @@ bool IsEnabled()
     static const bool enabled = [] {
         wchar_t value[8] = {};
         const DWORD length = GetEnvironmentVariableW(L"MSIME_FTB_DIAG", value, ARRAYSIZE(value));
-        return !(length == 1 && value[0] == L'0');
+        return length == 1 && value[0] == L'1';
     }();
     return enabled;
 }

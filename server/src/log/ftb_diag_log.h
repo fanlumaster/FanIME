@@ -16,8 +16,9 @@
 // per-keystroke traffic. Steady-state typing writes nothing.
 namespace FtbDiag
 {
-// False disables every call site with a single relaxed load. Set the
-// MSIME_FTB_DIAG environment variable to 0 to turn the trace off.
+// False disables every call site with a single relaxed load. Off unless the
+// MSIME_FTB_DIAG environment variable is set to 1, so a normal install writes
+// nothing; the server has to be restarted for a change to take effect.
 bool IsEnabled();
 
 // Appends one timestamped line. Thread-safe, never throws, and silently gives

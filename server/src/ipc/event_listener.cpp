@@ -727,10 +727,30 @@ void WakeNamedPipeListenersForShutdown()
     WakePipeListener(FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE);
     WakePipeListener(FANY_IME_AUX_NAMED_PIPE);
 }
+
+// The pipe server accepts clients before the candidate window exists, so an
+// activation can arrive with nowhere to deliver it. Held here until the window
+// creation path can replay it.
+std::atomic_bool g_deferred_client_activation{false};
 } // namespace
 
 namespace FanyNamedPipe
 {
+void ReplayDeferredClientActivation()
+{
+    if (!::global_hwnd)
+    {
+        return;
+    }
+    if (!g_deferred_client_activation.exchange(false, std::memory_order_acq_rel))
+    {
+        return;
+    }
+    FTB_DIAG_LOGF(L"replaying client activation deferred until candidate window existed");
+    PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
+    PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+}
+
 void CancelCloudCandidateRequest()
 {
     UpdateCloudInput("");
@@ -977,12 +997,21 @@ void WorkerThread()
             // previous focus session. A terminal TIP activation also makes
             // the configured floating toolbar visible. Re-activation after a
             // suspension is idempotent and therefore does not flash it.
-            // A null window means the post is about to be dropped on this pipe
-            // thread's own queue, which is one way the edge goes missing.
             FTB_DIAG_LOGF(L"task ClientActivated -> post WM_IMEACTIVATE (candidate window exists={})",
                           ::global_hwnd != nullptr);
-            PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
-            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            // PostMessage to a null window is not a no-op: it delivers to this
+            // pipe thread's own queue, where nothing reads it. Defer instead, so
+            // an activation that races window creation is replayed rather than
+            // swallowed.
+            if (::global_hwnd)
+            {
+                PostMessage(::global_hwnd, WM_IMEACTIVATE, 0, 0);
+                PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            }
+            else
+            {
+                g_deferred_client_activation.store(true, std::memory_order_release);
+            }
             ClearState();
             break;
         }
@@ -993,8 +1022,16 @@ void WorkerThread()
             g_force_global_ime_sync = true;
             FTB_DIAG_LOGF(L"task ClientDeactivated -> post WM_IMEDEACTIVATE (candidate window exists={})",
                           ::global_hwnd != nullptr);
-            PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
-            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            // Supersede any activation still waiting for the window, otherwise
+            // the replay would resurrect a toolbar the user just switched away
+            // from. Without a window the flag is already false, so only the
+            // deferred activation needs cancelling.
+            g_deferred_client_activation.store(false, std::memory_order_release);
+            if (::global_hwnd)
+            {
+                PostMessage(::global_hwnd, WM_IMEDEACTIVATE, 0, 0);
+                PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            }
             ClearState();
             break;
         }
