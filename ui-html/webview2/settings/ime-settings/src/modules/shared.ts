@@ -1,6 +1,63 @@
 // 下拉菜单功能
 import { setSurfaceTheme, setThemeMode } from './theme';
 
+/** Deferred item building for menus that are too costly to keep rendered (system fonts). */
+export type DropdownPreparer = {
+  isPending: () => boolean;
+  prepare: () => void;
+};
+
+const dropdownPreparers = new Map<string, DropdownPreparer>();
+
+// Keeps the spinner on screen long enough to read instead of flashing for one frame.
+const MIN_SPINNER_MS = 150;
+
+export function registerDropdownPreparer(menuId: string, preparer: DropdownPreparer): void {
+  dropdownPreparers.set(menuId, preparer);
+}
+
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function openDropdownMenu(menu: HTMLElement, menuId: string): Promise<void> {
+  const preparer = dropdownPreparers.get(menuId);
+  if (!preparer?.isPending()) {
+    menu.classList.add('open');
+    return;
+  }
+
+  const spinner = document.createElement('div');
+  spinner.className = 'dropdown-loading';
+  spinner.setAttribute('role', 'status');
+  spinner.setAttribute('aria-label', '正在加载');
+  menu.appendChild(spinner);
+  menu.classList.add('is-loading', 'open');
+
+  const shownAt = performance.now();
+  // Give the spinner a frame to paint before the blocking build starts; its
+  // rotation is compositor driven so it keeps animating through the jank.
+  await nextPaint();
+  try {
+    preparer.prepare();
+  } finally {
+    const remaining = MIN_SPINNER_MS - (performance.now() - shownAt);
+    if (remaining > 0) {
+      // prepare() rebuilds the menu children, which detaches the spinner.
+      menu.appendChild(spinner);
+      await delay(remaining);
+    }
+    spinner.remove();
+    menu.classList.remove('is-loading');
+  }
+}
+
 export function setupDropdownMenu(
   btnId: string,
   menuId: string,
@@ -33,7 +90,11 @@ export function setupDropdownMenu(
         openMenu.classList.remove('open');
       }
     });
-    menu.classList.toggle('open', willOpen);
+    if (willOpen) {
+      void openDropdownMenu(menu, menuId);
+    } else {
+      menu.classList.remove('open');
+    }
   });
 
   // Event delegation so dynamically rebuilt items (e.g. system fonts) keep working.
@@ -137,6 +198,44 @@ export function applyDropdownValue(btnId: string, menuId: string, value: string 
   btnLabel.textContent = item?.textContent || value;
 }
 
+// Rows styled up front when the menu is built; the rest wait until scrolled into view.
+const FONT_PREVIEW_EAGER_ROWS = 12;
+
+const fontPreviewObservers = new WeakMap<HTMLElement, IntersectionObserver>();
+
+function applyPreviewFont(item: HTMLElement): void {
+  const family = item.dataset.previewFamily;
+  if (!family) {
+    return;
+  }
+  item.style.fontFamily = family;
+  delete item.dataset.previewFamily;
+}
+
+/**
+ * Resolving a font family costs a font lookup per row, so a few hundred rows
+ * styled at once freeze the window for seconds when the menu first paints.
+ */
+function observeFontPreview(menu: HTMLElement, items: HTMLElement[]): void {
+  fontPreviewObservers.get(menu)?.disconnect();
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          continue;
+        }
+        applyPreviewFont(entry.target as HTMLElement);
+        observer.unobserve(entry.target);
+      }
+    },
+    { root: menu, rootMargin: '120px 0px' }
+  );
+
+  fontPreviewObservers.set(menu, observer);
+  items.forEach((item) => observer.observe(item));
+}
+
 export function populateDropdownMenu(
   menuId: string,
   values: string[],
@@ -154,18 +253,29 @@ export function populateDropdownMenu(
   }
 
   const fragment = document.createDocumentFragment();
-  for (const name of names) {
+  const deferredPreview: HTMLElement[] = [];
+  names.forEach((name, index) => {
     const item = document.createElement('div');
     item.className = 'dropdown-item';
     item.dataset.value = name;
     item.textContent = name;
     if (options?.previewFont) {
       const quoted = /\s/.test(name) ? `"${name.replace(/"/g, '\\"')}"` : name;
-      item.style.fontFamily = `${quoted}, sans-serif`;
+      const family = `${quoted}, sans-serif`;
+      if (index < FONT_PREVIEW_EAGER_ROWS) {
+        item.style.fontFamily = family;
+      } else {
+        item.dataset.previewFamily = family;
+        deferredPreview.push(item);
+      }
     }
     fragment.appendChild(item);
-  }
+  });
   menu.replaceChildren(fragment);
+
+  if (deferredPreview.length > 0) {
+    observeFontPreview(menu, deferredPreview);
+  }
 }
 
 // 切换按钮功能

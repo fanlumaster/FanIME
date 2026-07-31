@@ -1,4 +1,9 @@
-import { applyDropdownValue, populateDropdownMenu, setupDropdownMenu } from './shared';
+import {
+  applyDropdownValue,
+  populateDropdownMenu,
+  registerDropdownPreparer,
+  setupDropdownMenu
+} from './shared';
 import { loadHTML } from '../utils/common-utils';
 import { applyThemeConfig, type ResolvedTheme, type ThemeConfig } from './theme';
 
@@ -162,18 +167,53 @@ export function onCandidateSurfaceThemeChanged(theme: ResolvedTheme): void {
   }
 }
 
+type FontMenu = {
+  btnId: string;
+  menuId: string;
+  getSelected: () => string;
+};
+
+const FONT_MENUS: FontMenu[] = [
+  { btnId: 'candFontBtn', menuId: 'candFontMenu', getSelected: () => previewFont },
+  { btnId: 'candEnglishFontBtn', menuId: 'candEnglishFontMenu', getSelected: () => previewEnglishFont }
+];
+
+let fontList: string[] = [...FALLBACK_CJK_FONTS, ...FALLBACK_ENGLISH_FONTS];
+let fontListVersion = 0;
+
+/** Version of `fontList` each menu was built from, plus the extra row it got for an uninstalled font. */
+const builtFontMenus = new Map<string, { version: number; extra: string | null }>();
+
+function fontMenuNeedsBuild(menu: FontMenu): boolean {
+  const built = builtFontMenus.get(menu.menuId);
+  if (!built || built.version !== fontListVersion) {
+    return true;
+  }
+  const selected = menu.getSelected();
+  return Boolean(selected) && built.extra !== selected && !fontList.includes(selected);
+}
+
+function buildFontMenu(menu: FontMenu): void {
+  const selected = menu.getSelected();
+  populateDropdownMenu(menu.menuId, fontList, { selected, previewFont: true });
+  builtFontMenus.set(menu.menuId, {
+    version: fontListVersion,
+    extra: selected && !fontList.includes(selected) ? selected : null
+  });
+  applyDropdownValue(menu.btnId, menu.menuId, selected);
+}
+
 function populateFontMenus(systemFonts: string[] | undefined): void {
   const fonts =
     systemFonts && systemFonts.length > 0
       ? systemFonts
       : [...FALLBACK_CJK_FONTS, ...FALLBACK_ENGLISH_FONTS];
-  populateDropdownMenu('candFontMenu', fonts, { selected: previewFont, previewFont: true });
-  populateDropdownMenu('candEnglishFontMenu', fonts, {
-    selected: previewEnglishFont,
-    previewFont: true
-  });
-  applyDropdownValue('candFontBtn', 'candFontMenu', previewFont);
-  applyDropdownValue('candEnglishFontBtn', 'candEnglishFontMenu', previewEnglishFont);
+  if (fonts.length !== fontList.length || fonts.some((name, index) => name !== fontList[index])) {
+    fontList = fonts;
+    fontListVersion += 1;
+  }
+  // Rows are built on first open, so the label falls back to the raw font name.
+  FONT_MENUS.forEach((menu) => applyDropdownValue(menu.btnId, menu.menuId, menu.getSelected()));
 }
 
 export function applyAppearanceConfig(
@@ -245,6 +285,12 @@ export async function setupAppearance() {
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');
 
   // 候选窗样式
+  FONT_MENUS.forEach((menu) => {
+    registerDropdownPreparer(menu.menuId, {
+      isPending: () => fontMenuNeedsBuild(menu),
+      prepare: () => buildFontMenu(menu)
+    });
+  });
   setupDropdownMenu('candFontBtn', 'candFontMenu', '', true, 'appearance.font', (value) => {
     previewFont = value;
     applyCandidatePreviewStyle();

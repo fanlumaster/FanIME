@@ -65,11 +65,12 @@
   --compact-item-pad-y: 4px;
   --compact-item-margin-y: 2px;
   /* 6 content boxes + 5 collapsed inter-item margins + outer top/bottom margins */
-  max-height: calc(
+  --compact-menu-height: calc(
     6 * (var(--compact-item-line) + 2 * var(--compact-item-pad-y)) +
       5 * var(--compact-item-margin-y) +
       2 * var(--compact-item-margin-y)
   );
+  max-height: var(--compact-menu-height);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -92,6 +93,38 @@
 
 .dropdown:has(> .font-dropdown-menu) .dropdown-toggle {
   min-width: 168px;
+}
+
+.dropdown-menu.is-loading {
+  overflow: hidden;
+}
+
+.dropdown-menu.is-loading .dropdown-item {
+  display: none;
+}
+
+.dropdown-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--compact-menu-height, 96px);
+}
+
+.dropdown-loading::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--text-color);
+  border-radius: 50%;
+  /* Transform-only so the compositor keeps it spinning while the main thread builds rows. */
+  animation: dropdownSpin 0.7s linear infinite;
+}
+
+@keyframes dropdownSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .arrow {
