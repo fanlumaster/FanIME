@@ -1105,6 +1105,21 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 {
     switch (message)
     {
+    case WM_MOUSEACTIVATE:
+        // Same contract as the candidate / floating-toolbar hosts: the tray
+        // language-bar menu must never take foreground. Stealing activation
+        // drops the focused app's TSF document and forces a full IME
+        // disconnect/reconnect on every right-click.
+        return MA_NOACTIVATE;
+
+    case WM_ACTIVATE: {
+        if (LOWORD(wParam) != WA_INACTIVE)
+        {
+            ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        }
+        break;
+    }
+
     case WM_LANGBAR_RIGHTCLICK: {
         // Host HWND alone is an invisible click-blocker. Do not show it until the
         // menu WebView controller exists (watchdog relaunch / early logon can
@@ -1145,6 +1160,10 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // Stay DWM-cloaked until Z-order is final: Ensure often pins FTB last
         // because the menu is still hidden at request time; raising afterward
         // while cloaked avoids the cover→uncover flicker.
+        //
+        // Never SetForegroundWindow here: WS_EX_NOACTIVATE + SWP_NOACTIVATE keep
+        // the focused app's IME session alive; click-outside still comes from
+        // the low-level mouse hook.
         UINT flag = SWP_SHOWWINDOW | SWP_NOACTIVATE;
         const HWND zorder = AreSmallWindowsTopmostApplied() ? HWND_TOPMOST : HWND_TOP;
         SetLastError(0);
@@ -1174,7 +1193,6 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         // Refresh before paint so the toggle matches Settings / config.toml.
         SyncMenuFloatingToolbarToggle();
-        SetForegroundWindow(::global_hwnd_menu);
         /* 安装鼠标钩子 */
         if (!g_mouseHook)
         {
