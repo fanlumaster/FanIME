@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <string>
+
 inline WCHAR szWindowClass[] = L"metasequoiaime_windows";
 
 /* 候选窗口 */
@@ -30,6 +32,11 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason = L"unspecif
 // Use instead of ShowWindow(SW_HIDE) on the toolbar host: hiding it before its
 // WebView2 has painted once permanently breaks the toolbar's rendering.
 void HideFloatingToolbarHost();
+// One-line snapshot of the tray menu host and its controller for the diagnostic
+// trace. A menu that is invisible yet still routes clicks to the right item
+// looks identical from the outside whether it was never uncloaked or its
+// WebView2 stopped compositing, and only these fields tell the two apart.
+std::wstring DescribeTrayMenuHostState();
 void ApplyConfiguredFloatingToolbarSize();
 void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();

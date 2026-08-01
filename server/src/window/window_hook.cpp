@@ -116,6 +116,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             GetWindowRect(global_hwnd_menu, &rc);
             if (!PtInRect(&rc, pt))
             {
+                FTB_DIAG_LOGF(L"menu hide on click-outside {}", DescribeTrayMenuHostState());
                 ShowWindow(global_hwnd_menu, SW_HIDE);
                 UnhookWindowsHookEx(g_mouseHook);
                 g_mouseHook = nullptr;

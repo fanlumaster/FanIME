@@ -33,6 +33,7 @@ void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+std::wstring DescribeTrayMenuHostState();
 std::wstring GetAppdataPath();
 HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
 HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
@@ -170,6 +171,7 @@ void MaybeFlushPendingTrayMenuShow()
         return;
     }
     pendingTrayMenuShow = false;
+    FTB_DIAG_LOGF(L"menu replaying show that was deferred until the webview was ready");
     // Global::Point / Keycode / ModifiersDown still hold the langbar rect from
     // the right-click that arrived while the menu WebView was not ready.
     PostMessage(::global_hwnd_menu, WM_LANGBAR_RIGHTCLICK, 0, 0);
@@ -405,6 +407,26 @@ void RenotifyControllerAfterPin(ICoreWebView2Controller *controller, HWND hwnd)
     controller->NotifyParentWindowPositionChanged();
 }
 
+// The menu host is shown DWM-cloaked for WebView2 warmup, so IsWindowVisible()
+// reports true from startup onwards even though the user sees nothing and the
+// first frame may not exist yet. Callers that mean "the menu is open in front of
+// the user" must exclude that state: treating warmup as open is what pins the
+// host into the topmost band mid-initialisation and leaves it permanently blank.
+bool TrayMenuIsOpenToUser()
+{
+    if (!::global_hwnd_menu || !webviewControllerMenuWnd || !menuNavigationReady)
+    {
+        return false;
+    }
+    if (!IsWindowVisible(::global_hwnd_menu))
+    {
+        return false;
+    }
+    DWORD cloaked = 0;
+    DwmGetWindowAttribute(::global_hwnd_menu, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    return cloaked == 0;
+}
+
 void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
 {
     FTB_DIAG_LOGF(L"topmost step {} applying",
@@ -426,7 +448,7 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
         RenotifyControllerAfterPin(webviewControllerFtbWnd.Get(), ::global_hwnd_ftb);
         // The menu step lands a moment later and would fix the order anyway;
         // raising now keeps an already-open menu from being covered in between.
-        if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
+        if (TrayMenuIsOpenToUser())
         {
             RaiseTrayMenuAboveSmallWindows(L"after-staggered-topmost");
         }
@@ -664,23 +686,33 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     {
         return;
     }
-    // During startup the menu host is shown DWM-cloaked for WebView2 warmup, so
-    // IsWindowVisible() based callers can reach this before the menu controller
-    // exists. Making the host TOPMOST at that point is fatal in a uiAccess=true
-    // process: UIPI then blocks WebView2's cross-process SetParent and every
+    // Backstop for the callers above: making the host TOPMOST before a
+    // controller exists is fatal in a uiAccess=true process, because UIPI then
+    // blocks WebView2's cross-process SetParent and every
     // CreateCoreWebView2Controller for this window fails with E_INVALIDARG
     // (WebView2Feedback #486). Nothing needs raising before content exists.
     if (!webviewControllerMenuWnd)
     {
+        FTB_DIAG_LOGF(L"menu raise reason={} skipped: no controller yet", reason);
         return;
     }
     // Re-assert TOPMOST after FTB (or a peer) was pinned last. A second
     // HWND_TOPMOST is what actually lifts the menu within the topmost band;
     // HWND_TOP alone is unreliable here with WS_EX_NOACTIVATE layered hosts.
+    FTB_DIAG_LOGF(L"menu raise reason={} nav_ready={} {}", reason, menuNavigationReady,
+                  DescribeTrayMenuHostState());
     constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
     SetLastError(0);
-    const BOOL ok = SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag);
-    (void)0;
+    if (!SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag))
+    {
+        FTB_DIAG_LOGF(L"menu raise reason={} SetWindowPos failed err={}", reason, GetLastError());
+        return;
+    }
+    // This is the same band transition PinHostTopmost performs and so needs the
+    // same repair. Skipping it is what leaves the menu interactive but blank:
+    // the controller keeps compositing against the parent state it saw before
+    // the move, while the host reports correct bounds throughout.
+    RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
 }
 
 bool AreSmallWindowsTopmostApplied()
@@ -698,6 +730,11 @@ bool IsFloatingToolbarWebviewReady()
     return floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr;
 }
 
+bool IsTrayMenuOpenToUser()
+{
+    return TrayMenuIsOpenToUser();
+}
+
 bool GetFloatingToolbarWebviewState(bool &isVisible, RECT &bounds)
 {
     isVisible = false;
@@ -710,6 +747,21 @@ bool GetFloatingToolbarWebviewState(bool &isVisible, RECT &bounds)
     webviewControllerFtbWnd->get_IsVisible(&visible);
     isVisible = visible != FALSE;
     webviewControllerFtbWnd->get_Bounds(&bounds);
+    return true;
+}
+
+bool GetTrayMenuWebviewState(bool &isVisible, RECT &bounds)
+{
+    isVisible = false;
+    bounds = RECT{};
+    if (!webviewControllerMenuWnd)
+    {
+        return false;
+    }
+    BOOL visible = FALSE;
+    webviewControllerMenuWnd->get_IsVisible(&visible);
+    isVisible = visible != FALSE;
+    webviewControllerMenuWnd->get_Bounds(&bounds);
     return true;
 }
 
@@ -1544,6 +1596,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
 {
     if (!controller || FAILED(result))
     {
+        FTB_DIAG_LOGF(L"menu controller creation failed hr={:#x}", static_cast<unsigned>(result));
         OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
         return E_FAIL;
     }
@@ -1551,6 +1604,9 @@ HRESULT OnControllerCreatedMenuWnd(     //
     /* 给 controller 和 webview 赋值 */
     webviewControllerMenuWnd = controller;
     const HRESULT getMenuWebviewHr = webviewControllerMenuWnd->get_CoreWebView2(webviewMenuWnd.GetAddressOf());
+    // A controller built against a host that is already topmost, or that is not
+    // on a monitor, is the state that never recovers.
+    FTB_DIAG_LOGF(L"menu controller created {}", DescribeTrayMenuHostState());
 
     if (!webviewMenuWnd)
     {
@@ -1620,9 +1676,13 @@ HRESULT OnControllerCreatedMenuWnd(     //
                 BOOL success = FALSE;
                 if (!args || FAILED(args->get_IsSuccess(&success)) || !success)
                 {
-                    (void)0;
+                    // PrepareTrayMenuWebviewForShow re-navigates over an in-flight
+                    // navigation, which aborts the first one exactly like this. Only
+                    // a run of these means the menu is never becoming ready.
+                    FTB_DIAG_LOGF(L"menu navigation completed unsuccessfully");
                     return S_OK;
                 }
+                FTB_DIAG_LOGF(L"menu navigation completed {}", DescribeTrayMenuHostState());
                 NotifySmallWindowNavigationReady(menuNavigationReady, L"menu");
                 // Older menu assets already render the handwriting entry but do not
                 // give it an id or native click bridge. Wire it at runtime so existing
@@ -2957,6 +3017,8 @@ bool PrepareTrayMenuWebviewForShow()
         {
             PrepareHtmlForWnds();
         }
+        FTB_DIAG_LOGF(L"menu prepare: controller exists, navigation not ready, html_empty={} -> renavigate",
+                      ::HTMLStringMenuWnd.empty());
         if (webviewMenuWnd && !::HTMLStringMenuWnd.empty())
         {
             webviewMenuWnd->NavigateToString(::HTMLStringMenuWnd.c_str());
@@ -2964,6 +3026,8 @@ bool PrepareTrayMenuWebviewForShow()
         return false;
     }
 
+    FTB_DIAG_LOGF(L"menu prepare: no controller yet, init_state={} attempts={}",
+                  static_cast<int>(smallWindowInitState), smallWindowInitAttempts);
     if (smallWindowInitState != SmallWindowInitState::InProgress)
     {
         // An explicit right-click is a fresh user intent: reset the attempt

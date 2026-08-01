@@ -96,13 +96,24 @@ bool AreSmallWindowWebviewsReady();
 // and can actually paint. Its host must stay on-monitor and "visible" until
 // then, otherwise WebView2 never finishes raster setup for it.
 bool IsFloatingToolbarWebviewReady();
+// True only when the tray menu is actually open in front of the user: its
+// WebView2 has painted at least once and the host is neither hidden nor still
+// DWM-cloaked for warmup. IsWindowVisible() alone cannot answer this, because
+// the warmup leaves the host "visible" for the whole of startup.
+bool IsTrayMenuOpenToUser();
 // Controller-side view of the toolbar for the diagnostic trace: what WebView2
 // itself believes about visibility and the area it was told to paint. Returns
 // false when no controller exists yet. Must be called on the UI thread.
 bool GetFloatingToolbarWebviewState(bool &isVisible, RECT &bounds);
+// Same for the tray menu, whose blank-but-clickable failure mode needs exactly
+// this to be separated from a host that was never uncloaked.
+bool GetTrayMenuWebviewState(bool &isVisible, RECT &bounds);
 void LogSmallWindowReadyGate(const wchar_t *context);
 // Lift the tray menu to the front of the small-window topmost band (e.g. after
-// FTB was pinned last). Safe to call while the menu host is still DWM-cloaked.
+// FTB was pinned last), renotifying its controller about the band change. Only
+// call this once the menu has content: during WebView2 warmup a topmost host is
+// what breaks controller creation and compositing. The show path may call it
+// while still cloaked, since by then the first navigation has completed.
 void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason);
 
 //

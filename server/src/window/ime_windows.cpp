@@ -298,17 +298,19 @@ std::wstring DescribeCloak(DWORD cloaked)
     return L"yes(" + description;
 }
 
-// The toolbar can be fully transparent while every ordinary check says it is
-// fine, which is what "invisible but the screenshot tool can still frame it"
-// means. Only a handful of things produce that, and none of them are visible
-// from IsWindowVisible: a layered window whose alpha was lost or whose
-// WS_EX_LAYERED style went away paints nothing at all, a controller that
+// A WebView2 host can be fully transparent while every ordinary check says it
+// is fine, which is what "invisible but the screenshot tool can still frame it"
+// and "invisible but the clicks land on the right item" both mean. Only a
+// handful of things produce that, and none of them are visible from
+// IsWindowVisible: a layered window whose alpha was lost or whose WS_EX_LAYERED
+// style went away paints nothing at all, a host still DWM-cloaked is excluded
+// from composition while input routing continues normally, a controller that
 // believes it is hidden or was given empty bounds paints nothing either, and a
 // host parked off every monitor has nowhere to paint. Record all of them
-// together so a blank toolbar can be attributed instead of guessed at.
-std::wstring DescribeFloatingToolbarHostState()
+// together so a blank window can be attributed instead of guessed at.
+std::wstring DescribeHostWindowState(HWND hwnd, bool has_controller, bool webview_visible,
+                                     const RECT &webview_bounds)
 {
-    const HWND hwnd = ::global_hwnd_ftb;
     if (!hwnd)
     {
         return L"host=none";
@@ -328,10 +330,6 @@ std::wstring DescribeFloatingToolbarHostState()
     const bool layered_ok =
         GetLayeredWindowAttributes(hwnd, &color_key, &alpha, &layered_flags) != FALSE;
     const LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-
-    bool webview_visible = false;
-    RECT webview_bounds{};
-    const bool has_controller = GetFloatingToolbarWebviewState(webview_visible, webview_bounds);
 
     // WebView2 hosts its renderer in a child HWND. If that child is missing or
     // zero-sized the host is an empty shell no matter how healthy it looks.
@@ -358,6 +356,28 @@ std::wstring DescribeFloatingToolbarHostState()
         child && IsWindowVisible(child) != FALSE, child_rect.right - child_rect.left,
         child_rect.bottom - child_rect.top);
 }
+
+std::wstring DescribeFloatingToolbarHostState()
+{
+    bool webview_visible = false;
+    RECT webview_bounds{};
+    const bool has_controller = GetFloatingToolbarWebviewState(webview_visible, webview_bounds);
+    return DescribeHostWindowState(::global_hwnd_ftb, has_controller, webview_visible, webview_bounds);
+}
+} // namespace
+
+// External linkage, unlike its toolbar counterpart: the menu's own lifecycle
+// events live in windows_webview2.cpp and are the ones worth recording.
+std::wstring DescribeTrayMenuHostState()
+{
+    bool webview_visible = false;
+    RECT webview_bounds{};
+    const bool has_controller = GetTrayMenuWebviewState(webview_visible, webview_bounds);
+    return DescribeHostWindowState(::global_hwnd_menu, has_controller, webview_visible, webview_bounds);
+}
+
+namespace
+{
 
 // Show on a real monitor while cloaked so WebView2 can warm up without a flash.
 void WarmupHostWindowCloaked(HWND hwnd)
@@ -541,8 +561,10 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         LayoutFloatingToolbar(::global_hwnd_ftb, false);
         EnsureSmallWindowsTopmost(L"show-floating-toolbar");
         // Ensure may pin FTB last while the tray menu is open; put the menu
-        // back on top without a visible flash (menu already painted).
-        if (::global_hwnd_menu && IsWindowVisible(::global_hwnd_menu))
+        // back on top without a visible flash. IsWindowVisible() cannot express
+        // "open" here: the menu host spends all of startup visible-but-cloaked
+        // for warmup, and raising it in that state is what leaves it blank.
+        if (IsTrayMenuOpenToUser())
         {
             RaiseTrayMenuAboveSmallWindows(L"after-show-floating-toolbar");
         }
@@ -1179,8 +1201,10 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // leave init pending; Prepare queues a retry and re-posts this message).
         if (!PrepareTrayMenuWebviewForShow())
         {
+            FTB_DIAG_LOGF(L"menu show deferred: webview not ready yet");
             break;
         }
+        FTB_DIAG_LOGF(L"menu show begin {}", DescribeTrayMenuHostState());
         int left = Global::Point[0];
         int top = Global::Point[1];
         int right = Global::Keycode;
@@ -1244,6 +1268,13 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             ::webviewControllerMenuWnd->NotifyParentWindowPositionChanged();
             UpdateSmallWindowWebviewVisibility(hwnd, true);
         }
+        // The state that decides whether the user sees anything. cloaked=no with
+        // a sized visible child and wv_visible=true means the menu should be on
+        // screen; if it is not, the controller is compositing against a stale
+        // parent and nothing in this handler can be blamed.
+        FTB_DIAG_LOGF(L"menu show end   pos=({},{}) size={}x{} zorder={} {}", menuX, menuY,
+                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT,
+                      zorder == HWND_TOPMOST ? L"topmost" : L"top", DescribeTrayMenuHostState());
         // Refresh before paint so the toggle matches Settings / config.toml.
         SyncMenuFloatingToolbarToggle();
         /* 安装鼠标钩子 */
