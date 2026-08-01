@@ -805,12 +805,7 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
     InitPreservedKey(&_PreservedKey_IMEMode, pThreadMgr, tfClientId);
     InitPreservedKey(&_PreservedKey_IMEMode02, pThreadMgr, tfClientId);
     InitPreservedKey(&_PreservedKey_IMEMode03, pThreadMgr, tfClientId);
-    const BOOL englishInputModeRegistered =
-        InitPreservedKey(&_PreservedKey_EnglishInputMode, pThreadMgr, tfClientId);
-    const std::wstring englishInputModeMessage = fmt::format(
-        L"[msime-eng] TSF preserved-key register result={}\n",
-        englishInputModeRegistered != FALSE);
-    OutputDebugString(englishInputModeMessage.c_str());
+    InitPreservedKey(&_PreservedKey_EnglishInputMode, pThreadMgr, tfClientId);
     /* Shift + Ctrl + Space: toggle DoubleSingleByte */
     InitPreservedKey(&_PreservedKey_DoubleSingleByte, pThreadMgr, tfClientId);
     /* Ctrl + .: toggle Punctuation */

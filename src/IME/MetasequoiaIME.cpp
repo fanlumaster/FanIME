@@ -1212,7 +1212,6 @@ STDAPI_(ULONG) CMetasequoiaIME::Release()
 
 STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClientId, DWORD dwFlags)
 {
-    OutputDebugString(L"[msime-eng] TSF ActivateEx\n");
     _pThreadMgr = pThreadMgr;
     _pThreadMgr->AddRef();
 
