@@ -87,6 +87,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.input?.word_to_character === 'boolean') {
       applyToggleState('wordToCharacterToggleBtn', payload.data.input.word_to_character);
     }
+    if (typeof payload.data?.input?.smart_punctuation === 'boolean') {
+      applyToggleState('smartPunctuationToggleBtn', payload.data.input.smart_punctuation);
+    }
     applyFloatingToolbarItemsConfig({
       fullwidth: payload.data?.general?.floating_toolbar_fullwidth,
       punctuation: payload.data?.general?.floating_toolbar_punctuation,

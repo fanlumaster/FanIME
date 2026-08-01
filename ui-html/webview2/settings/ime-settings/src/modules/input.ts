@@ -69,6 +69,9 @@ export function setupInput(): void {
   setupToggleButton('wordToCharacterToggleBtn', (active) => {
     updateConfig('input.word_to_character', active);
   });
+  setupToggleButton('smartPunctuationToggleBtn', (active) => {
+    updateConfig('input.smart_punctuation', active);
+  });
   setupToggleButton('zhEnToggleBtn', (active) => {
     updateConfig('general.cn_en_mixed_input', active);
   });
