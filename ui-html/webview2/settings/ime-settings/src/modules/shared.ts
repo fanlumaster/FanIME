@@ -239,7 +239,7 @@ function observeFontPreview(menu: HTMLElement, items: HTMLElement[]): void {
 export function populateDropdownMenu(
   menuId: string,
   values: string[],
-  options?: { selected?: string; previewFont?: boolean }
+  options?: { selected?: string; previewFont?: boolean; previewFamily?: (name: string) => string }
 ): void {
   const menu = document.getElementById(menuId);
   if (!menu) {
@@ -260,7 +260,8 @@ export function populateDropdownMenu(
     item.dataset.value = name;
     item.textContent = name;
     if (options?.previewFont) {
-      const quoted = /\s/.test(name) ? `"${name.replace(/"/g, '\\"')}"` : name;
+      const previewName = options.previewFamily?.(name) || name;
+      const quoted = /\s/.test(previewName) ? `"${previewName.replace(/"/g, '\\"')}"` : previewName;
       const family = `${quoted}, sans-serif`;
       if (index < FONT_PREVIEW_EAGER_ROWS) {
         item.style.fontFamily = family;

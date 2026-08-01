@@ -18,8 +18,11 @@ function postConfigUpdate(path: string, value: string | number): void {
 
 export type CandidateAppearanceConfig = {
   font?: string;
+  font_css_family?: string;
   english_font?: string;
+  english_font_css_family?: string;
   default_font?: string;
+  default_font_css_family?: string;
   font_size?: number;
   cand_text_color?: string;
   page_size?: number;
@@ -37,6 +40,12 @@ export type CandidatePreviewHelpcodeConfig = {
 let previewFont = 'Noto Sans SC';
 let previewEnglishFont = 'Segoe UI';
 let previewDefaultFont = 'Microsoft YaHei';
+// Keep persisted/menu labels separate from the family Chromium actually uses.
+// Some fonts expose a GDI face name with a weight suffix but a different
+// OpenType typographic family name.
+let previewFontCssFamily = previewFont;
+let previewEnglishFontCssFamily = previewEnglishFont;
+let previewDefaultFontCssFamily = previewDefaultFont;
 let previewFontSize = 16;
 let previewTextColor = 'auto';
 let previewPageSize = 8;
@@ -119,7 +128,7 @@ export function updateCandidatePreviewHelpcode(config: CandidatePreviewHelpcodeC
 
 function applyCandidatePreviewStyle(): void {
   // English font first so Latin glyphs prefer it; CJK falls through to Chinese font.
-  const family = [previewEnglishFont, previewFont, previewDefaultFont, 'sans-serif']
+  const family = [previewEnglishFontCssFamily, previewFontCssFamily, previewDefaultFontCssFamily, 'sans-serif']
     .filter(Boolean)
     .map(quoteFont)
     .join(', ');
@@ -171,11 +180,22 @@ type FontMenu = {
   btnId: string;
   menuId: string;
   getSelected: () => string;
+  getSelectedCssFamily: () => string;
 };
 
 const FONT_MENUS: FontMenu[] = [
-  { btnId: 'candFontBtn', menuId: 'candFontMenu', getSelected: () => previewFont },
-  { btnId: 'candEnglishFontBtn', menuId: 'candEnglishFontMenu', getSelected: () => previewEnglishFont }
+  {
+    btnId: 'candFontBtn',
+    menuId: 'candFontMenu',
+    getSelected: () => previewFont,
+    getSelectedCssFamily: () => previewFontCssFamily
+  },
+  {
+    btnId: 'candEnglishFontBtn',
+    menuId: 'candEnglishFontMenu',
+    getSelected: () => previewEnglishFont,
+    getSelectedCssFamily: () => previewEnglishFontCssFamily
+  }
 ];
 
 let fontList: string[] = [...FALLBACK_CJK_FONTS, ...FALLBACK_ENGLISH_FONTS];
@@ -195,7 +215,11 @@ function fontMenuNeedsBuild(menu: FontMenu): boolean {
 
 function buildFontMenu(menu: FontMenu): void {
   const selected = menu.getSelected();
-  populateDropdownMenu(menu.menuId, fontList, { selected, previewFont: true });
+  populateDropdownMenu(menu.menuId, fontList, {
+    selected,
+    previewFont: true,
+    previewFamily: (name) => (name === selected ? menu.getSelectedCssFamily() : name)
+  });
   builtFontMenus.set(menu.menuId, {
     version: fontListVersion,
     extra: selected && !fontList.includes(selected) ? selected : null
@@ -230,12 +254,15 @@ export function applyAppearanceConfig(
 
   if (candidateAppearance?.font) {
     previewFont = candidateAppearance.font;
+    previewFontCssFamily = candidateAppearance.font_css_family || previewFont;
   }
   if (candidateAppearance?.english_font) {
     previewEnglishFont = candidateAppearance.english_font;
+    previewEnglishFontCssFamily = candidateAppearance.english_font_css_family || previewEnglishFont;
   }
   if (candidateAppearance?.default_font) {
     previewDefaultFont = candidateAppearance.default_font;
+    previewDefaultFontCssFamily = candidateAppearance.default_font_css_family || previewDefaultFont;
   }
   if (typeof candidateAppearance?.font_size === 'number') {
     previewFontSize = candidateAppearance.font_size;
@@ -292,12 +319,16 @@ export async function setupAppearance() {
     });
   });
   setupDropdownMenu('candFontBtn', 'candFontMenu', '', true, 'appearance.font', (value) => {
+    const cssFamily = value === previewFont ? previewFontCssFamily : value;
     previewFont = value;
+    previewFontCssFamily = cssFamily;
     applyCandidatePreviewStyle();
     return value;
   });
   setupDropdownMenu('candEnglishFontBtn', 'candEnglishFontMenu', '', true, 'appearance.english_font', (value) => {
+    const cssFamily = value === previewEnglishFont ? previewEnglishFontCssFamily : value;
     previewEnglishFont = value;
+    previewEnglishFontCssFamily = cssFamily;
     applyCandidatePreviewStyle();
     return value;
   });

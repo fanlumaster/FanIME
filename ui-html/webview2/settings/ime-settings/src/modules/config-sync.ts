@@ -42,8 +42,11 @@ export function setupConfigSync(): void {
       },
       {
         font: payload.data?.appearance?.font,
+        font_css_family: payload.data?.appearance?.font_css_family,
         english_font: payload.data?.appearance?.english_font,
+        english_font_css_family: payload.data?.appearance?.english_font_css_family,
         default_font: payload.data?.appearance?.default_font,
+        default_font_css_family: payload.data?.appearance?.default_font_css_family,
         font_size: payload.data?.appearance?.font_size,
         cand_text_color: payload.data?.appearance?.cand_text_color,
         page_size: payload.data?.appearance?.page_size,
