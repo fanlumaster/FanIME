@@ -7,6 +7,7 @@
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
+#include "MetasequoiaImeEngine/english/english_dictionary.h"
 
 #include <cpp-pinyin/G2pglobal.h>
 #include <cpp-pinyin/Pinyin.h>
@@ -723,11 +724,12 @@ json::object HandleEnglish(const json::object &request)
     const std::string display = StringValue(request, "display");
     std::transform(word.begin(), word.end(), word.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string error;
+    (void)EnglishDictionary::ensure_schema(CommonUtils::get_ime_data_path() + "\\english.db");
     Db db = OpenDatabase("english.db", error);
     if (!db) return Result(false, "打开英文词库失败：" + error);
     if (action == "query")
     {
-        Stmt stmt = Prepare(db.get(), "SELECT word,display FROM english_words WHERE word LIKE ?1 ORDER BY word", error);
+        Stmt stmt = Prepare(db.get(), "SELECT word,display FROM english_words WHERE word LIKE ?1 ORDER BY word,display", error);
         const std::string pattern = word + "%";
         if (!stmt || !BindText(stmt.get(), 1, pattern)) return Result(false, "查询失败");
         json::array rows;
@@ -737,38 +739,41 @@ json::object HandleEnglish(const json::object &request)
         json::object result = Result(true, rows.empty() ? "没有找到词条" : "查询成功"); result["rows"] = std::move(rows); return result;
     }
     if (!IsAsciiWord(word) || display.empty()) return Result(false, "英文单词仅支持英文字母、连字符和撇号，显示内容不能为空");
-    const std::string old_word = StringValue(request, "oldWord");
+    std::string old_word = StringValue(request, "oldWord");
+    const std::string old_display = StringValue(request, "oldDisplay");
+    std::transform(old_word.begin(), old_word.end(), old_word.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string sql;
     if (action == "create") sql = "INSERT INTO english_words(word,display) VALUES(?1,?2)";
-    else if (action == "update") sql = "UPDATE english_words SET word=?1,display=?2 WHERE word=?3";
-    else if (action == "delete") sql = "DELETE FROM english_words WHERE word=?1";
+    else if (action == "update") sql = "UPDATE english_words SET word=?1,display=?2 WHERE word=?3 AND display=?4";
+    else if (action == "delete") sql = "DELETE FROM english_words WHERE word=?1 AND display=?2";
     else return Result(false, "未知操作");
     Stmt stmt = Prepare(db.get(), sql, error);
     bool ok = stmt && BindText(stmt.get(), 1, action == "delete" ? old_word : word);
-    if (ok && action != "delete") ok = BindText(stmt.get(), 2, display);
-    if (ok && action == "update") ok = BindText(stmt.get(), 3, old_word);
+    if (ok) ok = BindText(stmt.get(), 2, action == "delete" ? old_display : display);
+    if (ok && action == "update") ok = BindText(stmt.get(), 3, old_word) && BindText(stmt.get(), 4, old_display);
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
     if (ok)
     {
         const bool user_inserted = action == "create" || user_dictionary::is_user_inserted(
             user_dictionary::default_user_db_path(), user_dictionary::DictionaryKind::English,
-            old_word, old_word);
+            old_word, old_display);
         if (action == "delete")
             (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
-                                                 user_dictionary::DictionaryKind::English, old_word, old_word);
+                                                 user_dictionary::DictionaryKind::English, old_word, old_display);
         else
         {
-            if (action == "update" && old_word != word)
+            if (action == "update" && (old_word != word || old_display != display))
                 (void)user_dictionary::record_delete(user_dictionary::default_user_db_path(),
-                                                     user_dictionary::DictionaryKind::English, old_word, old_word);
+                                                     user_dictionary::DictionaryKind::English, old_word, old_display);
             if (user_inserted)
                 (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
                                                           user_dictionary::DictionaryKind::English,
-                                                          word, word, 0, display);
+                                                          word, display, 0, display);
             else
                 (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
                                                      user_dictionary::DictionaryKind::English,
-                                                     word, word, 0, display);
+                                                     word, display, 0, display);
         }
     }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";

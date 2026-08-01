@@ -6,6 +6,7 @@
 #include <string>
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cstdint>
 #include <iterator>
 #include <thread>
@@ -50,6 +51,7 @@ namespace
 std::string BuildCurrentCandidatePage();
 bool g_quick_phrase_triggered = false;
 bool g_unicode_mode_triggered = false;
+bool g_english_input_mode = false;
 
 bool IsHexChar(unsigned char ch)
 {
@@ -214,10 +216,11 @@ void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t
                                  : AsyncRequestOrigin{client_id, activation_epoch, g_cloud_generation, effective_input};
 }
 
-void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
+void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0,
+                        bool dedicated_mode = false)
 {
     std::lock_guard lock(g_async_request_mutex);
-    EnglishIme::OnInputChanged(input);
+    EnglishIme::OnInputChanged(input, dedicated_mode);
     ++g_english_generation;
     g_english_request_origin =
         input.empty() ? AsyncRequestOrigin{}
@@ -820,6 +823,14 @@ std::string CurrentRankingContextKey()
     return cuts.empty() ? converted : quanpin::join_segments(cuts.front());
 }
 
+std::string EnglishRankingContextKey()
+{
+    std::string key = g_inputSession->get_pinyin_sequence_with_cases();
+    std::transform(key.begin(), key.end(), key.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return "english:" + key;
+}
+
 std::string CandidateDatabaseKey(const WordItem &item, const std::string &context_key)
 {
     if (!item.canonical_pinyin.empty()) return item.canonical_pinyin;
@@ -1093,6 +1104,7 @@ void WorkerThread()
             const int packed_state = (effective_cn << 2) | (fullwidth_state << 1) | punctuation_state;
             if (FanyImeIpc::ShouldResetCompositionForImeMode(effective_cn != 0))
             {
+                if (effective_cn == 0) g_english_input_mode = false;
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
                 ClearState();
             }
@@ -1134,42 +1146,47 @@ void WorkerThread()
         case TaskType::UiClearCandidatePosition: {
             WordItem item;
             if (!ResolveCandidateItem(task.candidate_one_based_index, item) ||
-                item.source == CandidateSource::EnglishDictionary || item.source == CandidateSource::QuickPhrase ||
-                item.source == CandidateSource::Generated)
+                item.source == CandidateSource::QuickPhrase || item.source == CandidateSource::Generated)
             {
                 break;
             }
 
+            const bool english_candidate = item.source == CandidateSource::EnglishDictionary;
+            const std::string context_key = english_candidate ? EnglishRankingContextKey() : CurrentRankingContextKey();
+            const std::string entry_key = english_candidate ? item.pinyin : CandidateDatabaseKey(item, context_key);
+
             if (task.type == TaskType::UiPinCandidate)
             {
-                const std::string context_key = CurrentRankingContextKey();
-                const std::string entry_key = CandidateDatabaseKey(item, context_key);
-                (void)user_dictionary::adjust_candidate_ranking(
-                    CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-                    context_key, Global::candidate_ui.items, entry_key, item.word,
-                    "pin", 1, 1, true);
+                if (english_candidate)
+                    (void)user_dictionary::adjust_english_candidate_ranking(
+                        CommonUtils::get_ime_data_path() + "\\english.db", user_dictionary::default_user_db_path(),
+                        context_key, Global::candidate_ui.items, entry_key, item.word, "pin", 1, 1, true);
+                else
+                    (void)user_dictionary::adjust_candidate_ranking(
+                        CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
+                        context_key, Global::candidate_ui.items, entry_key, item.word, "pin", 1, 1, true);
             }
             else if (task.type == TaskType::UiDeleteCandidate)
             {
-                if (utf8::distance(item.word.begin(), item.word.end()) == 1)
+                if (english_candidate)
+                    (void)user_dictionary::delete_english_candidate(
+                        CommonUtils::get_ime_data_path() + "\\english.db", user_dictionary::default_user_db_path(),
+                        entry_key, item.word);
+                else if (utf8::distance(item.word.begin(), item.word.end()) == 1)
                 {
                     break;
                 }
-                g_inputSession->remove_candidate(item.pinyin, item.word);
+                else g_inputSession->remove_candidate(item.pinyin, item.word);
             }
             else if (task.type == TaskType::UiFixCandidatePosition)
             {
-                const std::string context_key = CurrentRankingContextKey();
-                (void)user_dictionary::set_fixed_position(
-                    user_dictionary::default_user_db_path(), context_key,
-                    CandidateDatabaseKey(item, context_key), item.word, task.fixed_position);
+                (void)user_dictionary::set_fixed_position(user_dictionary::default_user_db_path(), context_key,
+                                                          entry_key, item.word, task.fixed_position);
             }
             else
             {
-                const std::string context_key = CurrentRankingContextKey();
-                (void)user_dictionary::clear_fixed_position(
-                    user_dictionary::default_user_db_path(), context_key,
-                    CandidateDatabaseKey(item, context_key), item.word);
+                (void)user_dictionary::clear_fixed_position(user_dictionary::default_user_db_path(), context_key,
+                                                            entry_key, item.word);
             }
             g_inputSession->reset_cache();
             g_inputSession->recompute_candidates();
@@ -2112,7 +2129,12 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     std::string pinyin = wstring_to_string(Global::PinyinString);
     const std::string current_input = g_inputSession->get_pinyin_sequence_with_cases();
     std::vector<WordItem> items;
-    if (IsUnicodeInput(current_input))
+    if (g_english_input_mode)
+    {
+        // Do not expose transient Chinese/raw fallback candidates while the
+        // dedicated English query is in flight.
+    }
+    else if (IsUnicodeInput(current_input))
     {
         items = UnicodeQuery::Query(current_input.substr(1));
     }
@@ -2133,7 +2155,7 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
         if (g_inputSession->get_pinyin_sequence().size() == 1 && items.size() > 24) items.resize(24);
     }
 
-    if (items.empty())
+    if (items.empty() && !g_english_input_mode)
     {
         items.emplace_back(pinyin, pinyin, 1, CandidateSource::Fallback);
     }
@@ -2143,7 +2165,15 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     PublishCandidateUiOwner(client_id, activation_epoch);
 
     const SchemeType scheme = g_inputSession->current_scheme_type();
-    if (!IsQuickPhraseInput(current_input) && !IsUnicodeInput(current_input) &&
+    if (g_english_input_mode)
+    {
+        const std::wstring message = fmt::format(
+            L"[msime-eng] Server query client={} epoch={} input_length={}\n",
+            client_id, activation_epoch, current_input.size());
+        OutputDebugString(message.c_str());
+        UpdateEnglishInput(current_input, client_id, activation_epoch, true);
+    }
+    else if (!IsQuickPhraseInput(current_input) && !IsUnicodeInput(current_input) &&
         GetConfiguredEnglishCandidatesEnabled() && scheme != SchemeType::Wubi &&
         !GlobalIme::composition.creating_word.active)
     {
@@ -2243,14 +2273,35 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
 
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
-    if (!GetConfiguredEnglishCandidatesEnabled() || !EnglishIme::IsCurrent(input, generation) ||
-        g_inputSession == nullptr || g_inputSession->current_scheme_type() == SchemeType::Wubi ||
+    const bool dedicated_mode = g_english_input_mode;
+    if ((!dedicated_mode && !GetConfiguredEnglishCandidatesEnabled()) ||
+        !EnglishIme::IsCurrent(input, generation, dedicated_mode) || g_inputSession == nullptr ||
+        (!dedicated_mode && g_inputSession->current_scheme_type() == SchemeType::Wubi) ||
         g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
     {
         return;
     }
 
     auto &items = Global::candidate_ui.items;
+    if (dedicated_mode)
+    {
+        const std::wstring message = fmt::format(
+            L"[msime-eng] Server apply generation={} candidates={} input_length={}\n",
+            generation, candidates.size(), input.size());
+        OutputDebugString(message.c_str());
+        std::string context_input = input;
+        std::transform(context_input.begin(), context_input.end(), context_input.begin(),
+                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), "english:" + context_input,
+                                               candidates, false, {}, false);
+        items = std::move(candidates);
+        Global::candidate_ui.item_total_count = static_cast<int>(items.size());
+        Global::candidate_ui.page_index = 0;
+        Global::candidate_ui.select_first_on_page();
+        Global::candidate_ui.clear_page();
+        RefreshCandidatePageUi(true);
+        return;
+    }
     items.erase(std::remove_if(items.begin(), items.end(), [](const WordItem &item) {
                     return item.source == CandidateSource::EnglishDictionary;
                 }),
@@ -2307,12 +2358,33 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     // contract symmetric before any selection/composition predicates run.
     Global::Keycode = FanyImeIpc::NormalizeNumpadDigitKey(Global::Keycode);
 
+    if (Global::Keycode == 'E' && (Global::ModifiersDown & 0b00000110u) != 0)
+    {
+        const std::wstring message = fmt::format(
+            L"[msime-eng] Server receive client={} epoch={} request_id={} key=0x{:02X} modifiers=0x{:02X} mode={}\n",
+            client_id, activation_epoch, request_id, Global::Keycode, Global::ModifiersDown,
+            g_english_input_mode);
+        OutputDebugString(message.c_str());
+    }
+    if (FanyImeIpc::IsEnglishModeToggleKey(Global::Keycode, Global::ModifiersDown))
+    {
+        g_english_input_mode = !g_english_input_mode;
+        const std::wstring message = fmt::format(
+            L"[msime-eng] Server toggled mode={} client={} epoch={} request_id={}\n",
+            g_english_input_mode, client_id, activation_epoch, request_id);
+        OutputDebugString(message.c_str());
+        ClearState();
+        return;
+    }
+
     const std::string input_before_key = g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
-    if (GetConfiguredQuickPhraseEnabled() && input_before_key.empty() && Global::Keycode == 'K' && Global::Wch == L'K' &&
+    if (!g_english_input_mode && GetConfiguredQuickPhraseEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'K' && Global::Wch == L'K' &&
         shift_only)
         g_quick_phrase_triggered = true;
-    if (GetConfiguredUnicodeModeEnabled() && input_before_key.empty() && Global::Keycode == 'U' && Global::Wch == L'U' &&
+    if (!g_english_input_mode && GetConfiguredUnicodeModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'U' && Global::Wch == L'U' &&
         shift_only)
         g_unicode_mode_triggered = true;
 
@@ -2399,12 +2471,18 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     }
     GlobalIme::composition.segmented_pinyin = g_inputSession->get_pinyin_segmentation_with_cases();
     GlobalIme::composition.raw_input_with_cases = g_inputSession->get_pinyin_sequence_with_cases();
+    if (g_english_input_mode)
+    {
+        // English candidates are queried by the raw spelling. Do not expose
+        // the Chinese pinyin session's syllable boundaries in the preedit.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
     if (g_inputSession->get_pinyin_sequence_with_cases().empty())
     {
         g_quick_phrase_triggered = false;
         g_unicode_mode_triggered = false;
     }
-    if (IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    if (!g_english_input_mode && IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
         // Keep preedit identical to the typed U/+hex sequence.
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
@@ -2421,13 +2499,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         is_paging_key || is_selection_key || is_unicode_shift_digit_selection;
 
     const auto cloud_query_state = g_inputSession->get_cloud_query_state();
-    if (!suppress_async_lookup && !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+    if (!g_english_input_mode && !suppress_async_lookup &&
+        !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
         !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) && cloud_query_state.should_query)
     {
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
 
-    const bool ai_eligible = !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+    const bool ai_eligible = !g_english_input_mode &&
+                             !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
                              !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
                              g_inputSession->current_scheme_type() != SchemeType::Wubi &&
                              g_inputSession->is_all_complete_pure_pinyin() &&
@@ -2700,6 +2780,15 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         if (curWordItem.source == CandidateSource::EnglishDictionary ||
             curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Generated)
         {
+            if (curWordItem.source == CandidateSource::EnglishDictionary && g_english_input_mode &&
+                isNeedUpdateWeight)
+            {
+                const auto &frequency = GetConfiguredFrequencyAdjustment();
+                (void)user_dictionary::adjust_english_candidate_ranking(
+                    CommonUtils::get_ime_data_path() + "\\english.db", user_dictionary::default_user_db_path(),
+                    EnglishRankingContextKey(), Global::candidate_ui.items, curWordItem.pinyin, curWordItem.word,
+                    frequency.mode, frequency.linear_step, frequency.trigger_count, false);
+            }
             UpdateCloudInput("");
             UpdateEnglishInput("");
             g_inputSession->reset_state();

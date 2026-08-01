@@ -213,6 +213,8 @@ add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
     "./src/user-dictionary-replay/main.cpp"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
+    "./MetasequoiaImeEngine/english/english_dictionary.cpp"
+    "./MetasequoiaImeEngine/english/english_dictionary.h"
     "./src/resource/resource.h"
     "./src/resource/resource.rc"
 )
@@ -308,6 +310,8 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/dictionary_manager.h"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
+    "./MetasequoiaImeEngine/english/english_dictionary.cpp"
+    "./MetasequoiaImeEngine/english/english_dictionary.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/utils/common_utils.cpp"

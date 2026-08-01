@@ -14,7 +14,8 @@ namespace
 // Start offering English completions at five input characters. Shorter input
 // remains exclusively on the existing Chinese candidate path.
 constexpr size_t kMinimumPrefixLength = 5;
-constexpr size_t kCandidateLimit = 5;
+constexpr size_t kMixedCandidateLimit = 5;
+constexpr size_t kDedicatedCandidateLimit = 1000;
 
 std::mutex g_mutex;
 std::condition_variable g_cv;
@@ -22,6 +23,7 @@ std::thread g_worker;
 std::atomic<bool> g_running{false};
 std::atomic<uint64_t> g_generation{0};
 std::string g_latest_input;
+bool g_dedicated_mode = false;
 std::string g_db_path;
 EnglishIme::ApplyCallback g_apply_callback;
 
@@ -63,15 +65,17 @@ void WorkerLoop()
 
         observed_generation = g_generation.load();
         const std::string input = g_latest_input;
+        const bool dedicated_mode = g_dedicated_mode;
         lock.unlock();
 
         const std::string prefix = NormalizeInput(input);
-        if (prefix.size() < kMinimumPrefixLength)
+        if (prefix.size() < (dedicated_mode ? 1 : kMinimumPrefixLength))
         {
             continue;
         }
 
-        auto candidates = dictionary.query_prefix(prefix, kCandidateLimit);
+        auto candidates =
+            dictionary.query_prefix(prefix, dedicated_mode ? kDedicatedCandidateLimit : kMixedCandidateLimit);
         if (!g_running || g_generation.load() != observed_generation)
         {
             continue;
@@ -114,11 +118,12 @@ void Stop()
     g_apply_callback = {};
 }
 
-void OnInputChanged(const std::string &input)
+void OnInputChanged(const std::string &input, bool dedicated_mode)
 {
     {
         std::lock_guard lock(g_mutex);
         g_latest_input = input;
+        g_dedicated_mode = dedicated_mode;
         g_generation.fetch_add(1);
     }
     g_cv.notify_one();
@@ -129,9 +134,10 @@ void Clear()
     OnInputChanged("");
 }
 
-bool IsCurrent(const std::string &input, uint64_t generation)
+bool IsCurrent(const std::string &input, uint64_t generation, bool dedicated_mode)
 {
     std::lock_guard lock(g_mutex);
-    return g_running && g_generation.load() == generation && g_latest_input == input;
+    return g_running && g_generation.load() == generation && g_latest_input == input &&
+           g_dedicated_mode == dedicated_mode;
 }
 } // namespace EnglishIme

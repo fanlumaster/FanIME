@@ -91,3 +91,23 @@ TEST_CASE(EnglishDictionaryRestrictsResultsToTheRequestedPrefix)
     REQUIRE_EQ(candidates[1].word, std::string("helpful"));
     REQUIRE(dictionary.query_prefix("HEL", 5).empty());
 }
+
+TEST_CASE(EnglishDictionaryMigratesLegacySchemaAndSupportsMultipleDisplaysPerKey)
+{
+    TemporaryEnglishDatabase database;
+    EnglishDictionary dictionary(database.path().string());
+
+    sqlite3 *db = nullptr;
+    REQUIRE_EQ(sqlite3_open(database.path().string().c_str(), &db), SQLITE_OK);
+    REQUIRE_EQ(sqlite3_exec(db,
+                           "INSERT INTO english_words(word,display,weight) VALUES('hello','Hello',100);",
+                           nullptr, nullptr, nullptr),
+               SQLITE_OK);
+    sqlite3_close(db);
+
+    const auto candidates = dictionary.query_prefix("hello", 10);
+    REQUIRE_EQ(candidates.size(), static_cast<size_t>(2));
+    REQUIRE_EQ(candidates[0].pinyin, std::string("hello"));
+    REQUIRE_EQ(candidates[0].word, std::string("Hello"));
+    REQUIRE_EQ(candidates[1].word, std::string("hello"));
+}

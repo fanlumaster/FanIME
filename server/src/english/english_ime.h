@@ -13,7 +13,7 @@ using ApplyCallback =
 
 void Start(const std::string &db_path, ApplyCallback apply_callback);
 void Stop();
-void OnInputChanged(const std::string &input);
+void OnInputChanged(const std::string &input, bool dedicated_mode = false);
 void Clear();
-bool IsCurrent(const std::string &input, uint64_t generation);
+bool IsCurrent(const std::string &input, uint64_t generation, bool dedicated_mode = false);
 } // namespace EnglishIme
