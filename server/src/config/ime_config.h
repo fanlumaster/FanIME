@@ -161,6 +161,8 @@ bool GetConfiguredCandidateArrowNavigationEnabled();
 bool SetConfiguredCandidateArrowNavigationEnabled(bool enabled);
 bool GetConfiguredWordToCharacterEnabled();
 bool SetConfiguredWordToCharacterEnabled(bool enabled);
+bool GetConfiguredSmartPunctuationEnabled();
+bool SetConfiguredSmartPunctuationEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
 const std::string &GetConfiguredCandidateWindowPreeditStyle();

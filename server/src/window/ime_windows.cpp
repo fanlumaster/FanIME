@@ -1026,6 +1026,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 GetConfiguredFloatingToolbarItems();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
+            const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
             const std::string previous_theme_cand = GetConfiguredThemeCand();
@@ -1082,6 +1083,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
                         FormatPagingCommaPeriodWorkerPayload());
+                }
+                if (previous_smart_punctuation != GetConfiguredSmartPunctuationEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
+                        GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
                 }
                 const VoiceInputConfig &voice_input = GetConfiguredVoiceInput();
                 if (previous_voice_input.enabled != voice_input.enabled ||
@@ -1603,6 +1610,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 GetConfiguredFloatingToolbarItems();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
+            const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
             const std::string previous_theme_cand = GetConfiguredThemeCand();
@@ -1666,6 +1674,12 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
                         FormatPagingCommaPeriodWorkerPayload());
+                }
+                if (previous_smart_punctuation != GetConfiguredSmartPunctuationEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
+                        GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
                 }
                 PostSettingsConfig();
             }

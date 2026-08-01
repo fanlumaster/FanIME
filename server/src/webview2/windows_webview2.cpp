@@ -2335,6 +2335,17 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.smart_punctuation")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredSmartPunctuationEnabled(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
+                                        value ? L"1" : L"0");
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("general.floating_toolbar_", 0) == 0)
                             {
                                 const std::string item =
@@ -2606,7 +2617,8 @@ void PostSettingsConfig()
                                 {"ime_mode_scope", GetConfiguredImeModeScope()},
                                 {"shuangpin_schema", GetConfiguredShuangpinSchema()},
                                 {"wubi_schema", GetConfiguredWubiSchema()},
-                                {"word_to_character", GetConfiguredWordToCharacterEnabled()}}},
+                                {"word_to_character", GetConfiguredWordToCharacterEnabled()},
+                                {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()}}},
                   {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
                                 {"floating_toolbar_fullwidth", toolbar.fullwidth},
                                 {"floating_toolbar_punctuation", toolbar.punctuation},

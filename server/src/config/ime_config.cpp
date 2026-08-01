@@ -57,6 +57,7 @@ bool g_paging_tab_enabled = true;
 bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
 bool g_word_to_character_enabled = false;
+bool g_smart_punctuation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::string g_candidate_window_preedit_style = "pinyin";
 std::string g_theme_mode = "dark";
@@ -569,6 +570,7 @@ bool LoadImeConfig()
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         g_word_to_character_enabled = tbl["input"]["word_to_character"].value_or(false);
+        g_smart_punctuation_enabled = tbl["input"]["smart_punctuation"].value_or(true);
         {
             // Prefer explicit bool keys; fall back to legacy switch_language array.
             const auto legacy = tbl["keybindings"]["switch_language"].as_array();
@@ -1554,6 +1556,21 @@ bool SetConfiguredWordToCharacterEnabled(bool enabled)
         return false;
     }
     g_word_to_character_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredSmartPunctuationEnabled()
+{
+    return g_smart_punctuation_enabled;
+}
+
+bool SetConfiguredSmartPunctuationEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("input", "smart_punctuation", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_smart_punctuation_enabled = enabled;
     return true;
 }
 

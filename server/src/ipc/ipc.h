@@ -338,8 +338,10 @@ constexpr UINT FocusSessionReady = 8;
 constexpr UINT PipeReady = 9;
 // Unsolicited text insert (e.g. voice ASR). Independent of candidate finalize.
 constexpr UINT InsertText = 10;
+// Smart punctuation after ASCII letters/digits (',' '.' ':'). Payload "0"/"1".
+constexpr UINT SmartPunctuationChanged = 11;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = InsertText;
+constexpr UINT MaxKnown = SmartPunctuationChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

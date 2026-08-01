@@ -98,6 +98,8 @@ default_ime_mode = "chinese"
 ime_mode_scope = "app"
 # 以词定字：开启后，[ 上屏高亮候选的首个汉字，] 上屏末个汉字
 word_to_character = false
+# 智能标点：中文标点模式下，字母/数字后的 , . : 输出英文标点（类似小狼毫 digit_separators）
+smart_punctuation = true
 # 组合说明：
 #   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
 #   legacy + quanpin   -> 自动切换为新版引擎全拼会话
