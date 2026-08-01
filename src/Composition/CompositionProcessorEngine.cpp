@@ -771,6 +771,16 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
         &_PreservedKey_IMEMode03                        //
     );
 
+    TF_PRESERVEDKEY preservedKeyEnglishInputMode;
+    preservedKeyEnglishInputMode.uVKey = 'E';
+    preservedKeyEnglishInputMode.uModifiers = TF_MOD_CONTROL | TF_MOD_SHIFT | TF_MOD_ALT;
+    SetPreservedKey(                                          //
+        Global::MetasequoiaIMEGuidEnglishInputModePreserveKey, //
+        preservedKeyEnglishInputMode,                          //
+        Global::EnglishInputModeDescription,                   //
+        &_PreservedKey_EnglishInputMode                        //
+    );
+
     TF_PRESERVEDKEY preservedKeyDoubleSingleByte;
     preservedKeyDoubleSingleByte.uVKey = VK_SPACE;
     preservedKeyDoubleSingleByte.uModifiers = TF_MOD_SHIFT | TF_MOD_CONTROL;
@@ -795,6 +805,12 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
     InitPreservedKey(&_PreservedKey_IMEMode, pThreadMgr, tfClientId);
     InitPreservedKey(&_PreservedKey_IMEMode02, pThreadMgr, tfClientId);
     InitPreservedKey(&_PreservedKey_IMEMode03, pThreadMgr, tfClientId);
+    const BOOL englishInputModeRegistered =
+        InitPreservedKey(&_PreservedKey_EnglishInputMode, pThreadMgr, tfClientId);
+    const std::wstring englishInputModeMessage = fmt::format(
+        L"[msime-eng] TSF preserved-key register result={}\n",
+        englishInputModeRegistered != FALSE);
+    OutputDebugString(englishInputModeMessage.c_str());
     /* Shift + Ctrl + Space: toggle DoubleSingleByte */
     InitPreservedKey(&_PreservedKey_DoubleSingleByte, pThreadMgr, tfClientId);
     /* Ctrl + .: toggle Punctuation */
@@ -848,6 +864,7 @@ BOOL CCompositionProcessorEngine::InitPreservedKey(_In_ XPreservedKey *pXPreserv
                                                    TfClientId tfClientId)
 {
     ITfKeystrokeMgr *pKeystrokeMgr = nullptr;
+    BOOL registered = TRUE;
 
     if (IsEqualGUID(pXPreservedKey->Guid, GUID_NULL))
     {
@@ -869,13 +886,16 @@ BOOL CCompositionProcessorEngine::InitPreservedKey(_In_ XPreservedKey *pXPreserv
         {
             return FALSE;
         }
-        pKeystrokeMgr->PreserveKey(tfClientId, pXPreservedKey->Guid, &preservedKey, pXPreservedKey->Description,
-                                   static_cast<ULONG>(lenOfDesc));
+        if (FAILED(pKeystrokeMgr->PreserveKey(tfClientId, pXPreservedKey->Guid, &preservedKey,
+                                              pXPreservedKey->Description, static_cast<ULONG>(lenOfDesc))))
+        {
+            registered = FALSE;
+        }
     }
 
     pKeystrokeMgr->Release();
 
-    return TRUE;
+    return registered;
 }
 
 //+---------------------------------------------------------------------------
@@ -921,6 +941,10 @@ BOOL CCompositionProcessorEngine::IsPreservedKeyEligible(REFGUID rguid)
     if (IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
     {
         return hotkeys.ctrl && CheckShiftKeyOnly(&_PreservedKey_IMEMode03.TSFPreservedKeyTable);
+    }
+    if (IsEqualGUID(rguid, _PreservedKey_EnglishInputMode.Guid))
+    {
+        return CheckShiftKeyOnly(&_PreservedKey_EnglishInputMode.TSFPreservedKeyTable);
     }
     if (IsEqualGUID(rguid, _PreservedKey_DoubleSingleByte.Guid))
     {

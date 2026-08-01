@@ -165,6 +165,19 @@ UINT CaptureIpcModifiers()
     return modifiers;
 }
 
+bool IsEnglishInputModeToggle(UINT code, UINT modifiers)
+{
+    return code == 'E' && (modifiers & 0b00000111u) == 0b00000111u;
+}
+
+void TraceEnglishModeShortcut(const wchar_t *stage, UINT code, UINT modifiers, BOOL imeOpen)
+{
+    const std::wstring message = fmt::format(
+        L"[msime-eng] TSF {} key=0x{:02X} modifiers=0x{:02X} ime_open={}\n",
+        stage, code, modifiers, imeOpen != FALSE);
+    OutputDebugString(message.c_str());
+}
+
 void PostOwnerMessageWithSyncFallback(HWND window, UINT message,
                                       WPARAM wParam = 0, LPARAM lParam = 0)
 {
@@ -299,6 +312,24 @@ BOOL CMetasequoiaIME::_IsKeyEaten(        //
 
     if (isOpen) // Chinese mode
     {
+        const UINT shortcutModifiers = CaptureIpcModifiers();
+        if (*pCodeOut == 'E' && (shortcutModifiers & 0b00000110u) != 0)
+        {
+            TraceEnglishModeShortcut(L"classify", *pCodeOut, shortcutModifiers, isOpen);
+        }
+        // Keep the Chinese compartment open: this only toggles the
+        // Server-owned English candidate sub-mode.
+        if (IsEnglishInputModeToggle(*pCodeOut, shortcutModifiers))
+        {
+            TraceEnglishModeShortcut(L"eaten", *pCodeOut, shortcutModifiers, isOpen);
+            if (pKeyState)
+            {
+                pKeyState->Category = CATEGORY_COMPOSING;
+                pKeyState->Function = FUNCTION_CANCEL;
+            }
+            return TRUE;
+        }
+
         const bool isComposing = freshCompositionState ? false : _IsComposing() != FALSE;
         const CANDIDATE_MODE candidateMode =
             freshCompositionState ? CANDIDATE_NONE : _candidateMode;
@@ -734,7 +765,18 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
     keyState->Function = FUNCTION_NONE;
 
     const UINT capturedModifiers = modifiersDown ? *modifiersDown : CaptureIpcModifiers();
-    // Ctrl/Alt/Windows combinations belong to the application. In particular,
+    const bool projectedImeOpen = _deferredKeyProjectionValid
+                                      ? _deferredProjectedImeOpen
+                                      : _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId) != FALSE;
+    if (projectedImeOpen && IsEnglishInputModeToggle(*classifiedCode, capturedModifiers))
+    {
+        TraceEnglishModeShortcut(L"deferred-eaten", *classifiedCode, capturedModifiers, TRUE);
+        keyState->Category = CATEGORY_COMPOSING;
+        keyState->Function = FUNCTION_CANCEL;
+        return true;
+    }
+
+    // Other Ctrl/Alt/Windows combinations belong to the application. In particular,
     // never turn a recovery FIFO into a shortcut sink.
     if ((capturedModifiers & 0b00000110) != 0 ||
         (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
@@ -928,6 +970,13 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     }
     PerfTimer onTestKeyDownTimer;
     Global::UpdateModifiers(wParam, lParam);
+    if (wParam == 'E')
+    {
+        const BOOL imeOpen = _pCompositionProcessorEngine && _pThreadMgr
+                                 ? _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId)
+                                 : FALSE;
+        TraceEnglishModeShortcut(L"OnTestKeyDown-entry", static_cast<UINT>(wParam), CaptureIpcModifiers(), imeOpen);
+    }
 
     if (_HasDeferredKeyBarrier())
     {
@@ -1428,6 +1477,13 @@ STDAPI CMetasequoiaIME::OnKeyDown(ITfContext *pContext, WPARAM wParam, LPARAM lP
         return E_INVALIDARG;
     }
     PerfTimer onKeyDownTimer;
+    if (wParam == 'E')
+    {
+        const BOOL imeOpen = _pCompositionProcessorEngine && _pThreadMgr
+                                 ? _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId)
+                                 : FALSE;
+        TraceEnglishModeShortcut(L"OnKeyDown-entry", static_cast<UINT>(wParam), CaptureIpcModifiers(), imeOpen);
+    }
     const uint64_t focusGeneration = _deferredKeyFocusGeneration;
     (void)_DispatchKeyDown(pContext, wParam, lParam, pIsEaten, nullptr, nullptr,
                            nullptr, true, focusGeneration);
@@ -1610,6 +1666,13 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
 
         PerfTimer sendKeyEventTimer;
         const KeyEventSendResult sendResult = SendKeyEventToUIProcess(&requestId);
+        if (IsEnglishInputModeToggle(code, capturedModifiers))
+        {
+            const std::wstring message = fmt::format(
+                L"[msime-eng] TSF send request_id={} result={}\n",
+                requestId, static_cast<int>(sendResult));
+            OutputDebugString(message.c_str());
+        }
         if (sendResult != KeyEventSendResult::Sent)
         {
             if (!canDefer)
@@ -1869,6 +1932,37 @@ STDAPI CMetasequoiaIME::OnPreservedKey(ITfContext *pContext, REFGUID rguid, BOOL
     {
         return E_INVALIDARG;
     }
+    if (IsEqualGUID(rguid, Global::MetasequoiaIMEGuidEnglishInputModePreserveKey))
+    {
+        const BOOL imeOpen = _pCompositionProcessorEngine && _pThreadMgr
+                                 ? _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId)
+                                 : FALSE;
+        TraceEnglishModeShortcut(L"OnPreservedKey", 'E', 0b00000111u, imeOpen);
+        if (!imeOpen || !_pCompositionProcessorEngine ||
+            !_pCompositionProcessorEngine->IsPreservedKeyEligible(rguid) ||
+            !_DeferredKeyQueueHasCapacity())
+        {
+            *pIsEaten = FALSE;
+            return S_OK;
+        }
+
+        _KEYSTROKE_STATE keyState = {};
+        keyState.Category = CATEGORY_COMPOSING;
+        keyState.Function = FUNCTION_CANCEL;
+        *pIsEaten = _QueueDeferredKeyDown(pContext, 'E', 0, L'e', 0b00000111u, keyState)
+                        ? TRUE
+                        : FALSE;
+        const std::wstring message = fmt::format(
+            L"[msime-eng] TSF preserved-key queued eaten={}\n", *pIsEaten != FALSE);
+        OutputDebugString(message.c_str());
+        if (*pIsEaten && _localSessionResetPending.load(std::memory_order_acquire))
+        {
+            const UINT resetToken = _localSessionResetToken.load(std::memory_order_acquire);
+            _RequestLocalSessionReset(pContext, resetToken);
+        }
+        return S_OK;
+    }
+
     const bool eligible = _pCompositionProcessorEngine &&
                           _pCompositionProcessorEngine->IsPreservedKeyEligible(rguid) &&
                           _DeferredKeyQueueHasCapacity();

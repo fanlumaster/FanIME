@@ -47,6 +47,10 @@ extern const GUID MetasequoiaIMEGuidImeModePreserveKey02 = {
 extern const GUID MetasequoiaIMEGuidImeModePreserveKey03 = {
     0xb7e4f2a1, 0x9c3d, 0x4e8f, {0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18}};
 
+// {D625C0B1-5A8F-4CC4-9C65-6C536BFF2D91}
+extern const GUID MetasequoiaIMEGuidEnglishInputModePreserveKey = {
+    0xd625c0b1, 0x5a8f, 0x4cc4, {0x9c, 0x65, 0x6c, 0x53, 0x6b, 0xff, 0x2d, 0x91}};
+
 // {4393748A-89DC-485C-A7F7-5FA232CEC70B}
 extern const GUID MetasequoiaIMEGuidDoubleSingleBytePreserveKey = {
     0x4393748a, 0x89dc, 0x485c, {0xa7, 0xf7, 0x5f, 0xa2, 0x32, 0xce, 0xc7, 0x0b}};
@@ -115,6 +119,7 @@ extern const WCHAR StringDelimiter = L'\"';
 extern const WCHAR ImeModeDescription[] = L"Chinese/English input (Shift)";
 extern const WCHAR ImeModeDescription02[] = L"Chinese/English input (Ctrl+Alt+Space)";
 extern const WCHAR ImeModeDescription03[] = L"Chinese/English input (Ctrl)";
+extern const WCHAR EnglishInputModeDescription[] = L"English candidate input (Ctrl+Shift+Alt+E)";
 extern const int ImeModeOnIcoIndex = IME_MODE_ON_ICON_INDEX;
 extern const int ImeModeOffIcoIndex = IME_MODE_OFF_ICON_INDEX;
 
