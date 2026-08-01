@@ -21,6 +21,8 @@
 
 namespace
 {
+constexpr UINT kMaxDeferredKeyReplayAttempts = 8;
+
 // A recovery checkpoint may need one INPUT for every raw pinyin character and
 // one MOVE_LEFT for every character to the right of the caret.  Keep enough
 // additional room for a short burst that arrives while the replacement IPC
@@ -1184,6 +1186,18 @@ void CMetasequoiaIME::_RetryDeferredKeyReplay(uint64_t replayToken)
     if (_deferredKeyInFlight.focusGeneration != _deferredKeyFocusGeneration)
     {
         _CompleteDeferredKeyReplay(replayToken);
+        return;
+    }
+
+    if (_deferredKeyInFlight.replayAttempts >=
+        kMaxDeferredKeyReplayAttempts)
+    {
+        // A permanently unanswerable request must not monopolize the ordered
+        // replay queue forever. The real composition is still intact because
+        // the failing edit session did not commit; discard this poisoned batch
+        // and reconnect for subsequent physical input.
+        MarkNamedpipeSessionDirtyForOwner(this);
+        _ClearDeferredKeyDowns();
         return;
     }
 
