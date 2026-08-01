@@ -6,7 +6,6 @@
 #include "KeyHandlerEditSession.h"
 #include "Compartment.h"
 #include "MetasequoiaIMEBaseStructure.h"
-#include "fmt/xchar.h"
 #include <debugapi.h>
 #include <cwctype>
 #include <string>
@@ -983,7 +982,7 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     // Every keydown reaches this sink, including the ones handed back to the
     // application (backspace with no composition), so the smart-punctuation
     // rejection state is tracked here rather than in the eaten-key path.
-    _NoteKeyForSmartPunctuation(code, wch);
+    _NoteKeyForSmartPunctuation(code, wch, *pIsEaten ? true : false);
 
     if (KeystrokeState.Category == CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION)
     {
@@ -1535,7 +1534,7 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         );
     }
     // Idempotent with the OnTestKeyDown call; replayed keys only pass here.
-    _NoteKeyForSmartPunctuation(code, wch);
+    _NoteKeyForSmartPunctuation(code, wch, *pIsEaten ? true : false);
 
     if (expectedFocusGeneration == 0 ||
         expectedFocusGeneration != _deferredKeyFocusGeneration)

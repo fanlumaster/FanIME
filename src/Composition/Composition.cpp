@@ -2,6 +2,7 @@
 #include "Globals.h"
 #include "MetasequoiaIME.h"
 #include "CompositionProcessorEngine.h"
+#include <cwctype>
 #include <debugapi.h>
 #include <fmt/xchar.h>
 #include <string>
@@ -90,8 +91,8 @@ WCHAR CMetasequoiaIME::_GetPrecedingDocumentChar(TfEditCookie ec, _In_ ITfContex
     {
         TF_SELECTION tfSelection = {};
         ULONG fetched = 0;
-        if (FAILED(pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched)) || fetched != 1 ||
-            tfSelection.range == nullptr)
+        const HRESULT hr = pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched);
+        if (FAILED(hr) || fetched != 1 || tfSelection.range == nullptr)
         {
             return 0;
         }
@@ -101,16 +102,22 @@ WCHAR CMetasequoiaIME::_GetPrecedingDocumentChar(TfEditCookie ec, _In_ ITfContex
 
     ITfRange *pClone = nullptr;
     WCHAR preceding = 0;
-    if (SUCCEEDED(pAnchor->Clone(&pClone)) && pClone != nullptr)
+    HRESULT hr = pAnchor->Clone(&pClone);
+    if (SUCCEEDED(hr) && pClone != nullptr)
     {
-        if (SUCCEEDED(pClone->Collapse(ec, TF_ANCHOR_START)))
+        hr = pClone->Collapse(ec, TF_ANCHOR_START);
+        if (SUCCEEDED(hr))
         {
             LONG shifted = 0;
-            if (SUCCEEDED(SafeRangeShiftStart(pClone, ec, -1, &shifted)) && shifted == -1)
+            hr = SafeRangeShiftStart(pClone, ec, -1, &shifted);
+            if (SUCCEEDED(hr) && shifted == -1)
             {
+                // Terminals and other shallow text stores accept the shift but
+                // expose no text, leaving preceding at 0.
                 WCHAR buffer[2] = {};
                 ULONG fetched = 0;
-                if (SUCCEEDED(SafeRangeGetText(pClone, ec, 0, buffer, 1, &fetched)) && fetched == 1)
+                hr = SafeRangeGetText(pClone, ec, 0, buffer, 1, &fetched);
+                if (SUCCEEDED(hr) && fetched == 1)
                 {
                     preceding = buffer[0];
                 }
@@ -126,6 +133,15 @@ WCHAR CMetasequoiaIME::_GetPrecedingDocumentChar(TfEditCookie ec, _In_ ITfContex
     return preceding;
 }
 
+WCHAR CMetasequoiaIME::_GetPrecedingCharForSmartPunctuation(TfEditCookie ec, _In_ ITfContext *pContext)
+{
+    if (_smartPunctuationShadowValid)
+    {
+        return _smartPunctuationShadowChar;
+    }
+    return _GetPrecedingDocumentChar(ec, pContext);
+}
+
 void CMetasequoiaIME::_ResetSmartPunctuationHistory()
 {
     _smartPunctuationKey = 0;
@@ -134,8 +150,71 @@ void CMetasequoiaIME::_ResetSmartPunctuationHistory()
     _smartPunctuationAsciiRejected = false;
 }
 
-void CMetasequoiaIME::_NoteKeyForSmartPunctuation(UINT code, WCHAR wch)
+void CMetasequoiaIME::_InvalidateSmartPunctuationShadow()
 {
+    _smartPunctuationShadowChar = 0;
+    _smartPunctuationShadowValid = false;
+}
+
+void CMetasequoiaIME::_UpdateSmartPunctuationShadow(UINT code, WCHAR wch, bool isEaten)
+{
+    switch (code)
+    {
+    case VK_SHIFT:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+    case VK_CONTROL:
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+    case VK_MENU:
+    case VK_LMENU:
+    case VK_RMENU:
+    case VK_CAPITAL:
+        // Modifier presses edit nothing, so the shadow still describes the caret.
+        return;
+    case VK_BACK:
+    case VK_DELETE:
+    case VK_INSERT:
+    case VK_RETURN:
+    case VK_TAB:
+    case VK_ESCAPE:
+    case VK_LEFT:
+    case VK_RIGHT:
+    case VK_UP:
+    case VK_DOWN:
+    case VK_HOME:
+    case VK_END:
+    case VK_PRIOR:
+    case VK_NEXT:
+        _InvalidateSmartPunctuationShadow();
+        return;
+    default:
+        break;
+    }
+
+    if (CCompositionProcessorEngine::IsSmartAsciiPunctuationKey(wch))
+    {
+        // _ResolveSmartPunctuation needs the current shadow to decide the form,
+        // and records whatever it commits once that decision is made.
+        return;
+    }
+
+    if (isEaten || wch == 0 || std::iswprint(static_cast<wint_t>(wch)) == 0)
+    {
+        // Eaten keys feed the composition and reach the document as committed
+        // text, which even a proxy store exposes, so let the document answer.
+        _InvalidateSmartPunctuationShadow();
+        return;
+    }
+
+    _smartPunctuationShadowChar = wch;
+    _smartPunctuationShadowValid = true;
+}
+
+void CMetasequoiaIME::_NoteKeyForSmartPunctuation(UINT code, WCHAR wch, bool isEaten)
+{
+    _UpdateSmartPunctuationShadow(code, wch, isEaten);
+
     if (_smartPunctuationKey == 0)
     {
         return;
@@ -184,9 +263,9 @@ std::wstring CMetasequoiaIME::_ResolveSmartPunctuation(WCHAR wch, WCHAR precedin
         return {};
     }
 
+    const bool smartEnabled = Global::SmartPunctuationEnabled.load(std::memory_order_relaxed);
     std::wstring resolved = _pCompositionProcessorEngine->ResolvePunctuation(wch, precedingChar);
-    if (!CCompositionProcessorEngine::IsSmartAsciiPunctuationKey(wch) ||
-        !Global::SmartPunctuationEnabled.load(std::memory_order_relaxed))
+    if (!CCompositionProcessorEngine::IsSmartAsciiPunctuationKey(wch) || !smartEnabled)
     {
         _ResetSmartPunctuationHistory();
         return resolved;
@@ -211,6 +290,11 @@ std::wstring CMetasequoiaIME::_ResolveSmartPunctuation(WCHAR wch, WCHAR precedin
     _smartPunctuationPrecedingChar = precedingChar;
     _smartPunctuationCommittedAscii = committedAscii;
     _smartPunctuationAsciiRejected = asciiRejected;
+    if (!resolved.empty())
+    {
+        _smartPunctuationShadowChar = resolved.back();
+        _smartPunctuationShadowValid = true;
+    }
     return resolved;
 }
 

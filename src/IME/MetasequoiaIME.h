@@ -154,12 +154,16 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
                                           uint64_t requestId, const std::wstring &prefetchedText);
     // Character immediately before the caret / composition start (0 if unavailable).
     WCHAR _GetPrecedingDocumentChar(TfEditCookie ec, _In_ ITfContext *pContext);
+    // Shadow first, document read as the fallback. See _smartPunctuationShadowChar.
+    WCHAR _GetPrecedingCharForSmartPunctuation(TfEditCookie ec, _In_ ITfContext *pContext);
 
     // Smart punctuation: backspacing the ASCII punctuation we just committed
     // means that form was unwanted, so the spot stays on Chinese punctuation.
     std::wstring _ResolveSmartPunctuation(WCHAR wch, WCHAR precedingChar);
-    void _NoteKeyForSmartPunctuation(UINT code, WCHAR wch);
+    void _NoteKeyForSmartPunctuation(UINT code, WCHAR wch, bool isEaten);
     void _ResetSmartPunctuationHistory();
+    void _UpdateSmartPunctuationShadow(UINT code, WCHAR wch, bool isEaten);
+    void _InvalidateSmartPunctuationShadow();
     HRESULT _HandleCompositionDoubleSingleByte(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch);
 
     // key event handlers for candidate object.
@@ -464,6 +468,15 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     WCHAR _smartPunctuationPrecedingChar = 0;
     bool _smartPunctuationCommittedAscii = false;
     bool _smartPunctuationAsciiRejected = false;
+
+    // Last character known to have reached the application. Hosts such as the
+    // VS Code terminal back the context with a proxy text store that only ever
+    // receives what this tip commits: keys they route straight to the pty leave
+    // no trace, so reading the document there yields nothing or stale text.
+    // Keys passed through to the application are tracked here instead, and the
+    // document read is used only while this is invalid.
+    WCHAR _smartPunctuationShadowChar = 0;
+    bool _smartPunctuationShadowValid = false;
 
     ITfDocumentMgr *_pDocMgrLastFocused;
 

@@ -937,7 +937,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
             {
                 const std::wstring candidate(receivedData->candidate_string);
                 const WCHAR preceding =
-                    candidate.empty() ? _GetPrecedingDocumentChar(ec, pContext) : candidate.back();
+                    candidate.empty() ? _GetPrecedingCharForSmartPunctuation(ec, pContext) : candidate.back();
                 punctuationStr = candidate + _ResolveSmartPunctuation(wch, preceding);
             }
         }
@@ -947,7 +947,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
     {
         // Pure punctuation (no candidate prefix): choose ASCII vs Chinese from
         // the character immediately before the caret / composition.
-        const WCHAR preceding = _GetPrecedingDocumentChar(ec, pContext);
+        const WCHAR preceding = _GetPrecedingCharForSmartPunctuation(ec, pContext);
         punctuationStr = _ResolveSmartPunctuation(wch, preceding);
     }
 
