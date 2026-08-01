@@ -2300,6 +2300,10 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
     ::ReadDataFromNamedPipe(0b000111);
 
+    // TSF classifies VK_NUMPAD0..9 as candidate digit keys. Keep the IPC
+    // contract symmetric before any selection/composition predicates run.
+    Global::Keycode = FanyImeIpc::NormalizeNumpadDigitKey(Global::Keycode);
+
     const std::string input_before_key = g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
     if (GetConfiguredQuickPhraseEnabled() && input_before_key.empty() && Global::Keycode == 'K' && Global::Wch == L'K' &&

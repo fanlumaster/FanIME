@@ -19,3 +19,13 @@ TEST_CASE(english_ime_status_requires_backend_independent_composition_reset)
     REQUIRE(FanyImeIpc::ShouldResetCompositionForImeMode(false));
     REQUIRE(!FanyImeIpc::ShouldResetCompositionForImeMode(true));
 }
+
+TEST_CASE(numpad_digits_are_normalized_to_candidate_digit_keys)
+{
+    REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey(0x60) == '0');
+    REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey(0x61) == '1');
+    REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey(0x69) == '9');
+
+    REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey('1') == '1');
+    REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey(0x6A) == 0x6A);
+}
