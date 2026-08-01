@@ -85,6 +85,9 @@ const std::string &GetConfiguredCandidateTextColor();
 bool SetConfiguredCandidateTextColor(const std::string &color);
 // Installed font family names for settings dropdowns (cached after first call).
 const std::vector<std::string> &GetSystemFontFamilies();
+// Resolve a GDI/legacy face name (for example "Family W03") to the
+// typographic family name Chromium expects in CSS. Returns the input on failure.
+std::string ResolveSystemFontFamilyForCss(const std::string &font);
 SchemeType GetConfiguredInputScheme();
 std::string GetConfiguredInputSchemeName();
 bool SetConfiguredInputScheme(const std::string &scheme);

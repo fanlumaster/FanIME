@@ -1059,9 +1059,9 @@ bool ApplyConfiguredCandidateAppearance()
         return false;
     }
 
-    nlohmann::json cfg = {{"font", GetConfiguredCandidateFont()},
-                          {"english_font", GetConfiguredCandidateEnglishFont()},
-                          {"default_font", GetConfiguredCandidateDefaultFont()},
+    nlohmann::json cfg = {{"font", ResolveSystemFontFamilyForCss(GetConfiguredCandidateFont())},
+                          {"english_font", ResolveSystemFontFamilyForCss(GetConfiguredCandidateEnglishFont())},
+                          {"default_font", ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
                           {"font_size", GetConfiguredCandidateFontSize()},
                           {"cand_text_color", GetConfiguredCandidateTextColor()}};
     const std::wstring script =
@@ -2641,8 +2641,13 @@ void PostSettingsConfig()
                                   {"theme_voice", GetConfiguredThemeVoice()},
                                   {"page_size", GetConfiguredCandidatePageSize()},
                                   {"font", GetConfiguredCandidateFont()},
+                                  {"font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateFont())},
                                   {"english_font", GetConfiguredCandidateEnglishFont()},
+                                  {"english_font_css_family",
+                                   ResolveSystemFontFamilyForCss(GetConfiguredCandidateEnglishFont())},
                                   {"default_font", GetConfiguredCandidateDefaultFont()},
+                                  {"default_font_css_family",
+                                   ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
                                   {"font_size", GetConfiguredCandidateFontSize()},
                                   {"cand_text_color", GetConfiguredCandidateTextColor()},
                                   {"system_fonts", GetSystemFontFamilies()}}},

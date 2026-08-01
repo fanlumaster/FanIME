@@ -21,6 +21,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_terminal_deactivation_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_user_dictionary_journal.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_config_template_merge.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_system_font_family.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/english/english_dictionary.cpp"
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"
     "${CMAKE_SOURCE_DIR}/src/session/engine_input_session.cpp"
@@ -78,6 +79,7 @@ target_link_libraries(${TEST_EXECUTABLE_NAME}
     Boost::locale
     Boost::json
     unofficial::sqlite3::sqlite3
+    dwrite
 )
 
 add_test(NAME ${TEST_EXECUTABLE_NAME} COMMAND ${TEST_EXECUTABLE_NAME})
