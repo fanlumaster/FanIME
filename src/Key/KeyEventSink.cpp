@@ -953,6 +953,11 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch,
                             &KeystrokeState);
 
+    // Every keydown reaches this sink, including the ones handed back to the
+    // application (backspace with no composition), so the smart-punctuation
+    // rejection state is tracked here rather than in the eaten-key path.
+    _NoteKeyForSmartPunctuation(code, wch);
+
     if (KeystrokeState.Category == CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION)
     {
         //
@@ -1502,6 +1507,9 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
             translatedWch        //
         );
     }
+    // Idempotent with the OnTestKeyDown call; replayed keys only pass here.
+    _NoteKeyForSmartPunctuation(code, wch);
+
     if (expectedFocusGeneration == 0 ||
         expectedFocusGeneration != _deferredKeyFocusGeneration)
     {
@@ -1652,29 +1660,32 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         {
             PerfTimer asyncPuncTimer;
             std::wstring punctuationCommitText;
+            const bool shouldFinalizeHighlightedCandidateWithPunctuation =
+                _candidateMode != CANDIDATE_NONE && _pCandidateListUIPresenter &&
+                Global::CommitWithHighlightedCandPunc.count(wch) > 0;
             // Numpad '.' (VK_DECIMAL) keeps ASCII '.' in Chinese punctuation mode.
             if (code == VK_DECIMAL)
             {
                 punctuationCommitText = L".";
             }
+            else if (shouldFinalizeHighlightedCandidateWithPunctuation)
+            {
+                // Empty means the edit session must consume this request's
+                // candidate reply and append the punctuation derived from wch
+                // (including smart-punctuation against the candidate text).
+                punctuationCommitText.clear();
+            }
+            else if (CCompositionProcessorEngine::IsSmartAsciiPunctuationKey(wch) &&
+                     Global::SmartPunctuationEnabled.load(std::memory_order_relaxed))
+            {
+                // Defer mapping until the edit session can inspect the
+                // preceding document character (letters/digits → ASCII).
+                punctuationCommitText.clear();
+            }
             else
             {
                 const WCHAR *punctuation = _pCompositionProcessorEngine->GetPunctuation(wch);
                 punctuationCommitText = punctuation ? punctuation : L"";
-            }
-            const bool shouldFinalizeHighlightedCandidateWithPunctuation =
-                _candidateMode != CANDIDATE_NONE && _pCandidateListUIPresenter &&
-                Global::CommitWithHighlightedCandPunc.count(wch) > 0;
-            if (!shouldFinalizeHighlightedCandidateWithPunctuation)
-            {
-                // The text is carried by this exact async request. No global
-                // single-slot cache can be overwritten by the next key.
-            }
-            else
-            {
-                // Empty means the edit session must consume this request's
-                // candidate reply and append the punctuation derived from wch.
-                punctuationCommitText.clear();
             }
             _PostAsyncKeyRequest(WM_AsyncPunctuationCommit, code, wch, requestId,
                                  std::move(punctuationCommitText), 0, 0,

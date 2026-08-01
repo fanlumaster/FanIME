@@ -50,6 +50,9 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
     }
     pDocMgrPrevFocus;
 
+    // A different document invalidates the recorded commit spot.
+    _ResetSmartPunctuationHistory();
+
     const bool windowsTextInputHostTransition =
         _focusLostToWindowsTextInputHost ||
         _CaptureWindowsTextInputHostFocusLoss();

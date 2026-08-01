@@ -1680,6 +1680,19 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 validFrame = false;
             }
         }
+        if (validFrame && buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged)
+        {
+            bool hasTerminator = false;
+            for (const wchar_t ch : buf.data)
+            {
+                if (ch == L'\0')
+                {
+                    hasTerminator = true;
+                    break;
+                }
+            }
+            validFrame = hasTerminator && (buf.data[0] == L'0' || buf.data[0] == L'1') && buf.data[1] == L'\0';
+        }
         if (validFrame && buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady)
         {
             // The registration ACK is normally consumed before this handle is
@@ -1714,6 +1727,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         {
             // Soft config/control frames: drop without killing the worker pipe.
             if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PagingCommaPeriodChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::FocusSessionReady)
             {
@@ -1766,6 +1780,10 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             {
                 GlobalSettings::setTsfPreeditStyleFromWide(buf.data + 2);
             }
+        }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged)
+        {
+            Global::SmartPunctuationEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
         }
     }
 }
@@ -2417,10 +2435,10 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
             {
                 commitText.append(L".");
             }
-            else if (const WCHAR *punctuation =
-                         pIME->_pCompositionProcessorEngine->GetPunctuation(wch))
+            else if (pIME->_pCompositionProcessorEngine)
             {
-                commitText.append(punctuation);
+                const WCHAR preceding = commitText.empty() ? 0 : commitText.back();
+                commitText.append(pIME->_ResolveSmartPunctuation(wch, preceding));
             }
             pIME->_PostAsyncKeyRequest(WM_AsyncPunctuationCommit, code, wch,
                                        request.requestId, std::move(commitText),

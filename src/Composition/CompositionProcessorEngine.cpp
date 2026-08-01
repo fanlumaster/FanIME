@@ -665,6 +665,25 @@ const WCHAR *CCompositionProcessorEngine::GetPunctuation(WCHAR wch)
     return 0;
 }
 
+BOOL CCompositionProcessorEngine::IsSmartAsciiPunctuationKey(WCHAR wch)
+{
+    // Matches rime-ice punctuator/digit_separators: ",.:"
+    return wch == L',' || wch == L'.' || wch == L':';
+}
+
+std::wstring CCompositionProcessorEngine::ResolvePunctuation(WCHAR wch, WCHAR precedingChar)
+{
+    if (Global::SmartPunctuationEnabled.load(std::memory_order_relaxed) && IsSmartAsciiPunctuationKey(wch) &&
+        ((precedingChar >= L'0' && precedingChar <= L'9') || (precedingChar >= L'A' && precedingChar <= L'Z') ||
+         (precedingChar >= L'a' && precedingChar <= L'z')))
+    {
+        return std::wstring(1, wch);
+    }
+
+    const WCHAR *punctuation = GetPunctuation(wch);
+    return punctuation ? std::wstring(punctuation) : std::wstring();
+}
+
 //+---------------------------------------------------------------------------
 //
 // IsDoubleSingleByte

@@ -888,6 +888,8 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
     std::wstring punctuationStr;
     if (hasPendingPunctuationCommitText)
     {
+        // Prefetch already contains the fully resolved commit text (candidate
+        // plus punctuation, or a pure punctuation string resolved upstream).
         punctuationStr = std::move(pendingPunctuationCommitText);
     }
     else if (code == VK_DECIMAL)
@@ -895,11 +897,6 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         // Numpad decimal should always commit ASCII '.' even in Chinese
         // punctuation mode (main-keyboard '.' still maps to '。').
         punctuationStr = L".";
-    }
-    else
-    {
-        const WCHAR *punctuation = pCompositionProcessorEngine->GetPunctuation(wch);
-        punctuationStr.assign(punctuation, wcslen(punctuation));
     }
 
     double pipeReadElapsedMs = 0;
@@ -938,9 +935,20 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
             }
             else
             {
-                punctuationStr = std::wstring(receivedData->candidate_string) + punctuationStr;
+                const std::wstring candidate(receivedData->candidate_string);
+                const WCHAR preceding =
+                    candidate.empty() ? _GetPrecedingDocumentChar(ec, pContext) : candidate.back();
+                punctuationStr = candidate + _ResolveSmartPunctuation(wch, preceding);
             }
         }
+    }
+
+    if (!hasPendingPunctuationCommitText && punctuationStr.empty() && code != VK_DECIMAL)
+    {
+        // Pure punctuation (no candidate prefix): choose ASCII vs Chinese from
+        // the character immediately before the caret / composition.
+        const WCHAR preceding = _GetPrecedingDocumentChar(ec, pContext);
+        punctuationStr = _ResolveSmartPunctuation(wch, preceding);
     }
 
     CStringRange punctuationString;

@@ -29,7 +29,190 @@ HRESULT SafeRangeSetText(_In_ ITfRange *range, TfEditCookie ec, DWORD flags, _In
         return E_FAIL;
     }
 }
+
+HRESULT SafeRangeGetText(_In_ ITfRange *range, TfEditCookie ec, DWORD flags, _Out_writes_(len) WCHAR *text, ULONG len,
+                         _Out_ ULONG *fetched)
+{
+    if (range == nullptr || text == nullptr || fetched == nullptr || len == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    __try
+    {
+        return range->GetText(ec, flags, text, len, fetched);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        *fetched = 0;
+        return E_FAIL;
+    }
+}
+
+HRESULT SafeRangeShiftStart(_In_ ITfRange *range, TfEditCookie ec, LONG count, _Out_ LONG *shifted)
+{
+    if (range == nullptr || shifted == nullptr)
+    {
+        return E_INVALIDARG;
+    }
+
+    __try
+    {
+        return range->ShiftStart(ec, count, shifted, nullptr);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        *shifted = 0;
+        return E_FAIL;
+    }
+}
 } // namespace
+
+WCHAR CMetasequoiaIME::_GetPrecedingDocumentChar(TfEditCookie ec, _In_ ITfContext *pContext)
+{
+    if (pContext == nullptr)
+    {
+        return 0;
+    }
+
+    ITfRange *pAnchor = nullptr;
+    bool releaseAnchor = false;
+
+    if (_IsComposing() && _pComposition != nullptr)
+    {
+        if (FAILED(_pComposition->GetRange(&pAnchor)) || pAnchor == nullptr)
+        {
+            return 0;
+        }
+        releaseAnchor = true;
+    }
+    else
+    {
+        TF_SELECTION tfSelection = {};
+        ULONG fetched = 0;
+        if (FAILED(pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched)) || fetched != 1 ||
+            tfSelection.range == nullptr)
+        {
+            return 0;
+        }
+        pAnchor = tfSelection.range;
+        releaseAnchor = true;
+    }
+
+    ITfRange *pClone = nullptr;
+    WCHAR preceding = 0;
+    if (SUCCEEDED(pAnchor->Clone(&pClone)) && pClone != nullptr)
+    {
+        if (SUCCEEDED(pClone->Collapse(ec, TF_ANCHOR_START)))
+        {
+            LONG shifted = 0;
+            if (SUCCEEDED(SafeRangeShiftStart(pClone, ec, -1, &shifted)) && shifted == -1)
+            {
+                WCHAR buffer[2] = {};
+                ULONG fetched = 0;
+                if (SUCCEEDED(SafeRangeGetText(pClone, ec, 0, buffer, 1, &fetched)) && fetched == 1)
+                {
+                    preceding = buffer[0];
+                }
+            }
+        }
+        pClone->Release();
+    }
+
+    if (releaseAnchor && pAnchor != nullptr)
+    {
+        pAnchor->Release();
+    }
+    return preceding;
+}
+
+void CMetasequoiaIME::_ResetSmartPunctuationHistory()
+{
+    _smartPunctuationKey = 0;
+    _smartPunctuationPrecedingChar = 0;
+    _smartPunctuationCommittedAscii = false;
+    _smartPunctuationAsciiRejected = false;
+}
+
+void CMetasequoiaIME::_NoteKeyForSmartPunctuation(UINT code, WCHAR wch)
+{
+    if (_smartPunctuationKey == 0)
+    {
+        return;
+    }
+
+    switch (code)
+    {
+    case VK_SHIFT:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+    case VK_CONTROL:
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+    case VK_MENU:
+    case VK_LMENU:
+    case VK_RMENU:
+    case VK_CAPITAL:
+        // ':' needs Shift; modifier presses are not edits.
+        return;
+    case VK_BACK:
+        // Only deleting the ASCII form says that form was unwanted. Deleting
+        // the Chinese punctuation that replaced it must not undo the rejection.
+        if (_smartPunctuationCommittedAscii)
+        {
+            _smartPunctuationAsciiRejected = true;
+        }
+        return;
+    case VK_DECIMAL:
+        // Numpad '.' bypasses smart punctuation entirely.
+        _ResetSmartPunctuationHistory();
+        return;
+    default:
+        break;
+    }
+
+    if (wch != _smartPunctuationKey)
+    {
+        _ResetSmartPunctuationHistory();
+    }
+}
+
+std::wstring CMetasequoiaIME::_ResolveSmartPunctuation(WCHAR wch, WCHAR precedingChar)
+{
+    if (_pCompositionProcessorEngine == nullptr)
+    {
+        return {};
+    }
+
+    std::wstring resolved = _pCompositionProcessorEngine->ResolvePunctuation(wch, precedingChar);
+    if (!CCompositionProcessorEngine::IsSmartAsciiPunctuationKey(wch) ||
+        !Global::SmartPunctuationEnabled.load(std::memory_order_relaxed))
+    {
+        _ResetSmartPunctuationHistory();
+        return resolved;
+    }
+
+    bool committedAscii = resolved.size() == 1 && resolved[0] == wch;
+    // The rejection is sticky for as long as this spot survives, so repeated
+    // delete/retype cycles keep producing Chinese punctuation.
+    const bool asciiRejected = _smartPunctuationAsciiRejected && _smartPunctuationKey == wch &&
+                               _smartPunctuationPrecedingChar == precedingChar;
+    if (asciiRejected && committedAscii)
+    {
+        const WCHAR *chinese = _pCompositionProcessorEngine->GetPunctuation(wch);
+        if (chinese != nullptr && *chinese != L'\0')
+        {
+            resolved.assign(chinese);
+            committedAscii = false;
+        }
+    }
+
+    _smartPunctuationKey = wch;
+    _smartPunctuationPrecedingChar = precedingChar;
+    _smartPunctuationCommittedAscii = committedAscii;
+    _smartPunctuationAsciiRejected = asciiRejected;
+    return resolved;
+}
 
 //+---------------------------------------------------------------------------
 //

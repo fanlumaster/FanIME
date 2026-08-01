@@ -100,6 +100,10 @@ class CCompositionProcessorEngine
     // Punctuation
     BOOL IsPunctuation(WCHAR wch);
     const WCHAR *GetPunctuation(WCHAR wch);
+    // Smart punctuation (rime digit_separators-style): after ASCII letters/digits,
+    // keep ',' '.' ':' as ASCII instead of mapping to Chinese punctuation.
+    static BOOL IsSmartAsciiPunctuationKey(WCHAR wch);
+    std::wstring ResolvePunctuation(WCHAR wch, WCHAR precedingChar);
 
     BOOL IsDoubleSingleByte(WCHAR wch);
     BOOL IsWildcard()

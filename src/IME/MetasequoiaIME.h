@@ -152,6 +152,14 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     HRESULT _HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfContext *pContext, KEYSTROKE_FUNCTION keyFunction);
     HRESULT _HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfContext *pContext, UINT code, WCHAR wch,
                                           uint64_t requestId, const std::wstring &prefetchedText);
+    // Character immediately before the caret / composition start (0 if unavailable).
+    WCHAR _GetPrecedingDocumentChar(TfEditCookie ec, _In_ ITfContext *pContext);
+
+    // Smart punctuation: backspacing the ASCII punctuation we just committed
+    // means that form was unwanted, so the spot stays on Chinese punctuation.
+    std::wstring _ResolveSmartPunctuation(WCHAR wch, WCHAR precedingChar);
+    void _NoteKeyForSmartPunctuation(UINT code, WCHAR wch);
+    void _ResetSmartPunctuationHistory();
     HRESULT _HandleCompositionDoubleSingleByte(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch);
 
     // key event handlers for candidate object.
@@ -450,6 +458,12 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     CANDIDATE_MODE _candidateMode;
     CCandidateListUIPresenter *_pCandidateListUIPresenter;
     BOOL _isCandidateWithWildcard : 1;
+
+    // Last smart-punctuation commit, used to detect a backspace rejection.
+    WCHAR _smartPunctuationKey = 0;
+    WCHAR _smartPunctuationPrecedingChar = 0;
+    bool _smartPunctuationCommittedAscii = false;
+    bool _smartPunctuationAsciiRejected = false;
 
     ITfDocumentMgr *_pDocMgrLastFocused;
 

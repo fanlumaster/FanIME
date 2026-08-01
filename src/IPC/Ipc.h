@@ -291,12 +291,16 @@ constexpr UINT FocusSessionReady = 8;
 constexpr UINT PipeReady = 9;
 // Unsolicited text insert (voice ASR, etc.). Does not finalize candidates.
 constexpr UINT InsertText = 10;
+// Smart punctuation after ASCII letters/digits (',' '.' ':'). Payload "0"/"1".
+constexpr UINT SmartPunctuationChanged = 11;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = InsertText;
+constexpr UINT MaxKnown = SmartPunctuationChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
+// Default on: matches rime-ice digit_separators behavior until Server syncs.
+inline std::atomic_bool SmartPunctuationEnabled{true};
 inline thread_local bool g_connected = false;
 
 } // namespace Global
