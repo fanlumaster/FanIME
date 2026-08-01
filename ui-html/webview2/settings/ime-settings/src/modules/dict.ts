@@ -68,7 +68,7 @@ function renderRows(rows: DictionaryRow[]): void {
     const remove = document.createElement('button'); remove.className = 'dict-row-action danger'; remove.textContent = '删除';
     remove.addEventListener('click', () => {
       if (!window.confirm(`确定删除“${row.word}”吗？`)) return;
-      if (dictionary === 'english') post('delete', { oldWord: row.word, word: row.word, display: row.display ?? row.word });
+      if (dictionary === 'english') post('delete', { oldWord: row.word, oldDisplay: row.display ?? row.word, word: row.word, display: row.display ?? row.word });
       else post('delete', { oldCode: row.code, oldWord: row.word, code: row.code, word: row.word, weight: row.weight });
     });
     actions.append(edit, remove); tr.appendChild(actions); return tr;
@@ -212,7 +212,9 @@ export function setupDictionary(): void {
   document.getElementById('dictSaveButton')?.addEventListener('click', () => {
     const code = (document.getElementById('dictCode') as HTMLInputElement).value.trim();
     const word = (document.getElementById('dictWord') as HTMLInputElement).value.trim();
-    if (dictionary === 'english') post(editing ? 'update' : 'create', { word: code, display: word, oldWord: editing?.word });
+    if (dictionary === 'english') post(editing ? 'update' : 'create', {
+      word: code, display: word, oldWord: editing?.word, oldDisplay: editing?.display ?? editing?.word,
+    });
     else post(editing ? 'update' : 'create', { code, word, weight: Number((document.getElementById('dictWeight') as HTMLInputElement).value), oldCode: editing?.code, oldWord: editing?.word });
   });
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
