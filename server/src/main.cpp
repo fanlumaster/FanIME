@@ -67,7 +67,6 @@ const char *SchemeTypeToString(SchemeType scheme_type)
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
-    OutputDebugString(L"[msime-eng] Server WinMain\n");
     CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeServer_SingleInstance");
     if (!single_instance.is_valid())
     {

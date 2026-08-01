@@ -2167,10 +2167,6 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     const SchemeType scheme = g_inputSession->current_scheme_type();
     if (g_english_input_mode)
     {
-        const std::wstring message = fmt::format(
-            L"[msime-eng] Server query client={} epoch={} input_length={}\n",
-            client_id, activation_epoch, current_input.size());
-        OutputDebugString(message.c_str());
         UpdateEnglishInput(current_input, client_id, activation_epoch, true);
     }
     else if (!IsQuickPhraseInput(current_input) && !IsUnicodeInput(current_input) &&
@@ -2285,10 +2281,6 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
     auto &items = Global::candidate_ui.items;
     if (dedicated_mode)
     {
-        const std::wstring message = fmt::format(
-            L"[msime-eng] Server apply generation={} candidates={} input_length={}\n",
-            generation, candidates.size(), input.size());
-        OutputDebugString(message.c_str());
         std::string context_input = input;
         std::transform(context_input.begin(), context_input.end(), context_input.begin(),
                        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
@@ -2358,21 +2350,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     // contract symmetric before any selection/composition predicates run.
     Global::Keycode = FanyImeIpc::NormalizeNumpadDigitKey(Global::Keycode);
 
-    if (Global::Keycode == 'E' && (Global::ModifiersDown & 0b00000110u) != 0)
-    {
-        const std::wstring message = fmt::format(
-            L"[msime-eng] Server receive client={} epoch={} request_id={} key=0x{:02X} modifiers=0x{:02X} mode={}\n",
-            client_id, activation_epoch, request_id, Global::Keycode, Global::ModifiersDown,
-            g_english_input_mode);
-        OutputDebugString(message.c_str());
-    }
     if (FanyImeIpc::IsEnglishModeToggleKey(Global::Keycode, Global::ModifiersDown))
     {
         g_english_input_mode = !g_english_input_mode;
-        const std::wstring message = fmt::format(
-            L"[msime-eng] Server toggled mode={} client={} epoch={} request_id={}\n",
-            g_english_input_mode, client_id, activation_epoch, request_id);
-        OutputDebugString(message.c_str());
         ClearState();
         return;
     }
