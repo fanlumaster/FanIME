@@ -92,6 +92,7 @@ struct FanyImeSharedMemoryData
 //  12: ClientDeactivated (terminal route reset; toolbar hidden)
 //  13: StatusSnapshot
 //  14: ClientSuspended (recoverable route reset; toolbar unchanged)
+//  15: FocusRestored (StatusSnapshot payload + thread-focus ownership claim)
 //
 // modifiers_down:
 //     0b00000001: Shift
@@ -160,6 +161,11 @@ constexpr UINT StatusSnapshot = 13;
 // Rotate the active IPC route for an internal TSF focus-session reset. A
 // suspension keeps floating-toolbar visibility; terminal deactivation hides it.
 constexpr UINT ClientSuspended = 14;
+// Same payload as StatusSnapshot, but additionally asserts that this client
+// owns thread focus right now. Sent when document focus returns to a session
+// the Server may have re-routed to another client meanwhile; without the
+// ownership claim the Server would discard it as an inactive-client event.
+constexpr UINT FocusRestored = 15;
 constexpr UINT IMESwitch = 7;
 constexpr UINT PuncSwitch = 8;
 constexpr UINT DoubleSingleByteSwitch = 9;

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <iterator>
 #include <thread>
+#include <unordered_map>
 #include "Ipc.h"
 #include "ipc/candidate_ui_owner.h"
 #include "ipc/candidate_text_policy.h"
@@ -154,6 +155,11 @@ int g_latest_status_snapshot = -1;
 // -1 until first StatusSnapshot or lazy seed from default_ime_mode.
 int g_authoritative_cn_mode = -1;
 uint64_t g_last_status_snapshot_client_id = 0;
+// The toolbar is global but the mode is per TSF client, so an activation would
+// otherwise keep displaying the outgoing client's mode until the incoming one
+// happens to send its first snapshot. Entries are dropped when the client's
+// main pipe unregisters.
+std::unordered_map<uint64_t, int> g_client_status_snapshots;
 // After switching away from this IME, the next StatusSnapshot must restore the
 // global mode even when the same process/thread client_id reconnects.
 bool g_force_global_ime_sync = false;
@@ -189,10 +195,35 @@ void PublishStatusSnapshotValue(int packed_state)
 {
     std::lock_guard lock(g_status_snapshot_mutex);
     g_latest_status_snapshot = packed_state;
-    if (g_status_snapshot_window && IsWindow(g_status_snapshot_window))
+    const bool has_window = g_status_snapshot_window && IsWindow(g_status_snapshot_window);
+    if (has_window)
     {
         PostMessage(g_status_snapshot_window, UPDATE_FTB_STATUS, packed_state, 0);
     }
+}
+
+void RememberClientStatusSnapshot(uint64_t client_id, int packed_state)
+{
+    if (client_id == 0)
+    {
+        return;
+    }
+    std::lock_guard lock(g_status_snapshot_mutex);
+    g_client_status_snapshots[client_id] = packed_state;
+}
+
+void ForgetClientStatusSnapshot(uint64_t client_id)
+{
+    std::lock_guard lock(g_status_snapshot_mutex);
+    g_client_status_snapshots.erase(client_id);
+}
+
+// Returns -1 when this client has never reported a mode.
+int RecallClientStatusSnapshot(uint64_t client_id)
+{
+    std::lock_guard lock(g_status_snapshot_mutex);
+    const auto it = g_client_status_snapshots.find(client_id);
+    return it == g_client_status_snapshots.end() ? -1 : it->second;
 }
 
 int EnsureAuthoritativeCnMode()
@@ -591,10 +622,11 @@ void LogClientRouting(uint64_t client_id, UINT event_type, bool is_active)
 
 bool IsImplicitActivationEvent(UINT event_type)
 {
-    // A real key is the only unambiguous foreground-ownership signal. Status
-    // and compartment notifications can be delayed background callbacks and
-    // must never steal routing from the focused TSF client.
-    return event_type == FanyImePipeEventType::KeyEvent;
+    // A plain StatusSnapshot or compartment notification can be a delayed
+    // background callback and must never steal routing from the focused TSF
+    // client. A real key, and a FocusRestored the tip only emits after
+    // ITfThreadMgr::IsThreadFocus confirmed ownership, are unambiguous.
+    return event_type == FanyImePipeEventType::KeyEvent || event_type == FanyImePipeEventType::FocusRestored;
 }
 
 void SendFocusSessionReady(const PipeClientActivation &activation)
@@ -632,6 +664,7 @@ bool IsKnownMainPipeEvent(UINT event_type)
     case FanyImePipeEventType::ClientDeactivated:
     case FanyImePipeEventType::StatusSnapshot:
     case FanyImePipeEventType::ClientSuspended:
+    case FanyImePipeEventType::FocusRestored:
         return true;
     default:
         return false;
@@ -648,7 +681,8 @@ bool IsValidMainPipeFrame(const FanyImeNamedpipeData &pipe_data)
         return false;
     }
 
-    if (pipe_data.event_type == FanyImePipeEventType::StatusSnapshot &&
+    if ((pipe_data.event_type == FanyImePipeEventType::StatusSnapshot ||
+         pipe_data.event_type == FanyImePipeEventType::FocusRestored) &&
         (pipe_data.keycode > 1 || pipe_data.modifiers_down > 1 || pipe_data.pinyin_length > 1))
     {
         return false;
@@ -1008,8 +1042,6 @@ void WorkerThread()
             // previous focus session. A terminal TIP activation also makes
             // the configured floating toolbar visible. Re-activation after a
             // suspension is idempotent and therefore does not flash it.
-            FTB_DIAG_LOGF(L"task ClientActivated -> post WM_IMEACTIVATE (candidate window exists={})",
-                          ::global_hwnd != nullptr);
             // PostMessage to a null window is not a no-op: it delivers to this
             // pipe thread's own queue, where nothing reads it. Defer instead, so
             // an activation that races window creation is replayed rather than
@@ -1024,6 +1056,20 @@ void WorkerThread()
                 g_deferred_client_activation.store(true, std::memory_order_release);
             }
             ClearState();
+
+            // Show the incoming client's own mode now rather than the outgoing
+            // client's, which would otherwise stay up for the whole handoff and
+            // indefinitely if this client never sends another snapshot.
+            int remembered = RecallClientStatusSnapshot(task.client_id);
+            if (remembered >= 0)
+            {
+                ReloadImeConfigIfChanged();
+                if (IsConfiguredImeModeScopeGlobal())
+                {
+                    remembered = (EnsureAuthoritativeCnMode() << 2) | (remembered & 0x3);
+                }
+                PublishStatusSnapshotValue(remembered);
+            }
             break;
         }
 
@@ -1031,8 +1077,6 @@ void WorkerThread()
             // Unlike a route-only suspension, terminal TIP deactivation means
             // the user switched to another input method.
             g_force_global_ime_sync = true;
-            FTB_DIAG_LOGF(L"task ClientDeactivated -> post WM_IMEDEACTIVATE (candidate window exists={})",
-                          ::global_hwnd != nullptr);
             // Supersede any activation still waiting for the window, otherwise
             // the replay would resurrect a toolbar the user just switched away
             // from. Without a window the flag is already false, so only the
@@ -1065,6 +1109,10 @@ void WorkerThread()
             const bool force_global_sync = g_force_global_ime_sync;
             g_force_global_ime_sync = false;
 
+            // client_id is pid<<32|tid, so every window of one Chromium/Electron
+            // host reports the same id: a change here means the focused TSF
+            // thread changed, not merely the focused window.
+
             if (IsConfiguredImeModeScopeGlobal())
             {
                 const int authoritative = EnsureAuthoritativeCnMode();
@@ -1077,6 +1125,9 @@ void WorkerThread()
                     effective_cn = authoritative;
                     if (cn_state != authoritative && task.client_id != 0)
                     {
+                        // The toolbar is moved to the authority below whether or
+                        // not the tip accepts this packet, so a rejected switch
+                        // leaves the two indicators disagreeing.
                         SendToTsfWorkerThreadClientViaNamedpipe(
                             task.client_id, task.activation_epoch,
                             authoritative != 0 ? Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn
@@ -1108,6 +1159,7 @@ void WorkerThread()
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
                 ClearState();
             }
+            RememberClientStatusSnapshot(task.client_id, packed_state);
             PublishStatusSnapshotValue(packed_state);
             break;
         }
@@ -1645,10 +1697,6 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
                 ActivatePipeClient(clientId, mainRegistrationId, true, pipeData.request_id, true);
             // client_id 0 means the reverse pipes never reported ready inside the
             // 100ms budget, so the whole packet is about to be discarded.
-            FTB_DIAG_LOGF(L"ClientActivated client={} focus_token={} -> active_client={} epoch={} changed={}{}",
-                          clientId, pipeData.request_id, activation.client_id, activation.epoch,
-                          activation.changed,
-                          activation.client_id == 0 ? L" DROPPED (reverse pipes not ready)" : L"");
             SendFocusSessionReady(activation);
             if (activation.changed)
             {
@@ -1671,9 +1719,6 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
                 deactivationEpoch =
                     ResolvePipeClientTerminalDeactivationEpoch(clientId);
             }
-            FTB_DIAG_LOGF(L"{} client={} -> epoch={}{}",
-                          terminalDeactivation ? L"ClientDeactivated" : L"ClientSuspended", clientId,
-                          deactivationEpoch, deactivationEpoch == 0 ? L" DROPPED" : L"");
             if (deactivationEpoch != 0)
             {
                 EnqueueTask(terminalDeactivation ? TaskType::ClientDeactivated
@@ -1689,14 +1734,14 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             activation = ActivatePipeClient(clientId, mainRegistrationId, false);
             // A real key can be the first observable foreground signal after
             // Win+. returns, before the TSF reconnect timer has replayed its
-            // explicit activation. Fence the worker stream before enqueueing
-            // the corresponding key task. Repeated markers for one epoch are
-            // intentional and harmless.
+            // explicit activation. FocusRestored plays the same role when
+            // document focus returns to a client that never lost its session
+            // and therefore never re-activates. Fence the worker stream before
+            // enqueueing the corresponding task. Repeated markers for one
+            // epoch are intentional and harmless.
             SendFocusSessionReady(activation);
             if (activation.changed)
             {
-                FTB_DIAG_LOGF(L"implicit activation from key: client={} epoch={}", clientId,
-                              activation.epoch);
                 EnqueueTask(TaskType::ClientActivated, pipeData, activation.epoch);
             }
         }
@@ -1749,7 +1794,10 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             break;
         }
 
-        case FanyImePipeEventType::StatusSnapshot: {
+        case FanyImePipeEventType::StatusSnapshot:
+        case FanyImePipeEventType::FocusRestored: {
+            // The ownership claim was already consumed above; the payload is
+            // identical, so both feed the same toolbar update.
             EnqueueTask(TaskType::StatusSnapshot, pipeData, activation.epoch);
             break;
         }
@@ -1758,6 +1806,10 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
 
     const PipeClientUnregisterResult unregisterResult =
         UnregisterPipeClientHandle(clientId, FanyImePipeRole::Main, clientPipe, mainRegistrationId);
+    if (unregisterResult.removed)
+    {
+        ForgetClientStatusSnapshot(clientId);
+    }
     uint64_t disconnectEpoch = unregisterResult.deactivation_epoch;
     if (disconnectEpoch == 0 && unregisterResult.removed)
     {

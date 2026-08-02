@@ -51,3 +51,10 @@ TEST_CASE(ipc_client_suspension_is_a_distinct_nonterminal_route_reset)
     REQUIRE(!FanyImePipeEventType::IsRouteDeactivation(
         FanyImePipeEventType::ClientActivated));
 }
+
+TEST_CASE(ipc_focus_restored_is_an_appended_opcode_and_not_a_route_reset)
+{
+    REQUIRE_EQ(FanyImePipeEventType::FocusRestored, 15u);
+    REQUIRE(!FanyImePipeEventType::IsRouteDeactivation(FanyImePipeEventType::FocusRestored));
+    REQUIRE(!FanyImePipeEventType::IsTerminalDeactivation(FanyImePipeEventType::FocusRestored));
+}
