@@ -3,6 +3,7 @@
 #include "KeyHandlerEditSession.h"
 #include "MetasequoiaIMEBaseStructure.h"
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <map>
@@ -345,6 +346,17 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
                                bool isPrevalidated,
                                uint64_t deferredReplayToken = 0);
 
+    // Input-mode hotkeys (Shift/Ctrl toggle, Ctrl+Alt+Space, Ctrl+Shift+Space,
+    // Ctrl+., Ctrl+Shift+E) are detected from ITfKeyEventSink like
+    // Weasel/Rime ascii_composer, not via TSF PreserveKey. Global/admin
+    // shortcuts stay on the Server LL hook.
+    void _TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam, bool isKeyUp);
+    bool _MatchChordInputHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid) const;
+    bool _MatchModifierReleaseHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid,
+                                    bool peekOnly);
+    bool _QueueInputHotkey(_In_ ITfContext *pContext, REFGUID hotkeyGuid,
+                           _Out_ BOOL *pIsEaten);
+
     void _StartComposition(_In_ ITfContext *pContext);
     HRESULT _EndComposition(_In_opt_ ITfContext *pContext,
                             _In_opt_ ITfComposition *expectedComposition = nullptr,
@@ -537,6 +549,11 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     uint64_t _deferredKeyFocusGeneration;
     bool _deferredKeyDrainPosted;
     bool _serverUnavailableFallbackActive;
+
+    // Bare Shift/Ctrl toggle arming (Weasel-style: release within timeout).
+    bool _shiftHotkeyArmed;
+    bool _ctrlHotkeyArmed;
+    std::chrono::steady_clock::time_point _modifierHotkeyExpire;
 
     LONG _refCount;
 

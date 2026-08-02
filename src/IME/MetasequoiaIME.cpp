@@ -463,6 +463,9 @@ CMetasequoiaIME::CMetasequoiaIME()
     _deferredKeyFocusGeneration = 1;
     _deferredKeyDrainPosted = false;
     _serverUnavailableFallbackActive = false;
+    _shiftHotkeyArmed = false;
+    _ctrlHotkeyArmed = false;
+    _modifierHotkeyExpire = {};
 }
 
 //+---------------------------------------------------------------------------

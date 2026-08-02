@@ -742,6 +742,9 @@ void CCompositionProcessorEngine::SetKeystrokeTable(_Inout_ CMetasequoiaImeArray
 
 void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
 {
+    UNREFERENCED_PARAMETER(pThreadMgr);
+    UNREFERENCED_PARAMETER(tfClientId);
+
     TF_PRESERVEDKEY preservedKeyImeMode;
     preservedKeyImeMode.uVKey = VK_SHIFT;
     preservedKeyImeMode.uModifiers = _TF_MOD_ON_KEYUP_SHIFT_ONLY;
@@ -774,7 +777,7 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
 
     TF_PRESERVEDKEY preservedKeyEnglishInputMode;
     preservedKeyEnglishInputMode.uVKey = 'E';
-    preservedKeyEnglishInputMode.uModifiers = TF_MOD_CONTROL | TF_MOD_SHIFT | TF_MOD_ALT;
+    preservedKeyEnglishInputMode.uModifiers = TF_MOD_CONTROL | TF_MOD_SHIFT;
     SetPreservedKey(                                          //
         Global::MetasequoiaIMEGuidEnglishInputModePreserveKey, //
         preservedKeyEnglishInputMode,                          //
@@ -802,16 +805,8 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
         &_PreservedKey_Punctuation                        //
     );
 
-    /* Shift / Ctrl / Ctrl+Alt+Space: toggle IME mode, cn/en */
-    InitPreservedKey(&_PreservedKey_IMEMode, pThreadMgr, tfClientId);
-    InitPreservedKey(&_PreservedKey_IMEMode02, pThreadMgr, tfClientId);
-    InitPreservedKey(&_PreservedKey_IMEMode03, pThreadMgr, tfClientId);
-    InitPreservedKey(&_PreservedKey_EnglishInputMode, pThreadMgr, tfClientId);
-    /* Shift + Ctrl + Space: toggle DoubleSingleByte */
-    InitPreservedKey(&_PreservedKey_DoubleSingleByte, pThreadMgr, tfClientId);
-    /* Ctrl + .: toggle Punctuation */
-    InitPreservedKey(&_PreservedKey_Punctuation, pThreadMgr, tfClientId);
-
+    /* Keep GUID/action tables for deferred hotkey dispatch. All input-mode
+     * shortcuts (including Ctrl+Shift+E) are detected from ITfKeyEventSink. */
     return;
 }
 

@@ -119,11 +119,11 @@ extern const WCHAR StringDelimiter = L'\"';
 extern const WCHAR ImeModeDescription[] = L"Chinese/English input (Shift)";
 extern const WCHAR ImeModeDescription02[] = L"Chinese/English input (Ctrl+Alt+Space)";
 extern const WCHAR ImeModeDescription03[] = L"Chinese/English input (Ctrl)";
-extern const WCHAR EnglishInputModeDescription[] = L"English candidate input (Ctrl+Shift+Alt+E)";
+extern const WCHAR EnglishInputModeDescription[] = L"English candidate input (Ctrl+Shift+E)";
 extern const int ImeModeOnIcoIndex = IME_MODE_ON_ICON_INDEX;
 extern const int ImeModeOffIcoIndex = IME_MODE_OFF_ICON_INDEX;
 
-extern const WCHAR DoubleSingleByteDescription[] = L"Double/Single byte (Shift+Space)";
+extern const WCHAR DoubleSingleByteDescription[] = L"Double/Single byte (Ctrl+Shift+Space)";
 extern const int DoubleSingleByteOnIcoIndex = IME_DOUBLE_ON_INDEX;
 extern const int DoubleSingleByteOffIcoIndex = IME_DOUBLE_OFF_INDEX;
 

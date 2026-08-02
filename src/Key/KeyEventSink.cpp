@@ -13,6 +13,7 @@
 #include "FanyUtils.h"
 #include "FanyLog.h"
 #include "../Utils/PerfTimer.h"
+#include <chrono>
 
 // 0xF003, 0xF004 are the keys that the touch keyboard sends for next/previous
 #define THIRDPARTY_NEXTPAGE static_cast<WORD>(0xF003)
@@ -166,7 +167,8 @@ UINT CaptureIpcModifiers()
 
 bool IsEnglishInputModeToggle(UINT code, UINT modifiers)
 {
-    return code == 'E' && (modifiers & 0b00000111u) == 0b00000111u;
+    // Ctrl+Shift+E, without Alt.
+    return code == 'E' && (modifiers & 0b00000111u) == 0b00000011u;
 }
 
 void PostOwnerMessageWithSyncFallback(HWND window, UINT message,
@@ -182,7 +184,180 @@ void PostOwnerMessageWithSyncFallback(HWND window, UINT message,
         SendMessage(window, message, wParam, lParam);
     }
 }
+
+constexpr auto kModifierHotkeyToggleLimit = std::chrono::milliseconds(500);
+
+bool IsShiftVk(UINT code)
+{
+    return code == VK_SHIFT || code == VK_LSHIFT || code == VK_RSHIFT;
+}
+
+bool IsControlVk(UINT code)
+{
+    return code == VK_CONTROL || code == VK_LCONTROL || code == VK_RCONTROL;
+}
+
+bool IsAltVk(UINT code)
+{
+    return code == VK_MENU || code == VK_LMENU || code == VK_RMENU;
+}
+
+bool IsWinVk(UINT code)
+{
+    return code == VK_LWIN || code == VK_RWIN;
+}
 } // namespace
+
+void CMetasequoiaIME::_TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam,
+                                                 bool isKeyUp)
+{
+    if (isKeyUp)
+    {
+        return;
+    }
+
+    const UINT code = LOWORD(wParam);
+    const bool isShift = IsShiftVk(code);
+    const bool isCtrl = IsControlVk(code);
+    const bool isOtherModifier = IsAltVk(code) || IsWinVk(code);
+
+    if (!isShift && !isCtrl && !isOtherModifier)
+    {
+        _shiftHotkeyArmed = false;
+        _ctrlHotkeyArmed = false;
+        return;
+    }
+
+    // Ignore auto-repeat; only the first down can arm a bare-modifier toggle.
+    if ((lParam & 0x40000000) != 0)
+    {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (isShift && Global::IsShiftKeyDownOnly)
+    {
+        _shiftHotkeyArmed = true;
+        _ctrlHotkeyArmed = false;
+        _modifierHotkeyExpire = now + kModifierHotkeyToggleLimit;
+        return;
+    }
+    if (isCtrl && Global::IsControlKeyDownOnly)
+    {
+        _ctrlHotkeyArmed = true;
+        _shiftHotkeyArmed = false;
+        _modifierHotkeyExpire = now + kModifierHotkeyToggleLimit;
+        return;
+    }
+
+    _shiftHotkeyArmed = false;
+    _ctrlHotkeyArmed = false;
+}
+
+bool CMetasequoiaIME::_MatchChordInputHotkey(WPARAM wParam,
+                                              _Out_ GUID *hotkeyGuid) const
+{
+    if (hotkeyGuid == nullptr)
+    {
+        return false;
+    }
+
+    const UINT code = LOWORD(wParam);
+    const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+    const auto hotkeys = FanyUtils::ReadConfiguredSwitchLanguageHotkeys();
+
+    if (code == VK_SPACE && ctrl && alt && !shift && hotkeys.ctrl_alt_space)
+    {
+        *hotkeyGuid = Global::MetasequoiaIMEGuidImeModePreserveKey02;
+        return true;
+    }
+    if (code == VK_SPACE && ctrl && shift && !alt)
+    {
+        *hotkeyGuid = Global::MetasequoiaIMEGuidDoubleSingleBytePreserveKey;
+        return true;
+    }
+    if (code == VK_OEM_PERIOD && ctrl && !shift && !alt)
+    {
+        *hotkeyGuid = Global::MetasequoiaIMEGuidPunctuationPreserveKey;
+        return true;
+    }
+    return false;
+}
+
+bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam,
+                                                   _Out_ GUID *hotkeyGuid,
+                                                   bool peekOnly)
+{
+    if (hotkeyGuid == nullptr)
+    {
+        return false;
+    }
+
+    const UINT code = LOWORD(wParam);
+    const auto now = std::chrono::steady_clock::now();
+    const auto hotkeys = FanyUtils::ReadConfiguredSwitchLanguageHotkeys();
+
+    if (IsShiftVk(code) && _shiftHotkeyArmed && Global::PureShiftKeyUp)
+    {
+        const bool fire = now < _modifierHotkeyExpire && hotkeys.shift;
+        if (!peekOnly)
+        {
+            _shiftHotkeyArmed = false;
+            _ctrlHotkeyArmed = false;
+        }
+        if (fire)
+        {
+            *hotkeyGuid = Global::MetasequoiaIMEGuidImeModePreserveKey;
+            return true;
+        }
+        return false;
+    }
+
+    if (IsControlVk(code) && _ctrlHotkeyArmed && Global::IsControlKeyDownOnly)
+    {
+        const bool fire = now < _modifierHotkeyExpire && hotkeys.ctrl;
+        if (!peekOnly)
+        {
+            _shiftHotkeyArmed = false;
+            _ctrlHotkeyArmed = false;
+        }
+        if (fire)
+        {
+            *hotkeyGuid = Global::MetasequoiaIMEGuidImeModePreserveKey03;
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+bool CMetasequoiaIME::_QueueInputHotkey(_In_ ITfContext *pContext,
+                                         REFGUID hotkeyGuid,
+                                         _Out_ BOOL *pIsEaten)
+{
+    if (pIsEaten == nullptr)
+    {
+        return false;
+    }
+    *pIsEaten = FALSE;
+    if (pContext == nullptr || !_DeferredKeyQueueHasCapacity())
+    {
+        return false;
+    }
+
+    *pIsEaten = _QueueDeferredPreservedKey(pContext, hotkeyGuid) ? TRUE : FALSE;
+    if (*pIsEaten &&
+        _localSessionResetPending.load(std::memory_order_acquire))
+    {
+        const UINT resetToken =
+            _localSessionResetToken.load(std::memory_order_acquire);
+        _RequestLocalSessionReset(pContext, resetToken);
+    }
+    return *pIsEaten != FALSE;
+}
 
 // Because the code mostly works with VKeys, here map a WCHAR back to a VKKey for certain
 // vkeys that the IME handles specially
@@ -955,6 +1130,8 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     }
     PerfTimer onTestKeyDownTimer;
     Global::UpdateModifiers(wParam, lParam);
+    _TrackModifierHotkeyArming(wParam, lParam, false);
+
     if (_HasDeferredKeyBarrier())
     {
         if (!_DeferredKeyQueueHasCapacity())
@@ -970,6 +1147,13 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
                         &deferredCode, &deferredState)
                         ? TRUE
                         : FALSE;
+        return S_OK;
+    }
+
+    GUID hotkeyGuid = {};
+    if (_MatchChordInputHotkey(wParam, &hotkeyGuid))
+    {
+        *pIsEaten = TRUE;
         return S_OK;
     }
 
@@ -1101,6 +1285,8 @@ void CMetasequoiaIME::_ClearDeferredKeyDowns()
     _deferredProjectedInputLength = 0;
     _deferredProjectedCandidateActive = false;
     _deferredProjectedUnicodeMode = false;
+    _shiftHotkeyArmed = false;
+    _ctrlHotkeyArmed = false;
 }
 
 void CMetasequoiaIME::_CompleteDeferredKeyReplay(uint64_t replayToken)
@@ -1475,6 +1661,7 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
     if (translatedWch == nullptr)
     {
         Global::UpdateModifiers(wParam, lParam);
+        _TrackModifierHotkeyArming(wParam, lParam, false);
     }
 
     _KEYSTROKE_STATE KeystrokeState = {};
@@ -1482,6 +1669,25 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
     UINT code = 0;
     uint64_t requestId = FANY_IME_NO_REQUEST_ID;
     const UINT capturedModifiers = modifiersDown ? *modifiersDown : CaptureIpcModifiers();
+
+    if (canDefer && translatedWch == nullptr &&
+        prevalidatedKeyState == nullptr && !_HasDeferredKeyBarrier())
+    {
+        GUID hotkeyGuid = {};
+        if (_MatchChordInputHotkey(wParam, &hotkeyGuid))
+        {
+            _shiftHotkeyArmed = false;
+            _ctrlHotkeyArmed = false;
+            if (expectedFocusGeneration == 0 ||
+                expectedFocusGeneration != _deferredKeyFocusGeneration)
+            {
+                *pIsEaten = TRUE;
+                return KeyDownDispatchResult::Complete;
+            }
+            _QueueInputHotkey(pContext, hotkeyGuid, pIsEaten);
+            return KeyDownDispatchResult::Complete;
+        }
+    }
 
     if (canDefer && _HasDeferredKeyBarrier())
     {
@@ -1800,6 +2006,13 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
         return S_OK;
     }
 
+    GUID hotkeyGuid = {};
+    if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, true))
+    {
+        *pIsEaten = TRUE;
+        return S_OK;
+    }
+
     _KEYSTROKE_STATE KeystrokeState = {};
     WCHAR wch = '\0';
     UINT code = 0;
@@ -1841,12 +2054,11 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
             _pCompositionProcessorEngine && _DeferredKeyQueueHasCapacity() &&
             FanyUtils::ReadConfiguredSwitchLanguageHotkeys().shift)
         {
-            // A preserved Shift is not delivered while the reconnect barrier
-            // owns the keystroke stream. Apply the local compartment toggle
-            // here and queue only the composition-finalization phase. This is
-            // restricted to an unavailable transport, so the ordinary
-            // OnPreservedKey path cannot toggle the same key twice.
+            // Reconnect barrier owns the keystroke stream; apply the local
+            // compartment toggle here and queue only composition finalization.
             _serverUnavailableFallbackActive = true;
+            _shiftHotkeyArmed = false;
+            _ctrlHotkeyArmed = false;
             _pCompositionProcessorEngine->ToggleIMEMode(_GetThreadMgr(),
                                                          _GetClientId());
             _KEYSTROKE_STATE toggleState = {};
@@ -1863,21 +2075,18 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
         return S_OK;
     }
 
+    GUID hotkeyGuid = {};
+    if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false))
+    {
+        _QueueInputHotkey(pContext, hotkeyGuid, pIsEaten);
+        return S_OK;
+    }
+
     _KEYSTROKE_STATE KeystrokeState = {};
     WCHAR wch = '\0';
     UINT code = 0;
     *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch,
                             &KeystrokeState);
-
-    // if (code == VK_SHIFT)
-    // {
-    //     if (Global::PureShiftKeyUp)
-    //     {
-    //         KeystrokeState.Category = CATEGORY_COMPOSING;
-    //         KeystrokeState.Function = FUNCTION_TOGGLE_IME_MODE;
-    //         _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState);
-    //     }
-    // }
 
     return S_OK;
 }
@@ -1895,46 +2104,11 @@ STDAPI CMetasequoiaIME::OnPreservedKey(ITfContext *pContext, REFGUID rguid, BOOL
     {
         return E_INVALIDARG;
     }
-    if (IsEqualGUID(rguid, Global::MetasequoiaIMEGuidEnglishInputModePreserveKey))
-    {
-        const BOOL imeOpen = _pCompositionProcessorEngine && _pThreadMgr
-                                 ? _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId)
-                                 : FALSE;
-        if (!imeOpen || !_pCompositionProcessorEngine ||
-            !_pCompositionProcessorEngine->IsPreservedKeyEligible(rguid) ||
-            !_DeferredKeyQueueHasCapacity())
-        {
-            *pIsEaten = FALSE;
-            return S_OK;
-        }
-
-        _KEYSTROKE_STATE keyState = {};
-        keyState.Category = CATEGORY_COMPOSING;
-        keyState.Function = FUNCTION_CANCEL;
-        *pIsEaten = _QueueDeferredKeyDown(pContext, 'E', 0, L'e', 0b00000111u, keyState)
-                        ? TRUE
-                        : FALSE;
-        if (*pIsEaten && _localSessionResetPending.load(std::memory_order_acquire))
-        {
-            const UINT resetToken = _localSessionResetToken.load(std::memory_order_acquire);
-            _RequestLocalSessionReset(pContext, resetToken);
-        }
-        return S_OK;
-    }
-
-    const bool eligible = _pCompositionProcessorEngine &&
-                          _pCompositionProcessorEngine->IsPreservedKeyEligible(rguid) &&
-                          _DeferredKeyQueueHasCapacity();
-    *pIsEaten = eligible && _QueueDeferredPreservedKey(pContext, rguid)
-                    ? TRUE
-                    : FALSE;
-    if (*pIsEaten &&
-        _localSessionResetPending.load(std::memory_order_acquire))
-    {
-        const UINT resetToken =
-            _localSessionResetToken.load(std::memory_order_acquire);
-        _RequestLocalSessionReset(pContext, resetToken);
-    }
+    // No TSF PreserveKey registrations remain for input-mode shortcuts.
+    // Shift/Ctrl/Ctrl+Alt+Space/Ctrl+Shift+Space/Ctrl+./Ctrl+Shift+E are all
+    // handled from ITfKeyEventSink.
+    UNREFERENCED_PARAMETER(rguid);
+    *pIsEaten = FALSE;
     return S_OK;
 }
 
