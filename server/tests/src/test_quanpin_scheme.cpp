@@ -5,6 +5,8 @@
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/schemes/quanpin_scheme.h"
 #include <algorithm>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -57,6 +59,28 @@ TEST_CASE(QuanpinSchemeTrailingApostropheIsPreservedInPreeditSegmentation)
     REQUIRE_EQ(request.normalized_segmentation, std::string("fang"));
     REQUIRE_EQ(request.raw_segmentation, std::string("fang'"));
     REQUIRE_EQ(request.key_strokes.size(), static_cast<size_t>(5));
+}
+
+TEST_CASE(HelpcodeSchemaSelectionLoadsAllSupportedSchemas)
+{
+    const std::vector<std::pair<std::string, std::string>> schemas{
+        {"lantian", "(KK)"},
+        {"ziranma", "(KA)"},
+        {"shouyou2_0", "(KV)"},
+        {"shouyouplus", "(KE)"},
+        {"xiaohe", "(KK)"},
+    };
+
+    for (const auto &[schema, expected] : schemas)
+    {
+        REQUIRE(HelpcodeUtils::is_supported_helpcode_schema(schema));
+        REQUIRE(HelpcodeUtils::select_helpcode_schema(schema));
+        REQUIRE_EQ(HelpcodeUtils::compute_helpcodes("啊", true), expected);
+    }
+
+    REQUIRE(!HelpcodeUtils::is_supported_helpcode_schema("unknown"));
+    REQUIRE(!HelpcodeUtils::select_helpcode_schema("unknown"));
+    REQUIRE(HelpcodeUtils::select_helpcode_schema("lantian"));
 }
 
 TEST_CASE(QuanpinSchemeResegmentsEachManualApostrophePart)

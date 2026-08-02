@@ -16,6 +16,7 @@
 #include <vector>
 #include "utils/common_utils.h"
 #include "global/globals.h"
+#include "MetasequoiaImeEngine/common/helpcode_utils.h"
 
 namespace
 {
@@ -540,10 +541,12 @@ bool LoadImeConfig()
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
         const std::string shuangpin_helpcode_schema =
             tbl["helpcode"]["shuangpin_helpcode_schema"].value_or(std::string("lantian"));
-        g_shuangpin_helpcode_schema = shuangpin_helpcode_schema == "ziranma" ? "ziranma" : "lantian";
+        g_shuangpin_helpcode_schema =
+            HelpcodeUtils::is_supported_helpcode_schema(shuangpin_helpcode_schema) ? shuangpin_helpcode_schema : "lantian";
         const std::string quanpin_helpcode_schema =
             tbl["helpcode"]["quanpin_helpcode_schema"].value_or(std::string("lantian"));
-        g_quanpin_helpcode_schema = quanpin_helpcode_schema == "ziranma" ? "ziranma" : "lantian";
+        g_quanpin_helpcode_schema =
+            HelpcodeUtils::is_supported_helpcode_schema(quanpin_helpcode_schema) ? quanpin_helpcode_schema : "lantian";
         g_show_shuangpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_sp_helpcode_in_candidate_window"].value_or(true);
         g_show_quanpin_helpcode_in_candidate_window =
@@ -1341,7 +1344,7 @@ const std::string &GetConfiguredShuangpinHelpcodeSchema()
 
 bool SetConfiguredShuangpinHelpcodeSchema(const std::string &schema)
 {
-    if (schema != "lantian" && schema != "ziranma")
+    if (!HelpcodeUtils::is_supported_helpcode_schema(schema))
         return false;
     if (!WriteConfiguredValue("helpcode", "shuangpin_helpcode_schema", EscapeTomlBasicString(schema)))
         return false;
@@ -1371,7 +1374,7 @@ const std::string &GetConfiguredQuanpinHelpcodeSchema()
 
 bool SetConfiguredQuanpinHelpcodeSchema(const std::string &schema)
 {
-    if (schema != "lantian" && schema != "ziranma")
+    if (!HelpcodeUtils::is_supported_helpcode_schema(schema))
         return false;
     if (!WriteConfiguredValue("helpcode", "quanpin_helpcode_schema", EscapeTomlBasicString(schema)))
         return false;
