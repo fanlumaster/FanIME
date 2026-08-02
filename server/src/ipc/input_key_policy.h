@@ -13,12 +13,13 @@ inline constexpr uint32_t kVirtualKeyNumpad9 = 0x69;
 inline constexpr uint32_t kModifierShift = 0b00000001u;
 inline constexpr uint32_t kModifierControl = 0b00000010u;
 inline constexpr uint32_t kModifierAlt = 0b00000100u;
-inline constexpr uint32_t kEnglishModeToggleModifiers = kModifierShift | kModifierControl | kModifierAlt;
+inline constexpr uint32_t kEnglishModeToggleModifiers = kModifierShift | kModifierControl;
 
 constexpr bool IsEnglishModeToggleKey(uint32_t keycode, uint32_t modifiers_down)
 {
     return keycode == static_cast<uint32_t>('E') &&
-           (modifiers_down & kEnglishModeToggleModifiers) == kEnglishModeToggleModifiers;
+           (modifiers_down & (kModifierShift | kModifierControl | kModifierAlt)) ==
+               kEnglishModeToggleModifiers;
 }
 
 // The TSF side treats numpad digits exactly like the corresponding candidate

@@ -30,10 +30,11 @@ TEST_CASE(numpad_digits_are_normalized_to_candidate_digit_keys)
     REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey(0x6A) == 0x6A);
 }
 
-TEST_CASE(english_mode_toggle_requires_ctrl_shift_alt_e)
+TEST_CASE(english_mode_toggle_requires_ctrl_shift_e)
 {
-    REQUIRE(FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000111u));
+    REQUIRE(FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000011u));
+    REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000111u));
     REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000110u));
-    REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000011u));
-    REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('A', 0b00000111u));
+    REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000001u));
+    REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('A', 0b00000011u));
 }
