@@ -177,6 +177,8 @@ clang-format -i .\src\Path\Changed.cpp .\src\Path\Changed.h
   `SafeRelease`、RAII 或 teardown 模式，不要混用不兼容的智能指针约定。
 - 不做与任务无关的大范围格式化或命名重构。TSF 状态机对时序敏感，小而可验证的改动优先。
 
+注意：新增的代码尽量保持这个风格就可以了，不要去尝试格式化原有的代码。不严格要求新增代码保持这个风格。
+
 ## 构建与验证
 
 环境：Windows、Visual Studio 2026、CMake 3.25+、vcpkg、Python 3.10+；首次准备：
@@ -216,6 +218,34 @@ Release：
 ```
 
 签名脚本包含本机 Windows SDK 路径和证书占位符；没有对应证书时不要运行或提交真实 thumbprint。
+
+需要生成可安装包做本地测试时，从各组件的共同父目录开始，严格按以下顺序执行。任一步失败都先
+停止并修复，不要继续使用旧产物打包：
+
+```powershell
+Set-Location .\MetasequoiaImeTsf
+.\scripts\lcompile-release-both.ps1
+
+Set-Location ..\MetasequoiaImeServer
+.\scripts\lcompile-release.ps1
+
+# 使用 Installer 下最新的 msime_v<版本> 目录；当前示例为 0.0.7。
+Set-Location ..\Installer\msime_v0.0.7
+.\Prepare-PackageFiles.ps1
+.\Sign-PackageBinaries-Local.ps1
+.\Compile-Installer.ps1
+```
+
+`Prepare-PackageFiles.ps1` 会收集 Server Release、x86/x64 TSF DLL、词库和前端资源；因此必须在两个
+C++ 组件编译完成且相关前端/词库产物已准备好之后运行。`Sign-PackageBinaries-Local.ps1` 使用本机
+测试证书，只用于内部安装验证；它可能创建证书并尝试写入本机受信任存储，不得把本机证书指纹或
+私钥提交到仓库。`Compile-Installer.ps1` 会调用 Inno Setup 命令行编译器 `ISCC.exe` 编译同目录的
+`msime_setup.iss`，安装包输出到该版本目录的 `Output\`。机器上须预先安装 Inno Setup 6.6+；若脚本
+无法自动找到编译器，可显式传入：
+
+```powershell
+.\Compile-Installer.ps1 -IsccPath 'C:\Program Files\Inno Setup 7\ISCC.exe'
+```
 
 ## 提交纪律
 

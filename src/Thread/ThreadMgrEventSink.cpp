@@ -48,7 +48,6 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
     {
         return S_OK;
     }
-    pDocMgrPrevFocus;
 
     // A different document invalidates the recorded commit spot.
     _ResetSmartPunctuationHistory();
@@ -94,6 +93,25 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
             _focusLossDeferPending = true;
             SetTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS,
                      FOCUS_LOSS_DEFER_MS, nullptr);
+        }
+    }
+
+    if (_msgWndHandle && IsWindow(_msgWndHandle))
+    {
+        if (pDocMgrFocus)
+        {
+            // Regaining document focus does not go through OnSetThreadFocus
+            // when the switch stays on this thread (two windows of one
+            // Chromium host), yet another process' client may have published
+            // its own mode to the single toolbar during the gap. Restate ours.
+            // Re-arming on every callback collapses the burst into one packet.
+            SetTimer(_msgWndHandle, TIMER_FOCUS_STATUS_RESEND, FOCUS_STATUS_RESEND_DELAY_MS, nullptr);
+        }
+        else
+        {
+            // Thread focus outlives document focus by roughly one deferral, so
+            // a pending resend would otherwise claim ownership on the way out.
+            KillTimer(_msgWndHandle, TIMER_FOCUS_STATUS_RESEND);
         }
     }
 

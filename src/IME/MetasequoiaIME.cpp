@@ -174,19 +174,33 @@ UINT NextWindowMessageToken()
     return token;
 }
 
-void SendCurrentImeStatusSnapshot(CMetasequoiaIME *pIME)
+void SendCurrentImeStatusSnapshot(CMetasequoiaIME *pIME, bool assertsFocusOwnership = false)
 {
     if (!Global::g_connected || !pIME || !pIME->GetCompositionProcessorEngine() || !pIME->_GetThreadMgr())
     {
+        // Distinct from the drop inside the pipe layer: the compartments are
+        // never even read here, so no value was available to resend later.
         return;
     }
 
+    if (assertsFocusOwnership)
+    {
+        // The claim makes the Server re-route to this client, so it must be
+        // backed by the one authority that cannot be held by two threads at
+        // once. Document focus alone is not enough: an app may call SetFocus
+        // on a background thread manager.
+        BOOL hasThreadFocus = FALSE;
+        if (FAILED(pIME->_GetThreadMgr()->IsThreadFocus(&hasThreadFocus)) || !hasThreadFocus)
+        {
+            return;
+        }
+    }
+
     CCompositionProcessorEngine *engine = pIME->GetCompositionProcessorEngine();
-    SendIMEStatusSnapshotToUIProcessViaNamedPipe(engine->GetIMEMode(pIME->_GetThreadMgr(), pIME->_GetClientId()),
-                                                 engine->GetDoubleSingleByteMode(pIME->_GetThreadMgr(),
-                                                                                 pIME->_GetClientId()),
-                                                 engine->GetPunctuationMode(pIME->_GetThreadMgr(),
-                                                                            pIME->_GetClientId()));
+    SendIMEStatusSnapshotToUIProcessViaNamedPipe(
+        engine->GetIMEMode(pIME->_GetThreadMgr(), pIME->_GetClientId()),
+        engine->GetDoubleSingleByteMode(pIME->_GetThreadMgr(), pIME->_GetClientId()),
+        engine->GetPunctuationMode(pIME->_GetThreadMgr(), pIME->_GetClientId()), assertsFocusOwnership);
 }
 
 class CPunctuationCommitEditSession : public CEditSessionBase
@@ -1347,6 +1361,7 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
     // Apply configured default CN/EN whenever switching back to this IME
     _pCompositionProcessorEngine->InitializeMetasequoiaIMECompartment(pThreadMgr, tfClientId);
 
+
     // The first connect timer can run before the engine exists. Re-arm after
     // compartment initialization so an already-focused activation always
     // replays both ownership and a complete status snapshot.
@@ -1519,6 +1534,7 @@ STDAPI CMetasequoiaIME::Deactivate()
         KillTimer(_msgWndHandle, TIMER_CONNECT_TO_TSF_NAMEDPIPE);
         KillTimer(_msgWndHandle, TIMER_REFRESH_LANG_BAR_THEME);
         KillTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS);
+        KillTimer(_msgWndHandle, TIMER_FOCUS_STATUS_RESEND);
         DestroyWindow(_msgWndHandle);
         if (Global::msgWndHandle == _msgWndHandle)
         {
@@ -1973,9 +1989,14 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
     {
     case WM_CheckGlobalCompartment: {
         CMetasequoiaIME::WorkerCompartmentSwitch request;
-        if (!pIME->_TakeWorkerCompartmentSwitch(static_cast<UINT>(wParam), request) ||
-            !pIME->_IsFocusSessionCurrent(request.focusToken))
+        if (!pIME->_TakeWorkerCompartmentSwitch(static_cast<UINT>(wParam), request))
         {
+            break;
+        }
+        if (!pIME->_IsFocusSessionCurrent(request.focusToken))
+        {
+            // The Server already moved the toolbar to the value it asked for,
+            // so a rejection here leaves the two indicators disagreeing.
             break;
         }
 
@@ -2145,6 +2166,12 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 Global::g_connected = false;
                 PostMessage(hWnd, WM_DisconnectNamedpipe, 0, 0);
             }
+            break;
+        }
+        if (wParam == TIMER_FOCUS_STATUS_RESEND)
+        {
+            KillTimer(hWnd, TIMER_FOCUS_STATUS_RESEND);
+            SendCurrentImeStatusSnapshot(pIME, true);
             break;
         }
         if (wParam == TIMER_CONNECT_ALL_NAMEDPIPE)

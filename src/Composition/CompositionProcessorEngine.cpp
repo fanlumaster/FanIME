@@ -119,6 +119,7 @@ CCompositionProcessorEngine::CCompositionProcessorEngine(
     _keyboardOpen = FALSE;
     _keyboardOpenKnown = FALSE;
     _suppressKeyboardCloseCommit = FALSE;
+    _defendConfiguredImeMode = FALSE;
     _hasPendingImeModeAfterCompositionCommit = FALSE;
     _pendingImeModeAfterCompositionCommit = FALSE;
 
@@ -1008,6 +1009,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
         CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
         CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
         isOpen = isOpen ? FALSE : TRUE;
+        ReleaseConfiguredImeModeDefense();
 
         // Closing CN→EN while composing: keep KEYBOARD_OPENCLOSE open until
         // after EndComposition. CUAS/Win32 EDIT double-commits if we close
@@ -1085,6 +1087,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
 //----------------------------------------------------------------------------
 void CCompositionProcessorEngine::ToggleIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
 {
+    ReleaseConfiguredImeModeDefense();
     BOOL isOpen = FALSE;
     CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
     CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
@@ -1110,20 +1113,29 @@ void CCompositionProcessorEngine::SetIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfCl
 
     if (isOpen != bOpen)
     {
+        ReleaseConfiguredImeModeDefense();
         SetKeyboardOpenCompartment(pThreadMgr, tfClientId, bOpen);
     }
 }
 
-HRESULT CCompositionProcessorEngine::SetKeyboardOpenCompartment(
-    _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isOpen)
+HRESULT CCompositionProcessorEngine::SetKeyboardOpenCompartment(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                                                                BOOL isOpen)
 {
-    CCompartment compartment(pThreadMgr, tfClientId,
-                             GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
+    CCompartment compartment(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
     const BOOL previousSuppression = _suppressKeyboardCloseCommit;
     _suppressKeyboardCloseCommit = TRUE;
     const HRESULT result = compartment._SetCompartmentBOOL(isOpen);
     _suppressKeyboardCloseCommit = previousSuppression;
     return result;
+}
+
+void CCompositionProcessorEngine::ReleaseConfiguredImeModeDefense()
+{
+    if (!_defendConfiguredImeMode)
+    {
+        return;
+    }
+    _defendConfiguredImeMode = FALSE;
 }
 
 void CCompositionProcessorEngine::SyncPunctuationWithImeMode(
@@ -1397,10 +1409,12 @@ void CCompositionProcessorEngine::InitializeMetasequoiaIMECompartment(_In_ ITfTh
 {
     // Default CN/EN on IME activate / switch-in (input.default_ime_mode).
     const BOOL openChinese = FanyUtils::ReadConfiguredDefaultImeModeChinese();
-    CCompartment CompartmentKeyboardOpen(pThreadMgr, tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
-    CompartmentKeyboardOpen._SetCompartmentBOOL(openChinese);
+    // Use the suppressing writer so the OPENCLOSE sink does not treat this as
+    // a user choice and drop the defense we are about to arm.
+    SetKeyboardOpenCompartment(pThreadMgr, tfClientId, openChinese);
     _keyboardOpen = openChinese;
     _keyboardOpenKnown = TRUE;
+    _defendConfiguredImeMode = TRUE;
 
     CCompartment CompartmentDoubleSingleByte(pThreadMgr, tfClientId,
                                              Global::MetasequoiaIMEGuidCompartmentDoubleSingleByte);
@@ -1480,11 +1494,16 @@ HRESULT CCompositionProcessorEngine::CompartmentCallback(_In_ void *pv, REFGUID 
         const BOOL keyboardStateWasKnown = fakeThis->_keyboardOpenKnown;
         fakeThis->_keyboardOpen = isOpen;
         fakeThis->_keyboardOpenKnown = TRUE;
-        const BOOL keyboardStateChanged =
-            keyboardStateWasKnown && keyboardWasOpen != isOpen;
+        const BOOL keyboardStateChanged = keyboardStateWasKnown && keyboardWasOpen != isOpen;
         const BOOL externallyClosed =
-            keyboardStateChanged && keyboardWasOpen && !isOpen &&
-            !fakeThis->_suppressKeyboardCloseCommit;
+            keyboardStateChanged && keyboardWasOpen && !isOpen && !fakeThis->_suppressKeyboardCloseCommit;
+        // Language-bar clicks write OPENCLOSE without going through
+        // SetIMEMode/ToggleIMEMode. Treat any non-suppressed edge as the user
+        // (or a true external writer) accepting a new mode.
+        if (keyboardStateChanged && !fakeThis->_suppressKeyboardCloseCommit)
+        {
+            fakeThis->ReleaseConfiguredImeModeDefense();
+        }
         BOOL isPunctuation = FALSE;
         CCompartment CompartmentPunctuation(pThreadMgr, fakeThis->_tfClientId,
                                             Global::MetasequoiaIMEGuidCompartmentPunctuation);
@@ -1533,6 +1552,17 @@ void CCompositionProcessorEngine::ConversionModeCompartmentUpdated(_In_ ITfThrea
     DWORD conversionMode = 0;
     if (FAILED(_pCompartmentConversion->_GetCompartmentDWORD(conversionMode)))
     {
+        return;
+    }
+
+    if (_defendConfiguredImeMode)
+    {
+        // Chromium rewrites the whole conversion DWORD on Chrome_WidgetWin_1
+        // (NATIVE, SYMBOL, often FULLSHAPE together). Mirroring any of those
+        // bits into our private compartments would wipe the defaults applied
+        // at Activate. Push private state back instead, and skip the pull.
+        PrivateCompartmentsUpdated(pThreadMgr);
+        KeyboardOpenCompartmentUpdated(pThreadMgr);
         return;
     }
 

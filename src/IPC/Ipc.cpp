@@ -1314,7 +1314,8 @@ int SendClientSuspendedEventToServerViaNamedPipe()
 {
     namedpipeData = {};
     namedpipeData.event_type = FanyImePipeEventType::ClientSuspended;
-    return SendToNamedpipe() ? 0 : -1;
+    const bool sent = SendToNamedpipe();
+    return sent ? 0 : -1;
 }
 
 bool FlushNamedpipeFocusSessionReset()
@@ -1463,7 +1464,8 @@ int SendIMEStatusEventToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOp
     return SendIMEStatusSnapshotToUIProcessViaNamedPipe(kbdIsOpen, fullwidthIsOpen, puncIsOpen);
 }
 
-int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen)
+int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen,
+                                                 bool assertsFocusOwnership)
 {
     if (!Global::g_connected)
     {
@@ -1471,11 +1473,13 @@ int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthI
     }
 
     namedpipeData = {};
-    namedpipeData.event_type = FanyImePipeEventType::StatusSnapshot;
+    namedpipeData.event_type =
+        assertsFocusOwnership ? FanyImePipeEventType::FocusRestored : FanyImePipeEventType::StatusSnapshot;
     namedpipeData.keycode = kbdIsOpen ? 1u : 0u;
     namedpipeData.modifiers_down = fullwidthIsOpen ? 1u : 0u;
     namedpipeData.pinyin_length = puncIsOpen ? 1 : 0;
-    return SendToNamedpipe() ? 0 : -1;
+    const bool sent = SendToNamedpipe();
+    return sent ? 0 : -1;
 }
 
 int SendIMEDeactivationEventToUIProcessViaNamedPipe()

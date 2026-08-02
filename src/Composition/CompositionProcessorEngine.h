@@ -192,6 +192,7 @@ class CCompositionProcessorEngine
     void SyncPunctuationWithImeMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
                                     BOOL isOpen);
     void CommitCompositionOnExternalKeyboardClose();
+    void ReleaseConfiguredImeModeDefense();
 
   private:
     struct _KEYSTROKE
@@ -268,6 +269,13 @@ class CCompositionProcessorEngine
     BOOL _keyboardOpen;
     BOOL _keyboardOpenKnown;
     BOOL _suppressKeyboardCloseCommit;
+    // After Activate applies input.default_ime_mode, Chromium (and Electron)
+    // often rewrites TF_CONVERSIONMODE_* (NATIVE / SYMBOL / FULLSHAPE) while
+    // focus is still on the non-editable shell. ConversionModeCompartmentUpdated
+    // would then mirror those bits into OPENCLOSE and the punctuation /
+    // fullwidth compartments. Defend by reasserting private state until the
+    // user explicitly chooses a mode (Shift / langbar / FTB / preserved key).
+    BOOL _defendConfiguredImeMode;
     BOOL _hasPendingImeModeAfterCompositionCommit;
     BOOL _pendingImeModeAfterCompositionCommit;
 

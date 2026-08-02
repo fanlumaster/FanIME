@@ -80,6 +80,11 @@ constexpr UINT ClientActivated = 11;
 constexpr UINT ClientDeactivated = 12; // terminal TIP switch; toolbar hidden
 constexpr UINT StatusSnapshot = 13;
 constexpr UINT ClientSuspended = 14; // temporary focus route reset; toolbar kept
+// Same payload as StatusSnapshot, but additionally asserts that this client
+// owns thread focus right now. Sent when document focus returns to a session
+// the Server may have re-routed to another client meanwhile; without the
+// ownership claim the Server would discard it as an inactive-client event.
+constexpr UINT FocusRestored = 15;
 constexpr UINT IMESwitch = 7;
 constexpr UINT PuncSwitch = 8;
 constexpr UINT DoubleSingleByteSwitch = 9;
@@ -199,7 +204,8 @@ int SendIMEDeactivationEventToUIProcessViaNamedPipe();
 int SendClientActivatedEventToServerViaNamedPipe(uint64_t focusToken);
 int SendClientDeactivatedEventToServerViaNamedPipe(uint64_t focusToken = 0);
 int SendClientSuspendedEventToServerViaNamedPipe();
-int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen);
+int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen,
+                                                 bool assertsFocusOwnership = false);
 int SendIMEStatusEventToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthIsOpen, bool puncIsOpen);
 int SendIMESwitchEventToUIProcessViaNamedPipe(UINT uImeStatus);
 int SendPuncSwitchEventToUIProcessViaNamedPipe(BOOL isPunc);
