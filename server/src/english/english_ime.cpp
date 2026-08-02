@@ -71,6 +71,11 @@ void WorkerLoop()
         const std::string prefix = NormalizeInput(input);
         if (prefix.size() < (dedicated_mode ? 1 : kMinimumPrefixLength))
         {
+            if (dedicated_mode && !input.empty() && g_running &&
+                g_generation.load() == observed_generation && g_apply_callback)
+            {
+                g_apply_callback({}, input, observed_generation);
+            }
             continue;
         }
 

@@ -2338,6 +2338,12 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
                        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), "english:" + context_input,
                                                candidates, false, {}, false);
+        if (candidates.empty() && !input.empty())
+        {
+            // A raw fallback is selectable, but it is not an english.db row
+            // and therefore must not participate in dictionary mutations.
+            candidates.emplace_back("", input, 0, CandidateSource::Generated);
+        }
         items = std::move(candidates);
         Global::candidate_ui.item_total_count = static_cast<int>(items.size());
         Global::candidate_ui.page_index = 0;
