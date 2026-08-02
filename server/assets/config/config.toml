@@ -64,7 +64,7 @@ font = "Noto Sans SC"
 english_font = "Segoe UI"
 # 缺省字体，如果系统中没有找到指定字体，则使用缺省字体
 default_font = "Microsoft YaHei"
-# 字体大小（px），可选：12–24
+# 字体大小（px），可选：12–32
 font_size = 16
 # 候选文字颜色，"auto" 跟随主题，或 #RRGGBB
 cand_text_color = "auto"

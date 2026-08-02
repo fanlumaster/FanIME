@@ -21,6 +21,9 @@ namespace
 {
 using Microsoft::WRL::ComPtr;
 
+constexpr int kCandidateFontSizeMin = 12;
+constexpr int kCandidateFontSizeMax = 32;
+
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
 std::string g_character_set = "simplified";
@@ -506,7 +509,9 @@ bool LoadImeConfig()
             g_candidate_default_font = "Microsoft YaHei";
         {
             const int font_size = tbl["appearance"]["font_size"].value_or(16);
-            g_candidate_font_size = font_size >= 12 && font_size <= 24 ? font_size : 16;
+            g_candidate_font_size = font_size >= kCandidateFontSizeMin && font_size <= kCandidateFontSizeMax
+                                        ? font_size
+                                        : 16;
         }
         {
             const std::string color =
@@ -902,7 +907,7 @@ int GetConfiguredCandidateFontSize()
 
 bool SetConfiguredCandidateFontSize(int font_size)
 {
-    if (font_size < 12 || font_size > 24)
+    if (font_size < kCandidateFontSizeMin || font_size > kCandidateFontSizeMax)
         return false;
     if (!WriteConfiguredValue("appearance", "font_size", std::to_string(font_size)))
         return false;
