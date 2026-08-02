@@ -881,7 +881,7 @@
                       },
                       {
                         "data": {
-                          "text": "<p>自然码辅码</p>",
+                          "text": "<p>自然码</p>",
                           "expand": true,
                           "richText": true,
                           "isActive": false,
@@ -982,7 +982,7 @@
                       },
                       {
                         "data": {
-                          "text": "<p>自然码辅码</p>",
+                          "text": "<p>自然码</p>",
                           "expand": true,
                           "richText": true,
                           "isActive": false,
