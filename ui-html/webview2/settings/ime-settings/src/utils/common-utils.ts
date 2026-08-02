@@ -18,14 +18,54 @@ export async function loadHTML(url: string): Promise<string> {
   return await response.text();
 }
 
-// 只显示当前的模块，隐藏其他模块
+const MODULE_IDS = [
+  'floating-toolbar',
+  'appearance',
+  'input',
+  'helpcode',
+  'dict',
+  'skin',
+  'voice',
+  'screenkb-settings',
+  'handwriting-settings',
+  'tools-settings',
+  'ai-settings',
+  'shortcut',
+  'help-settings',
+  'about-settings',
+  'feedback-settings',
+] as const;
+
+let activeModuleName: string | null = null;
+
+// 只显示当前模块。首次调用会一次性隐藏其余模块；之后只切换上一页 / 下一页。
 export function showOnlyCurrentModule(moduleName: string): void {
-  const modules = ['floating-toolbar', 'appearance', 'input', 'helpcode', 'dict', 'skin', 'voice', 'screenkb-settings', 'handwriting-settings', 'tools-settings', 'ai-settings', 'shortcut', 'help-settings', 'about-settings', 'feedback-settings'];
-  modules.forEach((module: string) => {
-    if (module === moduleName) {
-      document.getElementById(module)!.style.display = 'block';
-    } else {
-      document.getElementById(module)!.style.display = 'none';
+  if (activeModuleName === moduleName) {
+    return;
+  }
+
+  const next = document.getElementById(moduleName);
+  if (!next) {
+    return;
+  }
+
+  if (activeModuleName === null) {
+    for (const id of MODULE_IDS) {
+      if (id === moduleName) {
+        continue;
+      }
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = 'none';
+      }
     }
-  });
+  } else {
+    const prev = document.getElementById(activeModuleName);
+    if (prev) {
+      prev.style.display = 'none';
+    }
+  }
+
+  next.style.display = 'block';
+  activeModuleName = moduleName;
 }

@@ -10,6 +10,11 @@
   overflow-y: auto;
   scrollbar-gutter: stable;
   position: relative;
+  /* 独立合成层，避免右侧内容重排时把指示条动画一起打掉 */
+  contain: layout style paint;
+  isolation: isolate;
+  transform: translateZ(0);
+  z-index: 1;
 }
 
 /* 滚动条样式 */
@@ -90,7 +95,7 @@
   color: var(--text-color);
 }
 
-/* item 左侧滑动指示条 */
+/* item 左侧滑动指示条（位移由 WAAPI 驱动，避免与 CSS transition 抢同一属性） */
 .sidebar .active-indicator {
   position: absolute;
   left: 0;
@@ -103,18 +108,7 @@
   opacity: 0;
   pointer-events: none;
   will-change: transform;
-}
-
-.sidebar .active-indicator.ready {
-  transition:
-    transform 0.28s cubic-bezier(.2, .8, .2, 1),
-    opacity 0.14s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sidebar .active-indicator.ready {
-    transition-duration: 0ms;
-  }
+  backface-visibility: hidden;
 }
 
 .icon {

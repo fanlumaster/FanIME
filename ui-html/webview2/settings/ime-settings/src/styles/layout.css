@@ -24,6 +24,7 @@
   padding-right: 1.5rem;
   background: var(--chrome-bg);
   overflow-y: auto;
+  contain: layout paint;
 }
 
 #content-container>div {
