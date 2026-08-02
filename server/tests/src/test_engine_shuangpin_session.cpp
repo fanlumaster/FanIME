@@ -43,6 +43,16 @@ TEST_CASE(EngineShuangpinSessionContinuesCompositionWithoutHelpcode)
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("tele"));
 }
 
+TEST_CASE(EngineShuangpinAiCandidateConsumesFullRawInput)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "geziaa");
+
+    const auto transition = session.advance_composition_after_selection("geziaa", "鸽子啊", "ge'zi'a");
+    REQUIRE(!transition.continues_composition);
+    REQUIRE_EQ(session.get_pinyin_sequence(), std::string("geziaa"));
+}
+
 TEST_CASE(EngineShuangpinSessionContinuesCompositionWithSingleHelpcode)
 {
     EngineInputSession session(SchemeType::Shuangpin);

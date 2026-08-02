@@ -1228,7 +1228,16 @@ void WorkerThread()
                 {
                     break;
                 }
-                else g_inputSession->remove_candidate(item.pinyin, item.word);
+                else
+                {
+                    // Pinyin candidates carry both the typed code and, when
+                    // available, the canonical quanpin database key.  Delete
+                    // with the canonical key so a raw shuangpin sequence is
+                    // not mistaken for an equally valid quanpin spelling.
+                    const std::string delete_pinyin =
+                        item.canonical_pinyin.empty() ? item.pinyin : item.canonical_pinyin;
+                    g_inputSession->remove_candidate(delete_pinyin, item.word);
+                }
             }
             else if (task.type == TaskType::UiFixCandidatePosition)
             {
@@ -2308,8 +2317,10 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
                                [](const WordItem &item) { return item.source == CandidateSource::AiSuggestion; }),
                 items.end());
     const size_t insert_index = std::min<size_t>(2, items.size());
-    items.insert(items.begin() + insert_index, WordItem(identity, candidate, 1, CandidateSource::AiSuggestion));
-    g_inputSession->cache_dynamic_candidate(query.cache_key, candidate, CandidateSource::AiSuggestion);
+    const std::string typed_pinyin = query.cache_key.empty() ? query.committed_pinyin : query.cache_key;
+    items.insert(items.begin() + insert_index,
+                 WordItem(typed_pinyin, candidate, 1, CandidateSource::AiSuggestion, identity));
+    g_inputSession->cache_dynamic_candidate(typed_pinyin, candidate, CandidateSource::AiSuggestion);
     (void)0;
     Global::ai_candidate = {true, candidate, query.committed_pinyin};
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
@@ -2837,14 +2848,20 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         }
         std::string cloudCommittedPinyin;
         std::string aiCommittedPinyin;
+        bool aiCommittedPinyinIsCanonical = false;
         if (curWordItem.source == CandidateSource::CloudSuggestion)
         {
             cloudCommittedPinyin = g_inputSession->get_cloud_query_state().committed_pinyin;
         }
         if (curWordItem.source == CandidateSource::AiSuggestion)
         {
-            aiCommittedPinyin = g_inputSession->is_all_complete_pure_pinyin()
-                                    ? g_inputSession->get_cloud_query_state().committed_pinyin : std::string{};
+            if (g_inputSession->is_all_complete_pure_pinyin())
+            {
+                aiCommittedPinyin = curWordItem.canonical_pinyin.empty()
+                                        ? g_inputSession->get_cloud_query_state().committed_pinyin
+                                        : curWordItem.canonical_pinyin;
+                aiCommittedPinyinIsCanonical = !curWordItem.canonical_pinyin.empty();
+            }
             isNeedUpdateWeight = false;
         }
         auto selection_transition = g_inputSession->advance_composition_after_selection(
@@ -2909,7 +2926,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         }
         if (curWordItem.source == CandidateSource::AiSuggestion && !aiCommittedPinyin.empty())
         {
-            EnqueueStoreUserPhraseTask(aiCommittedPinyin, curWord);
+            EnqueueStoreUserPhraseTask(aiCommittedPinyin, curWord, aiCommittedPinyinIsCanonical);
             Global::ai_candidate = {};
         }
 
