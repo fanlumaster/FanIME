@@ -59,6 +59,20 @@ TEST_CASE(QuanpinSchemeTrailingApostropheIsPreservedInPreeditSegmentation)
     REQUIRE_EQ(request.key_strokes.size(), static_cast<size_t>(5));
 }
 
+TEST_CASE(QuanpinSchemeResegmentsEachManualApostrophePart)
+{
+    QuanpinScheme scheme;
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, 'S', L's');
+    InputKey(scheme, VK_OEM_7, L'\'');
+    InputKey(scheme, 'H', L'h');
+
+    const QueryRequest request = scheme.build_request();
+    REQUIRE(request.valid);
+    REQUIRE_EQ(request.normalized_segmentation, std::string("x's'h"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("x's'h"));
+}
+
 TEST_CASE(QuanpinCandidateCacheKeepsManualSegmentationBoundariesDistinct)
 {
     QuanpinDictionary dictionary;
