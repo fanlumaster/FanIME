@@ -67,6 +67,7 @@ export async function loadContent(moduleName: string) {
 export function setupSidebar(): void {
   const moveIndicator = setupSidebarIndicator();
   const sidebarItems = document.querySelectorAll('.sidebar .item');
+  let navigationVersion = 0;
 
   sidebarItems.forEach((item: Element) => {
     item.addEventListener('click', () => {
@@ -80,9 +81,17 @@ export function setupSidebar(): void {
 
       const htmlItem = item as HTMLElement;
       const targetId = htmlItem.dataset.target;
-      console.log(targetId);
       if (targetId) {
-        showOnlyCurrentModule(targetId);
+        const currentNavigationVersion = ++navigationVersion;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            // 快速连续点击时，丢弃已经过期的页面切换任务。
+            if (currentNavigationVersion !== navigationVersion) {
+              return;
+            }
+            showOnlyCurrentModule(targetId);
+          });
+        });
       }
     });
   });
@@ -100,10 +109,10 @@ function setupSidebarIndicator(): (item: HTMLElement) => void {
   indicator.style.transition = 'none';
 
   if (currentActive) {
-    const initBarHeight = 18;
+    const initBarHeight = 22;
     const initBarLeft = currentActive.offsetLeft - 2;
     const initBarTop = currentActive.offsetTop + (currentActive.offsetHeight - initBarHeight) / 2;
-    indicator.style.transform = `translate(${initBarLeft}px, ${initBarTop}px)`;
+    indicator.style.transform = `translate3d(${initBarLeft}px, ${initBarTop}px, 0)`;
     indicator.style.opacity = '1';
     indicator.style.visibility = 'visible';
   } else {
@@ -121,13 +130,13 @@ function setupSidebarIndicator(): (item: HTMLElement) => void {
   }
 
   const moveIndicator = (item: HTMLElement) => {
-    const barHeight = 18;
+    const barHeight = 22;
     const barLeft = item.offsetLeft - 2;
     const barTop = item.offsetTop + (item.offsetHeight - barHeight) / 2;
 
     if (!hasPositioned) {
       hasPositioned = true;
-      indicator.style.transform = `translate(${barLeft}px, ${barTop}px)`;
+      indicator.style.transform = `translate3d(${barLeft}px, ${barTop}px, 0)`;
       indicator.style.opacity = '1';
       indicator.style.visibility = 'visible';
       indicator.classList.add('ready');
@@ -135,7 +144,7 @@ function setupSidebarIndicator(): (item: HTMLElement) => void {
       return;
     }
 
-    indicator.style.transform = `translate(${barLeft}px, ${barTop}px)`;
+    indicator.style.transform = `translate3d(${barLeft}px, ${barTop}px, 0)`;
     indicator.style.opacity = '1';
   };
 
