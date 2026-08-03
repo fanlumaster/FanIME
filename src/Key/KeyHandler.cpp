@@ -348,9 +348,57 @@ HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcesso
     {
     }
 
+    std::wstring uiLessPreedit;
+    std::wstring uiLessCandidatePage;
+    int uiLessSelection = 0;
+    bool gotUiLessComposition = false;
+
     /* 一般来说，readingStrings 数组中只有一个元素，这个元素就是当前输入的拼音 */
     double preeditPipeElapsedMs = 0;
     double addComposingElapsedMs = 0;
+
+    // UILess hosts need a synchronous candidate page before UpdateUIElement.
+    if (Global::IsUiLessMode() && requestId != FANY_IME_NO_REQUEST_ID)
+    {
+        PerfTimer preeditPipeTimer;
+        struct FanyImeNamedpipeDataToTsf *receivedData =
+            TryReadDataFromServerPipeWithTimeout(requestId, /*abortTransportOnTimeout=*/false);
+        preeditPipeElapsedMs += preeditPipeTimer.ElapsedMs();
+        if (receivedData->msg_type == Global::DataFromServerMsgType::TransportUnavailable)
+        {
+            return HRESULT_FROM_WIN32(ERROR_BROKEN_PIPE);
+        }
+        if (receivedData->msg_type == Global::DataFromServerMsgType::UiLessComposition)
+        {
+            const std::wstring payload(receivedData->candidate_string);
+            const size_t firstTab = payload.find(L'\t');
+            if (firstTab == std::wstring::npos)
+            {
+                uiLessPreedit = payload;
+            }
+            else
+            {
+                uiLessPreedit = payload.substr(0, firstTab);
+                const size_t secondTab = payload.find(L'\t', firstTab + 1);
+                if (secondTab == std::wstring::npos)
+                {
+                    uiLessCandidatePage = payload.substr(firstTab + 1);
+                }
+                else
+                {
+                    uiLessCandidatePage = payload.substr(firstTab + 1, secondTab - firstTab - 1);
+                    uiLessSelection = _wtoi(payload.c_str() + secondTab + 1);
+                }
+            }
+            gotUiLessComposition = true;
+        }
+        else if (receivedData->msg_type == Global::DataFromServerMsgType::Preedit)
+        {
+            uiLessPreedit.assign(receivedData->candidate_string, wcslen(receivedData->candidate_string));
+            gotUiLessComposition = true;
+        }
+    }
+
     for (UINT index = 0; index < readingStrings.Count(); index++)
     {
         CStringRange curReadingStr;
@@ -371,6 +419,11 @@ HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcesso
             {
                 readingStr = std::move(GlobalIme::pending_create_word_preedit);
                 GlobalIme::pending_create_word_preedit.clear();
+                gotServerPreedit = true;
+            }
+            else if (gotUiLessComposition)
+            {
+                readingStr = uiLessPreedit;
                 gotServerPreedit = true;
             }
             else if (requestId != FANY_IME_NO_REQUEST_ID)
@@ -470,8 +523,15 @@ HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcesso
         createCandidateElapsedMs = createCandidateTimer.ElapsedMs();
         if (SUCCEEDED(hr))
         {
+            if (gotUiLessComposition && _pCandidateListUIPresenter)
+            {
+                _pCandidateListUIPresenter->_ApplyUiLessCandidatePage(uiLessCandidatePage, uiLessSelection);
+            }
             PerfTimer clearListTimer;
-            _pCandidateListUIPresenter->_ClearList();
+            if (!gotUiLessComposition)
+            {
+                _pCandidateListUIPresenter->_ClearList();
+            }
             clearListElapsedMs = clearListTimer.ElapsedMs();
             PerfTimer setTextTimer;
             _pCandidateListUIPresenter->_SetText(&candidateList, TRUE);
@@ -480,9 +540,17 @@ HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcesso
     }
     else if (_pCandidateListUIPresenter)
     {
-        PerfTimer clearListTimer;
-        _pCandidateListUIPresenter->_ClearList();
-        clearListElapsedMs = clearListTimer.ElapsedMs();
+        if (gotUiLessComposition)
+        {
+            _pCandidateListUIPresenter->_ApplyUiLessCandidatePage(uiLessCandidatePage, uiLessSelection);
+            _pCandidateListUIPresenter->_NotifyUiLessHost();
+        }
+        else
+        {
+            PerfTimer clearListTimer;
+            _pCandidateListUIPresenter->_ClearList();
+            clearListElapsedMs = clearListTimer.ElapsedMs();
+        }
     }
     else if (readingStrings.Count() && isWildcardIncluded)
     {
@@ -790,7 +858,7 @@ Exit:
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                    KEYSTROKE_FUNCTION keyFunction)
+                                                    KEYSTROKE_FUNCTION keyFunction, uint64_t requestId)
 {
     if (keyFunction == FUNCTION_MOVE_LEFT || keyFunction == FUNCTION_MOVE_RIGHT)
     {
@@ -816,6 +884,10 @@ HRESULT CMetasequoiaIME::_HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfCon
         caretSelection.style.fInterimChar = FALSE;
         pContext->SetSelection(ec, 1, &caretSelection);
         caretRange->Release();
+        if (Global::IsUiLessMode() && _pCandidateListUIPresenter)
+        {
+            _pCandidateListUIPresenter->_ConsumeUiLessCompositionReply(requestId);
+        }
         return S_OK;
     }
 
@@ -824,6 +896,10 @@ HRESULT CMetasequoiaIME::_HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfCon
     {
         if ((_pCandidateListUIPresenter == nullptr) || (_pCandidateListUIPresenter->_GetCount() <= 1))
         {
+            if (Global::IsUiLessMode() && _pCandidateListUIPresenter)
+            {
+                _pCandidateListUIPresenter->_ConsumeUiLessCompositionReply(requestId);
+            }
             return S_OK;
         }
     }
@@ -848,7 +924,14 @@ HRESULT CMetasequoiaIME::_HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfCon
     // For incremental candidate list
     if (_pCandidateListUIPresenter)
     {
-        _pCandidateListUIPresenter->AdviseUIChangedByArrowKey(keyFunction);
+        if (Global::IsUiLessMode())
+        {
+            _pCandidateListUIPresenter->_ConsumeUiLessCompositionReply(requestId);
+        }
+        else
+        {
+            _pCandidateListUIPresenter->AdviseUIChangedByArrowKey(keyFunction);
+        }
     }
 
     pContext->SetSelection(ec, 1, &tfSelection);

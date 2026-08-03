@@ -7,6 +7,7 @@
 #include "MetasequoiaIMEBaseStructure.h"
 #include "KeyHandlerEditSession.h"
 #include "TfTextLayoutSink.h"
+#include <string>
 
 class CReadingLine;
 
@@ -80,6 +81,9 @@ class CCandidateListUIPresenter : public CTfTextLayoutSink,
     void _NotifyUI();
     void _SetText(_In_ CMetasequoiaImeArray<CCandidateListItem> *pCandidateList, BOOL isAddFindKeyCode);
     void _ClearList();
+    void _ApplyUiLessCandidatePage(_In_ const std::wstring &page, int selectedIndex = 0);
+    void _NotifyUiLessHost();
+    bool _ConsumeUiLessCompositionReply(uint64_t requestId);
     UINT _GetCount() const
     {
         return _candidateState.GetCount();
@@ -107,6 +111,11 @@ class CCandidateListUIPresenter : public CTfTextLayoutSink,
 
     void AdviseUIChangedByArrowKey(_In_ KEYSTROKE_FUNCTION arrowKey);
 
+    BOOL _IsShowMode() const
+    {
+        return _isShowMode;
+    }
+
   private:
     virtual HRESULT CALLBACK _CandidateChangeNotification(_In_ enum CANDWND_ACTION action);
 
@@ -124,6 +133,9 @@ class CCandidateListUIPresenter : public CTfTextLayoutSink,
     void UpdateCandidateUiSession();
     void MoveCandidateUiSession();
     void EndCandidateUiSession();
+    void _LoadUiLessCandidatesFromSharedMemory();
+    void _RequestCancelComposition();
+    void _ReplaceCandidateListFromPage(_In_ const std::wstring &page);
 
   protected:
     BOOL _isShowMode;
@@ -140,4 +152,5 @@ class CCandidateListUIPresenter : public CTfTextLayoutSink,
     LONG _refCount;
     BOOL _candidateUiSessionActive;
     BOOL _asyncCleanupPending;
+    std::wstring _lastUiLessCandidatePage;
 };

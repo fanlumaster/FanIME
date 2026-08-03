@@ -309,7 +309,7 @@ HRESULT CKeyStateComposing::HandleKeyBackspace(KeyHandlerEditSessionDTO dto)
 
 HRESULT CKeyStateComposing::HandleKeyArrow(KeyHandlerEditSessionDTO dto)
 {
-    return _pTextService->_HandleCompositionArrowKey(dto.ec, dto.pContext, dto.arrowKey);
+    return _pTextService->_HandleCompositionArrowKey(dto.ec, dto.pContext, dto.arrowKey, dto.requestId);
 }
 
 HRESULT CKeyStateComposing::HandleKeyDoubleSingleByte(KeyHandlerEditSessionDTO dto)
@@ -372,7 +372,7 @@ HRESULT CKeyStateCandidate::HandleKeyCancel(KeyHandlerEditSessionDTO dto)
 //_HandleCandidateArrowKey
 HRESULT CKeyStateCandidate::HandleKeyArrow(KeyHandlerEditSessionDTO dto)
 {
-    return _pTextService->_HandleCandidateArrowKey(dto.ec, dto.pContext, dto.arrowKey);
+    return _pTextService->_HandleCandidateArrowKey(dto.ec, dto.pContext, dto.arrowKey, dto.requestId);
 }
 
 //_HandleCandidateSelectByNumber

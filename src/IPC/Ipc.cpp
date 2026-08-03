@@ -147,7 +147,7 @@ void RequestNamedpipeReconnect()
 
 bool IsValidServerReply(const FanyImeNamedpipeDataToTsf &reply)
 {
-    if (reply.msg_type > Global::DataFromServerMsgType::CommitExactText)
+    if (reply.msg_type > Global::DataFromServerMsgType::UiLessComposition)
     {
         return false;
     }
@@ -648,6 +648,16 @@ int InitIpc()
     return 0;
 }
 
+bool TryReadCandidatePageFromSharedMemory(std::wstring *candidatePage)
+{
+    if (candidatePage == nullptr || sharedData == nullptr)
+    {
+        return false;
+    }
+    candidatePage->assign(sharedData->candidate_string);
+    return !candidatePage->empty();
+}
+
 int InitNamedpipe()
 {
     return ConnectToAllNamedpipe();
@@ -873,6 +883,20 @@ bool SendToNamedpipe(bool *deliveryAmbiguous = nullptr)
         packet.event_type == FanyImePipeEventType::ClientActivated ||
         packet.event_type == FanyImePipeEventType::ClientDeactivated ||
         packet.event_type == FanyImePipeEventType::ClientSuspended;
+
+    // Tell Server never to raise an IME HWND for UILess hosts (games / fullscreen).
+    if (Global::IsUiLessMode() &&
+        (packet.event_type == FanyImePipeEventType::KeyEvent ||
+         packet.event_type == FanyImePipeEventType::ShowCandidateWnd ||
+         packet.event_type == FanyImePipeEventType::MoveCandidateWnd ||
+         packet.event_type == FanyImePipeEventType::HideCandidateWnd))
+    {
+        packet.modifiers_down |= FanyImePipeFlags::UiLess;
+    }
+    if (packet.event_type == FanyImePipeEventType::ClientActivated && Global::HostUiLessMode)
+    {
+        packet.keycode = 1;
+    }
 
     // Lifecycle packets are used by Ensure... itself. Every other packet is
     // authorized only after reverse registration, worker publication, exact

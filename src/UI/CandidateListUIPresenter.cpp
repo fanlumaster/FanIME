@@ -6,7 +6,9 @@
 #include "CompositionProcessorEngine.h"
 #include "MetasequoiaIMEBaseStructure.h"
 #include "define.h"
+#include <algorithm>
 #include <cwchar>
+#include <string>
 #include <debugapi.h>
 #include <intsafe.h>
 #include <minwindef.h>
@@ -277,13 +279,20 @@ Exit:
 HRESULT CMetasequoiaIME::_HandleCandidateArrowKey( //
     TfEditCookie ec,                               //
     _In_ ITfContext *pContext,                     //
-    _In_ KEYSTROKE_FUNCTION keyFunction            //
+    _In_ KEYSTROKE_FUNCTION keyFunction,           //
+    uint64_t requestId                             //
 )
 {
     ec;
     pContext;
 
     if (_pCandidateListUIPresenter == nullptr)
+    {
+        return S_OK;
+    }
+
+    if (Global::IsUiLessMode() &&
+        _pCandidateListUIPresenter->_ConsumeUiLessCompositionReply(requestId))
     {
         return S_OK;
     }
@@ -363,6 +372,7 @@ CCandidateListUIPresenter::CCandidateListUIPresenter(_In_ CMetasequoiaIME *pText
     _candidateUiSessionActive = FALSE;
     _candidateWindowVisible = FALSE;
     _asyncCleanupPending = FALSE;
+    _lastUiLessCandidatePage.clear();
 }
 
 //+---------------------------------------------------------------------------
@@ -488,20 +498,23 @@ STDAPI CCandidateListUIPresenter::GetGUID(GUID *pguid)
 
 STDAPI CCandidateListUIPresenter::Show(BOOL showCandidateWindow)
 {
-    PerfTimer timer;
-    double moveWindowElapsedMs = 0;
-    double updateUiElapsedMs = 0;
     if (showCandidateWindow)
     {
-        if (_hideWindow)
+        if (_hideWindow || !_isShowMode)
         {
             _candidateWindowVisible = FALSE;
         }
         else
         {
-            PerfTimer moveWindowTimer;
             _MoveWindowToTextExt();
-            moveWindowElapsedMs = moveWindowTimer.ElapsedMs();
+            if (_candidateUiSessionActive)
+            {
+                UpdateCandidateUiSession();
+            }
+            else
+            {
+                BeginCandidateUiSession();
+            }
             _candidateWindowVisible = TRUE;
         }
     }
@@ -509,9 +522,7 @@ STDAPI CCandidateListUIPresenter::Show(BOOL showCandidateWindow)
     {
         _candidateWindowVisible = FALSE;
         _updatedFlags = TF_CLUIE_SELECTION | TF_CLUIE_CURRENTPAGE;
-        PerfTimer updateUiTimer;
         _UpdateUIElement();
-        updateUiElapsedMs = updateUiTimer.ElapsedMs();
     }
     return S_OK;
 }
@@ -524,7 +535,15 @@ STDAPI CCandidateListUIPresenter::Show(BOOL showCandidateWindow)
 
 STDAPI CCandidateListUIPresenter::IsShown(BOOL *pIsShow)
 {
-    *pIsShow = _candidateWindowVisible;
+    if (_isShowMode)
+    {
+        *pIsShow = _candidateWindowVisible;
+    }
+    else
+    {
+        // Host-drawn: report visible while the UI element is alive and has data.
+        *pIsShow = (_uiElementId != static_cast<DWORD>(-1)) && (_candidateState.GetCount() > 0);
+    }
     return S_OK;
 }
 
@@ -550,7 +569,22 @@ STDAPI CCandidateListUIPresenter::GetDocumentMgr(ITfDocumentMgr **ppdim)
 {
     *ppdim = nullptr;
 
-    return E_NOTIMPL;
+    if (_pTextService == nullptr)
+    {
+        return E_FAIL;
+    }
+
+    ITfThreadMgr *pThreadMgr = _pTextService->_GetThreadMgr();
+    if (pThreadMgr == nullptr)
+    {
+        return E_FAIL;
+    }
+
+    if (FAILED(pThreadMgr->GetFocus(ppdim)) || (*ppdim == nullptr))
+    {
+        return E_FAIL;
+    }
+    return S_OK;
 }
 
 //+---------------------------------------------------------------------------
@@ -561,6 +595,10 @@ STDAPI CCandidateListUIPresenter::GetDocumentMgr(ITfDocumentMgr **ppdim)
 
 STDAPI CCandidateListUIPresenter::GetCount(UINT *pCandidateCount)
 {
+    if (!_isShowMode)
+    {
+        _LoadUiLessCandidatesFromSharedMemory();
+    }
     *pCandidateCount = _candidateState.GetCount();
     return S_OK;
 }
@@ -573,6 +611,10 @@ STDAPI CCandidateListUIPresenter::GetCount(UINT *pCandidateCount)
 
 STDAPI CCandidateListUIPresenter::GetSelection(UINT *pSelectedCandidateIndex)
 {
+    if (!_isShowMode)
+    {
+        _LoadUiLessCandidatesFromSharedMemory();
+    }
     *pSelectedCandidateIndex = _candidateState.GetSelection();
     return S_OK;
 }
@@ -585,6 +627,10 @@ STDAPI CCandidateListUIPresenter::GetSelection(UINT *pSelectedCandidateIndex)
 
 STDAPI CCandidateListUIPresenter::GetString(UINT uIndex, BSTR *pbstr)
 {
+    if (!_isShowMode)
+    {
+        _LoadUiLessCandidatesFromSharedMemory();
+    }
     if (uIndex >= _candidateState.GetCount())
     {
         return E_FAIL;
@@ -666,7 +712,9 @@ STDAPI CCandidateListUIPresenter::Finalize(void)
 
 STDAPI CCandidateListUIPresenter::Abort(void)
 {
-    return E_NOTIMPL;
+    _RequestCancelComposition();
+    _EndCandidateList();
+    return S_OK;
 }
 
 //+---------------------------------------------------------------------------
@@ -795,6 +843,7 @@ void CCandidateListUIPresenter::_EndCandidateList()
     PerfTimer clearStateTimer;
     _candidateState.Clear();
     _candidateWindowVisible = FALSE;
+    _lastUiLessCandidatePage.clear();
     double clearStateElapsedMs = clearStateTimer.ElapsedMs();
 
     PerfTimer endLayoutTimer;
@@ -814,6 +863,11 @@ void CCandidateListUIPresenter::_PrepareForAsyncCleanup()
 
 void CCandidateListUIPresenter::_NotifyUI()
 {
+    if (!_isShowMode)
+    {
+        // UILess: host draws via ITfUIElementSink — never raise an IME HWND.
+        return;
+    }
     PerfTimer timer;
     if (_candidateUiSessionActive)
     {
@@ -835,6 +889,23 @@ void CCandidateListUIPresenter::_SetText(_In_ CMetasequoiaImeArray<CCandidateLis
                                          BOOL isAddFindKeyCode)
 {
     PerfTimer timer;
+    if (!_isShowMode)
+    {
+        // Prefer the synchronous UiLessComposition pipe payload (already applied
+        // via _ApplyUiLessCandidatePage). Fall back to shared memory if needed.
+        if (_candidateState.GetCount() == 0)
+        {
+            _LoadUiLessCandidatesFromSharedMemory();
+        }
+        if (_candidateState.GetCount() == 0 && pCandidateList != nullptr && pCandidateList->Count() != 0)
+        {
+            AddCandidateToCandidateListUI(pCandidateList, isAddFindKeyCode);
+            SetPageIndexWithScrollInfo(pCandidateList);
+        }
+        _NotifyUiLessHost();
+        return;
+    }
+
     PerfTimer addCandidateTimer;
     AddCandidateToCandidateListUI(pCandidateList, isAddFindKeyCode);
     double addCandidateElapsedMs = addCandidateTimer.ElapsedMs();
@@ -843,20 +914,7 @@ void CCandidateListUIPresenter::_SetText(_In_ CMetasequoiaImeArray<CCandidateLis
     SetPageIndexWithScrollInfo(pCandidateList);
     double setPageIndexElapsedMs = setPageIndexTimer.ElapsedMs();
 
-    double uiRefreshElapsedMs = 0;
-    if (_isShowMode)
-    {
-        _NotifyUI(); // has its own timing
-    }
-    else
-    {
-        PerfTimer uiRefreshTimer;
-        _updatedFlags =
-            TF_CLUIE_COUNT | TF_CLUIE_SELECTION | TF_CLUIE_STRING | TF_CLUIE_PAGEINDEX | TF_CLUIE_CURRENTPAGE;
-        _UpdateUIElement();
-        uiRefreshElapsedMs = uiRefreshTimer.ElapsedMs();
-    }
-
+    _NotifyUI();
 }
 
 void CCandidateListUIPresenter::AddCandidateToCandidateListUI(     //
@@ -966,6 +1024,7 @@ BOOL CCandidateListUIPresenter::_SetSelection(_In_ int selectedIndex)
     {
         if (_isShowMode)
         {
+            _NotifyUI();
         }
         else
         {
@@ -1237,6 +1296,15 @@ HRESULT CCandidateListUIPresenter::BeginUIElement()
         pUIElementMgr->Release();
     }
 
+    // Hosts that activate with TF_TMF_UIELEMENTENABLEDONLY (typical for games)
+    // must never get an IME-owned candidate HWND, even if BeginUIElement left
+    // pbShow TRUE.
+    if (_pTextService->_IsUiLessMode())
+    {
+        _isShowMode = FALSE;
+    }
+    Global::CandidateUiLessMode = (_isShowMode == FALSE);
+
 Exit:
     return hr;
 }
@@ -1260,6 +1328,8 @@ HRESULT CCandidateListUIPresenter::EndUIElement()
         pUIElementMgr->Release();
         _uiElementId = static_cast<DWORD>(-1);
     }
+
+    Global::CandidateUiLessMode = false;
 
 Exit:
     return hr;
@@ -1286,6 +1356,10 @@ void CCandidateListUIPresenter::WriteCandidateUiPayload(_In_ UINT writeFlag)
 
 void CCandidateListUIPresenter::BeginCandidateUiSession()
 {
+    if (!_isShowMode)
+    {
+        return;
+    }
     PerfTimer timer;
     PerfTimer writePayloadTimer;
     WriteCandidateUiPayload(0b111111);
@@ -1298,6 +1372,10 @@ void CCandidateListUIPresenter::BeginCandidateUiSession()
 
 void CCandidateListUIPresenter::UpdateCandidateUiSession()
 {
+    if (!_isShowMode)
+    {
+        return;
+    }
     PerfTimer timer;
     PerfTimer writePayloadTimer;
     WriteCandidateUiPayload(0b111111);
@@ -1310,9 +1388,9 @@ void CCandidateListUIPresenter::UpdateCandidateUiSession()
 void CCandidateListUIPresenter::MoveCandidateUiSession()
 {
     PerfTimer timer;
-    if (_asyncCleanupPending || !_candidateUiSessionActive)
+    if (_asyncCleanupPending || !_candidateUiSessionActive || !_isShowMode)
     {
-        // Once teardown starts, do not send further move events or the candidate window may linger on screen.
+        // UILess hosts draw candidates themselves; never chase an IME HWND.
         return;
     }
     PerfTimer writePayloadTimer;
@@ -1321,6 +1399,167 @@ void CCandidateListUIPresenter::MoveCandidateUiSession()
     PerfTimer sendEventTimer;
     SendMoveCandidateWndEventToUIProcess();
     double sendEventElapsedMs = sendEventTimer.ElapsedMs();
+}
+
+void CCandidateListUIPresenter::_ReplaceCandidateListFromPage(_In_ const std::wstring &page)
+{
+    const UINT previousSelection = _candidateState.GetSelection();
+    _candidateState.Clear();
+    _lastUiLessCandidatePage = page;
+
+    size_t start = 0;
+    while (start <= page.size())
+    {
+        const size_t comma = page.find(L',', start);
+        const size_t end = (comma == std::wstring::npos) ? page.size() : comma;
+        const std::wstring item = page.substr(start, end - start);
+        if (!item.empty())
+        {
+            CCandidateListItem candidate;
+            candidate._ItemString.Set(item.c_str(), item.size());
+            _candidateState.AddCandidate(&candidate, FALSE);
+        }
+        if (comma == std::wstring::npos)
+        {
+            break;
+        }
+        start = comma + 1;
+    }
+
+    const UINT count = _candidateState.GetCount();
+    if (count == 0)
+    {
+        return;
+    }
+
+    CMetasequoiaImeArray<CCandidateListItem> pageIndexSource;
+    for (UINT i = 0; i < count; ++i)
+    {
+        pageIndexSource.Append();
+    }
+    SetPageIndexWithScrollInfo(&pageIndexSource);
+    _candidateState.SetSelectionSilently(previousSelection < count ? static_cast<int>(previousSelection) : 0);
+}
+
+void CCandidateListUIPresenter::_ApplyUiLessCandidatePage(_In_ const std::wstring &page, int selectedIndex)
+{
+    _ReplaceCandidateListFromPage(page);
+    if (_candidateState.GetCount() != 0)
+    {
+        const int clamped =
+            (std::max)(0, (std::min)(selectedIndex, static_cast<int>(_candidateState.GetCount()) - 1));
+        _candidateState.SetSelectionSilently(clamped);
+    }
+}
+
+bool CCandidateListUIPresenter::_ConsumeUiLessCompositionReply(uint64_t requestId)
+{
+    if (requestId == FANY_IME_NO_REQUEST_ID)
+    {
+        return false;
+    }
+    struct FanyImeNamedpipeDataToTsf *receivedData =
+        TryReadDataFromServerPipeWithTimeout(requestId, /*abortTransportOnTimeout=*/false);
+    if (receivedData == nullptr ||
+        receivedData->msg_type != Global::DataFromServerMsgType::UiLessComposition)
+    {
+        return false;
+    }
+
+    const std::wstring payload(receivedData->candidate_string);
+    std::wstring page;
+    int selection = 0;
+    const size_t firstTab = payload.find(L'\t');
+    if (firstTab == std::wstring::npos)
+    {
+        page = payload;
+    }
+    else
+    {
+        const size_t secondTab = payload.find(L'\t', firstTab + 1);
+        if (secondTab == std::wstring::npos)
+        {
+            page = payload.substr(firstTab + 1);
+        }
+        else
+        {
+            page = payload.substr(firstTab + 1, secondTab - firstTab - 1);
+            selection = _wtoi(payload.c_str() + secondTab + 1);
+        }
+    }
+    _ApplyUiLessCandidatePage(page, selection);
+    _NotifyUiLessHost();
+    return true;
+}
+
+void CCandidateListUIPresenter::_NotifyUiLessHost()
+{
+    _updatedFlags = TF_CLUIE_DOCUMENTMGR | TF_CLUIE_COUNT | TF_CLUIE_SELECTION | TF_CLUIE_STRING |
+                    TF_CLUIE_PAGEINDEX | TF_CLUIE_CURRENTPAGE;
+    _UpdateUIElement();
+}
+
+void CCandidateListUIPresenter::_LoadUiLessCandidatesFromSharedMemory()
+{
+    std::wstring page;
+    if (!TryReadCandidatePageFromSharedMemory(&page) || page == _lastUiLessCandidatePage)
+    {
+        return;
+    }
+    _ReplaceCandidateListFromPage(page);
+}
+
+void CCandidateListUIPresenter::_RequestCancelComposition()
+{
+    if (_pTextService == nullptr)
+    {
+        return;
+    }
+
+    TfClientId tfClientId = _pTextService->_GetClientId();
+    ITfThreadMgr *pThreadMgr = _pTextService->_GetThreadMgr();
+    ITfDocumentMgr *pDocumentMgr = nullptr;
+    ITfContext *pContext = nullptr;
+
+    _KEYSTROKE_STATE KeyState;
+    KeyState.Category = CATEGORY_COMPOSING;
+    KeyState.Function = FUNCTION_CANCEL;
+
+    if (nullptr == pThreadMgr)
+    {
+        return;
+    }
+
+    if (FAILED(pThreadMgr->GetFocus(&pDocumentMgr)) || pDocumentMgr == nullptr)
+    {
+        return;
+    }
+
+    if (FAILED(pDocumentMgr->GetTop(&pContext)) || pContext == nullptr)
+    {
+        pDocumentMgr->Release();
+        return;
+    }
+
+    CKeyHandlerEditSession *pEditSession =
+        new (std::nothrow) CKeyHandlerEditSession(_pTextService, pContext, 0, 0, KeyState,
+                                                  FANY_IME_NO_REQUEST_ID, {}, {},
+                                                  _pTextService->_CaptureFocusSessionToken(), 0,
+                                                  _pTextService->_CaptureCompositionEpoch());
+    if (nullptr != pEditSession)
+    {
+        HRESULT hrSession = S_OK;
+        HRESULT hr = pContext->RequestEditSession(tfClientId, pEditSession, TF_ES_SYNC | TF_ES_READWRITE, &hrSession);
+        if (hrSession == TF_E_SYNCHRONOUS || hrSession == TS_E_READONLY)
+        {
+            hr = pContext->RequestEditSession(tfClientId, pEditSession, TF_ES_ASYNC | TF_ES_READWRITE, &hrSession);
+        }
+        UNREFERENCED_PARAMETER(hr);
+        pEditSession->Release();
+    }
+
+    pContext->Release();
+    pDocumentMgr->Release();
 }
 
 void CCandidateListUIPresenter::EndCandidateUiSession()

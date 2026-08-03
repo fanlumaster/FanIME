@@ -90,6 +90,13 @@ constexpr UINT PuncSwitch = 8;
 constexpr UINT DoubleSingleByteSwitch = 9;
 } // namespace FanyImePipeEventType
 
+// OR'd into modifiers_down on Main-pipe packets. Server strips it before any
+// key-modifier policy runs. Used so UILess hosts (games) never get an HWND.
+namespace FanyImePipeFlags
+{
+constexpr UINT UiLess = 0x80000000u;
+} // namespace FanyImePipeFlags
+
 namespace FanyImePipeRole
 {
 constexpr UINT Main = 0;
@@ -232,6 +239,10 @@ int SendShowCandidateWndEventToUIProcessViaNamedPipe();
 int SendMoveCandidateWndEventToUIProcessViaNamedPipe();
 int SendLangbarRightClickEventToUIProcessViaNamedPipe(const RECT *prcArea);
 void ClearNamedpipeDataIfExists(bool force = false);
+// Best-effort read of the Server-published current candidate page (comma-
+// separated). Used in UILess mode so ITfCandidateListUIElement::GetString can
+// return real candidates after PrepareCandidateList has written shared memory.
+bool TryReadCandidatePageFromSharedMemory(_Out_ std::wstring *candidatePage);
 struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t expectedRequestId);
 // When abortTransportOnTimeout is false, a missed reply leaves the pipe up and
 // returns a non-TransportUnavailable empty frame for the caller to fall back.
@@ -255,6 +266,14 @@ inline thread_local int Point[2] = {100, 100};
 inline thread_local int PinyinLength = 0;
 inline thread_local std::wstring PinyinString = L"";
 
+// TF_TMF_UIELEMENTENABLEDONLY at ActivateEx, and/or BeginUIElement pbShow=FALSE.
+inline thread_local bool HostUiLessMode = false;
+inline thread_local bool CandidateUiLessMode = false;
+inline bool IsUiLessMode()
+{
+    return HostUiLessMode || CandidateUiLessMode;
+}
+
 inline thread_local int firefox_like_cnt = 0; // Apps like firefox, e.g. firefox, zen...
 inline thread_local std::wstring current_process_name = L"";
 
@@ -276,6 +295,10 @@ constexpr UINT MovePageNext = 8;
 constexpr UINT PipeReady = 9;
 // candidate_string is the complete text to commit; do not append punctuation.
 constexpr UINT CommitExactText = 10;
+// UILess hosts (games): candidate_string = preedit + L'\t' + cand1,cand2,...
+// Plain words only — no helpcodes — so ITfCandidateListUIElement::GetString
+// matches Microsoft IME behavior for host-drawn candidate UI.
+constexpr UINT UiLessComposition = 11;
 // Local-only result. It is never sent over the pipe and must never be
 // interpreted as candidate text to commit.
 constexpr UINT TransportUnavailable = static_cast<UINT>(-1);

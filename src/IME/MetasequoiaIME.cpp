@@ -1234,6 +1234,8 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
 
     _tfClientId = tfClientId;
     _dwActivateFlags = dwFlags;
+    Global::HostUiLessMode = _IsUiLessMode() ? true : false;
+    Global::CandidateUiLessMode = false;
     // Match Weasel's activation-time recovery: switching to this TIP is an
     // explicit user request, so revive a missing Server immediately. Merely
     // focusing another text box still uses reconnect-only behavior.
@@ -1408,6 +1410,8 @@ ExitError:
 
 STDAPI CMetasequoiaIME::Deactivate()
 {
+    Global::HostUiLessMode = false;
+    Global::CandidateUiLessMode = false;
     // Send this synchronously before destroying the message window. OnKill can
     // queue the same lifecycle event, but that queued message may never run
     // during a rapid TIP deactivation; the server treats duplicates as idempotent.
