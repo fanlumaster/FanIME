@@ -181,6 +181,12 @@ constexpr bool IsTerminalDeactivation(UINT event_type)
 }
 } // namespace FanyImePipeEventType
 
+// OR'd into modifiers_down. Must be stripped before key-modifier policy.
+namespace FanyImePipeFlags
+{
+constexpr UINT UiLess = 0x80000000u;
+} // namespace FanyImePipeFlags
+
 namespace FanyImePipeRole
 {
 constexpr UINT Main = 0;
@@ -319,6 +325,8 @@ constexpr UINT MovePageNext = 8;
 constexpr UINT PipeReady = 9;
 // Commit candidate_string verbatim and finish the active composition.
 constexpr UINT CommitExactText = 10;
+// UILess hosts (games): candidate_string = preedit + L'\t' + cand1,cand2,...
+constexpr UINT UiLessComposition = 11;
 } // namespace DataFromServerMsgType
 
 inline UINT MsgTypeToTsf = DataFromServerMsgType::Normal; // 默认为 Normal

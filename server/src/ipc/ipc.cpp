@@ -1312,7 +1312,7 @@ int ReadDataFromNamedPipe(UINT read_flag)
 
     if (read_flag >> 2 & 1u)
     {
-        Global::ModifiersDown = namedpipeData.modifiers_down;
+        Global::ModifiersDown = namedpipeData.modifiers_down & ~FanyImePipeFlags::UiLess;
     }
 
     if (read_flag >> 3 & 1u)

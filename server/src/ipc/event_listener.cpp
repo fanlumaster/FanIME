@@ -53,6 +53,57 @@ std::string BuildCurrentCandidatePage();
 bool g_quick_phrase_triggered = false;
 bool g_unicode_mode_triggered = false;
 bool g_english_input_mode = false;
+// Sticky UILess for the active Main-pipe client. When set, never raise the
+// WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
+bool g_activate_uiless = false;
+bool g_session_uiless = false;
+
+bool IsUiLessMode()
+{
+    return g_activate_uiless || g_session_uiless;
+}
+
+void ApplyUiLessFromPacket(const FanyImeNamedpipeData &pipe_data)
+{
+    const bool wasUiLess = IsUiLessMode();
+    if (pipe_data.event_type == FanyImePipeEventType::ClientActivated)
+    {
+        g_activate_uiless = (pipe_data.keycode != 0);
+        g_session_uiless = g_activate_uiless;
+    }
+    else if (FanyImePipeEventType::IsRouteDeactivation(pipe_data.event_type))
+    {
+        g_activate_uiless = false;
+        g_session_uiless = false;
+    }
+    else if (pipe_data.event_type == FanyImePipeEventType::KeyEvent ||
+             pipe_data.event_type == FanyImePipeEventType::ShowCandidateWnd ||
+             pipe_data.event_type == FanyImePipeEventType::MoveCandidateWnd ||
+             pipe_data.event_type == FanyImePipeEventType::HideCandidateWnd)
+    {
+        g_session_uiless = g_activate_uiless || ((pipe_data.modifiers_down & FanyImePipeFlags::UiLess) != 0);
+    }
+
+    if (!wasUiLess && IsUiLessMode())
+    {
+        // A prior non-UILess session may have left the WebView2 candidate HWND
+        // visible; hide it immediately when the host takes over drawing.
+        ::is_global_wnd_cand_shown = false;
+        if (::global_hwnd && IsWindow(::global_hwnd))
+        {
+            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+        }
+    }
+}
+
+void RequestShowCandidateWindow()
+{
+    if (IsUiLessMode() || !::global_hwnd)
+    {
+        return;
+    }
+    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+}
 
 bool IsHexChar(unsigned char ch)
 {
@@ -499,6 +550,26 @@ void EnsureCandidatePageReady()
     BuildCurrentCandidatePage();
 }
 
+std::wstring BuildUiLessCandidatePageW()
+{
+    EnsureCandidatePageReady();
+    auto &ui = Global::candidate_ui;
+    if (ui.page_words.empty() && !ui.items.empty())
+    {
+        BuildCurrentCandidatePage();
+    }
+    std::wstring page;
+    for (size_t i = 0; i < ui.page_words.size(); ++i)
+    {
+        if (i != 0)
+        {
+            page += L',';
+        }
+        page += ui.page_words[i];
+    }
+    return page;
+}
+
 std::string BuildCurrentCandidatePage()
 {
     auto &ui = Global::candidate_ui;
@@ -571,10 +642,18 @@ std::string BuildCurrentCandidatePage()
 void RefreshCandidatePageUi(bool show_window)
 {
     const std::string candidate_string = BuildCurrentCandidatePage();
-    ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+    if (IsUiLessMode())
+    {
+        // Host-drawn UI wants plain words (Microsoft IME style), not helpcodes.
+        ::WriteDataToSharedMemory(BuildUiLessCandidatePageW(), true);
+    }
+    else
+    {
+        ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
+    }
     if (show_window)
     {
-        PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+        RequestShowCandidateWindow();
     }
 }
 
@@ -944,6 +1023,7 @@ void WorkerThread()
         if (task.has_pipe_data)
         {
             namedpipeData = task.pipe_data;
+            ApplyUiLessFromPacket(namedpipeData);
         }
 
         switch (task.type)
@@ -957,7 +1037,7 @@ void WorkerThread()
             // actions), whose current packet does not carry a valid point.
             ::ReadDataFromNamedPipe(0b111111);
             PrepareCandidateList(task.client_id, task.activation_epoch);
-            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+            RequestShowCandidateWindow();
             break;
         }
 
@@ -1252,7 +1332,7 @@ void WorkerThread()
             g_inputSession->reset_cache();
             g_inputSession->recompute_candidates();
             PrepareCandidateList(task.client_id, task.activation_epoch);
-            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+            RequestShowCandidateWindow();
             break;
         }
 
@@ -1554,6 +1634,24 @@ bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint
         ClearState();
     }
     return sent;
+}
+
+bool SendUiLessCompositionToClient(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id)
+{
+    std::wstring preedit;
+    if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
+    {
+        preedit = GetPreedit();
+    }
+    const std::wstring page = BuildUiLessCandidatePageW();
+    ::WriteDataToSharedMemory(page, true);
+    auto &ui = Global::candidate_ui;
+    const int selection =
+        ui.page_words.empty() ? 0
+                              : std::clamp(ui.selected_index_in_page, 0, static_cast<int>(ui.page_words.size()) - 1);
+    Global::MsgTypeToTsf = Global::DataFromServerMsgType::UiLessComposition;
+    Global::candidate_ui.selected_text = preedit + L'\t' + page + L'\t' + std::to_wstring(selection);
+    return SendCurrentDataToClient(client_id, activation_epoch, request_id);
 }
 
 void EventListenerLoopThread()
@@ -2574,7 +2672,12 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if ((Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
         is_unicode_plus)
     {
-        if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
+        if (IsUiLessMode())
+        {
+            PrepareCandidateList(client_id, activation_epoch);
+            SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
+        }
+        else if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
         {
             std::wstring preedit = GetPreedit();
             Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
@@ -2582,13 +2685,24 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             SendCurrentDataToClient(client_id, activation_epoch, request_id);
         }
     }
-
-    //
-    // Backspace
-    //
-    if (Global::Keycode == VK_BACK)
+    else if (Global::Keycode == VK_BACK)
     {
-        if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
+        if (IsUiLessMode())
+        {
+            if (g_inputSession->get_pinyin_sequence().empty())
+            {
+                ClearState();
+                Global::MsgTypeToTsf = Global::DataFromServerMsgType::UiLessComposition;
+                Global::candidate_ui.selected_text = L"\t";
+                SendCurrentDataToClient(client_id, activation_epoch, request_id);
+            }
+            else
+            {
+                PrepareCandidateList(client_id, activation_epoch);
+                SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
+            }
+        }
+        else if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
         {
             if (!g_inputSession->get_pinyin_sequence().empty())
             {
@@ -2598,6 +2712,12 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
                 SendCurrentDataToClient(client_id, activation_epoch, request_id);
             }
         }
+    }
+    else if (IsUiLessMode() && is_composition_edit_key && Global::Keycode != VK_LEFT &&
+             Global::Keycode != VK_RIGHT && Global::Keycode != VK_BACK)
+    {
+        PrepareCandidateList(client_id, activation_epoch);
+        SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
     }
 
     //
@@ -2618,7 +2738,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     }
     else if (Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT)
     {
-        RefreshCandidatePageUi(true);
+        if (IsUiLessMode())
+        {
+            PrepareCandidateList(client_id, activation_epoch);
+            SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
+        }
+        else
+        {
+            RefreshCandidatePageUi(true);
+        }
     }
     else if (IsCandidateNavigationKey(Global::Keycode) && !is_unicode_plus)
     {
@@ -2728,11 +2856,32 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             }
         }
 
-        Global::MsgTypeToTsf = result;
-        SendCurrentDataToClient(client_id, activation_epoch, request_id);
-        if (refresh)
+        if (IsUiLessMode())
         {
-            RefreshCandidatePageUi(true);
+            if (refresh)
+            {
+                RefreshCandidatePageUi(false);
+            }
+            else
+            {
+                EnsureCandidatePageReady();
+            }
+            // Prefer selection index in page for host-drawn lists.
+            if (!ui.page_words.empty())
+            {
+                ui.selected_index_in_page =
+                    std::clamp(ui.selected_index_in_page, 0, static_cast<int>(ui.page_words.size()) - 1);
+            }
+            SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
+        }
+        else
+        {
+            Global::MsgTypeToTsf = result;
+            SendCurrentDataToClient(client_id, activation_epoch, request_id);
+            if (refresh)
+            {
+                RefreshCandidatePageUi(true);
+            }
         }
     }
 }
@@ -2949,7 +3098,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         {
             /* TODO: 这里到 main 线程的时候，可能下面的那个清理状态的操作已经执行了，因此，这里可能会导致 string
              * 越界的问题 */
-            PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+            RequestShowCandidateWindow();
         }
 
         if (isNeedUpdateWeight)

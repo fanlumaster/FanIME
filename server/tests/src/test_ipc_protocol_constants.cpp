@@ -1,5 +1,6 @@
 #define NOMINMAX
 #include "ipc/ipc.h"
+#include "ipc/input_key_policy.h"
 #include "tests/includes/test_framework.h"
 
 TEST_CASE(ipc_reverse_pipes_buffer_multiple_complete_frames)
@@ -18,6 +19,8 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
     REQUIRE(Global::DataFromServerMsgType::PipeReady > Global::DataFromServerMsgType::MovePageNext);
     REQUIRE_EQ(Global::DataFromServerMsgType::CommitExactText, 10u);
     REQUIRE(Global::DataFromServerMsgType::CommitExactText > Global::DataFromServerMsgType::PipeReady);
+    REQUIRE_EQ(Global::DataFromServerMsgType::UiLessComposition, 11u);
+    REQUIRE(Global::DataFromServerMsgType::UiLessComposition > Global::DataFromServerMsgType::CommitExactText);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady, 8u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady, 9u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText, 10u);
@@ -60,4 +63,11 @@ TEST_CASE(ipc_focus_restored_is_an_appended_opcode_and_not_a_route_reset)
     REQUIRE_EQ(FanyImePipeEventType::FocusRestored, 15u);
     REQUIRE(!FanyImePipeEventType::IsRouteDeactivation(FanyImePipeEventType::FocusRestored));
     REQUIRE(!FanyImePipeEventType::IsTerminalDeactivation(FanyImePipeEventType::FocusRestored));
+}
+
+TEST_CASE(ipc_uiless_flag_is_outside_key_modifier_mask)
+{
+    REQUIRE_EQ(FanyImePipeFlags::UiLess, 0x80000000u);
+    REQUIRE((FanyImePipeFlags::UiLess & FanyImeIpc::kKeyModifierMask) == 0u);
+    REQUIRE((FanyImeIpc::kModifierUiLess & FanyImeIpc::kKeyModifierMask) == 0u);
 }
