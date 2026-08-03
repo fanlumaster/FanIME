@@ -14,6 +14,7 @@
 .ftb-preview-host .drag-handle { position: relative; width: 2.5px; height: 14px; margin-right: 0; border-radius: 2px; background: #8e8cd8; }
 .ftb-preview-host .divider { align-self: stretch; width: 1.2px; height: auto; margin: 0 0 0 4px; background-color: rgba(255, 255, 255, 0.15); }
 .ftb-preview-host .icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: #fff; border-radius: 6px; font-family: "Segoe UI Symbol", "Microsoft YaHei", sans-serif; font-size: 20px; }
+.ftb-preview-host .fluent-icon { font-family: "Segoe Fluent Icons"; font-size: 22px; font-weight: normal; line-height: 1; user-select: none; }
 .ftb-preview-host .left-section { display: flex; align-items: center; gap: 4px; }
 .ftb-preview-host .right-section { display: flex; align-items: center; gap: 6px; }
 .ftb-preview-host svg { display: block; }

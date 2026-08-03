@@ -48,7 +48,7 @@ let previewEnglishFontCssFamily = previewEnglishFont;
 let previewDefaultFontCssFamily = previewDefaultFont;
 let previewFontSize = 16;
 let previewTextColor = 'auto';
-let previewPageSize = 8;
+let previewPageSize = 6;
 let previewCandTheme: ResolvedTheme = 'dark';
 let previewInputSchema = 'shuangpin';
 let previewShuangpinHelpcode = true;
@@ -338,7 +338,7 @@ export async function setupAppearance() {
     return previewFontSize;
   });
   setupDropdownMenu('candPageSizeBtn', 'candPageSizeMenu', '', true, 'appearance.page_size', (value) => {
-    previewPageSize = Number(value) || 8;
+    previewPageSize = Number(value) || 6;
     applyCandidatePreviewStyle();
     return previewPageSize;
   });

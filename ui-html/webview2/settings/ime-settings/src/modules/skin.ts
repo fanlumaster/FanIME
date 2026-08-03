@@ -5,6 +5,13 @@ export type SkinPreviewTheme = 'dark' | 'light';
 
 let previewOverride: SkinPreviewTheme | null = null;
 let activeTheme: SkinPreviewTheme = 'dark';
+const SKIN_PREVIEW_PAGE_SIZE = 6;
+
+function limitCandidatePreview(host: HTMLElement): void {
+  host.querySelectorAll<HTMLElement>('.row-wrapper').forEach((wrapper, index) => {
+    wrapper.style.display = index < SKIN_PREVIEW_PAGE_SIZE ? '' : 'none';
+  });
+}
 
 function fillToolbar(host: HTMLElement): void {
   const source = new DOMParser().parseFromString(ftbHTML, 'text/html');
@@ -49,8 +56,14 @@ export function syncSkinPreviewTheme(theme: SkinPreviewTheme): void {
 export async function setupSkin(): Promise<void> {
   const vertical = document.getElementById('skinCandidateVertical');
   const horizontal = document.getElementById('skinCandidateHorizontal');
-  if (vertical) vertical.innerHTML = await loadHTML('/src/partials/candidate/candidate-wnd-v.html');
-  if (horizontal) horizontal.innerHTML = await loadHTML('/src/partials/candidate/candidate-wnd-h.html');
+  if (vertical) {
+    vertical.innerHTML = await loadHTML('/src/partials/candidate/candidate-wnd-v.html');
+    limitCandidatePreview(vertical);
+  }
+  if (horizontal) {
+    horizontal.innerHTML = await loadHTML('/src/partials/candidate/candidate-wnd-h.html');
+    limitCandidatePreview(horizontal);
+  }
 
   const toolbar = document.getElementById('skinToolbarPreview');
   if (toolbar) fillToolbar(toolbar);
