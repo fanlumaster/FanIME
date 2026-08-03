@@ -495,8 +495,8 @@ bool LoadImeConfig()
     {
         auto tbl = toml::parse_file(g_config_path.string());
 
-        const int page_size = tbl["appearance"]["page_size"].value_or(8);
-        g_candidate_page_size = page_size >= 3 && page_size <= 9 ? page_size : 8;
+        const int page_size = tbl["appearance"]["page_size"].value_or(6);
+        g_candidate_page_size = page_size >= 3 && page_size <= 9 ? page_size : 6;
         g_candidate_font = tbl["appearance"]["font"].value_or(std::string("Noto Sans SC"));
         if (g_candidate_font.empty())
             g_candidate_font = "Noto Sans SC";

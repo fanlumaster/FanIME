@@ -3,6 +3,7 @@
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
+#include "src/ipc/candidate_selection_policy.h"
 #include <algorithm>
 
 namespace
@@ -41,6 +42,14 @@ TEST_CASE(EngineShuangpinSessionContinuesCompositionWithoutHelpcode)
     const auto transition = session.advance_composition_after_selection("xi", "西", "xi");
     REQUIRE(transition.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("tele"));
+}
+
+TEST_CASE(CloudCandidateNeverEntersCreatingWordMode)
+{
+    REQUIRE(!FanyImeIpc::ShouldEnterCreatingWord(CandidateSource::CloudSuggestion, true));
+    REQUIRE(!FanyImeIpc::ShouldEnterCreatingWord(CandidateSource::CloudSuggestion, false));
+    REQUIRE(FanyImeIpc::ShouldEnterCreatingWord(CandidateSource::Database, true));
+    REQUIRE(!FanyImeIpc::ShouldEnterCreatingWord(CandidateSource::Database, false));
 }
 
 TEST_CASE(EngineShuangpinAiCandidateConsumesFullRawInput)

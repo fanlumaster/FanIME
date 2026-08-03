@@ -12,6 +12,7 @@
 #include <thread>
 #include <unordered_map>
 #include "Ipc.h"
+#include "ipc/candidate_selection_policy.h"
 #include "ipc/candidate_ui_owner.h"
 #include "ipc/candidate_text_policy.h"
 #include "ipc/focus_session_policy.h"
@@ -3015,7 +3016,14 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         }
         auto selection_transition = g_inputSession->advance_composition_after_selection(
             curWordPinyin, curWord, curWordItem.canonical_pinyin);
-        const bool isNeedCreateWord = selection_transition.continues_composition;
+        // A cloud suggestion is an already-composed result returned for the
+        // current query.  It must commit as one candidate even when the
+        // returned query spelling is shorter than the raw input (for example
+        // with an abbreviation or an active help-code suffix).  Treating it
+        // like an ordinary partial candidate enters word-creation mode, while
+        // the cloud branch below still persists the selected word.
+        const bool isNeedCreateWord = FanyImeIpc::ShouldEnterCreatingWord(
+            curWordItem.source, selection_transition.continues_composition);
         if (isNeedCreateWord)
         { /* 候选只消耗了输入的一部分，继续使用剩余输入造词。完整拼音和简拼均可进入。 */
             /* 打开造词开关 */
