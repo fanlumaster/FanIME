@@ -16,6 +16,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_action_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_text_policy.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_window_template.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_ipc_protocol_constants.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_floating_toolbar_visibility_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_terminal_deactivation_policy.cpp"

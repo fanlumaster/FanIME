@@ -1,4 +1,5 @@
 #include "windows_webview2.h"
+#include "webview2/candidate_window_template.h"
 #include "config/ime_config.h"
 #include "defines/globals.h"
 #include "utils/common_utils.h"
@@ -1172,40 +1173,7 @@ void InflateCandWnd(std::wstring &str)
 
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete)
 {
-    std::wstringstream wss(str);
-    std::wstring token;
-    std::vector<std::wstring> words;
-
-    while (std::getline(wss, token, L','))
-    {
-        words.push_back(token);
-    }
-
-    int size = static_cast<int>(words.size());
-
-    while (words.size() < 9)
-    {
-        words.push_back(L"");
-    }
-
-    std::wstring result = fmt::format( //
-        BodyStringCandWnd,             //
-        words[0],                      //
-        words[1],                      //
-        words[2],                      //
-        words[3],                      //
-        words[4],                      //
-        words[5],                      //
-        words[6],                      //
-        words[7],                      //
-        words[8]                       //
-    );                                 //
-
-    if (size < 9)
-    {
-        size_t pos = result.find(fmt::format(L"<!--{}Anchor-->", size));
-        result = result.substr(0, pos);
-    }
+    std::wstring result = InflateCandidateTemplate(BodyStringCandWnd, str);
 
     UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
@@ -1218,41 +1186,7 @@ void InflateMeasureDivCandWnd(std::wstring &str)
 void InflateMeasureDivCandWnd(std::wstring &str, std::function<void()> onComplete)
 {
     str.erase(std::remove(str.begin(), str.end(), L'\uE000'), str.end());
-    std::wstringstream wss(str);
-    std::wstring token;
-    std::vector<std::wstring> words;
-
-    while (std::getline(wss, token, L','))
-    {
-        words.push_back(token);
-    }
-
-    int size = words.size();
-
-    while (words.size() < 9)
-    {
-        words.push_back(L"");
-    }
-
-    std::wstring result = fmt::format( //
-        ::MeasureStringCandWnd,        //
-        words[0],                      //
-        words[1],                      //
-        words[2],                      //
-        words[3],                      //
-        words[4],                      //
-        words[5],                      //
-        words[6],                      //
-        words[7],                      //
-        words[8]                       //
-    );                                 //
-
-    if (size < 9)
-    {
-        size_t pos = result.find(fmt::format(L"<!--{}Anchor-->", size));
-        // result = result.substr(0, pos) + L"</div>";
-        result = result.substr(0, pos);
-    }
+    std::wstring result = InflateCandidateTemplate(::MeasureStringCandWnd, str);
 
     UpdateMeasureContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
