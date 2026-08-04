@@ -50,6 +50,7 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
     {
         TestDatabase main_db(main_path);
         main_db.exec("CREATE TABLE tbl_2_n(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+                     "CREATE TABLE tbl_others_s(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
                      "CREATE TABLE wubi86(key TEXT,value TEXT,weight INTEGER);"
                      "CREATE TABLE quick_parases(key TEXT,value TEXT,weight INTEGER);"
                      "INSERT INTO tbl_2_n VALUES('ni''hao','nh','旧词',1);"
@@ -63,6 +64,9 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
                                            "ni'hao", "你好", 12000));
     REQUIRE(user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::Pinyin,
                                            "ni'hao", "旧词"));
+    REQUIRE(user_dictionary::record_upsert(
+        user_path.string(), user_dictionary::DictionaryKind::Pinyin,
+        "shui'shan'shu'ru'fa'hai'ke'yi", "水杉输入法还可以", 5000));
     REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Wubi,
                                            "wxyz", "新五笔", 88));
     REQUIRE(user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::Wubi,
@@ -79,7 +83,7 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
         const auto replay = user_dictionary::replay(user_path.string(), main_path.string(), english_path.string());
         REQUIRE(replay.error.empty());
         REQUIRE_EQ(replay.failed, 0);
-        REQUIRE_EQ(replay.applied, 7);
+        REQUIRE_EQ(replay.applied, 8);
     }
 
     {
@@ -87,6 +91,9 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM tbl_2_n WHERE key='ni''hao' AND value='你好' AND "
                                       "jp='nh' AND weight=12000"), 1);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM tbl_2_n WHERE value='旧词'"), 0);
+        REQUIRE_EQ(main_db.scalar_int(
+            "SELECT COUNT(*) FROM tbl_others_s WHERE key='shui''shan''shu''ru''fa''hai''ke''yi' "
+            "AND value='水杉输入法还可以' AND jp='sssrfhky' AND weight=5000"), 1);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM wubi86 WHERE key='wxyz' AND value='新五笔' AND weight=88"), 1);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM wubi86 WHERE value='旧五笔'"), 0);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM quick_parases WHERE key='mail' AND weight=20"), 1);
