@@ -1381,17 +1381,33 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
 
     {
         HWND hwndTarget = GetFocus();
-        DPI_AWARENESS awareness = GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwndTarget));
-
-        if (awareness == DPI_AWARENESS_UNAWARE)
+        if (!hwndTarget)
         {
-            /* 宿主是非感知程序，需要反向缩放 */
-            DPI_AWARENESS_CONTEXT oldCtx = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-            HMONITOR hMon = MonitorFromWindow(hwndTarget, MONITOR_DEFAULTTONEAREST);
-            UINT dpiX = 96, dpiY = 96;
-            GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
-            SetThreadDpiAwarenessContext(oldCtx);
-            Global::DpiScale = dpiX / 96.0;
+            hwndTarget = GetForegroundWindow();
+        }
+
+        // Always refresh: a prior UNAWARE host can leave a stale DpiScale on this
+        // thread, which then mis-multiplies GetTextExt screen coords for DPI-aware
+        // apps (Word/Excel) — especially damaging on extended displays with
+        // negative virtual-desktop X.
+        Global::DpiScale = 1.0f;
+
+        if (hwndTarget)
+        {
+            DPI_AWARENESS awareness =
+                GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwndTarget));
+
+            if (awareness == DPI_AWARENESS_UNAWARE)
+            {
+                /* 宿主是非感知程序，需要反向缩放 */
+                DPI_AWARENESS_CONTEXT oldCtx =
+                    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+                HMONITOR hMon = MonitorFromWindow(hwndTarget, MONITOR_DEFAULTTONEAREST);
+                UINT dpiX = 96, dpiY = 96;
+                GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
+                SetThreadDpiAwarenessContext(oldCtx);
+                Global::DpiScale = dpiX / 96.0f;
+            }
         }
     }
 

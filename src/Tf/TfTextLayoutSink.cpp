@@ -242,6 +242,13 @@ HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect)
         lpRect->left = 0;
         lpRect->bottom = Global::INVALID_Y;
     }
+    else if (isClipped && lpRect && (lpRect->right <= lpRect->left || lpRect->bottom <= lpRect->top))
+    {
+        // Office often reports isClipped=TRUE with a still-usable rect; only reject
+        // degenerate clipped extents that would anchor the candidate off-screen.
+        lpRect->left = 0;
+        lpRect->bottom = Global::INVALID_Y;
+    }
     pContextView->Release();
 
 

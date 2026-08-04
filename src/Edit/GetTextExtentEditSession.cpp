@@ -46,6 +46,14 @@ STDAPI CGetTextExtentEditSession::DoEditSession(TfEditCookie ec)
 
     if (SUCCEEDED(hr))
     {
+        // Office may set isClipped with a usable rect; ignore only empty extents.
+        if (isClipped && (rc.right <= rc.left || rc.bottom <= rc.top))
+        {
+            Global::Point[0] = 0;
+            Global::Point[1] = Global::INVALID_Y;
+            return S_OK;
+        }
+
         Global::Point[0] = rc.left * Global::DpiScale;
         Global::Point[1] = rc.bottom * Global::DpiScale;
         if (Global::current_process_name == Global::ZEN_BROWSER)
