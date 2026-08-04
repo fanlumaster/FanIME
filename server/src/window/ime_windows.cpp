@@ -45,6 +45,25 @@ int g_settings_activation_retries_remaining = 0;
 bool g_is_ime_active = false;
 // Drop stale FineTune measure callbacks when a newer show/update supersedes them.
 std::atomic<uint64_t> g_candidate_finetune_generation{0};
+// SetWindowPos on the candidate host can synchronously deliver WM_DPICHANGED on
+// the same call stack (hide-to-offscreen, FineTune cross-monitor moves). Applying
+// the suggested rect or re-entering FineTune from that handler races the hide
+// park and can recurse until the UI thread stalls — seen when switching apps.
+int g_candidate_dpi_change_suppress_count = 0;
+
+struct SuppressCandidateDpiChange
+{
+    SuppressCandidateDpiChange()
+    {
+        ++g_candidate_dpi_change_suppress_count;
+    }
+    ~SuppressCandidateDpiChange()
+    {
+        --g_candidate_dpi_change_suppress_count;
+    }
+    SuppressCandidateDpiChange(const SuppressCandidateDpiChange &) = delete;
+    SuppressCandidateDpiChange &operator=(const SuppressCandidateDpiChange &) = delete;
+};
 
 int ConfiguredFloatingToolbarWidth()
 {
@@ -962,15 +981,20 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             scale = 1.5;
         }
-        SetWindowPos(                                                                    //
-            hwnd,                                                                        //
-            HWND_TOP,                                                                    //
-            0,                                                                           //
-            Global::INVALID_Y,                                                           //
-            (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
-            (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-            SWP_SHOWWINDOW                                                               //
-        );
+        {
+            // Park off-screen. Suppress WM_DPICHANGED so Windows' suggested
+            // on-monitor rect cannot undo INVALID_Y or re-enter SetWindowPos.
+            SuppressCandidateDpiChange suppressDpi;
+            SetWindowPos(                                                                    //
+                hwnd,                                                                        //
+                HWND_TOP,                                                                    //
+                0,                                                                           //
+                Global::INVALID_Y,                                                           //
+                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
+                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
+                SWP_SHOWWINDOW                                                               //
+            );
+        }
         SetHostWindowCloaked(hwnd, true);
         UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         /* 候选词部分使用全角空格来占位 */
@@ -988,20 +1012,23 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_DPICHANGED)
     {
-        // Do not accept DefWindowProc's suggested resize: the stable host size
-        // and MarginLeft are DIP-derived. Re-run FineTune so card + SetWindowRgn
-        // stay aligned after a cross-monitor DPI change.
+        // Never apply the suggested rect or FineTune while we are inside our own
+        // SetWindowPos: that path is what delivers this message synchronously on
+        // focus-switch hide, and re-entering stalls the server UI thread.
+        if (g_candidate_dpi_change_suppress_count > 0)
+        {
+            return 0;
+        }
+
+        // Visible candidate: FineTune already re-syncs HWND DPI after its own
+        // SetWindowPos. For external DPI changes, defer via the move message so
+        // we never nest ExecuteScript/measure on this stack.
         if (::is_global_wnd_cand_shown && Global::Point[1] != Global::INVALID_Y)
         {
-            FineTuneWindow(hwnd);
+            PostMessage(hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
         }
-        else if (const auto *suggested = reinterpret_cast<const RECT *>(lParam))
-        {
-            SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
-                         suggested->right - suggested->left, suggested->bottom - suggested->top,
-                         SWP_NOZORDER | SWP_NOACTIVATE);
-            SyncCandidateWebViewBoundsToHost(hwnd);
-        }
+        // Hidden: keep the off-screen park / warmup size. DefWindowProc must not
+        // run — returning 0 without SetWindowPos is intentional.
         return 0;
     }
 
@@ -2125,15 +2152,19 @@ int FineTuneWindow(HWND hwnd)
 
         // Geometry changes are rare now (stable 720 DIP host). Do not cloak —
         // card motion is CSS margin inside the already-placed transparent host.
-        const BOOL positioned = SetWindowPos( //
-            hwnd,   //
-            nullptr, //
-            hostX,  //
-            hostY,  //
-            newWidth,  //
-            newHeight, //
-            newFlag    //
-        );
+        BOOL positioned = FALSE;
+        {
+            SuppressCandidateDpiChange suppressDpi;
+            positioned = SetWindowPos( //
+                hwnd,   //
+                nullptr, //
+                hostX,  //
+                hostY,  //
+                newWidth,  //
+                newHeight, //
+                newFlag    //
+            );
+        }
 
         // After the host lands on the caret's monitor, Per-Monitor V2 may update
         // HWND DPI. Re-sync physical size + CSS margins to that scale so
@@ -2178,7 +2209,10 @@ int FineTuneWindow(HWND hwnd)
             {
                 return;
             }
-            SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+            {
+                SuppressCandidateDpiChange suppressDpi;
+                SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+            }
             newWidth = hostWidthPx;
             newHeight = hostHeightPx;
             newFlag = flag;
