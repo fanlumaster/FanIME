@@ -1,6 +1,12 @@
-# AGENTS.md — MetasequoiaImeTsf 协作约定
+# AGENTS.md — 水杉输入法（Metasequoia IME）协作约定
 
-> 给在本仓工作的 AI / 人类协作者。本项目是水杉输入法的 Windows TSF 前端：一个会被加载进宿主进程的 C++17 COM DLL，经 Named Pipe 与 `MetasequoiaImeServer` 协作。
+> **本文件统领整个水杉输入法项目**，不只限于本仓（`MetasequoiaImeTsf`）。相邻的
+> `MetasequoiaImeServer`、`MetasequoiaImeEngine`、`MetasequoiaImeDict`、`MetasequoiaImeUiHtml`、
+> `Installer` 等组件虽是独立 Git 仓库，但产品级约定、跨仓契约与共享数据规则以本文件为准。
+> 在任一相关仓库改动前，先核对这里的边界与硬约定。
+>
+> 本仓自身是水杉输入法的 Windows TSF 前端：一个会被加载进宿主进程的 C++17 COM DLL，经 Named Pipe
+> 与 `MetasequoiaImeServer` 协作。下文「本仓地图」等章节描述 TSF 细节；跨仓规则对所有组件生效。
 
 ## 本仓地图
 
@@ -22,7 +28,8 @@
 
 ## 相关仓库地图
 
-各组件是相邻的独立 Git 仓库。改动前先确认职责归属，不要把 Server 或网页前端逻辑塞进 TSF DLL：
+各组件是相邻的独立 Git 仓库，但**仍属同一产品**；本 `AGENTS.md` 对它们统一生效。改动前先确认
+职责归属，不要把 Server 或网页前端逻辑塞进 TSF DLL，也不要在旁路仓里另起一套与本文件冲突的约定：
 
 | 位置 | 职责 | 与本仓的关系 |
 |---|---|---|
@@ -35,6 +42,32 @@
 | `../MetasequoiaImeLog/` | 水杉输入法各组件的日志采集工具 | 排查 TSF、Server 与 WebView2 联动问题时使用 |
 | `../Installer/` | 安装与发布打包 | 负责部署/注册 TSF DLL、Server、网页资源和清单；改产物路径或文件名时需同步检查 |
 | `../MetasequoiaIME/` | 产品总览与项目入口文档 | 面向整体产品说明，不承载 TSF 运行时代码 |
+
+### 全拼音库分表命名（跨仓硬约定）
+
+全拼主库 `msime.db` 按**音节数（汉字数）+ 首音节首字母**分表。建库、查询、设置页加词、用户词库
+回放必须使用同一规则；任何一侧自行拼表名都会在升级回放或加词时踩空表。
+
+权威参考：
+
+- 建库：`MetasequoiaImeDict/makecikudb/quanpindb/makedb/multi_table_has_jp/create_db_and_table.py`
+- 查询：`MetasequoiaImeEngine/quanpin/quanpin_query.cpp` 中的 `build_table_name`（`segments.size() >= 8`
+  → `tbl_others_*`）
+- 设置页加词：经 `quanpin::build_table_name`，不要另写一套
+- 用户词库写入/升级回放：`user_dictionary_journal.cpp` 的 `pinyin_table` **必须与上述规则一致**
+
+规则：
+
+| 音节数 | 表名 | 示例 |
+|---|---|---|
+| 1–7 | `tbl_{N}_{首字母}` | `ni'hao` → `tbl_2_n` |
+| ≥ 8 | `tbl_others_{首字母}` | `shui'shan'shu'ru'fa'hai'ke'yi` → `tbl_others_s` |
+
+- 首字母取**第一个音节的第一个字符**（小写拉丁字母）。
+- **禁止**对 ≥ 8 音节拼出 `tbl_8_*`、`tbl_9_*` 等表名：建库脚本不会创建这些表，写入/回放会失败。
+- 安装升级时 `MetasequoiaImeDictionaryReplay` 会把 `msime_user.db` 中的操作回放到新 `msime.db`；
+  表名不一致会导致整批回滚并中止安装。改分表规则时必须同步改建库、查询、设置加词与回放四处，
+  并补回放测试。
 
 ### Server、WebView2 与前端的边界
 
