@@ -7,6 +7,49 @@
 #include <utility>
 #include <winuser.h>
 #include <dwmapi.h>
+#include <shellscalingapi.h>
+
+#pragma comment(lib, "Shcore.lib")
+
+namespace
+{
+MonitorCoordinates MonitorCoordinatesFromHandle(HMONITOR hMonitor)
+{
+    MonitorCoordinates coordinates{};
+    if (!hMonitor)
+    {
+        return coordinates;
+    }
+
+    MONITORINFO monitorInfo = {sizeof(monitorInfo)};
+    if (!GetMonitorInfo(hMonitor, &monitorInfo))
+    {
+        return coordinates;
+    }
+
+    coordinates.left = monitorInfo.rcMonitor.left;
+    coordinates.top = monitorInfo.rcMonitor.top;
+    coordinates.right = monitorInfo.rcMonitor.right;
+    coordinates.bottom = monitorInfo.rcMonitor.bottom;
+    return coordinates;
+}
+
+FLOAT ScaleFromMonitor(HMONITOR hMonitor)
+{
+    if (!hMonitor)
+    {
+        return GetForegroundWindowScale();
+    }
+
+    UINT dpiX = USER_DEFAULT_SCREEN_DPI;
+    UINT dpiY = USER_DEFAULT_SCREEN_DPI;
+    if (FAILED(GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY)) || dpiX == 0)
+    {
+        return GetForegroundWindowScale();
+    }
+    return static_cast<FLOAT>(dpiX) / static_cast<FLOAT>(USER_DEFAULT_SCREEN_DPI);
+}
+} // namespace
 
 FLOAT GetWindowScale(HWND hwnd)
 {
@@ -35,6 +78,16 @@ FLOAT GetForegroundWindowScale()
     return scale;
 }
 
+FLOAT GetScaleForPoint(POINT pt)
+{
+    return ScaleFromMonitor(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+}
+
+MonitorCoordinates GetMonitorCoordinatesFromPoint(POINT pt)
+{
+    return MonitorCoordinatesFromHandle(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+}
+
 //+---------------------------------------------------------------------------
 //
 // GetMonitorCoordinates
@@ -43,31 +96,13 @@ FLOAT GetForegroundWindowScale()
 
 MonitorCoordinates GetMonitorCoordinates()
 {
-    MonitorCoordinates coordinates;
     HWND hwnd = GetForegroundWindow();
-    FLOAT scale = GetWindowScale(hwnd);
     HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     if (!hMonitor)
     {
-        // TODO: log
-        return coordinates;
+        return MonitorCoordinates{};
     }
-
-    MONITORINFO monitorInfo = {sizeof(monitorInfo)};
-    if (GetMonitorInfo(hMonitor, &monitorInfo))
-    {
-        int width = (monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left);
-        int height = (monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top);
-        coordinates.left = monitorInfo.rcMonitor.left;
-        coordinates.top = monitorInfo.rcMonitor.top;
-        coordinates.right = coordinates.left + width;
-        coordinates.bottom = coordinates.top + height;
-    }
-    else
-    {
-        // TODO: log
-    }
-    return coordinates;
+    return MonitorCoordinatesFromHandle(hMonitor);
 }
 
 /**
@@ -140,11 +175,18 @@ int AdjustCandidateWindowPosition(                  //
 
     properPos->first = point->x;
     properPos->second = point->y + 3;
-    MonitorCoordinates coordinates = GetMonitorCoordinates();
-    FLOAT scale = GetForegroundWindowScale();
-    int width = containerSize.first * scale;
+    // Clamp against the caret's monitor, not GetForegroundWindow()'s. Word/Excel
+    // focus transitions on an extended display can otherwise pull the card onto
+    // the wrong screen and clip its left edge at the virtual-desktop seam.
+    MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(*point);
+    FLOAT scale = GetScaleForPoint(*point);
+    int width = static_cast<int>(std::ceil(containerSize.first * scale));
     const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
     const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));
+    if (properPos->first + width > coordinates.right)
+    {
+        properPos->first = coordinates.right - width - 2;
+    }
     if (properPos->first < coordinates.left)
     {
         properPos->first = coordinates.left + 2;
@@ -153,10 +195,6 @@ int AdjustCandidateWindowPosition(                  //
     {
         properPos->second = coordinates.top + 2;
     }
-    if (properPos->first + width > coordinates.right)
-    {
-        properPos->first = coordinates.right - width - 2;
-    }
 
     if (properPos->second + boundary_height > coordinates.bottom)
     {
@@ -164,6 +202,10 @@ int AdjustCandidateWindowPosition(                  //
         if (is_vertical && containerSize.second < max_vertical_container_height)
         {
             Global::MarginTop = static_cast<int>(std::ceil(max_vertical_container_height - containerSize.second));
+        }
+        if (properPos->second < coordinates.top)
+        {
+            properPos->second = coordinates.top + 2;
         }
     }
     return 0;

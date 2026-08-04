@@ -5,6 +5,10 @@
 
 FLOAT GetWindowScale(HWND);
 FLOAT GetForegroundWindowScale();
+// Prefer the monitor that contains the caret / composition anchor. Foreground
+// HWND can disagree with the caret on Office extended-display setups.
+FLOAT GetScaleForPoint(POINT pt);
+MonitorCoordinates GetMonitorCoordinatesFromPoint(POINT pt);
 
 MonitorCoordinates GetMonitorCoordinates();
 MonitorCoordinates GetMainMonitorCoordinates();

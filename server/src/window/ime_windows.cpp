@@ -100,7 +100,21 @@ void ClipCandidateWindowToContent(
     const std::pair<double, double> &containerSize,
     FLOAT scale)
 {
-    if (!hwnd || scale <= 0.0f)
+    if (!hwnd)
+    {
+        return;
+    }
+
+    // Region math must use the candidate HWND's DPI — WebView2 rasterizes CSS
+    // DIPs (MarginLeft/Top) against that scale. A stale foreground/caret scale
+    // that is larger than the HWND scale shifts the region right and truncates
+    // the left of the card (seen on mixed-DPI extended displays in Office).
+    FLOAT clipScale = GetWindowScale(hwnd);
+    if (clipScale <= 0.0f)
+    {
+        clipScale = scale;
+    }
+    if (clipScale <= 0.0f)
     {
         return;
     }
@@ -116,22 +130,27 @@ void ClipCandidateWindowToContent(
     // windows (including WebView2) are clipped by the parent region, so points
     // outside the real candidate card fall through to the editor and preserve
     // its I-beam cursor.
+    //
+    // Reserve left/top shadow the same way as the right/bottom edges so a
+    // box-shadow painted slightly outside the measured card is not clipped.
     const int left = (std::max)(
         static_cast<int>(client.left),
-        static_cast<int>(std::floor(Global::MarginLeft * static_cast<double>(scale))));
+        static_cast<int>(std::floor(
+            (Global::MarginLeft - ::SHADOW_WIDTH) * static_cast<double>(clipScale))));
     const int top = (std::max)(
         static_cast<int>(client.top),
-        static_cast<int>(std::floor(Global::MarginTop * static_cast<double>(scale))));
+        static_cast<int>(std::floor(
+            (Global::MarginTop - ::SHADOW_HEIGHT) * static_cast<double>(clipScale))));
     const int right = (std::min)(
         static_cast<int>(client.right),
         static_cast<int>(std::ceil(
             (Global::MarginLeft + containerSize.first + ::SHADOW_WIDTH) *
-            static_cast<double>(scale))));
+            static_cast<double>(clipScale))));
     const int bottom = (std::min)(
         static_cast<int>(client.bottom),
         static_cast<int>(std::ceil(
             (Global::MarginTop + containerSize.second + ::SHADOW_HEIGHT) *
-            static_cast<double>(scale))));
+            static_cast<double>(clipScale))));
 
     if (right <= left || bottom <= top)
     {
@@ -964,6 +983,25 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     if (message == WM_MOVE_CANDIDATE_WINDOW)
     {
         FineTuneWindow(hwnd);
+        return 0;
+    }
+
+    if (message == WM_DPICHANGED)
+    {
+        // Do not accept DefWindowProc's suggested resize: the stable host size
+        // and MarginLeft are DIP-derived. Re-run FineTune so card + SetWindowRgn
+        // stay aligned after a cross-monitor DPI change.
+        if (::is_global_wnd_cand_shown && Global::Point[1] != Global::INVALID_Y)
+        {
+            FineTuneWindow(hwnd);
+        }
+        else if (const auto *suggested = reinterpret_cast<const RECT *>(lParam))
+        {
+            SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
+                         suggested->right - suggested->left, suggested->bottom - suggested->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+            SyncCandidateWebViewBoundsToHost(hwnd);
+        }
         return 0;
     }
 
@@ -1940,10 +1978,13 @@ int FineTuneWindow(HWND hwnd)
 {
     UINT flag = SWP_NOZORDER | SWP_SHOWWINDOW;
 
-    FLOAT scale = GetForegroundWindowScale();
-
     int caretX = Global::Point[0];
     int caretY = Global::Point[1];
+    POINT caretPt{caretX, caretY};
+    // Size/clamp against the composition anchor's monitor DPI — not the
+    // foreground HWND — so mixed-DPI extended screens stay consistent.
+    FLOAT scale = GetScaleForPoint(caretPt);
+
     (void)0;
     if (!webviewCandWnd)
     {
@@ -2000,47 +2041,62 @@ int FineTuneWindow(HWND hwnd)
         // the default height so right-edge growth does not SetWindowPos-move the
         // host (which flashes through layered transparency). The card is offset
         // inside with MarginLeft / MarginTop instead.
+        auto computeHostPixels = [](double heightDip, FLOAT hostScale) {
+            // Include left and right shadow so ClipCandidateWindowToContent can
+            // reserve SHADOW_* on both sides without clamping the card away.
+            const double hostContentWidthDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+            const int hostWidthPx = static_cast<int>(std::lround(
+                (hostContentWidthDip + (2.0 * ::SHADOW_WIDTH) + ::POP_UP_WND_WIDTH) * hostScale));
+            const int hostHeightPx = static_cast<int>(std::lround(
+                (heightDip + (2.0 * ::SHADOW_HEIGHT) + ::POP_UP_WND_HEIGHT) * hostScale));
+            return std::pair<int, int>{hostWidthPx, hostHeightPx};
+        };
+
         double heightDip = (std::max)(containerSize.second, static_cast<double>(::CANDIDATE_WINDOW_HEIGHT));
         if (Global::MarginTop > 0)
         {
             heightDip = containerSize.second + static_cast<double>(Global::MarginTop);
         }
-        const double hostContentWidthDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
-        const double hostContentHeightDip = heightDip;
 
-        const int hostWidthPx =
-            static_cast<int>((hostContentWidthDip + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale);
-        const int hostHeightPx =
-            static_cast<int>((hostContentHeightDip + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale);
+        FLOAT layoutScale = scale;
+        auto hostPx = computeHostPixels(heightDip, layoutScale);
+        int hostWidthPx = hostPx.first;
+        int hostHeightPx = hostPx.second;
 
-        MonitorCoordinates coordinates = GetMonitorCoordinates();
+        MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
         int hostX = properPos->first;
         int hostY = properPos->second;
-        if (hostX < coordinates.left)
-        {
-            hostX = coordinates.left + 2;
-        }
-        if (hostY < coordinates.top)
-        {
-            hostY = coordinates.top + 2;
-        }
+        // Right/bottom first, then re-clamp left/top so a host wider/taller than
+        // the monitor cannot be pushed past the caret's screen edge.
         if (hostX + hostWidthPx > coordinates.right)
         {
             hostX = coordinates.right - hostWidthPx - 2;
+        }
+        if (hostX < coordinates.left)
+        {
+            hostX = coordinates.left + 2;
         }
         if (hostY + hostHeightPx > coordinates.bottom)
         {
             hostY = coordinates.bottom - hostHeightPx - 2;
         }
+        if (hostY < coordinates.top)
+        {
+            hostY = coordinates.top + 2;
+        }
 
-        // CSS dips inside the WebView (same units as measured containerSize).
-        const int offsetXDip =
-            static_cast<int>(std::lround((properPos->first - hostX) / static_cast<double>(scale)));
-        const int offsetYDip =
-            static_cast<int>(std::lround((properPos->second - hostY) / static_cast<double>(scale)));
-        Global::MarginLeft = (std::max)(0, offsetXDip);
-        // Keep vertical packing from Adjust, then add clamp-induced Y offset.
-        Global::MarginTop = (std::max)(0, Global::MarginTop) + (std::max)(0, offsetYDip);
+        // Adjust may set MarginTop for vertical packing; keep that separate from
+        // the Y offset introduced when the host is clamped inside the monitor.
+        const int packingMarginTop = (std::max)(0, Global::MarginTop);
+        auto applyCardMargins = [&](FLOAT marginScale) {
+            const int offsetXDip = static_cast<int>(
+                std::lround((properPos->first - hostX) / static_cast<double>(marginScale)));
+            const int offsetYDip = static_cast<int>(
+                std::lround((properPos->second - hostY) / static_cast<double>(marginScale)));
+            Global::MarginLeft = (std::max)(0, offsetXDip);
+            Global::MarginTop = packingMarginTop + (std::max)(0, offsetYDip);
+        };
+        applyCardMargins(layoutScale);
 
         int newWidth = hostWidthPx;
         int newHeight = hostHeightPx;
@@ -2078,6 +2134,56 @@ int FineTuneWindow(HWND hwnd)
             newHeight, //
             newFlag    //
         );
+
+        // After the host lands on the caret's monitor, Per-Monitor V2 may update
+        // HWND DPI. Re-sync physical size + CSS margins to that scale so
+        // MarginLeft*HWND_DPI matches WebView painting and SetWindowRgn.
+        FLOAT hwndScale = GetWindowScale(hwnd);
+        if (hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
+        {
+            layoutScale = hwndScale;
+            hostPx = computeHostPixels(heightDip, layoutScale);
+            hostWidthPx = hostPx.first;
+            hostHeightPx = hostPx.second;
+
+            AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+            hostX = properPos->first;
+            hostY = properPos->second;
+            if (hostX + hostWidthPx > coordinates.right)
+            {
+                hostX = coordinates.right - hostWidthPx - 2;
+            }
+            if (hostX < coordinates.left)
+            {
+                hostX = coordinates.left + 2;
+            }
+            if (hostY + hostHeightPx > coordinates.bottom)
+            {
+                hostY = coordinates.bottom - hostHeightPx - 2;
+            }
+            if (hostY < coordinates.top)
+            {
+                hostY = coordinates.top + 2;
+            }
+
+            const int resyncPackingMarginTop = (std::max)(0, Global::MarginTop);
+            const int offsetXDip = static_cast<int>(
+                std::lround((properPos->first - hostX) / static_cast<double>(layoutScale)));
+            const int offsetYDip = static_cast<int>(
+                std::lround((properPos->second - hostY) / static_cast<double>(layoutScale)));
+            Global::MarginLeft = (std::max)(0, offsetXDip);
+            Global::MarginTop = resyncPackingMarginTop + (std::max)(0, offsetYDip);
+
+            if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+            {
+                return;
+            }
+            SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+            newWidth = hostWidthPx;
+            newHeight = hostHeightPx;
+            newFlag = flag;
+        }
+
         if ((newFlag & SWP_NOSIZE) == 0)
         {
             SyncCandidateWebViewBoundsToHost(hwnd);
@@ -2087,14 +2193,14 @@ int FineTuneWindow(HWND hwnd)
             webviewControllerCandWnd->NotifyParentWindowPositionChanged();
         }
 
-        InflateCandWnd(str, [hwnd, positioned, generation, containerSize, scale]() {
+        InflateCandWnd(str, [hwnd, positioned, generation, containerSize, layoutScale]() {
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
                 return;
             }
             // Apply the native clip only after the DOM has received the same
             // margins and content dimensions, avoiding a transient mismatch.
-            ClipCandidateWindowToContent(hwnd, containerSize, scale);
+            ClipCandidateWindowToContent(hwnd, containerSize, layoutScale);
             // Hide/warmup leave the host DWM-cloaked; reveal after content is ready.
             SetHostWindowCloaked(hwnd, false);
             UpdateSmallWindowWebviewVisibility(hwnd, true);
