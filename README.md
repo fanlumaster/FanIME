@@ -1,117 +1,112 @@
-# Metasequoia IME TSF(水杉输入法 TSF 端)
+# 水杉输入法
 
-This is the main part of the Metasequoia IME. To learn more about this project, please visit the docs site:
+一款开源的自由 Windows 输入法。
 
-- [Metasequoia IME](https://github.com/metasequoiaime/MetasequoiaIME).
+## 项目结构
 
-## How to build
+- [MetasequoiaImeTsf](https://github.com/metasequoiaime/MetasequoiaImeTsf): 核心 TSF。
+- [MetasequoiaImeServer](https://github.com/metasequoiaime/MetasequoiaImeServer): Server 端，负责算法和窗口渲染。
+- [MetasequoiaImeUiHtml](https://github.com/metasequoiaime/MetasequoiaImeUiHtml): UI。
+- [MetasequoiaImeDict](https://github.com/metasequoiaime/MetasequoiaImeDict): 词库。
+- [MetasequoiaImeHelpCode](https://github.com/metasequoiaime/MetasequoiaImeHelpCode): 辅助码。
 
-### Prerequisites
+## 功能简介
 
-- Visual Studio 2026
-- CMake
-- vcpkg
-- Python3.10+
-- gsudo
+- 支持全拼、双拼、五笔86。
+- 拼音方案支持辅助码。
+- 支持谷歌云联想。
+- 支持 DeepSeek AI 联想。
+- 支持词库管理、批量导入、导出。
+- 支持手写识别。
+- 支持快捷短语。
 
-Make sure vcpkg and gsudo is installed by **Scoop**.
+## 软件截图
 
-## Build steps
+<img src="https://i.imgur.com/1gDQFix.png" width="750">
 
-### Build
+<img src="https://i.imgur.com/MxRcKYT.png" width="750">
 
-First, clone the repository,
+<img src="https://i.imgur.com/5MG33lH.png" width="750">
 
-```powershell
-git clone --recursive https://github.com/metasequoiaime/MetasequoiaImeTsf.git
-```
+<img src="https://i.imgur.com/gnJwoVa.png" width="750">
 
-Then, prepare the environment,
+<img src="https://i.imgur.com/wBwpuUT.png" width="750">
 
-```powershell
-cd MetasequoiaImeTsf
-python .\scripts\prepare_env.py
-```
+<img src="https://i.imgur.com/VcjIaeV.png" width="750">
 
-Then, build both 64-bit and 32-bit dll files,
+<!-- 暗色 -->
 
-```powershell
-.\scripts\lcompile.ps1 64
-.\scripts\lcompile.ps1 32
-```
+<img src="https://i.imgur.com/tRLZR5g.png" width="750">
 
-### Install
+<img src="https://i.imgur.com/oc2kxrk.png" width="750">
 
-Launch powershell as administrator, make sure you turn on the system `Enable sudo` option.
+<img src="https://i.imgur.com/WEpvoMJ.png" width="750">
 
-![](https://i.postimg.cc/zJCn9Cnn/image.png)
+<img src="https://i.imgur.com/zqRmXeK.png" width="750">
 
-Then, create a folder in `C:\Program Files\` named `MetasequoiaImeTsf`, and copy the 64-bit version `MetasequoiaImeTsf.dll` to it, alse create a folder in `C:\Program Files (x86)\` named `MetasequoiaImeTsf`, and copy the 32-bit version `MetasequoiaImeTsf.dll` to it.
+<img src="https://i.imgur.com/ZZbxLI6.png" width="750">
 
-```powershell
-gsudo
-Copy-Item -Path ".\build64\Debug\MetasequoiaImeTsf.dll" -Destination "C:\Program Files\MetasequoiaImeTsf"
-Copy-Item -Path ".\build32\Debug\MetasequoiaImeTsf.dll" -Destination "C:\Program Files (x86)\MetasequoiaImeTsf"
-```
+<img src="https://i.imgur.com/t230FKL.png" width="750">
 
-Then, install it,
+<img src="https://i.imgur.com/DVuCNwh.png" width="750">
 
-```powershell
-cd "C:\Program Files\MetasequoiaImeTsf"
-sudo regsvr32 .\MetasequoiaImeTsf.dll
-cd "C:\Program Files (x86)\MetasequoiaImeTsf"
-sudo regsvr32 .\MetasequoiaImeTsf.dll
-```
+<img src="https://i.imgur.com/vP2JKWl.png" width="750">
 
-### Uninstall
+<img src="https://i.imgur.com/ob7CMJY.png" width="750">
 
-```powershell
-cd "C:\Program Files\MetasequoiaImeTsf"
-sudo regsvr32 /u .\MetasequoiaImeTsf.dll
-cd "C:\Program Files (x86)\MetasequoiaImeTsf"
-sudo regsvr32 /u .\MetasequoiaImeTsf.dll
-```
+<img src="https://i.imgur.com/arNbZ0W.png" width="750">
 
-## Screenshots
+<img src="https://i.imgur.com/yO0702r.png" width="750">
 
-![](https://i.imgur.com/hYPpwK4.png)
+<img src="https://i.imgur.com/NPWQkCc.png" width="750">
 
-![](https://i.imgur.com/1Tzd7zn.png)
+<img src="https://i.imgur.com/BAsOyFp.png" width="750">
 
-![](https://i.imgur.com/SsLCCCX.png)
+<img src="https://i.imgur.com/TPhgU7I.png" width="750">
 
-![](https://i.imgur.com/jwnWQLI.png)
+<img src="https://i.imgur.com/B8Ruf1a.png" width="750">
 
-![](https://i.postimg.cc/2m9WJTgR/image.png)
+<!-- 亮色 -->
 
-![](https://i.postimg.cc/L96qQZT8/image.png)
+<img src="https://i.imgur.com/dkXHbPm.png" width="750">
 
-![](https://i.postimg.cc/FNcz9QTv/image.png)
+<img src="https://i.imgur.com/LXUSCO7.png" width="750">
 
-## Roadmap
+<img src="https://i.imgur.com/N4kvmbk.png" width="750">
 
-Currently only support Xiaohe Shuangpin.
+<img src="https://i.imgur.com/L5INOHa.png" width="750">
 
-### Chinese
+<img src="https://i.imgur.com/3xS1sm1.png" width="750">
 
-- Xiaohe Shuangpin
-- Quanpin
-- Help codes in use of Hanzi Components
-- Dictionary that can be customized
-- Customized IME engine
-- Customized skins
-- Toggle between Simplified Chinese and Traditional Chinese
-- English autocomplete
-- Open-Sourced Cloud IME api
-- Toggle candidate window UI between vertical mode and horizontal mode
-- Feature switches: most features should be freely toggled or customized by users
+<img src="https://i.imgur.com/v5rOXHK.png" width="750">
 
-### Japanese Support
+<img src="https://i.imgur.com/StGSNgr.png" width="750">
 
-Maybe another project.
+<img src="https://i.imgur.com/wxMWSWO.png" width="750">
 
-And maybe some other languages support.
+<img src="https://i.imgur.com/yWEjkzW.png" width="750">
 
-### References
+<img src="https://i.imgur.com/YdFe3Xl.png" width="750">
 
-- [MS-TSF-IME-Demo](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/IME/cpp/SampleIME)
+<img src="https://i.imgur.com/TRA7EIn.png" width="750">
+
+<img src="https://i.imgur.com/5HWoZxp.png" width="750">
+
+<img src="https://i.imgur.com/vrMZO0V.png" width="750">
+
+<img src="https://i.imgur.com/ItvUPhh.png" width="750">
+
+<img src="https://i.imgur.com/2luG8Iy.png" width="750">
+
+## 开源协议
+
+GPL-3.0。
+
+## 参考
+
+以下是一些 Windows 的开源输入法的参考项目。
+
+- [Microsoft TSF IME Demo](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/IME/cpp/SampleIME)
+- [weasel](https://github.com/rime/weasel)
+- [PIME](https://github.com/EasyIME/PIME)
+- [WindInput](https://github.com/huanfeng/WindInput)
