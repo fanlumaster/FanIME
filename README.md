@@ -36,67 +36,11 @@
 
 <!-- 暗色 -->
 
-<img src="https://i.imgur.com/tRLZR5g.png" width="750">
-
-<img src="https://i.imgur.com/oc2kxrk.png" width="750">
-
-<img src="https://i.imgur.com/WEpvoMJ.png" width="750">
-
-<img src="https://i.imgur.com/zqRmXeK.png" width="750">
-
-<img src="https://i.imgur.com/ZZbxLI6.png" width="750">
-
-<img src="https://i.imgur.com/t230FKL.png" width="750">
-
-<img src="https://i.imgur.com/DVuCNwh.png" width="750">
-
-<img src="https://i.imgur.com/vP2JKWl.png" width="750">
-
-<img src="https://i.imgur.com/ob7CMJY.png" width="750">
-
-<img src="https://i.imgur.com/arNbZ0W.png" width="750">
-
-<img src="https://i.imgur.com/yO0702r.png" width="750">
-
-<img src="https://i.imgur.com/NPWQkCc.png" width="750">
-
-<img src="https://i.imgur.com/BAsOyFp.png" width="750">
-
-<img src="https://i.imgur.com/TPhgU7I.png" width="750">
-
-<img src="https://i.imgur.com/B8Ruf1a.png" width="750">
+<img src="https://i.imgur.com/YgxjjEz.png" width="780">
 
 <!-- 亮色 -->
 
-<img src="https://i.imgur.com/dkXHbPm.png" width="750">
-
-<img src="https://i.imgur.com/LXUSCO7.png" width="750">
-
-<img src="https://i.imgur.com/N4kvmbk.png" width="750">
-
-<img src="https://i.imgur.com/L5INOHa.png" width="750">
-
-<img src="https://i.imgur.com/3xS1sm1.png" width="750">
-
-<img src="https://i.imgur.com/v5rOXHK.png" width="750">
-
-<img src="https://i.imgur.com/StGSNgr.png" width="750">
-
-<img src="https://i.imgur.com/wxMWSWO.png" width="750">
-
-<img src="https://i.imgur.com/yWEjkzW.png" width="750">
-
-<img src="https://i.imgur.com/YdFe3Xl.png" width="750">
-
-<img src="https://i.imgur.com/TRA7EIn.png" width="750">
-
-<img src="https://i.imgur.com/5HWoZxp.png" width="750">
-
-<img src="https://i.imgur.com/vrMZO0V.png" width="750">
-
-<img src="https://i.imgur.com/ItvUPhh.png" width="750">
-
-<img src="https://i.imgur.com/2luG8Iy.png" width="750">
+<img src="https://i.imgur.com/dkXHbPm.png" width="780">
 
 ## 开源协议
 
@@ -110,3 +54,12 @@ GPL-3.0。
 - [weasel](https://github.com/rime/weasel)
 - [PIME](https://github.com/EasyIME/PIME)
 - [WindInput](https://github.com/huanfeng/WindInput)
+
+## 社区推广
+
+本项目已通过以下社区进行自然推广。
+
+- <https://www.zhihu.com/>
+- <https://www.v2ex.com/>
+- <https://2libra.com/>
+- <https://linux.do/>
