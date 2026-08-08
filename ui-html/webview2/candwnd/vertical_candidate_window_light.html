@@ -11,6 +11,9 @@
       --cand-font-size: 16px;
       --cand-text: #1a1a1a;
       --cand-num: rgba(26, 26, 26, 0.55);
+      /* Fallback before C++ injects host-width DIP. Wrap limit = 宿主宽度. */
+      --msime-max-width-dip: 100%;
+      --msime-max-height-dip: 100%;
     }
 
     body {
@@ -25,7 +28,7 @@
 
     .containerParent {
       width: fit-content;
-      max-width: 720px;
+      max-width: var(--msime-max-width-dip);
     }
 
     .container {
@@ -37,11 +40,18 @@
       border-radius: 6px;
       box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
       min-width: 7em;
-      width: min(720px, fit-content);
-      max-width: 720px;
+      width: min(fit-content, var(--msime-max-width-dip));
+      max-width: var(--msime-max-width-dip);
+      /* Host height in DIP (injected). Do not use min(100%, …): parent height is
+         content-sized so 100% never resolves and tall vertical lists get clipped
+         by the HWND instead of scrolling. */
+      max-height: var(--msime-max-height-dip);
       box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
       overflow-wrap: anywhere;
       word-break: break-word;
+      white-space: normal;
       user-select: none;
       border: 1.5px solid rgba(0, 0, 0, 0.12);
     }
@@ -629,6 +639,64 @@
     </div>
     <div id="menuDelete" class="context-menu-item" onmouseup="onDelete(event)">删除</div>
   </div>
+<script>
+(function () {
+  var SURFACE = 'cand';
+  var SELECTOR = '#realContainer';
+  var COOLDOWN_MS = 450;
+  var lastSent = 0;
+  var pending = false;
+  function el() { return document.querySelector(SELECTOR); }
+  function truncated(node) {
+    if (!node) return false;
+    var vw = document.documentElement.clientWidth;
+    var vh = document.documentElement.clientHeight;
+    var r = node.getBoundingClientRect();
+    var pad = 1.5;
+    return node.scrollWidth > vw + pad || node.scrollHeight > vh + pad ||
+      r.width > vw + pad || r.height > vh + pad ||
+      r.right > vw + pad || r.bottom > vh + pad;
+  }
+  function report() {
+    var node = el();
+    if (!node || !truncated(node)) return;
+    if (!window.chrome || !window.chrome.webview) return;
+    var now = Date.now();
+    if (now - lastSent < COOLDOWN_MS) return;
+    lastSent = now;
+    var r = node.getBoundingClientRect();
+    window.chrome.webview.postMessage(JSON.stringify({
+      type: 'contentTruncated',
+      data: {
+        surface: SURFACE,
+        width: Math.ceil(Math.max(r.width, node.scrollWidth || 0)),
+        height: Math.ceil(Math.max(r.height, node.scrollHeight || 0)),
+        viewportWidth: document.documentElement.clientWidth,
+        viewportHeight: document.documentElement.clientHeight
+      }
+    }));
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        pending = false;
+        report();
+      });
+    });
+  }
+  window.CheckContentTruncation = schedule;
+  window.addEventListener('resize', schedule);
+  window.addEventListener('load', schedule);
+  if (typeof ResizeObserver !== 'undefined') {
+    var ro = new ResizeObserver(schedule);
+    ro.observe(document.documentElement);
+    var node = el();
+    if (node) ro.observe(node);
+  }
+})();
+</script>
 </body>
 
 </html>

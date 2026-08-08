@@ -15,6 +15,9 @@
       --ftb-radius: 8px;
       --ftb-handle-width: 2.5px;
       --ftb-handle-height: 14px;
+      /* Filled by C++ from half-monitor DIPs (DPI-aware). */
+      --msime-max-width-dip: 50vw;
+      --msime-max-height-dip: 50vh;
     }
 
     html,
@@ -32,11 +35,17 @@
     /* 状态栏整体样式 */
     .status-bar {
       position: absolute;
-      height: calc(var(--ftb-bar-height) * var(--ftb-scale));
+      box-sizing: border-box;
+      height: auto;
+      min-height: calc(var(--ftb-bar-height) * var(--ftb-scale));
+      max-width: min(100%, var(--msime-max-width-dip));
+      max-height: min(100%, var(--msime-max-height-dip));
       top: 0px;
       left: 0px;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      overflow: auto;
       background-color: #1a1a1a;
       border-radius: calc(var(--ftb-radius) * var(--ftb-scale));
       padding: 0px calc(var(--ftb-pad-right) * var(--ftb-scale)) 0px calc(var(--ftb-pad-left) * var(--ftb-scale));
@@ -316,6 +325,64 @@
     });
   });
 
+</script>
+<script>
+(function () {
+  var SURFACE = 'ftb';
+  var SELECTOR = '.status-bar';
+  var COOLDOWN_MS = 450;
+  var lastSent = 0;
+  var pending = false;
+  function el() { return document.querySelector(SELECTOR); }
+  function truncated(node) {
+    if (!node) return false;
+    var vw = document.documentElement.clientWidth;
+    var vh = document.documentElement.clientHeight;
+    var r = node.getBoundingClientRect();
+    var pad = 1.5;
+    return node.scrollWidth > vw + pad || node.scrollHeight > vh + pad ||
+      r.width > vw + pad || r.height > vh + pad ||
+      r.right > vw + pad || r.bottom > vh + pad;
+  }
+  function report() {
+    var node = el();
+    if (!node || !truncated(node)) return;
+    if (!window.chrome || !window.chrome.webview) return;
+    var now = Date.now();
+    if (now - lastSent < COOLDOWN_MS) return;
+    lastSent = now;
+    var r = node.getBoundingClientRect();
+    window.chrome.webview.postMessage(JSON.stringify({
+      type: 'contentTruncated',
+      data: {
+        surface: SURFACE,
+        width: Math.ceil(Math.max(r.width, node.scrollWidth || 0)),
+        height: Math.ceil(Math.max(r.height, node.scrollHeight || 0)),
+        viewportWidth: document.documentElement.clientWidth,
+        viewportHeight: document.documentElement.clientHeight
+      }
+    }));
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        pending = false;
+        report();
+      });
+    });
+  }
+  window.CheckContentTruncation = schedule;
+  window.addEventListener('resize', schedule);
+  window.addEventListener('load', schedule);
+  if (typeof ResizeObserver !== 'undefined') {
+    var ro = new ResizeObserver(schedule);
+    ro.observe(document.documentElement);
+    var node = el();
+    if (node) ro.observe(node);
+  }
+})();
 </script>
 
 </html>

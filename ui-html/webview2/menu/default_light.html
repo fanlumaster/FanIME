@@ -5,20 +5,34 @@
   <meta charset="UTF-8">
   <title>(IME)TrayMenu</title>
   <style>
+    :root {
+      --msime-max-width-dip: 50vw;
+      --msime-max-height-dip: 50vh;
+    }
+
+    html,
     body {
       background-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       color: #1a1a1a;
       margin: 0;
       padding: 0;
+      overflow: hidden;
     }
 
     .menu {
+      box-sizing: border-box;
       background-color: #ffffff;
       border: 1px solid rgba(0, 0, 0, 0.1);
       border-radius: 8px;
       padding: 0.2em 0;
-      width: 12em;
+      width: max-content;
+      min-width: 12em;
+      max-width: min(100%, var(--msime-max-width-dip));
+      max-height: min(100vh, var(--msime-max-height-dip));
+      overflow: auto;
+      overflow-wrap: anywhere;
+      white-space: normal;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
       user-select: none;
     }
@@ -250,6 +264,64 @@
         type: 'about',
       }));
     });
+  </script>
+  <script>
+  (function () {
+    var SURFACE = 'menu';
+    var SELECTOR = '#menuContainer';
+    var COOLDOWN_MS = 450;
+    var lastSent = 0;
+    var pending = false;
+    function el() { return document.querySelector(SELECTOR); }
+    function truncated(node) {
+      if (!node) return false;
+      var vw = document.documentElement.clientWidth;
+      var vh = document.documentElement.clientHeight;
+      var r = node.getBoundingClientRect();
+      var pad = 1.5;
+      return node.scrollWidth > vw + pad || node.scrollHeight > vh + pad ||
+        r.width > vw + pad || r.height > vh + pad ||
+        r.right > vw + pad || r.bottom > vh + pad;
+    }
+    function report() {
+      var node = el();
+      if (!node || !truncated(node)) return;
+      if (!window.chrome || !window.chrome.webview) return;
+      var now = Date.now();
+      if (now - lastSent < COOLDOWN_MS) return;
+      lastSent = now;
+      var r = node.getBoundingClientRect();
+      window.chrome.webview.postMessage(JSON.stringify({
+        type: 'contentTruncated',
+        data: {
+          surface: SURFACE,
+          width: Math.ceil(Math.max(r.width, node.scrollWidth || 0)),
+          height: Math.ceil(Math.max(r.height, node.scrollHeight || 0)),
+          viewportWidth: document.documentElement.clientWidth,
+          viewportHeight: document.documentElement.clientHeight
+        }
+      }));
+    }
+    function schedule() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          pending = false;
+          report();
+        });
+      });
+    }
+    window.CheckContentTruncation = schedule;
+    window.addEventListener('resize', schedule);
+    window.addEventListener('load', schedule);
+    if (typeof ResizeObserver !== 'undefined') {
+      var ro = new ResizeObserver(schedule);
+      ro.observe(document.documentElement);
+      var node = el();
+      if (node) ro.observe(node);
+    }
+  })();
   </script>
 </body>
 
