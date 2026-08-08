@@ -5,27 +5,42 @@
   <meta charset="UTF-8">
   <title>IME(FTB)</title>
   <style>
+    :root {
+      --ftb-scale: 1;
+      --ftb-bar-height: 35px;
+      --ftb-icon-size: 24px;
+      --ftb-gap: 6px;
+      --ftb-pad-left: 8px;
+      --ftb-pad-right: 4px;
+      --ftb-radius: 8px;
+      --ftb-handle-width: 2.5px;
+      --ftb-handle-height: 14px;
+    }
+
+    html,
     body {
       background-color: transparent;
       margin: 0;
       height: 100vh;
+      overflow: hidden;
+    }
+
+    body {
       -webkit-app-region: drag;
     }
 
     /* 状态栏整体样式 */
     .status-bar {
       position: absolute;
-      height: 35px;
+      height: calc(var(--ftb-bar-height) * var(--ftb-scale));
       top: 0px;
       left: 0px;
       display: flex;
       align-items: center;
       background-color: #1a1a1a;
-      border-radius: 8px;
-      padding: 0px 10px;
-      padding-left: 8px;
-      padding-right: 4px;
-      gap: 6px;
+      border-radius: calc(var(--ftb-radius) * var(--ftb-scale));
+      padding: 0px calc(var(--ftb-pad-right) * var(--ftb-scale)) 0px calc(var(--ftb-pad-left) * var(--ftb-scale));
+      gap: calc(var(--ftb-gap) * var(--ftb-scale));
 
       border: 1.4px solid rgba(255, 255, 255, 0.15);
       box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.4);
@@ -34,10 +49,9 @@
 
     /* 拖动条 */
     .drag-handle {
-      color: ;
-      width: 2.5px;
-      height: 14px;
-      border-radius: 2px;
+      width: calc(var(--ftb-handle-width) * var(--ftb-scale));
+      height: calc(var(--ftb-handle-height) * var(--ftb-scale));
+      border-radius: calc(2px * var(--ftb-scale));
       background: #8E8CD8;
       margin-right: 0px;
       position: relative;
@@ -45,25 +59,31 @@
 
     /* 分隔线 */
     .divider {
-      width: 1.2px;
+      width: calc(1.2px * var(--ftb-scale));
       align-self: stretch;
       background-color: rgba(255, 255, 255, 0.15);
-      margin-left: 4px;
+      margin-left: calc(4px * var(--ftb-scale));
       margin-right: 0px;
     }
 
     .icon {
       color: #fff;
-      font-size: 20px;
+      font-size: calc(var(--ftb-icon-size) * 0.833 * var(--ftb-scale));
       font-family: "Segoe UI Symbol", "Microsoft YaHei", sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
+      width: calc(var(--ftb-icon-size) * var(--ftb-scale));
+      height: calc(var(--ftb-icon-size) * var(--ftb-scale));
+      border-radius: calc(6px * var(--ftb-scale));
       transition: background-color 0.15s ease;
       cursor: default;
+    }
+
+    .icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
     .icon:hover {
@@ -73,13 +93,13 @@
     .left-section {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: calc(4px * var(--ftb-scale));
     }
 
     .right-section {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: calc(var(--ftb-gap) * var(--ftb-scale));
     }
   </style>
 </head>

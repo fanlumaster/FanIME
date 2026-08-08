@@ -3,7 +3,7 @@ import { applyAppearanceConfig, updateCandidatePreviewHelpcode } from './appeara
 import { applyFrequencyConfig, applyInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
-import { applyFloatingToolbarItemsConfig } from './floating-toolbar';
+import { applyFloatingToolbarAppearanceConfig, applyFloatingToolbarItemsConfig } from './floating-toolbar';
 import { applyShortcutConfig } from './shortcut';
 
 function safeParseJson(value: string): unknown {
@@ -98,6 +98,10 @@ export function setupConfigSync(): void {
       screen_keyboard: payload.data?.general?.floating_toolbar_screen_keyboard,
       settings: payload.data?.general?.floating_toolbar_settings
     });
+    applyFloatingToolbarAppearanceConfig(
+      payload.data?.general?.floating_toolbar_scale,
+      payload.data?.general?.floating_toolbar_font_size
+    );
     if (typeof payload.data?.general?.cn_en_mixed_input === 'boolean') {
       applyToggleState('zhEnToggleBtn', payload.data.general.cn_en_mixed_input);
     }
