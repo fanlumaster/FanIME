@@ -60,8 +60,13 @@ inline bool is_global_wnd_settings_shown = false;
 // 悬浮工具栏窗口
 //
 inline int FTB_WND_WIDTH = 207;
-inline int FTB_WND_HEIGHT = 38;
+// Content bar height in DIPs (matches CSS --ftb-bar-height). Shadow is added on
+// the host separately so box-shadow is not clipped.
+inline int FTB_WND_HEIGHT = 35;
 inline int FTB_WND_SHADOW_WIDTH = 8;
+// Last measured .status-bar size in CSS DIPs (0 until first successful measure).
+inline double FTB_CONTENT_WIDTH_DIP = 0.0;
+inline double FTB_CONTENT_HEIGHT_DIP = 0.0;
 
 inline HWND global_hwnd_ftb = NULL;
 inline bool is_global_wnd_ftb_shown = false;

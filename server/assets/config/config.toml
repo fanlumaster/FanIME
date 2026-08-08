@@ -19,6 +19,10 @@ floating_toolbar_character_set = true
 floating_toolbar_emoji = true
 floating_toolbar_screen_keyboard = false
 floating_toolbar_settings = true
+# 悬浮工具栏用户缩放（相对系统 DPI），可选：0.75 / 1.0 / 1.25 / 1.5
+floating_toolbar_scale = 1.0
+# 悬浮工具栏图标尺寸（px，再乘 scale），可选：16–28
+floating_toolbar_font_size = 24
 # Emoji
 enable_emoji = true
 # 翻页方式

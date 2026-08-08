@@ -231,6 +231,8 @@ void PostConfig()
             {"floating_toolbar_emoji", toolbar.emoji},
             {"floating_toolbar_screen_keyboard", toolbar.screen_keyboard},
             {"floating_toolbar_settings", toolbar.settings},
+            {"floating_toolbar_scale", GetConfiguredFloatingToolbarScale()},
+            {"floating_toolbar_font_size", GetConfiguredFloatingToolbarFontSize()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
@@ -370,6 +372,15 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredThemeVoice(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.floating_toolbar_scale")
+    {
+        const json::value &value = data.at("value");
+        const double scale =
+            value.is_double() ? value.as_double() : static_cast<double>(value.as_int64());
+        return SetConfiguredFloatingToolbarScale(scale);
+    }
+    if (path == "general.floating_toolbar_font_size")
+        return SetConfiguredFloatingToolbarFontSize(static_cast<int>(data.at("value").as_int64()));
     constexpr std::string_view toolbar_prefix = "general.floating_toolbar_";
     if (path.rfind(toolbar_prefix, 0) == 0)
         return SetConfiguredFloatingToolbarItemEnabled(

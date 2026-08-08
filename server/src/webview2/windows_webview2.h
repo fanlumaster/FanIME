@@ -65,6 +65,8 @@ int PrepareHtmlForWnds();
 bool ApplyConfiguredCandidateWindowLayout();
 bool ApplyConfiguredUiThemes();
 bool ApplyConfiguredCandidateAppearance();
+bool ApplyConfiguredFloatingToolbarAppearance();
+bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete);
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);

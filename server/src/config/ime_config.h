@@ -139,6 +139,12 @@ struct FloatingToolbarItemsConfig
 };
 const FloatingToolbarItemsConfig &GetConfiguredFloatingToolbarItems();
 bool SetConfiguredFloatingToolbarItemEnabled(const std::string &item, bool enabled);
+// User scale independent of system DPI (0.75 / 1.0 / 1.25 / 1.5).
+double GetConfiguredFloatingToolbarScale();
+bool SetConfiguredFloatingToolbarScale(double scale);
+// Icon box size in CSS px before user scale (16–28, default 24).
+int GetConfiguredFloatingToolbarFontSize();
+bool SetConfiguredFloatingToolbarFontSize(int font_size);
 bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
 bool GetConfiguredCloudCandidatesEnabled();

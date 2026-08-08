@@ -6,6 +6,9 @@
 void MeasureDomUpdateTime(ComPtr<ICoreWebView2>);
 
 void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback);
+// Measure the painted candidate card after margins/content are applied.
+void GetRealCandidateCardSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback);
+void GetContainerSizeFtb(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback);
 void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback);
 void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop);
 void MakeBodyVisible(ComPtr<ICoreWebView2> webview);

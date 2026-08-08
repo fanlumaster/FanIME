@@ -20,9 +20,11 @@
 #include "ipc/candidate_ui_action_policy.h"
 #include "log/ftb_diag_log.h"
 #include "settings/settings_launcher.h"
+#include "utils/window_utils.h"
 #include "voice-input/voice_input_service.h"
 #include <WebView2EnvironmentOptions.h>
 #include <algorithm>
+#include <cmath>
 
 #pragma comment(lib, "dcomp.lib")
 
@@ -43,8 +45,8 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
 HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
 HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
 
-constexpr int candidateBoundRightExtra = 1000;
-constexpr int candidateBoundBottomExtra = 1000;
+// Legacy floor kept for 100% DPI; high-DPI reserves are computed from DIPs below.
+constexpr int candidateBoundExtraFloorPx = 1000;
 
 std::wstring bodyRes = L"";
 
@@ -947,8 +949,24 @@ void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
     }
     RECT bounds{};
     GetClientRect(hwnd, &bounds);
-    bounds.right += candidateBoundRightExtra;
-    bounds.bottom += candidateBoundBottomExtra;
+    // MarginLeft can push the card nearly a full max-width across the viewport
+    // near a screen edge. Reserve that room in DIPs so 200% scaling still has
+    // enough CSS pixels; a fixed 1000 physical-px pad is only ~500 DIP at 200%.
+    FLOAT scale = GetWindowScale(hwnd);
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
+    const int extraRightDip =
+        ::CANDIDATE_WINDOW_MAX_WIDTH_DIP + (2 * ::SHADOW_WIDTH) + ::POP_UP_WND_WIDTH;
+    const int extraBottomDip =
+        ::CANDIDATE_WINDOW_HEIGHT + (2 * ::SHADOW_HEIGHT) + ::POP_UP_WND_HEIGHT;
+    const int extraRightPx =
+        (std::max)(candidateBoundExtraFloorPx, static_cast<int>(std::ceil(extraRightDip * scale)));
+    const int extraBottomPx =
+        (std::max)(candidateBoundExtraFloorPx, static_cast<int>(std::ceil(extraBottomDip * scale)));
+    bounds.right += extraRightPx;
+    bounds.bottom += extraBottomPx;
     webviewControllerCandWnd->put_Bounds(bounds);
 }
 
@@ -1101,6 +1119,46 @@ bool ApplyConfiguredCandidateAppearance()
         L"})(" +
         string_to_wstring(cfg.dump()) + L");";
     return SUCCEEDED(webviewCandWnd->ExecuteScript(script.c_str(), nullptr));
+}
+
+bool ApplyConfiguredFloatingToolbarAppearance()
+{
+    return ApplyConfiguredFloatingToolbarAppearance(nullptr);
+}
+
+bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete)
+{
+    if (!webviewFtbWnd)
+    {
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return false;
+    }
+
+    nlohmann::json cfg = {{"scale", GetConfiguredFloatingToolbarScale()},
+                          {"font_size", GetConfiguredFloatingToolbarFontSize()}};
+    const std::wstring script =
+        L"(function(c){"
+        L"const root=document.documentElement;"
+        L"const scale=(typeof c.scale==='number'&&c.scale>0)?c.scale:1;"
+        L"const icon=(typeof c.font_size==='number'&&c.font_size>0)?c.font_size:24;"
+        L"root.style.setProperty('--ftb-scale', String(scale));"
+        L"root.style.setProperty('--ftb-icon-size', String(icon)+'px');"
+        L"return true;"
+        L"})(" +
+        string_to_wstring(cfg.dump()) + L");";
+    if (!onComplete)
+    {
+        return SUCCEEDED(webviewFtbWnd->ExecuteScript(script.c_str(), nullptr));
+    }
+    return SUCCEEDED(webviewFtbWnd->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
+            onComplete();
+            return S_OK;
+        }).Get()));
 }
 
 //
@@ -1302,14 +1360,10 @@ HRESULT OnControllerCreatedCandWnd(     //
         webviewController2CandWnd->put_DefaultBackgroundColor(backgroundColor);
     }
 
-    // Adjust to window size
-    RECT bounds;
-    GetClientRect(hwnd, &bounds);
-    // The candidate page uses the extra viewport for stable off-screen
-    // measurement before its host window is resized to the measured content.
-    bounds.right += candidateBoundRightExtra;
-    bounds.bottom += candidateBoundBottomExtra;
-    const HRESULT boundsHr = webviewControllerCandWnd->put_Bounds(bounds);
+    // Adjust to window size — keep the same DIP-based measure reserve used by
+    // FineTune so the first layout is not constrained by a narrow HWND.
+    PrepareCandidateWebViewBoundsForMeasure(hwnd);
+    const HRESULT boundsHr = S_OK;
     (void)0;
 
     // Navigate to HTML
@@ -2274,6 +2328,26 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.floating_toolbar_scale")
+                            {
+                                const double value = data.at("value").is_double()
+                                                         ? data.at("value").as_double()
+                                                         : static_cast<double>(data.at("value").as_int64());
+                                if (SetConfiguredFloatingToolbarScale(value))
+                                {
+                                    ApplyConfiguredFloatingToolbarSize();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "general.floating_toolbar_font_size")
+                            {
+                                if (SetConfiguredFloatingToolbarFontSize(
+                                        static_cast<int>(data.at("value").as_int64())))
+                                {
+                                    ApplyConfiguredFloatingToolbarSize();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "input.word_to_character")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2582,6 +2656,8 @@ void PostSettingsConfig()
             {"floating_toolbar_emoji", toolbar.emoji},
             {"floating_toolbar_screen_keyboard", toolbar.screen_keyboard},
             {"floating_toolbar_settings", toolbar.settings},
+            {"floating_toolbar_scale", GetConfiguredFloatingToolbarScale()},
+            {"floating_toolbar_font_size", GetConfiguredFloatingToolbarFontSize()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
@@ -2769,6 +2845,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 if (success)
                 {
                     NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
+                    ApplyConfiguredFloatingToolbarAppearance();
                     RenderFloatingToolbarState(sender);
                     ApplyConfiguredFloatingToolbarSize();
                     // Show first so a cold user-data folder can finish painting;

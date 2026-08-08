@@ -173,39 +173,48 @@ int AdjustCandidateWindowPosition(                  //
         max_vertical_container_height = containerSize.second;
     }
 
-    properPos->first = point->x;
-    properPos->second = point->y + 3;
     // Clamp against the caret's monitor, not GetForegroundWindow()'s. Word/Excel
     // focus transitions on an extended display can otherwise pull the card onto
     // the wrong screen and clip its left edge at the virtual-desktop seam.
     MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(*point);
     FLOAT scale = GetScaleForPoint(*point);
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
+    // Design offsets are DIPs so gaps stay visually stable under 150%/200% DPI.
+    const int caretGapPx = static_cast<int>(std::lround(3.0 * scale));
+    const int edgePadPx = static_cast<int>(std::lround(2.0 * scale));
+    const int flipGapPx = static_cast<int>(std::lround(30.0 * scale));
+
+    properPos->first = point->x;
+    properPos->second = point->y + caretGapPx;
     int width = static_cast<int>(std::ceil(containerSize.first * scale));
     const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
     const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));
     if (properPos->first + width > coordinates.right)
     {
-        properPos->first = coordinates.right - width - 2;
+        properPos->first = coordinates.right - width - edgePadPx;
     }
     if (properPos->first < coordinates.left)
     {
-        properPos->first = coordinates.left + 2;
+        properPos->first = coordinates.left + edgePadPx;
     }
     if (properPos->second < coordinates.top)
     {
-        properPos->second = coordinates.top + 2;
+        properPos->second = coordinates.top + edgePadPx;
     }
 
     if (properPos->second + boundary_height > coordinates.bottom)
     {
-        properPos->second = properPos->second - boundary_height - 30 - 2;
+        properPos->second = properPos->second - boundary_height - flipGapPx - edgePadPx;
         if (is_vertical && containerSize.second < max_vertical_container_height)
         {
             Global::MarginTop = static_cast<int>(std::ceil(max_vertical_container_height - containerSize.second));
         }
         if (properPos->second < coordinates.top)
         {
-            properPos->second = coordinates.top + 2;
+            properPos->second = coordinates.top + edgePadPx;
         }
     }
     return 0;

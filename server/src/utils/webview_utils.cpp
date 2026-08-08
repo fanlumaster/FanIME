@@ -51,30 +51,33 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
     return size;
 }
 
-void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+namespace
+{
+void GetCandidateCardSize(
+    ComPtr<ICoreWebView2> webview,
+    const wchar_t *boxId,
+    const wchar_t *parentId,
+    std::function<void(std::pair<double, double>)> callback)
 {
     if (!webview)
     {
-        (void)0;
         callback({0.0, 0.0});
         return;
     }
-    std::wstring script = fmt::format(LR"(
+    std::wstring script = fmt::format(
+        LR"(
         (function() {{
-            var box = document.getElementById("measureContainer");
-            var el = document.getElementById("measureContainerParent");
+            var box = document.getElementById("{0}");
+            var el = document.getElementById("{1}");
             var target = box || el;
             if (!target) {{
                 return JSON.stringify({{width: 0, height: 0}});
             }}
-            var maxW = {0};
+            var maxW = {2};
             if (box) {{
                 box.style.maxWidth = maxW + "px";
                 box.style.width = "fit-content";
                 box.style.boxSizing = "border-box";
-                // Let complete candidate items wrap once their combined width
-                // reaches maxW. An individual overlong item can still wrap
-                // internally because its wrapper is capped to the container.
                 box.style.whiteSpace = "normal";
                 box.querySelectorAll(".row-wrapper").forEach(function (node) {{
                     node.style.minWidth = "0";
@@ -95,7 +98,6 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
                 el.style.maxWidth = maxW + "px";
                 el.style.width = "fit-content";
             }}
-            // Force layout after applying wrap constraints.
             void target.offsetWidth;
             var rect = target.getBoundingClientRect();
             var width = Math.min(maxW, Math.max(rect.width, target.offsetWidth || 0));
@@ -103,24 +105,63 @@ void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std:
             return JSON.stringify({{width: width, height: height}});
         }})();
     )",
-                                      ::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
-    const HRESULT submitHr = webview->ExecuteScript( //
-        script.c_str(),     //
+        boxId, parentId, ::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    const HRESULT submitHr = webview->ExecuteScript(
+        script.c_str(),
         Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {
-            std::pair<double, double> size;
+            std::pair<double, double> size{};
             if (SUCCEEDED(errorCode) && result)
             {
                 size = ParseDivSize(result);
-                (void)0;
-            }
-            else
-            {
-                (void)0;
             }
             callback(size);
             return S_OK;
         }).Get());
-    (void)0;
+    (void)submitHr;
+}
+} // namespace
+
+void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+{
+    GetCandidateCardSize(webview, L"measureContainer", L"measureContainerParent", std::move(callback));
+}
+
+void GetRealCandidateCardSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+{
+    GetCandidateCardSize(webview, L"realContainer", L"realContainerParent", std::move(callback));
+}
+
+void GetContainerSizeFtb(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+{
+    if (!webview)
+    {
+        callback({0.0, 0.0});
+        return;
+    }
+    const wchar_t *script =
+        LR"((function() {
+            var el = document.querySelector('.status-bar');
+            if (!el) {
+                return JSON.stringify({width: 0, height: 0});
+            }
+            void el.offsetWidth;
+            var rect = el.getBoundingClientRect();
+            var width = Math.max(rect.width, el.offsetWidth || 0, el.scrollWidth || 0);
+            var height = Math.max(rect.height, el.offsetHeight || 0, el.scrollHeight || 0);
+            return JSON.stringify({width: width, height: height});
+        })();)";
+    const HRESULT submitHr = webview->ExecuteScript(
+        script,
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+            std::pair<double, double> size{};
+            if (SUCCEEDED(errorCode) && result)
+            {
+                size = ParseDivSize(result);
+            }
+            callback(size);
+            return S_OK;
+        }).Get());
+    (void)submitHr;
 }
 
 void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)

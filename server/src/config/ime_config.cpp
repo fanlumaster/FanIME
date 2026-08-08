@@ -5,6 +5,7 @@
 #include <wrl/client.h>
 #include <winreg.h>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -24,6 +25,11 @@ using Microsoft::WRL::ComPtr;
 
 constexpr int kCandidateFontSizeMin = 12;
 constexpr int kCandidateFontSizeMax = 32;
+constexpr double kFloatingToolbarScaleMin = 0.75;
+constexpr double kFloatingToolbarScaleMax = 1.5;
+constexpr int kFloatingToolbarFontSizeMin = 16;
+constexpr int kFloatingToolbarFontSizeMax = 28;
+constexpr int kFloatingToolbarFontSizeDefault = 24;
 
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
@@ -51,6 +57,8 @@ bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
 bool g_floating_toolbar_enabled = true;
 FloatingToolbarItemsConfig g_floating_toolbar_items;
+double g_floating_toolbar_scale = 1.0;
+int g_floating_toolbar_font_size = kFloatingToolbarFontSizeDefault;
 bool g_english_candidates_enabled = false;
 bool g_cloud_candidates_enabled = true;
 bool g_unicode_mode_enabled = true;
@@ -556,6 +564,17 @@ bool LoadImeConfig()
         g_floating_toolbar_items.emoji = tbl["general"]["floating_toolbar_emoji"].value_or(true);
         g_floating_toolbar_items.screen_keyboard = tbl["general"]["floating_toolbar_screen_keyboard"].value_or(false);
         g_floating_toolbar_items.settings = tbl["general"]["floating_toolbar_settings"].value_or(true);
+        {
+            const double scale = tbl["general"]["floating_toolbar_scale"].value_or(1.0);
+            g_floating_toolbar_scale =
+                scale >= kFloatingToolbarScaleMin && scale <= kFloatingToolbarScaleMax ? scale : 1.0;
+            const int font_size =
+                tbl["general"]["floating_toolbar_font_size"].value_or(kFloatingToolbarFontSizeDefault);
+            g_floating_toolbar_font_size =
+                font_size >= kFloatingToolbarFontSizeMin && font_size <= kFloatingToolbarFontSizeMax
+                    ? font_size
+                    : kFloatingToolbarFontSizeDefault;
+        }
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
         g_unicode_mode_enabled = tbl["utility"]["unicode_mode"].value_or(true);
@@ -1451,6 +1470,68 @@ bool SetConfiguredFloatingToolbarItemEnabled(const std::string &item, bool enabl
     if (!WriteConfiguredValue("general", "floating_toolbar_" + item, enabled ? "true" : "false"))
         return false;
     *target = enabled;
+    return true;
+}
+
+namespace
+{
+double SnapFloatingToolbarScale(double scale)
+{
+    static const double kAllowed[] = {0.75, 1.0, 1.25, 1.5};
+    double best = 1.0;
+    double bestDelta = std::abs(scale - best);
+    for (double candidate : kAllowed)
+    {
+        const double delta = std::abs(scale - candidate);
+        if (delta < bestDelta)
+        {
+            best = candidate;
+            bestDelta = delta;
+        }
+    }
+    return best;
+}
+
+std::string FormatFloatingToolbarScale(double scale)
+{
+    if (std::abs(scale - 0.75) < 0.001)
+        return "0.75";
+    if (std::abs(scale - 1.25) < 0.001)
+        return "1.25";
+    if (std::abs(scale - 1.5) < 0.001)
+        return "1.5";
+    return "1.0";
+}
+} // namespace
+
+double GetConfiguredFloatingToolbarScale()
+{
+    return g_floating_toolbar_scale;
+}
+
+bool SetConfiguredFloatingToolbarScale(double scale)
+{
+    if (scale < kFloatingToolbarScaleMin || scale > kFloatingToolbarScaleMax)
+        return false;
+    scale = SnapFloatingToolbarScale(scale);
+    if (!WriteConfiguredValue("general", "floating_toolbar_scale", FormatFloatingToolbarScale(scale)))
+        return false;
+    g_floating_toolbar_scale = scale;
+    return true;
+}
+
+int GetConfiguredFloatingToolbarFontSize()
+{
+    return g_floating_toolbar_font_size;
+}
+
+bool SetConfiguredFloatingToolbarFontSize(int font_size)
+{
+    if (font_size < kFloatingToolbarFontSizeMin || font_size > kFloatingToolbarFontSizeMax)
+        return false;
+    if (!WriteConfiguredValue("general", "floating_toolbar_font_size", std::to_string(font_size)))
+        return false;
+    g_floating_toolbar_font_size = font_size;
     return true;
 }
 

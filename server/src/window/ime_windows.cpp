@@ -35,6 +35,8 @@ constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
 constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
 constexpr UINT_PTR TIMER_ID_SETTINGS_ACTIVATION_RETRY = 8;
 constexpr UINT_PTR TIMER_ID_FTB_VISIBILITY_RECONCILE = 9;
+// Remeasure FTB after live DPI / display-mode changes (mirrors menu's INIT timer).
+constexpr UINT_PTR TIMER_ID_FTB_DPI_REMEASURE = 10;
 // Long enough fallback when the page never posts ready (old HTML / failed JS).
 // Page-ready normally ends the grace earlier; until then the toolbar stays shown.
 constexpr UINT kFloatingToolbarPaintGraceMs = 6000;
@@ -81,7 +83,19 @@ int ConfiguredFloatingToolbarWidth()
         static_cast<int>(items.settings);
     // 57 DIPs covers the drag handle, divider, mandatory CN/EN button and
     // container padding. Each optional button adds 24 DIPs plus the 6-DIP gap.
-    return 57 + optional_item_count * 30;
+    // User scale/font_size multiply the design size independently of system DPI.
+    const double userScale = GetConfiguredFloatingToolbarScale();
+    const double fontFactor =
+        static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
+    return static_cast<int>(std::lround((57 + optional_item_count * 30) * userScale * fontFactor));
+}
+
+int ConfiguredFloatingToolbarHeight()
+{
+    const double userScale = GetConfiguredFloatingToolbarScale();
+    const double fontFactor =
+        static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
+    return static_cast<int>(std::lround(35.0 * userScale * fontFactor));
 }
 
 bool FloatingToolbarItemsEqual(
@@ -200,24 +214,46 @@ void ClipCandidateWindowToContent(
 // reset_to_default_corner=true snaps to the primary-monitor bottom-right slot
 // (startup / first layout). false keeps the current top-left so IME activate,
 // fullscreen exit, and config toggles do not undo a user drag.
-void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
+//
+// scaleOverride>0: use that factor (WM_DPICHANGED's wParam) instead of
+// GetWindowScale, which can briefly lag the message's new DPI.
+void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleOverride = 0.0f)
 {
     if (!hwnd)
     {
         return;
     }
-    ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
-    const FLOAT scale = GetWindowScale(hwnd);
-    const int width = static_cast<int>(std::lround((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale));
-    const int height = static_cast<int>(std::lround((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale));
+    if (::FTB_CONTENT_WIDTH_DIP > 1.0 && ::FTB_CONTENT_HEIGHT_DIP > 1.0)
+    {
+        // ceil + 1 DIP pad: fractional CSS sizes rounded down in physical px make
+        // the WebView viewport slightly smaller than .status-bar and Chromium
+        // adds both scrollbars (seen after live DPI changes).
+        ::FTB_WND_WIDTH = static_cast<int>(std::ceil(::FTB_CONTENT_WIDTH_DIP)) + 1;
+        ::FTB_WND_HEIGHT = static_cast<int>(std::ceil(::FTB_CONTENT_HEIGHT_DIP)) + 1;
+    }
+    else
+    {
+        ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
+        ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
+    }
+    FLOAT scale = scaleOverride > 0.0f ? scaleOverride : GetWindowScale(hwnd);
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
+    const int width =
+        static_cast<int>(std::ceil((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * static_cast<double>(scale)));
+    const int height =
+        static_cast<int>(std::ceil((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * static_cast<double>(scale)));
+    const int cornerInset = static_cast<int>(std::lround(10.0 * static_cast<double>(scale)));
     int posX = 0;
     int posY = 0;
     if (reset_to_default_corner)
     {
         MonitorCoordinates coordinates = GetMainMonitorCoordinates();
         const int taskbarHeight = GetTaskbarHeight();
-        posX = coordinates.right - width - 10;
-        posY = coordinates.bottom - height - taskbarHeight - 10;
+        posX = coordinates.right - width - cornerInset;
+        posY = coordinates.bottom - height - taskbarHeight - cornerInset;
     }
     else
     {
@@ -247,7 +283,17 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner)
     const BOOL ok =
         SetWindowPos(hwnd, nullptr, posX, posY, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
     SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
-    (void)0;
+    (void)ok;
+}
+
+void ScheduleFloatingToolbarDpiRemeasure(HWND hwnd)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    KillTimer(hwnd, TIMER_ID_FTB_DPI_REMEASURE);
+    SetTimer(hwnd, TIMER_ID_FTB_DPI_REMEASURE, 1, nullptr);
 }
 
 void PlaceFloatingToolbarOnScreen(HWND hwnd)
@@ -693,7 +739,26 @@ void HideFloatingToolbarHost()
 void ApplyConfiguredFloatingToolbarSize()
 {
     ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
+    ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
     LayoutFloatingToolbar(::global_hwnd_ftb, false);
+
+    if (!::webviewFtbWnd || !::global_hwnd_ftb)
+    {
+        return;
+    }
+    // Wait for CSS vars to land, then measure .status-bar so HWND matches content.
+    ApplyConfiguredFloatingToolbarAppearance([]() {
+        GetContainerSizeFtb(::webviewFtbWnd, [](std::pair<double, double> size) {
+            if (size.first > 1.0 && size.second > 1.0)
+            {
+                ::FTB_CONTENT_WIDTH_DIP = size.first;
+                ::FTB_CONTENT_HEIGHT_DIP = size.second;
+                ::FTB_WND_WIDTH = static_cast<int>(std::ceil(size.first));
+                ::FTB_WND_HEIGHT = static_cast<int>(std::ceil(size.second));
+            }
+            LayoutFloatingToolbar(::global_hwnd_ftb, false);
+        });
+    });
 }
 
 void ApplyConfiguredInputScheme()
@@ -834,6 +899,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // floating toolbar 窗口
     //
     ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
+    ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
     dwExStyle = WS_EX_LAYERED |                              //
                 WS_EX_TOOLWINDOW |                           //
                 WS_EX_NOACTIVATE;                            //
@@ -842,8 +908,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     const int ftbWidth = static_cast<int>((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale);
     const int ftbHeight = static_cast<int>((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale);
     const int ftbTaskbarHeight = GetTaskbarHeight();
-    const int ftbX = ftbMonitor.right - ftbWidth - 10;
-    const int ftbY = ftbMonitor.bottom - ftbHeight - ftbTaskbarHeight - 10;
+    const int ftbCornerInset = static_cast<int>(std::lround(10.0 * static_cast<double>(scale > 0 ? scale : 1.0f)));
+    const int ftbX = ftbMonitor.right - ftbWidth - ftbCornerInset;
+    const int ftbY = ftbMonitor.bottom - ftbHeight - ftbTaskbarHeight - ftbCornerInset;
     HWND hwnd_ftb = CreateWindowEx(                          //
         dwExStyle,                                           //
         szWindowClass,                                       //
@@ -1131,6 +1198,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const FloatingToolbarItemsConfig previous_floating_toolbar_items =
                 GetConfiguredFloatingToolbarItems();
+            const double previous_floating_toolbar_scale = GetConfiguredFloatingToolbarScale();
+            const int previous_floating_toolbar_font_size = GetConfiguredFloatingToolbarFontSize();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
@@ -1181,6 +1250,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                         previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
                 {
                     ApplyConfiguredFloatingToolbarItems();
+                }
+                else if (std::fabs(previous_floating_toolbar_scale - GetConfiguredFloatingToolbarScale()) > 0.001 ||
+                         previous_floating_toolbar_font_size != GetConfiguredFloatingToolbarFontSize())
+                {
+                    ApplyConfiguredFloatingToolbarSize();
                 }
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                     FanyNamedPipe::CancelCloudCandidateRequest();
@@ -1715,6 +1789,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const FloatingToolbarItemsConfig previous_floating_toolbar_items =
                 GetConfiguredFloatingToolbarItems();
+            const double previous_floating_toolbar_scale = GetConfiguredFloatingToolbarScale();
+            const int previous_floating_toolbar_font_size = GetConfiguredFloatingToolbarFontSize();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
@@ -1770,6 +1846,11 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                         previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
                 {
                     ApplyConfiguredFloatingToolbarItems();
+                }
+                else if (std::fabs(previous_floating_toolbar_scale - GetConfiguredFloatingToolbarScale()) > 0.001 ||
+                         previous_floating_toolbar_font_size != GetConfiguredFloatingToolbarFontSize())
+                {
+                    ApplyConfiguredFloatingToolbarSize();
                 }
                 if (previous_cloud_candidates && !GetConfiguredCloudCandidatesEnabled())
                 {
@@ -2009,10 +2090,20 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     }
 
     case WM_DPICHANGED: {
-        // Recompute from design DIPs rather than only accepting the suggested
-        // rect. Keep the user's dragged top-left instead of snapping home.
-        (void)0;
-        LayoutFloatingToolbar(hwnd, false);
+        // Same contract as the tray menu: size from DIPs * the DPI in wParam
+        // (GetWindowScale can lag), then remeasure once WebView2 settles so a
+        // fractional undersize cannot leave Chromium scrollbars over 中/简.
+        const FLOAT scale = HIWORD(wParam) / 96.0f;
+        ::FTB_CONTENT_WIDTH_DIP = 0.0;
+        ::FTB_CONTENT_HEIGHT_DIP = 0.0;
+        LayoutFloatingToolbar(hwnd, false, scale > 0.0f ? scale : 0.0f);
+        ScheduleFloatingToolbarDpiRemeasure(hwnd);
+        return 0;
+    }
+
+    case WM_DISPLAYCHANGE: {
+        // Resolution-only switches may not send WM_DPICHANGED. Reclamp + remasure.
+        ScheduleFloatingToolbarDpiRemeasure(hwnd);
         return 0;
     }
 
@@ -2038,6 +2129,19 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         {
             KillTimer(hwnd, TIMER_ID_FTB_VISIBILITY_RECONCILE);
             ReconcileFloatingToolbarVisibilityAfterReady(L"ftb-ready-fallback-timeout");
+            break;
+        }
+        if (wParam == TIMER_ID_FTB_DPI_REMEASURE)
+        {
+            KillTimer(hwnd, TIMER_ID_FTB_DPI_REMEASURE);
+            if (::webviewFtbWnd)
+            {
+                ApplyConfiguredFloatingToolbarSize();
+            }
+            else
+            {
+                SetTimer(hwnd, TIMER_ID_FTB_DPI_REMEASURE, 100, nullptr);
+            }
             break;
         }
         break;
@@ -2141,23 +2245,24 @@ int FineTuneWindow(HWND hwnd)
         MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
         int hostX = properPos->first;
         int hostY = properPos->second;
+        const int edgePadPx = static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale > 0 ? layoutScale : 1.0f)));
         // Right/bottom first, then re-clamp left/top so a host wider/taller than
         // the monitor cannot be pushed past the caret's screen edge.
         if (hostX + hostWidthPx > coordinates.right)
         {
-            hostX = coordinates.right - hostWidthPx - 2;
+            hostX = coordinates.right - hostWidthPx - edgePadPx;
         }
         if (hostX < coordinates.left)
         {
-            hostX = coordinates.left + 2;
+            hostX = coordinates.left + edgePadPx;
         }
         if (hostY + hostHeightPx > coordinates.bottom)
         {
-            hostY = coordinates.bottom - hostHeightPx - 2;
+            hostY = coordinates.bottom - hostHeightPx - edgePadPx;
         }
         if (hostY < coordinates.top)
         {
-            hostY = coordinates.top + 2;
+            hostY = coordinates.top + edgePadPx;
         }
 
         // Adjust may set MarginTop for vertical packing; keep that separate from
@@ -2228,21 +2333,23 @@ int FineTuneWindow(HWND hwnd)
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
             hostX = properPos->first;
             hostY = properPos->second;
+            const int resyncEdgePadPx =
+                static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale > 0 ? layoutScale : 1.0f)));
             if (hostX + hostWidthPx > coordinates.right)
             {
-                hostX = coordinates.right - hostWidthPx - 2;
+                hostX = coordinates.right - hostWidthPx - resyncEdgePadPx;
             }
             if (hostX < coordinates.left)
             {
-                hostX = coordinates.left + 2;
+                hostX = coordinates.left + resyncEdgePadPx;
             }
             if (hostY + hostHeightPx > coordinates.bottom)
             {
-                hostY = coordinates.bottom - hostHeightPx - 2;
+                hostY = coordinates.bottom - hostHeightPx - resyncEdgePadPx;
             }
             if (hostY < coordinates.top)
             {
-                hostY = coordinates.top + 2;
+                hostY = coordinates.top + resyncEdgePadPx;
             }
 
             const int resyncPackingMarginTop = (std::max)(0, Global::MarginTop);
@@ -2275,20 +2382,146 @@ int FineTuneWindow(HWND hwnd)
             webviewControllerCandWnd->NotifyParentWindowPositionChanged();
         }
 
-        InflateCandWnd(str, [hwnd, positioned, generation, containerSize, layoutScale]() {
+        InflateCandWnd(str, [hwnd, positioned, generation, containerSize, layoutScale, caretX, caretY,
+                             packingMarginTop]() {
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
                 return;
             }
-            // Apply the native clip only after the DOM has received the same
-            // margins and content dimensions, avoiding a transient mismatch.
-            ClipCandidateWindowToContent(hwnd, containerSize, layoutScale);
-            // Hide/warmup leave the host DWM-cloaked; reveal after content is ready.
-            SetHostWindowCloaked(hwnd, false);
-            UpdateSmallWindowWebviewVisibility(hwnd, true);
-            RECT actualRect{};
-            GetWindowRect(hwnd, &actualRect);
-            (void)0;
+
+            auto finalizeClip = [hwnd, generation, layoutScale](std::pair<double, double> finalSize) {
+                if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+                {
+                    return;
+                }
+                finalSize.first =
+                    (std::min)(finalSize.first, static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP));
+                ClipCandidateWindowToContent(hwnd, finalSize, layoutScale);
+                FTB_DIAG_LOGF(
+                    L"cand-clip scale={:.3f} margin=({},{}) size=({:.1f},{:.1f})",
+                    static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop, finalSize.first,
+                    finalSize.second);
+                SetHostWindowCloaked(hwnd, false);
+                UpdateSmallWindowWebviewVisibility(hwnd, true);
+                RECT actualRect{};
+                GetWindowRect(hwnd, &actualRect);
+                (void)actualRect;
+                (void)0;
+            };
+
+            // Pass 2: remeasure the painted card after margins so a wrap from a
+            // tight viewport updates host height / region instead of clipping.
+            GetRealCandidateCardSize(webviewCandWnd, [hwnd, generation, layoutScale, caretX, caretY,
+                                                      packingMarginTop, containerSize,
+                                                      finalizeClip](std::pair<double, double> paintedSize) {
+                if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+                {
+                    return;
+                }
+                if (paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
+                {
+                    finalizeClip(containerSize);
+                    return;
+                }
+                paintedSize.first =
+                    (std::min)(paintedSize.first, static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP));
+
+                const bool sizeChanged =
+                    std::fabs(paintedSize.first - containerSize.first) > 0.75 ||
+                    std::fabs(paintedSize.second - containerSize.second) > 0.75;
+                if (!sizeChanged)
+                {
+                    finalizeClip(paintedSize);
+                    return;
+                }
+
+                POINT pt = {caretX, caretY};
+                auto properPos = std::make_shared<std::pair<int, int>>();
+                AdjustCandidateWindowPosition(&pt, paintedSize, properPos);
+
+                FLOAT pass2Scale = layoutScale;
+                FLOAT hwndScale = GetWindowScale(hwnd);
+                if (hwndScale > 0.0f)
+                {
+                    pass2Scale = hwndScale;
+                }
+
+                double heightDip =
+                    (std::max)(paintedSize.second, static_cast<double>(::CANDIDATE_WINDOW_HEIGHT));
+                const int packingTop = (std::max)(0, Global::MarginTop);
+                if (packingTop > 0)
+                {
+                    heightDip = paintedSize.second + static_cast<double>(packingTop);
+                }
+
+                const double hostContentWidthDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+                const int hostWidthPx = static_cast<int>(std::lround(
+                    (hostContentWidthDip + (2.0 * ::SHADOW_WIDTH) + ::POP_UP_WND_WIDTH) * pass2Scale));
+                const int hostHeightPx = static_cast<int>(std::lround(
+                    (heightDip + (2.0 * ::SHADOW_HEIGHT) + ::POP_UP_WND_HEIGHT) * pass2Scale));
+
+                MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
+                int hostX = properPos->first;
+                int hostY = properPos->second;
+                const int edgePadPx =
+                    static_cast<int>(std::lround(2.0 * static_cast<double>(pass2Scale > 0 ? pass2Scale : 1.0f)));
+                if (hostX + hostWidthPx > coordinates.right)
+                {
+                    hostX = coordinates.right - hostWidthPx - edgePadPx;
+                }
+                if (hostX < coordinates.left)
+                {
+                    hostX = coordinates.left + edgePadPx;
+                }
+                if (hostY + hostHeightPx > coordinates.bottom)
+                {
+                    hostY = coordinates.bottom - hostHeightPx - edgePadPx;
+                }
+                if (hostY < coordinates.top)
+                {
+                    hostY = coordinates.top + edgePadPx;
+                }
+
+                const int offsetXDip = static_cast<int>(
+                    std::lround((properPos->first - hostX) / static_cast<double>(pass2Scale)));
+                const int offsetYDip = static_cast<int>(
+                    std::lround((properPos->second - hostY) / static_cast<double>(pass2Scale)));
+                Global::MarginLeft = (std::max)(0, offsetXDip);
+                Global::MarginTop = packingTop + (std::max)(0, offsetYDip);
+
+                if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+                {
+                    return;
+                }
+                {
+                    SuppressCandidateDpiChange suppressDpi;
+                    SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx,
+                                 SWP_NOZORDER | SWP_SHOWWINDOW);
+                }
+                SyncCandidateWebViewBoundsToHost(hwnd);
+
+                // Re-apply margins into the live DOM before clipping.
+                std::wstring marginScript = L"(function(){var el=document.getElementById('realContainerParent');"
+                                            L"if(el){el.style.marginTop='" +
+                                            std::to_wstring(Global::MarginTop) + L"px';el.style.marginLeft='" +
+                                            std::to_wstring(Global::MarginLeft) + L"px';}})();";
+                if (webviewCandWnd)
+                {
+                    webviewCandWnd->ExecuteScript(
+                        marginScript.c_str(),
+                        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+                            [finalizeClip, paintedSize](HRESULT, LPCWSTR) -> HRESULT {
+                                finalizeClip(paintedSize);
+                                return S_OK;
+                            })
+                            .Get());
+                }
+                else
+                {
+                    finalizeClip(paintedSize);
+                }
+                (void)packingMarginTop;
+            });
         });
     });
     return 0;
