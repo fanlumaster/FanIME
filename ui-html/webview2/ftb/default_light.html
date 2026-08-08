@@ -219,7 +219,7 @@
   });
 
   window.addEventListener('resize', updateDividerX);
-  window.addEventListener('load', updateDividerX);
+  // load handler is registered below together with the ready signal.
 
   //
   // 中英切换
@@ -281,6 +281,19 @@
   //
   document.getElementById('settings').addEventListener('click', () => {
     window.chrome.webview.postMessage(JSON.stringify({ type: 'openSettings' }));
+  });
+
+  // Tell the host the first frame is ready so it can stop the paint-grace show
+  // and apply the real visibility decision (IME active / configured / etc.).
+  function notifyToolbarReady() {
+    if (!window.chrome || !window.chrome.webview) return;
+    window.chrome.webview.postMessage(JSON.stringify({ type: 'ready' }));
+  }
+  window.addEventListener('load', () => {
+    updateDividerX();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(notifyToolbarReady);
+    });
   });
 
 </script>

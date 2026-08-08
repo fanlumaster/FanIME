@@ -110,6 +110,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.utility?.quick_phrase === 'boolean') {
       applyToggleState('quickPhraseToggleBtn', payload.data.utility.quick_phrase);
     }
+    if (typeof payload.data?.utility?.date_time_mode === 'boolean') {
+      applyToggleState('dateTimeModeToggleBtn', payload.data.utility.date_time_mode);
+    }
     if (typeof payload.data?.general?.paging_minus_equal === 'boolean') {
       const checkbox = document.getElementById('pagingMinusEqualCheckbox') as HTMLInputElement | null;
       if (checkbox) checkbox.checked = payload.data.general.paging_minus_equal;
