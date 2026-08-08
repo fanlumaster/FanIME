@@ -2,6 +2,8 @@ set(TEST_EXECUTABLE_NAME "MetasequoiaImeServerTests")
 
 set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_date_time_query.cpp"
+    "${CMAKE_SOURCE_DIR}/src/date-time/date_time_query.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_shuangpin_scheme.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_quanpin_scheme.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_wubi.cpp"

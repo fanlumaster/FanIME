@@ -96,6 +96,13 @@ bool AreSmallWindowWebviewsReady();
 // and can actually paint. Its host must stay on-monitor and "visible" until
 // then, otherwise WebView2 never finishes raster setup for it.
 bool IsFloatingToolbarWebviewReady();
+void NotifyFloatingToolbarPageReady();
+// True while the post-navigation paint grace is active: the host is kept shown
+// briefly after NavigationCompleted, then visibility is reconciled for real.
+bool IsFloatingToolbarPaintGraceActive();
+void BeginFloatingToolbarPaintGrace();
+void EndFloatingToolbarPaintGrace();
+void ClearFloatingToolbarNavigationState();
 // True only when the tray menu is actually open in front of the user: its
 // WebView2 has painted at least once and the host is neither hidden nor still
 // DWM-cloaked for warmup. IsWindowVisible() alone cannot answer this, because

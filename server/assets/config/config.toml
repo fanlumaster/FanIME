@@ -209,6 +209,7 @@ clipboard_history = "false"
 study_english_word = "false" # 背单词功能，开启后可以在候选项旁边显示英文
 quick_phrase = true # Shift+K 进入快捷短语模式
 unicode_mode = true # Shift+U 进入 Unicode 码位输入模式
+date_time_mode = true # Shift+T 进入日期与时间快捷输入模式
 
 #
 # AI Assistant

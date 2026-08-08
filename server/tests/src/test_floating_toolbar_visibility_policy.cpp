@@ -9,3 +9,9 @@ TEST_CASE(floating_toolbar_visibility_requires_active_ime_preference_and_nonfull
     REQUIRE(!FanyImeUi::ShouldShowFloatingToolbar(true, false, false));
     REQUIRE(!FanyImeUi::ShouldShowFloatingToolbar(false, true, false));
 }
+
+TEST_CASE(floating_toolbar_defers_hide_during_paint_grace)
+{
+    REQUIRE(FanyImeUi::ShouldDeferFloatingToolbarHide(true));
+    REQUIRE(!FanyImeUi::ShouldDeferFloatingToolbarHide(false));
+}

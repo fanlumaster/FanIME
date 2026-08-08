@@ -41,6 +41,7 @@
 #include "session/session_factory.h"
 #include "quick-phrases/quick_phrase_query.h"
 #include "unicode/unicode_query.h"
+#include "date-time/date_time_query.h"
 #include "log/ftb_diag_log.h"
 #include <cwchar>
 
@@ -53,6 +54,7 @@ namespace
 std::string BuildCurrentCandidatePage();
 bool g_quick_phrase_triggered = false;
 bool g_unicode_mode_triggered = false;
+bool g_date_time_mode_triggered = false;
 bool g_english_input_mode = false;
 // Sticky UILess for the active Main-pipe client. When set, never raise the
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
@@ -119,19 +121,38 @@ bool IsQuickPhraseInput(const std::string &raw)
 
 bool IsUnicodeCompositionActive(const std::string &raw)
 {
-    if (!g_unicode_mode_triggered || raw.empty() || raw.front() != 'U') return false;
+    if (!g_unicode_mode_triggered || raw.empty() || raw.front() != 'U')
+        return false;
     size_t index = 1;
-    if (index < raw.size() && raw[index] == '+') ++index;
+    if (index < raw.size() && raw[index] == '+')
+        ++index;
     return std::all_of(raw.begin() + static_cast<std::ptrdiff_t>(index), raw.end(),
                        [](unsigned char ch) { return IsHexChar(ch); });
 }
 
 bool IsUnicodeInput(const std::string &raw)
 {
-    if (!IsUnicodeCompositionActive(raw) || raw.size() <= 1) return false;
+    if (!IsUnicodeCompositionActive(raw) || raw.size() <= 1)
+        return false;
     size_t index = 1;
-    if (raw[index] == '+') ++index;
+    if (raw[index] == '+')
+        ++index;
     return index < raw.size();
+}
+
+bool IsDateTimeCompositionActive(const std::string &raw)
+{
+    return g_date_time_mode_triggered && !raw.empty() && raw.front() == 'T' &&
+           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; });
+}
+
+bool IsDateTimeInput(const std::string &raw)
+{
+    if (!IsDateTimeCompositionActive(raw) || raw.size() <= 1)
+        return false;
+    const std::string keyword = raw.substr(1);
+    return keyword == "rq" || keyword == "riqi" || keyword == "date" || keyword == "sj" || keyword == "shijian" ||
+           keyword == "time";
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -305,16 +326,17 @@ void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64
     std::lock_guard lock(g_async_request_mutex);
     EnglishIme::OnInputChanged(input, dedicated_mode);
     ++g_english_generation;
-    g_english_request_origin =
-        input.empty() ? AsyncRequestOrigin{}
-                      : AsyncRequestOrigin{client_id, activation_epoch, g_english_generation, input};
+    g_english_request_origin = input.empty()
+                                   ? AsyncRequestOrigin{}
+                                   : AsyncRequestOrigin{client_id, activation_epoch, g_english_generation, input};
 }
 
 std::vector<std::string> SplitPinyin(const std::string &segmentation)
 {
     std::vector<std::string> result;
     boost::split(result, segmentation, boost::is_any_of("' "), boost::token_compress_on);
-    result.erase(std::remove_if(result.begin(), result.end(), [](const std::string &item) { return item.empty(); }), result.end());
+    result.erase(std::remove_if(result.begin(), result.end(), [](const std::string &item) { return item.empty(); }),
+                 result.end());
     return result;
 }
 
@@ -336,8 +358,8 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
     }
     AiAssistant::OnInputChanged(std::move(request));
     ++g_ai_generation;
-    g_ai_request_origin = usable ? AsyncRequestOrigin{client_id, activation_epoch, g_ai_generation, identity}
-                                 : AsyncRequestOrigin{};
+    g_ai_request_origin =
+        usable ? AsyncRequestOrigin{client_id, activation_epoch, g_ai_generation, identity} : AsyncRequestOrigin{};
 }
 
 AsyncRequestOrigin FindCloudRequestOrigin(const std::string &input, uint64_t generation)
@@ -363,7 +385,8 @@ AsyncRequestOrigin FindEnglishRequestOrigin(const std::string &input, uint64_t g
 AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_ai_request_origin.generation == generation && g_ai_request_origin.input == input) return g_ai_request_origin;
+    if (g_ai_request_origin.generation == generation && g_ai_request_origin.input == input)
+        return g_ai_request_origin;
     return {};
 }
 
@@ -422,8 +445,7 @@ bool IsCommitWithHighlightedCandidatePunctuationInCandidateMode(UINT keycode, WC
         L'>',  //
         L'?'   //
     };
-    return kCommitWithHighlightedCandidatePunctuation.find(wch) !=
-           kCommitWithHighlightedCandidatePunctuation.end();
+    return kCommitWithHighlightedCandidatePunctuation.find(wch) != kCommitWithHighlightedCandidatePunctuation.end();
 }
 
 bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
@@ -434,7 +456,8 @@ bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
 
 bool IsSelectionKey(UINT keycode)
 {
-    if (keycode == VK_SPACE) return true;
+    if (keycode == VK_SPACE)
+        return true;
     if (keycode >= '0' && keycode <= '9')
     {
         const std::string raw = g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
@@ -521,9 +544,8 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
         {
             return false;
         }
-        if (input == '\'' &&
-            ((composition.caret_position > 0 && raw[composition.caret_position - 1] == '\'') ||
-             (composition.caret_position < raw.size() && raw[composition.caret_position] == '\'')))
+        if (input == '\'' && ((composition.caret_position > 0 && raw[composition.caret_position - 1] == '\'') ||
+                              (composition.caret_position < raw.size() && raw[composition.caret_position] == '\'')))
         {
             return true;
         }
@@ -711,8 +733,7 @@ bool IsImplicitActivationEvent(UINT event_type)
 
 void SendFocusSessionReady(const PipeClientActivation &activation)
 {
-    if (!FanyImeIpc::CanSendFocusSessionReady(activation.client_id, activation.epoch,
-                                               activation.focus_token))
+    if (!FanyImeIpc::CanSendFocusSessionReady(activation.client_id, activation.epoch, activation.focus_token))
     {
         return;
     }
@@ -721,10 +742,9 @@ void SendFocusSessionReady(const PipeClientActivation &activation)
     // endpoint used for candidate commits. The activation request id is a TSF
     // focus token and is echoed verbatim; unlike the Server-only epoch, it lets
     // TSF reject a buffered marker from an older focus session.
-    SendToTsfWorkerThreadClientViaNamedpipe(
-        activation.client_id, activation.epoch,
-        Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady,
-        std::to_wstring(activation.focus_token));
+    SendToTsfWorkerThreadClientViaNamedpipe(activation.client_id, activation.epoch,
+                                            Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady,
+                                            std::to_wstring(activation.focus_token));
 }
 
 bool IsKnownMainPipeEvent(UINT event_type)
@@ -771,8 +791,7 @@ bool IsValidMainPipeFrame(const FanyImeNamedpipeData &pipe_data)
     {
         return false;
     }
-    if (pipe_data.event_type == FanyImePipeEventType::ClientActivated &&
-        pipe_data.request_id == 0)
+    if (pipe_data.event_type == FanyImePipeEventType::ClientActivated && pipe_data.request_id == 0)
     {
         // FocusSessionReady can never acknowledge token zero. Reject the
         // activation instead of creating a server epoch that TSF cannot fence.
@@ -811,10 +830,9 @@ bool ReadPipeHello(HANDLE pipe, UINT expected_pipe_role, FanyImePipeHello &hello
     }
     DWORD bytesRead = 0;
     const bool readResult = ReadExactPipeMessageUntil(pipe, &hello, sizeof(hello),
-                                                      std::chrono::steady_clock::now() + kPipeHelloTimeout,
-                                                      bytesRead);
-    return readResult && pipe_running && hello.client_id != 0 &&
-           hello.pipe_role == expected_pipe_role && PipeClientIdMatchesConnectedProcess(pipe, hello.client_id);
+                                                      std::chrono::steady_clock::now() + kPipeHelloTimeout, bytesRead);
+    return readResult && pipe_running && hello.client_id != 0 && hello.pipe_role == expected_pipe_role &&
+           PipeClientIdMatchesConnectedProcess(pipe, hello.client_id);
 }
 
 void WakePipeListener(const wchar_t *pipe_name)
@@ -929,8 +947,10 @@ struct Task
 std::string CurrentRankingContextKey()
 {
     std::string converted = g_inputSession->get_quanpin();
-    if (converted.empty()) converted = g_inputSession->get_pinyin_segmentation();
-    if (g_inputSession->get_pinyin_sequence().size() == 1) return converted;
+    if (converted.empty())
+        converted = g_inputSession->get_pinyin_segmentation();
+    if (g_inputSession->get_pinyin_sequence().size() == 1)
+        return converted;
     std::string plain = converted;
     plain.erase(std::remove(plain.begin(), plain.end(), '\''), plain.end());
     const auto cuts = quanpin::cut_pinyin_by_mode(plain, "correction");
@@ -947,12 +967,16 @@ std::string EnglishRankingContextKey()
 
 std::string CandidateDatabaseKey(const WordItem &item, const std::string &context_key)
 {
-    if (!item.canonical_pinyin.empty()) return item.canonical_pinyin;
-    if (g_inputSession->get_pinyin_sequence().size() == 1) return item.pinyin;
+    if (!item.canonical_pinyin.empty())
+        return item.canonical_pinyin;
+    if (g_inputSession->get_pinyin_sequence().size() == 1)
+        return item.pinyin;
     auto segments = quanpin::split_segments(context_key);
     const size_t han_count = HelpcodeUtils::count_han_chars(item.word);
-    if (segments.empty() || han_count == 0) return item.pinyin;
-    if (segments.size() > han_count) segments.resize(han_count);
+    if (segments.empty() || han_count == 0)
+        return item.pinyin;
+    if (segments.size() > han_count)
+        segments.resize(han_count);
     return quanpin::join_segments(segments);
 }
 
@@ -962,13 +986,11 @@ std::mutex queueMutex;
 void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch);
 void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
 void ClearState();
-void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch,
-                         int forced_index_in_page = -1);
+void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch, int forced_index_in_page = -1);
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
-void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word,
-                                bool pinyin_is_canonical = false);
+void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word, bool pinyin_is_canonical = false);
 void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
 bool ResolveCandidateItem(int one_based_index, WordItem &item);
 bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
@@ -989,14 +1011,12 @@ void WorkerThread()
             taskQueue.pop();
         }
 
-        if (task.type == TaskType::ClientDeactivated ||
-            task.type == TaskType::ClientSuspended)
+        if (task.type == TaskType::ClientDeactivated || task.type == TaskType::ClientSuspended)
         {
             if (!IsPipeActivationCurrent(0, task.activation_epoch))
             {
                 FTB_DIAG_LOGF(L"task {} epoch={} rejected as stale",
-                              task.type == TaskType::ClientDeactivated ? L"ClientDeactivated"
-                                                                       : L"ClientSuspended",
+                              task.type == TaskType::ClientDeactivated ? L"ClientDeactivated" : L"ClientSuspended",
                               task.activation_epoch);
                 continue;
             }
@@ -1009,13 +1029,11 @@ void WorkerThread()
             continue;
         }
 
-        const bool candidateUiAction = task.type == TaskType::UiCommitCandidate ||
-                                       task.type == TaskType::UiPinCandidate ||
-                                       task.type == TaskType::UiDeleteCandidate ||
-                                       task.type == TaskType::UiFixCandidatePosition ||
-                                       task.type == TaskType::UiClearCandidatePosition;
-        if (candidateUiAction &&
-            !CandidateUiOwnerIsCurrent({task.client_id, task.activation_epoch}))
+        const bool candidateUiAction =
+            task.type == TaskType::UiCommitCandidate || task.type == TaskType::UiPinCandidate ||
+            task.type == TaskType::UiDeleteCandidate || task.type == TaskType::UiFixCandidatePosition ||
+            task.type == TaskType::UiClearCandidatePosition;
+        if (candidateUiAction && !CandidateUiOwnerIsCurrent({task.client_id, task.activation_epoch}))
         {
             // The page was hidden or replaced after the click was posted.
             continue;
@@ -1101,8 +1119,7 @@ void WorkerThread()
         case TaskType::StoreUserPhrase: {
             if (task.session_pinyin_is_canonical)
             {
-                g_inputSession->store_user_phrase_from_canonical_pinyin(task.session_pinyin,
-                                                                        task.session_word);
+                g_inputSession->store_user_phrase_from_canonical_pinyin(task.session_pinyin, task.session_word);
             }
             else
             {
@@ -1236,7 +1253,8 @@ void WorkerThread()
             const int packed_state = (effective_cn << 2) | (fullwidth_state << 1) | punctuation_state;
             if (FanyImeIpc::ShouldResetCompositionForImeMode(effective_cn != 0))
             {
-                if (effective_cn == 0) g_english_input_mode = false;
+                if (effective_cn == 0)
+                    g_english_input_mode = false;
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
                 ClearState();
             }
@@ -1246,8 +1264,7 @@ void WorkerThread()
         }
 
         case TaskType::UiCommitCandidate: {
-            ProcessSelectionKey(0, task.client_id, task.activation_epoch,
-                                task.candidate_one_based_index - 1);
+            ProcessSelectionKey(0, task.client_id, task.activation_epoch, task.candidate_one_based_index - 1);
             if (Global::MsgTypeToTsf == Global::DataFromServerMsgType::Normal)
             {
                 // The worker packet is the complete edit-session-owned commit
@@ -1266,9 +1283,9 @@ void WorkerThread()
                 // NeedToCreateWord/OutOfRange require the normal reply's
                 // subtype. An empty worker packet is only the ordered trigger;
                 // TSF consumes (rather than discards) the id-0 reply.
-                SendToTsfWorkerThreadClientViaNamedpipe(
-                    task.client_id, task.activation_epoch,
-                    Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate, L"");
+                SendToTsfWorkerThreadClientViaNamedpipe(task.client_id, task.activation_epoch,
+                                                        Global::DataFromServerMsgTypeToTsfWorkerThread::CommitCandidate,
+                                                        L"");
             }
             break;
         }
@@ -1302,9 +1319,9 @@ void WorkerThread()
             else if (task.type == TaskType::UiDeleteCandidate)
             {
                 if (english_candidate)
-                    (void)user_dictionary::delete_english_candidate(
-                        CommonUtils::get_ime_data_path() + "\\english.db", user_dictionary::default_user_db_path(),
-                        entry_key, item.word);
+                    (void)user_dictionary::delete_english_candidate(CommonUtils::get_ime_data_path() + "\\english.db",
+                                                                    user_dictionary::default_user_db_path(), entry_key,
+                                                                    item.word);
                 else if (utf8::distance(item.word.begin(), item.word.end()) == 1)
                 {
                     break;
@@ -1438,7 +1455,8 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
 void EnqueueAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
 {
     const AsyncRequestOrigin origin = FindAiRequestOrigin(identity, generation);
-    if (origin.client_id == 0 || origin.activation_epoch == 0) return;
+    if (origin.client_id == 0 || origin.activation_epoch == 0)
+        return;
     {
         std::lock_guard lock(queueMutex);
         Task task;
@@ -1474,8 +1492,7 @@ void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::strin
     pipe_queueCv.notify_one();
 }
 
-void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word,
-                                bool pinyin_is_canonical)
+void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word, bool pinyin_is_canonical)
 {
     {
         std::lock_guard lock(queueMutex);
@@ -1539,7 +1556,8 @@ void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index, int
     }
     else if (action == CandidateUiAction::FixPosition)
     {
-        if (fixed_position < 1 || fixed_position > 5) return;
+        if (fixed_position < 1 || fixed_position > 5)
+            return;
         type = TaskType::UiFixCandidatePosition;
     }
     else if (action == CandidateUiAction::ClearPosition)
@@ -1647,8 +1665,8 @@ bool SendUiLessCompositionToClient(uint64_t client_id, uint64_t activation_epoch
     const std::wstring page = BuildUiLessCandidatePageW();
     ::WriteDataToSharedMemory(page, true);
     auto &ui = Global::candidate_ui;
-    const int selection =
-        ui.page_words.empty() ? 0
+    const int selection = ui.page_words.empty()
+                              ? 0
                               : std::clamp(ui.selected_index_in_page, 0, static_cast<int>(ui.page_words.size()) - 1);
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::UiLessComposition;
     Global::candidate_ui.selected_text = preedit + L'\t' + page + L'\t' + std::to_wstring(selection);
@@ -1738,11 +1756,10 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
     {
         FanyImeNamedpipeData pipeData = {};
         DWORD bytesRead = 0;
-        const BOOL readResult = helloReceived
-                                    ? ReadFile(clientPipe, &pipeData, sizeof(pipeData), &bytesRead, nullptr)
-                                    : ReadExactPipeMessageUntil(clientPipe, &pipeData, sizeof(pipeData),
-                                                                std::chrono::steady_clock::now() + kPipeHelloTimeout,
-                                                                bytesRead);
+        const BOOL readResult =
+            helloReceived ? ReadFile(clientPipe, &pipeData, sizeof(pipeData), &bytesRead, nullptr)
+                          : ReadExactPipeMessageUntil(clientPipe, &pipeData, sizeof(pipeData),
+                                                      std::chrono::steady_clock::now() + kPipeHelloTimeout, bytesRead);
         if (!readResult || bytesRead != sizeof(pipeData))
         {
             LogPipeReadFailure(L"main-pipe", bytesRead);
@@ -1814,24 +1831,20 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
         }
         if (FanyImePipeEventType::IsRouteDeactivation(pipeData.event_type))
         {
-            const bool terminalDeactivation =
-                FanyImePipeEventType::IsTerminalDeactivation(pipeData.event_type);
-            LogClientLifecycle(terminalDeactivation ? L"deactivated" : L"suspended",
-                               clientId, pipeData.event_type);
+            const bool terminalDeactivation = FanyImePipeEventType::IsTerminalDeactivation(pipeData.event_type);
+            LogClientLifecycle(terminalDeactivation ? L"deactivated" : L"suspended", clientId, pipeData.event_type);
             uint64_t deactivationEpoch = DeactivatePipeClient(clientId, mainRegistrationId);
             if (terminalDeactivation && deactivationEpoch == 0)
             {
                 // ClientSuspended may already have put routing into the
                 // inactive state. Preserve exact terminal cleanup for that
                 // owner; a subsequent activation makes this task stale.
-                deactivationEpoch =
-                    ResolvePipeClientTerminalDeactivationEpoch(clientId);
+                deactivationEpoch = ResolvePipeClientTerminalDeactivationEpoch(clientId);
             }
             if (deactivationEpoch != 0)
             {
-                EnqueueTask(terminalDeactivation ? TaskType::ClientDeactivated
-                                                 : TaskType::ClientSuspended,
-                            pipeData, deactivationEpoch);
+                EnqueueTask(terminalDeactivation ? TaskType::ClientDeactivated : TaskType::ClientSuspended, pipeData,
+                            deactivationEpoch);
             }
             continue;
         }
@@ -1854,8 +1867,8 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             }
         }
 
-        const bool isActiveClient = activation.client_id == clientId && activation.epoch != 0 &&
-                                    IsActivePipeClient(clientId, activation.epoch);
+        const bool isActiveClient =
+            activation.client_id == clientId && activation.epoch != 0 && IsActivePipeClient(clientId, activation.epoch);
         LogClientRouting(clientId, pipeData.event_type, isActiveClient);
         if (!isActiveClient)
         {
@@ -1924,8 +1937,7 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
         // A process can disconnect its Main pipe after it suspended the route.
         // Reuse only that owner's inactive epoch; a replacement Main that has
         // already activated makes this terminal cleanup stale.
-        disconnectEpoch =
-            ResolvePipeClientTerminalDeactivationEpoch(clientId);
+        disconnectEpoch = ResolvePipeClientTerminalDeactivationEpoch(clientId);
     }
     if (disconnectEpoch != 0)
     {
@@ -2055,8 +2067,7 @@ void ToTsfWorkerThreadPipeEventListenerLoopThread()
             {
                 try
                 {
-                    std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsfWorkerThread,
-                                handlerId)
+                    std::thread(RegisteredPipeMonitorThread, clientPipe, FanyImePipeRole::ToTsfWorkerThread, handlerId)
                         .detach();
                 }
                 catch (...)
@@ -2137,8 +2148,7 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
         return;
     }
 
-    const wchar_t *pipeName =
-        pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe";
+    const wchar_t *pipeName = pipeRole == FanyImePipeRole::ToTsf ? L"to-tsf-pipe" : L"to-tsf-worker-pipe";
     while (pipe_running && IsPipeClientRegistrationCurrent(hello.client_id, pipeRole, registrationId))
     {
         DWORD bytesAvailable = 0;
@@ -2233,31 +2243,21 @@ void AuxPipeEventListenerLoopThread()
                 {
                     unsigned long long clientId = 0;
                     unsigned long long focusToken = 0;
-                    if (swscanf_s(message.c_str(),
-                                  L"TerminalDeactivation|%llu|%llu",
-                                  &clientId, &focusToken) == 2 &&
-                        PipeClientIdMatchesConnectedProcess(
-                            listeningPipe, static_cast<uint64_t>(clientId)))
+                    if (swscanf_s(message.c_str(), L"TerminalDeactivation|%llu|%llu", &clientId, &focusToken) == 2 &&
+                        PipeClientIdMatchesConnectedProcess(listeningPipe, static_cast<uint64_t>(clientId)))
                     {
-                        const uint64_t deactivationEpoch =
-                            DeactivatePipeClientByFocusToken(
-                                static_cast<uint64_t>(clientId),
-                                static_cast<uint64_t>(focusToken));
+                        const uint64_t deactivationEpoch = DeactivatePipeClientByFocusToken(
+                            static_cast<uint64_t>(clientId), static_cast<uint64_t>(focusToken));
                         if (deactivationEpoch != 0)
                         {
                             FanyImeNamedpipeData pipeData = {};
-                            pipeData.event_type =
-                                FanyImePipeEventType::ClientDeactivated;
-                            pipeData.client_id =
-                                static_cast<uint64_t>(clientId);
-                            EnqueueTask(TaskType::ClientDeactivated, pipeData,
-                                        deactivationEpoch);
+                            pipeData.event_type = FanyImePipeEventType::ClientDeactivated;
+                            pipeData.client_id = static_cast<uint64_t>(clientId);
+                            EnqueueTask(TaskType::ClientDeactivated, pipeData, deactivationEpoch);
 
                             constexpr wchar_t acknowledgement[] = L"OK";
                             DWORD bytesWritten = 0;
-                            WriteFile(listeningPipe, acknowledgement,
-                                      sizeof(acknowledgement) -
-                                          sizeof(wchar_t),
+                            WriteFile(listeningPipe, acknowledgement, sizeof(acknowledgement) - sizeof(wchar_t),
                                       &bytesWritten, nullptr);
                         }
                     }
@@ -2302,17 +2302,20 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = QuickPhraseQuery::QueryPrefix(current_input.substr(1));
     }
+    else if (IsDateTimeInput(current_input))
+    {
+        items = DateTimeQuery::Query(current_input.substr(1));
+    }
     else
     {
         items = g_inputSession->get_candidates();
         user_dictionary::apply_fixed_positions(
             user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items,
             g_inputSession->get_pinyin_sequence().size() == 1,
-            [](const std::string &key, const std::string &value) {
-                return g_inputSession->find_candidate(key, value);
-            },
+            [](const std::string &key, const std::string &value) { return g_inputSession->find_candidate(key, value); },
             g_inputSession->has_active_helpcode());
-        if (g_inputSession->get_pinyin_sequence().size() == 1 && items.size() > 24) items.resize(24);
+        if (g_inputSession->get_pinyin_sequence().size() == 1 && items.size() > 24)
+            items.resize(24);
     }
 
     if (items.empty() && !g_english_input_mode)
@@ -2330,8 +2333,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
         UpdateEnglishInput(current_input, client_id, activation_epoch, true);
     }
     else if (!IsQuickPhraseInput(current_input) && !IsUnicodeInput(current_input) &&
-        GetConfiguredEnglishCandidatesEnabled() && scheme != SchemeType::Wubi &&
-        !GlobalIme::composition.creating_word.active)
+             !IsDateTimeCompositionActive(current_input) && GetConfiguredEnglishCandidatesEnabled() &&
+             scheme != SchemeType::Wubi && !GlobalIme::composition.creating_word.active)
     {
         UpdateEnglishInput(current_input, client_id, activation_epoch);
     }
@@ -2375,8 +2378,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
     size_t insert_index = items.size() >= 1 ? 1 : 0;
     items.insert(items.begin() + insert_index, WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
-    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate,
-                                            CandidateSource::CloudSuggestion);
+    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate, CandidateSource::CloudSuggestion);
     Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
 
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
@@ -2462,16 +2464,15 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
         RefreshCandidatePageUi(true);
         return;
     }
-    items.erase(std::remove_if(items.begin(), items.end(), [](const WordItem &item) {
-                    return item.source == CandidateSource::EnglishDictionary;
-                }),
+    items.erase(std::remove_if(items.begin(), items.end(),
+                               [](const WordItem &item) { return item.source == CandidateSource::EnglishDictionary; }),
                 items.end());
 
     std::vector<WordItem> unique_candidates;
     for (auto &candidate : candidates)
     {
-        const bool duplicate = std::any_of(items.begin(), items.end(),
-                                           [&](const WordItem &item) { return item.word == candidate.word; });
+        const bool duplicate =
+            std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate.word; });
         if (!duplicate)
         {
             unique_candidates.push_back(std::move(candidate));
@@ -2486,9 +2487,8 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
             ++insert_index;
         }
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
-        user_dictionary::apply_fixed_positions(
-            user_dictionary::default_user_db_path(), CurrentRankingContextKey(), items, false, {},
-            g_inputSession->has_active_helpcode());
+        user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
+                                               items, false, {}, g_inputSession->has_active_helpcode());
         for (size_t index = 1; index < unique_candidates.size(); ++index)
         {
             items.push_back(std::move(unique_candidates[index]));
@@ -2525,16 +2525,18 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         return;
     }
 
-    const std::string input_before_key = g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
+    const std::string input_before_key =
+        g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
     if (!g_english_input_mode && GetConfiguredQuickPhraseEnabled() && input_before_key.empty() &&
-        Global::Keycode == 'K' && Global::Wch == L'K' &&
-        shift_only)
+        Global::Keycode == 'K' && Global::Wch == L'K' && shift_only)
         g_quick_phrase_triggered = true;
     if (!g_english_input_mode && GetConfiguredUnicodeModeEnabled() && input_before_key.empty() &&
-        Global::Keycode == 'U' && Global::Wch == L'U' &&
-        shift_only)
+        Global::Keycode == 'U' && Global::Wch == L'U' && shift_only)
         g_unicode_mode_triggered = true;
+    if (!g_english_input_mode && GetConfiguredDateTimeModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'T' && Global::Wch == L'T' && shift_only)
+        g_date_time_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -2558,13 +2560,12 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool is_unicode_hex_digit = unicode_composition_active && !is_unicode_shift_digit_selection &&
                                       Global::Keycode >= '0' && Global::Keycode <= '9';
     const bool is_unicode_plus = unicode_composition_active && Global::Keycode == VK_OEM_PLUS && Global::Wch == L'+';
-    const bool is_composition_edit_key =
-        Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT || Global::Keycode == VK_BACK ||
-        (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
-        is_unicode_plus;
-    const bool should_forward_key_to_session =
-        !is_commit_with_highlighted_candidate_punctuation && !is_selection_key && !is_paging_key &&
-        !is_composition_edit_key;
+    const bool is_composition_edit_key = Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT ||
+                                         Global::Keycode == VK_BACK ||
+                                         (Global::Keycode >= 'A' && Global::Keycode <= 'Z') ||
+                                         is_manual_pinyin_separator || is_unicode_hex_digit || is_unicode_plus;
+    const bool should_forward_key_to_session = !is_commit_with_highlighted_candidate_punctuation && !is_selection_key &&
+                                               !is_paging_key && !is_composition_edit_key;
 
     // Punctuation needs a synchronous highlighted-candidate response on the TSF pipe.
     // Reply before cloud-query and candidate recomputation work so the TSF-side
@@ -2577,19 +2578,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         {
             EnsureCandidatePageReady();
             auto &ui = Global::candidate_ui;
-            ui.selected_text =
-                FanyImeIpc::HighlightedCandidateText(ui.page_words, ui.selected_index_in_page);
+            ui.selected_text = FanyImeIpc::HighlightedCandidateText(ui.page_words, ui.selected_index_in_page);
 
             const bool is_word_to_character_key =
-                (Global::Wch == L'[' || Global::Wch == L']') &&
-                GetConfiguredWordToCharacterEnabled();
+                (Global::Wch == L'[' || Global::Wch == L']') && GetConfiguredWordToCharacterEnabled();
             WordItem highlighted_item;
-            if (is_word_to_character_key &&
-                ResolveCandidateItem(ui.selected_index_in_page + 1, highlighted_item))
+            if (is_word_to_character_key && ResolveCandidateItem(ui.selected_index_in_page + 1, highlighted_item))
             {
-                const auto edge = Global::Wch == L'['
-                                      ? FanyImeIpc::HanCharacterEdge::First
-                                      : FanyImeIpc::HanCharacterEdge::Last;
+                const auto edge =
+                    Global::Wch == L'[' ? FanyImeIpc::HanCharacterEdge::First : FanyImeIpc::HanCharacterEdge::Last;
                 const auto character =
                     FanyImeIpc::ExtractHanCharacter(CandidateTextForOutput(highlighted_item.word), edge);
                 if (character)
@@ -2629,10 +2626,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     {
         g_quick_phrase_triggered = false;
         g_unicode_mode_triggered = false;
+        g_date_time_mode_triggered = false;
     }
     if (!g_english_input_mode && IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
         // Keep preedit identical to the typed U/+hex sequence.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
+    if (!g_english_input_mode && IsDateTimeCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
     //
@@ -2643,24 +2645,24 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //
     // Paging / selection must not bump async generations or re-apply cached
     // cloud/AI results (that previously reset page_index and re-cached duplicates).
-    const bool suppress_async_lookup =
-        is_paging_key || is_selection_key || is_unicode_shift_digit_selection;
+    const bool suppress_async_lookup = is_paging_key || is_selection_key || is_unicode_shift_digit_selection;
 
     const auto cloud_query_state = g_inputSession->get_cloud_query_state();
     if (!g_english_input_mode && !suppress_async_lookup &&
         !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) && cloud_query_state.should_query)
+        !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        !IsDateTimeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        cloud_query_state.should_query)
     {
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
 
-    const bool ai_eligible = !g_english_input_mode &&
-                             !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-                             !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-                             g_inputSession->current_scheme_type() != SchemeType::Wubi &&
-                             g_inputSession->is_all_complete_pure_pinyin() &&
-                             !g_inputSession->has_active_helpcode() &&
-                             !GlobalIme::composition.creating_word.active;
+    const bool ai_eligible =
+        !g_english_input_mode && !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        !IsDateTimeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        g_inputSession->current_scheme_type() != SchemeType::Wubi && g_inputSession->is_all_complete_pure_pinyin() &&
+        !g_inputSession->has_active_helpcode() && !GlobalIme::composition.creating_word.active;
     if (!suppress_async_lookup)
     {
         UpdateAiInput(ai_eligible ? g_inputSession->get_pinyin_segmentation() : std::string{}, client_id,
@@ -2714,8 +2716,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             }
         }
     }
-    else if (IsUiLessMode() && is_composition_edit_key && Global::Keycode != VK_LEFT &&
-             Global::Keycode != VK_RIGHT && Global::Keycode != VK_BACK)
+    else if (IsUiLessMode() && is_composition_edit_key && Global::Keycode != VK_LEFT && Global::Keycode != VK_RIGHT &&
+             Global::Keycode != VK_BACK)
     {
         PrepareCandidateList(client_id, activation_epoch);
         SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
@@ -2802,9 +2804,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         };
         const auto move_selection = [&](int offset, UINT response_type) {
             result = response_type;
-            if (offset > 0 &&
-                (ui.is_selection_at_last_candidate() ||
-                 (ui.is_selection_at_current_page_end() && ui.is_next_page_partial_last_page())))
+            if (offset > 0 && (ui.is_selection_at_last_candidate() ||
+                               (ui.is_selection_at_current_page_end() && ui.is_next_page_partial_last_page())))
             {
                 expand_initial_candidates();
             }
@@ -2891,6 +2892,7 @@ void ClearState()
 {
     g_quick_phrase_triggered = false;
     g_unicode_mode_triggered = false;
+    g_date_time_mode_triggered = false;
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
@@ -2937,8 +2939,7 @@ bool ResolveCandidateItem(int one_based_index, WordItem &item)
     return true;
 }
 
-void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch,
-                         int forced_index_in_page)
+void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch, int forced_index_in_page)
 {
     /* 先清理一下状态 */
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
@@ -2953,15 +2954,13 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
     const bool is_direct_selection = forced_index_in_page >= 0;
     const int index = is_direct_selection
                           ? forced_index_in_page
-                          : (is_space ? Global::candidate_ui.selected_index_in_page
-                                      : static_cast<int>(keycode - '1'));
+                          : (is_space ? Global::candidate_ui.selected_index_in_page : static_cast<int>(keycode - '1'));
     WordItem curWordItem;
-    const int page_size = Global::candidate_ui.page_size > 0 ? Global::candidate_ui.page_size
-                                                            : GetConfiguredCandidatePageSize();
+    const int page_size =
+        Global::candidate_ui.page_size > 0 ? Global::candidate_ui.page_size : GetConfiguredCandidatePageSize();
     const bool within_page_size = !is_digit_selection || index < page_size;
-    const bool is_valid_selection = within_page_size &&
-                                    (is_direct_selection || is_space || is_digit_selection) && index >= 0 &&
-                                    static_cast<size_t>(index) < Global::candidate_ui.page_words.size() &&
+    const bool is_valid_selection = within_page_size && (is_direct_selection || is_space || is_digit_selection) &&
+                                    index >= 0 && static_cast<size_t>(index) < Global::candidate_ui.page_words.size() &&
                                     ResolveCandidateItem(index + 1, curWordItem);
 
     if (is_valid_selection)
@@ -2979,8 +2978,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         if (curWordItem.source == CandidateSource::EnglishDictionary ||
             curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Generated)
         {
-            if (curWordItem.source == CandidateSource::EnglishDictionary && g_english_input_mode &&
-                isNeedUpdateWeight)
+            if (curWordItem.source == CandidateSource::EnglishDictionary && g_english_input_mode && isNeedUpdateWeight)
             {
                 const auto &frequency = GetConfiguredFrequencyAdjustment();
                 (void)user_dictionary::adjust_english_candidate_ranking(
@@ -2994,6 +2992,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             GlobalIme::composition.clear();
             g_quick_phrase_triggered = false;
             g_unicode_mode_triggered = false;
+            g_date_time_mode_triggered = false;
             return;
         }
         std::string cloudCommittedPinyin;
@@ -3014,16 +3013,16 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             }
             isNeedUpdateWeight = false;
         }
-        auto selection_transition = g_inputSession->advance_composition_after_selection(
-            curWordPinyin, curWord, curWordItem.canonical_pinyin);
+        auto selection_transition =
+            g_inputSession->advance_composition_after_selection(curWordPinyin, curWord, curWordItem.canonical_pinyin);
         // A cloud suggestion is an already-composed result returned for the
         // current query.  It must commit as one candidate even when the
         // returned query spelling is shorter than the raw input (for example
         // with an abbreviation or an active help-code suffix).  Treating it
         // like an ordinary partial candidate enters word-creation mode, while
         // the cloud branch below still persists the selected word.
-        const bool isNeedCreateWord = FanyImeIpc::ShouldEnterCreatingWord(
-            curWordItem.source, selection_transition.continues_composition);
+        const bool isNeedCreateWord =
+            FanyImeIpc::ShouldEnterCreatingWord(curWordItem.source, selection_transition.continues_composition);
         if (isNeedCreateWord)
         { /* 候选只消耗了输入的一部分，继续使用剩余输入造词。完整拼音和简拼均可进入。 */
             /* 打开造词开关 */
@@ -3091,7 +3090,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         if (g_ai_context.size() > 1024)
         {
             size_t cut = g_ai_context.size() - 1024;
-            while (cut < g_ai_context.size() && (static_cast<unsigned char>(g_ai_context[cut]) & 0xC0) == 0x80) ++cut;
+            while (cut < g_ai_context.size() && (static_cast<unsigned char>(g_ai_context[cut]) & 0xC0) == 0x80)
+                ++cut;
             g_ai_context.erase(0, cut);
         }
 
@@ -3115,8 +3115,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             bool ranking_changed = false;
             (void)user_dictionary::adjust_candidate_ranking(
                 CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-                ranking_context_key, Global::candidate_ui.items, ranking_entry_key, curWord,
-                frequency.mode, frequency.linear_step, frequency.trigger_count, false, &ranking_changed);
+                ranking_context_key, Global::candidate_ui.items, ranking_entry_key, curWord, frequency.mode,
+                frequency.linear_step, frequency.trigger_count, false, &ranking_changed);
             if (ranking_changed)
             {
                 g_inputSession->reset_cache();

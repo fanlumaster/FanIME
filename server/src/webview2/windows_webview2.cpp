@@ -4,6 +4,7 @@
 #include "defines/globals.h"
 #include "utils/common_utils.h"
 #include "utils/ime_utils.h"
+#include "window/floating_toolbar_visibility_policy.h"
 #include <debugapi.h>
 #include <boost/json.hpp>
 #include <nlohmann/json.hpp>
@@ -30,10 +31,12 @@ namespace json = boost::json;
 int FineTuneWindow(HWND hwnd);
 void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason);
 void ApplyConfiguredFloatingToolbarSize();
+void ReconcileFloatingToolbarVisibilityAfterReady(const wchar_t *reason);
 void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+void ClearFloatingToolbarNavigationState();
 std::wstring DescribeTrayMenuHostState();
 std::wstring GetAppdataPath();
 HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
@@ -64,6 +67,11 @@ enum class SmallWindowInitState
 SmallWindowInitState smallWindowInitState = SmallWindowInitState::Idle;
 int smallWindowInitAttempts = 0;
 bool pendingTrayMenuShow = false;
+bool floatingToolbarNavigationReady = false;
+// After NavigationCompleted, keep the host shown briefly so a cold WebView2
+// user-data folder can finish first paint; then reconcile hide/show for real.
+bool floatingToolbarPaintGraceActive = false;
+bool floatingToolbarNavigationRetryUsed = false;
 // WebView2 rejects a CreateCoreWebView2Controller request with E_INVALIDARG when
 // another controller creation on the same environment is still in flight. The
 // three small windows must therefore be brought up strictly one at a time.
@@ -75,7 +83,6 @@ constexpr UINT_PTR kRetrySmallWindowWebviewTimerId = 9001;
 
 bool candidateNavigationReady = false;
 bool menuNavigationReady = false;
-bool floatingToolbarNavigationReady = false;
 bool smallWindowTopmostRequested = false;
 bool smallWindowTopmostApplied = false;
 // Guards against scheduling the staggered pin more than once.
@@ -310,21 +317,21 @@ void BeginSmallWindowWebviewEnvironmentCreate()
 
     const HRESULT createHr = CreateCoreWebView2EnvironmentWithOptions(
         nullptr, appDataPath.c_str(), options.Get(),
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
-                if (FAILED(result) || !env)
-                {
-                    OnSmallWindowWebviewInitFailed(FAILED(result) ? result : E_FAIL);
-                    return FAILED(result) ? result : E_FAIL;
-                }
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>([](HRESULT result,
+                                                                                ICoreWebView2Environment *env)
+                                                                                 -> HRESULT {
+            if (FAILED(result) || !env)
+            {
+                OnSmallWindowWebviewInitFailed(FAILED(result) ? result : E_FAIL);
+                return FAILED(result) ? result : E_FAIL;
+            }
 
-                smallWindowWebviewEnvironment = env;
-                smallWindowInitState = SmallWindowInitState::Ready;
-                smallWindowInitAttempts = 0;
-                RequestNextSmallWindowController();
-                return S_OK;
-            })
-            .Get());
+            smallWindowWebviewEnvironment = env;
+            smallWindowInitState = SmallWindowInitState::Ready;
+            smallWindowInitAttempts = 0;
+            RequestNextSmallWindowController();
+            return S_OK;
+        }).Get());
 
     if (FAILED(createHr))
     {
@@ -370,7 +377,7 @@ void ResetSmallWindowTopmostGate()
     CancelStaggeredTopmost();
     candidateNavigationReady = false;
     menuNavigationReady = false;
-    floatingToolbarNavigationReady = false;
+    ClearFloatingToolbarNavigationState();
     smallWindowTopmostRequested = false;
     smallWindowTopmostApplied = false;
     smallWindowTopmostScheduled = false;
@@ -430,10 +437,9 @@ bool TrayMenuIsOpenToUser()
 
 void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
 {
-    FTB_DIAG_LOGF(L"topmost step {} applying",
-                  step == SmallWindowTopmostStep::Candidate        ? L"candidate"
-                  : step == SmallWindowTopmostStep::FloatingToolbar ? L"floating-toolbar"
-                                                                   : L"tray-menu");
+    FTB_DIAG_LOGF(L"topmost step {} applying", step == SmallWindowTopmostStep::Candidate         ? L"candidate"
+                                               : step == SmallWindowTopmostStep::FloatingToolbar ? L"floating-toolbar"
+                                                                                                 : L"tray-menu");
     switch (step)
     {
     case SmallWindowTopmostStep::Candidate:
@@ -473,8 +479,7 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
 void CALLBACK SmallWindowTopmostTimerProc(HWND hwnd, UINT, UINT_PTR timerId, DWORD)
 {
     KillTimer(hwnd, timerId);
-    ApplySmallWindowTopmostStep(
-        static_cast<SmallWindowTopmostStep>(timerId - kTopmostStepTimerIdBase));
+    ApplySmallWindowTopmostStep(static_cast<SmallWindowTopmostStep>(timerId - kTopmostStepTimerIdBase));
 }
 
 // Returns false when there is no host window to hang the timers on, leaving the
@@ -491,8 +496,7 @@ bool ScheduleStaggeredTopmost()
     UINT scheduled = 0;
     for (UINT_PTR step = 0; step < kTopmostStepCount; ++step)
     {
-        if (SetTimer(timer_host, kTopmostStepTimerIdBase + step, delays[step],
-                     SmallWindowTopmostTimerProc) != 0)
+        if (SetTimer(timer_host, kTopmostStepTimerIdBase + step, delays[step], SmallWindowTopmostTimerProc) != 0)
         {
             ++scheduled;
         }
@@ -533,8 +537,7 @@ void TryApplyPendingLazyTopmost(const wchar_t *reason)
     {
         FTB_DIAG_LOGF(L"topmost staggered from reason={}: candidate +{}ms, floating-toolbar +{}ms, "
                       L"tray-menu +{}ms",
-                      reason, kCandidateTopmostDelayMs, kFloatingToolbarTopmostDelayMs,
-                      kTrayMenuTopmostDelayMs);
+                      reason, kCandidateTopmostDelayMs, kFloatingToolbarTopmostDelayMs, kTrayMenuTopmostDelayMs);
         return;
     }
     FTB_DIAG_LOGF(L"topmost timers unavailable for reason={}, pinning inline", reason);
@@ -626,31 +629,26 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
     const FloatingToolbarItemsConfig &items = GetConfiguredFloatingToolbarItems();
     script.append(L"window.setToolbarItem=(id,shown)=>{const item=document.getElementById(id);"
                   L"if(item)item.style.display=shown?'flex':'none';};");
-    script.append(items.fullwidth
-                      ? L"window.setToolbarItem('char-width-mode',true);"
-                      : L"window.setToolbarItem('char-width-mode',false);");
-    script.append(items.punctuation
-                      ? L"window.setToolbarItem('punctuation-mode',true);"
-                      : L"window.setToolbarItem('punctuation-mode',false);");
-    script.append(items.character_set
-                      ? L"window.setToolbarItem('character-set',true);"
-                      : L"window.setToolbarItem('character-set',false);");
-    script.append(items.emoji
-                      ? L"window.setToolbarItem('emoji-panel',true);"
-                      : L"window.setToolbarItem('emoji-panel',false);");
-    script.append(items.screen_keyboard
-                      ? L"window.setToolbarItem('screen-keyboard',true);"
-                      : L"window.setToolbarItem('screen-keyboard',false);");
-    script.append(items.settings
-                      ? L"window.setToolbarItem('settings',true);"
-                      : L"window.setToolbarItem('settings',false);");
+    script.append(items.fullwidth ? L"window.setToolbarItem('char-width-mode',true);"
+                                  : L"window.setToolbarItem('char-width-mode',false);");
+    script.append(items.punctuation ? L"window.setToolbarItem('punctuation-mode',true);"
+                                    : L"window.setToolbarItem('punctuation-mode',false);");
+    script.append(items.character_set ? L"window.setToolbarItem('character-set',true);"
+                                      : L"window.setToolbarItem('character-set',false);");
+    script.append(items.emoji ? L"window.setToolbarItem('emoji-panel',true);"
+                              : L"window.setToolbarItem('emoji-panel',false);");
+    script.append(items.screen_keyboard ? L"window.setToolbarItem('screen-keyboard',true);"
+                                        : L"window.setToolbarItem('screen-keyboard',false);");
+    script.append(items.settings ? L"window.setToolbarItem('settings',true);"
+                                 : L"window.setToolbarItem('settings',false);");
 
     webview->ExecuteScript(script.c_str(), nullptr);
 }
 
 void SetWebviewMemoryUsageTarget(ComPtr<ICoreWebView2> webview, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL level)
 {
-    if (!webview) return;
+    if (!webview)
+        return;
 
     ComPtr<ICoreWebView2_23> webview23;
     if (SUCCEEDED(webview.As(&webview23)))
@@ -658,7 +656,7 @@ void SetWebviewMemoryUsageTarget(ComPtr<ICoreWebView2> webview, COREWEBVIEW2_MEM
         webview23->put_MemoryUsageTargetLevel(level);
     }
 }
-}
+} // namespace
 
 bool EnsureSmallWindowsTopmost(const wchar_t *reason)
 {
@@ -700,8 +698,7 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     // Re-assert TOPMOST after FTB (or a peer) was pinned last. A second
     // HWND_TOPMOST is what actually lifts the menu within the topmost band;
     // HWND_TOP alone is unreliable here with WS_EX_NOACTIVATE layered hosts.
-    FTB_DIAG_LOGF(L"menu raise reason={} nav_ready={} {}", reason, menuNavigationReady,
-                  DescribeTrayMenuHostState());
+    FTB_DIAG_LOGF(L"menu raise reason={} nav_ready={} {}", reason, menuNavigationReady, DescribeTrayMenuHostState());
     constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
     SetLastError(0);
     if (!SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag))
@@ -729,6 +726,33 @@ bool AreSmallWindowWebviewsReady()
 bool IsFloatingToolbarWebviewReady()
 {
     return floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr;
+}
+
+bool IsFloatingToolbarPaintGraceActive()
+{
+    return floatingToolbarPaintGraceActive;
+}
+
+void BeginFloatingToolbarPaintGrace()
+{
+    floatingToolbarPaintGraceActive = true;
+}
+
+void EndFloatingToolbarPaintGrace()
+{
+    floatingToolbarPaintGraceActive = false;
+}
+
+void NotifyFloatingToolbarPageReady()
+{
+    ReconcileFloatingToolbarVisibilityAfterReady(L"ftb-page-ready");
+}
+
+void ClearFloatingToolbarNavigationState()
+{
+    floatingToolbarNavigationReady = false;
+    floatingToolbarPaintGraceActive = false;
+    floatingToolbarNavigationRetryUsed = false;
 }
 
 bool IsTrayMenuOpenToUser()
@@ -818,9 +842,8 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
 
     if (lowerMemoryWhenHidden)
     {
-        SetWebviewMemoryUsageTarget(
-            webview,
-            visible ? COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL : COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW);
+        SetWebviewMemoryUsageTarget(webview, visible ? COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+                                                     : COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW);
     }
 }
 
@@ -910,13 +933,10 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     }
 
     webview->ExecuteScript(
-        script.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-            [onComplete](HRESULT, LPCWSTR) -> HRESULT {
-                onComplete();
-                return S_OK;
-            })
-            .Get());
+        script.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
+                            onComplete();
+                            return S_OK;
+                        }).Get());
 }
 
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
@@ -1012,11 +1032,9 @@ int PrepareHtmlForWnds()
     // floating toolbar 窗口
     //
     const bool ftbLight = ResolveConfiguredTheme(GetConfiguredThemeFtb()) == "light";
-    std::wstring htmlFtbWnd =
-        ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
+    std::wstring htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
-    ::HTMLStringFtbWnd =
-        ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
+    ::HTMLStringFtbWnd = ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
 
     return 0;
 }
@@ -1043,7 +1061,7 @@ bool ApplyConfiguredUiThemes()
     }
     if (webviewFtbWnd && !HTMLStringFtbWnd.empty())
     {
-        floatingToolbarNavigationReady = false;
+        ClearFloatingToolbarNavigationState();
         ok = SUCCEEDED(webviewFtbWnd->NavigateToString(HTMLStringFtbWnd.c_str())) && ok;
     }
     if (webviewMenuWnd && !HTMLStringMenuWnd.empty())
@@ -1120,13 +1138,10 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
     }
 
     webview->ExecuteScript(
-        script.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-            [onComplete](HRESULT, LPCWSTR) -> HRESULT {
-                onComplete();
-                return S_OK;
-            })
-            .Get());
+        script.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
+                            onComplete();
+                            return S_OK;
+                        }).Get());
 }
 
 void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
@@ -1272,11 +1287,11 @@ HRESULT OnControllerCreatedCandWnd(     //
         );
 
         // Assets mapping
-        const HRESULT mappingHr = webview3CandWnd->SetVirtualHostNameToFolderMapping(  //
-            L"candwnd",                                      //
-            assetPath.c_str(),                               //
-            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS //
-        );                                                   //
+        const HRESULT mappingHr = webview3CandWnd->SetVirtualHostNameToFolderMapping( //
+            L"candwnd",                                                               //
+            assetPath.c_str(),                                                        //
+            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS                          //
+        );                                                                            //
         (void)0;
     }
 
@@ -1367,10 +1382,8 @@ HRESULT OnControllerCreatedCandWnd(     //
                             const FLOAT scale = static_cast<FLOAT>(GetDpiForWindow(hwnd)) / 96.0f;
                             const int current_width = static_cast<int>(window_rect.right - window_rect.left);
                             const int current_height = static_cast<int>(window_rect.bottom - window_rect.top);
-                            const int top_expansion_px =
-                                static_cast<int>(std::ceil(top_expansion * scale));
-                            const int left_expansion_px =
-                                static_cast<int>(std::ceil(left_expansion * scale));
+                            const int top_expansion_px = static_cast<int>(std::ceil(top_expansion * scale));
+                            const int left_expansion_px = static_cast<int>(std::ceil(left_expansion * scale));
                             SetWindowPos(hwnd, nullptr, window_rect.left - left_expansion_px,
                                          window_rect.top - top_expansion_px,
                                          (std::max)(current_width, static_cast<int>(std::ceil(width * scale))) +
@@ -1388,20 +1401,20 @@ HRESULT OnControllerCreatedCandWnd(     //
                             webviewControllerCandWnd->put_Bounds(bounds);
                             if (top_expansion > 0 || left_expansion > 0)
                             {
-                                const std::wstring script =
-                                    L"if(window.ApplyContextMenuTopExpansion)"
-                                    L"window.ApplyContextMenuTopExpansion(" +
-                                    std::to_wstring(top_expansion) +
-                                    L");if(window.ApplyContextMenuLeftExpansion)"
-                                    L"window.ApplyContextMenuLeftExpansion(" +
-                                    std::to_wstring(left_expansion) + L");";
+                                const std::wstring script = L"if(window.ApplyContextMenuTopExpansion)"
+                                                            L"window.ApplyContextMenuTopExpansion(" +
+                                                            std::to_wstring(top_expansion) +
+                                                            L");if(window.ApplyContextMenuLeftExpansion)"
+                                                            L"window.ApplyContextMenuLeftExpansion(" +
+                                                            std::to_wstring(left_expansion) + L");";
                                 webviewCandWnd->ExecuteScript(script.c_str(), nullptr);
                             }
                         }
                         else if (type == "contextMenuClosed")
                         {
                             const std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
-                                ? std::wstring{} : GetPreeditWithCaretMarker();
+                                                             ? std::wstring{}
+                                                             : GetPreeditWithCaretMarker();
                             std::wstring measurement = preedit + L"," + Global::CandidateString;
                             InflateMeasureDivCandWnd(measurement, [hwnd]() { FineTuneWindow(hwnd); });
                         }
@@ -1463,15 +1476,16 @@ HRESULT OnControllerCreatedCandWnd(     //
             .Get(),
         nullptr);
 
-    webviewCandWnd->add_ProcessFailed(
-        Microsoft::WRL::Callback<ICoreWebView2ProcessFailedEventHandler>(
-            [](ICoreWebView2 *, ICoreWebView2ProcessFailedEventArgs *args) -> HRESULT {
-                COREWEBVIEW2_PROCESS_FAILED_KIND kind = COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
-                const HRESULT hr = args->get_ProcessFailedKind(&kind);
-                (void)0;
-                return S_OK;
-            }).Get(),
-        nullptr);
+    webviewCandWnd->add_ProcessFailed(Microsoft::WRL::Callback<ICoreWebView2ProcessFailedEventHandler>(
+                                          [](ICoreWebView2 *, ICoreWebView2ProcessFailedEventArgs *args) -> HRESULT {
+                                              COREWEBVIEW2_PROCESS_FAILED_KIND kind =
+                                                  COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
+                                              const HRESULT hr = args->get_ProcessFailedKind(&kind);
+                                              (void)0;
+                                              return S_OK;
+                                          })
+                                          .Get(),
+                                      nullptr);
 
     OnSmallWindowControllerSettled(S_OK);
     return S_OK;
@@ -1495,7 +1509,7 @@ HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment
     }
 
     // Create WebView2 controller
-    const HRESULT hr = env->CreateCoreWebView2Controller(                                   //
+    const HRESULT hr = env->CreateCoreWebView2Controller(                                    //
         hwnd,                                                                                //
         Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>( //
             [hwnd](HRESULT result,                                                           //
@@ -1621,8 +1635,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                 // Older menu assets already render the handwriting entry but do not
                 // give it an id or native click bridge. Wire it at runtime so existing
                 // installations gain the launcher without replacing their skin.
-                sender->ExecuteScript(
-                    LR"((() => {
+                sender->ExecuteScript(LR"((() => {
                         const item = [...document.querySelectorAll('.menu-item')]
                             .find(element => element.textContent.includes('\u624b\u5199\u8bc6\u522b\u677f'));
                         if (item && !item.dataset.nativeHandwritingLauncher) {
@@ -1632,7 +1645,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                             });
                         }
                     })())",
-                    nullptr);
+                                      nullptr);
                 SyncMenuFloatingToolbarToggle();
                 PostMessage(hwnd, WM_REFRESH_MENU_SIZE, 0, 0);
                 return S_OK;
@@ -2282,8 +2295,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                             }
                             else if (path.rfind("general.floating_toolbar_", 0) == 0)
                             {
-                                const std::string item =
-                                    path.substr(std::string("general.floating_toolbar_").size());
+                                const std::string item = path.substr(std::string("general.floating_toolbar_").size());
                                 const bool value = json::value_to<bool>(data.at("value"));
                                 if (SetConfiguredFloatingToolbarItemEnabled(item, value))
                                 {
@@ -2319,6 +2331,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
                                 if (SetConfiguredQuickPhraseEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "utility.date_time_mode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredDateTimeModeEnabled(value))
                                 {
                                     PostSettingsConfig();
                                 }
@@ -2505,12 +2525,11 @@ void SyncMenuFloatingToolbarToggle()
 
     // Keep the tray-menu toggle aligned with config.toml so Settings and tray
     // never drift apart when either side writes general.floating_toolbar.
-    const wchar_t *script = GetConfiguredFloatingToolbarEnabled()
-                                ? LR"((() => {
+    const wchar_t *script = GetConfiguredFloatingToolbarEnabled() ? LR"((() => {
                                       const toggle = document.getElementById('floatingToggle');
                                       if (toggle) toggle.classList.add('active');
                                   })())"
-                                : LR"((() => {
+                                                                  : LR"((() => {
                                       const toggle = document.getElementById('floatingToggle');
                                       if (toggle) toggle.classList.remove('active');
                                   })())";
@@ -2545,67 +2564,69 @@ void PostSettingsConfig()
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
-        {"data", {{"input", {{"schema", GetConfiguredInputSchemeName()},
-                                {"character_set", GetConfiguredCharacterSet()},
-                                {"default_ime_mode", GetConfiguredDefaultImeMode()},
-                                {"ime_mode_scope", GetConfiguredImeModeScope()},
-                                {"shuangpin_schema", GetConfiguredShuangpinSchema()},
-                                {"wubi_schema", GetConfiguredWubiSchema()},
-                                {"word_to_character", GetConfiguredWordToCharacterEnabled()},
-                                {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()}}},
-                  {"general", {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
-                                {"floating_toolbar_fullwidth", toolbar.fullwidth},
-                                {"floating_toolbar_punctuation", toolbar.punctuation},
-                                {"floating_toolbar_character_set", toolbar.character_set},
-                                {"floating_toolbar_emoji", toolbar.emoji},
-                                {"floating_toolbar_screen_keyboard", toolbar.screen_keyboard},
-                                {"floating_toolbar_settings", toolbar.settings},
-                                {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
-                                {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
-                                {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
-                                {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
-                                {"paging_tab", GetConfiguredPagingTabEnabled()},
-                                {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
-                                {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
-                  {"keybindings", {{"switch_language_shift", GetConfiguredSwitchLanguageShiftEnabled()},
-                                   {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
-                                   {"switch_language_ctrl_alt_space",
-                                    GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
-                  {"utility", {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
-                                {"quick_phrase", GetConfiguredQuickPhraseEnabled()}}},
-                  {"appearance", {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
-                                  {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
-                                  {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
-                                  {"theme_mode", GetConfiguredThemeMode()},
-                                  {"theme_settings", GetConfiguredThemeSettings()},
-                                  {"theme_cand", GetConfiguredThemeCand()},
-                                  {"theme_ftb", GetConfiguredThemeFtb()},
-                                  {"theme_menu", GetConfiguredThemeMenu()},
-                                  {"theme_emoji", GetConfiguredThemeEmoji()},
-                                  {"theme_screen_keyboard", GetConfiguredThemeScreenKeyboard()},
-                                  {"theme_handwriting", GetConfiguredThemeHandwriting()},
-                                  {"theme_voice", GetConfiguredThemeVoice()},
-                                  {"page_size", GetConfiguredCandidatePageSize()},
-                                  {"font", GetConfiguredCandidateFont()},
-                                  {"font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateFont())},
-                                  {"english_font", GetConfiguredCandidateEnglishFont()},
-                                  {"english_font_css_family",
-                                   ResolveSystemFontFamilyForCss(GetConfiguredCandidateEnglishFont())},
-                                  {"default_font", GetConfiguredCandidateDefaultFont()},
-                                  {"default_font_css_family",
-                                   ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
-                                  {"font_size", GetConfiguredCandidateFontSize()},
-                                  {"cand_text_color", GetConfiguredCandidateTextColor()},
-                                  {"system_fonts", GetSystemFontFamilies()}}},
-                  {"helpcode",
-                   {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
-                    {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
-                    {"quanpin_helpcode", GetConfiguredQuanpinHelpcodeEnabled()},
-                    {"quanpin_helpcode_schema", GetConfiguredQuanpinHelpcodeSchema()},
-                    {"show_sp_helpcode_in_candidate_window",
-                     GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
-                    {"show_qp_helpcode_in_candidate_window",
-                     GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
+        {"data",
+         {{"input",
+           {{"schema", GetConfiguredInputSchemeName()},
+            {"character_set", GetConfiguredCharacterSet()},
+            {"default_ime_mode", GetConfiguredDefaultImeMode()},
+            {"ime_mode_scope", GetConfiguredImeModeScope()},
+            {"shuangpin_schema", GetConfiguredShuangpinSchema()},
+            {"wubi_schema", GetConfiguredWubiSchema()},
+            {"word_to_character", GetConfiguredWordToCharacterEnabled()},
+            {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()}}},
+          {"general",
+           {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+            {"floating_toolbar_fullwidth", toolbar.fullwidth},
+            {"floating_toolbar_punctuation", toolbar.punctuation},
+            {"floating_toolbar_character_set", toolbar.character_set},
+            {"floating_toolbar_emoji", toolbar.emoji},
+            {"floating_toolbar_screen_keyboard", toolbar.screen_keyboard},
+            {"floating_toolbar_settings", toolbar.settings},
+            {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
+            {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
+            {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
+            {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
+            {"paging_tab", GetConfiguredPagingTabEnabled()},
+            {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
+            {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
+          {"keybindings",
+           {{"switch_language_shift", GetConfiguredSwitchLanguageShiftEnabled()},
+            {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
+            {"switch_language_ctrl_alt_space", GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
+          {"utility",
+           {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
+            {"quick_phrase", GetConfiguredQuickPhraseEnabled()},
+            {"date_time_mode", GetConfiguredDateTimeModeEnabled()}}},
+          {"appearance",
+           {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
+            {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
+            {"theme_mode", GetConfiguredThemeMode()},
+            {"theme_settings", GetConfiguredThemeSettings()},
+            {"theme_cand", GetConfiguredThemeCand()},
+            {"theme_ftb", GetConfiguredThemeFtb()},
+            {"theme_menu", GetConfiguredThemeMenu()},
+            {"theme_emoji", GetConfiguredThemeEmoji()},
+            {"theme_screen_keyboard", GetConfiguredThemeScreenKeyboard()},
+            {"theme_handwriting", GetConfiguredThemeHandwriting()},
+            {"theme_voice", GetConfiguredThemeVoice()},
+            {"page_size", GetConfiguredCandidatePageSize()},
+            {"font", GetConfiguredCandidateFont()},
+            {"font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateFont())},
+            {"english_font", GetConfiguredCandidateEnglishFont()},
+            {"english_font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateEnglishFont())},
+            {"default_font", GetConfiguredCandidateDefaultFont()},
+            {"default_font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
+            {"font_size", GetConfiguredCandidateFontSize()},
+            {"cand_text_color", GetConfiguredCandidateTextColor()},
+            {"system_fonts", GetSystemFontFamilies()}}},
+          {"helpcode",
+           {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
+            {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
+            {"quanpin_helpcode", GetConfiguredQuanpinHelpcodeEnabled()},
+            {"quanpin_helpcode_schema", GetConfiguredQuanpinHelpcodeSchema()},
+            {"show_sp_helpcode_in_candidate_window", GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
+            {"show_qp_helpcode_in_candidate_window", GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
     const std::wstring message = string_to_wstring(payload.dump());
     ::webviewSettingsWnd->PostWebMessageAsJson(message.c_str());
 }
@@ -2673,8 +2694,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
     // warmup state: visible to WebView2, invisible to the user.
     DWORD hostCloaked = 0;
     DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &hostCloaked, sizeof(hostCloaked));
-    FTB_DIAG_LOGF(L"ftb controller created host_visible={} host_cloaked={}",
-                  IsWindowVisible(hwnd) != FALSE, hostCloaked != 0);
+    FTB_DIAG_LOGF(L"ftb controller created host_visible={} host_cloaked={}", IsWindowVisible(hwnd) != FALSE,
+                  hostCloaked != 0);
     UpdateSmallWindowWebviewVisibility(hwnd, IsWindowVisible(hwnd) != FALSE);
 
     // Configure webviewFtbWindow settings
@@ -2735,7 +2756,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
     // State notifications can arrive before the controller exists or while
     // NavigateToString is still loading. Only render after a successful
     // navigation, then replay the complete cached state in one operation.
-    floatingToolbarNavigationReady = false;
+    ClearFloatingToolbarNavigationState();
     EventRegistrationToken navigationCompletedToken{};
     const HRESULT navigationCompletedResult = webviewFtbWnd->add_NavigationCompleted(
         Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
@@ -2750,13 +2771,27 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
                     RenderFloatingToolbarState(sender);
                     ApplyConfiguredFloatingToolbarSize();
-                    // Host is warmed up cloaked. Uncloak (or hide) only after
-                    // the first navigation, when there is something to paint.
+                    // Show first so a cold user-data folder can finish painting;
+                    // a short timer then hides or keeps it based on real state.
                     ApplyConfiguredFloatingToolbarVisibility(L"ftb-navigation-completed");
                 }
                 else
                 {
-                    (void)0;
+                    // Cold user-data bring-up can fail the first NavigateToString.
+                    // Retry once against the same controller instead of leaving
+                    // the host permanently cloaked with webview_ready=false.
+                    if (!floatingToolbarNavigationRetryUsed && !::HTMLStringFtbWnd.empty())
+                    {
+                        floatingToolbarNavigationRetryUsed = true;
+                        floatingToolbarNavigationReady = false;
+                        floatingToolbarPaintGraceActive = false;
+                        FTB_DIAG_LOGF(L"ftb navigation failed; retrying NavigateToString once");
+                        sender->NavigateToString(::HTMLStringFtbWnd.c_str());
+                    }
+                    else
+                    {
+                        FTB_DIAG_LOGF(L"ftb navigation failed permanently after retry");
+                    }
                 }
                 return S_OK;
             })
@@ -2801,6 +2836,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         ReleaseCapture();
                         PostMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
                     }
+                    else if (type == "ready")
+                    {
+                        NotifyFloatingToolbarPageReady();
+                    }
                     else if (type == "changeIMEMode")
                     {
                         std::string mode = json::value_to<std::string>(val.at("data"));
@@ -2810,16 +2849,16 @@ HRESULT OnControllerCreatedFtbWnd(      //
 #ifdef FANY_DEBUG
                             (void)0;
 #endif
-                            SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn,
-                                                              L"");
+                            SendToTsfWorkerThreadViaNamedpipe(
+                                Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToCn, L"");
                         }
                         else if (mode == "en") // Change to EN
                         {
 #ifdef FANY_DEBUG
                             (void)0;
 #endif
-                            SendToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn,
-                                                              L"");
+                            SendToTsfWorkerThreadViaNamedpipe(
+                                Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn, L"");
                         }
                     }
                     else if (type == "changeCharMode")
@@ -2864,9 +2903,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     }
                     else if (type == "changeCharacterSet")
                     {
-                        const std::string next = GetConfiguredCharacterSet() == "traditional"
-                                                     ? "simplified"
-                                                     : "traditional";
+                        const std::string next =
+                            GetConfiguredCharacterSet() == "traditional" ? "simplified" : "traditional";
                         if (SetConfiguredCharacterSet(next))
                         {
                             RenderFloatingToolbarState(sender);
@@ -2977,8 +3015,8 @@ bool PrepareTrayMenuWebviewForShow()
         return false;
     }
 
-    FTB_DIAG_LOGF(L"menu prepare: no controller yet, init_state={} attempts={}",
-                  static_cast<int>(smallWindowInitState), smallWindowInitAttempts);
+    FTB_DIAG_LOGF(L"menu prepare: no controller yet, init_state={} attempts={}", static_cast<int>(smallWindowInitState),
+                  smallWindowInitAttempts);
     if (smallWindowInitState != SmallWindowInitState::InProgress)
     {
         // An explicit right-click is a fresh user intent: reset the attempt

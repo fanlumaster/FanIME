@@ -29,6 +29,9 @@ void RequestSettingsWindowActivation(HWND hwnd);
 // whole class of bugs here is "nothing ever called this", so the caller has to
 // be recoverable from the log.
 void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason = L"unspecified");
+// End the post-navigation paint grace (page-ready or fallback timeout) and apply
+// the real show/hide decision. Until this runs, the toolbar stays shown.
+void ReconcileFloatingToolbarVisibilityAfterReady(const wchar_t *reason = L"ftb-ready");
 // Use instead of ShowWindow(SW_HIDE) on the toolbar host: hiding it before its
 // WebView2 has painted once permanently breaks the toolbar's rendering.
 void HideFloatingToolbarHost();

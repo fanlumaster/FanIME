@@ -35,7 +35,8 @@ struct AiAssistantConfig
     std::string endpoint = "https://api.deepseek.com/chat/completions";
     std::string model = "deepseek-v4-flash";
     int candidate_limit = 3;
-    std::string prompt = R"PROMPT(你是一个中文全拼输入法联想引擎。输入为已经切分好的拼音数组、前文上下文和候选数量。
+    std::string prompt =
+        R"PROMPT(你是一个中文全拼输入法联想引擎。输入为已经切分好的拼音数组、前文上下文和候选数量。
 
 优先生成与拼音严格对应的中文候选：若有 N 段拼音，首选必须尽量为 N 个汉字，每段拼音对应一个汉字，不得随意增删或改变读音。结合上下文、常用程度、语义完整性和固定搭配排序。
 
@@ -146,6 +147,8 @@ bool GetConfiguredUnicodeModeEnabled();
 bool SetConfiguredUnicodeModeEnabled(bool enabled);
 bool GetConfiguredQuickPhraseEnabled();
 bool SetConfiguredQuickPhraseEnabled(bool enabled);
+bool GetConfiguredDateTimeModeEnabled();
+bool SetConfiguredDateTimeModeEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();

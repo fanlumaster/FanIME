@@ -55,6 +55,7 @@ bool g_english_candidates_enabled = false;
 bool g_cloud_candidates_enabled = true;
 bool g_unicode_mode_enabled = true;
 bool g_quick_phrase_enabled = true;
+bool g_date_time_mode_enabled = true;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
@@ -100,7 +101,10 @@ class ConfigFileLock
             CloseHandle(handle_);
     }
 
-    explicit operator bool() const { return locked_; }
+    explicit operator bool() const
+    {
+        return locked_;
+    }
 
   private:
     HANDLE handle_ = nullptr;
@@ -351,8 +355,8 @@ void ForEachTomlAssignment(const std::string &text, const TomlAssignmentVisitor 
         {
             const size_t equals = line.find('=');
             const std::string key = equals == std::string::npos ? std::string() : Trim(line.substr(0, equals));
-            const size_t value_offset = equals == std::string::npos ? std::string::npos
-                                                                    : line.find_first_not_of(" \t", equals + 1);
+            const size_t value_offset =
+                equals == std::string::npos ? std::string::npos : line.find_first_not_of(" \t", equals + 1);
             if (!key.empty() && value_offset != std::string::npos)
             {
                 const size_t value_begin = line_begin + value_offset;
@@ -379,10 +383,10 @@ std::string MakeTomlAssignmentId(const std::string &section, const std::string &
 std::map<std::string, std::string> ParseTomlAssignments(const std::string &text)
 {
     std::map<std::string, std::string> values;
-    ForEachTomlAssignment(text, [&](const std::string &section, const std::string &key, size_t value_begin,
-                                    size_t value_end) {
-        values[MakeTomlAssignmentId(section, key)] = text.substr(value_begin, value_end - value_begin);
-    });
+    ForEachTomlAssignment(
+        text, [&](const std::string &section, const std::string &key, size_t value_begin, size_t value_end) {
+            values[MakeTomlAssignmentId(section, key)] = text.substr(value_begin, value_end - value_begin);
+        });
     return values;
 }
 
@@ -399,22 +403,22 @@ std::string MergeTomlIntoTemplate(const std::string &template_text,
     };
     std::vector<ValuePatch> patches;
 
-    ForEachTomlAssignment(template_text, [&](const std::string &section, const std::string &key, size_t value_begin,
-                                             size_t value_end) {
-        const std::string id = MakeTomlAssignmentId(section, key);
-        const auto user = user_values.find(id);
-        if (user == user_values.end())
-        {
-            return;
-        }
-        // 仍等于上一版默认值，说明用户没动过这一项，让新版默认值生效。
-        const auto baseline = baseline_values.find(id);
-        if (baseline != baseline_values.end() && baseline->second == user->second)
-        {
-            return;
-        }
-        patches.push_back({value_begin, value_end, user->second});
-    });
+    ForEachTomlAssignment(
+        template_text, [&](const std::string &section, const std::string &key, size_t value_begin, size_t value_end) {
+            const std::string id = MakeTomlAssignmentId(section, key);
+            const auto user = user_values.find(id);
+            if (user == user_values.end())
+            {
+                return;
+            }
+            // 仍等于上一版默认值，说明用户没动过这一项，让新版默认值生效。
+            const auto baseline = baseline_values.find(id);
+            if (baseline != baseline_values.end() && baseline->second == user->second)
+            {
+                return;
+            }
+            patches.push_back({value_begin, value_end, user->second});
+        });
 
     std::string merged = template_text;
     for (auto patch = patches.rbegin(); patch != patches.rend(); ++patch)
@@ -500,38 +504,31 @@ bool LoadImeConfig()
         g_candidate_font = tbl["appearance"]["font"].value_or(std::string("Noto Sans SC"));
         if (g_candidate_font.empty())
             g_candidate_font = "Noto Sans SC";
-        g_candidate_english_font =
-            tbl["appearance"]["english_font"].value_or(std::string("Segoe UI"));
+        g_candidate_english_font = tbl["appearance"]["english_font"].value_or(std::string("Segoe UI"));
         if (g_candidate_english_font.empty())
             g_candidate_english_font = "Segoe UI";
-        g_candidate_default_font =
-            tbl["appearance"]["default_font"].value_or(std::string("Microsoft YaHei"));
+        g_candidate_default_font = tbl["appearance"]["default_font"].value_or(std::string("Microsoft YaHei"));
         if (g_candidate_default_font.empty())
             g_candidate_default_font = "Microsoft YaHei";
         {
             const int font_size = tbl["appearance"]["font_size"].value_or(16);
-            g_candidate_font_size = font_size >= kCandidateFontSizeMin && font_size <= kCandidateFontSizeMax
-                                        ? font_size
-                                        : 16;
+            g_candidate_font_size =
+                font_size >= kCandidateFontSizeMin && font_size <= kCandidateFontSizeMax ? font_size : 16;
         }
         {
-            const std::string color =
-                tbl["appearance"]["cand_text_color"].value_or(std::string("auto"));
+            const std::string color = tbl["appearance"]["cand_text_color"].value_or(std::string("auto"));
             g_candidate_text_color = color.empty() ? "auto" : color;
         }
         g_session_backend = tbl["input"]["session_backend"].value_or(std::string("legacy"));
         g_input_scheme = ParseScheme(tbl["input"]["schema"].value_or(std::string("shuangpin")));
-        const std::string character_set =
-            tbl["input"]["character_set"].value_or(std::string("simplified"));
+        const std::string character_set = tbl["input"]["character_set"].value_or(std::string("simplified"));
         g_character_set = character_set == "traditional" ? "traditional" : "simplified";
         {
-            const std::string mode =
-                tbl["input"]["default_ime_mode"].value_or(std::string("chinese"));
+            const std::string mode = tbl["input"]["default_ime_mode"].value_or(std::string("chinese"));
             g_default_ime_mode = mode == "english" ? "english" : "chinese";
         }
         {
-            const std::string scope =
-                tbl["input"]["ime_mode_scope"].value_or(std::string("app"));
+            const std::string scope = tbl["input"]["ime_mode_scope"].value_or(std::string("app"));
             g_ime_mode_scope = scope == "global" ? "global" : "app";
         }
         g_shuangpin_schema = tbl["input"]["shuangpin_schema"].value_or(std::string("xiaohe"));
@@ -541,8 +538,9 @@ bool LoadImeConfig()
         g_quanpin_helpcode_enabled = tbl["helpcode"]["quanpin_helpcode"].value_or(true);
         const std::string shuangpin_helpcode_schema =
             tbl["helpcode"]["shuangpin_helpcode_schema"].value_or(std::string("lantian"));
-        g_shuangpin_helpcode_schema =
-            HelpcodeUtils::is_supported_helpcode_schema(shuangpin_helpcode_schema) ? shuangpin_helpcode_schema : "lantian";
+        g_shuangpin_helpcode_schema = HelpcodeUtils::is_supported_helpcode_schema(shuangpin_helpcode_schema)
+                                          ? shuangpin_helpcode_schema
+                                          : "lantian";
         const std::string quanpin_helpcode_schema =
             tbl["helpcode"]["quanpin_helpcode_schema"].value_or(std::string("lantian"));
         g_quanpin_helpcode_schema =
@@ -552,22 +550,17 @@ bool LoadImeConfig()
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
-        g_floating_toolbar_items.fullwidth =
-            tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
-        g_floating_toolbar_items.punctuation =
-            tbl["general"]["floating_toolbar_punctuation"].value_or(true);
-        g_floating_toolbar_items.character_set =
-            tbl["general"]["floating_toolbar_character_set"].value_or(true);
-        g_floating_toolbar_items.emoji =
-            tbl["general"]["floating_toolbar_emoji"].value_or(true);
-        g_floating_toolbar_items.screen_keyboard =
-            tbl["general"]["floating_toolbar_screen_keyboard"].value_or(false);
-        g_floating_toolbar_items.settings =
-            tbl["general"]["floating_toolbar_settings"].value_or(true);
+        g_floating_toolbar_items.fullwidth = tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
+        g_floating_toolbar_items.punctuation = tbl["general"]["floating_toolbar_punctuation"].value_or(true);
+        g_floating_toolbar_items.character_set = tbl["general"]["floating_toolbar_character_set"].value_or(true);
+        g_floating_toolbar_items.emoji = tbl["general"]["floating_toolbar_emoji"].value_or(true);
+        g_floating_toolbar_items.screen_keyboard = tbl["general"]["floating_toolbar_screen_keyboard"].value_or(false);
+        g_floating_toolbar_items.settings = tbl["general"]["floating_toolbar_settings"].value_or(true);
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
         g_unicode_mode_enabled = tbl["utility"]["unicode_mode"].value_or(true);
         g_quick_phrase_enabled = tbl["utility"]["quick_phrase"].value_or(true);
+        g_date_time_mode_enabled = tbl["utility"]["date_time_mode"].value_or(true);
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled =
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
@@ -599,19 +592,17 @@ bool LoadImeConfig()
                         legacy_ctrl_alt_space = true;
                 }
             }
-            g_switch_language_shift_enabled =
-                tbl["keybindings"]["switch_language_shift"].value_or(legacy_shift);
-            g_switch_language_ctrl_enabled =
-                tbl["keybindings"]["switch_language_ctrl"].value_or(false);
+            g_switch_language_shift_enabled = tbl["keybindings"]["switch_language_shift"].value_or(legacy_shift);
+            g_switch_language_ctrl_enabled = tbl["keybindings"]["switch_language_ctrl"].value_or(false);
             g_switch_language_ctrl_alt_space_enabled =
                 tbl["keybindings"]["switch_language_ctrl_alt_space"].value_or(legacy_ctrl_alt_space);
         }
         {
-            const std::string mode =
-                tbl["frequency_adjustment"]["mode"].value_or(std::string("promote"));
+            const std::string mode = tbl["frequency_adjustment"]["mode"].value_or(std::string("promote"));
             g_frequency_adjustment.mode =
                 mode == "disabled" || mode == "pin" || mode == "halve" || mode == "linear" || mode == "promote"
-                    ? mode : "promote";
+                    ? mode
+                    : "promote";
             const int trigger = tbl["frequency_adjustment"]["trigger_count"].value_or(1);
             const int step = tbl["frequency_adjustment"]["linear_step"].value_or(1);
             g_frequency_adjustment.trigger_count = trigger >= 1 && trigger <= 10 ? trigger : 1;
@@ -643,13 +634,11 @@ bool LoadImeConfig()
         g_theme_emoji = normalize_surface(tbl["appearance"]["theme_emoji"].value_or(std::string("follow")));
         g_theme_screen_keyboard =
             normalize_surface(tbl["appearance"]["theme_screen_keyboard"].value_or(std::string("follow")));
-        g_theme_handwriting =
-            normalize_surface(tbl["appearance"]["theme_handwriting"].value_or(std::string("follow")));
+        g_theme_handwriting = normalize_surface(tbl["appearance"]["theme_handwriting"].value_or(std::string("follow")));
         g_theme_voice = normalize_surface(tbl["appearance"]["theme_voice"].value_or(std::string("follow")));
         {
-            const std::string tsf_preedit_style =
-                tbl["appearance"]["tsf_preedit_style"].value_or(
-                    tbl["input"]["tsf_preedit_style"].value_or(std::string("raw")));
+            const std::string tsf_preedit_style = tbl["appearance"]["tsf_preedit_style"].value_or(
+                tbl["input"]["tsf_preedit_style"].value_or(std::string("raw")));
             g_tsf_preedit_style = GlobalSettings::normalizeTsfPreeditStyle(tsf_preedit_style);
             GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
         }
@@ -658,8 +647,7 @@ bool LoadImeConfig()
         g_voice_input.hotkey_ctrl_f9 = tbl["voice_input"]["hotkey_ctrl_f9"].value_or(true);
         g_voice_input.hotkey_ctrl_win = tbl["voice_input"]["hotkey_ctrl_win"].value_or(false);
         g_voice_input.hotkey_rctrl_ralt = tbl["voice_input"]["hotkey_rctrl_ralt"].value_or(false);
-        g_voice_input.hotkey_hold_space_lock =
-            tbl["voice_input"]["hotkey_hold_space_lock"].value_or(true);
+        g_voice_input.hotkey_hold_space_lock = tbl["voice_input"]["hotkey_hold_space_lock"].value_or(true);
         g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("siliconflow"));
         g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
         g_voice_input.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
@@ -680,8 +668,8 @@ bool LoadImeConfig()
         g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
         g_ai_assistant.provider = tbl["ai_assistant"]["provider"].value_or(std::string("deepseek"));
         g_ai_assistant.token = tbl["ai_assistant"]["token"].value_or(std::string());
-        g_ai_assistant.endpoint = tbl["ai_assistant"]["endpoint"].value_or(
-            std::string("https://api.deepseek.com/chat/completions"));
+        g_ai_assistant.endpoint =
+            tbl["ai_assistant"]["endpoint"].value_or(std::string("https://api.deepseek.com/chat/completions"));
         g_ai_assistant.model = tbl["ai_assistant"]["model"].value_or(std::string("deepseek-v4-flash"));
         const int ai_limit = tbl["ai_assistant"]["candidate_limit"].value_or(3);
         g_ai_assistant.candidate_limit = ai_limit >= 1 && ai_limit <= 10 ? ai_limit : 3;
@@ -744,29 +732,41 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
 
 void MigrateLegacyVoiceInputConfig()
 {
-    if (!g_voice_input.asr_token.empty()) return;
-    const std::filesystem::path legacy_path = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
-                                                   "MetasequoiaVoiceInput" / "config.toml";
-    if (!std::filesystem::exists(legacy_path)) return;
+    if (!g_voice_input.asr_token.empty())
+        return;
+    const std::filesystem::path legacy_path =
+        std::filesystem::path(CommonUtils::get_local_appdata_path()) / "MetasequoiaVoiceInput" / "config.toml";
+    if (!std::filesystem::exists(legacy_path))
+        return;
     try
     {
         const toml::table legacy = toml::parse_file(legacy_path.string());
         const std::string asr_token = legacy["asr_api"]["token"].value_or(std::string());
-        if (asr_token.empty()) return;
+        if (asr_token.empty())
+            return;
         const auto migrate_string = [](const std::string &key, const std::string &value, std::string &target) {
-            if (WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value))) target = value;
+            if (WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
+                target = value;
         };
         const auto migrate_bool = [](const std::string &key, bool value, bool &target) {
-            if (WriteConfiguredValue("voice_input", key, value ? "true" : "false")) target = value;
+            if (WriteConfiguredValue("voice_input", key, value ? "true" : "false"))
+                target = value;
         };
-        migrate_string("asr_provider", legacy["asr_api"]["provider"].value_or(std::string("siliconflow")), g_voice_input.asr_provider);
+        migrate_string("asr_provider", legacy["asr_api"]["provider"].value_or(std::string("siliconflow")),
+                       g_voice_input.asr_provider);
         migrate_string("asr_token", asr_token, g_voice_input.asr_token);
-        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(g_voice_input.asr_endpoint), g_voice_input.asr_endpoint);
-        migrate_string("polish_provider", legacy["polish_api"]["provider"].value_or(std::string("siliconflow")), g_voice_input.polish_provider);
-        migrate_string("polish_token", legacy["polish_api"]["token"].value_or(std::string()), g_voice_input.polish_token);
-        migrate_string("polish_endpoint", legacy["polish_api"]["endpoint"].value_or(g_voice_input.polish_endpoint), g_voice_input.polish_endpoint);
-        migrate_string("language", legacy["settings"]["language"].value_or(std::string("zh-cn")), g_voice_input.language);
-        migrate_bool("notification_sound", legacy["settings"]["notification_sound"].value_or(true), g_voice_input.notification_sound);
+        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(g_voice_input.asr_endpoint),
+                       g_voice_input.asr_endpoint);
+        migrate_string("polish_provider", legacy["polish_api"]["provider"].value_or(std::string("siliconflow")),
+                       g_voice_input.polish_provider);
+        migrate_string("polish_token", legacy["polish_api"]["token"].value_or(std::string()),
+                       g_voice_input.polish_token);
+        migrate_string("polish_endpoint", legacy["polish_api"]["endpoint"].value_or(g_voice_input.polish_endpoint),
+                       g_voice_input.polish_endpoint);
+        migrate_string("language", legacy["settings"]["language"].value_or(std::string("zh-cn")),
+                       g_voice_input.language);
+        migrate_bool("notification_sound", legacy["settings"]["notification_sound"].value_or(true),
+                     g_voice_input.notification_sound);
         migrate_bool("polish_text", legacy["settings"]["polish_text"].value_or(false), g_voice_input.polish_text);
     }
     catch (const toml::parse_error &)
@@ -794,8 +794,7 @@ SchemeType ParseScheme(const std::string &value)
 std::string MergeConfigIntoTemplate(const std::string &template_text, const std::string &user_text,
                                     const std::string &baseline_text)
 {
-    return MergeTomlIntoTemplate(template_text, ParseTomlAssignments(user_text),
-                                 ParseTomlAssignments(baseline_text));
+    return MergeTomlIntoTemplate(template_text, ParseTomlAssignments(user_text), ParseTomlAssignments(baseline_text));
 }
 
 void InitImeConfig()
@@ -1046,7 +1045,7 @@ std::string ResolveSystemFontFamilyForCss(const std::string &font)
     ComPtr<IDWriteLocalizedStrings> typographic_names;
     BOOL has_typographic_names = FALSE;
     if (SUCCEEDED(resolved_font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_TYPOGRAPHIC_FAMILY_NAMES,
-                                                          &typographic_names, &has_typographic_names)) &&
+                                                         &typographic_names, &has_typographic_names)) &&
         has_typographic_names)
     {
         const std::wstring name = GetPreferredLocalizedFontName(typographic_names.Get());
@@ -1056,8 +1055,7 @@ std::string ResolveSystemFontFamilyForCss(const std::string &font)
 
     ComPtr<IDWriteFontFamily> family;
     ComPtr<IDWriteLocalizedStrings> family_names;
-    if (SUCCEEDED(resolved_font->GetFontFamily(&family)) && family &&
-        SUCCEEDED(family->GetFamilyNames(&family_names)))
+    if (SUCCEEDED(resolved_font->GetFontFamily(&family)) && family && SUCCEEDED(family->GetFamilyNames(&family_names)))
     {
         const std::wstring name = GetPreferredLocalizedFontName(family_names.Get());
         if (!name.empty())
@@ -1661,8 +1659,8 @@ bool IsSystemAppsLightTheme()
     }
     DWORD value = 0;
     DWORD size = sizeof(value);
-    const LONG result = RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value),
-                                         &size);
+    const LONG result =
+        RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value), &size);
     RegCloseKey(key);
     return result == ERROR_SUCCESS && value != 0;
 }
@@ -1782,18 +1780,29 @@ const VoiceInputConfig &GetConfiguredVoiceInput()
 
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value)
 {
-    if (key == "language" && value != "zh-cn" && value != "en" && value != "auto") return false;
-    if (key == "commit_mode" && value != "tsf" && value != "sendinput" && value != "ctrl_v") return false;
+    if (key == "language" && value != "zh-cn" && value != "en" && value != "auto")
+        return false;
+    if (key == "commit_mode" && value != "tsf" && value != "sendinput" && value != "ctrl_v")
+        return false;
     std::string *target = nullptr;
-    if (key == "asr_provider") target = &g_voice_input.asr_provider;
-    else if (key == "asr_token") target = &g_voice_input.asr_token;
-    else if (key == "asr_endpoint") target = &g_voice_input.asr_endpoint;
-    else if (key == "polish_provider") target = &g_voice_input.polish_provider;
-    else if (key == "polish_token") target = &g_voice_input.polish_token;
-    else if (key == "polish_endpoint") target = &g_voice_input.polish_endpoint;
-    else if (key == "language") target = &g_voice_input.language;
-    else if (key == "commit_mode") target = &g_voice_input.commit_mode;
-    if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value))) return false;
+    if (key == "asr_provider")
+        target = &g_voice_input.asr_provider;
+    else if (key == "asr_token")
+        target = &g_voice_input.asr_token;
+    else if (key == "asr_endpoint")
+        target = &g_voice_input.asr_endpoint;
+    else if (key == "polish_provider")
+        target = &g_voice_input.polish_provider;
+    else if (key == "polish_token")
+        target = &g_voice_input.polish_token;
+    else if (key == "polish_endpoint")
+        target = &g_voice_input.polish_endpoint;
+    else if (key == "language")
+        target = &g_voice_input.language;
+    else if (key == "commit_mode")
+        target = &g_voice_input.commit_mode;
+    if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
+        return false;
     *target = value;
     return true;
 }
@@ -1843,18 +1852,42 @@ bool SetConfiguredQuickPhraseEnabled(bool enabled)
     return true;
 }
 
+bool GetConfiguredDateTimeModeEnabled()
+{
+    return g_date_time_mode_enabled;
+}
+
+bool SetConfiguredDateTimeModeEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("utility", "date_time_mode", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_date_time_mode_enabled = enabled;
+    return true;
+}
+
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
 {
     bool *target = nullptr;
-    if (key == "voice_input") target = &g_voice_input.enabled;
-    else if (key == "hotkey_ralt") target = &g_voice_input.hotkey_ralt;
-    else if (key == "hotkey_ctrl_f9") target = &g_voice_input.hotkey_ctrl_f9;
-    else if (key == "hotkey_ctrl_win") target = &g_voice_input.hotkey_ctrl_win;
-    else if (key == "hotkey_rctrl_ralt") target = &g_voice_input.hotkey_rctrl_ralt;
-    else if (key == "hotkey_hold_space_lock") target = &g_voice_input.hotkey_hold_space_lock;
-    else if (key == "notification_sound") target = &g_voice_input.notification_sound;
-    else if (key == "polish_text") target = &g_voice_input.polish_text;
-    if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false")) return false;
+    if (key == "voice_input")
+        target = &g_voice_input.enabled;
+    else if (key == "hotkey_ralt")
+        target = &g_voice_input.hotkey_ralt;
+    else if (key == "hotkey_ctrl_f9")
+        target = &g_voice_input.hotkey_ctrl_f9;
+    else if (key == "hotkey_ctrl_win")
+        target = &g_voice_input.hotkey_ctrl_win;
+    else if (key == "hotkey_rctrl_ralt")
+        target = &g_voice_input.hotkey_rctrl_ralt;
+    else if (key == "hotkey_hold_space_lock")
+        target = &g_voice_input.hotkey_hold_space_lock;
+    else if (key == "notification_sound")
+        target = &g_voice_input.notification_sound;
+    else if (key == "polish_text")
+        target = &g_voice_input.polish_text;
+    if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false"))
+        return false;
     *target = value;
     return true;
 }
@@ -1884,27 +1917,36 @@ bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value)
     if ((key != "trigger_count" && key != "linear_step") || value < 1 || value > 10 ||
         !WriteConfiguredValue("frequency_adjustment", key, std::to_string(value)))
         return false;
-    if (key == "trigger_count") g_frequency_adjustment.trigger_count = value;
-    else g_frequency_adjustment.linear_step = value;
+    if (key == "trigger_count")
+        g_frequency_adjustment.trigger_count = value;
+    else
+        g_frequency_adjustment.linear_step = value;
     return true;
 }
 
 bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value)
 {
     std::string *target = nullptr;
-    if (key == "provider") target = &g_ai_assistant.provider;
-    else if (key == "token") target = &g_ai_assistant.token;
-    else if (key == "endpoint") target = &g_ai_assistant.endpoint;
-    else if (key == "model") target = &g_ai_assistant.model;
-    else if (key == "prompt") target = &g_ai_assistant.prompt;
-    if (!target || !WriteConfiguredValue("ai_assistant", key, EscapeTomlBasicString(value))) return false;
+    if (key == "provider")
+        target = &g_ai_assistant.provider;
+    else if (key == "token")
+        target = &g_ai_assistant.token;
+    else if (key == "endpoint")
+        target = &g_ai_assistant.endpoint;
+    else if (key == "model")
+        target = &g_ai_assistant.model;
+    else if (key == "prompt")
+        target = &g_ai_assistant.prompt;
+    if (!target || !WriteConfiguredValue("ai_assistant", key, EscapeTomlBasicString(value)))
+        return false;
     *target = value;
     return true;
 }
 
 bool SetConfiguredAiAssistantBool(const std::string &key, bool value)
 {
-    if (key != "enabled" || !WriteConfiguredValue("ai_assistant", key, value ? "true" : "false")) return false;
+    if (key != "enabled" || !WriteConfiguredValue("ai_assistant", key, value ? "true" : "false"))
+        return false;
     g_ai_assistant.enabled = value;
     return true;
 }
@@ -1912,7 +1954,8 @@ bool SetConfiguredAiAssistantBool(const std::string &key, bool value)
 bool SetConfiguredAiAssistantInt(const std::string &key, int value)
 {
     if (key != "candidate_limit" || value < 1 || value > 10 ||
-        !WriteConfiguredValue("ai_assistant", key, std::to_string(value))) return false;
+        !WriteConfiguredValue("ai_assistant", key, std::to_string(value)))
+        return false;
     g_ai_assistant.candidate_limit = value;
     return true;
 }

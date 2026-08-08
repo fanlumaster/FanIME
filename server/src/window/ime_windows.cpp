@@ -34,6 +34,10 @@ constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_SETTINGS = 3;
 constexpr UINT_PTR TIMER_ID_MOVE_WEBVIEW_FTB = 4;
 constexpr UINT_PTR TIMER_ID_CONFIG_SYNC = 7;
 constexpr UINT_PTR TIMER_ID_SETTINGS_ACTIVATION_RETRY = 8;
+constexpr UINT_PTR TIMER_ID_FTB_VISIBILITY_RECONCILE = 9;
+// Long enough fallback when the page never posts ready (old HTML / failed JS).
+// Page-ready normally ends the grace earlier; until then the toolbar stays shown.
+constexpr UINT kFloatingToolbarPaintGraceMs = 6000;
 constexpr UINT WM_ACTIVATE_SETTINGS_WINDOW = WM_APP + 110;
 
 int FineTuneWindow(HWND hwnd);
@@ -537,6 +541,11 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
     const bool should_show =
         FanyImeUi::ShouldShowFloatingToolbar(configured, fullscreen, g_is_ime_active);
     const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
+    const bool paint_grace = IsFloatingToolbarPaintGraceActive();
+    // First successful navigation: show briefly so cold WebView2 can paint, then
+    // reconcile. Do not jump straight to SW_HIDE when IME is not active yet.
+    const bool start_paint_grace =
+        reason && wcscmp(reason, L"ftb-navigation-completed") == 0 && IsFloatingToolbarWebviewReady();
 
     // Each host-state snapshot crosses into DWM and walks the child windows, and
     // a burst of queued activations can drive hundreds of applies through here on
@@ -550,9 +559,9 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         // matter more than IsWindowVisible once the host is warmed up.
         std::wstring decision = fmt::format(
             L"apply reason={} active_client={} ime_active={} configured={} fullscreen={} "
-            L"should_show={} was_visible={} was_cloaked={} webview_ready={}",
+            L"should_show={} was_visible={} was_cloaked={} webview_ready={} paint_grace={}",
             reason, active_client, g_is_ime_active, configured, fullscreen, should_show, is_visible,
-            IsHostWindowCloaked(::global_hwnd_ftb), IsFloatingToolbarWebviewReady());
+            IsHostWindowCloaked(::global_hwnd_ftb), IsFloatingToolbarWebviewReady(), paint_grace);
 
         // Applies are confined to the UI thread, so plain statics suffice.
         static std::wstring last_decision;
@@ -592,7 +601,8 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         }
     } state_after{reason, trace};
 
-    if (should_show)
+    const bool force_show = should_show || start_paint_grace || paint_grace;
+    if (force_show)
     {
         // Keep the dragged position across IME activate / config / fullscreen
         // exit. Only resize for the current DPI.
@@ -619,6 +629,16 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         {
             SetHostWindowCloaked(::global_hwnd_ftb, false);
         }
+        if (start_paint_grace)
+        {
+            BeginFloatingToolbarPaintGrace();
+            KillTimer(::global_hwnd_ftb, TIMER_ID_FTB_VISIBILITY_RECONCILE);
+            // Fallback only: page posts type=ready to reconcile earlier.
+            SetTimer(::global_hwnd_ftb, TIMER_ID_FTB_VISIBILITY_RECONCILE, kFloatingToolbarPaintGraceMs,
+                     nullptr);
+            FTB_DIAG_LOGF(L"ftb paint grace started; waiting for page ready (fallback {}ms)",
+                          kFloatingToolbarPaintGraceMs);
+        }
     }
     else if (is_visible)
     {
@@ -626,9 +646,26 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
     }
 }
 
+void ReconcileFloatingToolbarVisibilityAfterReady(const wchar_t *reason)
+{
+    if (!::global_hwnd_ftb)
+    {
+        return;
+    }
+    KillTimer(::global_hwnd_ftb, TIMER_ID_FTB_VISIBILITY_RECONCILE);
+    if (IsFloatingToolbarPaintGraceActive())
+    {
+        EndFloatingToolbarPaintGrace();
+        FTB_DIAG_LOGF(L"ftb paint grace ended reason={}", reason ? reason : L"unspecified");
+    }
+    ApplyConfiguredFloatingToolbarVisibility(reason ? reason : L"ftb-ready");
+}
+
 // Hiding the host before its WebView2 has painted once is what leaves the
 // toolbar permanently blank, so during warmup the hide is expressed as a cloak:
-// invisible to the user, still on-monitor and "visible" to WebView2.
+// invisible to the user, still on-monitor and "visible" to WebView2. Until the
+// page reports ready (or the fallback timer fires), skip hide so first paint can
+// finish and the real visibility decision can be applied afterwards.
 void HideFloatingToolbarHost()
 {
     if (!::global_hwnd_ftb)
@@ -637,6 +674,11 @@ void HideFloatingToolbarHost()
     }
     // The fullscreen hook calls this directly, so without a line here the trace
     // shows a toolbar that became hidden with no apply to account for it.
+    if (FanyImeUi::ShouldDeferFloatingToolbarHide(IsFloatingToolbarPaintGraceActive()))
+    {
+        FTB_DIAG_LOGF(L"hide host skipped: paint grace active");
+        return;
+    }
     FTB_DIAG_LOGF(L"hide host webview_ready={} (cloak-only while warming up)",
                   IsFloatingToolbarWebviewReady());
     if (!IsFloatingToolbarWebviewReady())
@@ -1990,6 +2032,12 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
             // uiAccess, WebView can lag for a long time while the toolbar would
             // otherwise stay off-screen or never become discoverable.
             PlaceFloatingToolbarOnScreen(hwnd);
+            break;
+        }
+        if (wParam == TIMER_ID_FTB_VISIBILITY_RECONCILE)
+        {
+            KillTimer(hwnd, TIMER_ID_FTB_VISIBILITY_RECONCILE);
+            ReconcileFloatingToolbarVisibilityAfterReady(L"ftb-ready-fallback-timeout");
             break;
         }
         break;

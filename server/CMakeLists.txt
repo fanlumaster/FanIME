@@ -92,6 +92,8 @@ set(SRC_FILES
     "./src/config/ime_config.h"
     "./src/conversion/chinese_converter.cpp"
     "./src/conversion/chinese_converter.h"
+    "./src/date-time/date_time_query.cpp"
+    "./src/date-time/date_time_query.h"
     "./src/defines/defines.h"
     "./src/english/english_ime.cpp"
     "./src/english/english_ime.h"
