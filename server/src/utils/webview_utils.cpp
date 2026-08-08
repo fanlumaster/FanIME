@@ -57,12 +57,23 @@ void GetCandidateCardSize(
     ComPtr<ICoreWebView2> webview,
     const wchar_t *boxId,
     const wchar_t *parentId,
+    double maxWidthDip,
+    double maxHeightDip,
     std::function<void(std::pair<double, double>)> callback)
 {
     if (!webview)
     {
         callback({0.0, 0.0});
         return;
+    }
+    if (maxWidthDip < 1.0)
+    {
+        maxWidthDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    }
+    if (maxHeightDip < 1.0)
+    {
+        // Same order of magnitude as the stable quarter-screen host height.
+        maxHeightDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
     }
     std::wstring script = fmt::format(
         LR"(
@@ -74,11 +85,17 @@ void GetCandidateCardSize(
                 return JSON.stringify({{width: 0, height: 0}});
             }}
             var maxW = {2};
+            var maxH = {3};
             if (box) {{
                 box.style.maxWidth = maxW + "px";
+                box.style.maxHeight = maxH + "px";
                 box.style.width = "fit-content";
                 box.style.boxSizing = "border-box";
                 box.style.whiteSpace = "normal";
+                // Cap height to the host so large fonts scroll inside the card
+                // instead of being clipped by SetWindowRgn / HWND.
+                box.style.overflowX = "hidden";
+                box.style.overflowY = "auto";
                 box.querySelectorAll(".row-wrapper").forEach(function (node) {{
                     node.style.minWidth = "0";
                     node.style.maxWidth = "100%";
@@ -96,16 +113,26 @@ void GetCandidateCardSize(
             }}
             if (el) {{
                 el.style.maxWidth = maxW + "px";
+                el.style.maxHeight = maxH + "px";
                 el.style.width = "fit-content";
             }}
             void target.offsetWidth;
+            void target.offsetHeight;
             var rect = target.getBoundingClientRect();
-            var width = Math.min(maxW, Math.max(rect.width, target.offsetWidth || 0));
-            var height = Math.max(rect.height, target.scrollHeight || 0, target.offsetHeight || 0);
+            // scrollWidth catches glyph overflow that rect/offsetWidth miss at
+            // high DPI; +1 DIP avoids ceil→floor undersize that clips the last
+            // candidate against SetWindowRgn / screen edges.
+            var width = Math.min(
+                maxW,
+                Math.max(rect.width, target.offsetWidth || 0, target.scrollWidth || 0) + 1);
+            // Visible (capped) height for host region — NOT full scrollHeight.
+            var height = Math.min(
+                maxH,
+                Math.max(rect.height, target.offsetHeight || 0) + 1);
             return JSON.stringify({{width: width, height: height}});
         }})();
     )",
-        boxId, parentId, ::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+        boxId, parentId, maxWidthDip, maxHeightDip);
     const HRESULT submitHr = webview->ExecuteScript(
         script.c_str(),
         Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {
@@ -121,14 +148,18 @@ void GetCandidateCardSize(
 }
 } // namespace
 
-void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+void GetContainerSizeCand(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback,
+                          double maxWidthDip, double maxHeightDip)
 {
-    GetCandidateCardSize(webview, L"measureContainer", L"measureContainerParent", std::move(callback));
+    GetCandidateCardSize(webview, L"measureContainer", L"measureContainerParent", maxWidthDip, maxHeightDip,
+                         std::move(callback));
 }
 
-void GetRealCandidateCardSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)
+void GetRealCandidateCardSize(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback,
+                              double maxWidthDip, double maxHeightDip)
 {
-    GetCandidateCardSize(webview, L"realContainer", L"realContainerParent", std::move(callback));
+    GetCandidateCardSize(webview, L"realContainer", L"realContainerParent", maxWidthDip, maxHeightDip,
+                         std::move(callback));
 }
 
 void GetContainerSizeFtb(ComPtr<ICoreWebView2> webview, std::function<void(std::pair<double, double>)> callback)

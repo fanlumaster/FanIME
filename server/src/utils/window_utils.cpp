@@ -3,6 +3,7 @@
 #include "defines/globals.h"
 #include "ipc/ipc.h"
 #include "webview_utils.h"
+#include <algorithm>
 #include <cmath>
 #include <utility>
 #include <winuser.h>
@@ -81,6 +82,68 @@ FLOAT GetForegroundWindowScale()
 FLOAT GetScaleForPoint(POINT pt)
 {
     return ScaleFromMonitor(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+}
+
+HalfScreenDipLimits QueryHalfScreenDipLimitsForPoint(POINT pt)
+{
+    HalfScreenDipLimits limits{};
+    limits.scale = GetScaleForPoint(pt);
+    if (limits.scale <= 0.0f)
+    {
+        limits.scale = 1.0f;
+    }
+    limits.monitor = GetMonitorCoordinatesFromPoint(pt);
+    const double monitorWidthPx =
+        static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+    const double monitorHeightPx =
+        static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+    limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(limits.scale);
+    limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(limits.scale);
+    return limits;
+}
+
+HalfScreenDipLimits QueryHalfScreenDipLimitsForHwnd(HWND hwnd)
+{
+    RECT windowRect{};
+    if (hwnd && GetWindowRect(hwnd, &windowRect))
+    {
+        POINT anchor{windowRect.left + (windowRect.right - windowRect.left) / 2,
+                     windowRect.top + (windowRect.bottom - windowRect.top) / 2};
+        HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForPoint(anchor);
+        // Prefer the HWND's own DPI once it has landed on a monitor.
+        const FLOAT hwndScale = GetWindowScale(hwnd);
+        if (hwndScale > 0.0f)
+        {
+            const double monitorWidthPx =
+                static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+            const double monitorHeightPx =
+                static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+            limits.scale = hwndScale;
+            limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(limits.scale);
+            limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(limits.scale);
+        }
+        return limits;
+    }
+    POINT origin{0, 0};
+    return QueryHalfScreenDipLimitsForPoint(origin);
+}
+
+double ClampWidthDipToHalfScreen(double widthDip, const HalfScreenDipLimits &limits)
+{
+    if (limits.maxWidthDip > 0.0)
+    {
+        return (std::min)(widthDip, limits.maxWidthDip);
+    }
+    return widthDip;
+}
+
+double ClampHeightDipToHalfScreen(double heightDip, const HalfScreenDipLimits &limits)
+{
+    if (limits.maxHeightDip > 0.0)
+    {
+        return (std::min)(heightDip, limits.maxHeightDip);
+    }
+    return heightDip;
 }
 
 MonitorCoordinates GetMonitorCoordinatesFromPoint(POINT pt)
@@ -189,6 +252,9 @@ int AdjustCandidateWindowPosition(                  //
 
     properPos->first = point->x;
     properPos->second = point->y + caretGapPx;
+    // Clamp to the card itself so a right-edge push leaves the opaque card flush
+    // with the monitor (shadow may clip). Reserving SHADOW here opened a large
+    // visible gap at high DPI.
     int width = static_cast<int>(std::ceil(containerSize.first * scale));
     const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
     const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));

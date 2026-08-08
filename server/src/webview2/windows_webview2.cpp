@@ -82,6 +82,178 @@ ULONGLONG smallWindowControllerRequestStartTick = 0;
 constexpr ULONGLONG kSmallWindowControllerRequestTimeoutMs = 15000;
 constexpr int kMaxSmallWindowInitAttempts = 12;
 constexpr UINT_PTR kRetrySmallWindowWebviewTimerId = 9001;
+// Avoid remasure storms when HTML keeps reporting contentTruncated after DPI.
+constexpr ULONGLONG kContentTruncationCooldownMs = 400;
+ULONGLONG g_last_content_truncation_ftb_ms = 0;
+ULONGLONG g_last_content_truncation_menu_ms = 0;
+ULONGLONG g_last_content_truncation_cand_ms = 0;
+
+bool AllowContentTruncationRemeasure(ULONGLONG &last_ms)
+{
+    const ULONGLONG now = GetTickCount64();
+    if (last_ms != 0 && now - last_ms < kContentTruncationCooldownMs)
+    {
+        return false;
+    }
+    last_ms = now;
+    return true;
+}
+
+constexpr double kTruncationSizeFactor = 1.2;
+
+double JsonNumberAsDouble(const json::value &value)
+{
+    if (value.is_double())
+    {
+        return value.as_double();
+    }
+    if (value.is_int64())
+    {
+        return static_cast<double>(value.as_int64());
+    }
+    if (value.is_uint64())
+    {
+        return static_cast<double>(value.as_uint64());
+    }
+    return 0.0;
+}
+
+void InjectSurfaceViewportLimitsImpl(ICoreWebView2 *webview, HWND hwnd)
+{
+    if (!webview || !hwnd)
+    {
+        return;
+    }
+    const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    nlohmann::json cfg = {{"maxWidthDip", limits.maxWidthDip},
+                          {"maxHeightDip", limits.maxHeightDip},
+                          {"scale", limits.scale}};
+    const std::wstring script =
+        L"(function(c){"
+        L"const root=document.documentElement;"
+        L"if(!root)return;"
+        L"root.style.setProperty('--msime-max-width-dip',String(c.maxWidthDip||0)+'px');"
+        L"root.style.setProperty('--msime-max-height-dip',String(c.maxHeightDip||0)+'px');"
+        L"root.style.setProperty('--msime-dpi-scale',String(c.scale||1));"
+        L"if(window.CheckContentTruncation)window.CheckContentTruncation();"
+        L"})(" +
+        string_to_wstring(cfg.dump()) + L");";
+    webview->ExecuteScript(script.c_str(), nullptr);
+}
+
+// Fallback only: grow the host to 1.2x HTML content (DIP), capped at half the
+// monitor. Main layout paths should already apply half-screen limits.
+bool ApplyContentTruncationResize( //
+    HWND hwnd,                     //
+    ICoreWebView2 *webview,        //
+    ICoreWebView2Controller *controller, //
+    double contentWidthDip,        //
+    double contentHeightDip,       //
+    int extraShadowDip             //
+)
+{
+    if (!hwnd || contentWidthDip < 1.0 || contentHeightDip < 1.0)
+    {
+        return false;
+    }
+    const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    const double cappedContentW = ClampWidthDipToHalfScreen(contentWidthDip, limits);
+    const double cappedContentH = ClampHeightDipToHalfScreen(contentHeightDip, limits);
+    double hostWidthDip =
+        ClampWidthDipToHalfScreen(cappedContentW * kTruncationSizeFactor, limits) +
+        static_cast<double>((std::max)(0, extraShadowDip));
+    double hostHeightDip =
+        ClampHeightDipToHalfScreen(cappedContentH * kTruncationSizeFactor, limits) +
+        static_cast<double>((std::max)(0, extraShadowDip));
+
+    int physWidth =
+        static_cast<int>(std::ceil(hostWidthDip * static_cast<double>(limits.scale)));
+    int physHeight =
+        static_cast<int>(std::ceil(hostHeightDip * static_cast<double>(limits.scale)));
+    const int monitorWidth = (std::max)(1, limits.monitor.right - limits.monitor.left);
+    const int monitorHeight = (std::max)(1, limits.monitor.bottom - limits.monitor.top);
+    physWidth = (std::min)(physWidth, monitorWidth);
+    physHeight = (std::min)(physHeight, monitorHeight);
+
+    RECT current{};
+    GetWindowRect(hwnd, &current);
+    const int curW = current.right - current.left;
+    const int curH = current.bottom - current.top;
+    int posX = current.left;
+    int posY = current.top;
+    if (posX + physWidth > limits.monitor.right)
+    {
+        posX = limits.monitor.right - physWidth;
+    }
+    if (posY + physHeight > limits.monitor.bottom)
+    {
+        posY = limits.monitor.bottom - physHeight;
+    }
+    if (posX < limits.monitor.left)
+    {
+        posX = limits.monitor.left;
+    }
+    if (posY < limits.monitor.top)
+    {
+        posY = limits.monitor.top;
+    }
+
+    const bool sizeUnchanged = std::abs(curW - physWidth) <= 1 && std::abs(curH - physHeight) <= 1;
+    if (!sizeUnchanged)
+    {
+        SetWindowPos(hwnd, nullptr, posX, posY, physWidth, physHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    if (controller)
+    {
+        RECT bounds{};
+        GetClientRect(hwnd, &bounds);
+        controller->put_Bounds(bounds);
+        controller->NotifyParentWindowPositionChanged();
+    }
+    InjectSurfaceViewportLimitsImpl(webview, hwnd);
+    FTB_DIAG_LOGF(
+        L"trunc-fallback dip=({:.1f},{:.1f})→host=({:.1f},{:.1f}) px=({},{}) half=({:.1f},{:.1f}) scale={:.3f}",
+        contentWidthDip, contentHeightDip, hostWidthDip, hostHeightDip, physWidth, physHeight,
+        limits.maxWidthDip, limits.maxHeightDip, static_cast<double>(limits.scale));
+    return !sizeUnchanged;
+}
+
+bool HandleContentTruncatedMessage( //
+    HWND hwnd,                      //
+    ICoreWebView2 *webview,         //
+    ICoreWebView2Controller *controller, //
+    const json::value &val,         //
+    ULONGLONG &cooldownSlot,        //
+    int extraShadowDip              //
+)
+{
+    if (!AllowContentTruncationRemeasure(cooldownSlot))
+    {
+        return false;
+    }
+    double widthDip = 0.0;
+    double heightDip = 0.0;
+    if (const auto *data = val.as_object().if_contains("data"))
+    {
+        if (data->is_object())
+        {
+            const auto &obj = data->as_object();
+            if (const auto *w = obj.if_contains("width"))
+            {
+                widthDip = JsonNumberAsDouble(*w);
+            }
+            if (const auto *h = obj.if_contains("height"))
+            {
+                heightDip = JsonNumberAsDouble(*h);
+            }
+        }
+    }
+    if (widthDip < 1.0 || heightDip < 1.0)
+    {
+        return false;
+    }
+    return ApplyContentTruncationResize(hwnd, webview, controller, widthDip, heightDip, extraShadowDip);
+}
 
 bool candidateNavigationReady = false;
 bool menuNavigationReady = false;
@@ -643,6 +815,7 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
                                         : L"window.setToolbarItem('screen-keyboard',false);");
     script.append(items.settings ? L"window.setToolbarItem('settings',true);"
                                  : L"window.setToolbarItem('settings',false);");
+    script.append(L"if(window.CheckContentTruncation)window.CheckContentTruncation();");
 
     webview->ExecuteScript(script.c_str(), nullptr);
 }
@@ -659,6 +832,11 @@ void SetWebviewMemoryUsageTarget(ComPtr<ICoreWebView2> webview, COREWEBVIEW2_MEM
     }
 }
 } // namespace
+
+void InjectSurfaceViewportLimits(ICoreWebView2 *webview, HWND hwnd)
+{
+    InjectSurfaceViewportLimitsImpl(webview, hwnd);
+}
 
 bool EnsureSmallWindowsTopmost(const wchar_t *reason)
 {
@@ -927,6 +1105,7 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
     script.append(L"); }\n");
     script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
+    script.append(L"if (window.CheckContentTruncation) { window.CheckContentTruncation(); }\n");
 
     if (!onComplete)
     {
@@ -1480,6 +1659,20 @@ HRESULT OnControllerCreatedCandWnd(     //
                                 PostMessage(::global_hwnd, WM_COMMIT_CANDIDATE, idx, 0);
                             }
                         }
+                        else if (type == "contentTruncated")
+                        {
+                            // Fallback only: FineTune already sizes to content with a
+                            // half-screen cap. Clear a stale region if we still had to grow.
+                            if (::is_global_wnd_cand_shown &&
+                                HandleContentTruncatedMessage(hwnd, webviewCandWnd.Get(),
+                                                              webviewControllerCandWnd.Get(), val,
+                                                              g_last_content_truncation_cand_ms, 0))
+                            {
+                                SetWindowRgn(hwnd, nullptr, TRUE);
+                                Global::MarginLeft = 0;
+                                Global::MarginTop = 0;
+                            }
+                        }
                     }
                     catch (const std::exception &e)
                     {
@@ -1506,6 +1699,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                 {
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
                     ApplyConfiguredCandidateAppearance();
+                    InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
                 }
                 else
                 {
@@ -1701,6 +1895,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     })())",
                                       nullptr);
                 SyncMenuFloatingToolbarToggle();
+                InjectSurfaceViewportLimits(sender, hwnd);
                 PostMessage(hwnd, WM_REFRESH_MENU_SIZE, 0, 0);
                 return S_OK;
             })
@@ -1763,6 +1958,23 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     {
                         VoiceInput::ToggleRecording();
                         ShowWindow(::global_hwnd_menu, SW_HIDE);
+                    }
+                    else if (type == "contentTruncated")
+                    {
+                        if (HandleContentTruncatedMessage(hwnd, webviewMenuWnd.Get(),
+                                                          webviewControllerMenuWnd.Get(), val,
+                                                          g_last_content_truncation_menu_ms, 0))
+                        {
+                            ::MENU_CONTENT_WIDTH_DIP =
+                                (std::max)(::MENU_CONTENT_WIDTH_DIP, JsonNumberAsDouble(val.at("data").at("width")));
+                            ::MENU_CONTENT_HEIGHT_DIP =
+                                (std::max)(::MENU_CONTENT_HEIGHT_DIP, JsonNumberAsDouble(val.at("data").at("height")));
+                            const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                            ::MENU_CONTENT_WIDTH_DIP =
+                                ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP, limits);
+                            ::MENU_CONTENT_HEIGHT_DIP =
+                                ClampHeightDipToHalfScreen(::MENU_CONTENT_HEIGHT_DIP, limits);
+                        }
                     }
                 }
                 return S_OK;
@@ -2848,6 +3060,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     ApplyConfiguredFloatingToolbarAppearance();
                     RenderFloatingToolbarState(sender);
                     ApplyConfiguredFloatingToolbarSize();
+                    InjectSurfaceViewportLimits(sender, ::global_hwnd_ftb);
                     // Show first so a cold user-data folder can finish painting;
                     // a short timer then hides or keeps it based on real state.
                     ApplyConfiguredFloatingToolbarVisibility(L"ftb-navigation-completed");
@@ -3006,6 +3219,24 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     else if (type == "openKeyboardPanel")
                     {
                         OpenKeyboardPanelApplication();
+                    }
+                    else if (type == "contentTruncated")
+                    {
+                        if (HandleContentTruncatedMessage(hwnd, webviewFtbWnd.Get(),
+                                                          webviewControllerFtbWnd.Get(), val,
+                                                          g_last_content_truncation_ftb_ms,
+                                                          ::FTB_WND_SHADOW_WIDTH))
+                        {
+                            const double widthDip = JsonNumberAsDouble(val.at("data").at("width"));
+                            const double heightDip = JsonNumberAsDouble(val.at("data").at("height"));
+                            const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                            ::FTB_CONTENT_WIDTH_DIP = ClampWidthDipToHalfScreen(widthDip, limits);
+                            ::FTB_CONTENT_HEIGHT_DIP = ClampHeightDipToHalfScreen(heightDip, limits);
+                            ::FTB_WND_WIDTH =
+                                static_cast<int>(std::ceil(::FTB_CONTENT_WIDTH_DIP * kTruncationSizeFactor));
+                            ::FTB_WND_HEIGHT =
+                                static_cast<int>(std::ceil(::FTB_CONTENT_HEIGHT_DIP * kTruncationSizeFactor));
+                        }
                     }
                 }
 

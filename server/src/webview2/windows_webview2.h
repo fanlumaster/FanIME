@@ -67,6 +67,8 @@ bool ApplyConfiguredUiThemes();
 bool ApplyConfiguredCandidateAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete);
+// Push half-monitor CSS max width/height (DIP) into a small-window page.
+void InjectSurfaceViewportLimits(ICoreWebView2 *webview, HWND hwnd);
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
