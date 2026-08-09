@@ -2,6 +2,7 @@
 
 #include "config/ime_config.h"
 #include "defines/defines.h"
+#include "settings/dictionary_validation.h"
 #include "utils/common_utils.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
@@ -296,45 +297,11 @@ bool NormalizePinyin(const std::string &mode, const std::string &input, quanpin:
                      std::string &normalized, std::string &message)
 {
     (void)mode;
-    std::string source = input;
-    source.erase(std::remove_if(source.begin(), source.end(), [](unsigned char ch) { return std::isspace(ch); }), source.end());
-    std::transform(source.begin(), source.end(), source.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-
-    // Prefer user-provided syllable boundaries, e.g. cheng'wei'he'tao'dan'gao.
-    if (source.find('\'') != std::string::npos)
+    if (!Validation::NormalizeFullPinyin(input, segments, normalized))
     {
-        quanpin::Segments parts = quanpin::split_segments(source);
-        const auto &valid = quanpin::intact_pinyin_set();
-        if (parts.empty())
-        {
-            message = "全拼拼音不合法";
-            return false;
-        }
-        for (const auto &part : parts)
-        {
-            if (part.empty() || valid.find(part) == valid.end())
-            {
-                message = "全拼拼音不合法";
-                return false;
-            }
-        }
-        segments = std::move(parts);
-        normalized = quanpin::join_segments(segments);
-        return true;
-    }
-
-    const auto cuts = quanpin::cut_pinyin_by_mode(source, "correction");
-    std::string joined = cuts.empty() ? std::string{} : quanpin::join_segments(cuts.front());
-    std::string joined_without_delimiters = joined;
-    joined_without_delimiters.erase(std::remove(joined_without_delimiters.begin(), joined_without_delimiters.end(), '\''),
-                                    joined_without_delimiters.end());
-    if (cuts.empty() || cuts.front().empty() || joined_without_delimiters != source)
-    {
-        message = "全拼拼音不合法";
+        message = "全拼必须由拼音表中的完整音节组成，不能使用简拼";
         return false;
     }
-    segments = cuts.front();
-    normalized = std::move(joined);
     return true;
 }
 
@@ -879,6 +846,8 @@ json::object HandleQuickPhrase(const json::object &request)
     }
 
     if (!valid_code(code) || phrase.empty()) return Result(false, "编码只能包含英文字母，短语不能为空");
+    if ((action == "create" || action == "update") && !Validation::QuickPhraseFitsNamedPipe(phrase))
+        return Result(false, "快捷短语不能超过 199 个 wchar 字符");
     const std::string old_code = StringValue(request, "oldCode");
     const std::string old_phrase = StringValue(request, "oldWord");
     std::string sql;

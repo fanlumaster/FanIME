@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ipc_protocol_limits.h"
+
 #include <Windows.h>
 #include <cstddef>
 #include <cstdint>
@@ -125,7 +127,7 @@ struct FanyImeNamedpipeDataToTsf
 {
     UINT msg_type;
     uint64_t request_id = 0;
-    wchar_t candidate_string[200]; // 200 chars at most
+    wchar_t candidate_string[FanyImePipeLimits::CandidateTextCapacity];
 };
 
 static_assert(offsetof(FanyImeNamedpipeData, request_id) == 16,

@@ -310,6 +310,8 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/settings_launcher.h"
     "./src/settings/dictionary_manager.cpp"
     "./src/settings/dictionary_manager.h"
+    "./src/settings/dictionary_validation.cpp"
+    "./src/settings/dictionary_validation.h"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
     "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
     "./MetasequoiaImeEngine/english/english_dictionary.cpp"
