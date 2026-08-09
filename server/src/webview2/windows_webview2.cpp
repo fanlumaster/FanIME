@@ -520,6 +520,7 @@ struct FloatingToolbarState
     int cn_en = 1;
     int double_single_byte = 0;
     int punctuation = 1;
+    int english_input_mode = 0;
 };
 
 FloatingToolbarState floatingToolbarState;
@@ -755,15 +756,20 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
     }
 
     std::wstring script;
-    script.reserve(768);
+    script.reserve(896);
     if (floatingToolbarState.cn_en == 1)
     {
-        script.append(L"document.getElementById('cn').style.display = 'flex';");
+        script.append(floatingToolbarState.english_input_mode == 1
+                          ? L"document.getElementById('cn').style.display = 'none';"
+                            L"document.getElementById('en-candidate').style.display = 'flex';"
+                          : L"document.getElementById('cn').style.display = 'flex';"
+                            L"document.getElementById('en-candidate').style.display = 'none';");
         script.append(L"document.getElementById('en').style.display = 'none';");
     }
     else
     {
         script.append(L"document.getElementById('cn').style.display = 'none';");
+        script.append(L"document.getElementById('en-candidate').style.display = 'none';");
         script.append(L"document.getElementById('en').style.display = 'flex';");
     }
 
@@ -3151,6 +3157,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
                                 Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToEn, L"");
                         }
                     }
+                    else if (type == "exitEnglishInputMode")
+                    {
+                        FanyNamedPipe::EnqueueExitEnglishInputModeTask();
+                    }
                     else if (type == "changeCharMode")
                     {
                         std::string mode = json::value_to<std::string>(val.at("data"));
@@ -3470,6 +3480,14 @@ void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState)
 void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState)
 {
     if (UpdateBinaryState(doubleSingleByteState, floatingToolbarState.double_single_byte))
+    {
+        RenderFloatingToolbarState(webview.Get());
+    }
+}
+
+void UpdateFtbEnglishInputModeState(ComPtr<ICoreWebView2> webview, int enabled)
+{
+    if (UpdateBinaryState(enabled, floatingToolbarState.english_input_mode))
     {
         RenderFloatingToolbarState(webview.Get());
     }

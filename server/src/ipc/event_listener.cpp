@@ -224,6 +224,7 @@ AsyncRequestOrigin g_ai_request_origin;
 std::string g_ai_context;
 std::mutex g_status_snapshot_mutex;
 int g_latest_status_snapshot = -1;
+bool g_latest_english_input_mode = false;
 // Global CN/EN authority for input.ime_mode_scope = "global".
 // -1 until first StatusSnapshot or lazy seed from default_ime_mode.
 int g_authoritative_cn_mode = -1;
@@ -273,6 +274,27 @@ void PublishStatusSnapshotValue(int packed_state)
     {
         PostMessage(g_status_snapshot_window, UPDATE_FTB_STATUS, packed_state, 0);
     }
+}
+
+void PublishEnglishInputModeValue(bool enabled)
+{
+    std::lock_guard lock(g_status_snapshot_mutex);
+    g_latest_english_input_mode = enabled;
+    const bool has_window = g_status_snapshot_window && IsWindow(g_status_snapshot_window);
+    if (has_window)
+    {
+        PostMessage(g_status_snapshot_window, UPDATE_FTB_ENGLISH_INPUT_MODE, enabled ? 1 : 0, 0);
+    }
+}
+
+void SetEnglishInputMode(bool enabled)
+{
+    if (g_english_input_mode == enabled)
+    {
+        return;
+    }
+    g_english_input_mode = enabled;
+    PublishEnglishInputModeValue(enabled);
 }
 
 void RememberClientStatusSnapshot(uint64_t client_id, int packed_state)
@@ -919,6 +941,7 @@ enum class TaskType
     ApplyCandidatePageSize,
     RefreshCandidatePage,
     ResetInputSessionCache,
+    ExitEnglishInputMode,
 };
 
 struct Task
@@ -1254,12 +1277,22 @@ void WorkerThread()
             if (FanyImeIpc::ShouldResetCompositionForImeMode(effective_cn != 0))
             {
                 if (effective_cn == 0)
-                    g_english_input_mode = false;
+                    SetEnglishInputMode(false);
                 PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
                 ClearState();
             }
             RememberClientStatusSnapshot(task.client_id, packed_state);
             PublishStatusSnapshotValue(packed_state);
+            break;
+        }
+
+        case TaskType::ExitEnglishInputMode: {
+            if (g_english_input_mode)
+            {
+                SetEnglishInputMode(false);
+                PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+                ClearState();
+            }
             break;
         }
 
@@ -1413,6 +1446,11 @@ void RegisterStatusSnapshotWindow(HWND toolbar_window)
     if (g_latest_status_snapshot >= 0 && g_status_snapshot_window && IsWindow(g_status_snapshot_window))
     {
         PostMessage(g_status_snapshot_window, UPDATE_FTB_STATUS, g_latest_status_snapshot, 0);
+    }
+    if (g_status_snapshot_window && IsWindow(g_status_snapshot_window))
+    {
+        PostMessage(g_status_snapshot_window, UPDATE_FTB_ENGLISH_INPUT_MODE,
+                    g_latest_english_input_mode ? 1 : 0, 0);
     }
 }
 
@@ -1633,6 +1671,21 @@ void EnqueueResetInputSessionCacheTask()
         std::lock_guard lock(queueMutex);
         Task task;
         task.type = TaskType::ResetInputSessionCache;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueExitEnglishInputModeTask()
+{
+    if (!pipe_running)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ExitEnglishInputMode;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -2519,7 +2572,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
     if (FanyImeIpc::IsEnglishModeToggleKey(Global::Keycode, Global::ModifiersDown))
     {
-        g_english_input_mode = !g_english_input_mode;
+        SetEnglishInputMode(!g_english_input_mode);
         ClearState();
         return;
     }

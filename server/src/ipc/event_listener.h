@@ -48,4 +48,5 @@ void EnqueueReloadInputSessionTask();
 void EnqueueApplyCandidatePageSizeTask();
 void EnqueueRefreshCandidatePageTask();
 void EnqueueResetInputSessionCacheTask();
+void EnqueueExitEnglishInputModeTask();
 } // namespace FanyNamedPipe

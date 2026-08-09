@@ -2206,6 +2206,10 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         break;
     }
 
+    case UPDATE_FTB_ENGLISH_INPUT_MODE:
+        UpdateFtbEnglishInputModeState(::webviewFtbWnd, wParam != 0 ? 1 : 0);
+        break;
+
     case WM_DPICHANGED: {
         // Same contract as the tray menu: size from DIPs * the DPI in wParam
         // (GetWindowScale can lag), then remeasure once WebView2 settles so a

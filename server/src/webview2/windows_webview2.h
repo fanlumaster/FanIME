@@ -183,6 +183,7 @@ void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
 );
 void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState);
 void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState);
+void UpdateFtbEnglishInputModeState(ComPtr<ICoreWebView2> webview, int enabled);
 void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview);
 // Reapply configured optional buttons to the live toolbar and resize its host.
 void ApplyConfiguredFloatingToolbarItems();
