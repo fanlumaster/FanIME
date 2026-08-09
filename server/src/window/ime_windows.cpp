@@ -511,8 +511,12 @@ void PlaceFloatingToolbarOnScreen(HWND hwnd)
     LayoutFloatingToolbar(hwnd, true);
 }
 
-// Recompute menu host pixels from last measured CSS DIPs * scale.
-void ApplyMenuPhysicalSizeFromDips(HWND hwnd, FLOAT scale, UINT flags)
+// A small CSS-DIP reserve absorbs fractional line-height/border rounding in
+// Chromium. Because it is converted with the target monitor's DPI, this becomes
+// 2/3/4 physical pixels at 100%/150%/200% instead of being scale-dependent.
+constexpr double kMenuViewportSafetyDip = 2.0;
+
+void UpdateMenuPhysicalSizeCache(HWND hwnd, FLOAT scale)
 {
     if (!hwnd)
     {
@@ -522,15 +526,32 @@ void ApplyMenuPhysicalSizeFromDips(HWND hwnd, FLOAT scale, UINT flags)
     {
         scale = 1.0f;
     }
-    const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    // During WM_DPICHANGED, GetDpiForWindow can still expose the old DPI. Derive
+    // the DIP budget from the message's scale so cap and pixel conversion agree.
+    const double monitorWidthPx =
+        static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+    const double monitorHeightPx =
+        static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+    limits.scale = scale;
+    limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(scale);
+    limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(scale);
     ::MENU_CONTENT_WIDTH_DIP = ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP, limits);
     ::MENU_CONTENT_HEIGHT_DIP = ClampHeightDipToHalfScreen(::MENU_CONTENT_HEIGHT_DIP, limits);
-    const int newWidth = static_cast<int>(std::ceil(::MENU_CONTENT_WIDTH_DIP * scale));
-    const int newHeight = static_cast<int>(std::ceil(::MENU_CONTENT_HEIGHT_DIP * scale));
+    const double hostWidthDip = ClampWidthDipToHalfScreen(
+        ::MENU_CONTENT_WIDTH_DIP + kMenuViewportSafetyDip, limits);
+    const double hostHeightDip = ClampHeightDipToHalfScreen(
+        ::MENU_CONTENT_HEIGHT_DIP + kMenuViewportSafetyDip, limits);
     ::SCALE = scale;
-    ::MENU_WINDOW_WIDTH = newWidth;
-    ::MENU_WINDOW_HEIGHT = newHeight;
-    SetWindowPos(hwnd, nullptr, 0, 0, newWidth, newHeight, flags);
+    ::MENU_WINDOW_WIDTH = static_cast<int>(std::ceil(hostWidthDip * scale));
+    ::MENU_WINDOW_HEIGHT = static_cast<int>(std::ceil(hostHeightDip * scale));
+}
+
+// Recompute menu host pixels from last measured CSS DIPs * scale.
+void ApplyMenuPhysicalSizeFromDips(HWND hwnd, FLOAT scale, UINT flags)
+{
+    UpdateMenuPhysicalSizeCache(hwnd, scale);
+    SetWindowPos(hwnd, nullptr, 0, 0, ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT, flags);
     SyncHostWebViewBounds(::webviewControllerMenuWnd.Get(), hwnd);
 }
 
@@ -1622,8 +1643,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             ::MENU_CONTENT_HEIGHT_DIP = 300.0;
         }
-        ::MENU_WINDOW_WIDTH = static_cast<int>(std::ceil(::MENU_CONTENT_WIDTH_DIP * scale));
-        ::MENU_WINDOW_HEIGHT = static_cast<int>(std::ceil(::MENU_CONTENT_HEIGHT_DIP * scale));
+        UpdateMenuPhysicalSizeCache(hwnd, scale);
         int iconWidth = (right - left) * ::SCALE;
         int iconHeight = (bottom - top) * ::SCALE;
         int iconMiddleX = left + iconWidth / 2;
@@ -1692,9 +1712,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // keep the wrong physical size across display-scale changes.
         const FLOAT scale = HIWORD(wParam) / 96.0f;
         const auto *suggested = reinterpret_cast<const RECT *>(lParam);
-        ::SCALE = scale;
-        ::MENU_WINDOW_WIDTH = static_cast<int>(std::ceil(::MENU_CONTENT_WIDTH_DIP * scale));
-        ::MENU_WINDOW_HEIGHT = static_cast<int>(std::ceil(::MENU_CONTENT_HEIGHT_DIP * scale));
+        UpdateMenuPhysicalSizeCache(hwnd, scale);
         if (suggested)
         {
             SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT,

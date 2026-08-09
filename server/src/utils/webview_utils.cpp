@@ -201,8 +201,12 @@ void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std:
         (function() {
             document.documentElement.style.overflow = "hidden";
             document.body.style.overflow = "hidden";
-            var rect = document.getElementById("menuContainer").getBoundingClientRect();
-            return JSON.stringify({width: rect.width, height: rect.height});
+            var menu = document.getElementById("menuContainer");
+            var rect = menu.getBoundingClientRect();
+            return JSON.stringify({
+                width: Math.max(rect.width, menu.offsetWidth || 0, menu.scrollWidth || 0),
+                height: Math.max(rect.height, menu.offsetHeight || 0, menu.scrollHeight || 0)
+            });
         })();
     )";
     webview->ExecuteScript( //
