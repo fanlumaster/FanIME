@@ -139,7 +139,8 @@
     }
 
     .pinyin {
-      font-size: 14px;
+      /* Keep preedit in sync with the configured candidate-window font size. */
+      font-size: var(--cand-font-size);
       display: flex;
       flex-direction: row;
       align-items: center;
