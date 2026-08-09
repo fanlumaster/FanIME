@@ -2378,6 +2378,7 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
     size_t insert_index = items.size() >= 1 ? 1 : 0;
     items.insert(items.begin() + insert_index, WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
     g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate, CandidateSource::CloudSuggestion);
     Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
 
@@ -2421,6 +2422,7 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     const std::string typed_pinyin = query.cache_key.empty() ? query.committed_pinyin : query.cache_key;
     items.insert(items.begin() + insert_index,
                  WordItem(typed_pinyin, candidate, 1, CandidateSource::AiSuggestion, identity));
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
     g_inputSession->cache_dynamic_candidate(typed_pinyin, candidate, CandidateSource::AiSuggestion);
     (void)0;
     Global::ai_candidate = {true, candidate, query.committed_pinyin};
@@ -2481,11 +2483,7 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
 
     if (!unique_candidates.empty())
     {
-        size_t insert_index = items.empty() || items.front().source == CandidateSource::Fallback ? 0 : 1;
-        while (insert_index < items.size() && items[insert_index].source == CandidateSource::CloudSuggestion)
-        {
-            ++insert_index;
-        }
+        const size_t insert_index = std::min<size_t>(1, items.size());
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
                                                items, false, {}, g_inputSession->has_active_helpcode());
@@ -2493,6 +2491,7 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
         {
             items.push_back(std::move(unique_candidates[index]));
         }
+        FanyImeIpc::NormalizeMixedCandidateOrder(items);
     }
 
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());

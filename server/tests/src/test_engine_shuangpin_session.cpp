@@ -52,6 +52,31 @@ TEST_CASE(CloudCandidateNeverEntersCreatingWordMode)
     REQUIRE(!FanyImeIpc::ShouldEnterCreatingWord(CandidateSource::Database, false));
 }
 
+TEST_CASE(MixedAsyncCandidatesKeepReservedSlotsForEveryArrivalOrder)
+{
+    const auto local = [](std::string word) { return WordItem("ni", std::move(word), 100); };
+    const auto english = [] { return WordItem("ni", "nice", 1, CandidateSource::EnglishDictionary); };
+    const auto cloud = [] { return WordItem("ni", "云候选", 1, CandidateSource::CloudSuggestion); };
+    const auto ai = [] { return WordItem("ni", "AI联想", 1, CandidateSource::AiSuggestion); };
+
+    std::vector<WordItem> items = {local("你"), english(), local("呢"), ai(), cloud()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[0].word, std::string("你"));
+    REQUIRE_EQ(items[1].source, CandidateSource::CloudSuggestion);
+    REQUIRE_EQ(items[2].source, CandidateSource::AiSuggestion);
+    REQUIRE_EQ(items[3].source, CandidateSource::EnglishDictionary);
+
+    items = {local("你"), ai(), local("呢"), english()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::EnglishDictionary);
+    REQUIRE_EQ(items[2].source, CandidateSource::AiSuggestion);
+
+    items = {local("你"), cloud(), local("呢"), english()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::CloudSuggestion);
+    REQUIRE_EQ(items[2].source, CandidateSource::EnglishDictionary);
+}
+
 TEST_CASE(EngineShuangpinAiCandidateConsumesFullRawInput)
 {
     EngineInputSession session(SchemeType::Shuangpin);

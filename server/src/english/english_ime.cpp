@@ -11,9 +11,9 @@
 
 namespace
 {
-// Start offering English completions at five input characters. Shorter input
-// remains exclusively on the existing Chinese candidate path.
-constexpr size_t kMinimumPrefixLength = 5;
+// Mixed Chinese/English input starts offering completions from the second
+// pinyin character. Dedicated English mode still starts from one character.
+constexpr size_t kMinimumPrefixLength = 2;
 constexpr size_t kMixedCandidateLimit = 5;
 constexpr size_t kDedicatedCandidateLimit = 1000;
 
