@@ -150,9 +150,15 @@ GPL-3.0。
 
 ## 参考
 
+### Windows 开源输入法参考
+
 以下是一些 Windows 的开源输入法的参考项目。
 
 - [Microsoft TSF IME Demo](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/IME/cpp/SampleIME)
 - [weasel](https://github.com/rime/weasel)
 - [PIME](https://github.com/EasyIME/PIME)
 - [WindInput](https://github.com/huanfeng/WindInput)
+
+### 一些其他输入法相关的资源
+
+- 微软双拼方案来源：<https://www.bilibili.com/opus/550351671882601523>
