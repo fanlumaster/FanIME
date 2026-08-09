@@ -25,7 +25,8 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady, 9u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText, 10u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged, 11u);
-    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown, 11u);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged, 12u);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown, 12u);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady >
             Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady >
@@ -34,9 +35,11 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
             Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged >
             Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText);
+    REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged >
+            Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged);
     REQUIRE_EQ(
         Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown,
-        Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged);
+        Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged);
 }
 
 TEST_CASE(ipc_client_suspension_is_a_distinct_nonterminal_route_reset)

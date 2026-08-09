@@ -1437,6 +1437,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
+            const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
             const std::string previous_theme_cand = GetConfiguredThemeCand();
@@ -1504,6 +1505,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
                         GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_paired_punctuation != GetConfiguredPairedPunctuationEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
+                        GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
                 }
                 const VoiceInputConfig &voice_input = GetConfiguredVoiceInput();
                 if (previous_voice_input.enabled != voice_input.enabled ||
@@ -2026,6 +2033,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
+            const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
             const std::string previous_theme_cand = GetConfiguredThemeCand();
@@ -2100,6 +2108,12 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
                         GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_paired_punctuation != GetConfiguredPairedPunctuationEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
+                        GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
                 }
                 PostSettingsConfig();
             }

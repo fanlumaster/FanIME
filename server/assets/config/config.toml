@@ -104,6 +104,8 @@ ime_mode_scope = "app"
 word_to_character = false
 # 智能标点：中文标点模式下，字母/数字后的 , . : 输出英文标点（类似小狼毫 digit_separators）
 smart_punctuation = true
+# 成对标点补全：输入左侧符号时自动补全右侧符号，并将光标置于中间
+paired_punctuation = true
 # 组合说明：
 #   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
 #   legacy + quanpin   -> 自动切换为新版引擎全拼会话

@@ -356,8 +356,10 @@ constexpr UINT PipeReady = 9;
 constexpr UINT InsertText = 10;
 // Smart punctuation after ASCII letters/digits (',' '.' ':'). Payload "0"/"1".
 constexpr UINT SmartPunctuationChanged = 11;
+// Auto-complete opening paired punctuation and leave the caret inside. Payload "0"/"1".
+constexpr UINT PairedPunctuationChanged = 12;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = SmartPunctuationChanged;
+constexpr UINT MaxKnown = PairedPunctuationChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

@@ -2585,6 +2585,17 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.paired_punctuation")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPairedPunctuationEnabled(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
+                                        value ? L"1" : L"0");
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("general.floating_toolbar_", 0) == 0)
                             {
                                 const std::string item = path.substr(std::string("general.floating_toolbar_").size());
@@ -2865,7 +2876,8 @@ void PostSettingsConfig()
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
             {"wubi_schema", GetConfiguredWubiSchema()},
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
-            {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()}}},
+            {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
+            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},

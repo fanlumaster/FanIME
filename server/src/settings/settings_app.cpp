@@ -222,7 +222,8 @@ void PostConfig()
             {"shuangpin_schema", GetConfiguredShuangpinSchema()},
             {"wubi_schema", GetConfiguredWubiSchema()},
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
-            {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()}}},
+            {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
+            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
@@ -336,6 +337,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredWordToCharacterEnabled(json::value_to<bool>(data.at("value")));
     if (path == "input.smart_punctuation")
         return SetConfiguredSmartPunctuationEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "input.paired_punctuation")
+        return SetConfiguredPairedPunctuationEnabled(json::value_to<bool>(data.at("value")));
     if (path == "appearance.tsf_preedit_style")
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
