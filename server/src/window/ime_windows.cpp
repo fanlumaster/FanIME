@@ -81,13 +81,13 @@ int ConfiguredFloatingToolbarWidth()
         static_cast<int>(items.emoji) +
         static_cast<int>(items.screen_keyboard) +
         static_cast<int>(items.settings);
-    // 57 DIPs covers the drag handle, divider, mandatory CN/EN button and
+    // 59 DIPs covers the drag handle, divider, borders, mandatory CN/EN button and
     // container padding. Each optional button adds 24 DIPs plus the 6-DIP gap.
     // User scale/font_size multiply the design size independently of system DPI.
     const double userScale = GetConfiguredFloatingToolbarScale();
     const double fontFactor =
         static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
-    return static_cast<int>(std::lround((57 + optional_item_count * 30) * userScale * fontFactor));
+    return static_cast<int>(std::lround((59 + optional_item_count * 30) * userScale * fontFactor));
 }
 
 int ConfiguredFloatingToolbarHeight()
