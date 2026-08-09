@@ -322,14 +322,18 @@ constexpr UINT PipeReady = 9;
 constexpr UINT InsertText = 10;
 // Smart punctuation after ASCII letters/digits (',' '.' ':'). Payload "0"/"1".
 constexpr UINT SmartPunctuationChanged = 11;
+// Auto-complete opening paired punctuation and leave the caret inside. Payload "0"/"1".
+constexpr UINT PairedPunctuationChanged = 12;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = SmartPunctuationChanged;
+constexpr UINT MaxKnown = PairedPunctuationChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
 // Default on: matches rime-ice digit_separators behavior until Server syncs.
 inline std::atomic_bool SmartPunctuationEnabled{true};
+// Default on until the Server sends the persisted setting.
+inline std::atomic_bool PairedPunctuationEnabled{true};
 inline thread_local bool g_connected = false;
 
 } // namespace Global

@@ -247,7 +247,7 @@ extern const WCHAR FullWidthCharTable[] = {
 //---------------------------------------------------------------------
 // defined punctuation characters
 //---------------------------------------------------------------------
-extern const struct _PUNCTUATION PunctuationTable[23] = {
+extern const struct _PUNCTUATION PunctuationTable[25] = {
     {L'`', L"·"},   // ·
     {L'~', L"~"},   // ~
     {L'!', L"！"},  // ！
@@ -263,6 +263,8 @@ extern const struct _PUNCTUATION PunctuationTable[23] = {
     {L'_', L"——"},  // ——
     {L'[', L"【"},  // 【
     {L']', L"】"},  // 】
+    {L'{', L"{"},   // {
+    {L'}', L"}"},   // }
     {L'\\', L"、"}, // 、
     {L';', L"；"},  // ；
     {L':', L"："},  // ：

@@ -37,6 +37,7 @@ const DWORD WM_IpcSessionDirty = WM_USER + 17;
 const DWORD WM_DrainDeferredKeyDown = WM_USER + 18;
 const DWORD WM_InsertText = WM_USER + 19;
 const DWORD WM_RefreshLanguageBarTheme = WM_USER + 20;
+const DWORD WM_PairedPunctuationMoveLeft = WM_USER + 21;
 constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
 constexpr UINT_PTR TIMER_CONNECT_TO_TSF_NAMEDPIPE = 2;
 constexpr UINT_PTR TIMER_REFRESH_LANG_BAR_THEME = 3;

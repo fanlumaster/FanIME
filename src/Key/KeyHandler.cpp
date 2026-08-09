@@ -18,6 +18,34 @@ namespace
 {
 thread_local std::wstring g_toggleImeFallbackBuffer;
 
+WCHAR GetPairedPunctuationClosing(const std::wstring &text)
+{
+    if (text.empty())
+    {
+        return 0;
+    }
+
+    switch (text.back())
+    {
+    case L'“':
+        return L'”';
+    case L'‘':
+        return L'’';
+    case L'【':
+        return L'】';
+    case L'{':
+        return L'}';
+    case L'《':
+        return L'》';
+    case L'〈':
+        return L'〉';
+    case L'（':
+        return L'）';
+    default:
+        return 0;
+    }
+}
+
 DWORD_PTR MapRawCaretToPreedit(const CStringRange &raw, DWORD_PTR rawCaret, const std::wstring &preedit,
                                size_t prefixLength)
 {
@@ -1034,6 +1062,30 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         punctuationStr = _ResolveSmartPunctuation(wch, preceding);
     }
 
+    const bool pairedPunctuationEnabled =
+        Global::PairedPunctuationEnabled.load(std::memory_order_relaxed);
+    if (pairedPunctuationEnabled && !punctuationStr.empty())
+    {
+        // Quotes share one physical key for both sides. In paired mode every
+        // press starts a fresh pair instead of following the legacy left/right
+        // toggle maintained by GetPunctuation().
+        if (wch == L'"' && punctuationStr.back() == L'”')
+        {
+            punctuationStr.back() = L'“';
+        }
+        else if (wch == L'\'' && punctuationStr.back() == L'’')
+        {
+            punctuationStr.back() = L'‘';
+        }
+    }
+
+    const WCHAR pairedClosing =
+        pairedPunctuationEnabled ? GetPairedPunctuationClosing(punctuationStr) : 0;
+    if (pairedClosing != 0)
+    {
+        punctuationStr.push_back(pairedClosing);
+    }
+
     CStringRange punctuationString;
     punctuationString.Set(punctuationStr.c_str(), punctuationStr.length());
 
@@ -1055,9 +1107,6 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
             return hr;
         }
 
-        PerfTimer completeTimer;
-        _HandleCompleteCommitFirst(ec, pContext);
-        double completeElapsedMs = completeTimer.ElapsedMs();
     }
     else
     {
@@ -1069,9 +1118,29 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
             return hr;
         }
 
-        PerfTimer completeTimer;
+    }
+
+    PerfTimer completeTimer;
+    if (hasActiveComposition)
+    {
+        _HandleCompleteCommitFirst(ec, pContext);
+    }
+    else
+    {
         _HandleComplete(ec, pContext);
-        double completeElapsedMs = completeTimer.ElapsedMs();
+    }
+    double completeElapsedMs = completeTimer.ElapsedMs();
+    if (pairedClosing != 0)
+    {
+        _InvalidateSmartPunctuationShadow();
+
+        const uint64_t focusToken = _CaptureFocusSessionToken();
+        if (_msgWndHandle != nullptr)
+        {
+            PostMessage(_msgWndHandle, WM_PairedPunctuationMoveLeft,
+                        static_cast<WPARAM>(focusToken & 0xFFFFFFFFULL),
+                        static_cast<LPARAM>((focusToken >> 32) & 0xFFFFFFFFULL));
+        }
     }
 
 

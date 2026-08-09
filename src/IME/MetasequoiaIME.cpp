@@ -1824,6 +1824,10 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         {
             Global::SmartPunctuationEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
         }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged)
+        {
+            Global::PairedPunctuationEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
+        }
     }
 }
 
@@ -2551,6 +2555,23 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
     }
     case WM_RefreshLanguageBarTheme: {
         SetTimer(hWnd, TIMER_REFRESH_LANG_BAR_THEME, REFRESH_LANG_BAR_THEME_DELAY_MS, nullptr);
+        break;
+    }
+    case WM_PairedPunctuationMoveLeft: {
+        const uint64_t focusToken = static_cast<uint64_t>(static_cast<uint32_t>(wParam)) |
+                                    (static_cast<uint64_t>(static_cast<uint32_t>(lParam)) << 32);
+        if (focusToken == 0 || !pIME->_IsFocusSessionCurrent(focusToken))
+        {
+            break;
+        }
+
+        INPUT inputs[2] = {};
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].ki.wVk = VK_LEFT;
+        inputs[1] = inputs[0];
+        inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+
+        SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
         break;
     }
     case WM_SETTINGCHANGE: {
