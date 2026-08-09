@@ -148,6 +148,57 @@ void CMetasequoiaIME::_ResetSmartPunctuationHistory()
     _smartPunctuationPrecedingChar = 0;
     _smartPunctuationCommittedAscii = false;
     _smartPunctuationAsciiRejected = false;
+    _smartPunctuationCommitTick = 0;
+    _smartPunctuationFocusToken = 0;
+    _smartPunctuationForegroundWindow = nullptr;
+}
+
+bool CMetasequoiaIME::_QueueRepeatedSmartPunctuationReplacement(WCHAR wch)
+{
+    if (!_smartPunctuationCommittedAscii || _smartPunctuationKey != wch ||
+        _smartPunctuationCommitTick == 0 || _msgWndHandle == nullptr ||
+        _pCompositionProcessorEngine == nullptr || _IsComposing() ||
+        _candidateMode != CANDIDATE_NONE ||
+        !Global::SmartPunctuationEnabled.load(std::memory_order_relaxed) ||
+        !Global::SmartPunctuationRepeatToChineseEnabled.load(std::memory_order_relaxed))
+    {
+        return false;
+    }
+
+    const ULONGLONG now = GetTickCount64();
+    if (now - _smartPunctuationCommitTick > SMART_PUNCTUATION_REPEAT_INTERVAL_MS ||
+        !_IsFocusSessionCurrent(_smartPunctuationFocusToken) ||
+        GetForegroundWindow() != _smartPunctuationForegroundWindow)
+    {
+        return false;
+    }
+
+    const WCHAR *chinese = _pCompositionProcessorEngine->GetPunctuation(wch);
+    if (chinese == nullptr || chinese[0] == L'\0' || chinese[1] != L'\0')
+    {
+        return false;
+    }
+
+    _pendingSmartPunctuationReplacement = chinese[0];
+    _pendingSmartPunctuationFocusToken = _smartPunctuationFocusToken;
+    _pendingSmartPunctuationForegroundWindow = _smartPunctuationForegroundWindow;
+    _pendingSmartPunctuationDeadline =
+        _smartPunctuationCommitTick + SMART_PUNCTUATION_REPEAT_INTERVAL_MS;
+
+    const uint64_t focusToken = _pendingSmartPunctuationFocusToken;
+    if (!PostMessage(_msgWndHandle, WM_ReplaceRepeatedSmartPunctuation,
+                     static_cast<WPARAM>(focusToken & 0xFFFFFFFFULL),
+                     static_cast<LPARAM>((focusToken >> 32) & 0xFFFFFFFFULL)))
+    {
+        _pendingSmartPunctuationReplacement = 0;
+        _pendingSmartPunctuationFocusToken = 0;
+        _pendingSmartPunctuationForegroundWindow = nullptr;
+        _pendingSmartPunctuationDeadline = 0;
+        return false;
+    }
+
+    _ResetSmartPunctuationHistory();
+    return true;
 }
 
 void CMetasequoiaIME::_InvalidateSmartPunctuationShadow()
@@ -213,6 +264,17 @@ void CMetasequoiaIME::_UpdateSmartPunctuationShadow(UINT code, WCHAR wch, bool i
 
 void CMetasequoiaIME::_NoteKeyForSmartPunctuation(UINT code, WCHAR wch, bool isEaten)
 {
+    // The replacement message normally runs before another input event. If it
+    // does not, never let a later key leave the queued Backspace targeting an
+    // unrelated character.
+    if (_pendingSmartPunctuationReplacement != 0)
+    {
+        _pendingSmartPunctuationReplacement = 0;
+        _pendingSmartPunctuationFocusToken = 0;
+        _pendingSmartPunctuationForegroundWindow = nullptr;
+        _pendingSmartPunctuationDeadline = 0;
+    }
+
     _UpdateSmartPunctuationShadow(code, wch, isEaten);
 
     if (_smartPunctuationKey == 0)
@@ -298,6 +360,18 @@ std::wstring CMetasequoiaIME::_ResolveSmartPunctuation(WCHAR wch, WCHAR precedin
     _smartPunctuationPrecedingChar = precedingChar;
     _smartPunctuationCommittedAscii = committedAscii;
     _smartPunctuationAsciiRejected = asciiRejected;
+    if (committedAscii)
+    {
+        _smartPunctuationCommitTick = GetTickCount64();
+        _smartPunctuationFocusToken = _CaptureFocusSessionToken();
+        _smartPunctuationForegroundWindow = GetForegroundWindow();
+    }
+    else
+    {
+        _smartPunctuationCommitTick = 0;
+        _smartPunctuationFocusToken = 0;
+        _smartPunctuationForegroundWindow = nullptr;
+    }
     if (!resolved.empty())
     {
         _smartPunctuationShadowChar = resolved.back();

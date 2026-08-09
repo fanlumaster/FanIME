@@ -1128,6 +1128,11 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     {
         return E_INVALIDARG;
     }
+    if (static_cast<ULONG_PTR>(GetMessageExtraInfo()) == SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
+    {
+        *pIsEaten = FALSE;
+        return S_OK;
+    }
     PerfTimer onTestKeyDownTimer;
     Global::UpdateModifiers(wParam, lParam);
     _TrackModifierHotkeyArming(wParam, lParam, false);
@@ -1649,6 +1654,11 @@ STDAPI CMetasequoiaIME::OnKeyDown(ITfContext *pContext, WPARAM wParam, LPARAM lP
     {
         return E_INVALIDARG;
     }
+    if (static_cast<ULONG_PTR>(GetMessageExtraInfo()) == SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
+    {
+        *pIsEaten = FALSE;
+        return S_OK;
+    }
     PerfTimer onKeyDownTimer;
     const uint64_t focusGeneration = _deferredKeyFocusGeneration;
     (void)_DispatchKeyDown(pContext, wParam, lParam, pIsEaten, nullptr, nullptr,
@@ -2016,6 +2026,11 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
     {
         return E_INVALIDARG;
     }
+    if (static_cast<ULONG_PTR>(GetMessageExtraInfo()) == SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
+    {
+        *pIsEaten = FALSE;
+        return S_OK;
+    }
 
     Global::UpdateModifiers(wParam, lParam);
 
@@ -2058,6 +2073,11 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
     if (pContext == nullptr || pIsEaten == nullptr)
     {
         return E_INVALIDARG;
+    }
+    if (static_cast<ULONG_PTR>(GetMessageExtraInfo()) == SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
+    {
+        *pIsEaten = FALSE;
+        return S_OK;
     }
     Global::UpdateModifiers(wParam, lParam);
 

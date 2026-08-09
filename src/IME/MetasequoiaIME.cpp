@@ -1671,6 +1671,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             }
         }
         if (validFrame && (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
+                           buf.msg_type ==
+                               Global::DataToTsfWorkerThreadMsgType::SmartPunctuationRepeatToChineseChanged ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged))
         {
@@ -1720,6 +1722,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             // Soft config/control frames: drop without killing the worker pipe.
             if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PagingCommaPeriodChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationRepeatToChineseChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady ||
@@ -1776,6 +1779,10 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged)
         {
             Global::SmartPunctuationEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
+        }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationRepeatToChineseChanged)
+        {
+            Global::SmartPunctuationRepeatToChineseEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
         }
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged)
         {
@@ -2504,6 +2511,52 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
 
         SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
+        break;
+    }
+    case WM_ReplaceRepeatedSmartPunctuation: {
+        const uint64_t focusToken = static_cast<uint64_t>(static_cast<uint32_t>(wParam)) |
+                                    (static_cast<uint64_t>(static_cast<uint32_t>(lParam)) << 32);
+        const WCHAR replacement = pIME->_pendingSmartPunctuationReplacement;
+        const bool requestCurrent =
+            replacement != 0 && focusToken != 0 &&
+            focusToken == pIME->_pendingSmartPunctuationFocusToken &&
+            Global::SmartPunctuationRepeatToChineseEnabled.load(std::memory_order_relaxed) &&
+            pIME->_IsFocusSessionCurrent(focusToken) &&
+            GetForegroundWindow() == pIME->_pendingSmartPunctuationForegroundWindow &&
+            GetTickCount64() <= pIME->_pendingSmartPunctuationDeadline;
+
+        pIME->_pendingSmartPunctuationReplacement = 0;
+        pIME->_pendingSmartPunctuationFocusToken = 0;
+        pIME->_pendingSmartPunctuationForegroundWindow = nullptr;
+        pIME->_pendingSmartPunctuationDeadline = 0;
+        if (!requestCurrent)
+        {
+            break;
+        }
+
+        INPUT inputs[4] = {};
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].ki.wVk = VK_BACK;
+        inputs[0].ki.dwExtraInfo = SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO;
+        inputs[1] = inputs[0];
+        inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+
+        inputs[2].type = INPUT_KEYBOARD;
+        inputs[2].ki.wScan = replacement;
+        inputs[2].ki.dwFlags = KEYEVENTF_UNICODE;
+        inputs[2].ki.dwExtraInfo = SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO;
+        inputs[3] = inputs[2];
+        inputs[3].ki.dwFlags |= KEYEVENTF_KEYUP;
+
+        if (SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT)) == ARRAYSIZE(inputs))
+        {
+            pIME->_smartPunctuationShadowChar = replacement;
+            pIME->_smartPunctuationShadowValid = true;
+        }
+        else
+        {
+            pIME->_InvalidateSmartPunctuationShadow();
+        }
         break;
     }
     case WM_SETTINGCHANGE: {

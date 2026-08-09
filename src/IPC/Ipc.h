@@ -322,14 +322,18 @@ constexpr UINT SmartPunctuationChanged = 11;
 constexpr UINT PairedPunctuationChanged = 12;
 // Whether ';' is an input key for the Microsoft shuangpin profile.
 constexpr UINT MicrosoftShuangpinChanged = 13;
+// Replace a repeated smart ASCII punctuation with its Chinese mapping.
+constexpr UINT SmartPunctuationRepeatToChineseChanged = 14;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = MicrosoftShuangpinChanged;
+constexpr UINT MaxKnown = SmartPunctuationRepeatToChineseChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
 // Default on: matches rime-ice digit_separators behavior until Server syncs.
 inline std::atomic_bool SmartPunctuationEnabled{true};
+// Default on until the Server sends the persisted setting.
+inline std::atomic_bool SmartPunctuationRepeatToChineseEnabled{true};
 // Default on until the Server sends the persisted setting.
 inline std::atomic_bool PairedPunctuationEnabled{true};
 inline std::atomic_bool MicrosoftShuangpinEnabled{false};

@@ -988,6 +988,12 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
 {
     HRESULT hr = S_OK;
     PerfTimer timer;
+
+    if (_QueueRepeatedSmartPunctuationReplacement(wch))
+    {
+        return S_OK;
+    }
+
     //
     // Get punctuation char from composition processor engine
     //

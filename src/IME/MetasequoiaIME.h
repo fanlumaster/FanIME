@@ -38,6 +38,9 @@ const DWORD WM_DrainDeferredKeyDown = WM_USER + 18;
 const DWORD WM_InsertText = WM_USER + 19;
 const DWORD WM_RefreshLanguageBarTheme = WM_USER + 20;
 const DWORD WM_PairedPunctuationMoveLeft = WM_USER + 21;
+const DWORD WM_ReplaceRepeatedSmartPunctuation = WM_USER + 22;
+constexpr ULONG_PTR SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO = 0x4D535050u;
+constexpr ULONGLONG SMART_PUNCTUATION_REPEAT_INTERVAL_MS = 2000;
 constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
 constexpr UINT_PTR TIMER_CONNECT_TO_TSF_NAMEDPIPE = 2;
 constexpr UINT_PTR TIMER_REFRESH_LANG_BAR_THEME = 3;
@@ -168,6 +171,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     // Smart punctuation: backspacing the ASCII punctuation we just committed
     // means that form was unwanted, so the spot stays on Chinese punctuation.
     std::wstring _ResolveSmartPunctuation(WCHAR wch, WCHAR precedingChar);
+    bool _QueueRepeatedSmartPunctuationReplacement(WCHAR wch);
     void _NoteKeyForSmartPunctuation(UINT code, WCHAR wch, bool isEaten);
     void _ResetSmartPunctuationHistory();
     void _UpdateSmartPunctuationShadow(UINT code, WCHAR wch, bool isEaten);
@@ -494,6 +498,13 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     WCHAR _smartPunctuationPrecedingChar = 0;
     bool _smartPunctuationCommittedAscii = false;
     bool _smartPunctuationAsciiRejected = false;
+    ULONGLONG _smartPunctuationCommitTick = 0;
+    uint64_t _smartPunctuationFocusToken = 0;
+    HWND _smartPunctuationForegroundWindow = nullptr;
+    WCHAR _pendingSmartPunctuationReplacement = 0;
+    uint64_t _pendingSmartPunctuationFocusToken = 0;
+    HWND _pendingSmartPunctuationForegroundWindow = nullptr;
+    ULONGLONG _pendingSmartPunctuationDeadline = 0;
 
     // Last character known to have reached the application. Hosts such as the
     // VS Code terminal back the context with a proxy text store that only ever
