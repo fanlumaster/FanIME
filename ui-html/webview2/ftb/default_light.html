@@ -42,9 +42,13 @@
       top: 0px;
       left: 0px;
       display: flex;
-      flex-wrap: wrap;
+      /* FTB is a single-row control. Wrapping the three top-level sections
+         puts the drag handle on a separate row when the host is 1-2px narrow. */
+      flex-wrap: nowrap;
       align-items: center;
-      overflow: auto;
+      /* The native host remeasures overflow via scrollWidth/scrollHeight.
+         Never expose Chromium scrollbars for sub-pixel DPI rounding. */
+      overflow: hidden;
       background-color: #ffffff;
       border-radius: calc(var(--ftb-radius) * var(--ftb-scale));
       padding: 0px calc(var(--ftb-pad-right) * var(--ftb-scale)) 0px calc(var(--ftb-pad-left) * var(--ftb-scale));
@@ -119,12 +123,14 @@
 
     .left-section {
       display: flex;
+      flex: 0 0 auto;
       align-items: center;
       gap: calc(4px * var(--ftb-scale));
     }
 
     .right-section {
       display: flex;
+      flex: 0 0 auto;
       align-items: center;
       gap: calc(var(--ftb-gap) * var(--ftb-scale));
     }
