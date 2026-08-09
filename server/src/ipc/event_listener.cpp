@@ -476,6 +476,20 @@ bool IsManualPinyinSeparatorKey(UINT keycode, WCHAR wch)
            g_inputSession->current_scheme_type() != SchemeType::Wubi && !g_inputSession->get_pinyin_sequence().empty();
 }
 
+bool IsMicrosoftShuangpinIngKey(UINT keycode, WCHAR wch, const std::string &raw_input)
+{
+    if (keycode != VK_OEM_1 || wch != L';' || GetConfiguredShuangpinSchema() != "microsoft" ||
+        g_inputSession == nullptr || g_inputSession->current_scheme_type() != SchemeType::Shuangpin)
+    {
+        return false;
+    }
+
+    const size_t caret = (std::min)(GlobalIme::composition.caret_position, raw_input.size());
+    const size_t separator = caret == 0 ? std::string::npos : raw_input.rfind('\'', caret - 1);
+    const size_t chunk_start = separator == std::string::npos ? 0 : separator + 1;
+    return (caret - chunk_start) % 2 == 1;
+}
+
 bool IsSelectionKey(UINT keycode)
 {
     if (keycode == VK_SPACE)
@@ -553,6 +567,11 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
         else if (keycode == VK_OEM_7 && wch == L'\'')
         {
             input = '\'';
+        }
+        else if (keycode == VK_OEM_1 && wch == L';' && GetConfiguredShuangpinSchema() == "microsoft" &&
+                 g_inputSession->current_scheme_type() == SchemeType::Shuangpin)
+        {
+            input = ';';
         }
         else if (IsUnicodeCompositionActive(raw) && keycode >= '0' && keycode <= '9')
         {
@@ -1449,8 +1468,7 @@ void RegisterStatusSnapshotWindow(HWND toolbar_window)
     }
     if (g_status_snapshot_window && IsWindow(g_status_snapshot_window))
     {
-        PostMessage(g_status_snapshot_window, UPDATE_FTB_ENGLISH_INPUT_MODE,
-                    g_latest_english_input_mode ? 1 : 0, 0);
+        PostMessage(g_status_snapshot_window, UPDATE_FTB_ENGLISH_INPUT_MODE, g_latest_english_input_mode ? 1 : 0, 0);
     }
 }
 
@@ -2182,6 +2200,9 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
                 GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
+            SendToTsfWorkerThreadClientViaNamedpipe(
+                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::MicrosoftShuangpinChanged,
+                GetConfiguredShuangpinSchema() == "microsoft" ? L"1" : L"0");
         }
     }
 
@@ -2606,8 +2627,10 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool unicode_composition_active = IsUnicodeCompositionActive(input_before_key);
     const bool is_paging_key = IsPagingKey(Global::Keycode);
     const bool is_manual_pinyin_separator = IsManualPinyinSeparatorKey(Global::Keycode, Global::Wch);
+    const bool is_microsoft_shuangpin_ing_key =
+        IsMicrosoftShuangpinIngKey(Global::Keycode, Global::Wch, input_before_key);
     const bool is_commit_with_highlighted_candidate_punctuation =
-        !is_manual_pinyin_separator &&
+        !is_manual_pinyin_separator && !is_microsoft_shuangpin_ing_key &&
         IsCommitWithHighlightedCandidatePunctuationInCandidateMode(Global::Keycode, Global::Wch);
     const bool is_selection_key = IsSelectionKey(Global::Keycode);
     const bool is_unicode_shift_digit_selection =
@@ -2615,10 +2638,10 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool is_unicode_hex_digit = unicode_composition_active && !is_unicode_shift_digit_selection &&
                                       Global::Keycode >= '0' && Global::Keycode <= '9';
     const bool is_unicode_plus = unicode_composition_active && Global::Keycode == VK_OEM_PLUS && Global::Wch == L'+';
-    const bool is_composition_edit_key = Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT ||
-                                         Global::Keycode == VK_BACK ||
-                                         (Global::Keycode >= 'A' && Global::Keycode <= 'Z') ||
-                                         is_manual_pinyin_separator || is_unicode_hex_digit || is_unicode_plus;
+    const bool is_composition_edit_key =
+        Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT || Global::Keycode == VK_BACK ||
+        (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator ||
+        is_microsoft_shuangpin_ing_key || is_unicode_hex_digit || is_unicode_plus;
     const bool should_forward_key_to_session = !is_commit_with_highlighted_candidate_punctuation && !is_selection_key &&
                                                !is_paging_key && !is_composition_edit_key;
 

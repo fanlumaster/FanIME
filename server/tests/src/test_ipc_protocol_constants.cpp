@@ -26,7 +26,8 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText, 10u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged, 11u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged, 12u);
-    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown, 12u);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MicrosoftShuangpinChanged, 13u);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown, 13u);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady >
             Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady >
@@ -37,9 +38,10 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
             Global::DataFromServerMsgTypeToTsfWorkerThread::InsertText);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged >
             Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged);
-    REQUIRE_EQ(
-        Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown,
-        Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged);
+    REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::MicrosoftShuangpinChanged >
+            Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown,
+               Global::DataFromServerMsgTypeToTsfWorkerThread::MicrosoftShuangpinChanged);
 }
 
 TEST_CASE(ipc_client_suspension_is_a_distinct_nonterminal_route_reset)
@@ -49,16 +51,11 @@ TEST_CASE(ipc_client_suspension_is_a_distinct_nonterminal_route_reset)
     REQUIRE_EQ(FanyImePipeEventType::StatusSnapshot, 13u);
     REQUIRE_EQ(FanyImePipeEventType::ClientSuspended, 14u);
 
-    REQUIRE(FanyImePipeEventType::IsRouteDeactivation(
-        FanyImePipeEventType::ClientDeactivated));
-    REQUIRE(FanyImePipeEventType::IsRouteDeactivation(
-        FanyImePipeEventType::ClientSuspended));
-    REQUIRE(FanyImePipeEventType::IsTerminalDeactivation(
-        FanyImePipeEventType::ClientDeactivated));
-    REQUIRE(!FanyImePipeEventType::IsTerminalDeactivation(
-        FanyImePipeEventType::ClientSuspended));
-    REQUIRE(!FanyImePipeEventType::IsRouteDeactivation(
-        FanyImePipeEventType::ClientActivated));
+    REQUIRE(FanyImePipeEventType::IsRouteDeactivation(FanyImePipeEventType::ClientDeactivated));
+    REQUIRE(FanyImePipeEventType::IsRouteDeactivation(FanyImePipeEventType::ClientSuspended));
+    REQUIRE(FanyImePipeEventType::IsTerminalDeactivation(FanyImePipeEventType::ClientDeactivated));
+    REQUIRE(!FanyImePipeEventType::IsTerminalDeactivation(FanyImePipeEventType::ClientSuspended));
+    REQUIRE(!FanyImePipeEventType::IsRouteDeactivation(FanyImePipeEventType::ClientActivated));
 }
 
 TEST_CASE(ipc_focus_restored_is_an_appended_opcode_and_not_a_route_reset)

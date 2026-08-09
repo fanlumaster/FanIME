@@ -4,6 +4,7 @@
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -168,10 +169,8 @@ int ShuangpinInputSession::cache_dynamic_candidate(const std::string &pinyin, co
     return dictionary_->insert_word_to_cached_buffer_series(pinyin, word, source);
 }
 
-IInputSession::SelectionTransition
-ShuangpinInputSession::advance_composition_after_selection(const std::string &selected_pinyin,
-                                                           const std::string &selected_word,
-                                                           const std::string &selected_canonical_pinyin)
+IInputSession::SelectionTransition ShuangpinInputSession::advance_composition_after_selection(
+    const std::string &selected_pinyin, const std::string &selected_word, const std::string &selected_canonical_pinyin)
 {
     (void)selected_word;
     SelectionTransition transition;
@@ -184,8 +183,8 @@ ShuangpinInputSession::advance_composition_after_selection(const std::string &se
     if (transition.continues_composition)
     {
         const std::string &cur_full_pinyin_with_cases = dictionary_->get_pure_pinyin_sequence();
-        const std::string rest_pinyin_seq =
-            transition.full_pure_pinyin.substr(selected_pinyin.size(), transition.full_pure_pinyin.size() - selected_pinyin.size());
+        const std::string rest_pinyin_seq = transition.full_pure_pinyin.substr(
+            selected_pinyin.size(), transition.full_pure_pinyin.size() - selected_pinyin.size());
         const std::string rest_pinyin_seq_with_cases = cur_full_pinyin_with_cases.substr(
             selected_pinyin.size(), cur_full_pinyin_with_cases.size() - selected_pinyin.size());
 
@@ -211,11 +210,10 @@ IInputSession::CloudQueryState ShuangpinInputSession::get_cloud_query_state() co
     }
 
     const auto &pinyin_with_cases = dictionary_->get_pinyin_sequence_with_cases();
-    if (!pinyin_with_cases.empty() && pinyin_with_cases.size() % 2 == 0)
-    {
-        const char last = pinyin_with_cases.back();
-        state.should_query = last >= 'a' && last <= 'z';
-    }
+    const char last = pinyin_with_cases.empty() ? '\0' : pinyin_with_cases.back();
+    const bool ends_with_input_key = (last >= 'a' && last <= 'z') || last == ';';
+    state.should_query =
+        ends_with_input_key && shuangpin::is_complete_input(dictionary_->get_pinyin_sequence(), profile_);
 
     if (state.should_query)
     {
@@ -224,18 +222,14 @@ IInputSession::CloudQueryState ShuangpinInputSession::get_cloud_query_state() co
     return state;
 }
 
-IInputSession::CreatingWordProgress
-ShuangpinInputSession::update_creating_word_progress(const std::string &current_pinyin,
-                                                     const std::string &current_word,
-                                                     const std::string &selected_word,
-                                                     const SelectionTransition &selection_transition) const
+IInputSession::CreatingWordProgress ShuangpinInputSession::update_creating_word_progress(
+    const std::string &current_pinyin, const std::string &current_word, const std::string &selected_word,
+    const SelectionTransition &selection_transition) const
 {
     CreatingWordProgress progress;
-    const auto canonical_segments =
-        quanpin::split_segments(selection_transition.selected_canonical_pinyin);
+    const auto canonical_segments = quanpin::split_segments(selection_transition.selected_canonical_pinyin);
     const bool selected_is_canonical =
-        !canonical_segments.empty() &&
-        canonical_segments.size() == HelpcodeUtils::count_han_chars(selected_word) &&
+        !canonical_segments.empty() && canonical_segments.size() == HelpcodeUtils::count_han_chars(selected_word) &&
         std::all_of(canonical_segments.begin(), canonical_segments.end(), [](const std::string &segment) {
             return !segment.empty() && quanpin::is_complete_pinyin_input(segment);
         });
@@ -249,8 +243,7 @@ ShuangpinInputSession::update_creating_word_progress(const std::string &current_
     progress.preedit = progress.word + selection_transition.current_segmentation_with_cases;
     progress.completed = !selection_transition.continues_composition;
     const auto all_segments = quanpin::split_segments(progress.pinyin);
-    progress.can_store =
-        progress.completed && !progress.pinyin.empty() &&
-        all_segments.size() == HelpcodeUtils::count_han_chars(progress.word);
+    progress.can_store = progress.completed && !progress.pinyin.empty() &&
+                         all_segments.size() == HelpcodeUtils::count_han_chars(progress.word);
     return progress;
 }

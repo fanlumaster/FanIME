@@ -139,14 +139,12 @@ static_assert(offsetof(FanyImeNamedpipeData, keycode) == 24,
               "FanyImeNamedpipeData keycode ABI must match the TSF client");
 static_assert(offsetof(FanyImeNamedpipeData, pinyin_string) == 48,
               "FanyImeNamedpipeData pinyin ABI must match the TSF client");
-static_assert(sizeof(FanyImeNamedpipeData) == 304,
-              "FanyImeNamedpipeData ABI must match the TSF client");
+static_assert(sizeof(FanyImeNamedpipeData) == 304, "FanyImeNamedpipeData ABI must match the TSF client");
 static_assert(offsetof(FanyImeNamedpipeDataToTsf, request_id) == 8,
               "FanyImeNamedpipeDataToTsf request_id ABI must match the TSF client");
 static_assert(offsetof(FanyImeNamedpipeDataToTsf, candidate_string) == 16,
               "FanyImeNamedpipeDataToTsf candidate ABI must match the TSF client");
-static_assert(sizeof(FanyImeNamedpipeDataToTsf) == 416,
-              "FanyImeNamedpipeDataToTsf ABI must match the TSF client");
+static_assert(sizeof(FanyImeNamedpipeDataToTsf) == 416, "FanyImeNamedpipeDataToTsf ABI must match the TSF client");
 inline FanyImeNamedpipeData namedpipeData;
 
 namespace FanyImePipeEventType
@@ -219,8 +217,7 @@ struct FanyImeNamedpipeDataToTsfWorkerThread
     wchar_t data[200];
 };
 
-static_assert(sizeof(FanyImePipeHello) == 16,
-              "FanyImePipeHello ABI must match the TSF client");
+static_assert(sizeof(FanyImePipeHello) == 16, "FanyImePipeHello ABI must match the TSF client");
 static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) == 404,
               "FanyImeNamedpipeDataToTsfWorkerThread ABI must match the TSF client");
 static_assert(sizeof(FanyImeNamedpipeDataToTsf) * FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY >=
@@ -283,20 +280,17 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
                                         bool wait_for_reverse_pipe = false, uint64_t focus_token = 0,
                                         bool update_focus_token = false);
 uint64_t DeactivatePipeClient(uint64_t client_id, uint64_t main_registration_id);
-uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id,
-                                          uint64_t focus_token);
-uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id,
-                                                    uint64_t transition_epoch = 0);
+uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id, uint64_t focus_token);
+uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id, uint64_t transition_epoch = 0);
 PipeClientActivation GetActivePipeClient();
 bool IsActivePipeClient(uint64_t client_id, uint64_t activation_epoch = 0);
 bool IsPipeActivationCurrent(uint64_t client_id, uint64_t activation_epoch);
 void ShutdownPipeClients();
-bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
-                                 uint64_t request_id, const std::wstring &pipeData);
-bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, UINT msg_type,
+bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type, uint64_t request_id,
+                                 const std::wstring &pipeData);
+bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, UINT msg_type, const std::wstring &pipeData);
+bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
                                              const std::wstring &pipeData);
-bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch,
-                                             UINT msg_type, const std::wstring &pipeData);
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 // Config-style notifications must reach every connected TIP, not only the
@@ -358,8 +352,10 @@ constexpr UINT InsertText = 10;
 constexpr UINT SmartPunctuationChanged = 11;
 // Auto-complete opening paired punctuation and leave the caret inside. Payload "0"/"1".
 constexpr UINT PairedPunctuationChanged = 12;
+// Payload "1" when the active shuangpin profile uses ';' for the ing final.
+constexpr UINT MicrosoftShuangpinChanged = 13;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = PairedPunctuationChanged;
+constexpr UINT MaxKnown = MicrosoftShuangpinChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

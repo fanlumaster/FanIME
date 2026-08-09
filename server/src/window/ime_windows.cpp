@@ -74,40 +74,29 @@ struct SuppressCandidateDpiChange
 int ConfiguredFloatingToolbarWidth()
 {
     const FloatingToolbarItemsConfig &items = GetConfiguredFloatingToolbarItems();
-    const int optional_item_count =
-        static_cast<int>(items.fullwidth) +
-        static_cast<int>(items.punctuation) +
-        static_cast<int>(items.character_set) +
-        static_cast<int>(items.emoji) +
-        static_cast<int>(items.screen_keyboard) +
-        static_cast<int>(items.settings);
+    const int optional_item_count = static_cast<int>(items.fullwidth) + static_cast<int>(items.punctuation) +
+                                    static_cast<int>(items.character_set) + static_cast<int>(items.emoji) +
+                                    static_cast<int>(items.screen_keyboard) + static_cast<int>(items.settings);
     // 59 DIPs covers the drag handle, divider, borders, mandatory CN/EN button and
     // container padding. Each optional button adds 24 DIPs plus the 6-DIP gap.
     // User scale/font_size multiply the design size independently of system DPI.
     const double userScale = GetConfiguredFloatingToolbarScale();
-    const double fontFactor =
-        static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
+    const double fontFactor = static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
     return static_cast<int>(std::lround((59 + optional_item_count * 30) * userScale * fontFactor));
 }
 
 int ConfiguredFloatingToolbarHeight()
 {
     const double userScale = GetConfiguredFloatingToolbarScale();
-    const double fontFactor =
-        static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
+    const double fontFactor = static_cast<double>(GetConfiguredFloatingToolbarFontSize()) / 24.0;
     return static_cast<int>(std::lround(35.0 * userScale * fontFactor));
 }
 
-bool FloatingToolbarItemsEqual(
-    const FloatingToolbarItemsConfig &left,
-    const FloatingToolbarItemsConfig &right)
+bool FloatingToolbarItemsEqual(const FloatingToolbarItemsConfig &left, const FloatingToolbarItemsConfig &right)
 {
-    return left.fullwidth == right.fullwidth &&
-           left.punctuation == right.punctuation &&
-           left.character_set == right.character_set &&
-           left.emoji == right.emoji &&
-           left.screen_keyboard == right.screen_keyboard &&
-           left.settings == right.settings;
+    return left.fullwidth == right.fullwidth && left.punctuation == right.punctuation &&
+           left.character_set == right.character_set && left.emoji == right.emoji &&
+           left.screen_keyboard == right.screen_keyboard && left.settings == right.settings;
 }
 
 void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd);
@@ -151,8 +140,7 @@ bool IsRectInsideVisibleMonitorWorkAreas(const RECT &rect)
         return true;
     }
 
-    EnumDisplayMonitors(nullptr, nullptr, AddMonitorWorkAreaToRegion,
-                        reinterpret_cast<LPARAM>(visibleRegion));
+    EnumDisplayMonitors(nullptr, nullptr, AddMonitorWorkAreaToRegion, reinterpret_cast<LPARAM>(visibleRegion));
     const int outsideType = CombineRgn(outsideRegion, windowRegion, visibleRegion, RGN_DIFF);
     DeleteObject(outsideRegion);
     DeleteObject(windowRegion);
@@ -199,12 +187,10 @@ void KeepFloatingToolbarInsideVisibleScreens(HWND hwnd)
         return;
     }
 
-    SetWindowPos(hwnd, nullptr, x, y, 0, 0,
-                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(hwnd, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
-    FTB_DIAG_LOGF(L"ftb drag clamped from ({},{}) to ({},{}) work=({},{})-({},{})",
-                  rect.left, rect.top, x, y, info.rcWork.left, info.rcWork.top,
-                  info.rcWork.right, info.rcWork.bottom);
+    FTB_DIAG_LOGF(L"ftb drag clamped from ({},{}) to ({},{}) work=({},{})-({},{})", rect.left, rect.top, x, y,
+                  info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom);
 }
 
 void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
@@ -229,10 +215,7 @@ void ClearCandidateWindowRegion(HWND hwnd)
     }
 }
 
-void ClipCandidateWindowToContent(
-    HWND hwnd,
-    const std::pair<double, double> &containerSize,
-    FLOAT scale)
+void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale)
 {
     if (!hwnd)
     {
@@ -272,22 +255,18 @@ void ClipCandidateWindowToContent(
     constexpr double kRegionSafetyDip = 2.0;
     const int left = (std::max)(
         static_cast<int>(client.left),
-        static_cast<int>(std::floor(
-            (Global::MarginLeft - ::SHADOW_WIDTH) * static_cast<double>(clipScale))));
+        static_cast<int>(std::floor((Global::MarginLeft - ::SHADOW_WIDTH) * static_cast<double>(clipScale))));
     const int top = (std::max)(
         static_cast<int>(client.top),
-        static_cast<int>(std::floor(
-            (Global::MarginTop - ::SHADOW_HEIGHT) * static_cast<double>(clipScale))));
+        static_cast<int>(std::floor((Global::MarginTop - ::SHADOW_HEIGHT) * static_cast<double>(clipScale))));
     const int right = (std::min)(
         static_cast<int>(client.right),
-        static_cast<int>(std::ceil(
-            (Global::MarginLeft + containerSize.first + ::SHADOW_WIDTH + kRegionSafetyDip) *
-            static_cast<double>(clipScale))));
+        static_cast<int>(std::ceil((Global::MarginLeft + containerSize.first + ::SHADOW_WIDTH + kRegionSafetyDip) *
+                                   static_cast<double>(clipScale))));
     const int bottom = (std::min)(
         static_cast<int>(client.bottom),
-        static_cast<int>(std::ceil(
-            (Global::MarginTop + containerSize.second + ::SHADOW_HEIGHT + kRegionSafetyDip) *
-            static_cast<double>(clipScale))));
+        static_cast<int>(std::ceil((Global::MarginTop + containerSize.second + ::SHADOW_HEIGHT + kRegionSafetyDip) *
+                                   static_cast<double>(clipScale))));
 
     if (right <= left || bottom <= top)
     {
@@ -356,16 +335,11 @@ void KeepCandidateCardInsideHostAndMonitor( //
         Global::MarginTop = 0;
     }
 
-    const int edgePadPx =
-        static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale)));
-    const int cardLeft =
-        hostX + static_cast<int>(std::lround(Global::MarginLeft * static_cast<double>(layoutScale)));
-    const int cardTop =
-        hostY + static_cast<int>(std::lround(Global::MarginTop * static_cast<double>(layoutScale)));
-    const int cardRight =
-        cardLeft + static_cast<int>(std::ceil(contentWidthDip * static_cast<double>(layoutScale)));
-    const int cardBottom =
-        cardTop + static_cast<int>(std::ceil(contentHeightDip * static_cast<double>(layoutScale)));
+    const int edgePadPx = static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale)));
+    const int cardLeft = hostX + static_cast<int>(std::lround(Global::MarginLeft * static_cast<double>(layoutScale)));
+    const int cardTop = hostY + static_cast<int>(std::lround(Global::MarginTop * static_cast<double>(layoutScale)));
+    const int cardRight = cardLeft + static_cast<int>(std::ceil(contentWidthDip * static_cast<double>(layoutScale)));
+    const int cardBottom = cardTop + static_cast<int>(std::ceil(contentHeightDip * static_cast<double>(layoutScale)));
 
     if (cardRight > coordinates.right - edgePadPx)
     {
@@ -438,18 +412,16 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
     HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
     if (scaleOverride > 0.0f)
     {
-        const double monitorWidthPx =
-            static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
-        const double monitorHeightPx =
-            static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+        const double monitorWidthPx = static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+        const double monitorHeightPx = static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
         limits.scale = scale;
         limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(scale);
         limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(scale);
     }
-    ::FTB_WND_WIDTH = static_cast<int>(
-        std::ceil(ClampWidthDipToHalfScreen(static_cast<double>(::FTB_WND_WIDTH), limits)));
-    ::FTB_WND_HEIGHT = static_cast<int>(
-        std::ceil(ClampHeightDipToHalfScreen(static_cast<double>(::FTB_WND_HEIGHT), limits)));
+    ::FTB_WND_WIDTH =
+        static_cast<int>(std::ceil(ClampWidthDipToHalfScreen(static_cast<double>(::FTB_WND_WIDTH), limits)));
+    ::FTB_WND_HEIGHT =
+        static_cast<int>(std::ceil(ClampHeightDipToHalfScreen(static_cast<double>(::FTB_WND_HEIGHT), limits)));
     const int width =
         static_cast<int>(std::ceil((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * static_cast<double>(scale)));
     const int height =
@@ -489,8 +461,7 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
     // Never touch Z-order here: HWND_TOP would cover an open tray menu. Topmost
     // for the toolbar is owned by EnsureSmallWindowsTopmost / lazy pin order.
     SetLastError(0);
-    const BOOL ok =
-        SetWindowPos(hwnd, nullptr, posX, posY, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+    const BOOL ok = SetWindowPos(hwnd, nullptr, posX, posY, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
     SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
     InjectSurfaceViewportLimits(::webviewFtbWnd.Get(), hwnd);
     (void)ok;
@@ -529,19 +500,15 @@ void UpdateMenuPhysicalSizeCache(HWND hwnd, FLOAT scale)
     HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
     // During WM_DPICHANGED, GetDpiForWindow can still expose the old DPI. Derive
     // the DIP budget from the message's scale so cap and pixel conversion agree.
-    const double monitorWidthPx =
-        static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
-    const double monitorHeightPx =
-        static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+    const double monitorWidthPx = static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+    const double monitorHeightPx = static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
     limits.scale = scale;
     limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(scale);
     limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(scale);
     ::MENU_CONTENT_WIDTH_DIP = ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP, limits);
     ::MENU_CONTENT_HEIGHT_DIP = ClampHeightDipToHalfScreen(::MENU_CONTENT_HEIGHT_DIP, limits);
-    const double hostWidthDip = ClampWidthDipToHalfScreen(
-        ::MENU_CONTENT_WIDTH_DIP + kMenuViewportSafetyDip, limits);
-    const double hostHeightDip = ClampHeightDipToHalfScreen(
-        ::MENU_CONTENT_HEIGHT_DIP + kMenuViewportSafetyDip, limits);
+    const double hostWidthDip = ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP + kMenuViewportSafetyDip, limits);
+    const double hostHeightDip = ClampHeightDipToHalfScreen(::MENU_CONTENT_HEIGHT_DIP + kMenuViewportSafetyDip, limits);
     ::SCALE = scale;
     ::MENU_WINDOW_WIDTH = static_cast<int>(std::ceil(hostWidthDip * scale));
     ::MENU_WINDOW_HEIGHT = static_cast<int>(std::ceil(hostHeightDip * scale));
@@ -630,8 +597,7 @@ std::wstring DescribeCloak(DWORD cloaked)
 // believes it is hidden or was given empty bounds paints nothing either, and a
 // host parked off every monitor has nowhere to paint. Record all of them
 // together so a blank window can be attributed instead of guessed at.
-std::wstring DescribeHostWindowState(HWND hwnd, bool has_controller, bool webview_visible,
-                                     const RECT &webview_bounds)
+std::wstring DescribeHostWindowState(HWND hwnd, bool has_controller, bool webview_visible, const RECT &webview_bounds)
 {
     if (!hwnd)
     {
@@ -649,8 +615,7 @@ std::wstring DescribeHostWindowState(HWND hwnd, bool has_controller, bool webvie
     COLORREF color_key = 0;
     BYTE alpha = 0;
     DWORD layered_flags = 0;
-    const bool layered_ok =
-        GetLayeredWindowAttributes(hwnd, &color_key, &alpha, &layered_flags) != FALSE;
+    const bool layered_ok = GetLayeredWindowAttributes(hwnd, &color_key, &alpha, &layered_flags) != FALSE;
     const LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
 
     // WebView2 hosts its renderer in a child HWND. If that child is missing or
@@ -664,19 +629,18 @@ std::wstring DescribeHostWindowState(HWND hwnd, bool has_controller, bool webvie
         GetWindowRect(child, &child_rect);
     }
 
-    return fmt::format(
-        L"rect=({},{},{}x{}) client={}x{} on_monitor={} visible={} cloaked={} "
-        L"layered_attrs={} alpha={} lwa_flags={:#x} ex_layered={} ex_topmost={} "
-        L"controller={} wv_visible={} wv_bounds={}x{} child={} child_visible={} child_size={}x{}",
-        window_rect.left, window_rect.top, window_rect.right - window_rect.left,
-        window_rect.bottom - window_rect.top, client_rect.right, client_rect.bottom,
-        MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL) != nullptr, IsWindowVisible(hwnd) != FALSE,
-        DescribeCloak(cloaked), layered_ok ? L"ok" : L"MISSING", static_cast<unsigned>(alpha),
-        layered_flags, (ex_style & WS_EX_LAYERED) != 0, (ex_style & WS_EX_TOPMOST) != 0,
-        has_controller, webview_visible, webview_bounds.right - webview_bounds.left,
-        webview_bounds.bottom - webview_bounds.top, child ? child_class : L"NONE",
-        child && IsWindowVisible(child) != FALSE, child_rect.right - child_rect.left,
-        child_rect.bottom - child_rect.top);
+    return fmt::format(L"rect=({},{},{}x{}) client={}x{} on_monitor={} visible={} cloaked={} "
+                       L"layered_attrs={} alpha={} lwa_flags={:#x} ex_layered={} ex_topmost={} "
+                       L"controller={} wv_visible={} wv_bounds={}x{} child={} child_visible={} child_size={}x{}",
+                       window_rect.left, window_rect.top, window_rect.right - window_rect.left,
+                       window_rect.bottom - window_rect.top, client_rect.right, client_rect.bottom,
+                       MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL) != nullptr, IsWindowVisible(hwnd) != FALSE,
+                       DescribeCloak(cloaked), layered_ok ? L"ok" : L"MISSING", static_cast<unsigned>(alpha),
+                       layered_flags, (ex_style & WS_EX_LAYERED) != 0, (ex_style & WS_EX_TOPMOST) != 0, has_controller,
+                       webview_visible, webview_bounds.right - webview_bounds.left,
+                       webview_bounds.bottom - webview_bounds.top, child ? child_class : L"NONE",
+                       child && IsWindowVisible(child) != FALSE, child_rect.right - child_rect.left,
+                       child_rect.bottom - child_rect.top);
 }
 
 std::wstring DescribeFloatingToolbarHostState()
@@ -729,7 +693,7 @@ void CancelSettingsWindowActivation(HWND hwnd)
     g_settings_activation_retries_remaining = 0;
     KillTimer(hwnd, TIMER_ID_SETTINGS_ACTIVATION_RETRY);
 }
-}
+} // namespace
 
 bool ActivateSettingsWindow(HWND hwnd)
 {
@@ -749,8 +713,7 @@ bool ActivateSettingsWindow(HWND hwnd)
 
     const HWND foreground = GetForegroundWindow();
     const DWORD current_thread = GetCurrentThreadId();
-    const DWORD foreground_thread =
-        foreground ? GetWindowThreadProcessId(foreground, nullptr) : 0;
+    const DWORD foreground_thread = foreground ? GetWindowThreadProcessId(foreground, nullptr) : 0;
     const bool should_attach_input = foreground_thread != 0 && foreground_thread != current_thread;
     bool input_attached = false;
 
@@ -810,16 +773,14 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
     const uint64_t active_client = GetActivePipeClient().client_id;
     if (active_client != 0 && !g_is_ime_active)
     {
-        FTB_DIAG_LOGF(L"reconcile reason={} active_client={} repairs ime_active false -> true",
-                      reason, active_client);
+        FTB_DIAG_LOGF(L"reconcile reason={} active_client={} repairs ime_active false -> true", reason, active_client);
         g_is_ime_active = true;
     }
 
     const HWND foreground = GetForegroundWindow();
     const bool fullscreen = foreground && CheckFullscreen(foreground);
     const bool configured = GetConfiguredFloatingToolbarEnabled();
-    const bool should_show =
-        FanyImeUi::ShouldShowFloatingToolbar(configured, fullscreen, g_is_ime_active);
+    const bool should_show = FanyImeUi::ShouldShowFloatingToolbar(configured, fullscreen, g_is_ime_active);
     const bool is_visible = IsWindowVisible(::global_hwnd_ftb) != FALSE;
     const bool paint_grace = IsFloatingToolbarPaintGraceActive();
     // First successful navigation: show briefly so cold WebView2 can paint, then
@@ -837,11 +798,11 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         // Every input of the decision, so a blank toolbar can be attributed to a
         // specific term rather than guessed at. Cloak and webview readiness
         // matter more than IsWindowVisible once the host is warmed up.
-        std::wstring decision = fmt::format(
-            L"apply reason={} active_client={} ime_active={} configured={} fullscreen={} "
-            L"should_show={} was_visible={} was_cloaked={} webview_ready={} paint_grace={}",
-            reason, active_client, g_is_ime_active, configured, fullscreen, should_show, is_visible,
-            IsHostWindowCloaked(::global_hwnd_ftb), IsFloatingToolbarWebviewReady(), paint_grace);
+        std::wstring decision =
+            fmt::format(L"apply reason={} active_client={} ime_active={} configured={} fullscreen={} "
+                        L"should_show={} was_visible={} was_cloaked={} webview_ready={} paint_grace={}",
+                        reason, active_client, g_is_ime_active, configured, fullscreen, should_show, is_visible,
+                        IsHostWindowCloaked(::global_hwnd_ftb), IsFloatingToolbarWebviewReady(), paint_grace);
 
         // Applies are confined to the UI thread, so plain statics suffice.
         static std::wstring last_decision;
@@ -875,8 +836,7 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
         {
             if (trace)
             {
-                FTB_DIAG_LOGF(L"  state after  reason={} {}", reason,
-                              DescribeFloatingToolbarHostState());
+                FTB_DIAG_LOGF(L"  state after  reason={} {}", reason, DescribeFloatingToolbarHostState());
             }
         }
     } state_after{reason, trace};
@@ -914,8 +874,7 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
             BeginFloatingToolbarPaintGrace();
             KillTimer(::global_hwnd_ftb, TIMER_ID_FTB_VISIBILITY_RECONCILE);
             // Fallback only: page posts type=ready to reconcile earlier.
-            SetTimer(::global_hwnd_ftb, TIMER_ID_FTB_VISIBILITY_RECONCILE, kFloatingToolbarPaintGraceMs,
-                     nullptr);
+            SetTimer(::global_hwnd_ftb, TIMER_ID_FTB_VISIBILITY_RECONCILE, kFloatingToolbarPaintGraceMs, nullptr);
             FTB_DIAG_LOGF(L"ftb paint grace started; waiting for page ready (fallback {}ms)",
                           kFloatingToolbarPaintGraceMs);
         }
@@ -959,8 +918,7 @@ void HideFloatingToolbarHost()
         FTB_DIAG_LOGF(L"hide host skipped: paint grace active");
         return;
     }
-    FTB_DIAG_LOGF(L"hide host webview_ready={} (cloak-only while warming up)",
-                  IsFloatingToolbarWebviewReady());
+    FTB_DIAG_LOGF(L"hide host webview_ready={} (cloak-only while warming up)", IsFloatingToolbarWebviewReady());
     if (!IsFloatingToolbarWebviewReady())
     {
         SetHostWindowCloaked(::global_hwnd_ftb, true);
@@ -1003,6 +961,8 @@ void ApplyConfiguredInputScheme()
 void ApplyConfiguredShuangpinSchema()
 {
     FanyNamedPipe::EnqueueReloadInputSessionTask();
+    BroadcastToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::MicrosoftShuangpinChanged,
+                                           GetConfiguredShuangpinSchema() == "microsoft" ? L"1" : L"0");
 }
 
 LRESULT RegisterCandidateWindowMessage()
@@ -1134,10 +1094,10 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
     ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
-    dwExStyle = WS_EX_LAYERED |                              //
-                WS_EX_TOOLWINDOW |                           //
-                WS_EX_NOACTIVATE;                            //
-                                                             // WS_EX_TOPMOST;                               //
+    dwExStyle = WS_EX_LAYERED |    //
+                WS_EX_TOOLWINDOW | //
+                WS_EX_NOACTIVATE;  //
+                                   // WS_EX_TOPMOST;                               //
     MonitorCoordinates ftbMonitor = GetMainMonitorCoordinates();
     const int ftbWidth = static_cast<int>((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * scale);
     const int ftbHeight = static_cast<int>((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * scale);
@@ -1145,20 +1105,20 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     const int ftbCornerInset = static_cast<int>(std::lround(10.0 * static_cast<double>(scale > 0 ? scale : 1.0f)));
     const int ftbX = ftbMonitor.right - ftbWidth - ftbCornerInset;
     const int ftbY = ftbMonitor.bottom - ftbHeight - ftbTaskbarHeight - ftbCornerInset;
-    HWND hwnd_ftb = CreateWindowEx(                          //
-        dwExStyle,                                           //
-        szWindowClass,                                       //
-        lpWindowNameFtb,                                     //
-        WS_POPUP,                                            //
-        ftbX,                                                //
-        ftbY,                                                //
-        ftbWidth,                                            //
-        ftbHeight,                                           //
-        nullptr,                                             //
-        nullptr,                                             //
-        hInstance,                                           //
-        nullptr                                              //
-    );                                                       //
+    HWND hwnd_ftb = CreateWindowEx( //
+        dwExStyle,                  //
+        szWindowClass,              //
+        lpWindowNameFtb,            //
+        WS_POPUP,                   //
+        ftbX,                       //
+        ftbY,                       //
+        ftbWidth,                   //
+        ftbHeight,                  //
+        nullptr,                    //
+        nullptr,                    //
+        hInstance,                  //
+        nullptr                     //
+    );                              //
     if (!hwnd_ftb)
     {
 #ifdef FANY_DEBUG
@@ -1284,9 +1244,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     {
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
-                                   ? std::wstring{}
-                                   : GetPreeditWithCaretMarker();
+        std::wstring preedit =
+            GetConfiguredCandidateWindowPreeditStyle() == "empty" ? std::wstring{} : GetPreeditWithCaretMarker();
         std::wstring str = preedit + L"," + Global::CandidateString;
         (void)0;
         LogSmallWindowReadyGate(L"show-candidate");
@@ -1430,8 +1389,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
-            const FloatingToolbarItemsConfig previous_floating_toolbar_items =
-                GetConfiguredFloatingToolbarItems();
+            const FloatingToolbarItemsConfig previous_floating_toolbar_items = GetConfiguredFloatingToolbarItems();
             const double previous_floating_toolbar_scale = GetConfiguredFloatingToolbarScale();
             const int previous_floating_toolbar_font_size = GetConfiguredFloatingToolbarFontSize();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
@@ -1463,8 +1421,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                     ApplyConfiguredCandidateWindowLayout();
-                if (previous_theme_mode != GetConfiguredThemeMode() || previous_theme_cand != GetConfiguredThemeCand() ||
-                    previous_theme_ftb != GetConfiguredThemeFtb() || previous_theme_menu != GetConfiguredThemeMenu())
+                if (previous_theme_mode != GetConfiguredThemeMode() ||
+                    previous_theme_cand != GetConfiguredThemeCand() || previous_theme_ftb != GetConfiguredThemeFtb() ||
+                    previous_theme_menu != GetConfiguredThemeMenu())
                 {
                     ApplyConfiguredUiThemes();
                 }
@@ -1481,8 +1440,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     ApplyConfiguredFloatingToolbarVisibility(L"config-sync");
                     SyncMenuFloatingToolbarToggle();
                 }
-                if (!FloatingToolbarItemsEqual(
-                        previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
+                if (!FloatingToolbarItemsEqual(previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
                 {
                     ApplyConfiguredFloatingToolbarItems();
                 }
@@ -1577,8 +1535,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         break;
     }
     case WM_FIX_CANDIDATE_POSITION:
-        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::FixPosition,
-                                                static_cast<int>(wParam), static_cast<int>(lParam));
+        FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::FixPosition, static_cast<int>(wParam),
+                                                static_cast<int>(lParam));
         break;
     case WM_CLEAR_CANDIDATE_POSITION:
         FanyNamedPipe::EnqueueCandidateUiAction(FanyNamedPipe::CandidateUiAction::ClearPosition,
@@ -1700,9 +1658,8 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // a sized visible child and wv_visible=true means the menu should be on
         // screen; if it is not, the controller is compositing against a stale
         // parent and nothing in this handler can be blamed.
-        FTB_DIAG_LOGF(L"menu show end   pos=({},{}) size={}x{} zorder={} {}", menuX, menuY,
-                      ::MENU_WINDOW_WIDTH, ::MENU_WINDOW_HEIGHT,
-                      zorder == HWND_TOPMOST ? L"topmost" : L"top", DescribeTrayMenuHostState());
+        FTB_DIAG_LOGF(L"menu show end   pos=({},{}) size={}x{} zorder={} {}", menuX, menuY, ::MENU_WINDOW_WIDTH,
+                      ::MENU_WINDOW_HEIGHT, zorder == HWND_TOPMOST ? L"topmost" : L"top", DescribeTrayMenuHostState());
         // Refresh before paint so the toggle matches Settings / config.toml.
         SyncMenuFloatingToolbarToggle();
         /* 安装鼠标钩子 */
@@ -2026,8 +1983,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
-            const FloatingToolbarItemsConfig previous_floating_toolbar_items =
-                GetConfiguredFloatingToolbarItems();
+            const FloatingToolbarItemsConfig previous_floating_toolbar_items = GetConfiguredFloatingToolbarItems();
             const double previous_floating_toolbar_scale = GetConfiguredFloatingToolbarScale();
             const int previous_floating_toolbar_font_size = GetConfiguredFloatingToolbarFontSize();
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
@@ -2064,8 +2020,9 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 {
                     ApplyConfiguredCandidateWindowLayout();
                 }
-                if (previous_theme_mode != GetConfiguredThemeMode() || previous_theme_cand != GetConfiguredThemeCand() ||
-                    previous_theme_ftb != GetConfiguredThemeFtb() || previous_theme_menu != GetConfiguredThemeMenu())
+                if (previous_theme_mode != GetConfiguredThemeMode() ||
+                    previous_theme_cand != GetConfiguredThemeCand() || previous_theme_ftb != GetConfiguredThemeFtb() ||
+                    previous_theme_menu != GetConfiguredThemeMenu())
                 {
                     ApplyConfiguredUiThemes();
                 }
@@ -2082,8 +2039,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     ApplyConfiguredFloatingToolbarVisibility(L"config-sync");
                     SyncMenuFloatingToolbarToggle();
                 }
-                if (!FloatingToolbarItemsEqual(
-                        previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
+                if (!FloatingToolbarItemsEqual(previous_floating_toolbar_items, GetConfiguredFloatingToolbarItems()))
                 {
                     ApplyConfiguredFloatingToolbarItems();
                 }
@@ -2432,14 +2388,11 @@ int FineTuneWindow(HWND hwnd)
     // Wrap/scroll budget = stable host size (half-screen DIP). Width wraps;
     // height scrolls inside the card when fonts make the list taller than host.
     const HalfScreenDipLimits measureLimits = QueryHalfScreenDipLimitsForPoint(caretPt);
-    const double wrapMaxDip =
-        measureLimits.maxWidthDip > 1.0
-            ? measureLimits.maxWidthDip
-            : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
-    const double wrapMaxHeightDip =
-        measureLimits.maxHeightDip > 1.0
-            ? measureLimits.maxHeightDip
-            : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    const double wrapMaxDip = measureLimits.maxWidthDip > 1.0 ? measureLimits.maxWidthDip
+                                                              : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    const double wrapMaxHeightDip = measureLimits.maxHeightDip > 1.0
+                                        ? measureLimits.maxHeightDip
+                                        : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
     // Give horizontal measure an unconstrained viewport before reading DOM size.
     PrepareCandidateWebViewBoundsForMeasure(hwnd);
     InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
@@ -2454,323 +2407,180 @@ int FineTuneWindow(HWND hwnd)
          generation, //
          wrapMaxDip, //
          hwnd](std::pair<double, double> containerSize) {
-        // Commit/ClearState may have hidden the window while this WebView2
-        // measure callback was still pending — do not resurrect it.
-        if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
-        {
-            (void)0;
-            return;
-        }
-        // A newer show/update already queued another FineTune — ignore this one.
-        if (generation != g_candidate_finetune_generation.load())
-        {
-            return;
-        }
-
-        POINT pt = {caretX, caretY};
-        HalfScreenDipLimits halfLimits = QueryHalfScreenDipLimitsForPoint(pt);
-        auto capCandWidthDip = [&](double widthDip) {
-            return ClampWidthDipToHalfScreen(widthDip, halfLimits);
-        };
-        auto capCandHeightDip = [&](double heightDip) {
-            return ClampHeightDipToHalfScreen(heightDip, halfLimits);
-        };
-
-        // Parentheses keep Windows min() macro from eating std::min.
-        containerSize.first = capCandWidthDip(containerSize.first);
-        containerSize.second = capCandHeightDip(containerSize.second);
-
-        // properPos is the desired top-left of the opaque card (content), not
-        // necessarily the host HWND — host stays at a stable quarter-screen size
-        // while the card slides via MarginLeft/MarginTop.
-        AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-
-        std::wstring preedit = GetConfiguredCandidateWindowPreeditStyle() == "empty"
-                                   ? std::wstring{}
-                                   : GetPreeditWithCaretMarker();
-        std::wstring str = preedit + L"," + Global::CandidateString;
-        // Empty composition with no candidates means the session already ended.
-        if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
-        {
-            (void)0;
-            return;
-        }
-
-        // Stable host = half monitor width × half height (≈ 1/4 screen area).
-        // Avoids SetWindowPos flashes when the card grows; transparent pixels
-        // outside the card are clipped out so input still passes through.
-        auto computeHostPixels = [&](const HalfScreenDipLimits &limits) {
-            const int hostWidthPx =
-                (std::max)(1, (limits.monitor.right - limits.monitor.left) / 2);
-            const int hostHeightPx =
-                (std::max)(1, (limits.monitor.bottom - limits.monitor.top) / 2);
-            return std::pair<int, int>{hostWidthPx, hostHeightPx};
-        };
-
-        FLOAT layoutScale = scale;
-        auto hostPx = computeHostPixels(halfLimits);
-        int hostWidthPx = hostPx.first;
-        int hostHeightPx = hostPx.second;
-
-        MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
-        int hostX = properPos->first;
-        int hostY = properPos->second;
-        const int edgePadPx = static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale > 0 ? layoutScale : 1.0f)));
-        // Right/bottom first, then re-clamp left/top so a host wider/taller than
-        // the monitor cannot be pushed past the caret's screen edge.
-        if (hostX + hostWidthPx > coordinates.right)
-        {
-            hostX = coordinates.right - hostWidthPx - edgePadPx;
-        }
-        if (hostX < coordinates.left)
-        {
-            hostX = coordinates.left + edgePadPx;
-        }
-        if (hostY + hostHeightPx > coordinates.bottom)
-        {
-            hostY = coordinates.bottom - hostHeightPx - edgePadPx;
-        }
-        if (hostY < coordinates.top)
-        {
-            hostY = coordinates.top + edgePadPx;
-        }
-
-        // Adjust may set MarginTop for vertical packing; keep that separate from
-        // the Y offset introduced when the host is clamped inside the monitor.
-        const int packingMarginTop = (std::max)(0, Global::MarginTop);
-        auto applyCardMargins = [&](FLOAT marginScale) {
-            const int offsetXDip = static_cast<int>(
-                std::lround((properPos->first - hostX) / static_cast<double>(marginScale)));
-            const int offsetYDip = static_cast<int>(
-                std::lround((properPos->second - hostY) / static_cast<double>(marginScale)));
-            Global::MarginLeft = (std::max)(0, offsetXDip);
-            Global::MarginTop = packingMarginTop + (std::max)(0, offsetYDip);
-        };
-        applyCardMargins(layoutScale);
-        KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, containerSize.first,
-                                              containerSize.second, layoutScale, coordinates);
-
-        int newWidth = hostWidthPx;
-        int newHeight = hostHeightPx;
-        UINT newFlag = flag;
-
-        RECT currentRect{};
-        if (GetWindowRect(hwnd, &currentRect))
-        {
-            const int curW = currentRect.right - currentRect.left;
-            const int curH = currentRect.bottom - currentRect.top;
-            if (curW == newWidth && curH == newHeight)
+            // Commit/ClearState may have hidden the window while this WebView2
+            // measure callback was still pending — do not resurrect it.
+            if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
             {
-                newFlag |= SWP_NOSIZE;
+                (void)0;
+                return;
             }
-            // Prefer not to move the host when only the internal card offset changed.
-            if (currentRect.left == hostX && currentRect.top == hostY)
+            // A newer show/update already queued another FineTune — ignore this one.
+            if (generation != g_candidate_finetune_generation.load())
             {
-                newFlag |= SWP_NOMOVE;
+                return;
             }
-        }
 
-        if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
-        {
-            return;
-        }
+            POINT pt = {caretX, caretY};
+            HalfScreenDipLimits halfLimits = QueryHalfScreenDipLimitsForPoint(pt);
+            auto capCandWidthDip = [&](double widthDip) { return ClampWidthDipToHalfScreen(widthDip, halfLimits); };
+            auto capCandHeightDip = [&](double heightDip) { return ClampHeightDipToHalfScreen(heightDip, halfLimits); };
 
-        // Geometry size is stable (quarter-screen). Do not cloak — card motion
-        // is CSS margin inside the already-placed transparent host.
-        BOOL positioned = FALSE;
-        {
-            SuppressCandidateDpiChange suppressDpi;
-            positioned = SetWindowPos( //
-                hwnd,   //
-                nullptr, //
-                hostX,  //
-                hostY,  //
-                newWidth,  //
-                newHeight, //
-                newFlag    //
-            );
-        }
+            // Parentheses keep Windows min() macro from eating std::min.
+            containerSize.first = capCandWidthDip(containerSize.first);
+            containerSize.second = capCandHeightDip(containerSize.second);
 
-        // After the host lands on the caret's monitor, Per-Monitor V2 may update
-        // HWND DPI. Re-sync physical size + CSS margins to that scale so
-        // MarginLeft*HWND_DPI matches WebView painting and SetWindowRgn.
-        FLOAT hwndScale = GetWindowScale(hwnd);
-        if (hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
-        {
-            layoutScale = hwndScale;
-            halfLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
-            hostPx = computeHostPixels(halfLimits);
-            hostWidthPx = hostPx.first;
-            hostHeightPx = hostPx.second;
-
+            // properPos is the desired top-left of the opaque card (content), not
+            // necessarily the host HWND — host stays at a stable quarter-screen size
+            // while the card slides via MarginLeft/MarginTop.
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
-            hostX = properPos->first;
-            hostY = properPos->second;
-            const int resyncEdgePadPx =
+
+            std::wstring preedit =
+                GetConfiguredCandidateWindowPreeditStyle() == "empty" ? std::wstring{} : GetPreeditWithCaretMarker();
+            std::wstring str = preedit + L"," + Global::CandidateString;
+            // Empty composition with no candidates means the session already ended.
+            if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
+            {
+                (void)0;
+                return;
+            }
+
+            // Stable host = half monitor width × half height (≈ 1/4 screen area).
+            // Avoids SetWindowPos flashes when the card grows; transparent pixels
+            // outside the card are clipped out so input still passes through.
+            auto computeHostPixels = [&](const HalfScreenDipLimits &limits) {
+                const int hostWidthPx = (std::max)(1, (limits.monitor.right - limits.monitor.left) / 2);
+                const int hostHeightPx = (std::max)(1, (limits.monitor.bottom - limits.monitor.top) / 2);
+                return std::pair<int, int>{hostWidthPx, hostHeightPx};
+            };
+
+            FLOAT layoutScale = scale;
+            auto hostPx = computeHostPixels(halfLimits);
+            int hostWidthPx = hostPx.first;
+            int hostHeightPx = hostPx.second;
+
+            MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
+            int hostX = properPos->first;
+            int hostY = properPos->second;
+            const int edgePadPx =
                 static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale > 0 ? layoutScale : 1.0f)));
+            // Right/bottom first, then re-clamp left/top so a host wider/taller than
+            // the monitor cannot be pushed past the caret's screen edge.
             if (hostX + hostWidthPx > coordinates.right)
             {
-                hostX = coordinates.right - hostWidthPx - resyncEdgePadPx;
+                hostX = coordinates.right - hostWidthPx - edgePadPx;
             }
             if (hostX < coordinates.left)
             {
-                hostX = coordinates.left + resyncEdgePadPx;
+                hostX = coordinates.left + edgePadPx;
             }
             if (hostY + hostHeightPx > coordinates.bottom)
             {
-                hostY = coordinates.bottom - hostHeightPx - resyncEdgePadPx;
+                hostY = coordinates.bottom - hostHeightPx - edgePadPx;
             }
             if (hostY < coordinates.top)
             {
-                hostY = coordinates.top + resyncEdgePadPx;
+                hostY = coordinates.top + edgePadPx;
             }
 
-            const int resyncPackingMarginTop = (std::max)(0, Global::MarginTop);
-            const int offsetXDip = static_cast<int>(
-                std::lround((properPos->first - hostX) / static_cast<double>(layoutScale)));
-            const int offsetYDip = static_cast<int>(
-                std::lround((properPos->second - hostY) / static_cast<double>(layoutScale)));
-            Global::MarginLeft = (std::max)(0, offsetXDip);
-            Global::MarginTop = resyncPackingMarginTop + (std::max)(0, offsetYDip);
+            // Adjust may set MarginTop for vertical packing; keep that separate from
+            // the Y offset introduced when the host is clamped inside the monitor.
+            const int packingMarginTop = (std::max)(0, Global::MarginTop);
+            auto applyCardMargins = [&](FLOAT marginScale) {
+                const int offsetXDip =
+                    static_cast<int>(std::lround((properPos->first - hostX) / static_cast<double>(marginScale)));
+                const int offsetYDip =
+                    static_cast<int>(std::lround((properPos->second - hostY) / static_cast<double>(marginScale)));
+                Global::MarginLeft = (std::max)(0, offsetXDip);
+                Global::MarginTop = packingMarginTop + (std::max)(0, offsetYDip);
+            };
+            applyCardMargins(layoutScale);
             KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, containerSize.first,
                                                   containerSize.second, layoutScale, coordinates);
 
+            int newWidth = hostWidthPx;
+            int newHeight = hostHeightPx;
+            UINT newFlag = flag;
+
+            RECT currentRect{};
+            if (GetWindowRect(hwnd, &currentRect))
+            {
+                const int curW = currentRect.right - currentRect.left;
+                const int curH = currentRect.bottom - currentRect.top;
+                if (curW == newWidth && curH == newHeight)
+                {
+                    newFlag |= SWP_NOSIZE;
+                }
+                // Prefer not to move the host when only the internal card offset changed.
+                if (currentRect.left == hostX && currentRect.top == hostY)
+                {
+                    newFlag |= SWP_NOMOVE;
+                }
+            }
+
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
                 return;
             }
+
+            // Geometry size is stable (quarter-screen). Do not cloak — card motion
+            // is CSS margin inside the already-placed transparent host.
+            BOOL positioned = FALSE;
             {
                 SuppressCandidateDpiChange suppressDpi;
-                SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+                positioned = SetWindowPos( //
+                    hwnd,                  //
+                    nullptr,               //
+                    hostX,                 //
+                    hostY,                 //
+                    newWidth,              //
+                    newHeight,             //
+                    newFlag                //
+                );
             }
-            newWidth = hostWidthPx;
-            newHeight = hostHeightPx;
-            newFlag = flag;
-        }
 
-        if ((newFlag & SWP_NOSIZE) == 0)
-        {
-            SyncCandidateWebViewBoundsToHost(hwnd);
-        }
-        else if (webviewControllerCandWnd)
-        {
-            webviewControllerCandWnd->NotifyParentWindowPositionChanged();
-        }
-        InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
-
-        InflateCandWnd(str, [hwnd, positioned, generation, containerSize, layoutScale, caretX, caretY,
-                             packingMarginTop]() {
-            if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+            // After the host lands on the caret's monitor, Per-Monitor V2 may update
+            // HWND DPI. Re-sync physical size + CSS margins to that scale so
+            // MarginLeft*HWND_DPI matches WebView painting and SetWindowRgn.
+            FLOAT hwndScale = GetWindowScale(hwnd);
+            if (hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
             {
-                return;
-            }
+                layoutScale = hwndScale;
+                halfLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                hostPx = computeHostPixels(halfLimits);
+                hostWidthPx = hostPx.first;
+                hostHeightPx = hostPx.second;
 
-            auto finalizeClip = [hwnd, generation, layoutScale](std::pair<double, double> finalSize) {
-                if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
-                {
-                    return;
-                }
-                const HalfScreenDipLimits clipLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
-                finalSize.first = ClampWidthDipToHalfScreen(finalSize.first, clipLimits);
-                finalSize.second = ClampHeightDipToHalfScreen(finalSize.second, clipLimits);
-                ClipCandidateWindowToContent(hwnd, finalSize, layoutScale);
-                FTB_DIAG_LOGF(
-                    L"cand-clip scale={:.3f} margin=({},{}) size=({:.1f},{:.1f})",
-                    static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop, finalSize.first,
-                    finalSize.second);
-                SetHostWindowCloaked(hwnd, false);
-                UpdateSmallWindowWebviewVisibility(hwnd, true);
-                RECT actualRect{};
-                GetWindowRect(hwnd, &actualRect);
-                (void)actualRect;
-                (void)0;
-            };
-
-            // Pass 2: remeasure the painted card after margins. Keep the stable
-            // quarter-screen host; only re-clamp position / margins / region.
-            const HalfScreenDipLimits pass2LimitsForWrap = QueryHalfScreenDipLimitsForHwnd(hwnd);
-            const double pass2WrapMaxDip =
-                pass2LimitsForWrap.maxWidthDip > 1.0
-                    ? pass2LimitsForWrap.maxWidthDip
-                    : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
-            const double pass2WrapMaxHeightDip =
-                pass2LimitsForWrap.maxHeightDip > 1.0
-                    ? pass2LimitsForWrap.maxHeightDip
-                    : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
-            GetRealCandidateCardSize(
-                webviewCandWnd,
-                [hwnd, generation, layoutScale, caretX, caretY, packingMarginTop, containerSize,
-                 finalizeClip](std::pair<double, double> paintedSize) {
-                if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
-                {
-                    return;
-                }
-                if (paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
-                {
-                    finalizeClip(containerSize);
-                    return;
-                }
-                HalfScreenDipLimits pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
-                paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, pass2Limits);
-                paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, pass2Limits);
-
-                const bool sizeChanged =
-                    std::fabs(paintedSize.first - containerSize.first) > 0.75 ||
-                    std::fabs(paintedSize.second - containerSize.second) > 0.75;
-                if (!sizeChanged)
-                {
-                    finalizeClip(paintedSize);
-                    return;
-                }
-
-                POINT pt = {caretX, caretY};
-                auto properPos = std::make_shared<std::pair<int, int>>();
-                AdjustCandidateWindowPosition(&pt, paintedSize, properPos);
-
-                FLOAT pass2Scale = layoutScale;
-                FLOAT hwndScale = GetWindowScale(hwnd);
-                if (hwndScale > 0.0f)
-                {
-                    pass2Scale = hwndScale;
-                    pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
-                }
-
-                const int hostWidthPx =
-                    (std::max)(1, (pass2Limits.monitor.right - pass2Limits.monitor.left) / 2);
-                const int hostHeightPx =
-                    (std::max)(1, (pass2Limits.monitor.bottom - pass2Limits.monitor.top) / 2);
-
-                MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
-                int hostX = properPos->first;
-                int hostY = properPos->second;
-                const int edgePadPx =
-                    static_cast<int>(std::lround(2.0 * static_cast<double>(pass2Scale > 0 ? pass2Scale : 1.0f)));
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                hostX = properPos->first;
+                hostY = properPos->second;
+                const int resyncEdgePadPx =
+                    static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale > 0 ? layoutScale : 1.0f)));
                 if (hostX + hostWidthPx > coordinates.right)
                 {
-                    hostX = coordinates.right - hostWidthPx - edgePadPx;
+                    hostX = coordinates.right - hostWidthPx - resyncEdgePadPx;
                 }
                 if (hostX < coordinates.left)
                 {
-                    hostX = coordinates.left + edgePadPx;
+                    hostX = coordinates.left + resyncEdgePadPx;
                 }
                 if (hostY + hostHeightPx > coordinates.bottom)
                 {
-                    hostY = coordinates.bottom - hostHeightPx - edgePadPx;
+                    hostY = coordinates.bottom - hostHeightPx - resyncEdgePadPx;
                 }
                 if (hostY < coordinates.top)
                 {
-                    hostY = coordinates.top + edgePadPx;
+                    hostY = coordinates.top + resyncEdgePadPx;
                 }
 
-                const int packingTop = (std::max)(0, Global::MarginTop);
-                const int offsetXDip = static_cast<int>(
-                    std::lround((properPos->first - hostX) / static_cast<double>(pass2Scale)));
-                const int offsetYDip = static_cast<int>(
-                    std::lround((properPos->second - hostY) / static_cast<double>(pass2Scale)));
+                const int resyncPackingMarginTop = (std::max)(0, Global::MarginTop);
+                const int offsetXDip =
+                    static_cast<int>(std::lround((properPos->first - hostX) / static_cast<double>(layoutScale)));
+                const int offsetYDip =
+                    static_cast<int>(std::lround((properPos->second - hostY) / static_cast<double>(layoutScale)));
                 Global::MarginLeft = (std::max)(0, offsetXDip);
-                Global::MarginTop = packingTop + (std::max)(0, offsetYDip);
-                KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, paintedSize.first,
-                                                      paintedSize.second, pass2Scale, coordinates);
+                Global::MarginTop = resyncPackingMarginTop + (std::max)(0, offsetYDip);
+                KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, containerSize.first,
+                                                      containerSize.second, layoutScale, coordinates);
 
                 if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                 {
@@ -2778,46 +2588,179 @@ int FineTuneWindow(HWND hwnd)
                 }
                 {
                     SuppressCandidateDpiChange suppressDpi;
-                    // Prefer SWP_NOSIZE when already on the quarter-screen size so
-                    // only the clamped top-left moves with the card.
-                    UINT pass2Flag = SWP_NOZORDER | SWP_SHOWWINDOW;
-                    RECT cur{};
-                    if (GetWindowRect(hwnd, &cur) &&
-                        (cur.right - cur.left) == hostWidthPx &&
-                        (cur.bottom - cur.top) == hostHeightPx)
-                    {
-                        pass2Flag |= SWP_NOSIZE;
-                    }
-                    SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, pass2Flag);
+                    SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
                 }
-                SyncCandidateWebViewBoundsToHost(hwnd);
-                InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
+                newWidth = hostWidthPx;
+                newHeight = hostHeightPx;
+                newFlag = flag;
+            }
 
-                // Re-apply margins into the live DOM before clipping.
-                std::wstring marginScript = L"(function(){var el=document.getElementById('realContainerParent');"
-                                            L"if(el){el.style.marginTop='" +
-                                            std::to_wstring(Global::MarginTop) + L"px';el.style.marginLeft='" +
-                                            std::to_wstring(Global::MarginLeft) + L"px';}})();";
-                if (webviewCandWnd)
+            if ((newFlag & SWP_NOSIZE) == 0)
+            {
+                SyncCandidateWebViewBoundsToHost(hwnd);
+            }
+            else if (webviewControllerCandWnd)
+            {
+                webviewControllerCandWnd->NotifyParentWindowPositionChanged();
+            }
+            InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
+
+            InflateCandWnd(str, [hwnd, positioned, generation, containerSize, layoutScale, caretX, caretY,
+                                 packingMarginTop]() {
+                if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                 {
-                    webviewCandWnd->ExecuteScript(
-                        marginScript.c_str(),
-                        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-                            [finalizeClip, paintedSize](HRESULT, LPCWSTR) -> HRESULT {
-                                finalizeClip(paintedSize);
-                                return S_OK;
-                            })
-                            .Get());
+                    return;
                 }
-                else
-                {
-                    finalizeClip(paintedSize);
-                }
-                (void)packingMarginTop;
-            },
-                pass2WrapMaxDip, pass2WrapMaxHeightDip);
-        });
-    },
+
+                auto finalizeClip = [hwnd, generation, layoutScale](std::pair<double, double> finalSize) {
+                    if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+                    {
+                        return;
+                    }
+                    const HalfScreenDipLimits clipLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                    finalSize.first = ClampWidthDipToHalfScreen(finalSize.first, clipLimits);
+                    finalSize.second = ClampHeightDipToHalfScreen(finalSize.second, clipLimits);
+                    ClipCandidateWindowToContent(hwnd, finalSize, layoutScale);
+                    FTB_DIAG_LOGF(L"cand-clip scale={:.3f} margin=({},{}) size=({:.1f},{:.1f})",
+                                  static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop,
+                                  finalSize.first, finalSize.second);
+                    SetHostWindowCloaked(hwnd, false);
+                    UpdateSmallWindowWebviewVisibility(hwnd, true);
+                    RECT actualRect{};
+                    GetWindowRect(hwnd, &actualRect);
+                    (void)actualRect;
+                    (void)0;
+                };
+
+                // Pass 2: remeasure the painted card after margins. Keep the stable
+                // quarter-screen host; only re-clamp position / margins / region.
+                const HalfScreenDipLimits pass2LimitsForWrap = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                const double pass2WrapMaxDip = pass2LimitsForWrap.maxWidthDip > 1.0
+                                                   ? pass2LimitsForWrap.maxWidthDip
+                                                   : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+                const double pass2WrapMaxHeightDip = pass2LimitsForWrap.maxHeightDip > 1.0
+                                                         ? pass2LimitsForWrap.maxHeightDip
+                                                         : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+                GetRealCandidateCardSize(
+                    webviewCandWnd,
+                    [hwnd, generation, layoutScale, caretX, caretY, packingMarginTop, containerSize,
+                     finalizeClip](std::pair<double, double> paintedSize) {
+                        if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+                        {
+                            return;
+                        }
+                        if (paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
+                        {
+                            finalizeClip(containerSize);
+                            return;
+                        }
+                        HalfScreenDipLimits pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                        paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, pass2Limits);
+                        paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, pass2Limits);
+
+                        const bool sizeChanged = std::fabs(paintedSize.first - containerSize.first) > 0.75 ||
+                                                 std::fabs(paintedSize.second - containerSize.second) > 0.75;
+                        if (!sizeChanged)
+                        {
+                            finalizeClip(paintedSize);
+                            return;
+                        }
+
+                        POINT pt = {caretX, caretY};
+                        auto properPos = std::make_shared<std::pair<int, int>>();
+                        AdjustCandidateWindowPosition(&pt, paintedSize, properPos);
+
+                        FLOAT pass2Scale = layoutScale;
+                        FLOAT hwndScale = GetWindowScale(hwnd);
+                        if (hwndScale > 0.0f)
+                        {
+                            pass2Scale = hwndScale;
+                            pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                        }
+
+                        const int hostWidthPx =
+                            (std::max)(1, (pass2Limits.monitor.right - pass2Limits.monitor.left) / 2);
+                        const int hostHeightPx =
+                            (std::max)(1, (pass2Limits.monitor.bottom - pass2Limits.monitor.top) / 2);
+
+                        MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(pt);
+                        int hostX = properPos->first;
+                        int hostY = properPos->second;
+                        const int edgePadPx = static_cast<int>(
+                            std::lround(2.0 * static_cast<double>(pass2Scale > 0 ? pass2Scale : 1.0f)));
+                        if (hostX + hostWidthPx > coordinates.right)
+                        {
+                            hostX = coordinates.right - hostWidthPx - edgePadPx;
+                        }
+                        if (hostX < coordinates.left)
+                        {
+                            hostX = coordinates.left + edgePadPx;
+                        }
+                        if (hostY + hostHeightPx > coordinates.bottom)
+                        {
+                            hostY = coordinates.bottom - hostHeightPx - edgePadPx;
+                        }
+                        if (hostY < coordinates.top)
+                        {
+                            hostY = coordinates.top + edgePadPx;
+                        }
+
+                        const int packingTop = (std::max)(0, Global::MarginTop);
+                        const int offsetXDip =
+                            static_cast<int>(std::lround((properPos->first - hostX) / static_cast<double>(pass2Scale)));
+                        const int offsetYDip = static_cast<int>(
+                            std::lround((properPos->second - hostY) / static_cast<double>(pass2Scale)));
+                        Global::MarginLeft = (std::max)(0, offsetXDip);
+                        Global::MarginTop = packingTop + (std::max)(0, offsetYDip);
+                        KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx,
+                                                              paintedSize.first, paintedSize.second, pass2Scale,
+                                                              coordinates);
+
+                        if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
+                        {
+                            return;
+                        }
+                        {
+                            SuppressCandidateDpiChange suppressDpi;
+                            // Prefer SWP_NOSIZE when already on the quarter-screen size so
+                            // only the clamped top-left moves with the card.
+                            UINT pass2Flag = SWP_NOZORDER | SWP_SHOWWINDOW;
+                            RECT cur{};
+                            if (GetWindowRect(hwnd, &cur) && (cur.right - cur.left) == hostWidthPx &&
+                                (cur.bottom - cur.top) == hostHeightPx)
+                            {
+                                pass2Flag |= SWP_NOSIZE;
+                            }
+                            SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, pass2Flag);
+                        }
+                        SyncCandidateWebViewBoundsToHost(hwnd);
+                        InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
+
+                        // Re-apply margins into the live DOM before clipping.
+                        std::wstring marginScript =
+                            L"(function(){var el=document.getElementById('realContainerParent');"
+                            L"if(el){el.style.marginTop='" +
+                            std::to_wstring(Global::MarginTop) + L"px';el.style.marginLeft='" +
+                            std::to_wstring(Global::MarginLeft) + L"px';}})();";
+                        if (webviewCandWnd)
+                        {
+                            webviewCandWnd->ExecuteScript(
+                                marginScript.c_str(),
+                                Callback<ICoreWebView2ExecuteScriptCompletedHandler>([finalizeClip, paintedSize](
+                                                                                         HRESULT, LPCWSTR) -> HRESULT {
+                                    finalizeClip(paintedSize);
+                                    return S_OK;
+                                }).Get());
+                        }
+                        else
+                        {
+                            finalizeClip(paintedSize);
+                        }
+                        (void)packingMarginTop;
+                    },
+                    pass2WrapMaxDip, pass2WrapMaxHeightDip);
+            });
+        },
         wrapMaxDip, wrapMaxHeightDip);
     return 0;
 }
