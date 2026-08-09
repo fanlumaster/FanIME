@@ -92,6 +92,7 @@ export function setupToolsSettings(): void {
     const code = (document.getElementById('quickPhraseCode') as HTMLInputElement).value.trim();
     const word = (document.getElementById('quickPhraseValue') as HTMLInputElement).value.trim();
     const weight = Number((document.getElementById('quickPhraseWeight') as HTMLInputElement).value);
+    if (word.length > 199) { showToast('快捷短语不能超过 199 个 wchar 字符', false); return; }
     post(editing ? 'update' : 'create', { code, word, weight, oldCode: editing?.code, oldWord: editing?.word });
   });
   document.getElementById('quickPhraseToastClose')?.addEventListener('click', () => document.getElementById('quickPhraseToast')?.classList.remove('visible'));
