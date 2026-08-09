@@ -110,6 +110,103 @@ bool FloatingToolbarItemsEqual(
            left.settings == right.settings;
 }
 
+void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd);
+
+BOOL CALLBACK AddMonitorWorkAreaToRegion(HMONITOR monitor, HDC, LPRECT, LPARAM data)
+{
+    auto visibleRegion = reinterpret_cast<HRGN>(data);
+    if (!visibleRegion)
+    {
+        return FALSE;
+    }
+
+    MONITORINFO info{sizeof(info)};
+    if (!GetMonitorInfo(monitor, &info))
+    {
+        return TRUE;
+    }
+
+    HRGN workAreaRegion = CreateRectRgnIndirect(&info.rcWork);
+    if (workAreaRegion)
+    {
+        CombineRgn(visibleRegion, visibleRegion, workAreaRegion, RGN_OR);
+        DeleteObject(workAreaRegion);
+    }
+    return TRUE;
+}
+
+bool IsRectInsideVisibleMonitorWorkAreas(const RECT &rect)
+{
+    HRGN visibleRegion = CreateRectRgn(0, 0, 0, 0);
+    HRGN windowRegion = CreateRectRgnIndirect(&rect);
+    HRGN outsideRegion = CreateRectRgn(0, 0, 0, 0);
+    if (!visibleRegion || !windowRegion || !outsideRegion)
+    {
+        if (visibleRegion)
+            DeleteObject(visibleRegion);
+        if (windowRegion)
+            DeleteObject(windowRegion);
+        if (outsideRegion)
+            DeleteObject(outsideRegion);
+        return true;
+    }
+
+    EnumDisplayMonitors(nullptr, nullptr, AddMonitorWorkAreaToRegion,
+                        reinterpret_cast<LPARAM>(visibleRegion));
+    const int outsideType = CombineRgn(outsideRegion, windowRegion, visibleRegion, RGN_DIFF);
+    DeleteObject(outsideRegion);
+    DeleteObject(windowRegion);
+    DeleteObject(visibleRegion);
+    return outsideType == NULLREGION;
+}
+
+void KeepFloatingToolbarInsideVisibleScreens(HWND hwnd)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+
+    RECT rect{};
+    if (!GetWindowRect(hwnd, &rect) || IsRectInsideVisibleMonitorWorkAreas(rect))
+    {
+        return;
+    }
+
+    // MonitorFromRect chooses the monitor with the largest intersection, or the
+    // nearest monitor when the toolbar was dragged completely beyond all screens.
+    HMONITOR monitor = MonitorFromRect(&rect, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO info{sizeof(info)};
+    if (!monitor || !GetMonitorInfo(monitor, &info))
+    {
+        return;
+    }
+
+    const int width = rect.right - rect.left;
+    const int height = rect.bottom - rect.top;
+    const int workLeft = static_cast<int>(info.rcWork.left);
+    const int workTop = static_cast<int>(info.rcWork.top);
+    const int workRight = static_cast<int>(info.rcWork.right);
+    const int workBottom = static_cast<int>(info.rcWork.bottom);
+    const int oldX = static_cast<int>(rect.left);
+    const int oldY = static_cast<int>(rect.top);
+    const int maxX = (std::max)(workLeft, workRight - width);
+    const int maxY = (std::max)(workTop, workBottom - height);
+    const int x = (std::max)(workLeft, (std::min)(oldX, maxX));
+    const int y = (std::max)(workTop, (std::min)(oldY, maxY));
+    if (x == rect.left && y == rect.top)
+    {
+        return;
+    }
+
+    SetWindowPos(hwnd, nullptr, x, y, 0, 0,
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
+    FTB_DIAG_LOGF(L"ftb drag clamped from ({},{}) to ({},{}) work=({},{})-({},{})",
+                  rect.left, rect.top, x, y, info.rcWork.left, info.rcWork.top,
+                  info.rcWork.right, info.rcWork.bottom);
+}
+
 void SyncHostWebViewBounds(ICoreWebView2Controller *controller, HWND hwnd)
 {
     if (!controller || !hwnd)
@@ -2209,6 +2306,13 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     case UPDATE_FTB_ENGLISH_INPUT_MODE:
         UpdateFtbEnglishInputModeState(::webviewFtbWnd, wParam != 0 ? 1 : 0);
         break;
+
+    case WM_EXITSIZEMOVE:
+        // Native caption dragging runs a modal move loop. Clamp only after that
+        // loop ends so movement remains smooth and crossing to another monitor
+        // is never blocked.
+        KeepFloatingToolbarInsideVisibleScreens(hwnd);
+        return 0;
 
     case WM_DPICHANGED: {
         // Same contract as the tray menu: size from DIPs * the DPI in wParam
