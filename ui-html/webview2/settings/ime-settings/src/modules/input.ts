@@ -72,6 +72,9 @@ export function setupInput(): void {
   setupToggleButton('smartPunctuationToggleBtn', (active) => {
     updateConfig('input.smart_punctuation', active);
   });
+  setupToggleButton('pairedPunctuationToggleBtn', (active) => {
+    updateConfig('input.paired_punctuation', active);
+  });
   setupToggleButton('zhEnToggleBtn', (active) => {
     updateConfig('general.cn_en_mixed_input', active);
   });

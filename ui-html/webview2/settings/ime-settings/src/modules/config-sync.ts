@@ -90,6 +90,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.input?.smart_punctuation === 'boolean') {
       applyToggleState('smartPunctuationToggleBtn', payload.data.input.smart_punctuation);
     }
+    if (typeof payload.data?.input?.paired_punctuation === 'boolean') {
+      applyToggleState('pairedPunctuationToggleBtn', payload.data.input.paired_punctuation);
+    }
     applyFloatingToolbarItemsConfig({
       fullwidth: payload.data?.general?.floating_toolbar_fullwidth,
       punctuation: payload.data?.general?.floating_toolbar_punctuation,
