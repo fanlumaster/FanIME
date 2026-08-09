@@ -2585,6 +2585,18 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.smart_punctuation_repeat_to_chinese")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredSmartPunctuationRepeatToChineseEnabled(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::
+                                            SmartPunctuationRepeatToChineseChanged,
+                                        value ? L"1" : L"0");
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "input.paired_punctuation")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2877,6 +2889,7 @@ void PostSettingsConfig()
             {"wubi_schema", GetConfiguredWubiSchema()},
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
             {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
+            {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
             {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},

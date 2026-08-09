@@ -354,8 +354,10 @@ constexpr UINT SmartPunctuationChanged = 11;
 constexpr UINT PairedPunctuationChanged = 12;
 // Payload "1" when the active shuangpin profile uses ';' for the ing final.
 constexpr UINT MicrosoftShuangpinChanged = 13;
+// Replace a repeated smart ASCII punctuation with its Chinese mapping. Payload "0"/"1".
+constexpr UINT SmartPunctuationRepeatToChineseChanged = 14;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = MicrosoftShuangpinChanged;
+constexpr UINT MaxKnown = SmartPunctuationRepeatToChineseChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

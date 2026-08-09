@@ -71,6 +71,7 @@ bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
 bool g_word_to_character_enabled = false;
 bool g_smart_punctuation_enabled = true;
+bool g_smart_punctuation_repeat_to_chinese_enabled = true;
 bool g_paired_punctuation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::string g_candidate_window_preedit_style = "pinyin";
@@ -592,6 +593,8 @@ bool LoadImeConfig()
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         g_word_to_character_enabled = tbl["input"]["word_to_character"].value_or(false);
         g_smart_punctuation_enabled = tbl["input"]["smart_punctuation"].value_or(true);
+        g_smart_punctuation_repeat_to_chinese_enabled =
+            tbl["input"]["smart_punctuation_repeat_to_chinese"].value_or(true);
         g_paired_punctuation_enabled = tbl["input"]["paired_punctuation"].value_or(true);
         {
             // Prefer explicit bool keys; fall back to legacy switch_language array.
@@ -1660,6 +1663,21 @@ bool SetConfiguredSmartPunctuationEnabled(bool enabled)
         return false;
     }
     g_smart_punctuation_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredSmartPunctuationRepeatToChineseEnabled()
+{
+    return g_smart_punctuation_repeat_to_chinese_enabled;
+}
+
+bool SetConfiguredSmartPunctuationRepeatToChineseEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("input", "smart_punctuation_repeat_to_chinese", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_smart_punctuation_repeat_to_chinese_enabled = enabled;
     return true;
 }
 

@@ -223,6 +223,7 @@ void PostConfig()
             {"wubi_schema", GetConfiguredWubiSchema()},
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
             {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
+            {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
             {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
            {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
@@ -337,6 +338,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredWordToCharacterEnabled(json::value_to<bool>(data.at("value")));
     if (path == "input.smart_punctuation")
         return SetConfiguredSmartPunctuationEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "input.smart_punctuation_repeat_to_chinese")
+        return SetConfiguredSmartPunctuationRepeatToChineseEnabled(json::value_to<bool>(data.at("value")));
     if (path == "input.paired_punctuation")
         return SetConfiguredPairedPunctuationEnabled(json::value_to<bool>(data.at("value")));
     if (path == "appearance.tsf_preedit_style")

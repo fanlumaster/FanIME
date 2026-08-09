@@ -1395,6 +1395,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
+            const bool previous_smart_punctuation_repeat_to_chinese =
+                GetConfiguredSmartPunctuationRepeatToChineseEnabled();
             const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
@@ -1463,6 +1465,13 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
                         GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_smart_punctuation_repeat_to_chinese !=
+                    GetConfiguredSmartPunctuationRepeatToChineseEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationRepeatToChineseChanged,
+                        GetConfiguredSmartPunctuationRepeatToChineseEnabled() ? L"1" : L"0");
                 }
                 if (previous_paired_punctuation != GetConfiguredPairedPunctuationEnabled())
                 {
@@ -1989,6 +1998,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_cloud_candidates = GetConfiguredCloudCandidatesEnabled();
             const bool previous_comma_period = GetConfiguredPagingCommaPeriodEnabled();
             const bool previous_smart_punctuation = GetConfiguredSmartPunctuationEnabled();
+            const bool previous_smart_punctuation_repeat_to_chinese =
+                GetConfiguredSmartPunctuationRepeatToChineseEnabled();
             const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
@@ -2064,6 +2075,13 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
                         GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_smart_punctuation_repeat_to_chinese !=
+                    GetConfiguredSmartPunctuationRepeatToChineseEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationRepeatToChineseChanged,
+                        GetConfiguredSmartPunctuationRepeatToChineseEnabled() ? L"1" : L"0");
                 }
                 if (previous_paired_punctuation != GetConfiguredPairedPunctuationEnabled())
                 {

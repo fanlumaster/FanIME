@@ -172,6 +172,8 @@ bool GetConfiguredWordToCharacterEnabled();
 bool SetConfiguredWordToCharacterEnabled(bool enabled);
 bool GetConfiguredSmartPunctuationEnabled();
 bool SetConfiguredSmartPunctuationEnabled(bool enabled);
+bool GetConfiguredSmartPunctuationRepeatToChineseEnabled();
+bool SetConfiguredSmartPunctuationRepeatToChineseEnabled(bool enabled);
 bool GetConfiguredPairedPunctuationEnabled();
 bool SetConfiguredPairedPunctuationEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
