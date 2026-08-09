@@ -1134,19 +1134,29 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
 
     if (_HasDeferredKeyBarrier())
     {
-        if (!_DeferredKeyQueueHasCapacity())
-        {
-            *pIsEaten = FALSE;
-            return S_OK;
-        }
         _KEYSTROKE_STATE deferredState = {};
         WCHAR deferredWch = L'\0';
         UINT deferredCode = 0;
+        if (!_DeferredKeyQueueHasCapacity())
+        {
+            // Still observe Backspace for smart-punctuation rejection. Uneaten
+            // keys often never reach OnKeyDown, and this is the only sink that
+            // always sees them.
+            deferredWch = ConvertVKey(static_cast<UINT>(wParam));
+            deferredCode = VKeyFromVKPacketAndWchar(static_cast<UINT>(wParam), deferredWch);
+            _NoteKeyForSmartPunctuation(deferredCode, deferredWch, false);
+            *pIsEaten = FALSE;
+            return S_OK;
+        }
         *pIsEaten = _ClassifyDeferredKeyDown(
                         pContext, wParam, nullptr, nullptr, &deferredWch,
                         &deferredCode, &deferredState)
                         ? TRUE
                         : FALSE;
+        // Classify always fills code/wch before failing. Track rejection even
+        // when the key is handed back to the app (typical for VK_BACK).
+        _NoteKeyForSmartPunctuation(deferredCode, deferredWch,
+                                    *pIsEaten ? true : false);
         return S_OK;
     }
 
@@ -1696,6 +1706,15 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
                                       &capturedModifiers, &wch, &code,
                                       &KeystrokeState))
         {
+            // Mirror OnTestKeyDown: uneaten keys (esp. Backspace) must still
+            // update smart-punctuation rejection state.
+            if (code == 0 && wch == L'\0')
+            {
+                wch = translatedWch ? *translatedWch
+                                    : ConvertVKey(static_cast<UINT>(wParam));
+                code = VKeyFromVKPacketAndWchar(static_cast<UINT>(wParam), wch);
+            }
+            _NoteKeyForSmartPunctuation(code, wch, false);
             *pIsEaten = FALSE;
             return KeyDownDispatchResult::Complete;
         }
@@ -1705,6 +1724,9 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
             *pIsEaten = TRUE;
             return KeyDownDispatchResult::Complete;
         }
+        // Queued keys note on replay; note now too so a Backspace that is
+        // somehow classified+queued still records rejection before drain.
+        _NoteKeyForSmartPunctuation(code, wch, true);
         *pIsEaten = _QueueDeferredKeyDown(
                         pContext, wParam, lParam, wch, capturedModifiers,
                         KeystrokeState)

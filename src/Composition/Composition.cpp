@@ -240,6 +240,14 @@ void CMetasequoiaIME::_NoteKeyForSmartPunctuation(UINT code, WCHAR wch, bool isE
         if (_smartPunctuationCommittedAscii)
         {
             _smartPunctuationAsciiRejected = true;
+            // UpdateShadow already cleared the punctuation shadow. Restore the
+            // preceding character recorded at commit so a retype can still match
+            // the reject spot when the host text store cannot re-read it.
+            if (_smartPunctuationPrecedingChar != 0)
+            {
+                _smartPunctuationShadowChar = _smartPunctuationPrecedingChar;
+                _smartPunctuationShadowValid = true;
+            }
         }
         return;
     case VK_DECIMAL:

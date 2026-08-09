@@ -49,10 +49,11 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
         return S_OK;
     }
 
-    // A different document invalidates the recorded commit spot.
-    _ResetSmartPunctuationHistory();
-    _InvalidateSmartPunctuationShadow();
-
+    // Chrome / Twitter contenteditable swaps ITfDocumentMgr on almost every
+    // edit (digit passthrough, Backspace, etc.): both pointers are non-null and
+    // unequal. Resetting smart-punctuation there drops a just-armed ASCII
+    // rejection before the user can retype. The reject spot is already keyed by
+    // (punct key + preceding char); other keys / caret moves clear it instead.
     const bool windowsTextInputHostTransition =
         _focusLostToWindowsTextInputHost ||
         _CaptureWindowsTextInputHostFocusLoss();
