@@ -168,15 +168,12 @@ int CloseIpc();
 int CloseNamedpipe();
 void ResetNamedpipeReplyState();
 HANDLE GetToTsfWorkerThreadNamedpipe();
-void BindNamedpipeFocusState(_In_ const void *owner,
-                             _In_opt_ bool *focusResetPending, _In_opt_ bool *activationRequired,
-                             _In_opt_ std::atomic<uint64_t> *expectedWorkerFocusToken,
-                             _In_opt_ std::atomic<bool> *localSessionResetPending,
-                             _In_opt_ std::atomic<UINT> *localSessionResetToken,
-                             _In_opt_ std::atomic<bool> *workerCommitReady,
-                             _In_opt_ std::atomic<uint64_t> *acknowledgedWorkerFocusToken,
-                             _In_opt_ std::atomic<HANDLE> *workerPipeHandle,
-                             _In_opt_ std::atomic<UINT> *workerPipeGeneration);
+void BindNamedpipeFocusState(
+    _In_ const void *owner, _In_opt_ bool *focusResetPending, _In_opt_ bool *activationRequired,
+    _In_opt_ std::atomic<uint64_t> *expectedWorkerFocusToken, _In_opt_ std::atomic<bool> *localSessionResetPending,
+    _In_opt_ std::atomic<UINT> *localSessionResetToken, _In_opt_ std::atomic<bool> *workerCommitReady,
+    _In_opt_ std::atomic<uint64_t> *acknowledgedWorkerFocusToken, _In_opt_ std::atomic<HANDLE> *workerPipeHandle,
+    _In_opt_ std::atomic<UINT> *workerPipeGeneration);
 void UnbindNamedpipeFocusState(_In_ const void *owner);
 bool IsNamedpipeFocusStateOwner(_In_ const void *owner);
 UINT BeginNamedpipeLocalSessionReset();
@@ -218,8 +215,7 @@ int SendIMESwitchEventToUIProcessViaNamedPipe(UINT uImeStatus);
 int SendPuncSwitchEventToUIProcessViaNamedPipe(BOOL isPunc);
 int SendDoubleSingleByteSwitchEventToUIProcessViaNamedPipe(BOOL isDoubleSingleByte);
 
-bool SendToAuxNamedpipe(const std::wstring &pipeData,
-                        bool waitForAcknowledgement = false);
+bool SendToAuxNamedpipe(const std::wstring &pipeData, bool waitForAcknowledgement = false);
 
 //
 // For named pipe
@@ -247,7 +243,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
 // When abortTransportOnTimeout is false, a missed reply leaves the pipe up and
 // returns a non-TransportUnavailable empty frame for the caller to fall back.
 struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t expectedRequestId,
-                                                                      bool abortTransportOnTimeout);
+                                                                       bool abortTransportOnTimeout);
 struct FanyImeNamedpipeDataToTsf *ReadDataFromServerViaNamedPipe(uint64_t expectedRequestId);
 
 //
@@ -324,9 +320,11 @@ constexpr UINT InsertText = 10;
 constexpr UINT SmartPunctuationChanged = 11;
 // Auto-complete opening paired punctuation and leave the caret inside. Payload "0"/"1".
 constexpr UINT PairedPunctuationChanged = 12;
+// Whether ';' is an input key for the Microsoft shuangpin profile.
+constexpr UINT MicrosoftShuangpinChanged = 13;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = PairedPunctuationChanged;
+constexpr UINT MaxKnown = MicrosoftShuangpinChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
@@ -334,6 +332,7 @@ inline std::atomic_bool PagingCommaPeriodEnabled{false};
 inline std::atomic_bool SmartPunctuationEnabled{true};
 // Default on until the Server sends the persisted setting.
 inline std::atomic_bool PairedPunctuationEnabled{true};
+inline std::atomic_bool MicrosoftShuangpinEnabled{false};
 inline thread_local bool g_connected = false;
 
 } // namespace Global

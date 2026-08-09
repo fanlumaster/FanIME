@@ -97,8 +97,7 @@ BOOL CMetasequoiaIME::_AddTextProcessorEngine()
 //
 //----------------------------------------------------------------------------
 
-CCompositionProcessorEngine::CCompositionProcessorEngine(
-    _In_ CMetasequoiaIME *pTextService)
+CCompositionProcessorEngine::CCompositionProcessorEngine(_In_ CMetasequoiaIME *pTextService)
 {
     _langid = 0xffff;
     _guidProfile = GUID_NULL;
@@ -198,7 +197,6 @@ CCompositionProcessorEngine::~CCompositionProcessorEngine()
         _pOwnerThreadMgr = nullptr;
     }
     _ownerMsgWndHandle = nullptr;
-
 }
 
 //+---------------------------------------------------------------------------
@@ -277,9 +275,8 @@ BOOL CCompositionProcessorEngine::AddVirtualKey(WCHAR wch)
 
     DWORD_PTR srgKeystrokeBufLen = _keystrokeBuffer.GetLength();
     _caretPosition = min(_caretPosition, srgKeystrokeBufLen);
-    if (wch == L'\'' &&
-        ((_caretPosition > 0 && _keystrokeBuffer.Get()[_caretPosition - 1] == L'\'') ||
-         (_caretPosition < srgKeystrokeBufLen && _keystrokeBuffer.Get()[_caretPosition] == L'\'')))
+    if (wch == L'\'' && ((_caretPosition > 0 && _keystrokeBuffer.Get()[_caretPosition - 1] == L'\'') ||
+                         (_caretPosition < srgKeystrokeBufLen && _keystrokeBuffer.Get()[_caretPosition] == L'\'')))
     {
         return TRUE;
     }
@@ -587,7 +584,8 @@ bool IsCommitWithHighlightedCandidatePunctuationInCandidateMode(UINT uCode, WCHA
     return wch != 0 && Global::CommitWithHighlightedCandPunc.count(wch) > 0;
 }
 
-bool IsManualPinyinSeparatorInComposition(WCHAR wch, BOOL fComposing, CANDIDATE_MODE candidateMode, DWORD_PTR keystrokeLength)
+bool IsManualPinyinSeparatorInComposition(WCHAR wch, BOOL fComposing, CANDIDATE_MODE candidateMode,
+                                          DWORD_PTR keystrokeLength)
 {
     if (wch != L'\'')
     {
@@ -599,7 +597,7 @@ bool IsManualPinyinSeparatorInComposition(WCHAR wch, BOOL fComposing, CANDIDATE_
     }
     return fComposing || candidateMode != CANDIDATE_NONE;
 }
-}
+} // namespace
 
 //+---------------------------------------------------------------------------
 //
@@ -778,7 +776,7 @@ void CCompositionProcessorEngine::SetupPreserved(_In_ ITfThreadMgr *pThreadMgr, 
     TF_PRESERVEDKEY preservedKeyEnglishInputMode;
     preservedKeyEnglishInputMode.uVKey = 'E';
     preservedKeyEnglishInputMode.uModifiers = TF_MOD_CONTROL | TF_MOD_SHIFT;
-    SetPreservedKey(                                          //
+    SetPreservedKey(                                           //
         Global::MetasequoiaIMEGuidEnglishInputModePreserveKey, //
         preservedKeyEnglishInputMode,                          //
         Global::EnglishInputModeDescription,                   //
@@ -948,11 +946,9 @@ BOOL CCompositionProcessorEngine::IsPreservedKeyEligible(REFGUID rguid)
     return FALSE;
 }
 
-CCompositionProcessorEngine::PreservedKeyAction
-CCompositionProcessorEngine::GetPreservedKeyAction(REFGUID rguid) const
+CCompositionProcessorEngine::PreservedKeyAction CCompositionProcessorEngine::GetPreservedKeyAction(REFGUID rguid) const
 {
-    if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) ||
-        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid) ||
+    if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) || IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid) ||
         IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
     {
         return PreservedKeyAction::ToggleImeMode;
@@ -979,8 +975,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
     BOOL notifyServer                             //
 )
 {
-    if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) ||
-        IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid) ||
+    if (IsEqualGUID(rguid, _PreservedKey_IMEMode.Guid) || IsEqualGUID(rguid, _PreservedKey_IMEMode02.Guid) ||
         IsEqualGUID(rguid, _PreservedKey_IMEMode03.Guid))
     {
         if (!isPrevalidated)
@@ -1009,8 +1004,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
         // Closing CN→EN while composing: keep KEYBOARD_OPENCLOSE open until
         // after EndComposition. CUAS/Win32 EDIT double-commits if we close
         // first and finalize later (Ctrl+Space / Chrome are fine).
-        const BOOL deferCloseUntilCompositionCommit =
-            !isOpen && _pTextService && _pTextService->_IsComposing();
+        const BOOL deferCloseUntilCompositionCommit = !isOpen && _pTextService && _pTextService->_IsComposing();
         if (deferCloseUntilCompositionCommit)
         {
             _pendingImeModeAfterCompositionCommit = isOpen;
@@ -1040,8 +1034,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
     }
     else if (IsEqualGUID(rguid, _PreservedKey_DoubleSingleByte.Guid))
     {
-        if (!isPrevalidated &&
-            !CheckShiftKeyOnly(&_PreservedKey_DoubleSingleByte.TSFPreservedKeyTable))
+        if (!isPrevalidated && !CheckShiftKeyOnly(&_PreservedKey_DoubleSingleByte.TSFPreservedKeyTable))
         {
             *pIsEaten = FALSE;
             return;
@@ -1055,8 +1048,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
     }
     else if (IsEqualGUID(rguid, _PreservedKey_Punctuation.Guid))
     {
-        if (!isPrevalidated &&
-            !CheckShiftKeyOnly(&_PreservedKey_Punctuation.TSFPreservedKeyTable))
+        if (!isPrevalidated && !CheckShiftKeyOnly(&_PreservedKey_Punctuation.TSFPreservedKeyTable))
         {
             *pIsEaten = FALSE;
             return;
@@ -1133,12 +1125,11 @@ void CCompositionProcessorEngine::ReleaseConfiguredImeModeDefense()
     _defendConfiguredImeMode = FALSE;
 }
 
-void CCompositionProcessorEngine::SyncPunctuationWithImeMode(
-    _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isOpen)
+void CCompositionProcessorEngine::SyncPunctuationWithImeMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
+                                                             BOOL isOpen)
 {
     BOOL isPunctuation = FALSE;
-    CCompartment CompartmentPunctuation(pThreadMgr, tfClientId,
-                                        Global::MetasequoiaIMEGuidCompartmentPunctuation);
+    CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
     CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
     if (!isOpen && isPunctuation)
     {
@@ -1150,8 +1141,8 @@ void CCompositionProcessorEngine::SyncPunctuationWithImeMode(
     }
 }
 
-void CCompositionProcessorEngine::ApplyPendingImeModeAfterCompositionCommit(
-    _In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId)
+void CCompositionProcessorEngine::ApplyPendingImeModeAfterCompositionCommit(_In_ ITfThreadMgr *pThreadMgr,
+                                                                            TfClientId tfClientId)
 {
     if (!_hasPendingImeModeAfterCompositionCommit)
     {
@@ -1706,8 +1697,7 @@ void CCompositionProcessorEngine::KeyboardOpenCompartmentUpdated(_In_ ITfThreadM
 void CCompositionProcessorEngine::CommitCompositionOnExternalKeyboardClose()
 {
     CMetasequoiaIME *textService = _pTextService;
-    if (textService == nullptr || !textService->_IsComposing() ||
-        textService->_pContext == nullptr)
+    if (textService == nullptr || !textService->_IsComposing() || textService->_pContext == nullptr)
     {
         return;
     }
@@ -1720,9 +1710,8 @@ void CCompositionProcessorEngine::CommitCompositionOnExternalKeyboardClose()
     _KEYSTROKE_STATE keyState = {};
     keyState.Category = CATEGORY_COMPOSING;
     keyState.Function = FUNCTION_TOGGLE_IME_MODE;
-    textService->_InvokeKeyHandler(context, 0, L'\0', 0, keyState,
-                                   FANY_IME_NO_REQUEST_ID, {}, 0,
-                                   compositionEpoch, focusToken);
+    textService->_InvokeKeyHandler(context, 0, L'\0', 0, keyState, FANY_IME_NO_REQUEST_ID, {}, 0, compositionEpoch,
+                                   focusToken);
     context->Release();
 }
 
@@ -1979,9 +1968,8 @@ void CCompositionProcessorEngine::SetDefaultCandidateTextFont()
 //
 //////////////////////////////////////////////////////////////////////
 
-BOOL CCompositionProcessorEngine::IsVirtualKeyNeedForFreshComposition(
-    UINT uCode, _In_reads_(1) WCHAR *pwch,
-    _Out_opt_ _KEYSTROKE_STATE *pKeyState)
+BOOL CCompositionProcessorEngine::IsVirtualKeyNeedForFreshComposition(UINT uCode, _In_reads_(1) WCHAR *pwch,
+                                                                      _Out_opt_ _KEYSTROKE_STATE *pKeyState)
 {
     if (pKeyState)
     {
@@ -1993,8 +1981,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeedForFreshComposition(
     // the old focus session is still being cancelled, so none of its candidate
     // mode, wildcard flags, or virtual-key buffer may affect the first key in
     // the replacement session.
-    if (IsManualPinyinSeparatorInComposition(pwch ? *pwch : 0, FALSE,
-                                             CANDIDATE_NONE, 0))
+    if (IsManualPinyinSeparatorInComposition(pwch ? *pwch : 0, FALSE, CANDIDATE_NONE, 0))
     {
         if (pKeyState)
         {
@@ -2007,8 +1994,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeedForFreshComposition(
     {
         return TRUE;
     }
-    if (pwch && IsWildcard() && IsWildcardChar(*pwch) &&
-        !IsDisableWildcardAtFirst())
+    if (pwch && IsWildcard() && IsWildcardChar(*pwch) && !IsDisableWildcardAtFirst())
     {
         if (pKeyState)
         {
@@ -2131,6 +2117,28 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
         {
             pKeyState->Category = CATEGORY_COMPOSING;
             pKeyState->Function = uCode == VK_LEFT ? FUNCTION_MOVE_LEFT : FUNCTION_MOVE_RIGHT;
+        }
+        return TRUE;
+    }
+
+    bool isMicrosoftShuangpinIngKey = false;
+    if (Global::MicrosoftShuangpinEnabled.load(std::memory_order_relaxed) && uCode == VK_OEM_1 && pwch &&
+        *pwch == L';' && _keystrokeBuffer.GetLength() > 0 && _keystrokeBuffer.Get())
+    {
+        const DWORD_PTR caret = min(_caretPosition, _keystrokeBuffer.GetLength());
+        DWORD_PTR chunkLength = 0;
+        for (DWORD_PTR index = caret; index > 0 && _keystrokeBuffer.Get()[index - 1] != L'\''; --index)
+        {
+            ++chunkLength;
+        }
+        isMicrosoftShuangpinIngKey = chunkLength % 2 == 1;
+    }
+    if (isMicrosoftShuangpinIngKey)
+    {
+        if (pKeyState)
+        {
+            pKeyState->Category = CATEGORY_COMPOSING;
+            pKeyState->Function = FUNCTION_INPUT;
         }
         return TRUE;
     }

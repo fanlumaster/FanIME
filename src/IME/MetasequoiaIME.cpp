@@ -23,7 +23,6 @@
 #include "Utils/FanyUtils.h"
 #include "../Utils/PerfTimer.h"
 
-
 #pragma comment(lib, "Shcore.lib")
 #pragma comment(lib, "Shell32.lib")
 #pragma comment(lib, "Ole32.lib")
@@ -60,9 +59,8 @@ std::wstring ReadServerPath()
 {
     wchar_t path[32768]{};
     DWORD bytes = sizeof(path);
-    const LSTATUS status =
-        RegGetValueW(HKEY_LOCAL_MACHINE, INSTALL_REGISTRY_KEY, SERVER_PATH_REGISTRY_VALUE,
-                     RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, path, &bytes);
+    const LSTATUS status = RegGetValueW(HKEY_LOCAL_MACHINE, INSTALL_REGISTRY_KEY, SERVER_PATH_REGISTRY_VALUE,
+                                        RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr, path, &bytes);
     if (status != ERROR_SUCCESS || path[0] == L'\0')
     {
         return {};
@@ -99,13 +97,11 @@ bool LaunchServerIfNeeded()
     }
 
     const size_t separator = serverPath.find_last_of(L"\\/");
-    const std::wstring workingDirectory = separator == std::wstring::npos
-                                              ? std::wstring{}
-                                              : serverPath.substr(0, separator);
+    const std::wstring workingDirectory =
+        separator == std::wstring::npos ? std::wstring{} : serverPath.substr(0, separator);
     const HINSTANCE result =
         ShellExecuteW(nullptr, L"open", serverPath.c_str(), nullptr,
-                      workingDirectory.empty() ? nullptr : workingDirectory.c_str(),
-                      SW_SHOWNOACTIVATE);
+                      workingDirectory.empty() ? nullptr : workingDirectory.c_str(), SW_SHOWNOACTIVATE);
     const bool launched = reinterpret_cast<INT_PTR>(result) > 32;
     ReleaseMutex(launchMutex);
     CloseHandle(launchMutex);
@@ -146,8 +142,8 @@ bool RequestServerLaunch()
     }
 
     HMODULE selfModule = nullptr;
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                            reinterpret_cast<LPCWSTR>(&ServerLaunchThreadProc), &selfModule))
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, reinterpret_cast<LPCWSTR>(&ServerLaunchThreadProc),
+                            &selfModule))
     {
         serverLaunchInFlight.store(false, std::memory_order_release);
         return false;
@@ -207,14 +203,11 @@ class CPunctuationCommitEditSession : public CEditSessionBase
 {
   public:
     CPunctuationCommitEditSession(CMetasequoiaIME *pTextService, ITfContext *pContext, UINT code, WCHAR wch,
-                                  uint64_t requestId, LARGE_INTEGER requestStartQpc,
-                                  std::wstring prefetchedText, uint64_t focusToken,
-                                  uint64_t compositionEpoch,
-                                  uint64_t deferredReplayToken)
+                                  uint64_t requestId, LARGE_INTEGER requestStartQpc, std::wstring prefetchedText,
+                                  uint64_t focusToken, uint64_t compositionEpoch, uint64_t deferredReplayToken)
         : CEditSessionBase(pTextService, pContext), _code(code), _wch(wch), _requestId(requestId),
-          _requestStartQpc(requestStartQpc), _prefetchedText(std::move(prefetchedText)),
-          _focusToken(focusToken), _compositionEpoch(compositionEpoch),
-          _deferredReplayToken(deferredReplayToken)
+          _requestStartQpc(requestStartQpc), _prefetchedText(std::move(prefetchedText)), _focusToken(focusToken),
+          _compositionEpoch(compositionEpoch), _deferredReplayToken(deferredReplayToken)
     {
         if (_requestStartQpc.QuadPart == 0)
         {
@@ -251,15 +244,15 @@ class CPunctuationCommitEditSession : public CEditSessionBase
             return S_FALSE;
         }
         PerfTimer timer;
-        HRESULT hr = _pTextService->_HandleCompositionPunctuation(ec, _pContext, _code, _wch, _requestId,
-                                                                   _prefetchedText);
+        HRESULT hr =
+            _pTextService->_HandleCompositionPunctuation(ec, _pContext, _code, _wch, _requestId, _prefetchedText);
         completion.applied = hr == S_OK;
         LARGE_INTEGER freq = {};
         LARGE_INTEGER nowQpc = {};
         QueryPerformanceFrequency(&freq);
         QueryPerformanceCounter(&nowQpc);
-        const double queueElapsedMs =
-            static_cast<double>(nowQpc.QuadPart - _requestStartQpc.QuadPart) * 1000.0 / static_cast<double>(freq.QuadPart);
+        const double queueElapsedMs = static_cast<double>(nowQpc.QuadPart - _requestStartQpc.QuadPart) * 1000.0 /
+                                      static_cast<double>(freq.QuadPart);
         return hr;
     }
 
@@ -277,27 +270,20 @@ class CPunctuationCommitEditSession : public CEditSessionBase
 class CDeferredApplicationTextEditSession : public CEditSessionBase
 {
   public:
-    CDeferredApplicationTextEditSession(CMetasequoiaIME *pTextService,
-                                        ITfContext *pContext, WCHAR wch,
-                                        uint64_t focusToken,
-                                        uint64_t focusGeneration,
-                                        uint64_t replayToken)
-        : CEditSessionBase(pTextService, pContext), _wch(wch),
-          _focusToken(focusToken), _focusGeneration(focusGeneration),
-          _replayToken(replayToken)
+    CDeferredApplicationTextEditSession(CMetasequoiaIME *pTextService, ITfContext *pContext, WCHAR wch,
+                                        uint64_t focusToken, uint64_t focusGeneration, uint64_t replayToken)
+        : CEditSessionBase(pTextService, pContext), _wch(wch), _focusToken(focusToken),
+          _focusGeneration(focusGeneration), _replayToken(replayToken)
     {
     }
 
     STDMETHODIMP DoEditSession(TfEditCookie ec) override
     {
-        const bool replayCurrent = _pTextService->_IsDeferredKeyReplayCurrent(
-            _replayToken, _focusGeneration, _pContext);
-        const bool fallbackActive =
-            _pTextService->_IsServerUnavailableFallbackActive();
-        const bool focusCurrent =
-            _pTextService->_IsFocusSessionCurrent(_focusToken, _pContext);
-        if (!replayCurrent ||
-            (!fallbackActive && !focusCurrent))
+        const bool replayCurrent =
+            _pTextService->_IsDeferredKeyReplayCurrent(_replayToken, _focusGeneration, _pContext);
+        const bool fallbackActive = _pTextService->_IsServerUnavailableFallbackActive();
+        const bool focusCurrent = _pTextService->_IsFocusSessionCurrent(_focusToken, _pContext);
+        if (!replayCurrent || (!fallbackActive && !focusCurrent))
         {
             _pTextService->_RetryDeferredKeyReplay(_replayToken);
             return S_FALSE;
@@ -306,8 +292,7 @@ class CDeferredApplicationTextEditSession : public CEditSessionBase
         TF_SELECTION selection = {};
         ULONG fetched = 0;
         bool textApplied = false;
-        HRESULT hr = _pContext->GetSelection(
-            ec, TF_DEFAULT_SELECTION, 1, &selection, &fetched);
+        HRESULT hr = _pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &selection, &fetched);
         if (SUCCEEDED(hr) && fetched == 1 && selection.range)
         {
             hr = selection.range->SetText(ec, 0, &_wch, 1);
@@ -516,9 +501,10 @@ CMetasequoiaIME::~CMetasequoiaIME()
     }
 }
 
-HRESULT CMetasequoiaIME::_RequestDeferredApplicationTextEditSession(
-    _In_ ITfContext *pContext, WCHAR wch, uint64_t expectedFocusToken,
-    uint64_t expectedFocusGeneration, uint64_t deferredReplayToken)
+HRESULT CMetasequoiaIME::_RequestDeferredApplicationTextEditSession(_In_ ITfContext *pContext, WCHAR wch,
+                                                                    uint64_t expectedFocusToken,
+                                                                    uint64_t expectedFocusGeneration,
+                                                                    uint64_t deferredReplayToken)
 {
     if (pContext == nullptr || wch == L'\0' || deferredReplayToken == 0)
     {
@@ -526,10 +512,8 @@ HRESULT CMetasequoiaIME::_RequestDeferredApplicationTextEditSession(
         return E_INVALIDARG;
     }
 
-    CDeferredApplicationTextEditSession *editSession =
-        new (std::nothrow) CDeferredApplicationTextEditSession(
-            this, pContext, wch, expectedFocusToken,
-            expectedFocusGeneration, deferredReplayToken);
+    CDeferredApplicationTextEditSession *editSession = new (std::nothrow) CDeferredApplicationTextEditSession(
+        this, pContext, wch, expectedFocusToken, expectedFocusGeneration, deferredReplayToken);
     if (editSession == nullptr)
     {
         _RetryDeferredKeyReplay(deferredReplayToken);
@@ -537,9 +521,8 @@ HRESULT CMetasequoiaIME::_RequestDeferredApplicationTextEditSession(
     }
 
     HRESULT editSessionHr = E_FAIL;
-    const HRESULT requestHr = pContext->RequestEditSession(
-        _tfClientId, editSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE,
-        &editSessionHr);
+    const HRESULT requestHr =
+        pContext->RequestEditSession(_tfClientId, editSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE, &editSessionHr);
     editSession->Release();
     if (FAILED(requestHr) || FAILED(editSessionHr))
     {
@@ -549,11 +532,10 @@ HRESULT CMetasequoiaIME::_RequestDeferredApplicationTextEditSession(
 }
 
 HRESULT CMetasequoiaIME::_RequestDirectPunctuationEditSession(_In_ ITfContext *pContext, UINT code, WCHAR wch,
-                                                               uint64_t requestId,
-                                                               std::wstring prefetchedText,
-                                                               uint64_t expectedFocusToken,
-                                                               uint64_t expectedCompositionEpoch,
-                                                               uint64_t deferredReplayToken)
+                                                              uint64_t requestId, std::wstring prefetchedText,
+                                                              uint64_t expectedFocusToken,
+                                                              uint64_t expectedCompositionEpoch,
+                                                              uint64_t deferredReplayToken)
 {
     if (pContext == nullptr)
     {
@@ -563,16 +545,10 @@ HRESULT CMetasequoiaIME::_RequestDirectPunctuationEditSession(_In_ ITfContext *p
     LARGE_INTEGER requestStartQpc = {};
     QueryPerformanceCounter(&requestStartQpc);
 
-    CPunctuationCommitEditSession *pEditSession =
-        new (std::nothrow) CPunctuationCommitEditSession(this, pContext, code, wch, requestId,
-                                                         requestStartQpc, std::move(prefetchedText),
-                                                         expectedFocusToken != 0
-                                                             ? expectedFocusToken
-                                                             : _CaptureFocusSessionToken(),
-                                                          expectedCompositionEpoch != 0
-                                                              ? expectedCompositionEpoch
-                                                              : _CaptureCompositionEpoch(),
-                                                          deferredReplayToken);
+    CPunctuationCommitEditSession *pEditSession = new (std::nothrow) CPunctuationCommitEditSession(
+        this, pContext, code, wch, requestId, requestStartQpc, std::move(prefetchedText),
+        expectedFocusToken != 0 ? expectedFocusToken : _CaptureFocusSessionToken(),
+        expectedCompositionEpoch != 0 ? expectedCompositionEpoch : _CaptureCompositionEpoch(), deferredReplayToken);
     if (pEditSession == nullptr)
     {
         _RetryDeferredKeyReplay(deferredReplayToken);
@@ -620,10 +596,8 @@ bool CMetasequoiaIME::_TakePendingServerCandidate(_Out_ UINT *pMsgType, _Out_ st
 }
 
 bool CMetasequoiaIME::_PostAsyncKeyRequest(UINT message, UINT code, WCHAR wch, uint64_t requestId,
-                                           std::wstring prefetchedText,
-                                           uint64_t expectedFocusToken,
-                                           uint64_t expectedCompositionEpoch,
-                                           uint64_t deferredReplayToken)
+                                           std::wstring prefetchedText, uint64_t expectedFocusToken,
+                                           uint64_t expectedCompositionEpoch, uint64_t deferredReplayToken)
 {
     switch (message)
     {
@@ -638,12 +612,9 @@ bool CMetasequoiaIME::_PostAsyncKeyRequest(UINT message, UINT code, WCHAR wch, u
     }
 
     constexpr size_t maxPendingAsyncKeys = 64;
-    const uint64_t focusToken = expectedFocusToken != 0
-                                    ? expectedFocusToken
-                                    : _CaptureFocusSessionToken();
-    const uint64_t compositionEpoch = expectedCompositionEpoch != 0
-                                          ? expectedCompositionEpoch
-                                          : _CaptureCompositionEpoch();
+    const uint64_t focusToken = expectedFocusToken != 0 ? expectedFocusToken : _CaptureFocusSessionToken();
+    const uint64_t compositionEpoch =
+        expectedCompositionEpoch != 0 ? expectedCompositionEpoch : _CaptureCompositionEpoch();
     const HWND ownerWindow = _msgWndHandle;
     if (focusToken == 0 || !ownerWindow || !IsWindow(ownerWindow))
     {
@@ -667,9 +638,9 @@ bool CMetasequoiaIME::_PostAsyncKeyRequest(UINT message, UINT code, WCHAR wch, u
             {
                 token = NextWindowMessageToken();
             } while (token == 0 || _pendingAsyncKeyMessages.count(token) != 0);
-            _pendingAsyncKeyMessages.emplace(
-                token, AsyncKeyRequest{message, code, wch, requestId, focusToken, compositionEpoch,
-                                       deferredReplayToken, std::move(prefetchedText)});
+            _pendingAsyncKeyMessages.emplace(token, AsyncKeyRequest{message, code, wch, requestId, focusToken,
+                                                                    compositionEpoch, deferredReplayToken,
+                                                                    std::move(prefetchedText)});
         }
     }
     if (token == 0)
@@ -734,8 +705,7 @@ bool CMetasequoiaIME::_PostServerTextDelivery(UINT windowMessage, _In_z_ const W
     {
         std::lock_guard<std::mutex> lock(_pendingCommitCandidateMutex);
         if (!_workerCommitReady.load(std::memory_order_relaxed) ||
-            _localSessionResetPending.load(std::memory_order_relaxed) ||
-            focusToken == 0 ||
+            _localSessionResetPending.load(std::memory_order_relaxed) || focusToken == 0 ||
             _expectedWorkerFocusToken.load(std::memory_order_relaxed) != focusToken ||
             _acknowledgedWorkerFocusToken.load(std::memory_order_relaxed) != focusToken ||
             _pendingServerCommitMessages.size() >= maxPendingServerCommits)
@@ -746,8 +716,8 @@ bool CMetasequoiaIME::_PostServerTextDelivery(UINT windowMessage, _In_z_ const W
         {
             token = NextWindowMessageToken();
         } while (token == 0 || _pendingServerCommitMessages.count(token) != 0);
-        _pendingServerCommitMessages.emplace(
-            token, WorkerCandidateCommit{text ? text : L"", focusToken, compositionEpoch});
+        _pendingServerCommitMessages.emplace(token,
+                                             WorkerCandidateCommit{text ? text : L"", focusToken, compositionEpoch});
     }
 
     if (!PostMessage(ownerWindow, windowMessage, static_cast<WPARAM>(token), 0))
@@ -808,8 +778,7 @@ bool CMetasequoiaIME::_PostWorkerCompartmentSwitch(UINT messageType, uint64_t fo
             token = NextWindowMessageToken();
         } while (token == 0 || _pendingWorkerSwitchMessages.count(token) != 0);
         _pendingWorkerSwitchMessages.emplace(
-            token, WorkerCompartmentSwitch{messageType, focusToken,
-                                           _CaptureCompositionEpoch()});
+            token, WorkerCompartmentSwitch{messageType, focusToken, _CaptureCompositionEpoch()});
     }
 
     if (!PostMessage(ownerWindow, WM_CheckGlobalCompartment, static_cast<WPARAM>(token), 0))
@@ -856,8 +825,7 @@ void CMetasequoiaIME::_ClearAsyncKeyRequests()
         {
             if (entry.second.deferredReplayToken != 0)
             {
-                deferredReplayTokens.push_back(
-                    entry.second.deferredReplayToken);
+                deferredReplayTokens.push_back(entry.second.deferredReplayToken);
             }
         }
         _pendingAsyncKeyMessages.clear();
@@ -927,8 +895,7 @@ uint64_t CMetasequoiaIME::_CaptureCompositionEpoch() const
 
 bool CMetasequoiaIME::_IsCompositionEpochCurrent(uint64_t compositionEpoch) const
 {
-    return compositionEpoch != 0 &&
-           _compositionEpoch.load(std::memory_order_acquire) == compositionEpoch;
+    return compositionEpoch != 0 && _compositionEpoch.load(std::memory_order_acquire) == compositionEpoch;
 }
 
 bool CMetasequoiaIME::_IsCompositionCurrent(_In_opt_ ITfComposition *expectedComposition) const
@@ -938,8 +905,7 @@ bool CMetasequoiaIME::_IsCompositionCurrent(_In_opt_ ITfComposition *expectedCom
 
 bool CMetasequoiaIME::_IsLocalSessionResetCurrent(UINT resetToken) const
 {
-    return resetToken != 0 && _localResetEditSessionQueued &&
-           _queuedLocalResetToken == resetToken &&
+    return resetToken != 0 && _localResetEditSessionQueued && _queuedLocalResetToken == resetToken &&
            _localSessionResetPending.load(std::memory_order_acquire) &&
            _localSessionResetToken.load(std::memory_order_acquire) == resetToken;
 }
@@ -962,13 +928,11 @@ void CMetasequoiaIME::_CompleteLocalSessionReset(UINT resetToken)
         _RequestLocalSessionReset(nullptr, currentToken);
         return;
     }
-    if (currentToken == resetToken && !_IsComposing() &&
-        _pCandidateListUIPresenter == nullptr)
+    if (currentToken == resetToken && !_IsComposing() && _pCandidateListUIPresenter == nullptr)
     {
         _localSessionResetPending.store(false, std::memory_order_release);
     }
-    else if (currentToken == resetToken &&
-             _localSessionResetPending.load(std::memory_order_acquire))
+    else if (currentToken == resetToken && _localSessionResetPending.load(std::memory_order_acquire))
     {
         // A granted edit session can still fail inside the key-state handler.
         // Do not reopen the transport while the old local composition or
@@ -976,8 +940,7 @@ void CMetasequoiaIME::_CompleteLocalSessionReset(UINT resetToken)
         if (Global::g_connected && _msgWndHandle && IsWindow(_msgWndHandle))
         {
             _ipcReconnectDelayMs = CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS;
-            SetTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE,
-                     _ipcReconnectDelayMs, nullptr);
+            SetTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE, _ipcReconnectDelayMs, nullptr);
         }
         return;
     }
@@ -990,8 +953,7 @@ void CMetasequoiaIME::_CompleteLocalSessionReset(UINT resetToken)
 
 void CMetasequoiaIME::_RequestLocalSessionReset(_In_opt_ ITfContext *preferredContext, UINT resetToken)
 {
-    if (resetToken == 0 ||
-        _localSessionResetToken.load(std::memory_order_acquire) != resetToken ||
+    if (resetToken == 0 || _localSessionResetToken.load(std::memory_order_acquire) != resetToken ||
         !_localSessionResetPending.load(std::memory_order_acquire))
     {
         return;
@@ -1047,10 +1009,8 @@ void CMetasequoiaIME::_RequestLocalSessionReset(_In_opt_ ITfContext *preferredCo
         _localResetEditSessionQueued = true;
         _queuedLocalResetToken = resetToken;
         const HRESULT resetRequestHr =
-            _InvokeKeyHandler(resetContext, 0, L'\0', 0, keyState,
-                              FANY_IME_NO_REQUEST_ID, {}, resetToken);
-        if (FAILED(resetRequestHr) && _localResetEditSessionQueued &&
-            _queuedLocalResetToken == resetToken)
+            _InvokeKeyHandler(resetContext, 0, L'\0', 0, keyState, FANY_IME_NO_REQUEST_ID, {}, resetToken);
+        if (FAILED(resetRequestHr) && _localResetEditSessionQueued && _queuedLocalResetToken == resetToken)
         {
             // The edit session was not accepted and therefore cannot retire
             // its queue slot. Keep the exact reset gate closed and retry from
@@ -1061,8 +1021,7 @@ void CMetasequoiaIME::_RequestLocalSessionReset(_In_opt_ ITfContext *preferredCo
             if (Global::g_connected && _msgWndHandle && IsWindow(_msgWndHandle))
             {
                 _ipcReconnectDelayMs = CONNECT_NAMEDPIPE_RETRY_INTERVAL_MS;
-                SetTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE,
-                         _ipcReconnectDelayMs, nullptr);
+                SetTimer(_msgWndHandle, TIMER_CONNECT_ALL_NAMEDPIPE, _ipcReconnectDelayMs, nullptr);
             }
         }
         resetContext->Release();
@@ -1114,7 +1073,6 @@ void CMetasequoiaIME::_DrainPendingCandidatePresenterCleanup()
             ++cleanedCount;
         }
     }
-
 }
 
 //+---------------------------------------------------------------------------
@@ -1248,11 +1206,9 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
     _localSessionResetPending.store(false, std::memory_order_release);
     _localResetEditSessionQueued = false;
     _queuedLocalResetToken = 0;
-    BindNamedpipeFocusState(this, &_focusResetPending, &_activationRequired,
-                            &_expectedWorkerFocusToken, &_localSessionResetPending,
-                            &_localSessionResetToken, &_workerCommitReady,
-                            &_acknowledgedWorkerFocusToken,
-                            &_hToTsfWorkerThreadPipe, &_workerPipeGeneration);
+    BindNamedpipeFocusState(this, &_focusResetPending, &_activationRequired, &_expectedWorkerFocusToken,
+                            &_localSessionResetPending, &_localSessionResetToken, &_workerCommitReady,
+                            &_acknowledgedWorkerFocusToken, &_hToTsfWorkerThreadPipe, &_workerPipeGeneration);
 
     /*
     std::wstring processName = FanyUtils::GetCurrentProcessName();
@@ -1366,7 +1322,6 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
     // Apply configured default CN/EN whenever switching back to this IME
     _pCompositionProcessorEngine->InitializeMetasequoiaIMECompartment(pThreadMgr, tfClientId);
 
-
     // The first connect timer can run before the engine exists. Re-arm after
     // compartment initialization so an already-focused activation always
     // replays both ownership and a complete status snapshot.
@@ -1394,14 +1349,12 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
 
         if (hwndTarget)
         {
-            DPI_AWARENESS awareness =
-                GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwndTarget));
+            DPI_AWARENESS awareness = GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwndTarget));
 
             if (awareness == DPI_AWARENESS_UNAWARE)
             {
                 /* 宿主是非感知程序，需要反向缩放 */
-                DPI_AWARENESS_CONTEXT oldCtx =
-                    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+                DPI_AWARENESS_CONTEXT oldCtx = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
                 HMONITOR hMon = MonitorFromWindow(hwndTarget, MONITOR_DEFAULTTONEAREST);
                 UINT dpiX = 96, dpiY = 96;
                 GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
@@ -1431,8 +1384,7 @@ STDAPI CMetasequoiaIME::Deactivate()
     // Send this synchronously before destroying the message window. OnKill can
     // queue the same lifecycle event, but that queued message may never run
     // during a rapid TIP deactivation; the server treats duplicates as idempotent.
-    const uint64_t deactivatedFocusToken =
-        _expectedWorkerFocusToken.load(std::memory_order_acquire);
+    const uint64_t deactivatedFocusToken = _expectedWorkerFocusToken.load(std::memory_order_acquire);
     Global::g_connected = false;
     _workerCommitReady.store(false, std::memory_order_release);
     BeginNamedpipeLocalSessionReset(); // invalidate queued dirty-reset messages
@@ -1599,8 +1551,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             const HWND ownerWindow = pIME->_msgWndHandle;
             if (ownerWindow && IsWindow(ownerWindow))
             {
-                PostMessage(ownerWindow, WM_IpcWorkerDisconnected,
-                            reinterpret_cast<WPARAM>(disconnectedPipe),
+                PostMessage(ownerWindow, WM_IpcWorkerDisconnected, reinterpret_cast<WPARAM>(disconnectedPipe),
                             static_cast<LPARAM>(disconnectedGeneration));
             }
         }
@@ -1719,7 +1670,9 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 validFrame = false;
             }
         }
-        if (validFrame && buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged)
+        if (validFrame && (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
+                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
+                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged))
         {
             bool hasTerminator = false;
             for (const wchar_t ch : buf.data)
@@ -1767,6 +1720,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             // Soft config/control frames: drop without killing the worker pipe.
             if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PagingCommaPeriodChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::FocusSessionReady)
             {
@@ -1782,8 +1737,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
 
         if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::FocusSessionReady)
         {
-            const uint64_t expectedToken =
-                pIME->_expectedWorkerFocusToken.load(std::memory_order_acquire);
+            const uint64_t expectedToken = pIME->_expectedWorkerFocusToken.load(std::memory_order_acquire);
             if (expectedToken != 0 && focusToken == expectedToken)
             {
                 pIME->_acknowledgedWorkerFocusToken.store(focusToken, std::memory_order_release);
@@ -1807,8 +1761,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         else if (buf.msg_type >= Global::DataToTsfWorkerThreadMsgType::SwitchToEnglish &&
                  buf.msg_type <= Global::DataToTsfWorkerThreadMsgType::SwitchToHalfwidth)
         {
-            const uint64_t focusToken =
-                pIME->_expectedWorkerFocusToken.load(std::memory_order_acquire);
+            const uint64_t focusToken = pIME->_expectedWorkerFocusToken.load(std::memory_order_acquire);
             pIME->_PostWorkerCompartmentSwitch(buf.msg_type, focusToken);
         }
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PagingCommaPeriodChanged)
@@ -1827,6 +1780,10 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged)
         {
             Global::PairedPunctuationEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
+        }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged)
+        {
+            Global::MicrosoftShuangpinEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
         }
     }
 }
@@ -1954,8 +1911,10 @@ void CMetasequoiaIME::_StopThemeRegistryWatcher()
 //----------------------------------------------------------------------------
 void CMetasequoiaIME::_WakeServerIfNeeded()
 {
-    if (_IsSecureMode() || _IsComLess() || IsServerAlreadyRunning()) return;
-    if (!RequestServerLaunch()) return;
+    if (_IsSecureMode() || _IsComLess() || IsServerAlreadyRunning())
+        return;
+    if (!RequestServerLaunch())
+        return;
 
     _ipcConsecutiveFailures = 0;
     if (Global::g_connected && _msgWndHandle && IsWindow(_msgWndHandle))
@@ -2040,10 +1999,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                         _KEYSTROKE_STATE keyState = {};
                         keyState.Category = CATEGORY_COMPOSING;
                         keyState.Function = FUNCTION_TOGGLE_IME_MODE;
-                        if (FAILED(pIME->_InvokeKeyHandler(context, 0, L'\0', 0, keyState,
-                                                           FANY_IME_NO_REQUEST_ID, {}, 0,
-                                                           request.compositionEpoch,
-                                                           request.focusToken)))
+                        if (FAILED(pIME->_InvokeKeyHandler(context, 0, L'\0', 0, keyState, FANY_IME_NO_REQUEST_ID, {},
+                                                           0, request.compositionEpoch, request.focusToken)))
                         {
                             MarkNamedpipeSessionDirtyForOwner(pIME);
                         }
@@ -2160,10 +2117,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         // just the missing channel(s).
         if (Global::g_connected)
         {
-            const bool resetPending =
-                pIME->_localSessionResetPending.load(std::memory_order_acquire);
-            const bool activated =
-                !resetPending && EnsureNamedpipeFocusSessionActivated();
+            const bool resetPending = pIME->_localSessionResetPending.load(std::memory_order_acquire);
+            const bool activated = !resetPending && EnsureNamedpipeFocusSessionActivated();
             if (activated)
             {
                 KillTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE);
@@ -2213,16 +2168,13 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
 
             if (pIME->_localSessionResetPending.load(std::memory_order_acquire))
             {
-                const UINT resetToken =
-                    pIME->_localSessionResetToken.load(std::memory_order_acquire);
+                const UINT resetToken = pIME->_localSessionResetToken.load(std::memory_order_acquire);
                 pIME->_RequestLocalSessionReset(nullptr, resetToken);
                 if (pIME->_localSessionResetPending.load(std::memory_order_acquire))
                 {
                     pIME->_ipcReconnectDelayMs =
-                        min(pIME->_ipcReconnectDelayMs * 2,
-                            CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS);
-                    SetTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE,
-                             pIME->_ipcReconnectDelayMs, nullptr);
+                        min(pIME->_ipcReconnectDelayMs * 2, CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS);
+                    SetTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE, pIME->_ipcReconnectDelayMs, nullptr);
                     break;
                 }
             }
@@ -2238,8 +2190,7 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
             }
             // Keep retrying while this TSF thread owns UI focus. The server
             // can be restarted independently of the host application.
-            pIME->_ipcReconnectDelayMs =
-                min(pIME->_ipcReconnectDelayMs * 2, CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS);
+            pIME->_ipcReconnectDelayMs = min(pIME->_ipcReconnectDelayMs * 2, CONNECT_NAMEDPIPE_MAX_RETRY_INTERVAL_MS);
             SetTimer(hWnd, TIMER_CONNECT_ALL_NAMEDPIPE, pIME->_ipcReconnectDelayMs, nullptr);
             break;
         }
@@ -2308,11 +2259,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 _KEYSTROKE_STATE KeystrokeState;
                 KeystrokeState.Category = CATEGORY_CANDIDATE;
                 KeystrokeState.Function = FUNCTION_FINALIZE_CANDIDATELIST;
-                pIME->_InvokeKeyHandler(pContext, 0, 0, 0, KeystrokeState,
-                                        FANY_IME_UNSOLICITED_REQUEST_ID,
-                                        std::move(request.text), 0,
-                                        request.compositionEpoch,
-                                        request.focusToken);
+                pIME->_InvokeKeyHandler(pContext, 0, 0, 0, KeystrokeState, FANY_IME_UNSOLICITED_REQUEST_ID,
+                                        std::move(request.text), 0, request.compositionEpoch, request.focusToken);
                 pContext->Release();
             }
             pDocMgrFocus->Release();
@@ -2340,11 +2288,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 _KEYSTROKE_STATE KeystrokeState;
                 KeystrokeState.Category = CATEGORY_COMPOSING;
                 KeystrokeState.Function = FUNCTION_INSERT_TEXT;
-                pIME->_InvokeKeyHandler(pContext, 0, 0, 0, KeystrokeState,
-                                        FANY_IME_UNSOLICITED_REQUEST_ID,
-                                        std::move(request.text), 0,
-                                        request.compositionEpoch,
-                                        request.focusToken);
+                pIME->_InvokeKeyHandler(pContext, 0, 0, 0, KeystrokeState, FANY_IME_UNSOLICITED_REQUEST_ID,
+                                        std::move(request.text), 0, request.compositionEpoch, request.focusToken);
                 pContext->Release();
             }
             pDocMgrFocus->Release();
@@ -2375,11 +2320,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 _KEYSTROKE_STATE KeystrokeState;
                 KeystrokeState.Category = CATEGORY_CANDIDATE;
                 KeystrokeState.Function = FUNCTION_FINALIZE_CANDIDATELIST;
-                pIME->_InvokeKeyHandler(pContext, request.code, request.wch, 0, KeystrokeState,
-                                        request.requestId, {}, 0,
-                                        request.compositionEpoch,
-                                        request.focusToken,
-                                        request.deferredReplayToken);
+                pIME->_InvokeKeyHandler(pContext, request.code, request.wch, 0, KeystrokeState, request.requestId, {},
+                                        0, request.compositionEpoch, request.focusToken, request.deferredReplayToken);
                 handedOffReplay = true;
                 pContext->Release();
             }
@@ -2414,14 +2356,13 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         {
             if (SUCCEEDED(pDocMgrFocus->GetTop(&pContext)) && pContext)
             {
-                const bool useDirectPunctuationSession = pIME->_candidateMode == CANDIDATE_NONE && !pIME->_IsComposing();
+                const bool useDirectPunctuationSession =
+                    pIME->_candidateMode == CANDIDATE_NONE && !pIME->_IsComposing();
                 if (useDirectPunctuationSession)
                 {
                     pIME->_RequestDirectPunctuationEditSession(pContext, code, wch, request.requestId,
-                                                               std::move(request.prefetchedText),
-                                                               request.focusToken,
-                                                               request.compositionEpoch,
-                                                               request.deferredReplayToken);
+                                                               std::move(request.prefetchedText), request.focusToken,
+                                                               request.compositionEpoch, request.deferredReplayToken);
                     handedOffReplay = true;
                 }
                 else
@@ -2430,10 +2371,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                     KeystrokeState.Category = CATEGORY_COMPOSING;
                     KeystrokeState.Function = FUNCTION_PUNCTUATION;
                     pIME->_InvokeKeyHandler(pContext, code, wch, 0, KeystrokeState, request.requestId,
-                                            std::move(request.prefetchedText), 0,
-                                            request.compositionEpoch,
-                                            request.focusToken,
-                                            request.deferredReplayToken);
+                                            std::move(request.prefetchedText), 0, request.compositionEpoch,
+                                            request.focusToken, request.deferredReplayToken);
                     handedOffReplay = true;
                 }
                 pContext->Release();
@@ -2460,8 +2399,7 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         }
         const UINT code = request.code;
         const WCHAR wch = request.wch;
-        FanyImeNamedpipeDataToTsf *receivedData =
-            TryReadDataFromServerPipeWithTimeout(request.requestId);
+        FanyImeNamedpipeDataToTsf *receivedData = TryReadDataFromServerPipeWithTimeout(request.requestId);
         if (receivedData->msg_type == Global::DataFromServerMsgType::TransportUnavailable)
         {
             // Keep the existing composition intact. A transport failure is
@@ -2494,11 +2432,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 const WCHAR preceding = commitText.empty() ? 0 : commitText.back();
                 commitText.append(pIME->_ResolveSmartPunctuation(wch, preceding));
             }
-            pIME->_PostAsyncKeyRequest(WM_AsyncPunctuationCommit, code, wch,
-                                       request.requestId, std::move(commitText),
-                                       request.focusToken,
-                                       request.compositionEpoch,
-                                       request.deferredReplayToken);
+            pIME->_PostAsyncKeyRequest(WM_AsyncPunctuationCommit, code, wch, request.requestId, std::move(commitText),
+                                       request.focusToken, request.compositionEpoch, request.deferredReplayToken);
         }
         else
         {
@@ -2533,11 +2468,8 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
                 _KEYSTROKE_STATE KeystrokeState;
                 KeystrokeState.Category = CATEGORY_CANDIDATE;
                 KeystrokeState.Function = FUNCTION_SELECT_BY_NUMBER;
-                pIME->_InvokeKeyHandler(pContext, request.code, request.wch, 0, KeystrokeState,
-                                        request.requestId, {}, 0,
-                                        request.compositionEpoch,
-                                        request.focusToken,
-                                        request.deferredReplayToken);
+                pIME->_InvokeKeyHandler(pContext, request.code, request.wch, 0, KeystrokeState, request.requestId, {},
+                                        0, request.compositionEpoch, request.focusToken, request.deferredReplayToken);
                 handedOffReplay = true;
                 pContext->Release();
             }
