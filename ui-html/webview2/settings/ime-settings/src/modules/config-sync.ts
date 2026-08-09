@@ -90,6 +90,12 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.input?.smart_punctuation === 'boolean') {
       applyToggleState('smartPunctuationToggleBtn', payload.data.input.smart_punctuation);
     }
+    if (typeof payload.data?.input?.smart_punctuation_repeat_to_chinese === 'boolean') {
+      applyToggleState(
+        'smartPunctuationRepeatToChineseToggleBtn',
+        payload.data.input.smart_punctuation_repeat_to_chinese
+      );
+    }
     if (typeof payload.data?.input?.paired_punctuation === 'boolean') {
       applyToggleState('pairedPunctuationToggleBtn', payload.data.input.paired_punctuation);
     }

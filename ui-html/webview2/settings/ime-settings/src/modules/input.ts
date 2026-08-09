@@ -72,6 +72,9 @@ export function setupInput(): void {
   setupToggleButton('smartPunctuationToggleBtn', (active) => {
     updateConfig('input.smart_punctuation', active);
   });
+  setupToggleButton('smartPunctuationRepeatToChineseToggleBtn', (active) => {
+    updateConfig('input.smart_punctuation_repeat_to_chinese', active);
+  });
   setupToggleButton('pairedPunctuationToggleBtn', (active) => {
     updateConfig('input.paired_punctuation', active);
   });
