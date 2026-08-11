@@ -155,10 +155,13 @@ void CMetasequoiaIME::_ResetSmartPunctuationHistory()
 
 bool CMetasequoiaIME::_QueueRepeatedSmartPunctuationReplacement(WCHAR wch)
 {
-    if (!_smartPunctuationCommittedAscii || _smartPunctuationKey != wch ||
-        _smartPunctuationCommitTick == 0 || _msgWndHandle == nullptr ||
-        _pCompositionProcessorEngine == nullptr || _IsComposing() ||
-        _candidateMode != CANDIDATE_NONE ||
+    // Backspace rejection means the ASCII form is already gone. Treating the
+    // next press as "replace the still-visible ASCII punct" would SendInput a
+    // Backspace into the preceding character instead.
+    if (!_smartPunctuationCommittedAscii || _smartPunctuationAsciiRejected ||
+        _smartPunctuationKey != wch || _smartPunctuationCommitTick == 0 ||
+        _msgWndHandle == nullptr || _pCompositionProcessorEngine == nullptr ||
+        _IsComposing() || _candidateMode != CANDIDATE_NONE ||
         !Global::SmartPunctuationEnabled.load(std::memory_order_relaxed) ||
         !Global::SmartPunctuationRepeatToChineseEnabled.load(std::memory_order_relaxed))
     {
@@ -302,6 +305,11 @@ void CMetasequoiaIME::_NoteKeyForSmartPunctuation(UINT code, WCHAR wch, bool isE
         if (_smartPunctuationCommittedAscii)
         {
             _smartPunctuationAsciiRejected = true;
+            // ASCII punct is gone; disarm repeat-to-Chinese replacement so a
+            // quick retype takes the reject path instead of SendInput(VK_BACK).
+            _smartPunctuationCommitTick = 0;
+            _smartPunctuationFocusToken = 0;
+            _smartPunctuationForegroundWindow = nullptr;
             // UpdateShadow already cleared the punctuation shadow. Restore the
             // preceding character recorded at commit so a retype can still match
             // the reject spot when the host text store cannot re-read it.
