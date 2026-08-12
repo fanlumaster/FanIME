@@ -194,6 +194,7 @@ NoPresenter:
 HRESULT CMetasequoiaIME::_HandleCandidateFinalizeForVKReturn(TfEditCookie ec, _In_ ITfContext *pContext)
 {
     HRESULT hr = S_OK;
+    WCHAR committedLastChar = 0;
 
     CStringRange keyStrokebuffer = _pCompositionProcessorEngine->GetKeystrokeBuffer();
     DWORD_PTR keystrokeBufLen = keyStrokebuffer.GetLength();
@@ -213,11 +214,25 @@ HRESULT CMetasequoiaIME::_HandleCandidateFinalizeForVKReturn(TfEditCookie ec, _I
         {
             return hr;
         }
+
+        committedLastChar = candidateString.Get()[candidateLen - 1];
     }
 
 NoPresenter:
 
     _HandleComplete(ec, pContext);
+
+    // OnTestKeyDown invalidates the shadow for VK_RETURN because Enter usually
+    // moves the caret or changes the host document. This Enter was consumed by
+    // the IME, however, and committed the raw composition without moving the
+    // caret. Preserve the actual last committed character for shallow text
+    // stores, which cannot reliably expose it via GetText when the next smart
+    // punctuation edit session runs.
+    if (committedLastChar != 0)
+    {
+        _smartPunctuationShadowChar = committedLastChar;
+        _smartPunctuationShadowValid = true;
+    }
 
     return hr;
 }
