@@ -451,7 +451,16 @@ CMetasequoiaIME::CMetasequoiaIME()
     _shiftHotkeyArmed = false;
     _ctrlHotkeyArmed = false;
     _modifierHotkeyExpire = {};
+    _minttyKeyboardHook = nullptr;
+    _minttyShiftDownMask = 0;
+    _minttyShiftArmed = false;
+    _minttyShiftSequence = 0;
+    _minttyShiftHandledSequence = 0;
+    _minttyShiftFocusGeneration = 0;
+    _minttyShiftExpireTick = 0;
 }
+
+thread_local CMetasequoiaIME *CMetasequoiaIME::_minttyKeyboardHookOwner = nullptr;
 
 //+---------------------------------------------------------------------------
 //
@@ -461,6 +470,7 @@ CMetasequoiaIME::CMetasequoiaIME()
 
 CMetasequoiaIME::~CMetasequoiaIME()
 {
+    _UninitMinttyKeyboardHook();
     _ClearDeferredKeyDowns();
     // Deactivate normally owns the unbind.  Keep this owner-aware fallback for
     // partial activation failures without allowing a delayed old service
@@ -1321,6 +1331,7 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
 
     // Apply configured default CN/EN whenever switching back to this IME
     _pCompositionProcessorEngine->InitializeMetasequoiaIMECompartment(pThreadMgr, tfClientId);
+    _InitMinttyKeyboardHook();
 
     // The first connect timer can run before the engine exists. Re-arm after
     // compartment initialization so an already-focused activation always
@@ -1379,6 +1390,7 @@ ExitError:
 
 STDAPI CMetasequoiaIME::Deactivate()
 {
+    _UninitMinttyKeyboardHook();
     Global::HostUiLessMode = false;
     Global::CandidateUiLessMode = false;
     // Send this synchronously before destroying the message window. OnKill can
@@ -1980,6 +1992,10 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
 
     switch (message)
     {
+    case WM_MinttyShiftRelease:
+        pIME->_HandleMinttyShiftRelease(static_cast<UINT>(wParam));
+        return 0;
+
     case WM_CheckGlobalCompartment: {
         CMetasequoiaIME::WorkerCompartmentSwitch request;
         if (!pIME->_TakeWorkerCompartmentSwitch(static_cast<UINT>(wParam), request))

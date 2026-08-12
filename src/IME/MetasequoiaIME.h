@@ -39,6 +39,7 @@ const DWORD WM_InsertText = WM_USER + 19;
 const DWORD WM_RefreshLanguageBarTheme = WM_USER + 20;
 const DWORD WM_PairedPunctuationMoveLeft = WM_USER + 21;
 const DWORD WM_ReplaceRepeatedSmartPunctuation = WM_USER + 22;
+const DWORD WM_MinttyShiftRelease = WM_USER + 23;
 constexpr ULONG_PTR SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO = 0x4D535050u;
 constexpr ULONGLONG SMART_PUNCTUATION_REPEAT_INTERVAL_MS = 2000;
 constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
@@ -371,6 +372,18 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     bool _QueueInputHotkey(_In_ ITfContext *pContext, REFGUID hotkeyGuid,
                            _Out_ BOOL *pIsEaten);
 
+    // mintty exposes IME composition through the legacy IMM bridge, but some
+    // versions do not forward bare modifier key-up events to ITfKeyEventSink.
+    // Observe only this host thread and feed a missed bare-Shift release back
+    // into the normal deferred hotkey path.
+    void _InitMinttyKeyboardHook();
+    void _UninitMinttyKeyboardHook();
+    void _HandleMinttyShiftRelease(UINT sequence);
+    void _MarkMinttyShiftHandled();
+    static LRESULT CALLBACK _MinttyKeyboardHookProc(int code, WPARAM wParam,
+                                                     LPARAM lParam);
+    static thread_local CMetasequoiaIME *_minttyKeyboardHookOwner;
+
     void _StartComposition(_In_ ITfContext *pContext);
     HRESULT _EndComposition(_In_opt_ ITfContext *pContext,
                             _In_opt_ ITfComposition *expectedComposition = nullptr,
@@ -575,6 +588,14 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     bool _shiftHotkeyArmed;
     bool _ctrlHotkeyArmed;
     std::chrono::steady_clock::time_point _modifierHotkeyExpire;
+
+    HHOOK _minttyKeyboardHook;
+    BYTE _minttyShiftDownMask;
+    bool _minttyShiftArmed;
+    UINT _minttyShiftSequence;
+    UINT _minttyShiftHandledSequence;
+    uint64_t _minttyShiftFocusGeneration;
+    ULONGLONG _minttyShiftExpireTick;
 
     LONG _refCount;
 

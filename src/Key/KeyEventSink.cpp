@@ -206,10 +206,185 @@ bool IsWinVk(UINT code)
 {
     return code == VK_LWIN || code == VK_RWIN;
 }
+
+bool IsOtherKeyboardKeyDown()
+{
+    // Mouse buttons occupy the first virtual-key values.  Start at Backspace
+    // so holding a mouse button does not turn a bare Shift into a chord.
+    for (UINT code = VK_BACK; code <= 0xfe; ++code)
+    {
+        if (!IsShiftVk(code) && (GetAsyncKeyState(code) & 0x8000) != 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace
 
+void CMetasequoiaIME::_InitMinttyKeyboardHook()
+{
+    if (_minttyKeyboardHook != nullptr || _minttyKeyboardHookOwner != nullptr ||
+        CompareStringOrdinal(Global::current_process_name.c_str(), -1,
+                             L"mintty.exe", -1, TRUE) != CSTR_EQUAL)
+    {
+        return;
+    }
+
+    _minttyKeyboardHookOwner = this;
+    _minttyKeyboardHook = SetWindowsHookExW(
+        WH_KEYBOARD, _MinttyKeyboardHookProc, nullptr, GetCurrentThreadId());
+    if (_minttyKeyboardHook == nullptr)
+    {
+        _minttyKeyboardHookOwner = nullptr;
+    }
+}
+
+void CMetasequoiaIME::_UninitMinttyKeyboardHook()
+{
+    HHOOK hook = _minttyKeyboardHook;
+    _minttyKeyboardHook = nullptr;
+    if (_minttyKeyboardHookOwner == this)
+    {
+        _minttyKeyboardHookOwner = nullptr;
+    }
+    if (hook != nullptr)
+    {
+        UnhookWindowsHookEx(hook);
+    }
+
+    _minttyShiftDownMask = 0;
+    _minttyShiftArmed = false;
+    _minttyShiftFocusGeneration = 0;
+    _minttyShiftExpireTick = 0;
+}
+
+LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code,
+                                                           WPARAM wParam,
+                                                           LPARAM lParam)
+{
+    CMetasequoiaIME *owner = _minttyKeyboardHookOwner;
+    if (code == HC_ACTION && owner != nullptr &&
+        static_cast<ULONG_PTR>(GetMessageExtraInfo()) !=
+            SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
+    {
+        const UINT virtualKey = static_cast<UINT>(wParam);
+        const bool isShift = IsShiftVk(virtualKey);
+        const bool isKeyUp = (static_cast<ULONG_PTR>(lParam) & 0x80000000u) != 0;
+        const bool wasDown = (static_cast<ULONG_PTR>(lParam) & 0x40000000u) != 0;
+
+        if (isShift)
+        {
+            const UINT scanCode =
+                (static_cast<UINT>(lParam) >> 16) & 0x00ffu;
+            const BYTE shiftBit = scanCode == 0x36 ? 0x02 : 0x01;
+            if (!isKeyUp)
+            {
+                if (!wasDown)
+                {
+                    if (owner->_minttyShiftDownMask == 0)
+                    {
+                        owner->_minttyShiftArmed = !IsOtherKeyboardKeyDown();
+                        ++owner->_minttyShiftSequence;
+                        if (owner->_minttyShiftSequence == 0)
+                        {
+                            ++owner->_minttyShiftSequence;
+                        }
+                        owner->_minttyShiftFocusGeneration =
+                            owner->_deferredKeyFocusGeneration;
+                        owner->_minttyShiftExpireTick =
+                            GetTickCount64() + static_cast<ULONGLONG>(
+                                                   kModifierHotkeyToggleLimit.count());
+                    }
+                    owner->_minttyShiftDownMask |= shiftBit;
+                }
+            }
+            else
+            {
+                owner->_minttyShiftDownMask &= static_cast<BYTE>(~shiftBit);
+                if (owner->_minttyShiftDownMask == 0)
+                {
+                    const bool shouldPost =
+                        owner->_minttyShiftArmed &&
+                        GetTickCount64() < owner->_minttyShiftExpireTick;
+                    owner->_minttyShiftArmed = false;
+                    if (shouldPost && owner->_msgWndHandle != nullptr)
+                    {
+                        PostMessage(owner->_msgWndHandle, WM_MinttyShiftRelease,
+                                    owner->_minttyShiftSequence, 0);
+                    }
+                }
+            }
+        }
+        else if (!isKeyUp)
+        {
+            owner->_minttyShiftArmed = false;
+        }
+    }
+
+    return CallNextHookEx(owner ? owner->_minttyKeyboardHook : nullptr, code,
+                          wParam, lParam);
+}
+
+void CMetasequoiaIME::_MarkMinttyShiftHandled()
+{
+    if (_minttyKeyboardHook != nullptr)
+    {
+        _minttyShiftHandledSequence = _minttyShiftSequence;
+    }
+}
+
+void CMetasequoiaIME::_HandleMinttyShiftRelease(UINT sequence)
+{
+    if (_minttyKeyboardHook == nullptr || sequence == 0 ||
+        sequence != _minttyShiftSequence ||
+        sequence == _minttyShiftHandledSequence ||
+        _minttyShiftFocusGeneration != _deferredKeyFocusGeneration ||
+        !Global::g_connected || _pThreadMgr == nullptr ||
+        _pCompositionProcessorEngine == nullptr ||
+        (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 ||
+        !FanyUtils::ReadConfiguredSwitchLanguageHotkeys().shift)
+    {
+        return;
+    }
+
+    BOOL hasThreadFocus = FALSE;
+    if (FAILED(_pThreadMgr->IsThreadFocus(&hasThreadFocus)) || !hasThreadFocus)
+    {
+        return;
+    }
+
+    ITfDocumentMgr *documentMgr = nullptr;
+    ITfContext *context = nullptr;
+    if (FAILED(_pThreadMgr->GetFocus(&documentMgr)) || documentMgr == nullptr)
+    {
+        return;
+    }
+    const HRESULT getTopResult = documentMgr->GetTop(&context);
+    documentMgr->Release();
+    if (FAILED(getTopResult) || context == nullptr)
+    {
+        return;
+    }
+
+    BOOL eaten = FALSE;
+    if (_QueueInputHotkey(context, Global::MetasequoiaIMEGuidImeModePreserveKey,
+                          &eaten))
+    {
+        _minttyShiftHandledSequence = sequence;
+        _shiftHotkeyArmed = false;
+        _ctrlHotkeyArmed = false;
+        Global::IsShiftKeyDownOnly = FALSE;
+        Global::PureShiftKeyDown = FALSE;
+        Global::PureShiftKeyUp = FALSE;
+        Global::ModifiersValue &=
+            ~(TF_MOD_SHIFT | TF_MOD_LSHIFT | TF_MOD_RSHIFT);
+    }
+    context->Release();
+}
+
 void CMetasequoiaIME::_TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam,
-                                                 bool isKeyUp)
+                                                  bool isKeyUp)
 {
     if (isKeyUp)
     {
@@ -2103,6 +2278,7 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
             _ctrlHotkeyArmed = false;
             _pCompositionProcessorEngine->ToggleIMEMode(_GetThreadMgr(),
                                                          _GetClientId());
+            _MarkMinttyShiftHandled();
             _KEYSTROKE_STATE toggleState = {};
             toggleState.Category = CATEGORY_COMPOSING;
             toggleState.Function = FUNCTION_TOGGLE_IME_MODE;
@@ -2120,7 +2296,12 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
     GUID hotkeyGuid = {};
     if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false))
     {
-        _QueueInputHotkey(pContext, hotkeyGuid, pIsEaten);
+        if (_QueueInputHotkey(pContext, hotkeyGuid, pIsEaten) &&
+            IsEqualGUID(hotkeyGuid,
+                        Global::MetasequoiaIMEGuidImeModePreserveKey))
+        {
+            _MarkMinttyShiftHandled();
+        }
         return S_OK;
     }
 
