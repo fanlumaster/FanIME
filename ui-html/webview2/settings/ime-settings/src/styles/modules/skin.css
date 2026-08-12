@@ -1,4 +1,5 @@
 .skin-theme-card { padding: 0; overflow: hidden; }
+.skin-theme-card + .skin-theme-card { margin-top: 18px; }
 .skin-theme-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; }
 .skin-theme-description { margin-top: 5px; color: var(--text-muted); font-size: 13px; }
 .skin-theme-actions {
@@ -8,7 +9,7 @@
   gap: 8px;
   flex-shrink: 0;
 }
-.skin-theme-toggle { cursor: default; }
+.skin-theme-toggle { cursor: pointer; }
 .skin-preview-switch {
   height: 24px;
   padding: 0 10px;
@@ -21,17 +22,12 @@
   line-height: 1;
   cursor: pointer;
 }
-.skin-preview-switch:hover {
-  color: var(--text-color);
-  background: var(--button-secondary-bg);
-}
+.skin-preview-switch:hover { color: var(--text-color); background: var(--button-secondary-bg); }
 .skin-preview-list { padding: 9px 0; background: var(--skin-preview-stage-bg); }
 .skin-preview-row { min-width: 0; }
 .skin-preview-stage { display: flex; align-items: flex-start; justify-content: flex-start; min-width: 0; padding: 9px 24px; overflow: hidden; }
 .skin-preview-row .candidate { flex: 0 0 auto; align-items: flex-start; margin-top: 0; transform-origin: left center; }
 .skin-preview-horizontal .container {
-  /* Match the real candidate window: shrink to content, but wrap when the
-     available preview width is too small. */
   width: fit-content;
   max-width: 100%;
   min-width: 0;
@@ -40,3 +36,44 @@
   word-break: break-word;
 }
 .skin-preview-toolbar .ftb-preview-host { display: flex; align-items: center; justify-content: flex-start; padding: 0; }
+
+/* Preview equivalents of the standalone WeChat skin HTML files. */
+.candidate.skin-wechat.theme-dark {
+  --accent-strong: #07c160;
+  --cand-bg: #151515;
+  --cand-border: #292929;
+  --cand-shadow: 0 6px 18px rgba(0, 0, 0, .42);
+  --cand-text: #b7b7b7;
+  --cand-num: #858585;
+  --cand-hover: rgba(7, 193, 96, .22);
+  --cand-selected: #07c160;
+}
+.candidate.skin-wechat.theme-light {
+  --accent-strong: #07c160;
+  --cand-bg: #f7f7f7;
+  --cand-border: #dedede;
+  --cand-shadow: 0 5px 15px rgba(0, 0, 0, .14);
+  --cand-text: #333333;
+  --cand-num: #757575;
+  --cand-hover: rgba(7, 193, 96, .14);
+  --cand-selected: #07c160;
+}
+.candidate.skin-wechat .container { padding: 2px; border-radius: 5px; }
+.candidate.skin-wechat .cand { border-radius: 4px; }
+.candidate.skin-wechat .first { border-radius: 5px; }
+.candidate.skin-wechat .first::before { display: none; }
+.candidate.skin-wechat .first .text,
+.candidate.skin-wechat .first .num,
+.candidate.skin-wechat .first .cand-no { color: #fff; }
+
+.ftb-preview-host.skin-wechat.theme-dark .status-bar {
+  background-color: #151515;
+  border-color: #292929;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .38);
+}
+.ftb-preview-host.skin-wechat.theme-light .status-bar {
+  background-color: #f7f7f7;
+  border-color: #dedede;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .12);
+}
+.ftb-preview-host.skin-wechat .drag-handle { background: #07c160; }

@@ -2,10 +2,20 @@ import { loadHTML } from '../utils/common-utils';
 import ftbHTML from '../../../../ftb/default.html?raw';
 
 export type SkinPreviewTheme = 'dark' | 'light';
+export type CandidateSkin = 'fluent' | 'wechat';
 
-let previewOverride: SkinPreviewTheme | null = null;
+const SKINS: CandidateSkin[] = ['fluent', 'wechat'];
+const previewOverrides: Record<CandidateSkin, SkinPreviewTheme | null> = {
+  fluent: null,
+  wechat: null
+};
 let activeTheme: SkinPreviewTheme = 'dark';
+let activeSkin: CandidateSkin = 'fluent';
 const SKIN_PREVIEW_PAGE_SIZE = 6;
+
+function normalizeCandidateSkin(value: unknown): CandidateSkin {
+  return value === 'wechat' ? 'wechat' : 'fluent';
+}
 
 function limitCandidatePreview(host: HTMLElement): void {
   host.querySelectorAll<HTMLElement>('.row-wrapper').forEach((wrapper, index) => {
@@ -22,58 +32,108 @@ function fillToolbar(host: HTMLElement): void {
   host.replaceChildren(statusBar);
 }
 
-function applySkinPreviewTheme(theme: SkinPreviewTheme): void {
-  document.querySelectorAll('#skinCandidateHorizontal, #skinCandidateVertical').forEach((element) => {
-    element.classList.toggle('theme-light', theme === 'light');
-    element.classList.toggle('theme-dark', theme === 'dark');
-  });
-  document.querySelectorAll('#skinToolbarPreview').forEach((element) => {
-    element.classList.toggle('theme-light', theme === 'light');
-    element.classList.toggle('theme-dark', theme === 'dark');
-  });
+function applySkinPreviewTheme(skin: CandidateSkin, theme: SkinPreviewTheme): void {
+  const card = document.querySelector<HTMLElement>(`[data-candidate-skin="${skin}"]`);
+  if (!card) return;
 
-  const title = document.getElementById('skinThemeTitle');
-  const button = document.getElementById('skinPreviewSwitch');
+  card.querySelectorAll<HTMLElement>('[data-skin-horizontal], [data-skin-vertical], [data-skin-toolbar]')
+    .forEach((element) => {
+      element.classList.toggle('theme-light', theme === 'light');
+      element.classList.toggle('theme-dark', theme === 'dark');
+    });
+
+  const title = card.querySelector<HTMLElement>('.section-title');
   if (title) {
-    title.textContent = theme === 'light' ? 'Fluent 主题(Light)' : 'Fluent 主题(Dark)';
+    const name = skin === 'wechat' ? '微信绿主题' : 'Fluent 主题';
+    title.textContent = `${name}(${theme === 'light' ? 'Light' : 'Dark'})`;
   }
-  if (button) {
+  card.querySelectorAll<HTMLButtonElement>('[data-skin-preview-switch]').forEach((button) => {
     button.textContent = theme === 'light' ? '预览深色' : '预览浅色';
+  });
+}
+
+function resolvedPreviewTheme(skin: CandidateSkin): SkinPreviewTheme {
+  return previewOverrides[skin] ?? activeTheme;
+}
+
+function syncSkinSwitches(): void {
+  document.querySelectorAll<HTMLElement>('[data-skin-switch]').forEach((element) => {
+    const selected = element.dataset.skinSwitch === activeSkin;
+    element.classList.toggle('active', selected);
+    element.setAttribute('aria-checked', String(selected));
+  });
+}
+
+function syncAppearancePreviews(): void {
+  const useWechat = activeSkin === 'wechat';
+  document.querySelectorAll<HTMLElement>('.cand-preview .candidate').forEach((element) => {
+    element.classList.toggle('skin-wechat', useWechat);
+  });
+  document.querySelectorAll<HTMLElement>('.ftb-preview-host:not([data-skin-toolbar])').forEach((element) => {
+    element.classList.toggle('skin-wechat', useWechat);
+  });
+}
+
+function selectSkin(value: unknown, persist: boolean): void {
+  activeSkin = normalizeCandidateSkin(value);
+  syncSkinSwitches();
+  syncAppearancePreviews();
+  if (persist) {
+    window.chrome?.webview?.postMessage(JSON.stringify({
+      type: 'configUpdate',
+      data: { path: 'appearance.candidate_skin', value: activeSkin }
+    }));
   }
 }
 
-function resolvedPreviewTheme(): SkinPreviewTheme {
-  return previewOverride ?? activeTheme;
+export function applyCandidateSkin(value: unknown): void {
+  selectSkin(value, false);
 }
 
 export function syncSkinPreviewTheme(theme: SkinPreviewTheme): void {
   activeTheme = theme;
-  // When the real theme changes, drop manual override so preview follows config again.
-  previewOverride = null;
-  applySkinPreviewTheme(resolvedPreviewTheme());
+  SKINS.forEach((skin) => {
+    previewOverrides[skin] = null;
+    applySkinPreviewTheme(skin, resolvedPreviewTheme(skin));
+  });
 }
 
 export async function setupSkin(): Promise<void> {
-  const vertical = document.getElementById('skinCandidateVertical');
-  const horizontal = document.getElementById('skinCandidateHorizontal');
-  if (vertical) {
-    vertical.innerHTML = await loadHTML('/src/partials/candidate/candidate-wnd-v.html');
-    limitCandidatePreview(vertical);
-  }
-  if (horizontal) {
-    horizontal.innerHTML = await loadHTML('/src/partials/candidate/candidate-wnd-h.html');
-    limitCandidatePreview(horizontal);
-  }
+  const horizontalHtml = await loadHTML('/src/partials/candidate/candidate-wnd-h.html');
+  const verticalHtml = await loadHTML('/src/partials/candidate/candidate-wnd-v.html');
 
-  const toolbar = document.getElementById('skinToolbarPreview');
-  if (toolbar) fillToolbar(toolbar);
+  document.querySelectorAll<HTMLElement>('[data-skin-horizontal]').forEach((host) => {
+    host.innerHTML = horizontalHtml;
+    limitCandidatePreview(host);
+  });
+  document.querySelectorAll<HTMLElement>('[data-skin-vertical]').forEach((host) => {
+    host.innerHTML = verticalHtml;
+    limitCandidatePreview(host);
+  });
+  document.querySelectorAll<HTMLElement>('[data-skin-toolbar]').forEach(fillToolbar);
 
-  applySkinPreviewTheme(resolvedPreviewTheme());
+  SKINS.forEach((skin) => applySkinPreviewTheme(skin, resolvedPreviewTheme(skin)));
+  syncSkinSwitches();
+  syncAppearancePreviews();
 
-  const switchBtn = document.getElementById('skinPreviewSwitch');
-  switchBtn?.addEventListener('click', () => {
-    const current = resolvedPreviewTheme();
-    previewOverride = current === 'light' ? 'dark' : 'light';
-    applySkinPreviewTheme(previewOverride);
+  document.querySelectorAll<HTMLElement>('[data-skin-switch]').forEach((element) => {
+    const activate = () => selectSkin(element.dataset.skinSwitch, true);
+    element.addEventListener('click', activate);
+    element.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        activate();
+      }
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-skin-preview-switch]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const card = button.closest<HTMLElement>('[data-candidate-skin]');
+      const skin = normalizeCandidateSkin(card?.dataset.candidateSkin);
+      const current = resolvedPreviewTheme(skin);
+      previewOverrides[skin] = current === 'light' ? 'dark' : 'light';
+      applySkinPreviewTheme(skin, previewOverrides[skin]!);
+    });
   });
 }

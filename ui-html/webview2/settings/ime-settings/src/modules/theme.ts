@@ -179,8 +179,8 @@ function updateSkinThemeCard(
       `全局 ${modeLabel} · 设置 ${settingsResolved === 'light' ? '浅色' : '深色'} · 候选 ${candResolved === 'light' ? '浅色' : '深色'}`;
   }
 
-  // Skin gallery follows the global theme; the switch button can preview the other one.
-  syncSkinPreviewTheme(resolveTheme(mode, 'follow'));
+  // Fluent preview follows the same resolved theme as the real candidate surface.
+  syncSkinPreviewTheme(candResolved);
 }
 
 export function setThemeMode(value: string | undefined): void {
