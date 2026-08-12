@@ -96,13 +96,15 @@
   }
 
   .cand .text {
+    padding-left: calc(0.1em + 1px);
+    padding-right: 2.5px;
     line-height: 1.2;
   }
 
   .num {
     font-size: 0.8em;
     color: var(--cand-num);
-    margin-right: 1px;
+    margin-right: 0;
   }
 
   .pinyin {

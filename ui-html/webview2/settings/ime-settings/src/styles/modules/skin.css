@@ -45,7 +45,7 @@
   --cand-shadow: 0 6px 18px rgba(0, 0, 0, .42);
   --cand-text: #b7b7b7;
   --cand-num: #858585;
-  --cand-hover: rgba(7, 193, 96, .22);
+  --cand-hover: rgba(7, 193, 96, .32);
   --cand-selected: #07c160;
 }
 .candidate.skin-wechat.theme-light {
