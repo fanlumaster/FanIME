@@ -255,6 +255,7 @@ void PostConfig()
             {"date_time_mode", GetConfiguredDateTimeModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
             {"theme_mode", GetConfiguredThemeMode()},
@@ -346,6 +347,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.candidate_skin")
+        return SetConfiguredCandidateSkin(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_preedit_style")
         return SetConfiguredCandidateWindowPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.page_size")

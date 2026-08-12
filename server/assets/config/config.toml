@@ -78,6 +78,8 @@ page_size = 8
 candidate_window_follow_cursor = true
 # 候选窗口排列方式，可选："vertical", "horizontal"
 candidate_window_layout = "vertical"
+# 候选窗口与悬浮工具栏皮肤，可选："fluent", "wechat"
+candidate_skin = "fluent"
 # 候选窗口顶部预编辑，可选："pinyin", "empty"
 #   pinyin -> 显示分词预编辑（与候选框当前行为一致）
 #   empty  -> 隐藏顶部预编辑行

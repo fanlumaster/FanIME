@@ -74,6 +74,7 @@ bool g_smart_punctuation_enabled = true;
 bool g_smart_punctuation_repeat_to_chinese_enabled = true;
 bool g_paired_punctuation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
+std::string g_candidate_skin = "fluent";
 std::string g_candidate_window_preedit_style = "pinyin";
 std::string g_theme_mode = "dark";
 std::string g_theme_settings = "follow";
@@ -634,6 +635,8 @@ bool LoadImeConfig()
         }
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
+        const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
+        g_candidate_skin = skin == "wechat" ? "wechat" : "fluent";
         {
             const std::string preedit_style =
                 tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
@@ -1713,6 +1716,25 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout)
         return false;
     }
     g_candidate_window_layout = layout;
+    return true;
+}
+
+const std::string &GetConfiguredCandidateSkin()
+{
+    return g_candidate_skin;
+}
+
+bool SetConfiguredCandidateSkin(const std::string &skin)
+{
+    if (skin != "fluent" && skin != "wechat")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("appearance", "candidate_skin", EscapeTomlBasicString(skin)))
+    {
+        return false;
+    }
+    g_candidate_skin = skin;
     return true;
 }
 

@@ -1388,6 +1388,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
+            const std::string previous_candidate_skin = GetConfiguredCandidateSkin();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const FloatingToolbarItemsConfig previous_floating_toolbar_items = GetConfiguredFloatingToolbarItems();
             const double previous_floating_toolbar_scale = GetConfiguredFloatingToolbarScale();
@@ -1423,7 +1424,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 }
                 if (previous_layout != GetConfiguredCandidateWindowLayout())
                     ApplyConfiguredCandidateWindowLayout();
-                if (previous_theme_mode != GetConfiguredThemeMode() ||
+                if (previous_candidate_skin != GetConfiguredCandidateSkin() ||
+                    previous_theme_mode != GetConfiguredThemeMode() ||
                     previous_theme_cand != GetConfiguredThemeCand() || previous_theme_ftb != GetConfiguredThemeFtb() ||
                     previous_theme_menu != GetConfiguredThemeMenu())
                 {
@@ -1991,6 +1993,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
+            const std::string previous_candidate_skin = GetConfiguredCandidateSkin();
             const bool previous_floating_toolbar = GetConfiguredFloatingToolbarEnabled();
             const FloatingToolbarItemsConfig previous_floating_toolbar_items = GetConfiguredFloatingToolbarItems();
             const double previous_floating_toolbar_scale = GetConfiguredFloatingToolbarScale();
@@ -2031,7 +2034,8 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 {
                     ApplyConfiguredCandidateWindowLayout();
                 }
-                if (previous_theme_mode != GetConfiguredThemeMode() ||
+                if (previous_candidate_skin != GetConfiguredCandidateSkin() ||
+                    previous_theme_mode != GetConfiguredThemeMode() ||
                     previous_theme_cand != GetConfiguredThemeCand() || previous_theme_ftb != GetConfiguredThemeFtb() ||
                     previous_theme_menu != GetConfiguredThemeMenu())
                 {

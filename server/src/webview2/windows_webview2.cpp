@@ -1182,7 +1182,9 @@ int PrepareHtmlForWnds()
     //
     const bool isHorizontal = GetConfiguredCandidateWindowLayout() == "horizontal";
     const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
-    const wchar_t *candThemeSuffix = candLight ? L"light" : L"dark";
+    const bool useWechatSkin = GetConfiguredCandidateSkin() == "wechat";
+    const wchar_t *candThemeSuffix =
+        useWechatSkin ? (candLight ? L"wechat_light" : L"wechat") : (candLight ? L"light" : L"dark");
     std::wstring htmlCandWnd;
     std::wstring bodyHtmlCandWnd;
     std::wstring measureHtmlCandWnd;
@@ -1235,7 +1237,15 @@ int PrepareHtmlForWnds()
     // floating toolbar 窗口
     //
     const bool ftbLight = ResolveConfiguredTheme(GetConfiguredThemeFtb()) == "light";
-    std::wstring htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
+    std::wstring htmlFtbWnd;
+    if (useWechatSkin)
+    {
+        htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/wechat_light.html" : L"/html/webview2/ftb/wechat.html";
+    }
+    else
+    {
+        htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
+    }
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
     ::HTMLStringFtbWnd = ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
 
@@ -2401,6 +2411,15 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.candidate_skin")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCandidateSkin(value))
+                                {
+                                    ApplyConfiguredUiThemes();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.candidate_window_preedit_style")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -2918,6 +2937,7 @@ void PostSettingsConfig()
             {"date_time_mode", GetConfiguredDateTimeModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
             {"theme_mode", GetConfiguredThemeMode()},
