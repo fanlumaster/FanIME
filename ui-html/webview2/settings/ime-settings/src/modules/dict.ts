@@ -40,7 +40,7 @@ function renderRows(rows: DictionaryRow[]): void {
   const body = document.getElementById('dictRows');
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="${dictionary === 'english' ? 4 : 5}" class="dict-empty">没有找到词条</td></tr>`;
+    body.innerHTML = '<tr><td colspan="5" class="dict-empty">没有找到词条</td></tr>';
     syncTableHeaderWidth();
     return;
   }
@@ -51,7 +51,7 @@ function renderRows(rows: DictionaryRow[]): void {
     indexCell.textContent = String(index + 1);
     tr.appendChild(indexCell);
     const values = dictionary === 'english'
-      ? [row.word, row.display ?? row.word]
+      ? [row.word, row.display ?? row.word, String(row.weight ?? 0)]
       : [row.code ?? '', row.word, String(row.weight ?? 0)];
     values.forEach((value) => {
       const td = document.createElement('td');
@@ -93,16 +93,16 @@ function updateMode(): void {
   search.placeholder = english ? '输入英文前缀，例如 meta' : quanpin
     ? '输入完整全拼，例如 nihao' : '输入五笔编码前缀';
   document.getElementById('dictHint')!.textContent = english
-    ? '按英文前缀查询全部匹配结果'
+    ? '按英文前缀查询；批量导入格式为：单词<Tab>显示内容<Tab>权重（兼容无权重的两列文件）'
     : quanpin
       ? '全拼新增会校验拼音合法性、汉字数量和重复词条；批量导入格式为：词语 全拼 权重（空格或 Tab 分隔，全拼可用 \' 分音节，如 ni\'hao）'
       : '管理 86 五笔编码、词条及权重';
   const importButton = document.getElementById('dictImportButton') as HTMLButtonElement | null;
-  if (importButton) importButton.style.display = quanpin ? '' : 'none';
+  if (importButton) importButton.style.display = dictionary === 'wubi' ? 'none' : '';
   document.getElementById('dictTableHeader')!.innerHTML = english
-    ? '<th class="dict-index-column">No.</th><th>单词</th><th>显示内容</th><th>操作</th>'
+    ? '<th class="dict-index-column">No.</th><th>单词</th><th>显示内容</th><th>权重</th><th>操作</th>'
     : '<th class="dict-index-column">No.</th><th>编码</th><th>词条</th><th>权重</th><th>操作</th>';
-  document.getElementById('dictRows')!.innerHTML = `<tr><td colspan="${english ? 4 : 5}" class="dict-empty">输入查询条件后查看词条</td></tr>`;
+  document.getElementById('dictRows')!.innerHTML = '<tr><td colspan="5" class="dict-empty">输入查询条件后查看词条</td></tr>';
   syncTableHeaderWidth();
 }
 
@@ -111,12 +111,13 @@ function openDialog(row: DictionaryRow | null = null): void {
   const english = dictionary === 'english';
   document.getElementById('dictDialogTitle')!.textContent = row ? '编辑词条' : '新增词条';
   document.getElementById('dictCodeField')!.firstChild!.textContent = english ? '单词' : dictionary === 'quanpin' ? '全拼' : '五笔编码';
+  document.getElementById('dictWordField')!.firstChild!.textContent = english ? '显示内容' : '词条';
   (document.getElementById('dictCode') as HTMLInputElement).value = row
     ? (english ? row.word : row.code ?? '')
     : '';
-  document.getElementById('dictWeightField')!.style.display = english ? 'none' : 'grid';
+  document.getElementById('dictWeightField')!.style.display = 'grid';
   (document.getElementById('dictWord') as HTMLInputElement).value = english ? row?.display ?? '' : row?.word ?? '';
-  (document.getElementById('dictWeight') as HTMLInputElement).value = row?.weight === undefined ? '' : String(row.weight);
+  (document.getElementById('dictWeight') as HTMLInputElement).value = row?.weight === undefined ? '10000' : String(row.weight);
   const modal = document.getElementById('dictModal')!; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false');
 }
 
@@ -154,7 +155,7 @@ export function setupDictionary(): void {
   document.getElementById('dictSearch')?.addEventListener('keydown', (event) => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('dictAddButton')?.addEventListener('click', () => openDialog());
   document.getElementById('dictImportButton')?.addEventListener('click', () => {
-    if (dictionary !== 'quanpin') { showToast('批量导入仅支持全拼词库', false); return; }
+    if (dictionary === 'wubi') { showToast('五笔词库暂不支持批量导入', false); return; }
     (document.getElementById('dictImportFile') as HTMLInputElement | null)?.click();
   });
   document.getElementById('dictImportFile')?.addEventListener('change', async (event) => {
@@ -212,10 +213,11 @@ export function setupDictionary(): void {
   document.getElementById('dictSaveButton')?.addEventListener('click', () => {
     const code = (document.getElementById('dictCode') as HTMLInputElement).value.trim();
     const word = (document.getElementById('dictWord') as HTMLInputElement).value.trim();
+    const weight = Number((document.getElementById('dictWeight') as HTMLInputElement).value);
     if (dictionary === 'english') post(editing ? 'update' : 'create', {
-      word: code, display: word, oldWord: editing?.word, oldDisplay: editing?.display ?? editing?.word,
+      word: code, display: word, weight, oldWord: editing?.word, oldDisplay: editing?.display ?? editing?.word,
     });
-    else post(editing ? 'update' : 'create', { code, word, weight: Number((document.getElementById('dictWeight') as HTMLInputElement).value), oldCode: editing?.code, oldWord: editing?.word });
+    else post(editing ? 'update' : 'create', { code, word, weight, oldCode: editing?.code, oldWord: editing?.word });
   });
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
