@@ -278,7 +278,7 @@ json::object ExportUserDictionary(const std::string &dictionary)
         else if (dictionary == "quick")
             content << key << '\t' << value << '\t' << weight << '\n';
         else
-            content << key << '\t' << display << '\n';
+            content << key << '\t' << display << '\t' << weight << '\n';
         ++count;
     }
     if (count == 0)
@@ -684,11 +684,144 @@ json::object MutateChinese(const json::object &request)
     return Result(ok, ok ? "词条修改成功" : "修改失败：" + std::string(sqlite3_errmsg(db.get())));
 }
 
+json::object ImportEnglish(const json::object &request)
+{
+    std::string content = StringValue(request, "content");
+    if (content.size() >= 3 && static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB && static_cast<unsigned char>(content[2]) == 0xBF)
+        content.erase(0, 3);
+    if (content.find_first_not_of(" \t\r\n") == std::string::npos)
+        return Result(false, "文件内容为空");
+
+    std::string error;
+    (void)EnglishDictionary::ensure_schema(CommonUtils::get_ime_data_path() + "\\english.db");
+    Db db = OpenDatabase("english.db", error);
+    if (!db) return Result(false, "打开英文词库失败：" + error);
+    Stmt insert = Prepare(db.get(),
+        "INSERT OR IGNORE INTO english_words(word,display,weight) VALUES(?1,?2,?3)", error);
+    if (!insert) return Result(false, "准备导入失败：" + error);
+
+    const auto trim = [](std::string value) {
+        const auto begin = value.find_first_not_of(" \t");
+        if (begin == std::string::npos) return std::string{};
+        const auto end = value.find_last_not_of(" \t");
+        return value.substr(begin, end - begin + 1);
+    };
+    int inserted = 0;
+    int skipped = 0;
+    int failed = 0;
+    std::vector<std::string> error_details;
+    const auto append_error = [&](int line_no, const std::string &detail) {
+        ++failed;
+        if (error_details.size() < 5)
+            error_details.push_back("第 " + std::to_string(line_no) + " 行：" + detail);
+    };
+
+    sqlite3_exec(db.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    std::istringstream stream(content);
+    std::string line;
+    int line_no = 0;
+    while (std::getline(stream, line))
+    {
+        ++line_no;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (trim(line).empty()) continue;
+
+        std::vector<std::string> fields;
+        std::string::size_type start = 0;
+        for (;;)
+        {
+            const auto separator = line.find('\t', start);
+            fields.push_back(trim(line.substr(start, separator == std::string::npos ? separator : separator - start)));
+            if (separator == std::string::npos) break;
+            start = separator + 1;
+        }
+        if (fields.size() != 2 && fields.size() != 3)
+        {
+            append_error(line_no, "格式错误，应为：单词<Tab>显示内容<Tab>权重");
+            continue;
+        }
+
+        std::string word = fields[0];
+        const std::string display = fields[1];
+        std::transform(word.begin(), word.end(), word.begin(),
+                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (!IsAsciiWord(word) || display.empty())
+        {
+            append_error(line_no, "英文单词仅支持英文字母、连字符和撇号，显示内容不能为空");
+            continue;
+        }
+        int weight = 0;
+        if (fields.size() == 3)
+        {
+            const std::string &weight_text = fields[2];
+            if (weight_text.empty() || !std::all_of(weight_text.begin(), weight_text.end(),
+                                                    [](unsigned char ch) { return std::isdigit(ch); }))
+            {
+                append_error(line_no, "权重必须是非负整数");
+                continue;
+            }
+            try { weight = std::stoi(weight_text); }
+            catch (...) { append_error(line_no, "权重数值无效"); continue; }
+        }
+
+        sqlite3_reset(insert.get());
+        sqlite3_clear_bindings(insert.get());
+        const bool ok = BindText(insert.get(), 1, word) && BindText(insert.get(), 2, display) &&
+                        sqlite3_bind_int(insert.get(), 3, weight) == SQLITE_OK &&
+                        sqlite3_step(insert.get()) == SQLITE_DONE;
+        if (!ok)
+        {
+            append_error(line_no, "写入失败：" + std::string(sqlite3_errmsg(db.get())));
+            continue;
+        }
+        if (sqlite3_changes(db.get()) == 0)
+        {
+            ++skipped;
+            continue;
+        }
+        (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                  user_dictionary::DictionaryKind::English,
+                                                  word, display, weight, display);
+        ++inserted;
+    }
+    sqlite3_exec(db.get(), "COMMIT", nullptr, nullptr, nullptr);
+
+    if (inserted == 0 && skipped == 0 && failed == 0)
+        return Result(false, "文件中没有可导入的词条");
+    std::string message;
+    if (inserted > 0) message += "成功导入 " + std::to_string(inserted) + " 条";
+    if (skipped > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "跳过 " + std::to_string(skipped) + " 条（已存在）";
+    }
+    if (failed > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "失败 " + std::to_string(failed) + " 条";
+        if (!error_details.empty())
+        {
+            message += "。";
+            for (size_t i = 0; i < error_details.size(); ++i)
+            {
+                if (i) message += "；";
+                message += error_details[i];
+            }
+            if (static_cast<int>(error_details.size()) < failed) message += "等";
+        }
+    }
+    if (inserted > 0) NotifyImeServerClearDictCache();
+    return Result(inserted > 0 || (failed == 0 && skipped > 0), message);
+}
+
 json::object HandleEnglish(const json::object &request)
 {
     const std::string action = StringValue(request, "action");
+    if (action == "import") return ImportEnglish(request);
     std::string word = StringValue(request, "word");
     const std::string display = StringValue(request, "display");
+    const int weight = (std::max)(0, IntValue(request, "weight", 10000));
     std::transform(word.begin(), word.end(), word.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string error;
     (void)EnglishDictionary::ensure_schema(CommonUtils::get_ime_data_path() + "\\english.db");
@@ -696,13 +829,15 @@ json::object HandleEnglish(const json::object &request)
     if (!db) return Result(false, "打开英文词库失败：" + error);
     if (action == "query")
     {
-        Stmt stmt = Prepare(db.get(), "SELECT word,display FROM english_words WHERE word LIKE ?1 ORDER BY word,display", error);
+        Stmt stmt = Prepare(db.get(), "SELECT word,display,weight FROM english_words WHERE word LIKE ?1 "
+                                      "ORDER BY CASE WHEN word=?2 THEN 0 ELSE 1 END,weight DESC,length(word),word,display", error);
         const std::string pattern = word + "%";
-        if (!stmt || !BindText(stmt.get(), 1, pattern)) return Result(false, "查询失败");
+        if (!stmt || !BindText(stmt.get(), 1, pattern) || !BindText(stmt.get(), 2, word)) return Result(false, "查询失败");
         json::array rows;
         while (sqlite3_step(stmt.get()) == SQLITE_ROW)
             rows.push_back({{"word", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 0))},
-                            {"display", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))}});
+                            {"display", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))},
+                            {"weight", sqlite3_column_int(stmt.get(), 2)}});
         json::object result = Result(true, rows.empty() ? "没有找到词条" : "查询成功"); result["rows"] = std::move(rows); return result;
     }
     if (!IsAsciiWord(word) || display.empty()) return Result(false, "英文单词仅支持英文字母、连字符和撇号，显示内容不能为空");
@@ -711,14 +846,19 @@ json::object HandleEnglish(const json::object &request)
     std::transform(old_word.begin(), old_word.end(), old_word.begin(),
                    [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string sql;
-    if (action == "create") sql = "INSERT INTO english_words(word,display) VALUES(?1,?2)";
-    else if (action == "update") sql = "UPDATE english_words SET word=?1,display=?2 WHERE word=?3 AND display=?4";
+    if (action == "create") sql = "INSERT INTO english_words(word,display,weight) VALUES(?1,?2,?3)";
+    else if (action == "update") sql = "UPDATE english_words SET word=?1,display=?2,weight=?3 WHERE word=?4 AND display=?5";
     else if (action == "delete") sql = "DELETE FROM english_words WHERE word=?1 AND display=?2";
     else return Result(false, "未知操作");
     Stmt stmt = Prepare(db.get(), sql, error);
-    bool ok = stmt && BindText(stmt.get(), 1, action == "delete" ? old_word : word);
-    if (ok) ok = BindText(stmt.get(), 2, action == "delete" ? old_display : display);
-    if (ok && action == "update") ok = BindText(stmt.get(), 3, old_word) && BindText(stmt.get(), 4, old_display);
+    bool ok = stmt != nullptr;
+    if (ok && action == "delete") ok = BindText(stmt.get(), 1, old_word) && BindText(stmt.get(), 2, old_display);
+    else if (ok)
+    {
+        ok = BindText(stmt.get(), 1, word) && BindText(stmt.get(), 2, display) &&
+             sqlite3_bind_int(stmt.get(), 3, weight) == SQLITE_OK;
+        if (ok && action == "update") ok = BindText(stmt.get(), 4, old_word) && BindText(stmt.get(), 5, old_display);
+    }
     ok = ok && sqlite3_step(stmt.get()) == SQLITE_DONE && sqlite3_changes(db.get()) > 0;
     if (ok)
     {
@@ -736,11 +876,11 @@ json::object HandleEnglish(const json::object &request)
             if (user_inserted)
                 (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
                                                           user_dictionary::DictionaryKind::English,
-                                                          word, display, 0, display);
+                                                          word, display, weight, display);
             else
                 (void)user_dictionary::record_upsert(user_dictionary::default_user_db_path(),
                                                      user_dictionary::DictionaryKind::English,
-                                                     word, display, 0, display);
+                                                     word, display, weight, display);
         }
     }
     const char *label = action == "create" ? "新增" : action == "update" ? "修改" : "删除";
