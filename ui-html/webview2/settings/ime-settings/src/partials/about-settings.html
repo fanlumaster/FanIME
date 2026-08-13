@@ -9,8 +9,12 @@
 
   <div class="section about-links">
     <div class="about-link-row about-version-row">
-      <div><div class="about-link-title">当前版本</div><div class="about-version">v0.0.6</div></div>
-      <button type="button" class="about-update-button">检查更新</button>
+      <div>
+        <div class="about-link-title">当前版本</div>
+        <div class="about-version">v0.0.6</div>
+        <div id="about-update-status" class="about-update-status" role="status" aria-live="polite"></div>
+      </div>
+      <button id="about-check-update" type="button" class="about-update-button">检查更新</button>
     </div>
     <button type="button" class="about-link-row about-document-link">
       <span class="about-link-title">用户协议</span><span class="about-link-arrow" aria-hidden="true">↗</span>
@@ -19,4 +23,15 @@
       <span class="about-link-title">隐私政策</span><span class="about-link-arrow" aria-hidden="true">↗</span>
     </button>
   </div>
+
+  <dialog id="about-update-dialog" class="about-update-dialog" aria-labelledby="about-update-dialog-title">
+    <div class="about-update-dialog-body">
+      <div id="about-update-dialog-title" class="about-update-dialog-title">发现新版本</div>
+      <p>水杉 IME <strong id="about-update-dialog-version"></strong> 已发布，是否前往 GitHub Releases 下载？</p>
+    </div>
+    <div class="about-update-dialog-actions">
+      <button id="about-update-cancel" type="button" class="about-dialog-button">稍后</button>
+      <button id="about-update-download" type="button" class="about-dialog-button about-dialog-primary">前往下载</button>
+    </div>
+  </dialog>
 </div>

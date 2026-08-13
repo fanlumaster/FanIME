@@ -184,6 +184,25 @@
   font-size: 12px;
 }
 
+.about-update-status {
+  min-height: 16px;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.about-update-status:empty {
+  display: none;
+}
+
+.about-update-status[data-kind="success"] {
+  color: var(--accent-color);
+}
+
+.about-update-status[data-kind="error"] {
+  color: var(--danger-text);
+}
+
 .about-update-button {
   padding: 7px 13px;
   color: var(--text-color);
@@ -197,6 +216,78 @@
 
 .about-update-button:hover {
   background: var(--button-secondary-hover);
+}
+
+.about-update-button:disabled {
+  cursor: default;
+  opacity: .65;
+}
+
+.about-update-dialog {
+  width: min(390px, calc(100vw - 48px));
+  padding: 0;
+  color: var(--text-color);
+  background: var(--card-bg-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35);
+}
+
+.about-update-dialog::backdrop {
+  background: var(--overlay-bg);
+}
+
+.about-update-dialog-body {
+  padding: 22px 24px 18px;
+}
+
+.about-update-dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.about-update-dialog-body p {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.about-update-dialog-body strong {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.about-update-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 12px 16px 16px;
+}
+
+.about-dialog-button {
+  min-width: 76px;
+  padding: 7px 13px;
+  color: var(--button-secondary-text);
+  background: var(--button-secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.about-dialog-button:hover {
+  background: var(--button-secondary-hover);
+}
+
+.about-dialog-primary {
+  color: #fff;
+  background: var(--accent-strong);
+  border-color: transparent;
+}
+
+.about-dialog-primary:hover {
+  background: var(--accent-color);
 }
 
 .about-document-link {

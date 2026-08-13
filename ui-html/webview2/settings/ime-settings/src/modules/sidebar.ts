@@ -12,6 +12,7 @@ import { setupToolsSettings } from './tools-settings';
 import { setupAiSettings } from './ai-settings';
 import { setupFeedbackSettings } from './feedback-settings';
 import { setupShortcut } from './shortcut';
+import { setupAboutSettings } from './about-settings';
 
 // 动态加载内容
 export async function loadContent(moduleName: string) {
@@ -57,6 +58,9 @@ export async function loadContent(moduleName: string) {
       break;
     case 'shortcut':
       setupShortcut();
+      break;
+    case 'about-settings':
+      setupAboutSettings();
       break;
     case 'feedback-settings':
       setupFeedbackSettings();
