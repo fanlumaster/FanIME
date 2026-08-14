@@ -101,6 +101,56 @@
   margin-bottom: 0;
 }
 
+.theme-surface-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.theme-surface-chevron {
+  width: 7px;
+  height: 7px;
+  margin-top: -3px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.16s ease, margin 0.16s ease;
+}
+
+.theme-surface-expand[aria-expanded="true"] .theme-surface-chevron {
+  margin-top: 3px;
+  transform: rotate(225deg);
+}
+
+.theme-surface-details {
+  display: none;
+  margin: 4px 0 0 18px;
+}
+
+.theme-surface-details.open {
+  display: block;
+}
+
+.theme-surface-details .section-header {
+  min-height: 38px;
+  padding: 2px 0;
+}
+
+.theme-surface-details .section-title {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.theme-surface-details .divider {
+  display: none;
+}
+
 .arrange-item {
   margin-top: 12px;
 }

@@ -380,6 +380,13 @@ export async function setupAppearance() {
 
   // 主题模式（全局）
   setupDropdownMenu('themeBtn', 'themeMenu', 'changeTheme', false, 'appearance.theme_mode');
+  const themeSurfaceExpand = document.getElementById('themeSurfaceExpand');
+  const themeSurfaceDetails = document.getElementById('themeSurfaceDetails');
+  themeSurfaceExpand?.addEventListener('click', () => {
+    const expanded = themeSurfaceExpand.getAttribute('aria-expanded') !== 'true';
+    themeSurfaceExpand.setAttribute('aria-expanded', String(expanded));
+    themeSurfaceDetails?.classList.toggle('open', expanded);
+  });
 
   // 分表面主题
   setupDropdownMenu(
