@@ -17,12 +17,14 @@
     <div class="section-header">
       <div class="section-title">候选窗主字体</div>
       <div class="dropdown">
-        <button class="dropdown-toggle" id="candEnglishFontBtn">
-          <span>Segoe UI</span>
+        <div class="dropdown-toggle font-combobox" id="candEnglishFontBtn">
+          <input class="font-search-input" type="text" value="Segoe UI"
+                 autocomplete="off" spellcheck="false" aria-label="搜索候选窗主字体"
+                 aria-controls="candEnglishFontMenu" aria-autocomplete="list">
           <div class="arrow">
             <img src="./assets/arrow.svg" alt="arrow">
           </div>
-        </button>
+        </div>
         <div class="dropdown-menu font-dropdown-menu compact-scroll-menu" id="candEnglishFontMenu"></div>
       </div>
     </div>
@@ -30,12 +32,14 @@
     <div class="section-header">
       <div class="section-title">候选窗中文补充字体</div>
       <div class="dropdown">
-        <button class="dropdown-toggle" id="candFontBtn">
-          <span>Noto Sans SC</span>
+        <div class="dropdown-toggle font-combobox" id="candFontBtn">
+          <input class="font-search-input" type="text" value="Noto Sans SC"
+                 autocomplete="off" spellcheck="false" aria-label="搜索候选窗中文补充字体"
+                 aria-controls="candFontMenu" aria-autocomplete="list">
           <div class="arrow">
             <img src="./assets/arrow.svg" alt="arrow">
           </div>
-        </button>
+        </div>
         <div class="dropdown-menu font-dropdown-menu compact-scroll-menu" id="candFontMenu"></div>
       </div>
     </div>

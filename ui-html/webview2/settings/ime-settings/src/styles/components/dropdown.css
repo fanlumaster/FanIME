@@ -95,6 +95,38 @@
   min-width: 168px;
 }
 
+.font-combobox {
+  cursor: text;
+}
+
+.font-search-input {
+  width: 132px;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+}
+
+.font-combobox .arrow,
+.font-combobox .arrow img {
+  cursor: default;
+}
+
+.font-search-input::selection {
+  color: var(--text-color);
+  background: var(--accent-color);
+}
+
+.font-dropdown-empty {
+  padding: 12px 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
 .dropdown-menu.is-loading {
   overflow: hidden;
 }

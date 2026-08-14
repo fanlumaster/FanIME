@@ -227,6 +227,78 @@ function buildFontMenu(menu: FontMenu): void {
   applyDropdownValue(menu.btnId, menu.menuId, selected);
 }
 
+function filterFontMenu(menu: FontMenu, query: string): void {
+  const menuElement = document.getElementById(menu.menuId);
+  if (!menuElement) {
+    return;
+  }
+
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  let visibleCount = 0;
+  menuElement.querySelectorAll<HTMLElement>('.dropdown-item').forEach((item) => {
+    const matches = !normalizedQuery || (item.dataset.value || '').toLocaleLowerCase().includes(normalizedQuery);
+    item.hidden = !matches;
+    if (matches) {
+      visibleCount += 1;
+    }
+  });
+
+  menuElement.querySelector('.font-dropdown-empty')?.remove();
+  if (visibleCount === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'font-dropdown-empty';
+    empty.textContent = '没有匹配的字体';
+    menuElement.appendChild(empty);
+  }
+  menuElement.scrollTop = 0;
+}
+
+function setupFontSearch(menu: FontMenu): void {
+  const control = document.getElementById(menu.btnId);
+  const menuElement = document.getElementById(menu.menuId);
+  const input = control?.querySelector<HTMLInputElement>('.font-search-input');
+  if (!control || !menuElement || !input) {
+    return;
+  }
+
+  const reset = () => {
+    input.value = menu.getSelected();
+    filterFontMenu(menu, '');
+  };
+
+  input.addEventListener('focus', () => input.select());
+  input.addEventListener('input', () => filterFontMenu(menu, input.value));
+  input.addEventListener('blur', () => {
+    // Let a dropdown-item click finish first, then restore the persisted value
+    // when keyboard focus leaves the whole combobox.
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (!active || (!control.contains(active) && !menuElement.contains(active))) {
+        menuElement.classList.remove('open');
+        reset();
+      }
+    }, 0);
+  });
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+    event.stopPropagation();
+    if (input.value !== menu.getSelected()) {
+      input.value = '';
+      filterFontMenu(menu, '');
+    } else {
+      menuElement.classList.remove('open');
+      input.blur();
+    }
+  });
+  document.addEventListener('click', (event) => {
+    if (!control.contains(event.target as Node) && !menuElement.contains(event.target as Node)) {
+      reset();
+    }
+  });
+}
+
 function populateFontMenus(systemFonts: string[] | undefined): void {
   const fonts =
     systemFonts && systemFonts.length > 0
@@ -317,12 +389,14 @@ export async function setupAppearance() {
       isPending: () => fontMenuNeedsBuild(menu),
       prepare: () => buildFontMenu(menu)
     });
+    setupFontSearch(menu);
   });
   setupDropdownMenu('candFontBtn', 'candFontMenu', '', true, 'appearance.font', (value) => {
     const cssFamily = value === previewFont ? previewFontCssFamily : value;
     previewFont = value;
     previewFontCssFamily = cssFamily;
     applyCandidatePreviewStyle();
+    filterFontMenu(FONT_MENUS[0], '');
     return value;
   });
   setupDropdownMenu('candEnglishFontBtn', 'candEnglishFontMenu', '', true, 'appearance.english_font', (value) => {
@@ -330,6 +404,7 @@ export async function setupAppearance() {
     previewEnglishFont = value;
     previewEnglishFontCssFamily = cssFamily;
     applyCandidatePreviewStyle();
+    filterFontMenu(FONT_MENUS[1], '');
     return value;
   });
   setupDropdownMenu('candFontSizeBtn', 'candFontSizeMenu', '', true, 'appearance.font_size', (value) => {

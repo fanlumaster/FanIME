@@ -74,9 +74,9 @@ export function setupDropdownMenu(
     return;
   }
 
-  const textSpan = btn.querySelector('span');
-  if (!textSpan) {
-    console.warn(`Span not found in ${btnId}`);
+  const label = btn.querySelector<HTMLElement>('span, input');
+  if (!label) {
+    console.warn(`Label not found in ${btnId}`);
     return;
   }
 
@@ -84,7 +84,8 @@ export function setupDropdownMenu(
     if (useStopPropagation) {
       e.stopPropagation();
     }
-    const willOpen = !menu.classList.contains('open');
+    const clickedInput = (e.target as HTMLElement | null)?.matches('input');
+    const willOpen = clickedInput || !menu.classList.contains('open');
     document.querySelectorAll('.dropdown-menu.open').forEach((openMenu) => {
       if (openMenu !== menu) {
         openMenu.classList.remove('open');
@@ -104,7 +105,11 @@ export function setupDropdownMenu(
       return;
     }
 
-    textSpan.textContent = item.textContent;
+    if (label instanceof HTMLInputElement) {
+      label.value = item.textContent || '';
+    } else {
+      label.textContent = item.textContent;
+    }
 
     switch (messageAction) {
       case 'changeTheme':
@@ -187,7 +192,7 @@ export function applyDropdownValue(btnId: string, menuId: string, value: string 
     return;
   }
 
-  const btnLabel = document.querySelector<HTMLElement>(`#${btnId} span`);
+  const btnLabel = document.querySelector<HTMLElement>(`#${btnId} span, #${btnId} input`);
   if (!btnLabel) {
     return;
   }
@@ -195,7 +200,12 @@ export function applyDropdownValue(btnId: string, menuId: string, value: string 
   const item = Array.from(document.querySelectorAll<HTMLElement>(`#${menuId} .dropdown-item`)).find(
     (el) => el.dataset.value === value
   );
-  btnLabel.textContent = item?.textContent || value;
+  const label = item?.textContent || value;
+  if (btnLabel instanceof HTMLInputElement) {
+    btnLabel.value = label;
+  } else {
+    btnLabel.textContent = label;
+  }
 }
 
 // Rows styled up front when the menu is built; the rest wait until scrolled into view.
