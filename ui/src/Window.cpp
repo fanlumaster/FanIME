@@ -437,6 +437,10 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         {
             return 0;
         }
+        if (scene_ && scene_->OnTimer(wParam))
+        {
+            return 0;
+        }
         break;
 
     case WM_SETCURSOR:

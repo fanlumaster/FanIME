@@ -400,4 +400,9 @@ bool Scene::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
     }
     return root_ ? root_->OnMouseWheel(point, delta, keyState) : false;
 }
+
+bool Scene::OnTimer(UINT_PTR timerId)
+{
+    return root_ ? root_->OnTimer(timerId) : false;
+}
 } // namespace msimeui

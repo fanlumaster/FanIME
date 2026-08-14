@@ -36,6 +36,8 @@ class Scene
     Visual *FindFocusableAt(const PointF &point);
     bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState);
 
+    bool OnTimer(UINT_PTR timerId);
+
   private:
     std::shared_ptr<Visual> root_;
     std::vector<PopupEntry> popups_;

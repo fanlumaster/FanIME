@@ -822,6 +822,10 @@ STDAPI CTextStore::OnEndComposition(ITfCompositionView *pComposition)
         _pCurrentCompositionView = NULL;
     }
 
+    // Composition is finished (committed or canceled). Notify after clearing
+    // the view so listeners see the final document text, not preedit.
+    _pEditor->NotifyTextChanged();
+
     // Reset selection to current position
     LONG nSelStart = _pEditor->GetSelectionStart();
     _pEditor->MoveSelection(nSelStart, nSelStart);

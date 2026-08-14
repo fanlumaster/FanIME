@@ -75,9 +75,13 @@ class TextBox : public Visual
     bool OnTimer(UINT_PTR timerId) override;
     HCURSOR GetCursor() const override;
     std::wstring GetText() const;
+    bool IsFocused() const { return focused_; }
     void SetOnTextChanged(TextChangedHandler handler);
+    void SetOnFocusChanged(std::function<void(bool focused)> handler);
     void SetFontSize(float fontSizeDips);
     void SetPlaceholderFontSize(float fontSizeDips);
+    void SetPlaceholderText(std::wstring placeholder);
+    void SetChromeVisible(bool visible);
 
   private:
     RECT ComputeEditorHostRect() const;
@@ -95,8 +99,10 @@ class TextBox : public Visual
     ::CTextEditor *editor_ = nullptr;
     LOGFONT font_ = {};
     TextChangedHandler onTextChanged_;
+    std::function<void(bool focused)> onFocusChanged_;
     float fontSizeDips_ = 18.0f;
     float placeholderFontSizeDips_ = 16.0f;
+    bool chromeVisible_ = true;
 };
 
 class Button : public Visual

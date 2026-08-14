@@ -152,7 +152,7 @@ TextBox::TextBox(float height, std::wstring placeholder) : preferredHeight_(heig
 {
     editor_ = new CTextEditor();
     editor_->SetTextChangedCallback([this]() {
-        if (onTextChanged_)
+        if (onTextChanged_ && !editor_->IsComposing())
         {
             onTextChanged_(GetText());
         }
@@ -226,19 +226,22 @@ void TextBox::Render(DeviceResources &deviceResources)
 
     const Theme &theme = ThemeManager::GetCurrent();
     editor_->SetColors(theme.textPrimary, theme.primary);
-    ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(theme.surface);
-    ID2D1SolidColorBrush *strokeBrush =
-        deviceResources.GetSolidColorBrush(focused_ ? theme.primaryFocusStrong : theme.borderStrong);
-    if (!fillBrush || !strokeBrush)
+    if (chromeVisible_)
     {
-        return;
-    }
+        ID2D1SolidColorBrush *fillBrush = deviceResources.GetSolidColorBrush(theme.surface);
+        ID2D1SolidColorBrush *strokeBrush =
+            deviceResources.GetSolidColorBrush(focused_ ? theme.primaryFocusStrong : theme.borderStrong);
+        if (!fillBrush || !strokeBrush)
+        {
+            return;
+        }
 
-    const auto rect =
-        D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
-                          kTextBoxCornerRadius, kTextBoxCornerRadius);
-    target->FillRoundedRectangle(rect, fillBrush);
-    target->DrawRoundedRectangle(rect, strokeBrush, 1.0f);
+        const auto rect =
+            D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
+                              kTextBoxCornerRadius, kTextBoxCornerRadius);
+        target->FillRoundedRectangle(rect, fillBrush);
+        target->DrawRoundedRectangle(rect, strokeBrush, 1.0f);
+    }
 
     RECT hostRectPixels = ComputeEditorHostRect();
     const RECT boundsPixels = window_ ? window_->DipsToClientPixels(bounds_) : ToRectPixels(bounds_, 96.0f);
@@ -341,6 +344,11 @@ void TextBox::OnFocusChanged(bool focused)
     if (focused_ && editor_ && tsfInitialized_)
     {
         editor_->SetFocusDocumentMgr();
+    }
+
+    if (onFocusChanged_)
+    {
+        onFocusChanged_(focused_);
     }
 
     InvalidateVisual();
@@ -641,6 +649,11 @@ void TextBox::SetOnTextChanged(TextChangedHandler handler)
     onTextChanged_ = std::move(handler);
 }
 
+void TextBox::SetOnFocusChanged(std::function<void(bool focused)> handler)
+{
+    onFocusChanged_ = std::move(handler);
+}
+
 void TextBox::SetFontSize(float fontSizeDips)
 {
     fontSizeDips_ = std::max(fontSizeDips, 1.0f);
@@ -657,6 +670,26 @@ void TextBox::SetFontSize(float fontSizeDips)
 void TextBox::SetPlaceholderFontSize(float fontSizeDips)
 {
     placeholderFontSizeDips_ = std::max(fontSizeDips, 1.0f);
+    InvalidateVisual();
+}
+
+void TextBox::SetPlaceholderText(std::wstring placeholder)
+{
+    if (placeholder_ == placeholder)
+    {
+        return;
+    }
+    placeholder_ = std::move(placeholder);
+    InvalidateVisual();
+}
+
+void TextBox::SetChromeVisible(bool visible)
+{
+    if (chromeVisible_ == visible)
+    {
+        return;
+    }
+    chromeVisible_ = visible;
     InvalidateVisual();
 }
 

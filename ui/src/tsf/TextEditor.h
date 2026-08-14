@@ -61,6 +61,14 @@ class CTextEditor : public CTextContainer
     {
         _textChangedCallback = std::move(callback);
     }
+    BOOL IsComposing()
+    {
+        return _pTextStore && _pTextStore->GetCurrentCompositionView();
+    }
+    void NotifyTextChanged()
+    {
+        OnTextChanged();
+    }
 
     void MoveSelectionNext();
     void MoveSelectionPrev();
