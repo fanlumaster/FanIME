@@ -7,6 +7,7 @@ const fields: Record<string, string> = {
 
 export function setupAiSettings(): void {
   setupToggleButton('aiEnabled', value => updateConfig('ai_assistant.enabled', value));
+  setupTokenVisibilityToggle();
   Object.entries(fields).forEach(([id, key]) => {
     const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     element?.addEventListener('change', () => updateConfig(`ai_assistant.${key}`, element.value));
@@ -16,6 +17,22 @@ export function setupAiSettings(): void {
     const value = Math.max(1, Math.min(10, Number.parseInt(limit.value, 10) || 3));
     limit.value = String(value);
     updateConfig('ai_assistant.candidate_limit', value);
+  });
+}
+
+function setupTokenVisibilityToggle(): void {
+  const token = document.getElementById('aiToken') as HTMLInputElement | null;
+  const toggle = document.getElementById('aiTokenVisibility') as HTMLButtonElement | null;
+  if (!token || !toggle) return;
+
+  toggle.addEventListener('click', () => {
+    const shouldShow = token.type === 'password';
+    token.type = shouldShow ? 'text' : 'password';
+    toggle.setAttribute('aria-pressed', String(shouldShow));
+
+    const label = shouldShow ? '隐藏 API Token' : '显示 API Token';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
   });
 }
 

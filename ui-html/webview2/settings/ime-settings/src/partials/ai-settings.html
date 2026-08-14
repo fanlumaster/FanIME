@@ -11,7 +11,23 @@
     <div class="ai-grid">
       <label><span>服务提供商</span><input id="aiProvider" type="text" autocomplete="off" spellcheck="false"></label>
       <label><span>模型</span><input id="aiModel" type="text" autocomplete="off" spellcheck="false"></label>
-      <label><span>API Token</span><input id="aiToken" type="password" autocomplete="off" spellcheck="false"></label>
+      <div class="ai-field">
+        <label for="aiToken">API Token</label>
+        <span class="ai-secret-input">
+          <input id="aiToken" type="password" autocomplete="off" spellcheck="false">
+          <button id="aiTokenVisibility" class="ai-secret-toggle" type="button" aria-label="显示 API Token" aria-pressed="false" title="显示 API Token">
+            <svg class="ai-secret-icon ai-secret-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+              <circle cx="12" cy="12" r="2.75"></circle>
+            </svg>
+            <svg class="ai-secret-icon ai-secret-icon-hide" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3l18 18"></path>
+              <path d="M10.6 6.1A9.2 9.2 0 0 1 12 6c6 0 9.5 6 9.5 6a16.7 16.7 0 0 1-2.6 3.2M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5"></path>
+              <path d="M9.8 9.8a3 3 0 0 0 4.4 4.4"></path>
+            </svg>
+          </button>
+        </span>
+      </div>
       <label><span>候选数量</span><input id="aiCandidateLimit" type="number" min="1" max="10" autocomplete="off"></label>
       <label class="ai-wide"><span>接口地址</span><input id="aiEndpoint" type="url" autocomplete="off" spellcheck="false"></label>
     </div>

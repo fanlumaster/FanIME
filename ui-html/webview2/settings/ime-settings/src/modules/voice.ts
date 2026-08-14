@@ -39,6 +39,8 @@ function syncSoundMaster(): void {
 export function setupVoiceInput(): void {
   setupToggleButton('voiceEnabled', value => updateConfig('voice_input.voice_input', value));
   setupToggleButton('voicePolishText', value => updateConfig('voice_input.polish_text', value));
+  setupTokenVisibilityToggle('voiceAsrToken', 'voiceAsrTokenVisibility', 'Access Token / API Key');
+  setupTokenVisibilityToggle('voicePolishToken', 'voicePolishTokenVisibility', 'API Token');
   setupToggleButton('voiceSoundEnabled', value => {
     applyToggleState('voiceStartSound', value);
     applyToggleState('voiceEndSound', value);
@@ -83,6 +85,22 @@ export function setupVoiceInput(): void {
       if (id === 'voiceAsrProvider') updateAsrProvider(element);
       else updateConfig(path, element.value.trim());
     });
+  });
+}
+
+function setupTokenVisibilityToggle(inputId: string, toggleId: string, tokenLabel: string): void {
+  const token = document.getElementById(inputId) as HTMLInputElement | null;
+  const toggle = document.getElementById(toggleId) as HTMLButtonElement | null;
+  if (!token || !toggle) return;
+
+  toggle.addEventListener('click', () => {
+    const shouldShow = token.type === 'password';
+    token.type = shouldShow ? 'text' : 'password';
+    toggle.setAttribute('aria-pressed', String(shouldShow));
+
+    const label = `${shouldShow ? '隐藏' : '显示'} ${tokenLabel}`;
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
   });
 }
 
