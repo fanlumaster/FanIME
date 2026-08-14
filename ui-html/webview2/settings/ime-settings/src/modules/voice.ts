@@ -1,4 +1,4 @@
-import { applyDropdownValue, setupDropdownMenu, setupToggleButton } from './shared';
+import { applyDropdownValue, applyToggleState, setupDropdownMenu, setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
 
 const fields: Record<string, string> = {
@@ -28,11 +28,38 @@ function updateAsrProvider(providerInput: HTMLInputElement | HTMLSelectElement):
   }
 }
 
+function isToggleActive(id: string): boolean {
+  return document.getElementById(id)?.classList.contains('active') ?? false;
+}
+
+function syncSoundMaster(): void {
+  applyToggleState('voiceSoundEnabled', isToggleActive('voiceStartSound') || isToggleActive('voiceEndSound'));
+}
+
 export function setupVoiceInput(): void {
   setupToggleButton('voiceEnabled', value => updateConfig('voice_input.voice_input', value));
   setupToggleButton('voicePolishText', value => updateConfig('voice_input.polish_text', value));
-  setupToggleButton('voiceStartSound', value => updateConfig('voice_input.start_sound', value));
-  setupToggleButton('voiceEndSound', value => updateConfig('voice_input.end_sound', value));
+  setupToggleButton('voiceSoundEnabled', value => {
+    applyToggleState('voiceStartSound', value);
+    applyToggleState('voiceEndSound', value);
+    updateConfig('voice_input.start_sound', value);
+    updateConfig('voice_input.end_sound', value);
+  });
+  setupToggleButton('voiceStartSound', value => {
+    updateConfig('voice_input.start_sound', value);
+    syncSoundMaster();
+  });
+  setupToggleButton('voiceEndSound', value => {
+    updateConfig('voice_input.end_sound', value);
+    syncSoundMaster();
+  });
+  const soundExpand = document.getElementById('voiceSoundExpand');
+  const soundDetails = document.getElementById('voiceSoundDetails');
+  soundExpand?.addEventListener('click', () => {
+    const expanded = soundExpand.getAttribute('aria-expanded') !== 'true';
+    soundExpand.setAttribute('aria-expanded', String(expanded));
+    soundDetails?.classList.toggle('open', expanded);
+  });
   const hotkeyPaths: Record<string, string> = {
     ralt: 'voice_input.hotkey_ralt',
     'ctrl-f9': 'voice_input.hotkey_ctrl_f9',
@@ -80,4 +107,10 @@ export function applyVoiceConfig(config: Record<string, unknown>): void {
     typeof config.language === 'string' ? config.language : undefined);
   applyDropdownValue('voiceCommitModeBtn', 'voiceCommitModeMenu',
     typeof config.commit_mode === 'string' ? config.commit_mode : undefined);
+  const legacySound = config.notification_sound;
+  const startSound = typeof config.start_sound === 'boolean' ? config.start_sound : legacySound;
+  const endSound = typeof config.end_sound === 'boolean' ? config.end_sound : legacySound;
+  if (typeof startSound === 'boolean') applyToggleState('voiceStartSound', startSound);
+  if (typeof endSound === 'boolean') applyToggleState('voiceEndSound', endSound);
+  syncSoundMaster();
 }

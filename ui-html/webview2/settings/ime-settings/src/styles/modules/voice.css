@@ -69,6 +69,48 @@
   font-size: 14px;
 }
 
+.voice-sound-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.voice-sound-chevron {
+  width: 7px;
+  height: 7px;
+  margin-top: -3px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.16s ease, margin 0.16s ease;
+}
+
+.voice-sound-expand[aria-expanded="true"] .voice-sound-chevron {
+  margin-top: 3px;
+  transform: rotate(225deg);
+}
+
+.voice-sound-details {
+  display: none;
+  margin: 4px 0 0 18px;
+}
+
+.voice-sound-details.open {
+  display: block;
+}
+
+.voice-sound-details .voice-basic-row {
+  min-height: 38px;
+  padding: 2px 0;
+  font-size: 13px;
+}
+
 .voice-language-toggle,
 .voice-commit-toggle {
   min-width: 132px;

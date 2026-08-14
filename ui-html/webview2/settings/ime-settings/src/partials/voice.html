@@ -5,6 +5,19 @@
     <div class="section-header"><div><div class="section-title">启用语音输入</div><div class="voice-description">在右键菜单中点击“语音输入”开始或停止录音</div></div><div class="ftb-toggle-btn active" id="voiceEnabled" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
   </div>
 
+  <div class="section voice-section voice-sound-section">
+    <div class="voice-basic-row">
+      <button class="voice-sound-expand" id="voiceSoundExpand" type="button" aria-expanded="false" aria-controls="voiceSoundDetails">
+        <span>录音提示音</span><span class="voice-sound-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="ftb-toggle-btn active" id="voiceSoundEnabled" role="switch" aria-label="录音提示音总开关" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div>
+    </div>
+    <div class="voice-sound-details" id="voiceSoundDetails">
+      <div class="voice-basic-row"><span>开始录音时播放</span><div class="ftb-toggle-btn active" id="voiceStartSound" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <div class="voice-basic-row"><span>结束录音时播放</span><div class="ftb-toggle-btn active" id="voiceEndSound" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+    </div>
+  </div>
+
   <div class="section voice-section shortcut-section section-page-option">
     <div class="shortcut-section-heading"><div><div class="section-title">语音输入快捷键</div><div class="shortcut-section-description">勾选启用对应快捷键；长按快捷键松开后停止录音，录音时按 Space 可锁定</div></div></div>
     <div class="content-page-option">
@@ -69,7 +82,5 @@
         </div>
       </div>
     </div>
-    <div class="voice-basic-row"><span>开始录音时播放提示音</span><div class="ftb-toggle-btn active" id="voiceStartSound" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
-    <div class="voice-basic-row"><span>结束录音时播放提示音</span><div class="ftb-toggle-btn active" id="voiceEndSound" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
   </div>
 </div>
