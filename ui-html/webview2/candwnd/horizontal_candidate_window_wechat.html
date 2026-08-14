@@ -9,6 +9,7 @@
     :root {
       --cand-font-family: 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       --cand-font-size: 16px;
+      --preedit-font-size: var(--cand-font-size);
       --cand-text: #b7b7b7;
       --cand-num: #858585;
       /* Fallback before C++ injects host-width DIP. Wrap limit = 宿主宽度. */
@@ -141,8 +142,7 @@
     }
 
     .pinyin {
-      /* Keep preedit in sync with the configured candidate-window font size. */
-      font-size: var(--cand-font-size);
+      font-size: var(--preedit-font-size);
       display: flex;
       flex-direction: row;
       align-items: center;

@@ -24,6 +24,7 @@ export type CandidateAppearanceConfig = {
   default_font?: string;
   default_font_css_family?: string;
   font_size?: number;
+  candidate_window_preedit_font_size?: number;
   cand_text_color?: string;
   page_size?: number;
   system_fonts?: string[];
@@ -47,6 +48,7 @@ let previewFontCssFamily = previewFont;
 let previewEnglishFontCssFamily = previewEnglishFont;
 let previewDefaultFontCssFamily = previewDefaultFont;
 let previewFontSize = 16;
+let previewPreeditFontSize = 16;
 let previewTextColor = 'auto';
 let previewPageSize = 6;
 let previewCandTheme: ResolvedTheme = 'dark';
@@ -135,6 +137,7 @@ function applyCandidatePreviewStyle(): void {
   appearancePreviewRoots().forEach((el) => {
     el.style.setProperty('--cand-font-family', family);
     el.style.setProperty('--cand-font-size', `${previewFontSize}px`);
+    el.style.setProperty('--preedit-font-size', `${previewPreeditFontSize}px`);
     el.style.fontFamily = family;
     el.style.fontSize = `${previewFontSize}px`;
     if (previewTextColor && previewTextColor !== 'auto') {
@@ -348,6 +351,12 @@ export function applyAppearanceConfig(
     previewFontSize = candidateAppearance.font_size;
     applyDropdownValue('candFontSizeBtn', 'candFontSizeMenu', String(candidateAppearance.font_size));
   }
+  if (typeof candidateAppearance?.candidate_window_preedit_font_size === 'number') {
+    previewPreeditFontSize = candidateAppearance.candidate_window_preedit_font_size;
+    applyDropdownValue('candPreeditFontSizeBtn', 'candPreeditFontSizeMenu', String(previewPreeditFontSize));
+  } else {
+    previewPreeditFontSize = previewFontSize;
+  }
   if (typeof candidateAppearance?.page_size === 'number') {
     previewPageSize = candidateAppearance.page_size;
     applyDropdownValue('candPageSizeBtn', 'candPageSizeMenu', String(candidateAppearance.page_size));
@@ -420,6 +429,18 @@ export async function setupAppearance() {
     applyCandidatePreviewStyle();
     return previewFontSize;
   });
+  setupDropdownMenu(
+    'candPreeditFontSizeBtn',
+    'candPreeditFontSizeMenu',
+    '',
+    true,
+    'appearance.candidate_window_preedit_font_size',
+    (value) => {
+      previewPreeditFontSize = Number(value) || 16;
+      applyCandidatePreviewStyle();
+      return previewPreeditFontSize;
+    }
+  );
   setupDropdownMenu('candPageSizeBtn', 'candPageSizeMenu', '', true, 'appearance.page_size', (value) => {
     previewPageSize = Number(value) || 6;
     applyCandidatePreviewStyle();

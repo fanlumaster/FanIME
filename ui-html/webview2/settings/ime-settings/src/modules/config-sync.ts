@@ -50,6 +50,7 @@ export function setupConfigSync(): void {
         default_font: payload.data?.appearance?.default_font,
         default_font_css_family: payload.data?.appearance?.default_font_css_family,
         font_size: payload.data?.appearance?.font_size,
+        candidate_window_preedit_font_size: payload.data?.appearance?.candidate_window_preedit_font_size,
         cand_text_color: payload.data?.appearance?.cand_text_color,
         page_size: payload.data?.appearance?.page_size,
         system_fonts: payload.data?.appearance?.system_fonts

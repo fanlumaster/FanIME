@@ -43,8 +43,10 @@
   font-size: 0.8em;
 }
 
-.cand-preview .candidate .pinyin {
-  font-size: 14px;
+.cand-preview .candidate .pinyin,
+.cand-preview .candidate .pinyin .text,
+.cand-preview .candidate .pinyin .hidden-pinyin {
+  font-size: var(--preedit-font-size, var(--cand-font-size, inherit));
 }
 
 .cand-preview .cand-helpcode[hidden] {
