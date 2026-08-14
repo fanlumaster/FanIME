@@ -1,4 +1,5 @@
 #include "EmojiPanel.h"
+#include "emoji_panel_splash.h"
 
 #include "msimeui/Application.h"
 #include "msimeui/Scene.h"
@@ -7,13 +8,56 @@
 #include "utils/single_instance.h"
 #include "utils/surface_theme_config.h"
 
+#include <dwmapi.h>
 #include <memory>
+
+#pragma comment(lib, "dwmapi.lib")
+
+namespace
+{
+constexpr wchar_t kWindowClassName[] = L"msimeui.EmojiPanel";
+
+void ApplyHostChrome(HWND hwnd, bool lightTheme)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
+    const BOOL dark = lightTheme ? FALSE : TRUE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+}
+
+void ActivateExistingInstance()
+{
+    if (const HWND existing = FindWindowW(kWindowClassName, nullptr))
+    {
+        if (IsIconic(existing))
+        {
+            ShowWindow(existing, SW_RESTORE);
+        }
+        else
+        {
+            ShowWindow(existing, SW_SHOW);
+        }
+        SetForegroundWindow(existing);
+    }
+}
+} // namespace
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
 {
     CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeEmojiPanel.SingleInstance");
-    if (!single_instance.is_valid()) return -1;
-    if (single_instance.already_running()) return 0;
+    if (!single_instance.is_valid())
+    {
+        return -1;
+    }
+    if (single_instance.already_running())
+    {
+        ActivateExistingInstance();
+        return 0;
+    }
 
     if (!msimeui::Application::Initialize())
     {
@@ -39,10 +83,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
     }
     msimeui::ThemeManager::SetCurrent(std::move(theme));
 
-    // Window sizes are physical pixels for a per-monitor-DPI-aware Win32 popup. The panel renders
-    // its 550 x 610 design surface at 2/3 scale, producing the requested 550 x 610 window at 150%.
-    msimeui::Window window(L"msimeui.EmojiPanel", L"Emoji and more", 550, 610);
-    window.SetWindowStyle(WS_POPUP, WS_EX_TOOLWINDOW);
+    // Window sizes are physical pixels; the panel renders its design surface at 2/3 scale.
+    msimeui::Window window(kWindowClassName, L"Emoji and more", 550, 610);
+    window.SetWindowStyle(WS_POPUP, WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
     window.SetDragRegionHeight(56.0f * 2.0f / 3.0f);
     window.SetRoundedCorners(true);
     if (!window.Create())
@@ -51,10 +94,28 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
         return -1;
     }
 
+    const HWND hwnd = window.GetHandle();
+    ApplyHostChrome(hwnd, lightTheme);
+
+    // Show the host immediately, then cover it with the Settings-style splash while the panel
+    // loads its catalog and completes the first Direct2D paint.
+    ShowWindow(hwnd, nCmdShow == SW_HIDE ? SW_SHOWNORMAL : nCmdShow);
+    UpdateWindow(hwnd);
+    EmojiPanelSplash::Show(hwnd, lightTheme);
+    EmojiPanelSplash::Pump();
+
     auto scene = std::make_unique<msimeui::Scene>();
     scene->SetRoot(std::make_shared<msimeui::EmojiPanel>(lightTheme));
+    EmojiPanelSplash::Pump();
     window.SetScene(std::move(scene));
-    const int result = window.Run(nCmdShow);
+    window.Relayout();
+    InvalidateRect(hwnd, nullptr, FALSE);
+    UpdateWindow(hwnd);
+    EmojiPanelSplash::Pump();
+
+    EmojiPanelSplash::Dismiss();
+
+    const int result = window.Run(SW_SHOW);
     msimeui::Application::Shutdown();
     return result;
 }

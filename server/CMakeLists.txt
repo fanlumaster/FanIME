@@ -238,6 +238,8 @@ set(EMOJI_EXECUTABLE_NAME "MetasequoiaImeEmojiPanel")
 add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/EmojiPanel.cpp"
     "./src/emoji-panel/EmojiPanel.h"
+    "./src/emoji-panel/emoji_panel_splash.cpp"
+    "./src/emoji-panel/emoji_panel_splash.h"
     "./src/emoji-panel/main.cpp"
     "./src/emoji-panel/emoji_panel.rc"
     "./src/emoji-panel/resource.h"
@@ -246,7 +248,7 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
 )
 add_dependencies(${MY_EXECUTABLE_NAME} ${WATCHDOG_EXECUTABLE_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
-target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui)
+target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui unofficial::sqlite3::sqlite3)
 target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
@@ -255,6 +257,11 @@ if(MSVC)
     target_compile_options(${EMOJI_EXECUTABLE_NAME} PRIVATE /W4 /permissive-)
 endif()
 add_dependencies(${PROJECT_NAME} ${EMOJI_EXECUTABLE_NAME})
+add_custom_command(TARGET ${EMOJI_EXECUTABLE_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/$<$<CONFIG:Debug>:debug/>bin/sqlite3.dll"
+        $<TARGET_FILE_DIR:${EMOJI_EXECUTABLE_NAME}>
+)
 
 set(KEYBOARD_EXECUTABLE_NAME "MetasequoiaImeKeyboardPanel")
 add_executable(${KEYBOARD_EXECUTABLE_NAME} WIN32
