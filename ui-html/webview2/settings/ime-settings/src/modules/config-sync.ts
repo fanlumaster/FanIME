@@ -75,7 +75,13 @@ export function setupConfigSync(): void {
       applyVoiceConfig(payload.data.voice_input);
       if (typeof payload.data.voice_input.enabled === 'boolean') applyToggleState('voiceEnabled', payload.data.voice_input.enabled);
       if (typeof payload.data.voice_input.polish_text === 'boolean') applyToggleState('voicePolishText', payload.data.voice_input.polish_text);
-      if (typeof payload.data.voice_input.notification_sound === 'boolean') applyToggleState('voiceNotificationSound', payload.data.voice_input.notification_sound);
+      const legacySound = payload.data.voice_input.notification_sound;
+      const startSound = payload.data.voice_input.start_sound;
+      const endSound = payload.data.voice_input.end_sound;
+      if (typeof startSound === 'boolean') applyToggleState('voiceStartSound', startSound);
+      else if (typeof legacySound === 'boolean') applyToggleState('voiceStartSound', legacySound);
+      if (typeof endSound === 'boolean') applyToggleState('voiceEndSound', endSound);
+      else if (typeof legacySound === 'boolean') applyToggleState('voiceEndSound', legacySound);
     }
     if (payload.data?.ai_assistant && typeof payload.data.ai_assistant === 'object') {
       applyAiConfig(payload.data.ai_assistant);

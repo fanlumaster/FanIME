@@ -31,7 +31,8 @@ function updateAsrProvider(providerInput: HTMLInputElement | HTMLSelectElement):
 export function setupVoiceInput(): void {
   setupToggleButton('voiceEnabled', value => updateConfig('voice_input.voice_input', value));
   setupToggleButton('voicePolishText', value => updateConfig('voice_input.polish_text', value));
-  setupToggleButton('voiceNotificationSound', value => updateConfig('voice_input.notification_sound', value));
+  setupToggleButton('voiceStartSound', value => updateConfig('voice_input.start_sound', value));
+  setupToggleButton('voiceEndSound', value => updateConfig('voice_input.end_sound', value));
   const hotkeyPaths: Record<string, string> = {
     ralt: 'voice_input.hotkey_ralt',
     'ctrl-f9': 'voice_input.hotkey_ctrl_f9',
