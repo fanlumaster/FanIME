@@ -24,6 +24,10 @@ constexpr UINT_PTR kAnimTimer = 1;
 constexpr UINT kAnimIntervalMs = 16;
 constexpr float kSpinnerRadiusDip = 18.0f;
 constexpr float kSpinnerStrokeDip = 3.0f;
+constexpr float kCloseButtonHalfSizeDip = 16.0f;
+constexpr float kCloseButtonMarginDip = 5.0f;
+constexpr float kCloseButtonCenterInsetDip = kCloseButtonHalfSizeDip + kCloseButtonMarginDip;
+constexpr LONG kFrameOutsetPx = 2;
 
 HWND g_owner = nullptr;
 HWND g_hwnd = nullptr;
@@ -34,9 +38,11 @@ ComPtr<ID2D1SolidColorBrush> g_text_brush;
 ComPtr<ID2D1SolidColorBrush> g_muted_brush;
 ComPtr<ID2D1SolidColorBrush> g_accent_brush;
 ComPtr<ID2D1SolidColorBrush> g_track_brush;
+ComPtr<ID2D1SolidColorBrush> g_close_hover_brush;
 ComPtr<IDWriteTextFormat> g_title_format;
 ComPtr<IDWriteTextFormat> g_hint_format;
 bool g_light = false;
+bool g_close_hover = false;
 float g_phase = 0.0f;
 ULONGLONG g_last_tick = 0;
 
@@ -51,6 +57,7 @@ void ReleaseDeviceResources()
     g_muted_brush.Reset();
     g_accent_brush.Reset();
     g_track_brush.Reset();
+    g_close_hover_brush.Reset();
     g_rt.Reset();
 }
 
@@ -143,11 +150,13 @@ HRESULT EnsureRenderTarget()
     const D2D1_COLOR_F muted = g_light ? D2D1::ColorF(0x6B6B6B) : D2D1::ColorF(0xA8A8A8);
     const D2D1_COLOR_F accent = g_light ? D2D1::ColorF(0x7A3E91) : D2D1::ColorF(0xD88BDE);
     const D2D1_COLOR_F track = g_light ? D2D1::ColorF(0xD0D0D0) : D2D1::ColorF(0x3A3A3A);
+    const D2D1_COLOR_F close_hover = D2D1::ColorF(g_light ? 0xE9E7ED : 0x303038);
 
     if (FAILED(g_rt->CreateSolidColorBrush(text, &g_text_brush)) ||
         FAILED(g_rt->CreateSolidColorBrush(muted, &g_muted_brush)) ||
         FAILED(g_rt->CreateSolidColorBrush(accent, &g_accent_brush)) ||
-        FAILED(g_rt->CreateSolidColorBrush(track, &g_track_brush)))
+        FAILED(g_rt->CreateSolidColorBrush(track, &g_track_brush)) ||
+        FAILED(g_rt->CreateSolidColorBrush(close_hover, &g_close_hover_brush)))
     {
         ReleaseDeviceResources();
         return E_FAIL;
@@ -210,15 +219,25 @@ void PaintSplash()
                    g_muted_brush.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
     const float close_size = 12.0f;
-    const float close_pad = 18.0f;
+    const float close_pad = kCloseButtonCenterInsetDip;
     const float close_cx = size.width - close_pad;
     const float close_cy = close_pad;
+    if (g_close_hover)
+    {
+        const float hit = kCloseButtonHalfSizeDip;
+        g_rt->FillRoundedRectangle(
+            D2D1::RoundedRect(D2D1::RectF(close_cx - hit, close_cy - hit, close_cx + hit, close_cy + hit),
+                              7.0f, 7.0f),
+            g_close_hover_brush.Get());
+    }
+    ID2D1Brush *close_brush = g_close_hover ? static_cast<ID2D1Brush *>(g_text_brush.Get())
+                                             : static_cast<ID2D1Brush *>(g_muted_brush.Get());
     g_rt->DrawLine(D2D1::Point2F(close_cx - close_size * 0.5f, close_cy - close_size * 0.5f),
                    D2D1::Point2F(close_cx + close_size * 0.5f, close_cy + close_size * 0.5f),
-                   g_muted_brush.Get(), 1.6f);
+                   close_brush, 1.6f);
     g_rt->DrawLine(D2D1::Point2F(close_cx + close_size * 0.5f, close_cy - close_size * 0.5f),
                    D2D1::Point2F(close_cx - close_size * 0.5f, close_cy + close_size * 0.5f),
-                   g_muted_brush.Get(), 1.6f);
+                   close_brush, 1.6f);
 
     if (g_rt->EndDraw() == D2DERR_RECREATE_TARGET) ReleaseDeviceResources();
 }
@@ -230,8 +249,8 @@ bool HitCloseButton(int x, int y)
     const float x_dip = static_cast<float>(x) / scale;
     const float y_dip = static_cast<float>(y) / scale;
     const D2D1_SIZE_F size = g_rt->GetSize();
-    const float close_pad = 18.0f;
-    const float hit = 16.0f;
+    const float close_pad = kCloseButtonCenterInsetDip;
+    const float hit = kCloseButtonHalfSizeDip;
     return std::fabs(x_dip - (size.width - close_pad)) <= hit && std::fabs(y_dip - close_pad) <= hit;
 }
 
@@ -241,6 +260,7 @@ void LayoutOverOwner()
     // Cover the full outer frame (not just client) so DWM corner clips match the host.
     RECT frame{};
     GetWindowRect(g_owner, &frame);
+    InflateRect(&frame, kFrameOutsetPx, kFrameOutsetPx);
     SetWindowPos(g_hwnd, HWND_TOP, frame.left, frame.top, frame.right - frame.left, frame.bottom - frame.top,
                  SWP_NOACTIVATE);
     ReleaseDeviceResources();
@@ -272,12 +292,32 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l
     }
     case WM_ERASEBKGND:
         return 1;
+    case WM_MOUSEMOVE:
+    {
+        TRACKMOUSEEVENT track{sizeof(track), TME_LEAVE, hwnd, 0};
+        TrackMouseEvent(&track);
+        const bool hover = HitCloseButton(GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param));
+        if (g_close_hover != hover)
+        {
+            g_close_hover = hover;
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        return 0;
+    }
+    case WM_MOUSELEAVE:
+        if (g_close_hover)
+        {
+            g_close_hover = false;
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        return 0;
     case WM_LBUTTONUP:
         if (HitCloseButton(GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)) && g_owner)
             PostMessageW(g_owner, WM_CLOSE, 0, 0);
         return 0;
     case WM_DESTROY:
         KillTimer(hwnd, kAnimTimer);
+        g_close_hover = false;
         ReleaseDeviceResources();
         if (g_hwnd == hwnd) g_hwnd = nullptr;
         return 0;
@@ -318,11 +358,13 @@ bool Show(HWND owner)
     if (FAILED(EnsureFactories())) return false;
 
     g_owner = owner;
+    g_close_hover = false;
     g_phase = 0.0f;
     g_last_tick = GetTickCount64();
 
     RECT frame{};
     GetWindowRect(owner, &frame);
+    InflateRect(&frame, kFrameOutsetPx, kFrameOutsetPx);
     g_hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kSplashClass, L"", WS_POPUP, frame.left,
                              frame.top, (std::max)(1L, frame.right - frame.left),
                              (std::max)(1L, frame.bottom - frame.top), owner, nullptr, instance, nullptr);
