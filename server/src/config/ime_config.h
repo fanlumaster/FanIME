@@ -24,7 +24,8 @@ struct VoiceInputConfig
     std::string polish_token;
     std::string polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions";
     std::string language = "zh-cn";
-    bool notification_sound = true;
+    bool start_sound = true;
+    bool end_sound = true;
     bool polish_text = false;
     // tsf | sendinput | ctrl_v
     std::string commit_mode = "tsf";

@@ -600,7 +600,7 @@ bool StartRecording()
     g_overlay.set_input_level(0.0f);
     g_overlay.set_listening(true);
     g_overlay.show();
-    if (config.notification_sound) g_cue_player.play_start();
+    if (config.start_sound) g_cue_player.play_start();
     return true;
 }
 
@@ -613,7 +613,7 @@ void StopRecording()
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
-    if (config.notification_sound) g_cue_player.play_end();
+    if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
     const bool has_live_overlay = doubao_asr != nullptr;
     const std::uint64_t voice_session = g_voice_session.load();
@@ -677,7 +677,7 @@ void CancelRecording()
     g_overlay.set_input_level(0.0f);
     g_overlay.hide();
     g_overlay.set_transcript(L"");
-    if (config.notification_sound) g_cue_player.play_end();
+    if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
     std::lock_guard<std::mutex> lock(g_mutex);
     g_samples.clear();

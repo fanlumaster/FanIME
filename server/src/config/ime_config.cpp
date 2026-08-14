@@ -694,7 +694,10 @@ bool LoadImeConfig()
         g_voice_input.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
             std::string("https://api.siliconflow.cn/v1/chat/completions"));
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
-        g_voice_input.notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
+        // notification_sound is retained as a fallback for configs written by older versions.
+        const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
+        g_voice_input.start_sound = tbl["voice_input"]["start_sound"].value_or(legacy_notification_sound);
+        g_voice_input.end_sound = tbl["voice_input"]["end_sound"].value_or(legacy_notification_sound);
         g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
         g_voice_input.commit_mode = tbl["voice_input"]["commit_mode"].value_or(std::string("tsf"));
         if (g_voice_input.commit_mode != "tsf" && g_voice_input.commit_mode != "sendinput" &&
@@ -802,8 +805,9 @@ void MigrateLegacyVoiceInputConfig()
                        g_voice_input.polish_endpoint);
         migrate_string("language", legacy["settings"]["language"].value_or(std::string("zh-cn")),
                        g_voice_input.language);
-        migrate_bool("notification_sound", legacy["settings"]["notification_sound"].value_or(true),
-                     g_voice_input.notification_sound);
+        const bool notification_sound = legacy["settings"]["notification_sound"].value_or(true);
+        migrate_bool("start_sound", notification_sound, g_voice_input.start_sound);
+        migrate_bool("end_sound", notification_sound, g_voice_input.end_sound);
         migrate_bool("polish_text", legacy["settings"]["polish_text"].value_or(false), g_voice_input.polish_text);
     }
     catch (const toml::parse_error &)
@@ -2034,8 +2038,19 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
         target = &g_voice_input.hotkey_rctrl_ralt;
     else if (key == "hotkey_hold_space_lock")
         target = &g_voice_input.hotkey_hold_space_lock;
+    else if (key == "start_sound")
+        target = &g_voice_input.start_sound;
+    else if (key == "end_sound")
+        target = &g_voice_input.end_sound;
     else if (key == "notification_sound")
-        target = &g_voice_input.notification_sound;
+    {
+        // Accept settings pages from older installations during a rolling update.
+        if (!WriteConfiguredValue("voice_input", key, value ? "true" : "false"))
+            return false;
+        g_voice_input.start_sound = value;
+        g_voice_input.end_sound = value;
+        return true;
+    }
     else if (key == "polish_text")
         target = &g_voice_input.polish_text;
     if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false"))

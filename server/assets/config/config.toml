@@ -204,7 +204,9 @@ polish_provider = "siliconflow"
 polish_token = "<YOUR_OWN_POLISH_TOKEN>"
 polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions"
 language = "zh-cn"
-notification_sound = true
+# 开始和结束录音提示音可分别关闭
+start_sound = true
+end_sound = true
 polish_text = false
 # 上屏方式: tsf | sendinput | ctrl_v
 commit_mode = "tsf"
