@@ -23,9 +23,10 @@ constexpr float kTranscriptHorizontalPadding = 14.0f;
 constexpr float kTranscriptTextTop = 33.0f;
 constexpr float kTranscriptTextBottom = 8.0f;
 constexpr UINT32 kMaxTranscriptLines = 3;
+constexpr float kPanelOpacity = 0.90f;
 constexpr int kBarCount = 12;
 constexpr float kDotRadius = 1.15f;
-constexpr float kMaxHalfHeight = 12.0f;
+constexpr float kMaxHalfHeight = 14.0f;
 
 template <typename T> void safe_release(T **obj)
 {
@@ -73,7 +74,7 @@ bool WaveOverlay::init(HINSTANCE instance)
                                    reinterpret_cast<IUnknown **>(&write_factory_))) ||
         FAILED(write_factory_->CreateTextFormat(L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL,
                                                 DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-                                                14.0f, L"zh-cn", &text_format_)))
+                                                15.0f, L"zh-cn", &text_format_)))
     {
         shutdown();
         return false;
@@ -81,7 +82,7 @@ bool WaveOverlay::init(HINSTANCE instance)
     text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
     text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     text_format_->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
-    text_format_->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, 21.0f, 17.0f);
+    text_format_->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, 22.0f, 18.0f);
 
     WNDCLASSW wc{};
     wc.lpfnWndProc = WaveOverlay::wnd_proc;
@@ -274,8 +275,8 @@ bool WaveOverlay::ensure_render_target()
         return false;
     }
 
-    const D2D1_COLOR_F background =
-        light_theme_ ? D2D1::ColorF(0.98f, 0.98f, 0.99f, 0.94f) : D2D1::ColorF(0.07f, 0.08f, 0.10f, 0.90f);
+    const D2D1_COLOR_F background = light_theme_ ? D2D1::ColorF(0.98f, 0.98f, 0.99f, kPanelOpacity)
+                                                 : D2D1::ColorF(0.07f, 0.08f, 0.10f, kPanelOpacity);
     const D2D1_COLOR_F bars =
         light_theme_ ? D2D1::ColorF(0.35f, 0.18f, 0.42f) : D2D1::ColorF(D2D1::ColorF::White);
     const D2D1_COLOR_F border =
@@ -477,9 +478,10 @@ void WaveOverlay::draw()
     for (int i = 0; i < kBarCount; ++i)
     {
         const float x = start_x + i * step;
-        const float max_half_height = has_transcript ? 8.0f : kMaxHalfHeight;
-        const float half = dot_radius + levels_[i] * (max_half_height - dot_radius);
-        if (levels_[i] < 0.06f)
+        const float display_level = has_transcript ? (std::min)(1.0f, levels_[i] * 1.35f) : levels_[i];
+        const float max_half_height = has_transcript ? 14.0f : kMaxHalfHeight;
+        const float half = dot_radius + display_level * (max_half_height - dot_radius);
+        if (display_level < 0.06f)
         {
             render_target_->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, center_y), dot_radius, dot_radius), bar_brush_);
         }

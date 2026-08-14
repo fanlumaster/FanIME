@@ -43,6 +43,7 @@
 #include "unicode/unicode_query.h"
 #include "date-time/date_time_query.h"
 #include "log/ftb_diag_log.h"
+#include "voice-input/voice_input_service.h"
 #include <cwchar>
 
 #define FANY_IPC_LOG_RAW(message) ((void)0)
@@ -1178,6 +1179,7 @@ void WorkerThread()
         }
 
         case TaskType::ClientActivated: {
+            VoiceInput::SetImeActive(true);
             // Activation replaces all composition/candidate state from the
             // previous focus session. A terminal TIP activation also makes
             // the configured floating toolbar visible. Re-activation after a
@@ -1214,6 +1216,7 @@ void WorkerThread()
         }
 
         case TaskType::ClientDeactivated: {
+            VoiceInput::SetImeActive(false);
             // Unlike a route-only suspension, terminal TIP deactivation means
             // the user switched to another input method.
             g_force_global_ime_sync = true;

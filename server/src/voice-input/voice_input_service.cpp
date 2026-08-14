@@ -45,6 +45,7 @@ std::condition_variable g_control_cv;
 enum class ControlCommand { Start, Stop, Toggle, Lock, Cancel, Exit };
 std::deque<ControlCommand> g_control_commands;
 std::atomic<bool> g_recording{false};
+std::atomic<bool> g_ime_active{false};
 bool g_initialized = false;
 WaveOverlay g_overlay;
 CuePlayer g_cue_player;
@@ -219,6 +220,19 @@ LRESULT CALLBACK KeyboardHookProc(int code, WPARAM wparam, LPARAM lparam)
     {
         if (down) g_ralt_pressed = true;
         else if (up) g_ralt_pressed = false;
+    }
+
+    if (!g_ime_active)
+    {
+        // A shortcut key-down already consumed while this TIP was active must
+        // keep its matching key-up consumed, even if the user switches IMEs.
+        const bool suppress_ralt = key->vkCode == VK_RMENU && g_suppress_ralt_until_up;
+        const bool suppress_win =
+            (key->vkCode == VK_LWIN || key->vkCode == VK_RWIN) && g_suppress_win_until_up;
+        if (up && key->vkCode == VK_RMENU) g_suppress_ralt_until_up = false;
+        if (up && (key->vkCode == VK_LWIN || key->vkCode == VK_RWIN)) g_suppress_win_until_up = false;
+        if (suppress_ralt || suppress_win) return 1;
+        return CallNextHookEx(g_keyboard_hook, code, wparam, lparam);
     }
 
     if (key->vkCode == VK_F9 && config.hotkey_ctrl_f9)
@@ -517,7 +531,12 @@ void AudioCallback(ma_device *, void *, const void *input, ma_uint32 frames)
     double sum = 0.0;
     for (ma_uint32 i = 0; i < frames; ++i) sum += samples[i] * samples[i];
     const float rms = frames ? static_cast<float>(std::sqrt(sum / frames)) : 0.0f;
-    g_overlay.set_input_level((std::min)(1.0f, rms * 8.0f));
+    // Compress the visual dynamic range so quiet speech still produces a clear waveform,
+    // while keeping low-level room/microphone noise close to rest.
+    constexpr float noise_floor = 0.004f;
+    const float speech_level = (std::max)(0.0f, rms - noise_floor);
+    const float normalized = (std::min)(1.0f, speech_level * 14.0f);
+    g_overlay.set_input_level(std::pow(normalized, 0.55f));
     g_recorded_frames += frames;
     if (g_doubao_asr)
     {
@@ -531,6 +550,7 @@ void AudioCallback(ma_device *, void *, const void *input, ma_uint32 frames)
 bool StartRecording()
 {
     if (g_recording) return true;
+    if (!g_ime_active) return false;
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     if (!config.enabled) return false;
     const bool use_doubao = config.asr_provider == "doubao";
@@ -718,6 +738,18 @@ void VoiceInput::RefreshKeyboardHook()
         g_keyboard_hook =
             SetWindowsHookExW(WH_KEYBOARD_LL, KeyboardHookProc, GetModuleHandleW(nullptr), 0);
     }
+}
+
+void VoiceInput::SetImeActive(bool active)
+{
+    const bool was_active = g_ime_active.exchange(active);
+    if (active || !was_active)
+        return;
+
+    g_active_hold_shortcut = HoldShortcut::None;
+    g_ralt_lock_mode = false;
+    if (g_recording)
+        EnqueueControlCommand(ControlCommand::Cancel);
 }
 
 void VoiceInput::ToggleRecording()
