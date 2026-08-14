@@ -266,6 +266,14 @@ function setupFontSearch(menu: FontMenu): void {
     filterFontMenu(menu, '');
   };
 
+  // Keep the input focused until the delegated click handler has committed the
+  // selected row. Otherwise blur may close/reset the menu between mousedown
+  // and click, making a filtered result appear unresponsive.
+  menuElement.addEventListener('mousedown', (event) => {
+    if ((event.target as HTMLElement | null)?.closest('.dropdown-item')) {
+      event.preventDefault();
+    }
+  });
   input.addEventListener('focus', () => input.select());
   input.addEventListener('input', () => filterFontMenu(menu, input.value));
   input.addEventListener('blur', () => {
