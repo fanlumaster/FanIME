@@ -2,10 +2,31 @@ import { applyDropdownValue, setupDropdownMenu, setupToggleButton } from './shar
 import { updateConfig } from './config-sync';
 
 const fields: Record<string, string> = {
-  voiceAsrProvider: 'voice_input.asr_provider', voiceAsrToken: 'voice_input.asr_token',
+  voiceAsrProvider: 'voice_input.asr_provider', voiceAsrAppKey: 'voice_input.asr_app_key',
+  voiceAsrToken: 'voice_input.asr_token',
   voiceAsrEndpoint: 'voice_input.asr_endpoint', voicePolishProvider: 'voice_input.polish_provider',
   voicePolishToken: 'voice_input.polish_token', voicePolishEndpoint: 'voice_input.polish_endpoint'
 };
+
+const doubaoEndpoint = 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async';
+const siliconflowEndpoint = 'https://api.siliconflow.cn/v1/audio/transcriptions';
+
+function updateAsrProvider(providerInput: HTMLInputElement | HTMLSelectElement): void {
+  const provider = providerInput.value.trim().toLowerCase();
+  updateConfig('voice_input.asr_provider', provider);
+  const endpointInput = document.getElementById('voiceAsrEndpoint') as HTMLInputElement | null;
+  if (!endpointInput) return;
+  const endpoint = endpointInput.value.trim();
+  const replacement = provider === 'doubao' && (!endpoint || endpoint === siliconflowEndpoint)
+    ? doubaoEndpoint
+    : provider === 'siliconflow' && (!endpoint || endpoint === doubaoEndpoint)
+      ? siliconflowEndpoint
+      : null;
+  if (replacement) {
+    endpointInput.value = replacement;
+    updateConfig('voice_input.asr_endpoint', replacement);
+  }
+}
 
 export function setupVoiceInput(): void {
   setupToggleButton('voiceEnabled', value => updateConfig('voice_input.voice_input', value));
@@ -30,7 +51,10 @@ export function setupVoiceInput(): void {
     'voice_input.commit_mode');
   Object.entries(fields).forEach(([id, path]) => {
     const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
-    element?.addEventListener('change', () => updateConfig(path, element.value.trim()));
+    element?.addEventListener('change', () => {
+      if (id === 'voiceAsrProvider') updateAsrProvider(element);
+      else updateConfig(path, element.value.trim());
+    });
   });
 }
 
