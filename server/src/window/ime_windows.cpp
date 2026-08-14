@@ -1408,6 +1408,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const std::string previous_english_font = GetConfiguredCandidateEnglishFont();
             const std::string previous_default_font = GetConfiguredCandidateDefaultFont();
             const int previous_font_size = GetConfiguredCandidateFontSize();
+            const int previous_preedit_font_size = GetConfiguredCandidateWindowPreeditFontSize();
             const std::string previous_cand_text_color = GetConfiguredCandidateTextColor();
             const VoiceInputConfig previous_voice_input = GetConfiguredVoiceInput();
             if (ReloadImeConfigIfChanged())
@@ -1435,6 +1436,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                          previous_english_font != GetConfiguredCandidateEnglishFont() ||
                          previous_default_font != GetConfiguredCandidateDefaultFont() ||
                          previous_font_size != GetConfiguredCandidateFontSize() ||
+                         previous_preedit_font_size != GetConfiguredCandidateWindowPreeditFontSize() ||
                          previous_cand_text_color != GetConfiguredCandidateTextColor())
                 {
                     ApplyConfiguredCandidateAppearance();
@@ -2013,6 +2015,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const std::string previous_english_font = GetConfiguredCandidateEnglishFont();
             const std::string previous_default_font = GetConfiguredCandidateDefaultFont();
             const int previous_font_size = GetConfiguredCandidateFontSize();
+            const int previous_preedit_font_size = GetConfiguredCandidateWindowPreeditFontSize();
             const std::string previous_cand_text_color = GetConfiguredCandidateTextColor();
             if (ReloadImeConfigIfChanged())
             {
@@ -2045,6 +2048,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                          previous_english_font != GetConfiguredCandidateEnglishFont() ||
                          previous_default_font != GetConfiguredCandidateDefaultFont() ||
                          previous_font_size != GetConfiguredCandidateFontSize() ||
+                         previous_preedit_font_size != GetConfiguredCandidateWindowPreeditFontSize() ||
                          previous_cand_text_color != GetConfiguredCandidateTextColor())
                 {
                     ApplyConfiguredCandidateAppearance();

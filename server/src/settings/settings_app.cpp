@@ -275,6 +275,7 @@ void PostConfig()
             {"default_font", GetConfiguredCandidateDefaultFont()},
             {"default_font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
             {"font_size", GetConfiguredCandidateFontSize()},
+            {"candidate_window_preedit_font_size", GetConfiguredCandidateWindowPreeditFontSize()},
             {"cand_text_color", GetConfiguredCandidateTextColor()},
             {"system_fonts", GetSystemFontFamilies()}}},
           {"voice_input",
@@ -363,6 +364,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredCandidateEnglishFont(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.font_size")
         return SetConfiguredCandidateFontSize(static_cast<int>(data.at("value").as_int64()));
+    if (path == "appearance.candidate_window_preedit_font_size")
+        return SetConfiguredCandidateWindowPreeditFontSize(static_cast<int>(data.at("value").as_int64()));
     if (path == "appearance.cand_text_color")
         return SetConfiguredCandidateTextColor(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.theme_mode")

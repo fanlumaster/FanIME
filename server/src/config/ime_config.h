@@ -86,6 +86,8 @@ const std::string &GetConfiguredCandidateDefaultFont();
 bool SetConfiguredCandidateDefaultFont(const std::string &font);
 int GetConfiguredCandidateFontSize();
 bool SetConfiguredCandidateFontSize(int font_size);
+int GetConfiguredCandidateWindowPreeditFontSize();
+bool SetConfiguredCandidateWindowPreeditFontSize(int font_size);
 const std::string &GetConfiguredCandidateTextColor();
 bool SetConfiguredCandidateTextColor(const std::string &color);
 // Installed font family names for settings dropdowns (cached after first call).

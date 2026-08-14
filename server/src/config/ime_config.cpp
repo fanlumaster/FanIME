@@ -44,6 +44,7 @@ std::string g_candidate_font = "Noto Sans SC";
 std::string g_candidate_english_font = "Segoe UI";
 std::string g_candidate_default_font = "Microsoft YaHei";
 int g_candidate_font_size = 16;
+int g_candidate_window_preedit_font_size = 16;
 std::string g_candidate_text_color = "auto";
 std::string g_shuangpin_schema = "xiaohe";
 std::string g_wubi_schema = "wubi86";
@@ -527,6 +528,13 @@ bool LoadImeConfig()
                 font_size >= kCandidateFontSizeMin && font_size <= kCandidateFontSizeMax ? font_size : 16;
         }
         {
+            const int font_size =
+                tbl["appearance"]["candidate_window_preedit_font_size"].value_or(g_candidate_font_size);
+            g_candidate_window_preedit_font_size =
+                font_size >= kCandidateFontSizeMin && font_size <= kCandidateFontSizeMax ? font_size
+                                                                                         : g_candidate_font_size;
+        }
+        {
             const std::string color = tbl["appearance"]["cand_text_color"].value_or(std::string("auto"));
             g_candidate_text_color = color.empty() ? "auto" : color;
         }
@@ -955,6 +963,21 @@ bool SetConfiguredCandidateFontSize(int font_size)
     if (!WriteConfiguredValue("appearance", "font_size", std::to_string(font_size)))
         return false;
     g_candidate_font_size = font_size;
+    return true;
+}
+
+int GetConfiguredCandidateWindowPreeditFontSize()
+{
+    return g_candidate_window_preedit_font_size;
+}
+
+bool SetConfiguredCandidateWindowPreeditFontSize(int font_size)
+{
+    if (font_size < kCandidateFontSizeMin || font_size > kCandidateFontSizeMax)
+        return false;
+    if (!WriteConfiguredValue("appearance", "candidate_window_preedit_font_size", std::to_string(font_size)))
+        return false;
+    g_candidate_window_preedit_font_size = font_size;
     return true;
 }
 

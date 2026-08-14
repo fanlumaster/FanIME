@@ -1295,6 +1295,7 @@ bool ApplyConfiguredCandidateAppearance()
                           {"english_font", ResolveSystemFontFamilyForCss(GetConfiguredCandidateEnglishFont())},
                           {"default_font", ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
                           {"font_size", GetConfiguredCandidateFontSize()},
+                          {"preedit_font_size", GetConfiguredCandidateWindowPreeditFontSize()},
                           {"cand_text_color", GetConfiguredCandidateTextColor()}};
     const std::wstring script =
         L"(function(c){"
@@ -1303,6 +1304,7 @@ bool ApplyConfiguredCandidateAppearance()
         L"const family=[c.english_font,c.font,c.default_font,'sans-serif'].filter(Boolean).map(quote).join(', ');"
         L"root.style.setProperty('--cand-font-family', family);"
         L"root.style.setProperty('--cand-font-size', String(c.font_size||16)+'px');"
+        L"root.style.setProperty('--preedit-font-size', String(c.preedit_font_size||c.font_size||16)+'px');"
         L"const color=(c.cand_text_color||'auto');"
         L"if(color&&color!=='auto'){"
         L"root.style.setProperty('--cand-text', color);"
@@ -2464,6 +2466,15 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.candidate_window_preedit_font_size")
+                            {
+                                const int value = static_cast<int>(data.at("value").as_int64());
+                                if (SetConfiguredCandidateWindowPreeditFontSize(value))
+                                {
+                                    ApplyConfiguredCandidateAppearance();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.cand_text_color")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -2957,6 +2968,7 @@ void PostSettingsConfig()
             {"default_font", GetConfiguredCandidateDefaultFont()},
             {"default_font_css_family", ResolveSystemFontFamilyForCss(GetConfiguredCandidateDefaultFont())},
             {"font_size", GetConfiguredCandidateFontSize()},
+            {"candidate_window_preedit_font_size", GetConfiguredCandidateWindowPreeditFontSize()},
             {"cand_text_color", GetConfiguredCandidateTextColor()},
             {"system_fonts", GetSystemFontFamilies()}}},
           {"helpcode",

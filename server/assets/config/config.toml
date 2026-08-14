@@ -70,6 +70,8 @@ english_font = "Segoe UI"
 default_font = "Microsoft YaHei"
 # 字体大小（px），可选：12–32
 font_size = 16
+# 候选窗口顶部预编辑字号（px），可选：12–32
+candidate_window_preedit_font_size = 16
 # 候选文字颜色，"auto" 跟随主题，或 #RRGGBB
 cand_text_color = "auto"
 # 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9
