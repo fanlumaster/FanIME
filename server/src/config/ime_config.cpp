@@ -675,10 +675,20 @@ bool LoadImeConfig()
         g_voice_input.hotkey_ctrl_win = tbl["voice_input"]["hotkey_ctrl_win"].value_or(false);
         g_voice_input.hotkey_rctrl_ralt = tbl["voice_input"]["hotkey_rctrl_ralt"].value_or(false);
         g_voice_input.hotkey_hold_space_lock = tbl["voice_input"]["hotkey_hold_space_lock"].value_or(true);
-        g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("siliconflow"));
+        g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("doubao"));
+        g_voice_input.asr_app_key = tbl["voice_input"]["asr_app_key"].value_or(std::string());
         g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
         g_voice_input.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
-            std::string("https://api.siliconflow.cn/v1/audio/transcriptions"));
+            g_voice_input.asr_provider == "doubao"
+                ? std::string("wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async")
+                : std::string("https://api.siliconflow.cn/v1/audio/transcriptions"));
+        if (g_voice_input.asr_provider == "doubao" &&
+            g_voice_input.asr_endpoint == "https://api.siliconflow.cn/v1/audio/transcriptions")
+        {
+            g_voice_input.asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async";
+        }
+        g_voice_input.asr_resource_id =
+            tbl["voice_input"]["asr_resource_id"].value_or(std::string("volc.seedasr.sauc.duration"));
         g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
         g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
         g_voice_input.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
@@ -1925,10 +1935,14 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
     std::string *target = nullptr;
     if (key == "asr_provider")
         target = &g_voice_input.asr_provider;
+    else if (key == "asr_app_key")
+        target = &g_voice_input.asr_app_key;
     else if (key == "asr_token")
         target = &g_voice_input.asr_token;
     else if (key == "asr_endpoint")
         target = &g_voice_input.asr_endpoint;
+    else if (key == "asr_resource_id")
+        target = &g_voice_input.asr_resource_id;
     else if (key == "polish_provider")
         target = &g_voice_input.polish_provider;
     else if (key == "polish_token")

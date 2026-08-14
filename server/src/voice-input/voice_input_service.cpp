@@ -3,6 +3,7 @@
 
 #include "voice_input_service.h"
 #include "config/ime_config.h"
+#include "doubao_asr_client.h"
 #include "ipc/ipc.h"
 #include "utils/common_utils.h"
 #include "wave_overlay.h"
@@ -22,6 +23,7 @@
 #include <deque>
 #include <future>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -32,6 +34,9 @@ constexpr unsigned kSampleRate = 16000;
 ma_device g_device{};
 std::mutex g_mutex;
 std::vector<float> g_samples;
+std::unique_ptr<DoubaoAsrClient> g_doubao_asr;
+std::atomic<std::size_t> g_recorded_frames{0};
+std::atomic<std::uint64_t> g_voice_session{0};
 std::vector<std::future<void>> g_network_tasks;
 std::mutex g_send_mutex;
 std::thread g_control_thread;
@@ -513,6 +518,12 @@ void AudioCallback(ma_device *, void *, const void *input, ma_uint32 frames)
     for (ma_uint32 i = 0; i < frames; ++i) sum += samples[i] * samples[i];
     const float rms = frames ? static_cast<float>(std::sqrt(sum / frames)) : 0.0f;
     g_overlay.set_input_level((std::min)(1.0f, rms * 8.0f));
+    g_recorded_frames += frames;
+    if (g_doubao_asr)
+    {
+        g_doubao_asr->PushFloatSamples(samples, frames);
+        return;
+    }
     std::lock_guard<std::mutex> lock(g_mutex);
     g_samples.insert(g_samples.end(), samples, samples + frames);
 }
@@ -522,12 +533,33 @@ bool StartRecording()
     if (g_recording) return true;
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     if (!config.enabled) return false;
-    if (config.asr_token.empty())
+    const bool use_doubao = config.asr_provider == "doubao";
+    if (config.asr_token.empty() || config.asr_token.find("<YOUR_OWN_") == 0)
     {
         MessageBoxW(nullptr, L"请先在设置的“语音输入”分区填写 ASR API Token。", L"水杉 IME", MB_OK | MB_ICONINFORMATION);
         return false;
     }
     { std::lock_guard<std::mutex> lock(g_mutex); g_samples.clear(); }
+    g_recorded_frames = 0;
+    const std::uint64_t voice_session = ++g_voice_session;
+    g_overlay.set_transcript(L"");
+    if (use_doubao)
+    {
+        g_doubao_asr = std::make_unique<DoubaoAsrClient>(
+            config.asr_endpoint, config.asr_app_key, config.asr_token, config.asr_resource_id,
+            [voice_session](const std::string &text) {
+                if (g_voice_session == voice_session)
+                    g_overlay.set_transcript(string_to_wstring(text));
+            });
+        if (!g_doubao_asr->Start())
+        {
+            ++g_voice_session;
+            g_doubao_asr.reset();
+            MessageBoxW(nullptr, L"无法启动豆包流式语音识别。请检查 config.toml。", L"水杉 IME",
+                        MB_OK | MB_ICONERROR);
+            return false;
+        }
+    }
     ma_device_config device_config = ma_device_config_init(ma_device_type_capture);
     device_config.capture.format = ma_format_f32;
     device_config.capture.channels = 1;
@@ -535,6 +567,12 @@ bool StartRecording()
     device_config.dataCallback = AudioCallback;
     if (ma_device_init(nullptr, &device_config, &g_device) != MA_SUCCESS || ma_device_start(&g_device) != MA_SUCCESS)
     {
+        if (g_doubao_asr)
+        {
+            ++g_voice_session;
+            g_doubao_asr->Cancel();
+            g_doubao_asr.reset();
+        }
         MessageBoxW(nullptr, L"无法启动麦克风。", L"水杉 IME", MB_OK | MB_ICONERROR);
         return false;
     }
@@ -555,19 +593,55 @@ void StopRecording()
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
-    g_overlay.hide();
     if (config.notification_sound) g_cue_player.play_end();
+    auto doubao_asr = std::move(g_doubao_asr);
+    const bool has_live_overlay = doubao_asr != nullptr;
+    const std::uint64_t voice_session = g_voice_session.load();
+    if (!has_live_overlay)
+    {
+        g_overlay.hide();
+        g_overlay.set_transcript(L"");
+    }
+    const std::size_t recorded_frames = g_recorded_frames;
     std::vector<float> samples;
     { std::lock_guard<std::mutex> lock(g_mutex); samples.swap(g_samples); }
-    if (samples.size() < kSampleRate / 4) return;
+    if (recorded_frames < kSampleRate / 4)
+    {
+        ++g_voice_session;
+        g_overlay.hide();
+        g_overlay.set_transcript(L"");
+        if (doubao_asr)
+        {
+            g_network_tasks.emplace_back(std::async(std::launch::async,
+                [client = std::move(doubao_asr)]() mutable { client->Cancel(); }));
+        }
+        return;
+    }
     g_network_tasks.erase(
         std::remove_if(g_network_tasks.begin(), g_network_tasks.end(), [](std::future<void> &task) {
             return task.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
         }),
         g_network_tasks.end());
-    g_network_tasks.emplace_back(std::async(std::launch::async, [samples = std::move(samples), config]() {
-        const std::string text = Polish(Recognize(samples, config), config);
+    g_network_tasks.emplace_back(std::async(std::launch::async,
+        [samples = std::move(samples), client = std::move(doubao_asr), config, has_live_overlay,
+         voice_session]() mutable {
+        const std::string recognized = client ? client->Finish() : Recognize(samples, config);
+        if (has_live_overlay && g_voice_session == voice_session && !recognized.empty())
+            g_overlay.set_transcript(string_to_wstring(recognized));
+        const std::string text = Polish(recognized, config);
+        if (has_live_overlay && g_voice_session == voice_session && !text.empty())
+            g_overlay.set_transcript(string_to_wstring(text));
         if (!text.empty()) CommitRecognizedText(text, config);
+        if (has_live_overlay)
+        {
+            // Keep the finalized, punctuated result visible briefly without delaying the commit.
+            Sleep(160);
+            if (g_voice_session == voice_session && !g_recording)
+            {
+                g_overlay.hide();
+                g_overlay.set_transcript(L"");
+            }
+        }
     }));
 }
 
@@ -576,14 +650,22 @@ void CancelRecording()
     if (!g_recording) return;
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     g_recording = false;
+    ++g_voice_session;
     ma_device_uninit(&g_device);
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
     g_overlay.hide();
+    g_overlay.set_transcript(L"");
     if (config.notification_sound) g_cue_player.play_end();
+    auto doubao_asr = std::move(g_doubao_asr);
     std::lock_guard<std::mutex> lock(g_mutex);
     g_samples.clear();
+    if (doubao_asr)
+    {
+        g_network_tasks.emplace_back(std::async(std::launch::async,
+            [client = std::move(doubao_asr)]() mutable { client->Cancel(); }));
+    }
 }
 } // namespace
 

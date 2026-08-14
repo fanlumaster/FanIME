@@ -14,9 +14,12 @@ struct VoiceInputConfig
     bool hotkey_ctrl_win = false;
     bool hotkey_rctrl_ralt = false;
     bool hotkey_hold_space_lock = true;
-    std::string asr_provider = "siliconflow";
+    // siliconflow | doubao
+    std::string asr_provider = "doubao";
+    std::string asr_app_key;
     std::string asr_token;
-    std::string asr_endpoint = "https://api.siliconflow.cn/v1/audio/transcriptions";
+    std::string asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async";
+    std::string asr_resource_id = "volc.seedasr.sauc.duration";
     std::string polish_provider = "siliconflow";
     std::string polish_token;
     std::string polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions";

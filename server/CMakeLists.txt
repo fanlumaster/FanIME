@@ -19,6 +19,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # Build the OpenCC submodule as a static dependency of the server.
 add_subdirectory(opencc EXCLUDE_FROM_ALL)
@@ -137,6 +138,8 @@ set(SRC_FILES
     "./src/window/window_hook.h"
     "./src/voice-input/voice_input_service.cpp"
     "./src/voice-input/voice_input_service.h"
+    "./src/voice-input/doubao_asr_client.cpp"
+    "./src/voice-input/doubao_asr_client.h"
     "./src/voice-input/wave_overlay.cpp"
     "./src/voice-input/wave_overlay.h"
     "./src/voice-input/cue_player.cpp"
@@ -209,6 +212,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE OpenCC::OpenCC)
 add_dependencies(${PROJECT_NAME} Dictionaries)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
+target_link_libraries(${PROJECT_NAME} PRIVATE ZLIB::ZLIB)
 target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore)
 
 add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}

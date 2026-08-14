@@ -2,6 +2,8 @@
 
 #include <windows.h>
 #include <atomic>
+#include <mutex>
+#include <string>
 
 class WaveOverlay
 {
@@ -20,16 +22,20 @@ class WaveOverlay
 
     void set_listening(bool listening);
     void set_input_level(float level);
+    void set_transcript(const std::wstring &text);
 
   private:
     static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
     LRESULT handle_message(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     bool ensure_render_target();
+    bool ensure_text_layout(const std::wstring &transcript, float width, float height);
     void release_render_target();
+    void release_text_layout();
     void update_wave_levels();
     void draw();
     void update_dpi_scale();
+    void update_window_bounds();
 
   private:
     static constexpr int kLevelCount = 12;
@@ -42,6 +48,8 @@ class WaveOverlay
 
     std::atomic<bool> listening_{false};
     std::atomic<float> input_level_{0.0f};
+    std::mutex transcript_mutex_;
+    std::wstring transcript_;
     float levels_[kLevelCount] = {};
     float amplitudes_[kLevelCount] = {};
     float phases_[kLevelCount] = {};
@@ -53,5 +61,8 @@ class WaveOverlay
     struct ID2D1SolidColorBrush *bar_brush_ = nullptr;
     struct ID2D1SolidColorBrush *bg_brush_ = nullptr;
     struct ID2D1SolidColorBrush *border_brush_ = nullptr;
+    struct IDWriteFactory *write_factory_ = nullptr;
+    struct IDWriteTextFormat *text_format_ = nullptr;
+    struct IDWriteTextLayout *text_layout_ = nullptr;
+    std::wstring layout_source_transcript_;
 };
-

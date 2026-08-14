@@ -190,9 +190,16 @@ hotkey_ctrl_f9 = true
 hotkey_ctrl_win = false
 hotkey_rctrl_ralt = false
 hotkey_hold_space_lock = true
-asr_provider = "siliconflow"
-asr_token = "<YOUR_OWN_ASR_TOKEN>"
-asr_endpoint = "https://api.siliconflow.cn/v1/audio/transcriptions"
+# ASR 服务: doubao | siliconflow
+asr_provider = "doubao"
+# 豆包旧版控制台鉴权：App ID + Access Token（Secret Key 不使用）
+# 新版控制台使用单 API Key 时，将 asr_app_key 留空并把 API Key 填入 asr_token。
+asr_app_key = "<YOUR_OWN_DOUBAO_APP_ID>"
+asr_token = "<YOUR_OWN_DOUBAO_ACCESS_TOKEN>"
+asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
+# 默认使用豆包流式语音识别模型 2.0 小时版
+asr_resource_id = "volc.seedasr.sauc.duration"
+# 如需切回 SiliconFlow，将 provider、token 和 endpoint 一并改为对应值。
 polish_provider = "siliconflow"
 polish_token = "<YOUR_OWN_POLISH_TOKEN>"
 polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions"
