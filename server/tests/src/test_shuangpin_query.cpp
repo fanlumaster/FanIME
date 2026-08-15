@@ -12,6 +12,16 @@ TEST_CASE(ApplySegmentationCasesPreservesUppercaseMarkers)
 TEST_CASE(IsFullHelpModeRecognizesDoubleHelpcodePattern)
 {
     REQUIRE(ShuangpinUtil::IsFullHelpMode("xiteleaA"));
+    REQUIRE(ShuangpinUtil::IsFullHelpMode("xiteleAa"));
+    REQUIRE(ShuangpinUtil::IsFullHelpMode("xiteleAA"));
+    REQUIRE(!ShuangpinUtil::IsFullHelpMode("xiteleaa"));
     REQUIRE(!ShuangpinUtil::IsFullHelpMode("xitelea"));
     REQUIRE(!ShuangpinUtil::IsFullHelpMode("xi"));
+}
+
+TEST_CASE(FullHelpCodesUseFirstUppercaseMarkerForReverseOrder)
+{
+    REQUIRE_EQ(ShuangpinUtil::GetFullHelpCodes("xiteleaB"), std::string("ab"));
+    REQUIRE_EQ(ShuangpinUtil::GetFullHelpCodes("xiteleAb"), std::string("ba"));
+    REQUIRE_EQ(ShuangpinUtil::GetFullHelpCodes("xiteleAB"), std::string("ba"));
 }

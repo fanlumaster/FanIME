@@ -97,6 +97,31 @@ TEST_CASE(EngineShuangpinSessionContinuesCompositionWithSingleHelpcode)
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("tele"));
 }
 
+TEST_CASE(EngineShuangpinUppercaseSingleHelpcodePrefersSecondCodeMatches)
+{
+    REQUIRE(HelpcodeUtils::select_helpcode_schema("lantian"));
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "nid");
+    session.reset_state();
+    InputLetters(session, "niD");
+
+    const auto &candidates = session.get_candidates();
+    const auto index_of = [&](const std::string &word) {
+        const auto found = std::find_if(candidates.begin(), candidates.end(),
+                                        [&](const IInputSession::WordItem &item) { return item.word == word; });
+        return static_cast<size_t>(std::distance(candidates.begin(), found));
+    };
+
+    const size_t ni = index_of("泥");
+    const size_t ni_second_code = index_of("溺");
+    const size_t ni_other_second_code = index_of("腻");
+    REQUIRE(ni < candidates.size());
+    REQUIRE(ni_second_code < candidates.size());
+    REQUIRE(ni_other_second_code < candidates.size());
+    REQUIRE(ni_second_code < ni);
+    REQUIRE(ni_other_second_code < ni);
+}
+
 TEST_CASE(EngineShuangpinSessionContinuesCompositionWithDoubleHelpcode)
 {
     EngineInputSession session(SchemeType::Shuangpin);
