@@ -1,4 +1,5 @@
 #include "tests/includes/test_framework.h"
+#include "MetasequoiaImeEngine/core/ime_session.h"
 #include "MetasequoiaImeEngine/schemes/shuangpin_scheme.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
 #include <utility>
@@ -9,6 +10,15 @@ namespace
 void InputKey(ShuangpinScheme &scheme, UINT vk, WCHAR wch, UINT modifiers_down = 0)
 {
     scheme.handle_key(vk, modifiers_down, wch);
+}
+
+void InputSessionKeys(ImeSession &session, const std::string &keys)
+{
+    for (const char ch : keys)
+    {
+        const char vk = ch >= 'a' && ch <= 'z' ? static_cast<char>(ch - ('a' - 'A')) : ch;
+        session.handle_key(static_cast<UINT>(vk), 0, static_cast<WCHAR>(ch));
+    }
 }
 
 const ShuangpinProfile &GetTestShuangpinProfile()
@@ -36,6 +46,20 @@ TEST_CASE(ShuangpinSchemeBuildRequestPreservesCaseAndNormalizesQuery)
     REQUIRE_EQ(request.raw_input_with_cases, std::string("Xi"));
     REQUIRE_EQ(request.raw_segmentation, std::string("Xi"));
     REQUIRE_EQ(request.normalized_input, std::string("xi"));
+}
+
+TEST_CASE(ShuangpinDoubleHelpcodesRemainAnUnsegmentedPreeditSuffix)
+{
+    ImeSession session(SchemeType::Shuangpin);
+    session.set_shuangpin_helpcode_enabled(true);
+    InputSessionKeys(session, "yakP");
+    REQUIRE_EQ(session.get_request().raw_segmentation, std::string("ya'kP"));
+    REQUIRE_EQ(session.get_request().normalized_segmentation, std::string("ya'kP"));
+
+    session.reset();
+    InputSessionKeys(session, "yaKp");
+    REQUIRE_EQ(session.get_request().raw_segmentation, std::string("ya'Kp"));
+    REQUIRE_EQ(session.get_request().normalized_segmentation, std::string("ya'Kp"));
 }
 
 TEST_CASE(ShuangpinSchemeSpaceDoesNotResetComposition)

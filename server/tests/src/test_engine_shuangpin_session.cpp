@@ -132,6 +132,14 @@ TEST_CASE(EngineShuangpinSessionContinuesCompositionWithDoubleHelpcode)
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("tele"));
 }
 
+TEST_CASE(EngineShuangpinDoubleHelpcodesAreDisplayedAsOneSegment)
+{
+    EngineInputSession session(SchemeType::Shuangpin);
+    InputLetters(session, "yakP");
+
+    REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("ya'kP"));
+}
+
 TEST_CASE(EngineShuangpinSessionCloudQueryMatchesLegacyTiming)
 {
     EngineInputSession session(SchemeType::Shuangpin);

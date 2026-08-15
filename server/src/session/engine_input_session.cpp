@@ -133,7 +133,7 @@ ShuangpinCompositionBase ResolveShuangpinCompositionBase(const QueryRequest &req
         return shuangpin::is_complete_input(base.raw_input.substr(0, raw_prefix_length), profile);
     };
 
-    if (ShuangpinUtil::IsFullHelpMode(base.effective_raw_input_with_cases, profile) && has_complete_unseparated_base(2))
+    if (shuangpin::detect_active_double_helpcode_length(base.raw_input, base.raw_input_with_cases, profile) == 2)
     {
         base.helpcode_length = 2;
         return base;
