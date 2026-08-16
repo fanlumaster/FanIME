@@ -2,19 +2,21 @@ import { loadHTML } from '../utils/common-utils';
 import ftbHTML from '../../../../ftb/default.html?raw';
 
 export type SkinPreviewTheme = 'dark' | 'light';
-export type CandidateSkin = 'fluent' | 'wechat';
+export type CandidateSkin = 'fluent' | 'wechat' | 'graphite' | 'willow_green';
 
-const SKINS: CandidateSkin[] = ['fluent', 'wechat'];
+const SKINS: CandidateSkin[] = ['fluent', 'wechat', 'graphite', 'willow_green'];
 const previewOverrides: Record<CandidateSkin, SkinPreviewTheme | null> = {
   fluent: null,
-  wechat: null
+  wechat: null,
+  graphite: null,
+  willow_green: null
 };
 let activeTheme: SkinPreviewTheme = 'dark';
 let activeSkin: CandidateSkin = 'fluent';
 const SKIN_PREVIEW_PAGE_SIZE = 6;
 
 function normalizeCandidateSkin(value: unknown): CandidateSkin {
-  return value === 'wechat' ? 'wechat' : 'fluent';
+  return value === 'wechat' || value === 'graphite' || value === 'willow_green' ? value : 'fluent';
 }
 
 function limitCandidatePreview(host: HTMLElement): void {
@@ -44,7 +46,13 @@ function applySkinPreviewTheme(skin: CandidateSkin, theme: SkinPreviewTheme): vo
 
   const title = card.querySelector<HTMLElement>('.section-title');
   if (title) {
-    const name = skin === 'wechat' ? '微信绿主题' : 'Fluent 主题';
+    const name = skin === 'wechat'
+      ? '微信绿主题'
+      : skin === 'graphite'
+        ? '石墨 Graphite'
+        : skin === 'willow_green'
+          ? '杨柳青 Willow green'
+          : 'Fluent 主题';
     title.textContent = `${name}(${theme === 'light' ? 'Light' : 'Dark'})`;
   }
   card.querySelectorAll<HTMLButtonElement>('[data-skin-preview-switch]').forEach((button) => {
@@ -66,11 +74,17 @@ function syncSkinSwitches(): void {
 
 function syncAppearancePreviews(): void {
   const useWechat = activeSkin === 'wechat';
+  const useGraphite = activeSkin === 'graphite';
+  const useWillowGreen = activeSkin === 'willow_green';
   document.querySelectorAll<HTMLElement>('.cand-preview .candidate').forEach((element) => {
     element.classList.toggle('skin-wechat', useWechat);
+    element.classList.toggle('skin-graphite', useGraphite);
+    element.classList.toggle('skin-willow-green', useWillowGreen);
   });
   document.querySelectorAll<HTMLElement>('.ftb-preview-host:not([data-skin-toolbar])').forEach((element) => {
     element.classList.toggle('skin-wechat', useWechat);
+    element.classList.toggle('skin-graphite', useGraphite);
+    element.classList.toggle('skin-willow-green', useWillowGreen);
   });
 }
 

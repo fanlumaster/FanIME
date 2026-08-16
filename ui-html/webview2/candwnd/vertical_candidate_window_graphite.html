@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>(IME)VCandWnd</title>
+  <style>
+    :root {
+      --cand-font-family: 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      --cand-font-size: 16px;
+      --preedit-font-size: var(--cand-font-size);
+      --cand-text: #e9e8e8;
+      --cand-num: #e9e8e89d;
+      /* Fallback before C++ injects host-width DIP. Wrap limit = 宿主宽度. */
+      --msime-max-width-dip: 100%;
+      --msime-max-height-dip: 100%;
+    }
+
+    body {
+      font-family: var(--cand-font-family);
+      font-size: var(--cand-font-size);
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .containerParent {
+      width: fit-content;
+      max-width: var(--msime-max-width-dip);
+    }
+
+    .container {
+      margin-top: 0px;
+      margin-left: 0px;
+      background: #202020;
+      /* background: url("https://appassets/background.jpg"); */
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      min-width: 7em;
+      width: min(fit-content, var(--msime-max-width-dip));
+      max-width: var(--msime-max-width-dip);
+      /* Host height in DIP (injected). Do not use min(100%, …): parent height is
+         content-sized so 100% never resolves and tall vertical lists get clipped
+         by the HWND instead of scrolling. */
+      max-height: var(--msime-max-height-dip);
+      box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+      user-select: none;
+      border: 1.5px solid #9b9b9b2e;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 1.2em;
+      background: #6b69d6;
+      transform: translate(1.4px, 10%);
+    }
+
+    .row {
+      justify-content: space-between;
+      padding: 2px;
+      padding-right: 12px;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 2px;
+    }
+
+    .cand {
+      border-radius: 4px;
+    }
+
+    .hover-active .cand:hover {
+      background-color: #414141;
+    }
+
+    .row-wrapper {
+      position: relative;
+    }
+
+    .first {
+      background-color: #3e3e3eb9;
+      border-radius: 4px;
+    }
+
+    /* bar */
+    .first::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 0.8em;
+      width: 0.2em;
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+
+    .text {
+      padding-left: calc(0.2em + 3px);
+      color: var(--cand-text);
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .cand .text {
+      line-height: 1.35;
+    }
+
+    .cand-no {
+      font-size: 0.8em;
+      color: var(--cand-num);
+      margin-right: 1.5px;
+    }
+
+    .pinyin {
+      font-size: var(--preedit-font-size);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hidden-pinyin {
+      visibility: hidden;
+    }
+
+    /* Hide candidate-window top preedit when configured as empty */
+    .container.preedit-hidden > .row.pinyin {
+      display: none;
+    }
+
+    /* Hide container when empty */
+    .container:empty {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
+    }
+
+    /* Custom context menu */
+    .context-menu {
+      display: none;
+      position: fixed;
+      background: #2d2d2d;
+      border: 1px solid #9b9b9b2e;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      padding: 1px 0;
+      /* min-width: 80px; */
+      z-index: 1000;
+      /* 默认隐藏 */
+      /* display: none; */
+    }
+
+    .context-menu-item {
+      padding: 1px 4px;
+      margin: 2px 2px;
+      color: #e9e8e8;
+      cursor: default;
+      font-size: 14px;
+      line-height: 20px;
+      white-space: nowrap;
+      border-radius: 4px;
+    }
+
+    .context-menu-item:hover {
+      background-color: #414141;
+    }
+    .context-menu-parent { position: relative; padding-right: 20px; }
+    .context-menu-parent::after { content: "›"; position: absolute; right: 6px; }
+    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 0;
+      background: #2d2d2d; border: 1px solid #9b9b9b2e; border-radius: 6px; padding: 1px 0; }
+    .context-menu-parent:hover > .context-submenu { display: block; }
+    .context-menu-separator { height: 1px; margin: 3px 5px; background: #ffffff20; }
+
+    /* Graphite: a quiet, flat surface with hierarchy carried by type. */
+    :root { --cand-text: #aeb6c2; --cand-num: #707987; }
+    body { border-radius: 3px; }
+    .container {
+      background: #1c1f23;
+      padding: 3px 5px;
+      border: 1px solid #30353b;
+      border-radius: 3px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .28);
+    }
+    .cand { border-radius: 2px; }
+    .cursor { background: #8993a0; }
+    .hover-active .cand:hover { background-color: rgba(255, 255, 255, .055); }
+    .first { background: transparent; border-radius: 2px; }
+    .first::before { display: none; }
+    .first .text,
+    .first .cand-no { color: #f1f3f5; }
+    .context-menu,
+    .context-submenu { background: #23272c; border-color: #3a4047; border-radius: 3px; }
+    .context-menu-item { color: #c7cdd5; border-radius: 2px; }
+    .context-menu-item:hover { background: #30353b; }
+  </style>
+
+  <script>
+    let a = false;
+    let currentRightClickedCand = null;
+    let contextMenuTopExpansion = 0;
+    let contextMenuLeftExpansion = 0;
+
+
+    //
+    // 判断候选项是否为单个汉字
+    //
+    function isSingleCharCandidate(candElement) {
+      const contentEl = candElement.querySelector('.cand-content');
+      if (!contentEl) return false;
+
+      let text = contentEl.textContent.trim();
+
+      // 去掉括号里的编码，例如：你们(rR) → 你们
+      text = text.replace(/\(.*?\)$/, '').trim();
+
+      // 按 Unicode code point 计数
+      return Array.from(text).length === 1;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // Disable native context menu globally
+      document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+      });
+
+      // Handle right-click on candidate items
+      document.addEventListener('contextmenu', function (e) {
+        const candElement = e.target.closest('.cand');
+        if (!candElement) {
+          return;
+        }
+
+        e.preventDefault();
+        currentRightClickedCand = candElement;
+
+        // Move .first class to the clicked candidate
+        // TODO: .first 类名需要改为更合适的
+        const container = document.getElementById('realContainer');
+        const currentFirst = container.querySelector('.cand.first');
+        if (currentFirst) {
+          currentFirst.classList.remove('first');
+        }
+        candElement.classList.add('first');
+
+        // 根据候选项是否为单字符决定是否显示删除菜单项
+        const menuDelete = document.getElementById('menuDelete');
+        const isSingle = isSingleCharCandidate(candElement);
+        if (isSingle) {
+          menuDelete.style.display = 'none';
+        } else {
+          menuDelete.style.display = 'block';
+        }
+
+        showContextMenu(e.clientX, e.clientY);
+      });
+
+      //
+      // Dismiss only when clicking blank areas inside the rendered candidate card.
+      //
+      document.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        if (!(e.target instanceof Element)) return;
+        if (e.target.closest('.context-menu')) return;
+        if (!e.target.closest('#realContainer')) return;
+        hideContextMenu();
+      });
+      document.addEventListener('click', function (e) {
+        const candElement = e.target.closest('.cand');
+        if (candElement && e.button === 0) {
+          const candNoElement = candElement.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          if (candIndex !== null) {
+            console.log('Candidate left clicked:', candIndex);
+            try {
+              window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: Number(candIndex) }));
+              // TODO: 考虑一下，这里要不要也去做一下 html 界面的隐藏。
+            } catch (e) {
+              console.error('Failed to send message:', e);
+            }
+          }
+        }
+      });
+
+      document.addEventListener('mousemove', function () {
+        if (a === true) {
+          const container = document.getElementById('realContainer');
+          container.classList.add('hover-active');
+        }
+        a = true;
+      });
+    });
+
+    //
+    // Show context menu
+    //
+    function positionContextMenu(menu, x, y) {
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+      menu.style.visibility = 'hidden';
+      menu.style.display = 'block';
+      const screenRight = window.screen.availLeft + window.screen.availWidth;
+      const screenBottom = window.screen.availTop + window.screen.availHeight;
+      const adjustedX = x - Math.max(0, window.screenX + x + menu.offsetWidth + 4 - screenRight);
+      const adjustedY = y - Math.max(0, window.screenY + y + menu.offsetHeight + 4 - screenBottom);
+      menu.style.left = Math.max(0, adjustedX) + 'px';
+      menu.style.top = adjustedY + 'px';
+      menu.style.visibility = '';
+      return { x: Math.max(0, adjustedX), y: adjustedY, topExpansion: Math.max(0, 2 - adjustedY) };
+    }
+
+    function positionContextSubmenu(menu, menuY) {
+      const parent = menu.querySelector('.context-menu-parent');
+      const submenu = menu.querySelector('.context-submenu');
+      if (!parent || !submenu) return { width: 80, bottom: menuY + menu.offsetHeight };
+      submenu.style.top = '-2px';
+      submenu.style.visibility = 'hidden';
+      submenu.style.display = 'block';
+      const width = submenu.offsetWidth;
+      const naturalHeight = submenu.offsetHeight;
+      const menuX = Number.parseFloat(menu.style.left) || 0;
+      const screenRight = window.screen.availLeft + window.screen.availWidth;
+      const openLeft = window.screenX + menuX + menu.offsetWidth + width + 4 > screenRight;
+      const leftExpansion = openLeft ? Math.max(0, width - menuX + 2) : 0;
+      submenu.style.left = openLeft ? 'auto' : '100%';
+      submenu.style.right = openLeft ? '100%' : 'auto';
+      const defaultScreenTop = window.screenY + menuY + parent.offsetTop - 2;
+      const screenBottom = window.screen.availTop + window.screen.availHeight;
+      const targetScreenTop = Math.max(window.screen.availTop + 4,
+        Math.min(defaultScreenTop, screenBottom - naturalHeight - 4));
+      const topExpansion = Math.max(0, window.screenY + 2 - targetScreenTop);
+      submenu.style.top = (targetScreenTop - window.screenY - menuY - parent.offsetTop) + 'px';
+      const height = submenu.offsetHeight;
+      submenu.style.display = '';
+      submenu.style.visibility = '';
+      return { width, topExpansion, leftExpansion, bottom: menuY + parent.offsetTop +
+        Number.parseFloat(submenu.style.top) + height };
+    }
+
+    function showContextMenu(x, y) {
+      const menu = document.getElementById('contextMenu');
+      const menuPosition = positionContextMenu(menu, x, y);
+      const submenuSize = positionContextSubmenu(menu, menuPosition.y);
+      const content = document.getElementById('realContainer');
+      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuResize', data:{
+        width: Math.ceil(menuPosition.x + menu.offsetWidth + submenuSize.width + 4),
+        height: Math.ceil(Math.max(content?.offsetHeight || 0, menuPosition.y + menu.offsetHeight + 4, submenuSize.bottom + 4)),
+        topExpansion: Math.ceil(Math.max(menuPosition.topExpansion || 0, submenuSize.topExpansion || 0))
+        ,leftExpansion: Math.ceil(submenuSize.leftExpansion || 0)
+      }}));
+    }
+
+    //
+    // Hide context menu
+    //
+    function hideContextMenu() {
+      const menu = document.getElementById('contextMenu');
+      if (!menu || menu.style.display !== 'block') return;
+      menu.style.display = 'none';
+      currentRightClickedCand = null;
+      window.RestoreContextMenuTopExpansion();
+      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
+    }
+
+    //
+    // 置顶当前候选项
+    //
+    function onPinToTop(event) {
+      // 只针对鼠标左键的点击有效
+      if (event.button !== 0) {
+        return;
+      }
+
+      try {
+        if (currentRightClickedCand) {
+          // Get the candidate index from the cand-no element
+          const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+          const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+          console.log('Pin to top:', candIndex, candContent);
+          // 通知 C++ 端置顶
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'pin', data: Number(candIndex) }));
+        }
+      } catch (e) {
+        // TODO: 处理异常
+      } finally {
+        hideContextMenu();
+      }
+    }
+
+    //
+    // 删除当前候选项
+    //
+    function onDelete(event) {
+      // 只针对鼠标左键的点击有效
+      if (event.button !== 0) {
+        return;
+      }
+
+      try {
+        if (currentRightClickedCand) {
+          // Get the candidate index from the cand-no element
+          const candNoElement = currentRightClickedCand.querySelector('.cand-no');
+          const candIndex = candNoElement ? Number(candNoElement.textContent.trim()) : null;
+          const candContentElement = currentRightClickedCand.querySelector('.cand-content');
+          const candContent = candContentElement ? candContentElement.textContent.trim() : null;
+          console.log('Delete:', candIndex, candContent);
+          // 通知 C++ 端删除
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'delete', data: Number(candIndex) }));
+        }
+      } catch (e) {
+        // TODO: 处理异常
+      } finally {
+        hideContextMenu();
+      }
+    }
+
+    window.ClearState = function () {
+      a = false;
+      const container = document.getElementById('realContainer');
+      container.classList.remove('hover-active');
+      hideContextMenu();
+    }
+
+    function candidateMenuIndex() {
+      const number = currentRightClickedCand?.querySelector('.cand-no');
+      return number ? Number(number.textContent.trim()) : null;
+    }
+    function onFixPosition(event, position) {
+      if (event.button !== 0) return;
+      const index = candidateMenuIndex();
+      if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'fixPosition', data:{index,position}}));
+      hideContextMenu();
+    }
+    window.ApplyContextMenuTopExpansion = function (pixels) {
+      const content = document.getElementById('realContainerParent');
+      const menu = document.getElementById('contextMenu');
+      const delta = pixels - contextMenuTopExpansion;
+      content.style.marginTop = ((Number.parseFloat(content.style.marginTop) || 0) + delta) + 'px';
+      menu.style.top = ((Number.parseFloat(menu.style.top) || 0) + delta) + 'px';
+      contextMenuTopExpansion = pixels;
+    }
+    window.ApplyContextMenuLeftExpansion = function (pixels) {
+      const content = document.getElementById('realContainerParent');
+      const menu = document.getElementById('contextMenu');
+      const delta = pixels - contextMenuLeftExpansion;
+      content.style.marginLeft = ((Number.parseFloat(content.style.marginLeft) || 0) + delta) + 'px';
+      menu.style.left = ((Number.parseFloat(menu.style.left) || 0) + delta) + 'px';
+      contextMenuLeftExpansion = pixels;
+    }
+    window.RestoreContextMenuTopExpansion = function () {
+      if (!contextMenuTopExpansion && !contextMenuLeftExpansion) return;
+      const content = document.getElementById('realContainerParent');
+      const menu = document.getElementById('contextMenu');
+      content.style.marginTop = ((Number.parseFloat(content.style.marginTop) || 0) - contextMenuTopExpansion) + 'px';
+      menu.style.top = ((Number.parseFloat(menu.style.top) || 0) - contextMenuTopExpansion) + 'px';
+      contextMenuTopExpansion = 0;
+      content.style.marginLeft = ((Number.parseFloat(content.style.marginLeft) || 0) - contextMenuLeftExpansion) + 'px';
+      menu.style.left = ((Number.parseFloat(menu.style.left) || 0) - contextMenuLeftExpansion) + 'px';
+      contextMenuLeftExpansion = 0;
+    }
+    function onClearPosition(event) {
+      if (event.button !== 0) return;
+      const index = candidateMenuIndex();
+      if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'clearPosition', data:index}));
+      hideContextMenu();
+    }
+
+    window.SetCandidateSelection = function (index) {
+      const candidates = document.querySelectorAll('#realContainer .cand');
+      candidates.forEach((candidate) => candidate.classList.remove('first'));
+      if (index >= 0 && index < candidates.length) {
+        candidates[index].classList.add('first');
+      }
+    }
+
+    window.SetCandidatePreeditVisible = function (visible) {
+      const hide = !visible;
+      document.getElementById('realContainer')?.classList.toggle('preedit-hidden', hide);
+      document.getElementById('measureContainer')?.classList.toggle('preedit-hidden', hide);
+    }
+
+    window.SetPreeditCaret = function () {
+      const preedit = document.querySelector('#realContainer .pinyin .text');
+      if (!preedit) return;
+      const marker = '\uE000';
+      const text = preedit.textContent || '';
+      const index = text.indexOf(marker);
+      const cleanText = text.replace(marker, '');
+      const caretIndex = index >= 0 ? index : cleanText.length;
+      preedit.textContent = '';
+      preedit.append(document.createTextNode(cleanText.slice(0, caretIndex)));
+      const caret = document.createElement('span');
+      caret.className = 'cursor';
+      preedit.append(caret);
+      preedit.append(document.createTextNode(cleanText.slice(caretIndex)));
+    }
+  </script>
+</head>
+
+<body>
+  <div id="realBody">
+    <div class="containerParent" id="realContainerParent">
+      <div class="container" id="realContainer">
+        <!--0Anchor-->
+        <div class="row pinyin">
+          <div class="text">ni'mf<span class="cursor"></span></div>
+          <div class="hidden-pinyin">n</div>
+        </div>
+        <!--1Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand first">
+            <div class="text"><span class="cand-no">1</span><span class="cand-content">你们(rR)</span></div>
+          </div>
+        </div>
+        <!--2Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">2</span><span class="cand-content">你(rX)</span></div>
+          </div>
+        </div>
+        <!--3Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">3</span><span class="cand-content">尼(uV)</span></div>
+          </div>
+        </div>
+        <!--4Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">4</span><span class="cand-content">妮(nV)</span></div>
+          </div>
+        </div>
+        <!--5Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">5</span><span class="cand-content">泥(dV)</span></div>
+          </div>
+        </div>
+        <!--6Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">6</span><span class="cand-content">逆(zQ)</span></div>
+          </div>
+        </div>
+        <!--7Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">7</span><span class="cand-content">拟(fR)</span></div>
+          </div>
+        </div>
+        <!--8Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">8</span><span class="cand-content">腻(oD)</span></div>
+          </div>
+        </div>
+        <!--9Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">9</span><span class="cand-content">拧(nG)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="measureBody" style="visibility: hidden;">
+    <div class="containerParent" id="measureContainerParent">
+      <div class="container" id="measureContainer">
+        <!--0Anchor-->
+        <div class="row pinyin">
+          <div class="text">{0}</div>
+          <div class="hidden-pinyin">n</div>
+        </div>
+        <!--1Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand first">
+            <div class="text"><span class="cand-no">1</span><span class="cand-content"> {1} 你</span></div>
+          </div>
+        </div>
+        <!--2Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">2</span><span class="cand-content"> {2} 我</span></div>
+          </div>
+        </div>
+        <!--3Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">3</span><span class="cand-content"> {3} 什么</span></div>
+          </div>
+        </div>
+        <!--4Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">4</span><span class="cand-content"> {4} 量子</span></div>
+          </div>
+        </div>
+        <!--5Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">5</span><span class="cand-content"> {5} 可恶</span></div>
+          </div>
+        </div>
+        <!--6Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">6</span><span class="cand-content"> {6} 不是</span></div>
+          </div>
+        </div>
+        <!--7Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">7</span><span class="cand-content"> {7} 那么</span></div>
+          </div>
+        </div>
+        <!--8Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">8</span><span class="cand-content"> {8} 如果</span></div>
+          </div>
+        </div>
+        <!--9Anchor-->
+        <div class="row-wrapper">
+          <div class="row cand">
+            <div class="text"><span class="cand-no">9</span><span class="cand-content"> {9}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Custom Context Menu -->
+  <div id="contextMenu" class="context-menu">
+    <div id="menuPin" class="context-menu-item" onmouseup="onPinToTop(event)">置顶</div>
+    <div class="context-menu-item context-menu-parent">固定排位
+      <div class="context-submenu">
+        <div class="context-menu-item" onmouseup="onFixPosition(event,1)">第 1 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,2)">第 2 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,3)">第 3 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,4)">第 4 位</div>
+        <div class="context-menu-item" onmouseup="onFixPosition(event,5)">第 5 位</div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onmouseup="onClearPosition(event)">取消固定</div>
+      </div>
+    </div>
+    <div id="menuDelete" class="context-menu-item" onmouseup="onDelete(event)">删除</div>
+  </div>
+<script>
+(function () {
+  var SURFACE = 'cand';
+  var SELECTOR = '#realContainer';
+  var COOLDOWN_MS = 450;
+  var lastSent = 0;
+  var pending = false;
+  function el() { return document.querySelector(SELECTOR); }
+  function truncated(node) {
+    if (!node) return false;
+    var vw = document.documentElement.clientWidth;
+    var vh = document.documentElement.clientHeight;
+    var r = node.getBoundingClientRect();
+    var pad = 1.5;
+    return node.scrollWidth > vw + pad || node.scrollHeight > vh + pad ||
+      r.width > vw + pad || r.height > vh + pad ||
+      r.right > vw + pad || r.bottom > vh + pad;
+  }
+  function report() {
+    var node = el();
+    if (!node || !truncated(node)) return;
+    if (!window.chrome || !window.chrome.webview) return;
+    var now = Date.now();
+    if (now - lastSent < COOLDOWN_MS) return;
+    lastSent = now;
+    var r = node.getBoundingClientRect();
+    window.chrome.webview.postMessage(JSON.stringify({
+      type: 'contentTruncated',
+      data: {
+        surface: SURFACE,
+        width: Math.ceil(Math.max(r.width, node.scrollWidth || 0)),
+        height: Math.ceil(Math.max(r.height, node.scrollHeight || 0)),
+        viewportWidth: document.documentElement.clientWidth,
+        viewportHeight: document.documentElement.clientHeight
+      }
+    }));
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        pending = false;
+        report();
+      });
+    });
+  }
+  window.CheckContentTruncation = schedule;
+  window.addEventListener('resize', schedule);
+  window.addEventListener('load', schedule);
+  if (typeof ResizeObserver !== 'undefined') {
+    var ro = new ResizeObserver(schedule);
+    ro.observe(document.documentElement);
+    var node = el();
+    if (node) ro.observe(node);
+  }
+})();
+</script>
+</body>
+
+</html>
