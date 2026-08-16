@@ -134,6 +134,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.utility?.emoji_mode === 'boolean') {
       applyToggleState('emojiModeToggleBtn', payload.data.utility.emoji_mode);
     }
+    if (typeof payload.data?.utility?.kaomoji_mode === 'boolean') {
+      applyToggleState('kaomojiModeToggleBtn', payload.data.utility.kaomoji_mode);
+    }
     if (typeof payload.data?.general?.paging_minus_equal === 'boolean') {
       const checkbox = document.getElementById('pagingMinusEqualCheckbox') as HTMLInputElement | null;
       if (checkbox) checkbox.checked = payload.data.general.paging_minus_equal;

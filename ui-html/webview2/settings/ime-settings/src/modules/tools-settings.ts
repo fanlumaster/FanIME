@@ -87,6 +87,9 @@ export function setupToolsSettings(): void {
   setupToggleButton('emojiModeToggleBtn', (active) => {
     updateConfig('utility.emoji_mode', active);
   });
+  setupToggleButton('kaomojiModeToggleBtn', (active) => {
+    updateConfig('utility.kaomoji_mode', active);
+  });
   document.getElementById('quickPhraseSearchButton')?.addEventListener('click', query);
   document.getElementById('quickPhraseSearch')?.addEventListener('keydown', event => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('quickPhraseAddButton')?.addEventListener('click', () => openDialog());

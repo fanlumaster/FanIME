@@ -117,7 +117,7 @@ function openDialog(row: DictionaryRow | null = null): void {
     : '';
   document.getElementById('dictWeightField')!.style.display = 'grid';
   (document.getElementById('dictWord') as HTMLInputElement).value = english ? row?.display ?? '' : row?.word ?? '';
-  (document.getElementById('dictWeight') as HTMLInputElement).value = row?.weight === undefined ? '10000' : String(row.weight);
+  (document.getElementById('dictWeight') as HTMLInputElement).value = row?.weight === undefined ? '10' : String(row.weight);
   const modal = document.getElementById('dictModal')!; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false');
 }
 
