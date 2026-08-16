@@ -81,6 +81,9 @@ export function setupInput(): void {
   setupToggleButton('zhEnToggleBtn', (active) => {
     updateConfig('general.cn_en_mixed_input', active);
   });
+  setupToggleButton('emojiMixedInputToggleBtn', (active) => {
+    updateConfig('general.emoji_mixed_input', active);
+  });
   setupToggleButton('cloudCandidatesToggleBtn', (active) => {
     updateConfig('general.cloud_candidates', active);
   });

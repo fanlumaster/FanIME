@@ -116,6 +116,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.cn_en_mixed_input === 'boolean') {
       applyToggleState('zhEnToggleBtn', payload.data.general.cn_en_mixed_input);
     }
+    if (typeof payload.data?.general?.emoji_mixed_input === 'boolean') {
+      applyToggleState('emojiMixedInputToggleBtn', payload.data.general.emoji_mixed_input);
+    }
     if (typeof payload.data?.general?.cloud_candidates === 'boolean') {
       applyToggleState('cloudCandidatesToggleBtn', payload.data.general.cloud_candidates);
     }
