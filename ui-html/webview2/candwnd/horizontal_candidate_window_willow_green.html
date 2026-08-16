@@ -180,13 +180,37 @@
     /* Willow green: full-bleed column highlight, like weasel 杨柳青. */
     :root { --cand-text: #d8dbd8; --cand-num: #a6aba7; }
     body { border-radius: 9px; }
-    .container {
-      background: #2d2f2e;
-      padding: 0;
-      border: 1px solid #3b3e3c;
+    .containerParent {
       border-radius: 9px;
       box-shadow: 0 7px 18px rgba(0, 0, 0, .34);
+    }
+    .container {
+      --wg-surface: #2d2f2e;
+      --wg-hilite: #65c98d;
+      --wg-radius: 9px;
+      background-color: var(--wg-surface);
+      background-repeat: no-repeat;
+      padding: 0;
+      border: none;
+      border-radius: var(--wg-radius);
+      box-shadow: none;
+      isolation: isolate;
+      clip-path: inset(0 round var(--wg-radius));
       letter-spacing: -0.31em;
+    }
+    .container.preedit-hidden:has(> .pinyin + .row-wrapper > .first) {
+      background-image: linear-gradient(to right, var(--wg-hilite), var(--wg-hilite));
+      background-position: left;
+      background-size: var(--wg-radius) 100%;
+    }
+    .container:has(> .row-wrapper:last-child > .first) {
+      background-image: linear-gradient(to left, var(--wg-hilite), var(--wg-hilite));
+      background-position: right;
+      background-size: var(--wg-radius) 100%;
+    }
+    .container.preedit-hidden:has(> .pinyin + .row-wrapper > .first):has(> .row-wrapper:last-child > .first) {
+      background-color: var(--wg-hilite);
+      background-image: none;
     }
     .row.pinyin {
       letter-spacing: normal;
@@ -208,29 +232,15 @@
     }
     .first-row-wrapper { margin-left: 0; }
     .cand { border-radius: 0; }
-    .cursor { background: #65c98d; }
+    .cursor { background: var(--wg-hilite); }
     .hover-active .cand:hover { background-color: rgba(101, 201, 141, .22); }
     .first {
-      background-color: #65c98d;
+      background-color: var(--wg-hilite);
       border-radius: 0;
     }
     .first::before { display: none; }
     .first .text,
     .first .num { color: #ffffff; }
-    .container.preedit-hidden > .pinyin + .row-wrapper > .first {
-      border-top-left-radius: 8px;
-      border-bottom-left-radius: 8px;
-    }
-    .container:not(.preedit-hidden) > .pinyin + .row-wrapper > .first {
-      border-bottom-left-radius: 8px;
-    }
-    .container.preedit-hidden > .row-wrapper:last-child > .first {
-      border-top-right-radius: 8px;
-      border-bottom-right-radius: 8px;
-    }
-    .container:not(.preedit-hidden) > .row-wrapper:last-child > .first {
-      border-bottom-right-radius: 8px;
-    }
     .context-menu,
     .context-submenu { background: #343635; border-color: #454845; color: #e0e2df; }
     .context-menu-item:hover { background: #414441; }

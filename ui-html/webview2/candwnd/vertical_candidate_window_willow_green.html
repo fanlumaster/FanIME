@@ -188,12 +188,38 @@
     /* Willow green: full-bleed row highlight, like weasel 杨柳青. */
     :root { --cand-text: #d8dbd8; --cand-num: #a6aba7; }
     body { border-radius: 9px; }
-    .container {
-      background: #2d2f2e;
-      padding: 0;
-      border: 1px solid #3b3e3c;
+    .containerParent {
       border-radius: 9px;
       box-shadow: 0 7px 18px rgba(0, 0, 0, .34);
+    }
+    .container {
+      --wg-surface: #2d2f2e;
+      --wg-hilite: #65c98d;
+      --wg-radius: 9px;
+      background-color: var(--wg-surface);
+      background-repeat: no-repeat;
+      padding: 0;
+      border: none;
+      border-radius: var(--wg-radius);
+      box-shadow: none;
+      isolation: isolate;
+      clip-path: inset(0 round var(--wg-radius));
+    }
+    /* Keep parent fill matching the highlight in the rounded corners so the
+       surface color cannot anti-alias through. https://dev.to/rashidshamloo/css-fixing-background-color-bleed-in-rounded-corners-2kh4 */
+    .container.preedit-hidden:has(> .pinyin + .row-wrapper > .first) {
+      background-image: linear-gradient(var(--wg-hilite), var(--wg-hilite));
+      background-position: top;
+      background-size: 100% var(--wg-radius);
+    }
+    .container:has(> .row-wrapper:last-child > .first) {
+      background-image: linear-gradient(var(--wg-hilite), var(--wg-hilite));
+      background-position: bottom;
+      background-size: 100% var(--wg-radius);
+    }
+    .container.preedit-hidden:has(> .pinyin + .row-wrapper > .first):has(> .row-wrapper:last-child > .first) {
+      background-color: var(--wg-hilite);
+      background-image: none;
     }
     .row.pinyin {
       margin-top: 0;
@@ -205,10 +231,10 @@
       border-radius: 0;
     }
     .cand { border-radius: 0; }
-    .cursor { background: #65c98d; }
+    .cursor { background: var(--wg-hilite); }
     .hover-active .cand:hover { background-color: rgba(101, 201, 141, .22); }
     .first {
-      background-color: #65c98d;
+      background-color: var(--wg-hilite);
       border-radius: 0;
     }
     .first::before { display: none; }
@@ -217,16 +243,8 @@
     .container.preedit-hidden > .pinyin + .row-wrapper > .cand {
       padding-top: 7px;
     }
-    .container.preedit-hidden > .pinyin + .row-wrapper > .first {
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
-    }
     .container > .row-wrapper:last-child > .cand {
       padding-bottom: 7px;
-    }
-    .container > .row-wrapper:last-child > .first {
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
     }
     .context-menu,
     .context-submenu { background: #343635; border-color: #454845; }

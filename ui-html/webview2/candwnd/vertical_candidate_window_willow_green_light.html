@@ -187,12 +187,36 @@
     /* Willow green light: full-bleed row highlight, like weasel 杨柳青. */
     :root { --cand-text: #343936; --cand-num: #686f6a; }
     body { border-radius: 9px; }
-    .container {
-      background: #f4f5f3;
-      padding: 0;
-      border: 1px solid #dfe3df;
+    .containerParent {
       border-radius: 9px;
       box-shadow: 0 7px 18px rgba(42, 55, 47, .16);
+    }
+    .container {
+      --wg-surface: #f4f5f3;
+      --wg-hilite: #58b980;
+      --wg-radius: 9px;
+      background-color: var(--wg-surface);
+      background-repeat: no-repeat;
+      padding: 0;
+      border: none;
+      border-radius: var(--wg-radius);
+      box-shadow: none;
+      isolation: isolate;
+      clip-path: inset(0 round var(--wg-radius));
+    }
+    .container.preedit-hidden:has(> .pinyin + .row-wrapper > .first) {
+      background-image: linear-gradient(var(--wg-hilite), var(--wg-hilite));
+      background-position: top;
+      background-size: 100% var(--wg-radius);
+    }
+    .container:has(> .row-wrapper:last-child > .first) {
+      background-image: linear-gradient(var(--wg-hilite), var(--wg-hilite));
+      background-position: bottom;
+      background-size: 100% var(--wg-radius);
+    }
+    .container.preedit-hidden:has(> .pinyin + .row-wrapper > .first):has(> .row-wrapper:last-child > .first) {
+      background-color: var(--wg-hilite);
+      background-image: none;
     }
     .row.pinyin {
       margin-top: 0;
@@ -204,10 +228,10 @@
       border-radius: 0;
     }
     .cand { border-radius: 0; }
-    .cursor { background: #58b980; }
+    .cursor { background: var(--wg-hilite); }
     .hover-active .cand:hover { background-color: rgba(88, 185, 128, .16); }
     .first {
-      background-color: #58b980;
+      background-color: var(--wg-hilite);
       border-radius: 0;
     }
     .first::before { display: none; }
@@ -216,16 +240,8 @@
     .container.preedit-hidden > .pinyin + .row-wrapper > .cand {
       padding-top: 7px;
     }
-    .container.preedit-hidden > .pinyin + .row-wrapper > .first {
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
-    }
     .container > .row-wrapper:last-child > .cand {
       padding-bottom: 7px;
-    }
-    .container > .row-wrapper:last-child > .first {
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
     }
     .context-menu,
     .context-submenu { background: #fbfcfa; border-color: #d8ded9; }
