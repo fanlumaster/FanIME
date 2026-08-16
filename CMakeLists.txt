@@ -106,6 +106,7 @@ add_library(${PROJECT_NAME} SHARED
     # IPC
     "./src/IPC/Ipc.cpp"
     "./src/IPC/Ipc.h"
+    "./src/IPC/VoiceCompositionPipe.h"
     # Key
     "./src/Key/KeyEventSink.cpp"
     "./src/Key/KeyHandler.cpp"

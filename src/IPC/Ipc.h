@@ -1,4 +1,5 @@
 #pragma once
+#include "VoiceCompositionPipe.h"
 #include <Windows.h>
 #include <atomic>
 #include <cstddef>
@@ -324,9 +325,15 @@ constexpr UINT PairedPunctuationChanged = 12;
 constexpr UINT MicrosoftShuangpinChanged = 13;
 // Replace a repeated smart ASCII punctuation with its Chinese mapping.
 constexpr UINT SmartPunctuationRepeatToChineseChanged = 14;
+// Streaming ASR: replace the inline composition with this full snapshot.
+constexpr UINT UpdateVoiceComposition = 15;
+// Streaming ASR: abort the voice composition without committing.
+constexpr UINT CancelVoiceComposition = 16;
+// Streaming ASR: replace the inline composition with this snapshot and commit.
+constexpr UINT CommitVoiceComposition = 17;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = SmartPunctuationRepeatToChineseChanged;
+constexpr UINT MaxKnown = CommitVoiceComposition;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};

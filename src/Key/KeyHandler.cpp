@@ -282,6 +282,80 @@ HRESULT CMetasequoiaIME::_HandleInsertText(TfEditCookie ec, _In_ ITfContext *pCo
     return _HandleCompleteCommitFirst(ec, pContext);
 }
 
+HRESULT CMetasequoiaIME::_HandleUpdateVoiceComposition(TfEditCookie ec, _In_ ITfContext *pContext,
+                                                       const std::wstring &text)
+{
+    if (text.empty())
+    {
+        return S_OK;
+    }
+
+    if (!_voiceCompositionActive)
+    {
+        if (_pCompositionProcessorEngine)
+        {
+            _pCompositionProcessorEngine->PurgeVirtualKey();
+        }
+        GlobalIme::word_for_creating_word.clear();
+        GlobalIme::pending_create_word_preedit.clear();
+        _DeleteCandidateList(FALSE, pContext);
+        _voiceCompositionActive = true;
+    }
+
+    if (_pComposition == nullptr)
+    {
+        _StartComposition(pContext);
+    }
+
+    CStringRange voiceString;
+    voiceString.Set(text.c_str(), text.length());
+    return _AddComposingAndChar(ec, pContext, &voiceString);
+}
+
+HRESULT CMetasequoiaIME::_HandleCommitVoiceComposition(TfEditCookie ec, _In_ ITfContext *pContext,
+                                                       const std::wstring &text)
+{
+    _voiceCompositionActive = false;
+    if (_pCompositionProcessorEngine)
+    {
+        _pCompositionProcessorEngine->PurgeVirtualKey();
+    }
+    GlobalIme::word_for_creating_word.clear();
+    GlobalIme::pending_create_word_preedit.clear();
+
+    if (text.empty())
+    {
+        if (_pComposition == nullptr)
+        {
+            return S_OK;
+        }
+        return _HandleCompleteCommitFirst(ec, pContext);
+    }
+
+    CStringRange commitString;
+    commitString.Set(text.c_str(), text.length());
+    HRESULT hr = _AddCharAndFinalize(ec, pContext, &commitString);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    return _HandleCompleteCommitFirst(ec, pContext);
+}
+
+HRESULT CMetasequoiaIME::_HandleCancelVoiceComposition(TfEditCookie ec, _In_ ITfContext *pContext)
+{
+    if (!_voiceCompositionActive && _pComposition == nullptr)
+    {
+        return S_OK;
+    }
+    _voiceCompositionActive = false;
+    if (_pCompositionProcessorEngine)
+    {
+        _pCompositionProcessorEngine->PurgeVirtualKey();
+    }
+    return _HandleCancel(ec, pContext);
+}
+
 //+---------------------------------------------------------------------------
 //
 // _HandleCompositionInput

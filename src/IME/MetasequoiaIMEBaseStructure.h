@@ -63,7 +63,10 @@ enum KEYSTROKE_FUNCTION
 
     // Unsolicited insert (voice ASR via worker pipe). Append-only so existing
     // ordinals stay stable across builds.
-    FUNCTION_INSERT_TEXT
+    FUNCTION_INSERT_TEXT,
+    FUNCTION_UPDATE_VOICE_COMPOSITION,
+    FUNCTION_COMMIT_VOICE_COMPOSITION,
+    FUNCTION_CANCEL_VOICE_COMPOSITION
 };
 
 //---------------------------------------------------------------------

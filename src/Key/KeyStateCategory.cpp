@@ -92,6 +92,15 @@ HRESULT CKeyStateCategory::KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandl
     case FUNCTION_INSERT_TEXT:
         return _pTextService->_HandleInsertText(dto.ec, dto.pContext, dto.prefetchedText);
 
+    case FUNCTION_UPDATE_VOICE_COMPOSITION:
+        return _pTextService->_HandleUpdateVoiceComposition(dto.ec, dto.pContext, dto.prefetchedText);
+
+    case FUNCTION_COMMIT_VOICE_COMPOSITION:
+        return _pTextService->_HandleCommitVoiceComposition(dto.ec, dto.pContext, dto.prefetchedText);
+
+    case FUNCTION_CANCEL_VOICE_COMPOSITION:
+        return _pTextService->_HandleCancelVoiceComposition(dto.ec, dto.pContext);
+
     case FUNCTION_CONVERT: {
         return HandleKeyConvert(dto);
     }

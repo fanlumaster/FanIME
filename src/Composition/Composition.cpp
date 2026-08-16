@@ -414,6 +414,7 @@ STDAPI CMetasequoiaIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfCo
     terminatedComposition->AddRef();
     _pComposition->Release();
     _pComposition = nullptr;
+    _voiceCompositionActive = false;
 
     ITfContext *ownerContext = _pContext;
     if (ownerContext)

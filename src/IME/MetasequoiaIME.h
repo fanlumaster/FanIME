@@ -40,6 +40,9 @@ const DWORD WM_RefreshLanguageBarTheme = WM_USER + 20;
 const DWORD WM_PairedPunctuationMoveLeft = WM_USER + 21;
 const DWORD WM_ReplaceRepeatedSmartPunctuation = WM_USER + 22;
 const DWORD WM_MinttyShiftRelease = WM_USER + 23;
+const DWORD WM_UpdateVoiceComposition = WM_USER + 24;
+const DWORD WM_CommitVoiceComposition = WM_USER + 25;
+const DWORD WM_CancelVoiceComposition = WM_USER + 26;
 constexpr ULONG_PTR SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO = 0x4D535050u;
 constexpr ULONGLONG SMART_PUNCTUATION_REPEAT_INTERVAL_MS = 2000;
 constexpr UINT_PTR TIMER_CONNECT_ALL_NAMEDPIPE = 1;
@@ -154,6 +157,9 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     HRESULT _HandleCancel(TfEditCookie ec, _In_ ITfContext *pContext);
     HRESULT _HandleToogleIMEMode(TfEditCookie ec, _In_ ITfContext *pContext);
     HRESULT _HandleInsertText(TfEditCookie ec, _In_ ITfContext *pContext, const std::wstring &text);
+    HRESULT _HandleUpdateVoiceComposition(TfEditCookie ec, _In_ ITfContext *pContext, const std::wstring &text);
+    HRESULT _HandleCommitVoiceComposition(TfEditCookie ec, _In_ ITfContext *pContext, const std::wstring &text);
+    HRESULT _HandleCancelVoiceComposition(TfEditCookie ec, _In_ ITfContext *pContext);
 
     // key event handlers for composition object.
     HRESULT _HandleCompositionInput(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch, uint64_t requestId);
@@ -281,6 +287,9 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     bool _PostServerInsertText(_In_z_ const WCHAR *text);
     bool _PostServerTextDelivery(UINT windowMessage, _In_z_ const WCHAR *text);
     bool _TakeServerCandidateCommit(UINT token, _Out_ WorkerCandidateCommit &request);
+    void _ResetVoiceCompositionAssemble();
+    void _AssembleVoiceCompositionFrame(const FanyImeNamedpipeDataToTsfWorkerThread &buf);
+    void _DispatchUnsolicitedVoiceText(WPARAM wParam, KEYSTROKE_FUNCTION function);
     struct WorkerCompartmentSwitch
     {
         UINT messageType = 0;
@@ -555,6 +564,11 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     std::atomic<uint64_t> _expectedWorkerFocusToken;
     std::atomic<uint64_t> _acknowledgedWorkerFocusToken;
     std::atomic<uint64_t> _compositionEpoch;
+    std::wstring _voiceCompositionAssemble;
+    UINT _voiceCompositionAssembleMsg = 0;
+    wchar_t _voiceCompositionAssembleGeneration = 0;
+    bool _voiceCompositionAssembleActive = false;
+    bool _voiceCompositionActive = false;
     std::atomic<bool> _localSessionResetPending;
     std::atomic<UINT> _localSessionResetToken;
     bool _localResetEditSessionQueued;
