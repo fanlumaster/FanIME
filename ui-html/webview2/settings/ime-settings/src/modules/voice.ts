@@ -39,6 +39,7 @@ function syncSoundMaster(): void {
 export function setupVoiceInput(): void {
   setupToggleButton('voiceEnabled', value => updateConfig('voice_input.voice_input', value));
   setupToggleButton('voicePolishText', value => updateConfig('voice_input.polish_text', value));
+  setupToggleButton('voiceStreamInlinePreedit', value => updateConfig('voice_input.stream_inline_preedit', value));
   setupTokenVisibilityToggle('voiceAsrToken', 'voiceAsrTokenVisibility', 'Access Token / API Key');
   setupTokenVisibilityToggle('voicePolishToken', 'voicePolishTokenVisibility', 'API Token');
   setupToggleButton('voiceSoundEnabled', value => {
