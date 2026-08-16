@@ -1,4 +1,5 @@
 #include "EmojiPanel.h"
+#include "emoji_panel_icons.h"
 #include "emoji_panel_splash.h"
 
 #include "msimeui/DeviceResources.h"
@@ -55,8 +56,8 @@ constexpr float kFlowCellPadX = 12.0f;
 constexpr float kFlowMinCellWidth = 52.0f;
 constexpr float kFlowMeasureSlack = 6.0f;
 constexpr size_t kInvalidIndex = static_cast<size_t>(-1);
-constexpr float kMainTabWidths[] = {58.0f, 58.0f, 66.0f, 66.0f, 64.0f, 58.0f};
-constexpr size_t kMainTabCount = 6;
+constexpr float kMainTabWidths[] = {58.0f, 58.0f, 58.0f, 58.0f, 66.0f, 64.0f, 58.0f};
+constexpr size_t kMainTabCount = 7;
 
 bool Contains(const RectF &rect, const PointF &point)
 {
@@ -1036,6 +1037,7 @@ void EmojiPanel::EnsureDisplayLayout() const
         }
         appendGroup(L"Symbols", std::move(symbolPreview), Page::Symbols, true);
 
+        appendGroup(L"Sticker", {}, Page::Sticker, true);
         appendGroup(L"GIF", {}, Page::Gif, true);
     }
     else if (page_ == Page::Emoji)
@@ -1072,7 +1074,7 @@ void EmojiPanel::EnsureDisplayLayout() const
             }
         }
     }
-    else if (page_ == Page::Gif || page_ == Page::Clipboard)
+    else if (page_ == Page::Sticker || page_ == Page::Gif || page_ == Page::Clipboard)
     {
         // Placeholder pages keep an empty layout; Render shows the hint text.
     }
@@ -1524,7 +1526,8 @@ void EmojiPanel::ActivateMore(size_t layoutIndex)
     {
         EnterPage(Page::Emoji, recentItems_.empty() ? 1 : 0);
     }
-    else if (target == Page::Kaomoji || target == Page::Symbols || target == Page::Gif || target == Page::Clipboard)
+    else if (target == Page::Kaomoji || target == Page::Symbols || target == Page::Sticker ||
+             target == Page::Gif || target == Page::Clipboard)
     {
         EnterPage(target, 0);
     }
@@ -1629,7 +1632,8 @@ void EmojiPanel::Render(DeviceResources &resources)
         else
         {
             const wchar_t *title = L"";
-            if (page_ == Page::Gif) title = L"GIF";
+            if (page_ == Page::Sticker) title = L"Sticker";
+            else if (page_ == Page::Gif) title = L"GIF";
             else if (page_ == Page::Kaomoji) title = L"Kaomoji";
             else if (page_ == Page::Symbols) title = L"Symbols";
             else if (page_ == Page::Clipboard) title = L"Clipboard history";
@@ -1639,7 +1643,6 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
     else
     {
-        const wchar_t *tabs[] = {L"\u2764", L"\u263A", L"GIF", L";-)", L"\u2605", L"\u25A3"};
         for (size_t index = 0; index < kMainTabCount; ++index)
         {
             const RectF rect = MainTabRect(index);
@@ -1647,16 +1650,12 @@ void EmojiPanel::Render(DeviceResources &resources)
             {
                 FillRect(resources, rect, hover, 6.0f);
             }
-            const bool useEmojiFont = index == 0;
-            DrawText(resources, tabs[index], rect, index == 2 ? 14.0f : 25.0f, text,
-                     index == 2 ? L"Segoe UI" : (useEmojiFont ? L"Segoe UI Emoji" : L"Segoe UI Symbol"),
-                     DWRITE_TEXT_ALIGNMENT_CENTER,
-                     index == 2 ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL, useEmojiFont);
+            tabIcons_.DrawTabIcon(resources, static_cast<EmojiPanelIcons::Tab>(index), rect, lightTheme_);
             if (static_cast<size_t>(page_) == index)
             {
                 FillRect(resources,
-                         {rect.x + (rect.width - 29.0f) * 0.5f, bounds_.y + 121.0f, 29.0f, 4.0f},
-                         accent, 2.0f);
+                         {rect.x + (rect.width - 24.0f) * 0.5f, bounds_.y + 122.0f, 24.0f, 2.0f},
+                         accent, 1.0f);
             }
         }
     }
@@ -1812,6 +1811,8 @@ void EmojiPanel::Render(DeviceResources &resources)
         std::wstring emptyText = L"No results";
         if (page_ == Page::Home && searchText_.empty() && recentItems_.empty() && emojiGroups_.empty())
             emptyText = L"Emoji database not found";
+        else if (page_ == Page::Sticker)
+            emptyText = L"Stickers can be connected here";
         else if (page_ == Page::Gif)
             emptyText = L"GIF sources can be connected here";
         else if (page_ == Page::Clipboard)

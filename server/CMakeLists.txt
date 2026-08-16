@@ -247,6 +247,8 @@ set(EMOJI_EXECUTABLE_NAME "MetasequoiaImeEmojiPanel")
 add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/EmojiPanel.cpp"
     "./src/emoji-panel/EmojiPanel.h"
+    "./src/emoji-panel/emoji_panel_icons.cpp"
+    "./src/emoji-panel/emoji_panel_icons.h"
     "./src/emoji-panel/emoji_panel_splash.cpp"
     "./src/emoji-panel/emoji_panel_splash.h"
     "./src/emoji-panel/main.cpp"
@@ -270,6 +272,10 @@ add_custom_command(TARGET ${EMOJI_EXECUTABLE_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/$<$<CONFIG:Debug>:debug/>bin/sqlite3.dll"
         $<TARGET_FILE_DIR:${EMOJI_EXECUTABLE_NAME}>
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${EMOJI_EXECUTABLE_NAME}>/assets/emoji_panel
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets/emoji_panel"
+        "$<TARGET_FILE_DIR:${EMOJI_EXECUTABLE_NAME}>/assets/emoji_panel"
 )
 
 set(KEYBOARD_EXECUTABLE_NAME "MetasequoiaImeKeyboardPanel")

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "emoji_panel_icons.h"
 #include "msimeui/Controls.h"
 
 #include <string>
@@ -36,10 +37,11 @@ class EmojiPanel final : public Visual
     {
         Home = 0,
         Emoji = 1,
-        Gif = 2,
-        Kaomoji = 3,
-        Symbols = 4,
-        Clipboard = 5,
+        Sticker = 2,
+        Gif = 3,
+        Kaomoji = 4,
+        Symbols = 5,
+        Clipboard = 6,
     };
 
     struct Item
@@ -163,6 +165,7 @@ class EmojiPanel final : public Visual
     bool scrollbarDragging_ = false;
     float scrollbarDragOffsetY_ = 0.0f;
     bool lightTheme_ = false;
+    EmojiPanelIcons tabIcons_;
     mutable std::vector<LayoutGroup> layoutGroups_;
     mutable float cachedContentHeight_ = 100.0f;
     mutable size_t cachedItemCount_ = 0;
