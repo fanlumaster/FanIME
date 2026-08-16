@@ -1,5 +1,6 @@
 #include "msimeui/DeviceResources.h"
 
+#include <d2d1_1.h>
 #include <algorithm>
 
 namespace msimeui
@@ -13,7 +14,14 @@ bool DeviceResources::EnsureForWindow(HWND hwnd)
 {
     if (!d2dFactory_)
     {
-        if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, d2dFactory_.GetAddressOf())))
+        // Request a 1.1 factory so HWND render targets can QI to ID2D1DeviceContext5
+        // (needed for native SVG). Fall back to the original 1.0 factory if needed.
+        Microsoft::WRL::ComPtr<ID2D1Factory1> factory1;
+        if (SUCCEEDED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, factory1.GetAddressOf())))
+        {
+            d2dFactory_ = factory1;
+        }
+        else if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, d2dFactory_.GetAddressOf())))
         {
             return false;
         }
