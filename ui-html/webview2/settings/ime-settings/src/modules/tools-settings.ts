@@ -84,6 +84,9 @@ export function setupToolsSettings(): void {
   setupToggleButton('dateTimeModeToggleBtn', (active) => {
     updateConfig('utility.date_time_mode', active);
   });
+  setupToggleButton('emojiModeToggleBtn', (active) => {
+    updateConfig('utility.emoji_mode', active);
+  });
   document.getElementById('quickPhraseSearchButton')?.addEventListener('click', query);
   document.getElementById('quickPhraseSearch')?.addEventListener('keydown', event => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('quickPhraseAddButton')?.addEventListener('click', () => openDialog());
