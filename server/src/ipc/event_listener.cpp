@@ -120,6 +120,11 @@ bool IsQuickPhraseInput(const std::string &raw)
            std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; });
 }
 
+bool IsQuickPhraseCompositionActive(const std::string &raw)
+{
+    return g_quick_phrase_triggered && !raw.empty() && raw.front() == 'K';
+}
+
 bool IsUnicodeCompositionActive(const std::string &raw)
 {
     if (!g_unicode_mode_triggered || raw.empty() || raw.front() != 'U')
@@ -152,6 +157,15 @@ bool IsDateTimeInput(const std::string &raw)
     if (!IsDateTimeCompositionActive(raw) || raw.size() <= 1)
         return false;
     return DateTimeQuery::IsKeyword(raw.substr(1));
+}
+
+// True whenever a K/U/T special-mode composition is in progress, even when the
+// typed text is not yet a complete keyword/hex sequence. Such input must never
+// be interpreted as normal pinyin.
+bool IsSpecialModeCompositionActive(const std::string &raw)
+{
+    return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) ||
+           IsDateTimeCompositionActive(raw);
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -2388,11 +2402,12 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = DateTimeQuery::Query(current_input.substr(1));
     }
-    else if (IsDateTimeCompositionActive(current_input))
+    else if (IsSpecialModeCompositionActive(current_input))
     {
-        // A T-mode prefix that is not yet a complete keyword (e.g. "Tw",
-        // "Txin"): do not translate it into normal pinyin candidates. Leave
-        // items empty so only the raw typed text shows as the fallback.
+        // A K/U/T special-mode prefix that is not yet a complete input (e.g.
+        // "K", "U", "U+", "Tw", "Txin"): do not translate it into normal
+        // pinyin candidates. Leave items empty so only the raw typed text
+        // shows as the fallback.
     }
     else
     {
@@ -2420,8 +2435,7 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         UpdateEnglishInput(current_input, client_id, activation_epoch, true);
     }
-    else if (!IsQuickPhraseInput(current_input) && !IsUnicodeInput(current_input) &&
-             !IsDateTimeCompositionActive(current_input) && GetConfiguredEnglishCandidatesEnabled() &&
+    else if (!IsSpecialModeCompositionActive(current_input) && GetConfiguredEnglishCandidatesEnabled() &&
              scheme != SchemeType::Wubi && !GlobalIme::composition.creating_word.active)
     {
         UpdateEnglishInput(current_input, client_id, activation_epoch);
@@ -2726,6 +2740,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     {
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
+    if (!g_english_input_mode && IsQuickPhraseCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
+        // Keep preedit identical to the typed K-prefixed code.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
     //
     // 先判断要不要触发云联想
     // 判断依据：
@@ -2738,18 +2757,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
     const auto cloud_query_state = g_inputSession->get_cloud_query_state();
     if (!g_english_input_mode && !suppress_async_lookup &&
-        !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        !IsDateTimeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        !IsSpecialModeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
         cloud_query_state.should_query)
     {
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
 
     const bool ai_eligible =
-        !g_english_input_mode && !IsQuickPhraseInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        !IsUnicodeInput(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        !IsDateTimeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
+        !g_english_input_mode &&
+        !IsSpecialModeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
         g_inputSession->current_scheme_type() != SchemeType::Wubi && g_inputSession->is_all_complete_pure_pinyin() &&
         !g_inputSession->has_active_helpcode() && !GlobalIme::composition.creating_word.active;
     if (!suppress_async_lookup)
@@ -2847,7 +2863,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         bool refresh = false;
 
         const auto expand_initial_candidates = [&] {
-            if (!IsDateTimeCompositionActive(GlobalIme::composition.raw_input_with_cases) &&
+            if (!IsSpecialModeCompositionActive(GlobalIme::composition.raw_input_with_cases) &&
                 g_inputSession->expand_initial_candidates())
             {
                 const int current_page = ui.page_index;
