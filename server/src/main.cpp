@@ -15,6 +15,7 @@
 #include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "emoji/emoji_ime.h"
+#include "kaomoji/kaomoji_ime.h"
 #include "utils/common_utils.h"
 #include "utils/single_instance.h"
 #include "session/session_factory.h"
@@ -150,6 +151,10 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
                     [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
                         FanyNamedPipe::EnqueueEmojiCandidates(std::move(candidates), input, generation);
                     });
+    KaomojiIme::Start(CommonUtils::get_ime_data_path() + "\\others.db",
+                      [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
+                          FanyNamedPipe::EnqueueKaomojiCandidates(std::move(candidates), input, generation);
+                      });
 
     int ret = CreateCandidateWindow(hInstance);
 
@@ -158,6 +163,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
 
     EnglishIme::Stop();
     EmojiIme::Stop();
+    KaomojiIme::Stop();
     AiAssistant::Stop();
     CloudIme::Stop();
     VoiceInput::Shutdown();

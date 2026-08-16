@@ -155,6 +155,8 @@ bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
 bool GetConfiguredEmojiMixedInputEnabled();
 bool SetConfiguredEmojiMixedInputEnabled(bool enabled);
+bool GetConfiguredKaomojiMixedInputEnabled();
+bool SetConfiguredKaomojiMixedInputEnabled(bool enabled);
 bool GetConfiguredCloudCandidatesEnabled();
 bool SetConfiguredCloudCandidatesEnabled(bool enabled);
 bool GetConfiguredUnicodeModeEnabled();

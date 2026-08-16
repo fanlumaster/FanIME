@@ -35,6 +35,8 @@ candidate_arrow_navigation = true
 cn_en_mixed_input = true
 # 中文输入状态下显示 emoji 前缀候选（第三个候选项，随云候选/AI 联想顺移）
 emoji_mixed_input = false
+# 中文输入状态下显示颜文字前缀候选（排在 emoji 之后）
+kaomoji_mixed_input = false
 # 云候选
 cloud_candidates = true
 # TODO: 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。

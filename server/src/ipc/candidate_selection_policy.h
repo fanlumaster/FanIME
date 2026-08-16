@@ -19,16 +19,17 @@ constexpr bool ShouldEnterCreatingWord(CandidateSource source, bool continues_co
 // Keep asynchronous mixed-input candidates in stable priority slots regardless
 // of the order in which their workers finish. English keeps its legacy slotting
 // (promoted ahead of AI unless a cloud result forces it behind cloud+AI), and
-// emoji is placed one slot after the last of cloud/AI/English:
-//   no cloud:         Chinese, English, AI, emoji
-//   cloud:            Chinese, cloud, AI, English, emoji
-//   cloud only:       Chinese, cloud, English, emoji
-//   base:             Chinese, English, emoji
+// emoji/kaomoji are placed one slot after the last of cloud/AI/English:
+//   no cloud:         Chinese, English, AI, emoji, kaomoji
+//   cloud:            Chinese, cloud, AI, English, emoji, kaomoji
+//   cloud only:       Chinese, cloud, English, emoji, kaomoji
+//   base:             Chinese, English, emoji, kaomoji
 inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items)
 {
     std::vector<WordItem> local_candidates;
     std::vector<WordItem> english_candidates;
     std::vector<WordItem> emoji_candidates;
+    std::vector<WordItem> kaomoji_candidates;
     std::optional<WordItem> cloud_candidate;
     std::optional<WordItem> ai_candidate;
     local_candidates.reserve(items.size());
@@ -50,6 +51,9 @@ inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items)
             break;
         case CandidateSource::Emoji:
             emoji_candidates.push_back(std::move(item));
+            break;
+        case CandidateSource::Kaomoji:
+            kaomoji_candidates.push_back(std::move(item));
             break;
         default:
             local_candidates.push_back(std::move(item));
@@ -82,10 +86,17 @@ inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items)
         insert_at(slot++, std::move(emoji_candidates.front()));
         emoji_candidates.erase(emoji_candidates.begin());
     }
+    if (!kaomoji_candidates.empty())
+    {
+        insert_at(slot++, std::move(kaomoji_candidates.front()));
+        kaomoji_candidates.erase(kaomoji_candidates.begin());
+    }
 
     for (auto &candidate : english_candidates)
         items.push_back(std::move(candidate));
     for (auto &candidate : emoji_candidates)
+        items.push_back(std::move(candidate));
+    for (auto &candidate : kaomoji_candidates)
         items.push_back(std::move(candidate));
 }
 } // namespace FanyImeIpc

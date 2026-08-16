@@ -109,6 +109,8 @@ set(SRC_FILES
     "./src/ipc/ipc.h"
     "./src/kaomoji/kaomoji_query.cpp"
     "./src/kaomoji/kaomoji_query.h"
+    "./src/kaomoji/kaomoji_ime.cpp"
+    "./src/kaomoji/kaomoji_ime.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
     "./src/log/ftb_diag_log.cpp"

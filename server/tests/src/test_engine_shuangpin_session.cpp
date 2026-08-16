@@ -108,6 +108,32 @@ TEST_CASE(EmojiMixedCandidateFollowsEnglishAndShiftsWithCloudAndAi)
     REQUIRE_EQ(items[3].source, CandidateSource::Emoji);
 }
 
+TEST_CASE(KaomojiMixedCandidateSitsRightAfterEmoji)
+{
+    const auto local = [](std::string word) { return WordItem("ni", std::move(word), 100); };
+    const auto english = [] { return WordItem("ni", "nice", 1, CandidateSource::EnglishDictionary); };
+    const auto emoji = [] { return WordItem("ni", "\xF0\x9F\x98\x80", 1, CandidateSource::Emoji); };
+    const auto kaomoji = [] { return WordItem("ni", "(^_^)", 1, CandidateSource::Kaomoji); };
+    const auto cloud = [] { return WordItem("ni", "云候选", 1, CandidateSource::CloudSuggestion); };
+    const auto ai = [] { return WordItem("ni", "AI联想", 1, CandidateSource::AiSuggestion); };
+
+    // Base case: English slot 2, emoji slot 3, kaomoji slot 4.
+    std::vector<WordItem> items = {local("你"), kaomoji(), emoji(), local("呢"), english()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::EnglishDictionary);
+    REQUIRE_EQ(items[2].source, CandidateSource::Emoji);
+    REQUIRE_EQ(items[3].source, CandidateSource::Kaomoji);
+
+    // Cloud + AI occupy slots 2/3; emoji/kaomoji shift to slots 5/6.
+    items = {local("你"), kaomoji(), emoji(), english(), ai(), cloud()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::CloudSuggestion);
+    REQUIRE_EQ(items[2].source, CandidateSource::AiSuggestion);
+    REQUIRE_EQ(items[3].source, CandidateSource::EnglishDictionary);
+    REQUIRE_EQ(items[4].source, CandidateSource::Emoji);
+    REQUIRE_EQ(items[5].source, CandidateSource::Kaomoji);
+}
+
 TEST_CASE(EngineShuangpinAiCandidateConsumesFullRawInput)
 {
     EngineInputSession session(SchemeType::Shuangpin);
