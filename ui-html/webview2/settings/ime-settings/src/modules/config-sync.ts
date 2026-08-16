@@ -119,6 +119,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.emoji_mixed_input === 'boolean') {
       applyToggleState('emojiMixedInputToggleBtn', payload.data.general.emoji_mixed_input);
     }
+    if (typeof payload.data?.general?.kaomoji_mixed_input === 'boolean') {
+      applyToggleState('kaomojiMixedInputToggleBtn', payload.data.general.kaomoji_mixed_input);
+    }
     if (typeof payload.data?.general?.cloud_candidates === 'boolean') {
       applyToggleState('cloudCandidatesToggleBtn', payload.data.general.cloud_candidates);
     }

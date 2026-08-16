@@ -84,6 +84,9 @@ export function setupInput(): void {
   setupToggleButton('emojiMixedInputToggleBtn', (active) => {
     updateConfig('general.emoji_mixed_input', active);
   });
+  setupToggleButton('kaomojiMixedInputToggleBtn', (active) => {
+    updateConfig('general.kaomoji_mixed_input', active);
+  });
   setupToggleButton('cloudCandidatesToggleBtn', (active) => {
     updateConfig('general.cloud_candidates', active);
   });
