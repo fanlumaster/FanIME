@@ -39,6 +39,8 @@ std::atomic<std::size_t> g_recorded_frames{0};
 std::atomic<std::uint64_t> g_voice_session{0};
 std::vector<std::future<void>> g_network_tasks;
 std::mutex g_send_mutex;
+std::atomic<bool> g_stream_inline_this_session{false};
+std::wstring g_last_inline_preedit;
 std::thread g_control_thread;
 std::mutex g_control_mutex;
 std::condition_variable g_control_cv;
@@ -468,6 +470,52 @@ void SendTextViaCtrlV(const std::wstring &text)
     SendInput(4, inputs, sizeof(INPUT));
 }
 
+bool ShouldStreamInlinePreedit(const VoiceInputConfig &config)
+{
+    return config.stream_inline_preedit && config.asr_provider == "doubao" && config.commit_mode == "tsf";
+}
+
+bool SendVoiceComposition(UINT msg_type, const std::wstring &text)
+{
+    const PipeClientActivation active = GetActivePipeClient();
+    if (active.client_id == 0)
+    {
+        return false;
+    }
+    if (msg_type == Global::DataFromServerMsgTypeToTsfWorkerThread::CancelVoiceComposition)
+    {
+        return SendToTsfWorkerThreadClientViaNamedpipe(active.client_id, active.epoch, msg_type, L"");
+    }
+    return SendVoiceCompositionToTsfWorker(active.client_id, active.epoch, msg_type, text);
+}
+
+void PushInlinePreedit(const std::wstring &text)
+{
+    if (!g_stream_inline_this_session.load() || !g_recording.load())
+    {
+        return;
+    }
+    if (text.empty() || text == g_last_inline_preedit)
+    {
+        return;
+    }
+    if (SendVoiceComposition(Global::DataFromServerMsgTypeToTsfWorkerThread::UpdateVoiceComposition, text))
+    {
+        g_last_inline_preedit = text;
+    }
+}
+
+void CancelInlinePreedit()
+{
+    if (!g_stream_inline_this_session.load() && g_last_inline_preedit.empty())
+    {
+        return;
+    }
+    SendVoiceComposition(Global::DataFromServerMsgTypeToTsfWorkerThread::CancelVoiceComposition, L"");
+    g_last_inline_preedit.clear();
+    g_stream_inline_this_session.store(false);
+}
+
 bool SendTextViaTsf(const std::wstring &text)
 {
     if (text.empty())
@@ -497,12 +545,25 @@ bool SendTextViaTsf(const std::wstring &text)
     return true;
 }
 
-void CommitRecognizedText(const std::string &utf8, const VoiceInputConfig &config)
+void CommitRecognizedText(const std::string &utf8, const VoiceInputConfig &config, bool stream_inline)
 {
     std::lock_guard<std::mutex> send_lock(g_send_mutex);
     const std::wstring text = string_to_wstring(utf8);
     if (text.empty())
     {
+        return;
+    }
+
+    if (stream_inline)
+    {
+        if (SendVoiceComposition(Global::DataFromServerMsgTypeToTsfWorkerThread::CommitVoiceComposition, text))
+        {
+            g_last_inline_preedit.clear();
+            return;
+        }
+        SendVoiceComposition(Global::DataFromServerMsgTypeToTsfWorkerThread::CancelVoiceComposition, L"");
+        g_last_inline_preedit.clear();
+        SendTextViaSendInput(text);
         return;
     }
 
@@ -561,19 +622,33 @@ bool StartRecording()
     }
     { std::lock_guard<std::mutex> lock(g_mutex); g_samples.clear(); }
     g_recorded_frames = 0;
-    const std::uint64_t voice_session = ++g_voice_session;
+    std::uint64_t voice_session = 0;
+    {
+        std::lock_guard<std::mutex> send_lock(g_send_mutex);
+        voice_session = ++g_voice_session;
+        g_last_inline_preedit.clear();
+        g_stream_inline_this_session.store(use_doubao && ShouldStreamInlinePreedit(config));
+    }
     g_overlay.set_transcript(L"");
     if (use_doubao)
     {
         g_doubao_asr = std::make_unique<DoubaoAsrClient>(
             config.asr_endpoint, config.asr_app_key, config.asr_token, config.asr_resource_id,
             [voice_session](const std::string &text) {
-                if (g_voice_session == voice_session)
-                    g_overlay.set_transcript(string_to_wstring(text));
+                if (g_voice_session != voice_session)
+                    return;
+                const std::wstring wide = string_to_wstring(text);
+                g_overlay.set_transcript(wide);
+                std::lock_guard<std::mutex> send_lock(g_send_mutex);
+                if (g_voice_session != voice_session)
+                    return;
+                PushInlinePreedit(wide);
             });
         if (!g_doubao_asr->Start())
         {
             ++g_voice_session;
+            g_stream_inline_this_session.store(false);
+            g_last_inline_preedit.clear();
             g_doubao_asr.reset();
             MessageBoxW(nullptr, L"无法启动豆包流式语音识别。请检查 config.toml。", L"水杉 IME",
                         MB_OK | MB_ICONERROR);
@@ -590,6 +665,8 @@ bool StartRecording()
         if (g_doubao_asr)
         {
             ++g_voice_session;
+            g_stream_inline_this_session.store(false);
+            g_last_inline_preedit.clear();
             g_doubao_asr->Cancel();
             g_doubao_asr.reset();
         }
@@ -616,6 +693,7 @@ void StopRecording()
     if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
     const bool has_live_overlay = doubao_asr != nullptr;
+    const bool stream_inline = g_stream_inline_this_session.load();
     const std::uint64_t voice_session = g_voice_session.load();
     if (!has_live_overlay)
     {
@@ -627,7 +705,11 @@ void StopRecording()
     { std::lock_guard<std::mutex> lock(g_mutex); samples.swap(g_samples); }
     if (recorded_frames < kSampleRate / 4)
     {
-        ++g_voice_session;
+        {
+            std::lock_guard<std::mutex> send_lock(g_send_mutex);
+            ++g_voice_session;
+            CancelInlinePreedit();
+        }
         g_overlay.hide();
         g_overlay.set_transcript(L"");
         if (doubao_asr)
@@ -643,7 +725,7 @@ void StopRecording()
         }),
         g_network_tasks.end());
     g_network_tasks.emplace_back(std::async(std::launch::async,
-        [samples = std::move(samples), client = std::move(doubao_asr), config, has_live_overlay,
+        [samples = std::move(samples), client = std::move(doubao_asr), config, has_live_overlay, stream_inline,
          voice_session]() mutable {
         const std::string recognized = client ? client->Finish() : Recognize(samples, config);
         if (has_live_overlay && g_voice_session == voice_session && !recognized.empty())
@@ -651,7 +733,13 @@ void StopRecording()
         const std::string text = Polish(recognized, config);
         if (has_live_overlay && g_voice_session == voice_session && !text.empty())
             g_overlay.set_transcript(string_to_wstring(text));
-        if (!text.empty()) CommitRecognizedText(text, config);
+        if (!text.empty() && g_voice_session == voice_session)
+            CommitRecognizedText(text, config, stream_inline);
+        if (text.empty() && stream_inline && g_voice_session == voice_session)
+        {
+            std::lock_guard<std::mutex> send_lock(g_send_mutex);
+            CancelInlinePreedit();
+        }
         if (has_live_overlay)
         {
             // Keep the finalized, punctuated result visible briefly without delaying the commit.
@@ -670,7 +758,11 @@ void CancelRecording()
     if (!g_recording) return;
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     g_recording = false;
-    ++g_voice_session;
+    {
+        std::lock_guard<std::mutex> send_lock(g_send_mutex);
+        ++g_voice_session;
+        CancelInlinePreedit();
+    }
     ma_device_uninit(&g_device);
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);

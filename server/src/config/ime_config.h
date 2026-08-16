@@ -27,6 +27,8 @@ struct VoiceInputConfig
     bool start_sound = true;
     bool end_sound = true;
     bool polish_text = false;
+    // When true, Doubao streaming partials are shown as TSF inline preedit.
+    bool stream_inline_preedit = false;
     // tsf | sendinput | ctrl_v
     std::string commit_mode = "tsf";
 };

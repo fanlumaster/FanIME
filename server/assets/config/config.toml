@@ -214,6 +214,9 @@ language = "zh-cn"
 start_sound = true
 end_sound = true
 polish_text = false
+# 豆包流式识别时，将已识别文本显示在输入框 inline preedit 中，松开录音键后上屏。
+# 仅在 asr_provider = "doubao" 且 commit_mode = "tsf" 时生效。
+stream_inline_preedit = false
 # 上屏方式: tsf | sendinput | ctrl_v
 commit_mode = "tsf"
 

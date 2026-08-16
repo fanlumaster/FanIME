@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ipc_protocol_limits.h"
+#include "voice_composition_pipe.h"
 
 #include <Windows.h>
 #include <cstddef>
@@ -291,6 +292,10 @@ bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, 
 bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, UINT msg_type, const std::wstring &pipeData);
 bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
                                              const std::wstring &pipeData);
+// Full-snapshot voice composition. Frames are written under one worker lock so
+// the TIP can assemble them before touching ITfComposition.
+bool SendVoiceCompositionToTsfWorker(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
+                                     const std::wstring &text);
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 void SendToTsfWorkerThreadViaNamedpipe(UINT msg_type, const std::wstring &pipeData);
 // Config-style notifications must reach every connected TIP, not only the
@@ -356,8 +361,14 @@ constexpr UINT PairedPunctuationChanged = 12;
 constexpr UINT MicrosoftShuangpinChanged = 13;
 // Replace a repeated smart ASCII punctuation with its Chinese mapping. Payload "0"/"1".
 constexpr UINT SmartPunctuationRepeatToChineseChanged = 14;
+// Streaming ASR: replace the inline composition with this full snapshot.
+constexpr UINT UpdateVoiceComposition = 15;
+// Streaming ASR: abort the voice composition without committing.
+constexpr UINT CancelVoiceComposition = 16;
+// Streaming ASR: replace the inline composition with this snapshot and commit.
+constexpr UINT CommitVoiceComposition = 17;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = SmartPunctuationRepeatToChineseChanged;
+constexpr UINT MaxKnown = CommitVoiceComposition;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

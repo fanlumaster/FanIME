@@ -107,6 +107,7 @@ set(SRC_FILES
     "./src/ipc/event_listener.h"
     "./src/ipc/ipc.cpp"
     "./src/ipc/ipc.h"
+    "./src/ipc/voice_composition_pipe.h"
     "./src/kaomoji/kaomoji_query.cpp"
     "./src/kaomoji/kaomoji_query.h"
     "./src/kaomoji/kaomoji_ime.cpp"

@@ -715,6 +715,7 @@ bool LoadImeConfig()
         g_voice_input.start_sound = tbl["voice_input"]["start_sound"].value_or(legacy_notification_sound);
         g_voice_input.end_sound = tbl["voice_input"]["end_sound"].value_or(legacy_notification_sound);
         g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
+        g_voice_input.stream_inline_preedit = tbl["voice_input"]["stream_inline_preedit"].value_or(false);
         g_voice_input.commit_mode = tbl["voice_input"]["commit_mode"].value_or(std::string("tsf"));
         if (g_voice_input.commit_mode != "tsf" && g_voice_input.commit_mode != "sendinput" &&
             g_voice_input.commit_mode != "ctrl_v")
@@ -2144,6 +2145,8 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
     }
     else if (key == "polish_text")
         target = &g_voice_input.polish_text;
+    else if (key == "stream_inline_preedit")
+        target = &g_voice_input.stream_inline_preedit;
     if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false"))
         return false;
     *target = value;

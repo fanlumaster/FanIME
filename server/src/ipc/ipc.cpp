@@ -1414,6 +1414,80 @@ bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, 
 
 namespace
 {
+bool SendWorkerPackets(uint64_t client_id, uint64_t activation_epoch, bool require_active,
+                       const std::vector<FanyImeNamedpipeDataToTsfWorkerThread> &packets)
+{
+    if (packets.empty())
+    {
+        return true;
+    }
+
+    std::shared_ptr<PipeEndpoint> endpoint;
+    DWORD bytes_written = 0;
+    DWORD write_error = ERROR_SUCCESS;
+    bool write_succeeded = false;
+    bool failed_endpoint_removed = false;
+    uint64_t invalidation_epoch = 0;
+    UINT failed_msg_type = packets.front().msg_type;
+    {
+        std::lock_guard lock(g_pipe_clients_mutex);
+        auto it = g_pipe_clients.find(client_id);
+        const bool route_is_current =
+            !require_active || g_active_client_state.matches(client_id, activation_epoch);
+        if (client_id != 0 && route_is_current && it != g_pipe_clients.end() &&
+            it->second.to_tsf_worker_thread_pipe &&
+            it->second.to_tsf_worker_thread_registration_id != 0 &&
+            it->second.to_tsf_worker_thread_ready)
+        {
+            endpoint = it->second.to_tsf_worker_thread_pipe;
+            write_succeeded = true;
+            for (const auto &packet : packets)
+            {
+                if (!endpoint->Write(&packet, sizeof(packet), bytes_written, write_error))
+                {
+                    write_succeeded = false;
+                    failed_msg_type = packet.msg_type;
+                    const FanyImeIpc::ActiveClientTransition active = g_active_client_state.snapshot();
+                    it->second.to_tsf_worker_thread_pipe.reset();
+                    it->second.to_tsf_worker_thread_registration_id = 0;
+                    it->second.to_tsf_worker_thread_ready = false;
+                    it->second.outbound_state.mark_failed(FanyImeIpc::OutboundRoute::Worker);
+                    if (active.client_id == client_id)
+                    {
+                        invalidation_epoch = g_active_client_state.invalidate(client_id, active.epoch);
+                        if (invalidation_epoch != 0)
+                        {
+                            it->second.inactive_focus_token = it->second.focus_token;
+                            it->second.focus_token = 0;
+                        }
+                    }
+                    failed_endpoint_removed = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!endpoint)
+    {
+        LogPipeDisconnected(L"to-tsf-worker", failed_msg_type);
+        return false;
+    }
+    if (!write_succeeded)
+    {
+        LogPipeWriteFailure(L"to-tsf-worker", failed_msg_type, write_error, bytes_written,
+                            sizeof(FanyImeNamedpipeDataToTsfWorkerThread));
+        if (failed_endpoint_removed)
+        {
+            endpoint->Shutdown();
+            g_pipe_clients_cv.notify_all();
+            FanyNamedPipe::EnqueuePipeSessionInvalidatedTask(client_id, invalidation_epoch);
+        }
+        return false;
+    }
+    return true;
+}
+
 bool SendWorkerPacket(uint64_t client_id, uint64_t activation_epoch, bool require_active, UINT msg_type,
                       const std::wstring &pipe_data)
 {
@@ -1502,6 +1576,37 @@ bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activa
                                              UINT msg_type, const std::wstring &pipeData)
 {
     return SendWorkerPacket(client_id, activation_epoch, true, msg_type, pipeData);
+}
+
+bool SendVoiceCompositionToTsfWorker(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
+                                     const std::wstring &text)
+{
+    static std::atomic<unsigned int> generation{1};
+    unsigned int next = generation.fetch_add(1, std::memory_order_relaxed);
+    if (next == 0 || next > 0xFFFFu)
+    {
+        generation.store(1, std::memory_order_relaxed);
+        next = 1;
+    }
+    const std::vector<std::wstring> payloads =
+        FanyImeVoiceCompositionPipe::EncodeSnapshot(text, static_cast<wchar_t>(next));
+    if (payloads.empty())
+    {
+        return false;
+    }
+    std::vector<FanyImeNamedpipeDataToTsfWorkerThread> packets;
+    packets.reserve(payloads.size());
+    for (const std::wstring &payload : payloads)
+    {
+        FanyImeNamedpipeDataToTsfWorkerThread packet = {};
+        packet.msg_type = msg_type;
+        if (!CopyPipeText(packet.data, payload))
+        {
+            return false;
+        }
+        packets.push_back(packet);
+    }
+    return SendWorkerPackets(client_id, activation_epoch, true, packets);
 }
 
 void SendToTsfViaNamedpipe(UINT msg_type, const std::wstring &pipeData)
