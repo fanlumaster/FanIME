@@ -193,6 +193,9 @@
   background-clip: padding-box;
 }
 .candidate.skin-willow-green .first::before { display: none; }
+.candidate.skin-willow-green .cand.first:hover {
+  background-color: var(--wg-hilite);
+}
 .candidate.skin-willow-green .first .text,
 .candidate.skin-willow-green .first .num,
 .candidate.skin-willow-green .first .cand-no { color: #fff; }

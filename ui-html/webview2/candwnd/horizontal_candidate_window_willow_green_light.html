@@ -232,7 +232,8 @@
     .first-row-wrapper { margin-left: 0; }
     .cand { border-radius: 0; }
     .cursor { background: var(--wg-hilite); }
-    .hover-active .cand:hover { background-color: rgba(88, 185, 128, .16); }
+    .hover-active .cand:not(.first):hover { background-color: rgba(88, 185, 128, .16); }
+    .hover-active .cand.first:hover { background-color: var(--wg-hilite); }
     .first {
       background-color: var(--wg-hilite);
       border-radius: 0;
