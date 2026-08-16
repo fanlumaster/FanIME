@@ -16,6 +16,22 @@ bool IsTimeKeyword(const std::string &keyword)
     return keyword == "sj" || keyword == "shijian" || keyword == "time";
 }
 
+bool IsWeekKeyword(const std::string &keyword)
+{
+    return keyword == "xq" || keyword == "xingqi" || keyword == "week";
+}
+
+constexpr const char *kWeekdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
+constexpr const char *kShortWeekdays[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+constexpr const char *kEnglishWeekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+constexpr const char *kEnglishFullWeekdays[] = {"Sunday", "Monday", "Tuesday", "Wednesday",
+                                                "Thursday", "Friday", "Saturday"};
+
+unsigned WeekdayIndex(const SYSTEMTIME &now)
+{
+    return (std::min<unsigned>)(now.wDayOfWeek, 6);
+}
+
 std::string Format(const char *pattern, unsigned first, unsigned second = 0, unsigned third = 0)
 {
     char buffer[96] = {};
@@ -179,13 +195,10 @@ std::string LunarDate(const SYSTEMTIME &now)
 
 std::vector<std::string> DateCandidates(const SYSTEMTIME &now)
 {
-    static constexpr const char *kWeekdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
-    static constexpr const char *kShortWeekdays[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
-    static constexpr const char *kEnglishWeekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     const unsigned year = now.wYear;
     const unsigned month = now.wMonth;
     const unsigned day = now.wDay;
-    const unsigned weekday = (std::min<unsigned>)(now.wDayOfWeek, 6);
+    const unsigned weekday = WeekdayIndex(now);
     return {
         Format("%u年%u月%u日", year, month, day),
         Format("%04u-%02u-%02u", year, month, day),
@@ -234,14 +247,30 @@ std::vector<std::string> TimeCandidates(const SYSTEMTIME &now)
         Format("%u月%u日 ", now.wMonth, now.wDay) + period + Format("%u:%02u", hour12, minute),
     };
 }
+
+std::vector<std::string> WeekCandidates(const SYSTEMTIME &now)
+{
+    const unsigned weekday = WeekdayIndex(now);
+    std::vector<std::string> results = {kWeekdays[weekday]};
+    if (weekday == 0)
+        results.emplace_back("星期天");
+    results.emplace_back(kEnglishFullWeekdays[weekday]);
+    results.emplace_back(kEnglishWeekdays[weekday]);
+    return results;
+}
 } // namespace
 
 namespace DateTimeQuery
 {
+bool IsKeyword(const std::string &keyword)
+{
+    return IsDateKeyword(keyword) || IsTimeKeyword(keyword) || IsWeekKeyword(keyword);
+}
+
 std::vector<WordItem> Query(const std::string &keyword, const SYSTEMTIME *now, int limit)
 {
     std::vector<WordItem> results;
-    if (limit <= 0 || (!IsDateKeyword(keyword) && !IsTimeKeyword(keyword)))
+    if (limit <= 0 || !IsKeyword(keyword))
         return results;
 
     SYSTEMTIME current = {};
@@ -250,7 +279,9 @@ std::vector<WordItem> Query(const std::string &keyword, const SYSTEMTIME *now, i
     else
         GetLocalTime(&current);
 
-    const auto candidates = IsDateKeyword(keyword) ? DateCandidates(current) : TimeCandidates(current);
+    const auto candidates = IsDateKeyword(keyword)   ? DateCandidates(current)
+                            : IsTimeKeyword(keyword) ? TimeCandidates(current)
+                                                     : WeekCandidates(current);
     const size_t result_count = (std::min)(candidates.size(), static_cast<size_t>(limit));
     results.reserve(result_count);
     for (size_t index = 0; index < result_count; ++index)

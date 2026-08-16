@@ -55,9 +55,37 @@ TEST_CASE(date_time_query_accepts_all_time_wake_words)
     }
 }
 
+TEST_CASE(date_time_query_accepts_all_week_wake_words)
+{
+    const SYSTEMTIME sunday = SampleTime();
+    for (const char *keyword : std::array<const char *, 3>{"xq", "xingqi", "week"})
+    {
+        const auto results = DateTimeQuery::Query(keyword, &sunday);
+        const std::array<const char *, 4> expected = {
+            "星期日", "星期天", "Sunday", "Sun",
+        };
+        REQUIRE_EQ(results.size(), expected.size());
+        for (size_t index = 0; index < expected.size(); ++index)
+            REQUIRE_EQ(results[index].word, std::string(expected[index]));
+        REQUIRE(results[0].source == CandidateSource::Generated);
+    }
+
+    SYSTEMTIME monday = SampleTime();
+    monday.wDayOfWeek = 1;
+    const auto results = DateTimeQuery::Query("week", &monday);
+    const std::array<const char *, 3> expected = {
+        "星期一", "Monday", "Mon",
+    };
+    REQUIRE_EQ(results.size(), expected.size());
+    for (size_t index = 0; index < expected.size(); ++index)
+        REQUIRE_EQ(results[index].word, std::string(expected[index]));
+}
+
 TEST_CASE(date_time_query_rejects_unknown_words_and_honors_limit)
 {
     const SYSTEMTIME now = SampleTime();
+    REQUIRE(!DateTimeQuery::IsKeyword("today"));
+    REQUIRE(DateTimeQuery::IsKeyword("week"));
     REQUIRE(DateTimeQuery::Query("today", &now).empty());
     REQUIRE(DateTimeQuery::Query("rq", &now, 0).empty());
     REQUIRE_EQ(DateTimeQuery::Query("rq", &now, 3).size(), static_cast<size_t>(3));

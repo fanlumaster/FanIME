@@ -7,6 +7,10 @@
 
 namespace DateTimeQuery
 {
+// True for date (`rq`/`riqi`/`date`), time (`sj`/`shijian`/`time`), and
+// weekday (`xq`/`xingqi`/`week`) wake words after the leading 'T'.
+bool IsKeyword(const std::string &keyword);
+
 // `keyword` is the text after the leading 'T'. The optional SYSTEMTIME makes
 // the formatter deterministic in tests; nullptr uses the current local time.
 std::vector<WordItem> Query(const std::string &keyword, const SYSTEMTIME *now = nullptr, int limit = 17);

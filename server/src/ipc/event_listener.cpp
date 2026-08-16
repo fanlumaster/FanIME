@@ -151,9 +151,7 @@ bool IsDateTimeInput(const std::string &raw)
 {
     if (!IsDateTimeCompositionActive(raw) || raw.size() <= 1)
         return false;
-    const std::string keyword = raw.substr(1);
-    return keyword == "rq" || keyword == "riqi" || keyword == "date" || keyword == "sj" || keyword == "shijian" ||
-           keyword == "time";
+    return DateTimeQuery::IsKeyword(raw.substr(1));
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -2390,6 +2388,12 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = DateTimeQuery::Query(current_input.substr(1));
     }
+    else if (IsDateTimeCompositionActive(current_input))
+    {
+        // A T-mode prefix that is not yet a complete keyword (e.g. "Tw",
+        // "Txin"): do not translate it into normal pinyin candidates. Leave
+        // items empty so only the raw typed text shows as the fallback.
+    }
     else
     {
         items = g_inputSession->get_candidates();
@@ -2843,7 +2847,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         bool refresh = false;
 
         const auto expand_initial_candidates = [&] {
-            if (g_inputSession->expand_initial_candidates())
+            if (!IsDateTimeCompositionActive(GlobalIme::composition.raw_input_with_cases) &&
+                g_inputSession->expand_initial_candidates())
             {
                 const int current_page = ui.page_index;
                 const int current_selection = ui.selected_index_in_page;
