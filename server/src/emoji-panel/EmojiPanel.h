@@ -66,6 +66,11 @@ class EmojiPanel final : public Visual
         size_t firstFlatIndex = 0;
         Page moreTarget = Page::Home;
         bool showMore = false;
+        bool flowLayout = false;
+        size_t columns = 6;
+        float cellSize = 84.0f;
+        std::vector<RectF> itemRects;
+        std::vector<size_t> itemRows;
     };
 
     RectF CloseRect() const;
@@ -86,11 +91,17 @@ class EmojiPanel final : public Visual
     size_t HitMoreButton(const PointF &point) const;
     bool HitBack(const PointF &point) const;
     void EnsureDisplayLayout() const;
+    void EnsureFlowLayout(DeviceResources &deviceResources) const;
+    void TryEnsureFlowLayout() const;
+    float FlowGridWidth() const;
+    size_t NavigateFlowVertical(size_t flatIndex, int direction) const;
+    bool IsFlowFlatIndex(size_t index) const;
     void MarkDisplayDirty();
     float ContentHeight() const;
     size_t DisplayItemCount() const;
     const Item *DisplayItemAt(size_t index) const;
     RectF ItemCellRect(const LayoutGroup &group, size_t indexInGroup, float contentOriginY) const;
+    size_t ColumnsForFlatIndex(size_t index) const;
     void EnsureItemVisible(size_t index);
     void ActivateItem(size_t index);
     void ActivateMore(size_t layoutIndex);
@@ -99,6 +110,7 @@ class EmojiPanel final : public Visual
     void ClampScroll();
     void ResetView();
     void LoadEmojiCatalog();
+    void LoadKaomojiCatalog();
     void UpdateSearchPlaceholder();
     void ShowToast(std::wstring text);
     void DismissToast();
@@ -110,14 +122,7 @@ class EmojiPanel final : public Visual
     std::vector<const Item *> CollectPreviewItems(const std::vector<Group> &groups, size_t limit) const;
 
     std::vector<Group> emojiGroups_;
-    std::vector<Group> kaomojiGroups_ = {
-        {L"Classic", L";-)",
-         {{L"¯\\_(ツ)_/¯", L"shrug", L"shrug", true}, {L"(╯°□°）╯︵ ┻━┻", L"table flip angry", L"table flip angry", true},
-          {L"(づ｡◕‿‿◕｡)づ", L"hug", L"hug", true}, {L"ಠ_ಠ", L"disapproval", L"disapproval", true},
-          {L"(｡♥‿♥｡)", L"love", L"love", true}, {L"ʕ•ᴥ•ʔ", L"bear", L"bear", true},
-          {L"(ง'̀-'́)ง", L"fight", L"fight", true}, {L"ಥ_ಥ", L"cry", L"cry", true},
-          {L"(•‿•)", L"smile", L"smile", true}, {L"ᕕ( ᐛ )ᕗ", L"running", L"running", true}}},
-    };
+    std::vector<Group> kaomojiGroups_;
     std::vector<Group> symbolGroups_ = {
         {L"Symbols", L"\u2605",
          {{L"★", L"star \u661F\u661F", L"star \u661F\u661F", false},
@@ -162,5 +167,6 @@ class EmojiPanel final : public Visual
     mutable float cachedContentHeight_ = 100.0f;
     mutable size_t cachedItemCount_ = 0;
     mutable bool displayDirty_ = true;
+    mutable bool flowLayoutDirty_ = true;
 };
 } // namespace msimeui

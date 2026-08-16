@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cwctype>
 #include <filesystem>
+#include <limits>
 #include <string>
 
 namespace msimeui
@@ -27,6 +28,7 @@ constexpr float kSearchHeight = 52.0f;
 constexpr float kContentTop = 218.0f;
 constexpr float kCellSize = 84.0f;
 constexpr float kGridLeft = 20.0f;
+constexpr float kGridRightPad = 30.0f;
 constexpr float kGroupTitleHeight = 48.0f;
 constexpr float kGroupBottomPad = 18.0f;
 constexpr float kMoreButtonSize = 36.0f;
@@ -43,8 +45,15 @@ constexpr float kTooltipPadX = 18.0f;
 constexpr float kTooltipPadY = 12.0f;
 constexpr float kTooltipFontSize = 20.0f;
 constexpr size_t kColumns = 6;
+constexpr size_t kKaomojiColumns = 5;
 constexpr size_t kPreviewRows = 3;
 constexpr size_t kPreviewLimit = kColumns * kPreviewRows;
+constexpr size_t kKaomojiPreviewLimit = kKaomojiColumns * kPreviewRows;
+constexpr float kFlowGapX = 6.0f;
+constexpr float kFlowRowGap = 4.0f;
+constexpr float kFlowCellPadX = 12.0f;
+constexpr float kFlowMinCellWidth = 52.0f;
+constexpr float kFlowMeasureSlack = 6.0f;
 constexpr size_t kInvalidIndex = static_cast<size_t>(-1);
 constexpr float kMainTabWidths[] = {58.0f, 58.0f, 66.0f, 66.0f, 64.0f, 58.0f};
 constexpr size_t kMainTabCount = 6;
@@ -249,13 +258,34 @@ std::filesystem::path OthersDatabasePath()
     return std::filesystem::path(localAppData) / L"metasequoiaime" / L"others.db";
 }
 
-float GroupBodyHeight(size_t itemCount)
+float GroupBodyHeight(size_t itemCount, size_t columns, float cellSize)
 {
     if (itemCount == 0)
     {
         return 0.0f;
     }
-    return static_cast<float>((itemCount + kColumns - 1) / kColumns) * kCellSize;
+    return static_cast<float>((itemCount + columns - 1) / columns) * cellSize;
+}
+
+float EstimateFlowGroupHeight(size_t itemCount, float gridWidth)
+{
+    if (itemCount == 0)
+    {
+        return 0.0f;
+    }
+    float rowFill = 0.0f;
+    size_t rows = 1;
+    for (size_t index = 0; index < itemCount; ++index)
+    {
+        const float cellWidth = std::min(kCellSize * 1.6f, gridWidth);
+        if (rowFill > 0.0f && rowFill + cellWidth > gridWidth)
+        {
+            ++rows;
+            rowFill = 0.0f;
+        }
+        rowFill += cellWidth + kFlowGapX;
+    }
+    return static_cast<float>(rows) * kCellSize + static_cast<float>(rows - 1) * kFlowRowGap;
 }
 
 const wchar_t *IconForCategory(const std::wstring &title)
@@ -353,11 +383,133 @@ float MeasureTextWidth(DeviceResources &resources, const std::wstring &text, flo
     return metrics.widthIncludingTrailingWhitespace;
 }
 
+struct TextSize
+{
+    float width = 0.0f;
+    float height = 0.0f;
+};
+
+TextSize MeasureTextSize(DeviceResources &resources, const std::wstring &text, float fontSize,
+                         DWRITE_FONT_WEIGHT weight, const wchar_t *fontFamily = L"Segoe UI")
+{
+    auto *factory = resources.GetDWriteFactory();
+    auto *format = resources.GetTextFormat(fontFamily, fontSize, weight, DWRITE_TEXT_ALIGNMENT_LEADING,
+                                           DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+    if (!factory || !format || text.empty())
+    {
+        return {};
+    }
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, 1000.0f, 64.0f,
+                                         &layout)))
+    {
+        return {};
+    }
+    DWRITE_TEXT_METRICS metrics{};
+    if (FAILED(layout->GetMetrics(&metrics)))
+    {
+        return {};
+    }
+    return {metrics.widthIncludingTrailingWhitespace, metrics.height};
+}
+
+float MeasureTextLayoutWidth(DeviceResources &resources, const std::wstring &text, float fontSize,
+                             DWRITE_FONT_WEIGHT weight, const wchar_t *fontFamily = L"Segoe UI")
+{
+    const TextSize size = MeasureTextSize(resources, text, fontSize, weight, fontFamily);
+    if (size.width <= 0.0f)
+    {
+        return 0.0f;
+    }
+
+    auto *factory = resources.GetDWriteFactory();
+    auto *format = resources.GetTextFormat(fontFamily, fontSize, weight, DWRITE_TEXT_ALIGNMENT_LEADING,
+                                           DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+    if (!factory || !format)
+    {
+        return size.width;
+    }
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, size.width, 64.0f,
+                                         &layout)))
+    {
+        return size.width;
+    }
+    DWRITE_OVERHANG_METRICS overhang{};
+    if (FAILED(layout->GetOverhangMetrics(&overhang)))
+    {
+        return size.width;
+    }
+    return size.width - overhang.left + overhang.right;
+}
+
+float FitFontSizeForCell(DeviceResources &resources, const std::wstring &text, float maxWidth, float maxHeight,
+                         float maxFontSize, float minFontSize, const wchar_t *fontFamily = L"Segoe UI")
+{
+    auto fits = [&](float size) {
+        const TextSize measured = MeasureTextSize(resources, text, size, DWRITE_FONT_WEIGHT_NORMAL, fontFamily);
+        return measured.width <= maxWidth && measured.height <= maxHeight;
+    };
+    if (!fits(minFontSize))
+    {
+        return minFontSize;
+    }
+    float low = minFontSize;
+    float high = maxFontSize;
+    while (high - low > 0.5f)
+    {
+        const float mid = (low + high) * 0.5f;
+        if (fits(mid))
+        {
+            low = mid;
+        }
+        else
+        {
+            high = mid;
+        }
+    }
+    return low;
+}
+
+void DrawLongTextInCell(DeviceResources &resources, const std::wstring &text, const RectF &cell,
+                        const D2D1_COLOR_F &color)
+{
+    constexpr float kMinFontSize = 9.0f;
+    float fontSize = kLongTextFontSize;
+    const TextSize natural = MeasureTextSize(resources, text, fontSize, DWRITE_FONT_WEIGHT_NORMAL);
+    if (natural.width > cell.width || natural.height > cell.height)
+    {
+        fontSize = FitFontSizeForCell(resources, text, cell.width, cell.height, kLongTextFontSize, kMinFontSize);
+    }
+
+    auto *target = resources.GetRenderTarget();
+    auto *factory = resources.GetDWriteFactory();
+    auto *format = resources.GetTextFormat(L"Segoe UI", fontSize, DWRITE_FONT_WEIGHT_NORMAL,
+                                           DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                           DWRITE_WORD_WRAPPING_NO_WRAP);
+    auto *brush = resources.GetSolidColorBrush(color);
+    if (!target || !factory || !format || !brush || text.empty())
+    {
+        return;
+    }
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, cell.width,
+                                         cell.height, &layout)))
+    {
+        return;
+    }
+    const D2D1_RECT_F clip = D2D1::RectF(cell.x, cell.y, cell.x + cell.width, cell.y + cell.height);
+    target->PushAxisAlignedClip(clip, D2D1_ANTIALIAS_MODE_ALIASED);
+    target->DrawTextLayout(D2D1::Point2F(cell.x, cell.y), layout.Get(), brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    target->PopAxisAlignedClip();
+}
+
 } // namespace
 
 EmojiPanel::EmojiPanel(bool lightTheme) : lightTheme_(lightTheme)
 {
     LoadEmojiCatalog();
+    LoadKaomojiCatalog();
     searchBox_ = std::make_shared<TextBox>(kSearchHeight * kPanelScale, L"Search");
     searchBox_->SetFontSize(14.0f);
     searchBox_->SetPlaceholderFontSize(12.0f);
@@ -462,6 +614,68 @@ void EmojiPanel::LoadEmojiCatalog()
     displayDirty_ = true;
 }
 
+void EmojiPanel::LoadKaomojiCatalog()
+{
+    kaomojiGroups_.clear();
+    const auto path = OthersDatabasePath();
+    if (path.empty() || !std::filesystem::exists(path))
+    {
+        return;
+    }
+
+    sqlite3 *db = nullptr;
+    const auto widePath = path.wstring();
+    if (sqlite3_open16(widePath.c_str(), &db) != SQLITE_OK)
+    {
+        if (db)
+        {
+            sqlite3_close(db);
+        }
+        return;
+    }
+    sqlite3_busy_timeout(db, 3000);
+
+    sqlite3_stmt *stmt = nullptr;
+    const char *sql = "SELECT kaomoji, keywords FROM kaomoji_catalog ORDER BY sort_order";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        sqlite3_close(db);
+        return;
+    }
+
+    kaomojiGroups_.push_back({L"All", L";-)", {}});
+    Group *current = &kaomojiGroups_.back();
+    size_t loaded = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        auto kaomoji = Utf8ToWide(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+        auto keywords = Utf8ToWide(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
+        if (kaomoji.empty())
+        {
+            continue;
+        }
+        if (keywords.empty())
+        {
+            keywords = kaomoji;
+        }
+        const bool longText = kaomoji.size() > 4;
+        auto keywordsLower = Lower(keywords);
+        current->items.push_back({std::move(kaomoji), std::move(keywords), std::move(keywordsLower), longText});
+        if ((++loaded % 120) == 0 && EmojiPanelSplash::IsVisible())
+        {
+            EmojiPanelSplash::Pump();
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    if (current->items.empty())
+    {
+        kaomojiGroups_.clear();
+    }
+    displayDirty_ = true;
+}
+
 SizeF EmojiPanel::Measure(const SizeF &availableSize)
 {
     return availableSize;
@@ -470,7 +684,13 @@ SizeF EmojiPanel::Measure(const SizeF &availableSize)
 void EmojiPanel::Arrange(const RectF &finalRect)
 {
     viewportBounds_ = finalRect;
-    bounds_ = {0.0f, 0.0f, finalRect.width / kPanelScale, finalRect.height / kPanelScale};
+    const float newWidth = finalRect.width / kPanelScale;
+    const float newHeight = finalRect.height / kPanelScale;
+    if (std::abs(newWidth - bounds_.width) > 0.5f || std::abs(newHeight - bounds_.height) > 0.5f)
+    {
+        MarkDisplayDirty();
+    }
+    bounds_ = {0.0f, 0.0f, newWidth, newHeight};
     if (searchBox_)
     {
         // Leave room on the left for the magnifying-glass chrome (Windows-style search).
@@ -696,7 +916,9 @@ void EmojiPanel::EnsureDisplayLayout() const
 
     const std::wstring query = Lower(searchText_);
     const bool searching = !query.empty();
-    auto appendGroup = [this](std::wstring title, std::vector<const Item *> items, Page moreTarget, bool showMore) {
+    const float flowGridWidth = std::max(bounds_.width - kGridLeft - kGridRightPad, kCellSize * 2.0f);
+    auto appendGroup = [this, flowGridWidth](std::wstring title, std::vector<const Item *> items, Page moreTarget,
+                                            bool showMore) {
         LayoutGroup layout;
         layout.title = std::move(title);
         layout.items = std::move(items);
@@ -704,7 +926,19 @@ void EmojiPanel::EnsureDisplayLayout() const
         layout.firstFlatIndex = cachedItemCount_;
         layout.moreTarget = moreTarget;
         layout.showMore = showMore;
-        layout.height = kGroupTitleHeight + GroupBodyHeight(layout.items.size()) + kGroupBottomPad;
+        layout.flowLayout = page_ == Page::Kaomoji || moreTarget == Page::Kaomoji;
+        if (layout.flowLayout)
+        {
+            layout.height =
+                kGroupTitleHeight + EstimateFlowGroupHeight(layout.items.size(), flowGridWidth) + kGroupBottomPad;
+        }
+        else
+        {
+            layout.columns = kColumns;
+            layout.cellSize = kCellSize;
+            layout.height = kGroupTitleHeight + GroupBodyHeight(layout.items.size(), layout.columns, layout.cellSize) +
+                            kGroupBottomPad;
+        }
         cachedItemCount_ += layout.items.size();
         cachedContentHeight_ += layout.height;
         layoutGroups_.push_back(std::move(layout));
@@ -761,18 +995,27 @@ void EmojiPanel::EnsureDisplayLayout() const
         }
         appendGroup(L"Emoji", std::move(emojiPreview), Page::Emoji, true);
 
-        auto kaomojiPreview = CollectPreviewItems(kaomojiGroups_, kPreviewLimit);
+        auto kaomojiPreview = CollectPreviewItems(kaomojiGroups_, kKaomojiPreviewLimit);
         if (searching)
         {
-            // Must pass a stable vector (not a ternary temporary): filterItems stores raw
-            // pointers into the source; a temporary would dangle after this statement.
             kaomojiPreview.clear();
-            if (!kaomojiGroups_.empty())
+            for (const auto &group : kaomojiGroups_)
             {
-                kaomojiPreview = filterItems(kaomojiGroups_.front().items);
-                if (kaomojiPreview.size() > kPreviewLimit)
+                for (const auto &item : group.items)
                 {
-                    kaomojiPreview.resize(kPreviewLimit);
+                    if (item.keywordsLower.find(query) != std::wstring::npos ||
+                        item.text.find(searchText_) != std::wstring::npos)
+                    {
+                        kaomojiPreview.push_back(&item);
+                        if (kaomojiPreview.size() >= kKaomojiPreviewLimit)
+                        {
+                            break;
+                        }
+                    }
+                }
+                if (kaomojiPreview.size() >= kKaomojiPreviewLimit)
+                {
+                    break;
                 }
             }
         }
@@ -836,16 +1079,170 @@ void EmojiPanel::EnsureDisplayLayout() const
 
     cachedContentHeight_ = std::max(cachedContentHeight_, 100.0f);
     displayDirty_ = false;
+    flowLayoutDirty_ = true;
 }
 
 void EmojiPanel::MarkDisplayDirty()
 {
     displayDirty_ = true;
+    flowLayoutDirty_ = true;
+}
+
+float EmojiPanel::FlowGridWidth() const
+{
+    return std::max(bounds_.width - kGridLeft - kGridRightPad, kCellSize * 2.0f);
+}
+
+void EmojiPanel::EnsureFlowLayout(DeviceResources &resources) const
+{
+    if (!flowLayoutDirty_)
+    {
+        return;
+    }
+
+    const float gridWidth = FlowGridWidth();
+    float top = 0.0f;
+    for (auto &group : layoutGroups_)
+    {
+        group.top = top;
+        if (group.flowLayout && !group.items.empty())
+        {
+            group.itemRects.clear();
+            group.itemRows.clear();
+            group.itemRects.reserve(group.items.size());
+            group.itemRows.reserve(group.items.size());
+
+            float x = 0.0f;
+            float y = 0.0f;
+            size_t row = 0;
+            for (size_t index = 0; index < group.items.size(); ++index)
+            {
+                const Item *item = group.items[index];
+                if (!item)
+                {
+                    group.itemRects.push_back({x, y, kFlowMinCellWidth, kCellSize});
+                    group.itemRows.push_back(row);
+                    x += kFlowMinCellWidth + kFlowGapX;
+                    continue;
+                }
+
+                TextSize measured =
+                    MeasureTextSize(resources, item->text, kLongTextFontSize, DWRITE_FONT_WEIGHT_NORMAL);
+                float layoutWidth = MeasureTextLayoutWidth(resources, item->text, kLongTextFontSize,
+                                                           DWRITE_FONT_WEIGHT_NORMAL);
+                layoutWidth = std::max(layoutWidth, measured.width);
+                const float maxInnerWidth = gridWidth - kFlowCellPadX * 2.0f;
+                if (layoutWidth > maxInnerWidth)
+                {
+                    const float fitSize = FitFontSizeForCell(resources, item->text, maxInnerWidth,
+                                                             kCellSize - 16.0f, kLongTextFontSize, 9.0f);
+                    measured = MeasureTextSize(resources, item->text, fitSize, DWRITE_FONT_WEIGHT_NORMAL);
+                    layoutWidth = MeasureTextLayoutWidth(resources, item->text, fitSize, DWRITE_FONT_WEIGHT_NORMAL);
+                    layoutWidth = std::max(layoutWidth, measured.width);
+                }
+
+                float cellWidth =
+                    std::clamp(layoutWidth + kFlowCellPadX * 2.0f + kFlowMeasureSlack, kFlowMinCellWidth, gridWidth);
+                const float cellHeight = kCellSize;
+                if (x > 0.0f && x + cellWidth > gridWidth + 0.5f)
+                {
+                    x = 0.0f;
+                    y += cellHeight + kFlowRowGap;
+                    ++row;
+                }
+
+                group.itemRects.push_back({x, y, cellWidth, cellHeight});
+                group.itemRows.push_back(row);
+                x += cellWidth + kFlowGapX;
+            }
+
+            group.height = kGroupTitleHeight + y + kCellSize + kGroupBottomPad;
+        }
+        top += group.height;
+    }
+
+    cachedContentHeight_ = std::max(top, 100.0f);
+    flowLayoutDirty_ = false;
+}
+
+void EmojiPanel::TryEnsureFlowLayout() const
+{
+    if (!flowLayoutDirty_ || !window_)
+    {
+        return;
+    }
+    EnsureFlowLayout(window_->GetDeviceResources());
+}
+
+bool EmojiPanel::IsFlowFlatIndex(size_t index) const
+{
+    EnsureDisplayLayout();
+    for (const auto &group : layoutGroups_)
+    {
+        if (index >= group.firstFlatIndex && index < group.firstFlatIndex + group.items.size())
+        {
+            return group.flowLayout;
+        }
+    }
+    return false;
+}
+
+size_t EmojiPanel::NavigateFlowVertical(size_t flatIndex, int direction) const
+{
+    TryEnsureFlowLayout();
+    for (const auto &group : layoutGroups_)
+    {
+        if (flatIndex < group.firstFlatIndex || flatIndex >= group.firstFlatIndex + group.items.size() ||
+            !group.flowLayout || group.itemRects.size() != group.items.size())
+        {
+            continue;
+        }
+
+        const size_t local = flatIndex - group.firstFlatIndex;
+        if (local >= group.itemRows.size())
+        {
+            return flatIndex;
+        }
+        const int currentRow = static_cast<int>(group.itemRows[local]);
+        const int nextRow = currentRow + direction;
+        if (nextRow < 0)
+        {
+            return flatIndex;
+        }
+        const size_t targetRow = static_cast<size_t>(nextRow);
+        if (local >= group.itemRects.size())
+        {
+            return flatIndex;
+        }
+        const float currentCenter = group.itemRects[local].x + group.itemRects[local].width * 0.5f;
+        size_t bestLocal = local;
+        float bestDistance = std::numeric_limits<float>::max();
+        bool found = false;
+        for (size_t candidate = 0; candidate < group.items.size(); ++candidate)
+        {
+            if (candidate >= group.itemRows.size() || group.itemRows[candidate] != targetRow ||
+                candidate >= group.itemRects.size())
+            {
+                continue;
+            }
+            const float candidateCenter = group.itemRects[candidate].x + group.itemRects[candidate].width * 0.5f;
+            const float distance = std::abs(candidateCenter - currentCenter);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestLocal = candidate;
+                found = true;
+            }
+        }
+        return found ? group.firstFlatIndex + bestLocal : flatIndex;
+    }
+    return flatIndex;
 }
 
 float EmojiPanel::ContentHeight() const
 {
     EnsureDisplayLayout();
+    TryEnsureFlowLayout();
     return cachedContentHeight_;
 }
 
@@ -876,8 +1273,32 @@ const EmojiPanel::Item *EmojiPanel::DisplayItemAt(size_t target) const
 RectF EmojiPanel::ItemCellRect(const LayoutGroup &group, size_t indexInGroup, float contentOriginY) const
 {
     const float bodyTop = contentOriginY + group.top + kGroupTitleHeight;
-    return {bounds_.x + kGridLeft + static_cast<float>(indexInGroup % kColumns) * kCellSize,
-            bodyTop + static_cast<float>(indexInGroup / kColumns) * kCellSize, kCellSize - 10.0f, kCellSize - 10.0f};
+    if (group.flowLayout)
+    {
+        if (indexInGroup >= group.itemRects.size())
+        {
+            return {};
+        }
+        const RectF &placed = group.itemRects[indexInGroup];
+        return {bounds_.x + kGridLeft + placed.x, bodyTop + placed.y, placed.width, placed.height};
+    }
+    const float inset = std::min(10.0f, group.cellSize * 0.08f);
+    return {bounds_.x + kGridLeft + static_cast<float>(indexInGroup % group.columns) * group.cellSize,
+            bodyTop + static_cast<float>(indexInGroup / group.columns) * group.cellSize, group.cellSize - inset,
+            group.cellSize - inset};
+}
+
+size_t EmojiPanel::ColumnsForFlatIndex(size_t index) const
+{
+    EnsureDisplayLayout();
+    for (const auto &group : layoutGroups_)
+    {
+        if (index >= group.firstFlatIndex && index < group.firstFlatIndex + group.items.size())
+        {
+            return group.columns;
+        }
+    }
+    return kColumns;
 }
 
 size_t EmojiPanel::HitMoreButton(const PointF &point) const
@@ -920,7 +1341,9 @@ size_t EmojiPanel::HitItem(const PointF &point) const
     }
 
     EnsureDisplayLayout();
+    TryEnsureFlowLayout();
     const float contentY = point.y - viewport.y + scrollOffset_;
+    const float contentOriginY = viewport.y - scrollOffset_;
     for (const auto &group : layoutGroups_)
     {
         if (contentY < group.top || contentY >= group.top + group.height)
@@ -932,18 +1355,29 @@ size_t EmojiPanel::HitItem(const PointF &point) const
         {
             return kInvalidIndex;
         }
-        const size_t row = static_cast<size_t>(localY / kCellSize);
-        const size_t col = static_cast<size_t>((point.x - bounds_.x - kGridLeft) / kCellSize);
-        if (col >= kColumns)
+        if (group.flowLayout)
+        {
+            for (size_t indexInGroup = 0; indexInGroup < group.items.size(); ++indexInGroup)
+            {
+                const RectF cell = ItemCellRect(group, indexInGroup, contentOriginY);
+                if (Contains(cell, point))
+                {
+                    return group.firstFlatIndex + indexInGroup;
+                }
+            }
+            return kInvalidIndex;
+        }
+        const size_t row = static_cast<size_t>(localY / group.cellSize);
+        const size_t col = static_cast<size_t>((point.x - bounds_.x - kGridLeft) / group.cellSize);
+        if (col >= group.columns)
         {
             return kInvalidIndex;
         }
-        const size_t indexInGroup = row * kColumns + col;
+        const size_t indexInGroup = row * group.columns + col;
         if (indexInGroup >= group.items.size())
         {
             return kInvalidIndex;
         }
-        const float contentOriginY = viewport.y - scrollOffset_;
         const RectF cell = ItemCellRect(group, indexInGroup, contentOriginY);
         return Contains(cell, point) ? group.firstFlatIndex + indexInGroup : kInvalidIndex;
     }
@@ -953,6 +1387,7 @@ size_t EmojiPanel::HitItem(const PointF &point) const
 void EmojiPanel::EnsureItemVisible(size_t index)
 {
     EnsureDisplayLayout();
+    TryEnsureFlowLayout();
     for (const auto &group : layoutGroups_)
     {
         if (index < group.firstFlatIndex || index >= group.firstFlatIndex + group.items.size())
@@ -960,8 +1395,23 @@ void EmojiPanel::EnsureItemVisible(size_t index)
             continue;
         }
         const size_t local = index - group.firstFlatIndex;
-        const float itemTop = group.top + kGroupTitleHeight + static_cast<float>(local / kColumns) * kCellSize;
-        const float itemBottom = itemTop + kCellSize;
+        float itemTop = 0.0f;
+        float itemBottom = 0.0f;
+        if (group.flowLayout)
+        {
+            if (local >= group.itemRects.size())
+            {
+                return;
+            }
+            const RectF &placed = group.itemRects[local];
+            itemTop = group.top + kGroupTitleHeight + placed.y;
+            itemBottom = itemTop + placed.height;
+        }
+        else
+        {
+            itemTop = group.top + kGroupTitleHeight + static_cast<float>(local / group.columns) * group.cellSize;
+            itemBottom = itemTop + group.cellSize;
+        }
         const float viewportHeight = std::max(bounds_.height - kContentTop, 0.0f);
         if (itemTop < scrollOffset_)
         {
@@ -1212,6 +1662,15 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
 
     EnsureDisplayLayout();
+    for (const auto &group : layoutGroups_)
+    {
+        if (group.flowLayout && group.itemRects.size() != group.items.size())
+        {
+            flowLayoutDirty_ = true;
+            break;
+        }
+    }
+    EnsureFlowLayout(resources);
     const RectF viewport = ContentViewportRect();
     target->PushAxisAlignedClip(D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width,
                                             viewport.y + viewport.height), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
@@ -1219,9 +1678,6 @@ void EmojiPanel::Render(DeviceResources &resources)
     auto *emojiFormat = resources.GetTextFormat(L"Segoe UI Emoji", kEmojiFontSize, DWRITE_FONT_WEIGHT_NORMAL,
                                                 DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
                                                 DWRITE_WORD_WRAPPING_NO_WRAP);
-    auto *longFormat = resources.GetTextFormat(L"Segoe UI", kLongTextFontSize, DWRITE_FONT_WEIGHT_NORMAL,
-                                               DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                               DWRITE_WORD_WRAPPING_NO_WRAP);
     auto *titleFormat = resources.GetTextFormat(L"Segoe UI", 18.0f, DWRITE_FONT_WEIGHT_SEMI_BOLD,
                                                 DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
                                                 DWRITE_WORD_WRAPPING_NO_WRAP);
@@ -1257,18 +1713,58 @@ void EmojiPanel::Render(DeviceResources &resources)
             DrawChevron(resources, more, mutedText, false);
         }
 
-        const size_t rowCount = group.items.empty() ? 0 : (group.items.size() + kColumns - 1) / kColumns;
-        if (rowCount == 0)
+        if (group.items.empty())
         {
             continue;
         }
         const float bodyTop = groupTop + kGroupTitleHeight;
+
+        if (group.flowLayout)
+        {
+            for (size_t indexInGroup = 0; indexInGroup < group.items.size(); ++indexInGroup)
+            {
+                if (indexInGroup >= group.itemRects.size())
+                {
+                    break;
+                }
+                const RectF cell = ItemCellRect(group, indexInGroup, contentOriginY);
+                if (!VerticallyIntersects(cell.y, cell.y + cell.height, viewTop, viewBottom))
+                {
+                    continue;
+                }
+                const size_t flatIndex = group.firstFlatIndex + indexInGroup;
+                if (flatIndex == selectedItem_ || flatIndex == hoveredItem_ || flatIndex == pressedItem_)
+                {
+                    FillRect(resources, cell, flatIndex == pressedItem_ ? pressed : selected, 10.0f);
+                    if (flatIndex == selectedItem_)
+                    {
+                        StrokeRect(resources, cell, lightTheme_ ? accent : D2D1::ColorF(0xF0F0F4), 10.0f, 2.0f);
+                    }
+                }
+                const Item *item = group.items[indexInGroup];
+                if (!item)
+                {
+                    continue;
+                }
+                if (item->longText)
+                {
+                    DrawLongTextInCell(resources, item->text, cell, text);
+                }
+                else
+                {
+                    DrawFormattedText(resources, item->text, cell, emojiFormat, textBrush, true);
+                }
+            }
+            continue;
+        }
+
+        const size_t rowCount = (group.items.size() + group.columns - 1) / group.columns;
         size_t firstVisibleRow = 0;
         if (bodyTop < viewTop)
         {
-            firstVisibleRow = static_cast<size_t>((viewTop - bodyTop) / kCellSize);
+            firstVisibleRow = static_cast<size_t>((viewTop - bodyTop) / group.cellSize);
         }
-        size_t lastVisibleRow = static_cast<size_t>(std::max((viewBottom - bodyTop) / kCellSize, 0.0f));
+        size_t lastVisibleRow = static_cast<size_t>(std::max((viewBottom - bodyTop) / group.cellSize, 0.0f));
         lastVisibleRow = std::min(lastVisibleRow, rowCount - 1);
         if (firstVisibleRow > lastVisibleRow)
         {
@@ -1277,9 +1773,9 @@ void EmojiPanel::Render(DeviceResources &resources)
 
         for (size_t row = firstVisibleRow; row <= lastVisibleRow; ++row)
         {
-            for (size_t col = 0; col < kColumns; ++col)
+            for (size_t col = 0; col < group.columns; ++col)
             {
-                const size_t indexInGroup = row * kColumns + col;
+                const size_t indexInGroup = row * group.columns + col;
                 if (indexInGroup >= group.items.size())
                 {
                     break;
@@ -1299,8 +1795,14 @@ void EmojiPanel::Render(DeviceResources &resources)
                 {
                     continue;
                 }
-                DrawFormattedText(resources, item->text, cell, item->longText ? longFormat : emojiFormat, textBrush,
-                                  !item->longText);
+                if (item->longText)
+                {
+                    DrawLongTextInCell(resources, item->text, cell, text);
+                }
+                else
+                {
+                    DrawFormattedText(resources, item->text, cell, emojiFormat, textBrush, true);
+                }
             }
         }
     }
@@ -1356,6 +1858,7 @@ void EmojiPanel::Render(DeviceResources &resources)
         {
             const std::wstring tip = DisplayNameForItem(hovered->keywords, hovered->text);
             EnsureDisplayLayout();
+            TryEnsureFlowLayout();
             RectF anchorDesign{};
             bool found = false;
             const float tipOriginY = ContentViewportRect().y - scrollOffset_;
@@ -1584,8 +2087,30 @@ bool EmojiPanel::OnKeyDown(WPARAM key, LPARAM)
     if (count == 0) return false;
     if (key == VK_LEFT && selectedItem_ > 0) --selectedItem_;
     else if (key == VK_RIGHT && selectedItem_ + 1 < count) ++selectedItem_;
-    else if (key == VK_UP) selectedItem_ = selectedItem_ >= kColumns ? selectedItem_ - kColumns : 0;
-    else if (key == VK_DOWN) selectedItem_ = std::min(selectedItem_ + kColumns, count - 1);
+    else if (key == VK_UP)
+    {
+        if (IsFlowFlatIndex(selectedItem_))
+        {
+            selectedItem_ = NavigateFlowVertical(selectedItem_, -1);
+        }
+        else
+        {
+            const size_t columns = ColumnsForFlatIndex(selectedItem_);
+            selectedItem_ = selectedItem_ >= columns ? selectedItem_ - columns : 0;
+        }
+    }
+    else if (key == VK_DOWN)
+    {
+        if (IsFlowFlatIndex(selectedItem_))
+        {
+            selectedItem_ = NavigateFlowVertical(selectedItem_, 1);
+        }
+        else
+        {
+            const size_t columns = ColumnsForFlatIndex(selectedItem_);
+            selectedItem_ = std::min(selectedItem_ + columns, count - 1);
+        }
+    }
     else if (key == VK_HOME) selectedItem_ = 0;
     else if (key == VK_END) selectedItem_ = count - 1;
     else if (key == VK_RETURN || key == VK_SPACE) ActivateItem(selectedItem_);
