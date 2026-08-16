@@ -23,6 +23,8 @@ class WaveOverlay
     void set_listening(bool listening);
     void set_input_level(float level);
     void set_transcript(const std::wstring &text);
+    // When false, the overlay stays compact and never paints live ASR text.
+    void set_show_transcript(bool show);
 
   private:
     static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -48,6 +50,7 @@ class WaveOverlay
 
     std::atomic<bool> listening_{false};
     std::atomic<float> input_level_{0.0f};
+    std::atomic<bool> show_transcript_{true};
     std::mutex transcript_mutex_;
     std::wstring transcript_;
     float levels_[kLevelCount] = {};

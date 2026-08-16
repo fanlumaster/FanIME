@@ -629,6 +629,7 @@ bool StartRecording()
         g_last_inline_preedit.clear();
         g_stream_inline_this_session.store(use_doubao && ShouldStreamInlinePreedit(config));
     }
+    g_overlay.set_show_transcript(!g_stream_inline_this_session.load());
     g_overlay.set_transcript(L"");
     if (use_doubao)
     {
@@ -638,7 +639,8 @@ bool StartRecording()
                 if (g_voice_session != voice_session)
                     return;
                 const std::wstring wide = string_to_wstring(text);
-                g_overlay.set_transcript(wide);
+                if (!g_stream_inline_this_session.load())
+                    g_overlay.set_transcript(wide);
                 std::lock_guard<std::mutex> send_lock(g_send_mutex);
                 if (g_voice_session != voice_session)
                     return;
@@ -728,10 +730,10 @@ void StopRecording()
         [samples = std::move(samples), client = std::move(doubao_asr), config, has_live_overlay, stream_inline,
          voice_session]() mutable {
         const std::string recognized = client ? client->Finish() : Recognize(samples, config);
-        if (has_live_overlay && g_voice_session == voice_session && !recognized.empty())
+        if (has_live_overlay && !stream_inline && g_voice_session == voice_session && !recognized.empty())
             g_overlay.set_transcript(string_to_wstring(recognized));
         const std::string text = Polish(recognized, config);
-        if (has_live_overlay && g_voice_session == voice_session && !text.empty())
+        if (has_live_overlay && !stream_inline && g_voice_session == voice_session && !text.empty())
             g_overlay.set_transcript(string_to_wstring(text));
         if (!text.empty() && g_voice_session == voice_session)
             CommitRecognizedText(text, config, stream_inline);

@@ -187,6 +187,20 @@ void WaveOverlay::set_transcript(const std::wstring &text)
             return;
         transcript_ = text;
     }
+    if (hwnd_ && show_transcript_.load())
+        PostMessageW(hwnd_, kTranscriptChangedMessage, 0, 0);
+}
+
+void WaveOverlay::set_show_transcript(bool show)
+{
+    const bool previous = show_transcript_.exchange(show);
+    if (previous == show)
+        return;
+    if (!show)
+    {
+        std::lock_guard<std::mutex> lock(transcript_mutex_);
+        transcript_.clear();
+    }
     if (hwnd_)
         PostMessageW(hwnd_, kTranscriptChangedMessage, 0, 0);
 }
@@ -383,6 +397,7 @@ void WaveOverlay::update_window_bounds()
     if (!hwnd_)
         return;
     bool has_transcript = false;
+    if (show_transcript_.load())
     {
         std::lock_guard<std::mutex> lock(transcript_mutex_);
         has_transcript = !transcript_.empty();
@@ -449,11 +464,13 @@ void WaveOverlay::draw()
     const float w = static_cast<float>(rc.right - rc.left) / scale_x_;
     const float h = static_cast<float>(rc.bottom - rc.top) / scale_y_;
     std::wstring transcript;
+    const bool show_transcript = show_transcript_.load();
+    if (show_transcript)
     {
         std::lock_guard<std::mutex> lock(transcript_mutex_);
         transcript = transcript_;
     }
-    const bool has_transcript = !transcript.empty();
+    const bool has_transcript = show_transcript && !transcript.empty();
     const float wave_width = has_transcript ? (std::min)(78.0f, w) : w;
     const float wave_left = has_transcript ? (w - wave_width) * 0.5f : 0.0f;
     const float center_y = has_transcript ? 18.0f : h * 0.5f;
