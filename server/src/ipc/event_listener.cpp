@@ -44,6 +44,7 @@
 #include "date-time/date_time_query.h"
 #include "emoji/emoji_query.h"
 #include "emoji/emoji_ime.h"
+#include "kaomoji/kaomoji_query.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <cwchar>
@@ -59,6 +60,7 @@ bool g_quick_phrase_triggered = false;
 bool g_unicode_mode_triggered = false;
 bool g_date_time_mode_triggered = false;
 bool g_emoji_mode_triggered = false;
+bool g_kaomoji_mode_triggered = false;
 bool g_english_input_mode = false;
 // Sticky UILess for the active Main-pipe client. When set, never raise the
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
@@ -175,13 +177,27 @@ bool IsEmojiInput(const std::string &raw)
     return IsEmojiCompositionActive(raw) && raw.size() > 1;
 }
 
-// True whenever a K/U/T/E special-mode composition is in progress, even when the
+bool IsKaomojiCompositionActive(const std::string &raw)
+{
+    return g_kaomoji_mode_triggered && !raw.empty() && raw.front() == 'M' &&
+           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) {
+               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '\'';
+           });
+}
+
+bool IsKaomojiInput(const std::string &raw)
+{
+    return IsKaomojiCompositionActive(raw) && raw.size() > 1;
+}
+
+// True whenever a K/U/T/E/M special-mode composition is in progress, even when the
 // typed text is not yet a complete keyword/hex sequence. Such input must never
 // be interpreted as normal pinyin.
 bool IsSpecialModeCompositionActive(const std::string &raw)
 {
     return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) ||
-           IsDateTimeCompositionActive(raw) || IsEmojiCompositionActive(raw);
+           IsDateTimeCompositionActive(raw) || IsEmojiCompositionActive(raw) ||
+           IsKaomojiCompositionActive(raw);
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -714,7 +730,7 @@ std::string BuildCurrentCandidatePage()
         }
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
             item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Emoji &&
-            item.source != CandidateSource::Generated)
+            item.source != CandidateSource::Kaomoji && item.source != CandidateSource::Generated)
         {
             // Helpcodes are derived from the dictionary's original simplified
             // candidate; only the visible/committed word is converted.
@@ -729,10 +745,44 @@ std::string BuildCurrentCandidatePage()
             display_word += " 🤖";
         }
         const int display_length = static_cast<int>(utf8::distance(display_word.begin(), display_word.end()));
+        // Escape HTML special characters: the candidate payload is injected as
+        // HTML into the WebView2 template, and kaomoji commonly contain < > & "
+        // which would otherwise corrupt the DOM and freeze the window on the
+        // previous page.
+        {
+            std::string escaped;
+            escaped.reserve(display_word.size());
+            for (const char ch : display_word)
+            {
+                switch (ch)
+                {
+                case '&': escaped += "&amp;"; break;
+                case '<': escaped += "&lt;"; break;
+                case '>': escaped += "&gt;"; break;
+                case '"': escaped += "&quot;"; break;
+                default: escaped += ch; break;
+                }
+            }
+            display_word = std::move(escaped);
+        }
         if (item.fixed_position > 0)
         {
             display_word = "<span style=\"color:#379AD3\">" + display_word + "</span>";
         }
+        // Escape ASCII commas so the comma-joined candidate payload survives
+        // InflateCandidateTemplate's split (kaomoji commonly contain commas).
+        // U+F000 is encoded as UTF-8 EF 80 80 and restored on the other side.
+        static const char kEscapedComma[] = "\xEF\x80\x80";
+        std::string escaped;
+        escaped.reserve(display_word.size());
+        for (const char ch : display_word)
+        {
+            if (ch == ',')
+                escaped += kEscapedComma;
+            else
+                escaped += ch;
+        }
+        display_word = std::move(escaped);
         candidate_string += display_word;
         maxCount = (std::max)(maxCount, display_length);
         ui.page_words.push_back(string_to_wstring(word));
@@ -1413,7 +1463,7 @@ void WorkerThread()
             WordItem item;
             if (!ResolveCandidateItem(task.candidate_one_based_index, item) ||
                 item.source == CandidateSource::QuickPhrase || item.source == CandidateSource::Emoji ||
-                item.source == CandidateSource::Generated)
+                item.source == CandidateSource::Kaomoji || item.source == CandidateSource::Generated)
             {
                 break;
             }
@@ -2477,10 +2527,14 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = EmojiQuery::QueryPrefix(current_input.substr(1), g_inputSession->current_scheme_type());
     }
+    else if (IsKaomojiInput(current_input))
+    {
+        items = KaomojiQuery::QueryPrefix(current_input.substr(1), g_inputSession->current_scheme_type());
+    }
     else if (IsSpecialModeCompositionActive(current_input))
     {
-        // A K/U/T/E special-mode prefix that is not yet a complete input (e.g.
-        // "K", "U", "U+", "Tw", "Txin", "E"): do not translate it into normal
+        // A K/U/T/E/M special-mode prefix that is not yet a complete input (e.g.
+        // "K", "U", "U+", "Tw", "Txin", "E", "M"): do not translate it into normal
         // pinyin candidates. Leave items empty so only the raw typed text
         // shows as the fallback.
     }
@@ -2770,6 +2824,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && GetConfiguredEmojiModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'E' && Global::Wch == L'E' && shift_only)
         g_emoji_mode_triggered = true;
+    if (!g_english_input_mode && GetConfiguredKaomojiModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'M' && Global::Wch == L'M' && shift_only)
+        g_kaomoji_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -2863,6 +2920,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         g_unicode_mode_triggered = false;
         g_date_time_mode_triggered = false;
         g_emoji_mode_triggered = false;
+        g_kaomoji_mode_triggered = false;
     }
     if (!g_english_input_mode && IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
@@ -2881,6 +2939,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && IsEmojiCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
         // Keep preedit identical to the typed E-prefixed code.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
+    if (!g_english_input_mode && IsKaomojiCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
+        // Keep preedit identical to the typed M-prefixed code.
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
     //
@@ -2923,12 +2986,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             PrepareCandidateList(client_id, activation_epoch);
             SendUiLessCompositionToClient(client_id, activation_epoch, request_id);
         }
-        else if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
+        else
         {
-            std::wstring preedit = GetPreedit();
-            Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
-            Global::candidate_ui.selected_text = preedit;
-            SendCurrentDataToClient(client_id, activation_epoch, request_id);
+            if (GlobalSettings::getTsfPreeditStyle() == GlobalSettings::TsfPreeditStyle::Pinyin)
+            {
+                std::wstring preedit = GetPreedit();
+                Global::MsgTypeToTsf = Global::DataFromServerMsgType::Preedit;
+                Global::candidate_ui.selected_text = preedit;
+                SendCurrentDataToClient(client_id, activation_epoch, request_id);
+            }
         }
     }
     else if (Global::Keycode == VK_BACK)
@@ -3138,6 +3204,7 @@ void ClearState()
     g_unicode_mode_triggered = false;
     g_date_time_mode_triggered = false;
     g_emoji_mode_triggered = false;
+    g_kaomoji_mode_triggered = false;
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
@@ -3223,6 +3290,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         std::string curWordPinyin = curWordItem.pinyin;
         if (curWordItem.source == CandidateSource::EnglishDictionary ||
             curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Emoji ||
+            curWordItem.source == CandidateSource::Kaomoji ||
             curWordItem.source == CandidateSource::Generated)
         {
             if (curWordItem.source == CandidateSource::EnglishDictionary && g_english_input_mode && isNeedUpdateWeight)
@@ -3242,6 +3310,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             g_unicode_mode_triggered = false;
             g_date_time_mode_triggered = false;
             g_emoji_mode_triggered = false;
+            g_kaomoji_mode_triggered = false;
             return;
         }
         std::string cloudCommittedPinyin;
@@ -3351,6 +3420,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             GlobalIme::composition.raw_input_with_cases.clear();
             g_quick_phrase_triggered = false;
             g_emoji_mode_triggered = false;
+            g_kaomoji_mode_triggered = false;
         }
         else
         {

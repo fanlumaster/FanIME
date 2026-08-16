@@ -234,6 +234,7 @@ quick_phrase = true # Shift+K 进入快捷短语模式
 unicode_mode = true # Shift+U 进入 Unicode 码位输入模式
 date_time_mode = true # Shift+T 进入日期与时间快捷输入模式
 emoji_mode = true # Shift+E 进入 Emoji 快捷输入模式（支持全拼/简拼/双拼/英文）
+kaomoji_mode = true # Shift+M 进入颜文字快捷输入模式（支持全拼/简拼/双拼/英文）
 
 #
 # AI Assistant

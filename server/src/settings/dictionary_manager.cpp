@@ -617,7 +617,7 @@ json::object MutateChinese(const json::object &request)
     const std::string action = StringValue(request, "action");
     const std::string code = StringValue(request, "code");
     const std::string word = StringValue(request, "word");
-    const int weight = (std::max)(0, IntValue(request, "weight", 10000));
+    const int weight = (std::max)(0, IntValue(request, "weight", 10));
     quanpin::Segments segments;
     std::string key, error;
     if (!ValidateChineseEntry(mode, code, word, segments, key, error)) return Result(false, error);
@@ -821,7 +821,7 @@ json::object HandleEnglish(const json::object &request)
     if (action == "import") return ImportEnglish(request);
     std::string word = StringValue(request, "word");
     const std::string display = StringValue(request, "display");
-    const int weight = (std::max)(0, IntValue(request, "weight", 10000));
+    const int weight = (std::max)(0, IntValue(request, "weight", 10));
     std::transform(word.begin(), word.end(), word.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string error;
     (void)EnglishDictionary::ensure_schema(CommonUtils::get_ime_data_path() + "\\english.db");
@@ -892,7 +892,7 @@ json::object HandleWubi(const json::object &request)
     const std::string action = StringValue(request, "action");
     std::string code = StringValue(request, "code");
     const std::string word = StringValue(request, "word");
-    const int weight = (std::max)(0, IntValue(request, "weight", 10000));
+    const int weight = (std::max)(0, IntValue(request, "weight", 10));
     std::transform(code.begin(), code.end(), code.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string error;
     Db db = OpenDatabase("msime.db", error);

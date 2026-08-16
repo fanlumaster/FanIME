@@ -1074,6 +1074,37 @@ std::wstring ReadHtmlFileWithFallback(const std::wstring &primaryPath, const std
     return content;
 }
 
+static std::wstring EscapeForJsTemplateLiteral(const std::wstring &text)
+{
+    // Content is injected as an untagged JavaScript template literal. Kaomoji
+    // commonly contain `\`, backticks (e.g. `( -'`-)`), and `${`; any of those
+    // will terminate or invalidate the literal and the DOM update is dropped.
+    std::wstring escaped;
+    escaped.reserve(text.size() + 16);
+    for (size_t index = 0; index < text.size(); ++index)
+    {
+        const wchar_t ch = text[index];
+        if (ch == L'\\')
+        {
+            escaped += L"\\\\";
+        }
+        else if (ch == L'`')
+        {
+            escaped += L"\\`";
+        }
+        else if (ch == L'$' && index + 1 < text.size() && text[index + 1] == L'{')
+        {
+            escaped += L"\\${";
+            ++index;
+        }
+        else
+        {
+            escaped += ch;
+        }
+    }
+    return escaped;
+}
+
 void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
 {
     UpdateHtmlContentWithJavaScript(webview, newContent, nullptr);
@@ -1091,11 +1122,13 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
         return;
     }
 
+    const std::wstring escaped = EscapeForJsTemplateLiteral(newContent);
+
     std::wstring script;
-    script.reserve(newContent.length() + 512);
+    script.reserve(escaped.length() + 512);
 
     script.append(L"document.getElementById('realContainer').innerHTML = `");
-    script.append(newContent);
+    script.append(escaped);
     script.append(L"`;\n");
     script.append(L"window.ClearState();\n");
     script.append(L"var el = document.getElementById('realContainerParent');\n");
@@ -1423,11 +1456,13 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
         return;
     }
 
+    const std::wstring escaped = EscapeForJsTemplateLiteral(newContent);
+
     std::wstring script;
-    script.reserve(newContent.length() + 256);
+    script.reserve(escaped.length() + 256);
 
     script.append(L"document.getElementById('measureContainer').innerHTML = `");
-    script.append(newContent);
+    script.append(escaped);
     script.append(L"`;\n");
     script.append(L"if (window.SetCandidatePreeditVisible) { window.SetCandidatePreeditVisible(");
     script.append(GetConfiguredCandidateWindowPreeditStyle() == "empty" ? L"false" : L"true");
@@ -2755,6 +2790,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "utility.kaomoji_mode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredKaomojiModeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -3014,7 +3057,8 @@ void PostSettingsConfig()
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},
             {"date_time_mode", GetConfiguredDateTimeModeEnabled()},
-            {"emoji_mode", GetConfiguredEmojiModeEnabled()}}},
+            {"emoji_mode", GetConfiguredEmojiModeEnabled()},
+            {"kaomoji_mode", GetConfiguredKaomojiModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_skin", GetConfiguredCandidateSkin()},

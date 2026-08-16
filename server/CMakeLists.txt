@@ -107,6 +107,8 @@ set(SRC_FILES
     "./src/ipc/event_listener.h"
     "./src/ipc/ipc.cpp"
     "./src/ipc/ipc.h"
+    "./src/kaomoji/kaomoji_query.cpp"
+    "./src/kaomoji/kaomoji_query.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
     "./src/log/ftb_diag_log.cpp"

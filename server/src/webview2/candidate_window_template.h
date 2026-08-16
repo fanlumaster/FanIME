@@ -2,12 +2,17 @@
 
 #include <fmt/xchar.h>
 
+#include <algorithm>
 #include <sstream>
 #include <string>
 #include <vector>
 
 // Candidate template arguments use slot 0 for the preedit text and slots 1-9
 // for the candidates on the current page.
+//
+// Candidates are joined with ',' in the payload. Kaomoji (and rarely other
+// text) legitimately contain ASCII commas, so the writer escapes them with
+// \uF000; split here first and restore the comma afterwards.
 inline std::wstring InflateCandidateTemplate(const std::wstring &templ, const std::wstring &text)
 {
     std::wstringstream input(text);
@@ -15,7 +20,8 @@ inline std::wstring InflateCandidateTemplate(const std::wstring &templ, const st
     std::vector<std::wstring> words;
     while (std::getline(input, token, L','))
     {
-        words.push_back(token);
+        std::replace(token.begin(), token.end(), L'\uF000', L',');
+        words.push_back(std::move(token));
     }
 
     const int size = static_cast<int>(words.size());

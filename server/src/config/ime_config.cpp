@@ -67,6 +67,7 @@ bool g_unicode_mode_enabled = true;
 bool g_quick_phrase_enabled = true;
 bool g_date_time_mode_enabled = true;
 bool g_emoji_mode_enabled = true;
+bool g_kaomoji_mode_enabled = true;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
@@ -595,6 +596,7 @@ bool LoadImeConfig()
         g_quick_phrase_enabled = tbl["utility"]["quick_phrase"].value_or(true);
         g_date_time_mode_enabled = tbl["utility"]["date_time_mode"].value_or(true);
         g_emoji_mode_enabled = tbl["utility"]["emoji_mode"].value_or(true);
+        g_kaomoji_mode_enabled = tbl["utility"]["kaomoji_mode"].value_or(true);
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled =
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
@@ -2077,6 +2079,21 @@ bool SetConfiguredEmojiModeEnabled(bool enabled)
         return false;
     }
     g_emoji_mode_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredKaomojiModeEnabled()
+{
+    return g_kaomoji_mode_enabled;
+}
+
+bool SetConfiguredKaomojiModeEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("utility", "kaomoji_mode", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_kaomoji_mode_enabled = enabled;
     return true;
 }
 
