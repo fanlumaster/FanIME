@@ -15,5 +15,9 @@ namespace EmojiQuery
 // is shuangpin, the shuangpin->quanpin expansion is searched as well so that
 // e.g. Xiaohe "xnlm" resolves to "xiaolian". Results are merged and ordered
 // by the emoji catalog sort order.
-std::vector<WordItem> QueryPrefix(const std::string &code, SchemeType scheme, int limit = 10);
+//
+// `db_path` overrides the default %LOCALAPPDATA%/metasequoiaime/others.db
+// (used by the async mixed-input worker).
+std::vector<WordItem> QueryPrefix(const std::string &code, SchemeType scheme, int limit = 10,
+                                  const std::string &db_path = {});
 } // namespace EmojiQuery

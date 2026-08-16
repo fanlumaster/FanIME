@@ -41,7 +41,7 @@ std::string Lower(std::string text)
 }
 } // namespace
 
-std::vector<WordItem> QueryPrefix(const std::string &code, SchemeType scheme, int limit)
+std::vector<WordItem> QueryPrefix(const std::string &code, SchemeType scheme, int limit, const std::string &db_path)
 {
     std::vector<WordItem> results;
     if (code.empty() || limit <= 0)
@@ -66,7 +66,7 @@ std::vector<WordItem> QueryPrefix(const std::string &code, SchemeType scheme, in
     }
 
     sqlite3 *raw_db = nullptr;
-    const std::string path = CommonUtils::get_ime_data_path() + "\\others.db";
+    const std::string path = db_path.empty() ? CommonUtils::get_ime_data_path() + "\\others.db" : db_path;
     if (sqlite3_open_v2(path.c_str(), &raw_db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nullptr) != SQLITE_OK)
     {
         if (raw_db)

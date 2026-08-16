@@ -98,6 +98,8 @@ set(SRC_FILES
     "./src/defines/defines.h"
     "./src/emoji/emoji_query.cpp"
     "./src/emoji/emoji_query.h"
+    "./src/emoji/emoji_ime.cpp"
+    "./src/emoji/emoji_ime.h"
     "./src/english/english_ime.cpp"
     "./src/english/english_ime.h"
     "./src/global/globals.h"

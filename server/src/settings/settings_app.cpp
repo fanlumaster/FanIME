@@ -236,6 +236,7 @@ void PostConfig()
             {"floating_toolbar_scale", GetConfiguredFloatingToolbarScale()},
             {"floating_toolbar_font_size", GetConfiguredFloatingToolbarFontSize()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
+            {"emoji_mixed_input", GetConfiguredEmojiMixedInputEnabled()},
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
@@ -404,6 +405,8 @@ bool ApplyConfigUpdate(const json::object &data)
             path.substr(toolbar_prefix.size()), json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")
         return SetConfiguredEnglishCandidatesEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.emoji_mixed_input")
+        return SetConfiguredEmojiMixedInputEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.cloud_candidates")
         return SetConfiguredCloudCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "utility.unicode_mode")

@@ -2707,6 +2707,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.emoji_mixed_input")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredEmojiMixedInputEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.cloud_candidates")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2991,6 +2999,7 @@ void PostSettingsConfig()
             {"floating_toolbar_scale", GetConfiguredFloatingToolbarScale()},
             {"floating_toolbar_font_size", GetConfiguredFloatingToolbarFontSize()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
+            {"emoji_mixed_input", GetConfiguredEmojiMixedInputEnabled()},
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},

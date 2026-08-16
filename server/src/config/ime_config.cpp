@@ -62,6 +62,7 @@ double g_floating_toolbar_scale = 1.0;
 int g_floating_toolbar_font_size = kFloatingToolbarFontSizeDefault;
 bool g_english_candidates_enabled = false;
 bool g_cloud_candidates_enabled = true;
+bool g_emoji_mixed_input_enabled = false;
 bool g_unicode_mode_enabled = true;
 bool g_quick_phrase_enabled = true;
 bool g_date_time_mode_enabled = true;
@@ -589,6 +590,7 @@ bool LoadImeConfig()
         }
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
+        g_emoji_mixed_input_enabled = tbl["general"]["emoji_mixed_input"].value_or(false);
         g_unicode_mode_enabled = tbl["utility"]["unicode_mode"].value_or(true);
         g_quick_phrase_enabled = tbl["utility"]["quick_phrase"].value_or(true);
         g_date_time_mode_enabled = tbl["utility"]["date_time_mode"].value_or(true);
@@ -1594,6 +1596,21 @@ bool SetConfiguredEnglishCandidatesEnabled(bool enabled)
         return false;
     }
     g_english_candidates_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredEmojiMixedInputEnabled()
+{
+    return g_emoji_mixed_input_enabled;
+}
+
+bool SetConfiguredEmojiMixedInputEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "emoji_mixed_input", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_emoji_mixed_input_enabled = enabled;
     return true;
 }
 

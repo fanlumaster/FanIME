@@ -153,6 +153,8 @@ int GetConfiguredFloatingToolbarFontSize();
 bool SetConfiguredFloatingToolbarFontSize(int font_size);
 bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
+bool GetConfiguredEmojiMixedInputEnabled();
+bool SetConfiguredEmojiMixedInputEnabled(bool enabled);
 bool GetConfiguredCloudCandidatesEnabled();
 bool SetConfiguredCloudCandidatesEnabled(bool enabled);
 bool GetConfiguredUnicodeModeEnabled();

@@ -56,6 +56,7 @@ TEST_CASE(MixedAsyncCandidatesKeepReservedSlotsForEveryArrivalOrder)
 {
     const auto local = [](std::string word) { return WordItem("ni", std::move(word), 100); };
     const auto english = [] { return WordItem("ni", "nice", 1, CandidateSource::EnglishDictionary); };
+    const auto emoji = [] { return WordItem("ni", "\xF0\x9F\x98\x80", 1, CandidateSource::Emoji); };
     const auto cloud = [] { return WordItem("ni", "云候选", 1, CandidateSource::CloudSuggestion); };
     const auto ai = [] { return WordItem("ni", "AI联想", 1, CandidateSource::AiSuggestion); };
 
@@ -75,6 +76,36 @@ TEST_CASE(MixedAsyncCandidatesKeepReservedSlotsForEveryArrivalOrder)
     FanyImeIpc::NormalizeMixedCandidateOrder(items);
     REQUIRE_EQ(items[1].source, CandidateSource::CloudSuggestion);
     REQUIRE_EQ(items[2].source, CandidateSource::EnglishDictionary);
+}
+
+TEST_CASE(EmojiMixedCandidateFollowsEnglishAndShiftsWithCloudAndAi)
+{
+    const auto local = [](std::string word) { return WordItem("ni", std::move(word), 100); };
+    const auto english = [] { return WordItem("ni", "nice", 1, CandidateSource::EnglishDictionary); };
+    const auto emoji = [] { return WordItem("ni", "\xF0\x9F\x98\x80", 1, CandidateSource::Emoji); };
+    const auto cloud = [] { return WordItem("ni", "云候选", 1, CandidateSource::CloudSuggestion); };
+    const auto ai = [] { return WordItem("ni", "AI联想", 1, CandidateSource::AiSuggestion); };
+
+    // Base case: English at slot 2, emoji at slot 3.
+    std::vector<WordItem> items = {local("你"), emoji(), local("呢"), english()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::EnglishDictionary);
+    REQUIRE_EQ(items[2].source, CandidateSource::Emoji);
+
+    // Cloud + AI occupy slots 2/3; English and emoji shift to slots 4/5.
+    items = {local("你"), emoji(), english(), ai(), cloud()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::CloudSuggestion);
+    REQUIRE_EQ(items[2].source, CandidateSource::AiSuggestion);
+    REQUIRE_EQ(items[3].source, CandidateSource::EnglishDictionary);
+    REQUIRE_EQ(items[4].source, CandidateSource::Emoji);
+
+    // Cloud only: English slot 3, emoji slot 4.
+    items = {local("你"), emoji(), local("呢"), english(), cloud()};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[1].source, CandidateSource::CloudSuggestion);
+    REQUIRE_EQ(items[2].source, CandidateSource::EnglishDictionary);
+    REQUIRE_EQ(items[3].source, CandidateSource::Emoji);
 }
 
 TEST_CASE(EngineShuangpinAiCandidateConsumesFullRawInput)

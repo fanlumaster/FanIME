@@ -43,6 +43,7 @@
 #include "unicode/unicode_query.h"
 #include "date-time/date_time_query.h"
 #include "emoji/emoji_query.h"
+#include "emoji/emoji_ime.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <cwchar>
@@ -245,9 +246,11 @@ struct AsyncRequestOrigin
 std::mutex g_async_request_mutex;
 uint64_t g_cloud_generation = 0;
 uint64_t g_english_generation = 0;
+uint64_t g_emoji_generation = 0;
 uint64_t g_ai_generation = 0;
 AsyncRequestOrigin g_cloud_request_origin;
 AsyncRequestOrigin g_english_request_origin;
+AsyncRequestOrigin g_emoji_request_origin;
 AsyncRequestOrigin g_ai_request_origin;
 std::string g_ai_context;
 std::mutex g_status_snapshot_mutex;
@@ -381,6 +384,16 @@ void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64
                                    : AsyncRequestOrigin{client_id, activation_epoch, g_english_generation, input};
 }
 
+void UpdateEmojiInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    EmojiIme::OnInputChanged(input, g_inputSession ? g_inputSession->current_scheme_type() : SchemeType::Quanpin);
+    ++g_emoji_generation;
+    g_emoji_request_origin = input.empty()
+                                 ? AsyncRequestOrigin{}
+                                 : AsyncRequestOrigin{client_id, activation_epoch, g_emoji_generation, input};
+}
+
 std::vector<std::string> SplitPinyin(const std::string &segmentation)
 {
     std::vector<std::string> result;
@@ -428,6 +441,16 @@ AsyncRequestOrigin FindEnglishRequestOrigin(const std::string &input, uint64_t g
     if (g_english_request_origin.generation == generation && g_english_request_origin.input == input)
     {
         return g_english_request_origin;
+    }
+    return {};
+}
+
+AsyncRequestOrigin FindEmojiRequestOrigin(const std::string &input, uint64_t generation)
+{
+    std::lock_guard lock(g_async_request_mutex);
+    if (g_emoji_request_origin.generation == generation && g_emoji_request_origin.input == input)
+    {
+        return g_emoji_request_origin;
     }
     return {};
 }
@@ -974,6 +997,7 @@ enum class TaskType
     ApplyCloudCandidate,
     ApplyAiCandidate,
     ApplyEnglishCandidates,
+    ApplyEmojiCandidates,
     StoreUserPhrase,
     PinCandidate,
     ClientActivated,
@@ -1008,6 +1032,9 @@ struct Task
     std::vector<WordItem> english_candidates;
     std::string english_input;
     uint64_t english_generation = 0;
+    std::vector<WordItem> emoji_candidates;
+    std::string emoji_input;
+    uint64_t emoji_generation = 0;
     std::string session_pinyin;
     std::string session_word;
     bool session_pinyin_is_canonical = false;
@@ -1061,6 +1088,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
+void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word, bool pinyin_is_canonical = false);
 void EnqueuePinCandidateTask(const std::string &pinyin, const std::string &word);
 bool ResolveCandidateItem(int one_based_index, WordItem &item);
@@ -1184,6 +1212,11 @@ void WorkerThread()
 
         case TaskType::ApplyEnglishCandidates: {
             ApplyEnglishCandidates(std::move(task.english_candidates), task.english_input, task.english_generation);
+            break;
+        }
+
+        case TaskType::ApplyEmojiCandidates: {
+            ApplyEmojiCandidates(std::move(task.emoji_candidates), task.emoji_input, task.emoji_generation);
             break;
         }
 
@@ -1573,6 +1606,27 @@ void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::strin
         task.english_candidates = std::move(candidates);
         task.english_input = input;
         task.english_generation = generation;
+        task.client_id = origin.client_id;
+        task.activation_epoch = origin.activation_epoch;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
+{
+    const AsyncRequestOrigin origin = FindEmojiRequestOrigin(input, generation);
+    if (origin.client_id == 0 || origin.activation_epoch == 0)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ApplyEmojiCandidates;
+        task.emoji_candidates = std::move(candidates);
+        task.emoji_input = input;
+        task.emoji_generation = generation;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
@@ -2465,6 +2519,17 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         UpdateEnglishInput("");
     }
+
+    if (!g_english_input_mode && !IsSpecialModeCompositionActive(current_input) &&
+        GetConfiguredEmojiMixedInputEnabled() && scheme != SchemeType::Wubi &&
+        !GlobalIme::composition.creating_word.active)
+    {
+        UpdateEmojiInput(current_input, client_id, activation_epoch);
+    }
+    else
+    {
+        UpdateEmojiInput("");
+    }
 }
 
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
@@ -2610,6 +2675,49 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
                                                items, false, {}, g_inputSession->has_active_helpcode());
+        for (size_t index = 1; index < unique_candidates.size(); ++index)
+        {
+            items.push_back(std::move(unique_candidates[index]));
+        }
+        FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    }
+
+    Global::candidate_ui.item_total_count = static_cast<int>(items.size());
+    Global::candidate_ui.page_index = 0;
+    Global::candidate_ui.select_first_on_page();
+    Global::candidate_ui.clear_page();
+    RefreshCandidatePageUi(true);
+}
+
+void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
+{
+    if (!GetConfiguredEmojiMixedInputEnabled() || !EmojiIme::IsCurrent(input, generation) || g_inputSession == nullptr ||
+        g_inputSession->current_scheme_type() == SchemeType::Wubi ||
+        g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
+    {
+        return;
+    }
+
+    auto &items = Global::candidate_ui.items;
+    items.erase(std::remove_if(items.begin(), items.end(),
+                               [](const WordItem &item) { return item.source == CandidateSource::Emoji; }),
+                items.end());
+
+    std::vector<WordItem> unique_candidates;
+    for (auto &candidate : candidates)
+    {
+        const bool duplicate =
+            std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate.word; });
+        if (!duplicate)
+        {
+            unique_candidates.push_back(std::move(candidate));
+        }
+    }
+
+    if (!unique_candidates.empty())
+    {
+        const size_t insert_index = std::min<size_t>(2, items.size());
+        items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
         for (size_t index = 1; index < unique_candidates.size(); ++index)
         {
             items.push_back(std::move(unique_candidates[index]));
@@ -3033,6 +3141,7 @@ void ClearState()
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
+    UpdateEmojiInput("");
     UpdateAiInput("");
     /* Clear dict engine state */
     g_inputSession->reset_state();
@@ -3126,6 +3235,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             }
             UpdateCloudInput("");
             UpdateEnglishInput("");
+            UpdateEmojiInput("");
             g_inputSession->reset_state();
             GlobalIme::composition.clear();
             g_quick_phrase_triggered = false;
