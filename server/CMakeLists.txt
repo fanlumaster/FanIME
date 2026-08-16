@@ -96,6 +96,8 @@ set(SRC_FILES
     "./src/date-time/date_time_query.cpp"
     "./src/date-time/date_time_query.h"
     "./src/defines/defines.h"
+    "./src/emoji/emoji_query.cpp"
+    "./src/emoji/emoji_query.h"
     "./src/english/english_ime.cpp"
     "./src/english/english_ime.h"
     "./src/global/globals.h"

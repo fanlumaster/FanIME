@@ -42,6 +42,7 @@
 #include "quick-phrases/quick_phrase_query.h"
 #include "unicode/unicode_query.h"
 #include "date-time/date_time_query.h"
+#include "emoji/emoji_query.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <cwchar>
@@ -56,6 +57,7 @@ std::string BuildCurrentCandidatePage();
 bool g_quick_phrase_triggered = false;
 bool g_unicode_mode_triggered = false;
 bool g_date_time_mode_triggered = false;
+bool g_emoji_mode_triggered = false;
 bool g_english_input_mode = false;
 // Sticky UILess for the active Main-pipe client. When set, never raise the
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
@@ -159,13 +161,26 @@ bool IsDateTimeInput(const std::string &raw)
     return DateTimeQuery::IsKeyword(raw.substr(1));
 }
 
-// True whenever a K/U/T special-mode composition is in progress, even when the
+bool IsEmojiCompositionActive(const std::string &raw)
+{
+    return g_emoji_mode_triggered && !raw.empty() && raw.front() == 'E' &&
+           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) {
+               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '\'';
+           });
+}
+
+bool IsEmojiInput(const std::string &raw)
+{
+    return IsEmojiCompositionActive(raw) && raw.size() > 1;
+}
+
+// True whenever a K/U/T/E special-mode composition is in progress, even when the
 // typed text is not yet a complete keyword/hex sequence. Such input must never
 // be interpreted as normal pinyin.
 bool IsSpecialModeCompositionActive(const std::string &raw)
 {
     return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) ||
-           IsDateTimeCompositionActive(raw);
+           IsDateTimeCompositionActive(raw) || IsEmojiCompositionActive(raw);
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -675,7 +690,8 @@ std::string BuildCurrentCandidatePage()
             display_word += item.pinyin;
         }
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
-            item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Generated)
+            item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Emoji &&
+            item.source != CandidateSource::Generated)
         {
             // Helpcodes are derived from the dictionary's original simplified
             // candidate; only the visible/committed word is converted.
@@ -1363,7 +1379,8 @@ void WorkerThread()
         case TaskType::UiClearCandidatePosition: {
             WordItem item;
             if (!ResolveCandidateItem(task.candidate_one_based_index, item) ||
-                item.source == CandidateSource::QuickPhrase || item.source == CandidateSource::Generated)
+                item.source == CandidateSource::QuickPhrase || item.source == CandidateSource::Emoji ||
+                item.source == CandidateSource::Generated)
             {
                 break;
             }
@@ -2402,10 +2419,14 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = DateTimeQuery::Query(current_input.substr(1));
     }
+    else if (IsEmojiInput(current_input))
+    {
+        items = EmojiQuery::QueryPrefix(current_input.substr(1), g_inputSession->current_scheme_type());
+    }
     else if (IsSpecialModeCompositionActive(current_input))
     {
-        // A K/U/T special-mode prefix that is not yet a complete input (e.g.
-        // "K", "U", "U+", "Tw", "Txin"): do not translate it into normal
+        // A K/U/T/E special-mode prefix that is not yet a complete input (e.g.
+        // "K", "U", "U+", "Tw", "Txin", "E"): do not translate it into normal
         // pinyin candidates. Leave items empty so only the raw typed text
         // shows as the fallback.
     }
@@ -2638,6 +2659,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && GetConfiguredDateTimeModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'T' && Global::Wch == L'T' && shift_only)
         g_date_time_mode_triggered = true;
+    if (!g_english_input_mode && GetConfiguredEmojiModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'E' && Global::Wch == L'E' && shift_only)
+        g_emoji_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -2730,6 +2754,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         g_quick_phrase_triggered = false;
         g_unicode_mode_triggered = false;
         g_date_time_mode_triggered = false;
+        g_emoji_mode_triggered = false;
     }
     if (!g_english_input_mode && IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
@@ -2743,6 +2768,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && IsQuickPhraseCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
         // Keep preedit identical to the typed K-prefixed code.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
+    if (!g_english_input_mode && IsEmojiCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
+        // Keep preedit identical to the typed E-prefixed code.
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
     //
@@ -2999,6 +3029,7 @@ void ClearState()
     g_quick_phrase_triggered = false;
     g_unicode_mode_triggered = false;
     g_date_time_mode_triggered = false;
+    g_emoji_mode_triggered = false;
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
@@ -3082,7 +3113,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
         if (curWordItem.source == CandidateSource::EnglishDictionary ||
-            curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Generated)
+            curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Emoji ||
+            curWordItem.source == CandidateSource::Generated)
         {
             if (curWordItem.source == CandidateSource::EnglishDictionary && g_english_input_mode && isNeedUpdateWeight)
             {
@@ -3099,6 +3131,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             g_quick_phrase_triggered = false;
             g_unicode_mode_triggered = false;
             g_date_time_mode_triggered = false;
+            g_emoji_mode_triggered = false;
             return;
         }
         std::string cloudCommittedPinyin;
@@ -3207,6 +3240,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             GlobalIme::composition.caret_position = 0;
             GlobalIme::composition.raw_input_with_cases.clear();
             g_quick_phrase_triggered = false;
+            g_emoji_mode_triggered = false;
         }
         else
         {

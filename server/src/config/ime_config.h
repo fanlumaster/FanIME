@@ -161,6 +161,8 @@ bool GetConfiguredQuickPhraseEnabled();
 bool SetConfiguredQuickPhraseEnabled(bool enabled);
 bool GetConfiguredDateTimeModeEnabled();
 bool SetConfiguredDateTimeModeEnabled(bool enabled);
+bool GetConfiguredEmojiModeEnabled();
+bool SetConfiguredEmojiModeEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();

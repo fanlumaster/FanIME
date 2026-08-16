@@ -42,6 +42,8 @@ set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 set(SRC_FILES
     "./src/date-time/date_time_query.cpp"
     "./src/date-time/date_time_query.h"
+    "./src/emoji/emoji_query.cpp"
+    "./src/emoji/emoji_query.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/defines/defines.h"

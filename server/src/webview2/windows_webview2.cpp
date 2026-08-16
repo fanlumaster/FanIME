@@ -2739,6 +2739,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "utility.emoji_mode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredEmojiModeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -2996,7 +3004,8 @@ void PostSettingsConfig()
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},
-            {"date_time_mode", GetConfiguredDateTimeModeEnabled()}}},
+            {"date_time_mode", GetConfiguredDateTimeModeEnabled()},
+            {"emoji_mode", GetConfiguredEmojiModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_skin", GetConfiguredCandidateSkin()},

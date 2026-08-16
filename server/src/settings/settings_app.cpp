@@ -252,7 +252,8 @@ void PostConfig()
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},
-            {"date_time_mode", GetConfiguredDateTimeModeEnabled()}}},
+            {"date_time_mode", GetConfiguredDateTimeModeEnabled()},
+            {"emoji_mode", GetConfiguredEmojiModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
@@ -411,6 +412,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredQuickPhraseEnabled(json::value_to<bool>(data.at("value")));
     if (path == "utility.date_time_mode")
         return SetConfiguredDateTimeModeEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "utility.emoji_mode")
+        return SetConfiguredEmojiModeEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_minus_equal")
         return SetConfiguredPagingMinusEqualEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_tab")
