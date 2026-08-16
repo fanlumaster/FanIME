@@ -184,7 +184,7 @@ bool GetConfiguredPairedPunctuationEnabled();
 bool SetConfiguredPairedPunctuationEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
-// "fluent" | "wechat" — selects the candidate-window and floating-toolbar HTML skin.
+// "fluent" | "wechat" | "graphite" | "willow_green" — candidate-window and floating-toolbar skin.
 const std::string &GetConfiguredCandidateSkin();
 bool SetConfiguredCandidateSkin(const std::string &skin);
 const std::string &GetConfiguredCandidateWindowPreeditStyle();

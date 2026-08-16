@@ -1493,6 +1493,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     VoiceInput::RefreshKeyboardHook();
                 }
             }
+            ApplyConfiguredCandidateSkinIfChanged();
         }
         break;
     }
@@ -2099,6 +2100,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 }
                 PostSettingsConfig();
             }
+            ApplyConfiguredCandidateSkinIfChanged();
         }
         else if (wParam == TIMER_ID_MOVE_WEBVIEW_SETTINGS)
         {

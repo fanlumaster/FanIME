@@ -49,6 +49,9 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 constexpr int candidateBoundExtraFloorPx = 1000;
 
 std::wstring bodyRes = L"";
+std::string loadedCandidateSkin;
+std::string loadedFloatingToolbarSkin;
+std::string preparedCandidateSkin;
 
 namespace
 {
@@ -1182,9 +1185,15 @@ int PrepareHtmlForWnds()
     //
     const bool isHorizontal = GetConfiguredCandidateWindowLayout() == "horizontal";
     const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
-    const bool useWechatSkin = GetConfiguredCandidateSkin() == "wechat";
+    const std::string candidateSkin = GetConfiguredCandidateSkin();
+    const bool useWechatSkin = candidateSkin == "wechat";
+    const bool useGraphiteSkin = candidateSkin == "graphite";
+    const bool useWillowGreenSkin = candidateSkin == "willow_green";
     const wchar_t *candThemeSuffix =
-        useWechatSkin ? (candLight ? L"wechat_light" : L"wechat") : (candLight ? L"light" : L"dark");
+        useWechatSkin         ? (candLight ? L"wechat_light" : L"wechat")
+        : useGraphiteSkin     ? (candLight ? L"graphite_light" : L"graphite")
+        : useWillowGreenSkin  ? (candLight ? L"willow_green_light" : L"willow_green")
+                              : (candLight ? L"light" : L"dark");
     std::wstring htmlCandWnd;
     std::wstring bodyHtmlCandWnd;
     std::wstring measureHtmlCandWnd;
@@ -1242,12 +1251,22 @@ int PrepareHtmlForWnds()
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/wechat_light.html" : L"/html/webview2/ftb/wechat.html";
     }
+    else if (useGraphiteSkin)
+    {
+        htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/graphite_light.html" : L"/html/webview2/ftb/graphite.html";
+    }
+    else if (useWillowGreenSkin)
+    {
+        htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/willow_green_light.html"
+                              : L"/html/webview2/ftb/willow_green.html";
+    }
     else
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/default_light.html" : L"/html/webview2/ftb/default.html";
     }
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
     ::HTMLStringFtbWnd = ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
+    preparedCandidateSkin = candidateSkin;
 
     return 0;
 }
@@ -1261,27 +1280,55 @@ bool ApplyConfiguredCandidateWindowLayout()
     {
         return false;
     }
-    return SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str()));
+    const bool ok = SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str()));
+    if (ok)
+    {
+        loadedCandidateSkin = preparedCandidateSkin;
+    }
+    return ok;
 }
 
 bool ApplyConfiguredUiThemes()
 {
+    const std::string candidateSkin = GetConfiguredCandidateSkin();
     PrepareHtmlForWnds();
     bool ok = true;
     if (webviewCandWnd && !HTMLStringCandWnd.empty())
     {
-        ok = SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str())) && ok;
+        const bool candidateOk = SUCCEEDED(webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str()));
+        if (candidateOk)
+        {
+            loadedCandidateSkin = candidateSkin;
+        }
+        ok = candidateOk && ok;
     }
     if (webviewFtbWnd && !HTMLStringFtbWnd.empty())
     {
         ClearFloatingToolbarNavigationState();
-        ok = SUCCEEDED(webviewFtbWnd->NavigateToString(HTMLStringFtbWnd.c_str())) && ok;
+        const bool floatingToolbarOk = SUCCEEDED(webviewFtbWnd->NavigateToString(HTMLStringFtbWnd.c_str()));
+        if (floatingToolbarOk)
+        {
+            loadedFloatingToolbarSkin = candidateSkin;
+        }
+        ok = floatingToolbarOk && ok;
     }
     if (webviewMenuWnd && !HTMLStringMenuWnd.empty())
     {
         ok = SUCCEEDED(webviewMenuWnd->NavigateToString(HTMLStringMenuWnd.c_str())) && ok;
     }
     return ok;
+}
+
+bool ApplyConfiguredCandidateSkinIfChanged()
+{
+    const std::string &candidateSkin = GetConfiguredCandidateSkin();
+    const bool candidateCurrent = !webviewCandWnd || loadedCandidateSkin == candidateSkin;
+    const bool floatingToolbarCurrent = !webviewFtbWnd || loadedFloatingToolbarSkin == candidateSkin;
+    if (candidateCurrent && floatingToolbarCurrent)
+    {
+        return true;
+    }
+    return ApplyConfiguredUiThemes();
 }
 
 bool ApplyConfiguredCandidateAppearance()
@@ -1565,6 +1612,10 @@ HRESULT OnControllerCreatedCandWnd(     //
 
     // Navigate to HTML
     HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
+    if (SUCCEEDED(hr))
+    {
+        loadedCandidateSkin = preparedCandidateSkin;
+    }
     (void)0;
     if (FAILED(hr))
     {
@@ -3160,6 +3211,10 @@ HRESULT OnControllerCreatedFtbWnd(      //
 
     // Navigate to HTML
     HRESULT hr = webviewFtbWnd->NavigateToString(::HTMLStringFtbWnd.c_str());
+    if (SUCCEEDED(hr))
+    {
+        loadedFloatingToolbarSkin = preparedCandidateSkin;
+    }
     if (FAILED(hr))
     {
 #ifdef FANY_DEBUG

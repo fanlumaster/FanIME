@@ -644,7 +644,7 @@ bool LoadImeConfig()
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
-        g_candidate_skin = skin == "wechat" ? "wechat" : "fluent";
+        g_candidate_skin = skin == "wechat" || skin == "graphite" || skin == "willow_green" ? skin : "fluent";
         {
             const std::string preedit_style =
                 tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
@@ -1763,7 +1763,7 @@ const std::string &GetConfiguredCandidateSkin()
 
 bool SetConfiguredCandidateSkin(const std::string &skin)
 {
-    if (skin != "fluent" && skin != "wechat")
+    if (skin != "fluent" && skin != "wechat" && skin != "graphite" && skin != "willow_green")
     {
         return false;
     }

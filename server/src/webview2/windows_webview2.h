@@ -64,6 +64,9 @@ inline std::wstring StrCandWnd = L"";
 int PrepareHtmlForWnds();
 bool ApplyConfiguredCandidateWindowLayout();
 bool ApplyConfiguredUiThemes();
+// Reconcile the actual WebView skin even when another thread consumed the
+// config file timestamp before the UI timer observed it.
+bool ApplyConfiguredCandidateSkinIfChanged();
 bool ApplyConfiguredCandidateAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete);
