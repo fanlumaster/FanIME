@@ -1,6 +1,7 @@
 #include "EmojiPanel.h"
 #include "emoji_panel_icons.h"
 #include "emoji_panel_splash.h"
+#include "clipboard/clipboard_history.h"
 
 #include "msimeui/DeviceResources.h"
 #include "msimeui/Theme.h"
@@ -42,6 +43,39 @@ constexpr UINT_PTR kToastTimerId = 42;
 constexpr UINT kToastDurationMs = 1600;
 constexpr UINT_PTR kTooltipTimerId = 43;
 constexpr UINT kTooltipDelayMs = 600;
+constexpr UINT_PTR kClipboardPollTimerId = 44;
+constexpr UINT kClipboardPollMs = 400;
+constexpr float kClipboardRowHeight = 80.0f;
+constexpr float kClipboardRowGap = 8.0f;
+constexpr float kClipboardTitleFontSize = 24.0f;
+constexpr float kClipboardHintFontSize = 24.0f;
+constexpr float kClipboardButtonFontSize = 22.0f;
+constexpr float kClipboardItemFontSize = 22.0f;
+constexpr float kClipboardEmptyFontSize = 24.0f;
+
+bool FontFamilyExists(const wchar_t *name)
+{
+    Microsoft::WRL::ComPtr<IDWriteFactory> factory;
+    if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                                   reinterpret_cast<IUnknown **>(factory.GetAddressOf()))))
+    {
+        return false;
+    }
+    Microsoft::WRL::ComPtr<IDWriteFontCollection> fonts;
+    if (FAILED(factory->GetSystemFontCollection(&fonts)) || !fonts)
+    {
+        return false;
+    }
+    UINT32 index = 0;
+    BOOL exists = FALSE;
+    return SUCCEEDED(fonts->FindFamilyName(name, &index, &exists)) && exists;
+}
+
+const wchar_t *CjkUiFont()
+{
+    static const wchar_t *family = FontFamilyExists(L"Noto Sans SC") ? L"Noto Sans SC" : L"Microsoft YaHei";
+    return family;
+}
 constexpr float kTooltipPadX = 18.0f;
 constexpr float kTooltipPadY = 12.0f;
 constexpr float kTooltipFontSize = 20.0f;
@@ -505,10 +539,156 @@ void DrawLongTextInCell(DeviceResources &resources, const std::wstring &text, co
     target->PopAxisAlignedClip();
 }
 
+void DrawWrappedText(DeviceResources &resources, const std::wstring &text, const RectF &rect, float size,
+                     const D2D1_COLOR_F &color, DWRITE_TEXT_ALIGNMENT alignment = DWRITE_TEXT_ALIGNMENT_CENTER,
+                     DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL, const wchar_t *font = nullptr)
+{
+    auto *target = resources.GetRenderTarget();
+    auto *factory = resources.GetDWriteFactory();
+    auto *format = resources.GetTextFormat(font ? font : CjkUiFont(), size, weight, alignment,
+                                           DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_WRAP);
+    auto *brush = resources.GetSolidColorBrush(color);
+    if (!target || !factory || !format || !brush || text.empty())
+        return;
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, rect.width,
+                                         rect.height, &layout)))
+        return;
+    DWRITE_TRIMMING trimming{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
+    layout->SetTrimming(&trimming, nullptr);
+    target->DrawTextLayout(D2D1::Point2F(rect.x, rect.y), layout.Get(), brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+}
+
+void DrawClipboardItemText(DeviceResources &resources, const std::wstring &text, const RectF &cell,
+                           const D2D1_COLOR_F &color)
+{
+    auto *target = resources.GetRenderTarget();
+    auto *factory = resources.GetDWriteFactory();
+    auto *format = resources.GetTextFormat(CjkUiFont(), kClipboardItemFontSize, DWRITE_FONT_WEIGHT_NORMAL,
+                                           DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                           DWRITE_WORD_WRAPPING_NO_WRAP);
+    auto *brush = resources.GetSolidColorBrush(color);
+    if (!target || !factory || !format || !brush || text.empty())
+        return;
+
+    std::wstring line = text;
+    for (wchar_t &ch : line)
+    {
+        if (ch == L'\r' || ch == L'\n' || ch == L'\t')
+            ch = L' ';
+    }
+
+    const RectF textRect = {cell.x + 16.0f, cell.y + 10.0f, std::max(cell.width - 58.0f, 20.0f), cell.height - 20.0f};
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(factory->CreateTextLayout(line.c_str(), static_cast<UINT32>(line.size()), format, textRect.width,
+                                         textRect.height, &layout)))
+        return;
+
+    Microsoft::WRL::ComPtr<IDWriteInlineObject> ellipsis;
+    if (SUCCEEDED(factory->CreateEllipsisTrimmingSign(format, &ellipsis)))
+    {
+        const DWRITE_TRIMMING trimming{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
+        layout->SetTrimming(&trimming, ellipsis.Get());
+    }
+
+    target->DrawTextLayout(D2D1::Point2F(textRect.x, textRect.y), layout.Get(), brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+}
+
+constexpr size_t kClipboardTooltipMaxChars = 200;
+constexpr UINT32 kClipboardTooltipMaxLines = 12;
+
+std::wstring ClipboardTooltipText(const std::wstring &text)
+{
+    std::wstring tip = text;
+    for (wchar_t &ch : tip)
+    {
+        if (ch == L'\r' || ch == L'\t')
+            ch = L' ';
+    }
+    while (!tip.empty() && tip.back() == L'\n')
+        tip.pop_back();
+    if (tip.size() > kClipboardTooltipMaxChars)
+        tip = tip.substr(0, kClipboardTooltipMaxChars) + L"...";
+    return tip;
+}
+
+void DrawClipboardHoverTooltip(DeviceResources &resources, const std::wstring &rawText, const RectF &panel,
+                               const RectF &anchor, float contentTop, bool lightTheme)
+{
+    const std::wstring tip = ClipboardTooltipText(rawText);
+    if (tip.empty())
+        return;
+
+    auto *target = resources.GetRenderTarget();
+    auto *factory = resources.GetDWriteFactory();
+    const wchar_t *font = CjkUiFont();
+    constexpr float kFontSize = 13.0f;
+    constexpr float kPadX = 14.0f;
+    constexpr float kPadY = 10.0f;
+    constexpr float kMaxWidthMargin = 24.0f;
+    auto *format = resources.GetTextFormat(font, kFontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_LEADING,
+                                           DWRITE_PARAGRAPH_ALIGNMENT_NEAR, DWRITE_WORD_WRAPPING_WRAP);
+    auto *brush = resources.GetSolidColorBrush(D2D1::ColorF(0xF5F5F7));
+    if (!target || !factory || !format || !brush)
+        return;
+
+    const float maxBoxWidth = std::max(panel.width - kMaxWidthMargin, 80.0f);
+    const float maxTextWidth = std::max(maxBoxWidth - kPadX * 2.0f, 40.0f);
+    const float maxTextHeight = kFontSize * 1.35f * static_cast<float>(kClipboardTooltipMaxLines);
+
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+    if (FAILED(factory->CreateTextLayout(tip.c_str(), static_cast<UINT32>(tip.size()), format, maxTextWidth,
+                                         maxTextHeight, &layout)))
+        return;
+
+    Microsoft::WRL::ComPtr<IDWriteInlineObject> ellipsis;
+    if (SUCCEEDED(factory->CreateEllipsisTrimmingSign(format, &ellipsis)))
+    {
+        const DWRITE_TRIMMING trimming{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
+        layout->SetTrimming(&trimming, ellipsis.Get());
+    }
+
+    DWRITE_TEXT_METRICS metrics{};
+    if (FAILED(layout->GetMetrics(&metrics)))
+        return;
+
+    const float tipWidth = std::clamp(metrics.width + kPadX * 2.0f, 72.0f, maxBoxWidth);
+    const float tipHeight = std::clamp(metrics.height + kPadY * 2.0f, kFontSize + kPadY * 2.0f,
+                                       maxTextHeight + kPadY * 2.0f);
+
+    float tipX = anchor.x + (anchor.width - tipWidth) * 0.5f;
+    tipX = std::clamp(tipX, panel.x + 12.0f, panel.x + panel.width - tipWidth - 12.0f);
+    float tipY = anchor.y - tipHeight - 8.0f;
+    if (tipY < panel.y + contentTop)
+    {
+        tipY = anchor.y + anchor.height + 8.0f;
+    }
+    if (tipY + tipHeight > panel.y + panel.height - 8.0f)
+    {
+        tipY = std::max(panel.y + contentTop, panel.y + panel.height - tipHeight - 8.0f);
+    }
+
+    const RectF tipRect = {tipX, tipY, tipWidth, tipHeight};
+    const D2D1_COLOR_F tipBg = lightTheme ? D2D1::ColorF(0x2B2B33, 0.96f) : D2D1::ColorF(0x1C1C22, 0.96f);
+    FillRect(resources, tipRect, tipBg, 10.0f);
+
+    const D2D1_RECT_F textRect =
+        D2D1::RectF(tipRect.x + kPadX, tipRect.y + kPadY, tipRect.x + tipRect.width - kPadX,
+                    tipRect.y + tipRect.height - kPadY);
+    target->PushAxisAlignedClip(textRect, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    target->DrawTextLayout(D2D1::Point2F(textRect.left, textRect.top), layout.Get(), brush,
+                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    target->PopAxisAlignedClip();
+}
+
 } // namespace
 
 EmojiPanel::EmojiPanel(bool lightTheme) : lightTheme_(lightTheme)
 {
+    Theme theme = ThemeManager::GetCurrent();
+    theme.textInputFontFamily = CjkUiFont();
+    ThemeManager::SetCurrent(std::move(theme));
+
     LoadEmojiCatalog();
     LoadKaomojiCatalog();
     LoadSymbolCatalog();
@@ -523,6 +703,16 @@ EmojiPanel::EmojiPanel(bool lightTheme) : lightTheme_(lightTheme)
     });
     searchBox_->SetOnFocusChanged([this](bool) { InvalidateVisual(); });
     UpdateSearchPlaceholder();
+    SyncClipboardState(true);
+}
+
+EmojiPanel::~EmojiPanel()
+{
+    if (window_ && window_->GetHandle())
+    {
+        KillTimer(window_->GetHandle(), kClipboardPollTimerId);
+    }
+    ClipboardMonitor::Stop();
 }
 
 void EmojiPanel::UpdateSearchPlaceholder()
@@ -531,6 +721,16 @@ void EmojiPanel::UpdateSearchPlaceholder()
     {
         return;
     }
+    if (page_ == Page::Clipboard)
+    {
+        searchBox_->SetPlaceholderText(L"搜索剪贴板");
+        searchBox_->SetFontSize(16.0f);
+        searchBox_->SetPlaceholderFontSize(16.0f);
+        return;
+    }
+
+    searchBox_->SetFontSize(14.0f);
+    searchBox_->SetPlaceholderFontSize(12.0f);
     if (page_ == Page::Home)
     {
         searchBox_->SetPlaceholderText(L"Search emoji, kaomoji, and symbols");
@@ -795,6 +995,11 @@ void EmojiPanel::Attach(Window *window)
     {
         searchBox_->Attach(window);
     }
+    if (window && window->GetHandle())
+    {
+        SetTimer(window->GetHandle(), kClipboardPollTimerId, kClipboardPollMs, nullptr);
+    }
+    SyncClipboardState(true);
 }
 
 Visual *EmojiPanel::FindVisualAt(const PointF &point)
@@ -1038,6 +1243,99 @@ bool EmojiPanel::HitBack(const PointF &point) const
     return InDetailPage() && Contains(BackRect(), point);
 }
 
+RectF EmojiPanel::EnableClipboardButtonRect() const
+{
+    const float width = 248.0f;
+    const float height = 56.0f;
+    return {bounds_.x + (bounds_.width - width) * 0.5f, bounds_.y + kContentTop + 196.0f, width, height};
+}
+
+RectF EmojiPanel::ClipboardDeleteRect(const RectF &cell) const
+{
+    return {cell.x + cell.width - 42.0f, cell.y + (cell.height - 32.0f) * 0.5f, 32.0f, 32.0f};
+}
+
+bool EmojiPanel::HitEnableClipboardButton(const PointF &point) const
+{
+    return page_ == Page::Clipboard && !clipboardEnabled_ && Contains(EnableClipboardButtonRect(), point);
+}
+
+size_t EmojiPanel::HitClipboardDelete(const PointF &point) const
+{
+    if (page_ != Page::Clipboard || !clipboardEnabled_)
+        return kInvalidIndex;
+    const size_t item = HitItem(point);
+    if (item == kInvalidIndex)
+        return kInvalidIndex;
+    EnsureDisplayLayout();
+    const RectF viewport = ContentViewportRect();
+    const float contentOriginY = viewport.y - scrollOffset_;
+    for (const auto &group : layoutGroups_)
+    {
+        if (item < group.firstFlatIndex || item >= group.firstFlatIndex + group.items.size() || !group.listLayout)
+            continue;
+        const RectF cell = ItemCellRect(group, item - group.firstFlatIndex, contentOriginY);
+        return Contains(ClipboardDeleteRect(cell), point) ? item : kInvalidIndex;
+    }
+    return kInvalidIndex;
+}
+
+void EmojiPanel::SyncClipboardState(bool forceReload)
+{
+    const bool enabled = ClipboardHistory::IsEnabled();
+    std::vector<Item> items;
+    if (enabled)
+    {
+        ClipboardMonitor::Start();
+        for (auto &text : ClipboardHistory::Load())
+        {
+            std::wstring lower = Lower(text);
+            items.push_back({text, text, std::move(lower), true});
+        }
+    }
+    else
+    {
+        ClipboardMonitor::Stop();
+    }
+
+    const bool changed =
+        forceReload || enabled != clipboardEnabled_ || items.size() != clipboardItems_.size() ||
+        !std::equal(items.begin(), items.end(), clipboardItems_.begin(),
+                    [](const Item &left, const Item &right) { return left.text == right.text; });
+    if (!changed)
+        return;
+
+    const bool wasEnabled = clipboardEnabled_;
+    clipboardEnabled_ = enabled;
+    clipboardItems_ = std::move(items);
+    if (page_ == Page::Clipboard || (!enabled && wasEnabled))
+    {
+        MarkDisplayDirty();
+        ClampScroll();
+        InvalidateVisual();
+    }
+}
+
+void EmojiPanel::EnableClipboardHistory()
+{
+    if (!ClipboardHistory::SetEnabled(true))
+    {
+        ShowToast(L"无法开启剪贴板");
+        return;
+    }
+    SyncClipboardState(true);
+    ShowToast(L"剪贴板已开启");
+}
+
+void EmojiPanel::RemoveClipboardItem(size_t index)
+{
+    const Item *item = DisplayItemAt(index);
+    if (!item)
+        return;
+    ClipboardHistory::RemoveText(item->text);
+    SyncClipboardState(true);
+}
+
 void EmojiPanel::EnsureDisplayLayout() const
 {
     if (!displayDirty_)
@@ -1061,6 +1359,7 @@ void EmojiPanel::EnsureDisplayLayout() const
         layout.firstFlatIndex = cachedItemCount_;
         layout.moreTarget = moreTarget;
         layout.showMore = showMore;
+        layout.titleHeight = kGroupTitleHeight;
         layout.flowLayout = page_ == Page::Kaomoji || moreTarget == Page::Kaomoji;
         if (layout.flowLayout)
         {
@@ -1234,9 +1533,43 @@ void EmojiPanel::EnsureDisplayLayout() const
             }
         }
     }
-    else if (page_ == Page::Sticker || page_ == Page::Gif || page_ == Page::Clipboard)
+    else if (page_ == Page::Sticker || page_ == Page::Gif)
     {
         // Placeholder pages keep an empty layout; Render shows the hint text.
+    }
+    else if (page_ == Page::Clipboard)
+    {
+        if (clipboardEnabled_)
+        {
+            std::vector<const Item *> items;
+            items.reserve(clipboardItems_.size());
+            for (const auto &item : clipboardItems_)
+            {
+                if (!searching || item.keywordsLower.find(query) != std::wstring::npos ||
+                    item.text.find(searchText_) != std::wstring::npos)
+                {
+                    items.push_back(&item);
+                }
+            }
+            if (!items.empty())
+            {
+                LayoutGroup layout;
+                layout.title.clear();
+                layout.titleHeight = 10.0f;
+                layout.items = std::move(items);
+                layout.top = 0.0f;
+                layout.firstFlatIndex = 0;
+                layout.listLayout = true;
+                layout.columns = 1;
+                layout.cellSize = kClipboardRowHeight;
+                cachedItemCount_ = layout.items.size();
+                layout.height = layout.titleHeight +
+                                static_cast<float>(layout.items.size()) * (layout.cellSize + kClipboardRowGap) +
+                                kGroupBottomPad;
+                cachedContentHeight_ = layout.height;
+                layoutGroups_.push_back(std::move(layout));
+            }
+        }
     }
 
     cachedContentHeight_ = std::max(cachedContentHeight_, 100.0f);
@@ -1434,7 +1767,13 @@ const EmojiPanel::Item *EmojiPanel::DisplayItemAt(size_t target) const
 
 RectF EmojiPanel::ItemCellRect(const LayoutGroup &group, size_t indexInGroup, float contentOriginY) const
 {
-    const float bodyTop = contentOriginY + group.top + kGroupTitleHeight;
+    const float bodyTop = contentOriginY + group.top + group.titleHeight;
+    if (group.listLayout)
+    {
+        const float width = std::max(bounds_.width - kGridLeft - kGridRightPad, 80.0f);
+        return {bounds_.x + kGridLeft, bodyTop + static_cast<float>(indexInGroup) * (group.cellSize + kClipboardRowGap),
+                width, group.cellSize};
+    }
     if (group.flowLayout)
     {
         if (indexInGroup >= group.itemRects.size())
@@ -1512,12 +1851,13 @@ size_t EmojiPanel::HitItem(const PointF &point) const
         {
             continue;
         }
-        const float localY = contentY - group.top - kGroupTitleHeight;
+        const float titleHeight = group.titleHeight > 0.0f ? group.titleHeight : kGroupTitleHeight;
+        const float localY = contentY - group.top - titleHeight;
         if (localY < 0.0f || group.items.empty())
         {
             return kInvalidIndex;
         }
-        if (group.flowLayout)
+        if (group.flowLayout || group.listLayout)
         {
             for (size_t indexInGroup = 0; indexInGroup < group.items.size(); ++indexInGroup)
             {
@@ -1566,12 +1906,17 @@ void EmojiPanel::EnsureItemVisible(size_t index)
                 return;
             }
             const RectF &placed = group.itemRects[local];
-            itemTop = group.top + kGroupTitleHeight + placed.y;
+            itemTop = group.top + group.titleHeight + placed.y;
             itemBottom = itemTop + placed.height;
+        }
+        else if (group.listLayout)
+        {
+            itemTop = group.top + group.titleHeight + static_cast<float>(local) * (group.cellSize + kClipboardRowGap);
+            itemBottom = itemTop + group.cellSize;
         }
         else
         {
-            itemTop = group.top + kGroupTitleHeight + static_cast<float>(local / group.columns) * group.cellSize;
+            itemTop = group.top + group.titleHeight + static_cast<float>(local / group.columns) * group.cellSize;
             itemBottom = itemTop + group.cellSize;
         }
         const float viewportHeight = std::max(bounds_.height - kContentTop, 0.0f);
@@ -1603,6 +1948,10 @@ void EmojiPanel::ResetView()
     pressedItem_ = kInvalidIndex;
     hoveredMore_ = kInvalidIndex;
     pressedMore_ = kInvalidIndex;
+    hoveredClipboardDelete_ = kInvalidIndex;
+    pressedClipboardDelete_ = kInvalidIndex;
+    enableClipboardHovered_ = false;
+    enableClipboardPressed_ = false;
     ClampScroll();
     InvalidateVisual();
 }
@@ -1622,6 +1971,8 @@ void EmojiPanel::EnterPage(Page page, size_t emojiSubTab)
     emojiSubTab_ = emojiSubTab;
     UpdateSearchPlaceholder();
     DismissToast();
+    if (page == Page::Clipboard)
+        SyncClipboardState(true);
     ResetView();
 }
 
@@ -1702,14 +2053,22 @@ void EmojiPanel::ActivateItem(size_t index)
     }
     const Item selected = *item;
     const bool copied = CopyToClipboard(window_->GetHandle(), selected.text);
-    ShowToast(copied ? (L"Copied  " + selected.text) : L"Could not access the clipboard");
-    recentItems_.erase(std::remove_if(recentItems_.begin(), recentItems_.end(),
-                                      [&selected](const Item &entry) { return entry.text == selected.text; }),
-                       recentItems_.end());
-    recentItems_.insert(recentItems_.begin(), selected);
-    if (recentItems_.size() > 28)
+    std::wstring preview = selected.text;
+    preview.erase(std::remove(preview.begin(), preview.end(), L'\r'), preview.end());
+    preview.erase(std::remove(preview.begin(), preview.end(), L'\n'), preview.end());
+    if (preview.size() > 24)
+        preview = preview.substr(0, 24) + L"...";
+    ShowToast(copied ? (L"Copied  " + preview) : L"Could not access the clipboard");
+    if (page_ != Page::Clipboard)
     {
-        recentItems_.resize(28);
+        recentItems_.erase(std::remove_if(recentItems_.begin(), recentItems_.end(),
+                                          [&selected](const Item &entry) { return entry.text == selected.text; }),
+                           recentItems_.end());
+        recentItems_.insert(recentItems_.begin(), selected);
+        if (recentItems_.size() > 28)
+        {
+            recentItems_.resize(28);
+        }
     }
     MarkDisplayDirty();
     InvalidateVisual();
@@ -1804,9 +2163,11 @@ void EmojiPanel::Render(DeviceResources &resources)
             else if (page_ == Page::Gif) title = L"GIF";
             else if (page_ == Page::Kaomoji) title = L"Kaomoji";
             else if (page_ == Page::Symbols) title = L"Symbols";
-            else if (page_ == Page::Clipboard) title = L"Clipboard history";
+            else if (page_ == Page::Clipboard) title = L"剪贴板";
             DrawText(resources, title, {bounds_.x + 70.0f, bounds_.y + kNavTop, 280.0f, kNavHeight},
-                     18.0f, text, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
+                     page_ == Page::Clipboard ? kClipboardTitleFontSize : 18.0f, text,
+                     page_ == Page::Clipboard ? CjkUiFont() : L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING,
+                     DWRITE_FONT_WEIGHT_SEMI_BOLD);
         }
     }
     else
@@ -1864,8 +2225,8 @@ void EmojiPanel::Render(DeviceResources &resources)
             continue;
         }
 
-        const RectF titleRect = {bounds_.x + 24.0f, groupTop, bounds_.width - 88.0f, kGroupTitleHeight};
-        if (VerticallyIntersects(titleRect.y, titleRect.y + titleRect.height, viewTop, viewBottom))
+        const RectF titleRect = {bounds_.x + 24.0f, groupTop, bounds_.width - 88.0f, group.titleHeight};
+        if (!group.title.empty() && VerticallyIntersects(titleRect.y, titleRect.y + titleRect.height, viewTop, viewBottom))
         {
             DrawFormattedText(resources, group.title, titleRect, titleFormat, textBrush, false);
         }
@@ -1884,7 +2245,37 @@ void EmojiPanel::Render(DeviceResources &resources)
         {
             continue;
         }
-        const float bodyTop = groupTop + kGroupTitleHeight;
+        const float bodyTop = groupTop + group.titleHeight;
+
+        if (group.listLayout)
+        {
+            for (size_t indexInGroup = 0; indexInGroup < group.items.size(); ++indexInGroup)
+            {
+                const RectF cell = ItemCellRect(group, indexInGroup, contentOriginY);
+                if (!VerticallyIntersects(cell.y, cell.y + cell.height, viewTop, viewBottom))
+                    continue;
+                const size_t flatIndex = group.firstFlatIndex + indexInGroup;
+                const bool active = flatIndex == selectedItem_ || flatIndex == hoveredItem_ ||
+                                    flatIndex == pressedItem_;
+                FillRect(resources, cell,
+                         active ? (flatIndex == pressedItem_ ? pressed : selected)
+                                : D2D1::ColorF(lightTheme_ ? 0xFFFFFF : 0x2B2B33),
+                         12.0f);
+                if (flatIndex == selectedItem_)
+                    StrokeRect(resources, cell, lightTheme_ ? accent : D2D1::ColorF(0xF0F0F4), 12.0f, 2.0f);
+                const Item *item = group.items[indexInGroup];
+                if (item)
+                    DrawClipboardItemText(resources, item->text, cell, text);
+                if (flatIndex == hoveredItem_ || flatIndex == pressedClipboardDelete_)
+                {
+                    const RectF del = ClipboardDeleteRect(cell);
+                    if (hoveredClipboardDelete_ == flatIndex || pressedClipboardDelete_ == flatIndex)
+                        FillRect(resources, del, pressedClipboardDelete_ == flatIndex ? pressed : selected, 8.0f);
+                    DrawCloseIcon(resources, del, mutedText);
+                }
+            }
+            continue;
+        }
 
         if (group.flowLayout)
         {
@@ -1974,9 +2365,27 @@ void EmojiPanel::Render(DeviceResources &resources)
         }
     }
 
-    if (layoutGroups_.empty() || cachedItemCount_ == 0)
+    if (page_ == Page::Clipboard && !clipboardEnabled_)
+    {
+        DrawWrappedText(resources, L"开启剪贴板后",
+                        {bounds_.x + 40.0f, bounds_.y + kContentTop + 48.0f, bounds_.width - 80.0f, 44.0f},
+                        kClipboardHintFontSize, mutedText, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_NORMAL);
+        DrawWrappedText(resources, L"复制过的内容将在这里展示",
+                        {bounds_.x + 40.0f, bounds_.y + kContentTop + 96.0f, bounds_.width - 80.0f, 44.0f},
+                        kClipboardHintFontSize, mutedText, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_NORMAL);
+        const RectF enable = EnableClipboardButtonRect();
+        const D2D1_COLOR_F purple = enableClipboardPressed_ ? (lightTheme_ ? D2D1::ColorF(0x7A3E91) : D2D1::ColorF(0xB06CBC))
+                                  : enableClipboardHovered_  ? (lightTheme_ ? D2D1::ColorF(0xB07CC4) : D2D1::ColorF(0xE2A8E8))
+                                                             : accent;
+        FillRect(resources, enable, purple, 12.0f);
+        DrawText(resources, L"开启剪贴板", enable, kClipboardButtonFontSize, D2D1::ColorF(0xFFFFFF), CjkUiFont(),
+                 DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_SEMI_BOLD);
+    }
+    else if (layoutGroups_.empty() || cachedItemCount_ == 0)
     {
         std::wstring emptyText = L"No results";
+        const wchar_t *emptyFont = L"Segoe UI";
+        float emptySize = 20.0f;
         if (page_ == Page::Home && searchText_.empty() && recentItems_.empty() && emojiGroups_.empty())
             emptyText = L"Emoji database not found";
         else if (page_ == Page::Sticker)
@@ -1984,14 +2393,18 @@ void EmojiPanel::Render(DeviceResources &resources)
         else if (page_ == Page::Gif)
             emptyText = L"GIF sources can be connected here";
         else if (page_ == Page::Clipboard)
-            emptyText = L"Clipboard history can be connected here";
+        {
+            emptyText = searchText_.empty() ? L"暂无剪贴板记录" : L"没有匹配的剪贴板记录";
+            emptyFont = CjkUiFont();
+            emptySize = kClipboardEmptyFontSize;
+        }
         else if (page_ == Page::Emoji && emojiSubTab_ == 0 && recentItems_.empty())
             emptyText = L"Your recently used items will appear here";
         else if (page_ == Page::Symbols && symbolGroups_.empty())
             emptyText = L"Symbol catalog not found";
         DrawText(resources, emptyText,
-                 {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 60.0f},
-                 20.0f, mutedText, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+                 {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 64.0f},
+                 emptySize, mutedText, emptyFont, DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     target->PopAxisAlignedClip();
 
@@ -2027,7 +2440,8 @@ void EmojiPanel::Render(DeviceResources &resources)
     {
         if (const Item *hovered = DisplayItemAt(tooltipItem_))
         {
-            const std::wstring tip = DisplayNameForItem(hovered->keywords, hovered->text);
+            const std::wstring tip =
+                page_ == Page::Clipboard ? hovered->text : DisplayNameForItem(hovered->keywords, hovered->text);
             EnsureDisplayLayout();
             TryEnsureFlowLayout();
             RectF anchorDesign{};
@@ -2048,27 +2462,36 @@ void EmojiPanel::Render(DeviceResources &resources)
             {
                 const RectF panel = ToViewportRect(bounds_);
                 const RectF anchor = ToViewportRect(anchorDesign);
-                const std::wstring &tipFont = ThemeManager::GetCurrent().textInputFontFamily;
-                const float tooltipFontSize = kTooltipFontSize * kPanelScale;
-                const float textWidth = MeasureTextWidth(resources, tip, tooltipFontSize,
-                                                         DWRITE_FONT_WEIGHT_NORMAL, tipFont.c_str());
-                const float tipWidth = std::min(textWidth + kTooltipPadX * 2.0f * kPanelScale,
-                                                panel.width - 24.0f * kPanelScale);
-                const float tipHeight = (kTooltipFontSize + kTooltipPadY * 2.0f + 6.0f) * kPanelScale;
-                float tipX = anchor.x + (anchor.width - tipWidth) * 0.5f;
-                tipX = std::clamp(tipX, panel.x + 12.0f * kPanelScale,
-                                  panel.x + panel.width - tipWidth - 12.0f * kPanelScale);
-                float tipY = anchor.y - tipHeight - 8.0f * kPanelScale;
-                if (tipY < panel.y + kContentTop * kPanelScale)
+                if (page_ == Page::Clipboard)
                 {
-                    tipY = anchor.y + anchor.height + 8.0f * kPanelScale;
+                    DrawClipboardHoverTooltip(resources, hovered->text, panel, anchor, kContentTop * kPanelScale,
+                                              lightTheme_);
                 }
-                const RectF tipRect = {tipX, tipY, tipWidth, tipHeight};
-                const D2D1_COLOR_F tipBg = lightTheme_ ? D2D1::ColorF(0x2B2B33, 0.96f) : D2D1::ColorF(0x1C1C22, 0.96f);
-                const D2D1_COLOR_F tipFg = D2D1::ColorF(0xF5F5F7);
-                FillRect(resources, tipRect, tipBg, 10.0f * kPanelScale);
-                DrawText(resources, tip, tipRect, tooltipFontSize, tipFg, tipFont.c_str(),
-                         DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_NORMAL);
+                else
+                {
+                    const std::wstring &tipFont = ThemeManager::GetCurrent().textInputFontFamily;
+                    const float tooltipFontSize = kTooltipFontSize * kPanelScale;
+                    const float textWidth = MeasureTextWidth(resources, tip, tooltipFontSize,
+                                                             DWRITE_FONT_WEIGHT_NORMAL, tipFont.c_str());
+                    const float tipWidth = std::min(textWidth + kTooltipPadX * 2.0f * kPanelScale,
+                                                    panel.width - 24.0f * kPanelScale);
+                    const float tipHeight = (kTooltipFontSize + kTooltipPadY * 2.0f + 6.0f) * kPanelScale;
+                    float tipX = anchor.x + (anchor.width - tipWidth) * 0.5f;
+                    tipX = std::clamp(tipX, panel.x + 12.0f * kPanelScale,
+                                      panel.x + panel.width - tipWidth - 12.0f * kPanelScale);
+                    float tipY = anchor.y - tipHeight - 8.0f * kPanelScale;
+                    if (tipY < panel.y + kContentTop * kPanelScale)
+                    {
+                        tipY = anchor.y + anchor.height + 8.0f * kPanelScale;
+                    }
+                    const RectF tipRect = {tipX, tipY, tipWidth, tipHeight};
+                    const D2D1_COLOR_F tipBg =
+                        lightTheme_ ? D2D1::ColorF(0x2B2B33, 0.96f) : D2D1::ColorF(0x1C1C22, 0.96f);
+                    const D2D1_COLOR_F tipFg = D2D1::ColorF(0xF5F5F7);
+                    FillRect(resources, tipRect, tipBg, 10.0f * kPanelScale);
+                    DrawText(resources, tip, tipRect, tooltipFontSize, tipFg, tipFont.c_str(),
+                             DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_NORMAL);
+                }
             }
         }
     }
@@ -2104,14 +2527,24 @@ bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
     }
     closePressed_ = Contains(CloseRect(), dip);
     backPressed_ = !closePressed_ && HitBack(dip);
-    pressedMainTab_ = (closePressed_ || backPressed_) ? kInvalidIndex : HitMainTab(dip);
+    enableClipboardPressed_ = !closePressed_ && !backPressed_ && HitEnableClipboardButton(dip);
+    pressedMainTab_ = (closePressed_ || backPressed_ || enableClipboardPressed_) ? kInvalidIndex : HitMainTab(dip);
     pressedSubTab_ =
-        (closePressed_ || backPressed_ || pressedMainTab_ != kInvalidIndex) ? kInvalidIndex : HitEmojiSubTab(dip);
-    pressedMore_ = (closePressed_ || backPressed_ || pressedMainTab_ != kInvalidIndex || pressedSubTab_ != kInvalidIndex)
+        (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex)
+            ? kInvalidIndex
+            : HitEmojiSubTab(dip);
+    pressedMore_ = (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex ||
+                    pressedSubTab_ != kInvalidIndex)
                        ? kInvalidIndex
                        : HitMoreButton(dip);
-    pressedItem_ = (closePressed_ || backPressed_ || pressedMainTab_ != kInvalidIndex ||
-                    pressedSubTab_ != kInvalidIndex || pressedMore_ != kInvalidIndex)
+    pressedClipboardDelete_ =
+        (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex ||
+         pressedSubTab_ != kInvalidIndex || pressedMore_ != kInvalidIndex)
+            ? kInvalidIndex
+            : HitClipboardDelete(dip);
+    pressedItem_ = (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex ||
+                    pressedSubTab_ != kInvalidIndex || pressedMore_ != kInvalidIndex ||
+                    pressedClipboardDelete_ != kInvalidIndex)
                        ? kInvalidIndex
                        : HitItem(dip);
     InvalidateVisual();
@@ -2131,14 +2564,20 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
     }
     const bool close = closePressed_ && Contains(CloseRect(), dip);
     const bool back = backPressed_ && HitBack(dip);
+    const bool enableClipboard = enableClipboardPressed_ && HitEnableClipboardButton(dip);
     const size_t mainTab = HitMainTab(dip);
     const size_t subTab = HitEmojiSubTab(dip);
     const size_t more = HitMoreButton(dip);
+    const size_t deleted = HitClipboardDelete(dip);
     const size_t item = HitItem(dip);
 
     if (back)
     {
         GoHome();
+    }
+    else if (enableClipboard)
+    {
+        EnableClipboardHistory();
     }
     else if (pressedMainTab_ != kInvalidIndex && mainTab == pressedMainTab_)
     {
@@ -2160,6 +2599,10 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
     {
         ActivateMore(more);
     }
+    else if (pressedClipboardDelete_ != kInvalidIndex && deleted == pressedClipboardDelete_)
+    {
+        RemoveClipboardItem(deleted);
+    }
     else if (pressedItem_ != kInvalidIndex && item == pressedItem_)
     {
         selectedItem_ = item;
@@ -2168,9 +2611,11 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
 
     closePressed_ = false;
     backPressed_ = false;
+    enableClipboardPressed_ = false;
     pressedMainTab_ = kInvalidIndex;
     pressedSubTab_ = kInvalidIndex;
     pressedMore_ = kInvalidIndex;
+    pressedClipboardDelete_ = kInvalidIndex;
     pressedItem_ = kInvalidIndex;
     InvalidateVisual();
     if (close) PostMessageW(window_->GetHandle(), WM_CLOSE, 0, 0);
@@ -2196,22 +2641,33 @@ bool EmojiPanel::OnMouseMove(const POINT &point, WPARAM)
     }
     const bool close = Contains(CloseRect(), dip);
     const bool back = !close && HitBack(dip);
-    const size_t mainTab = (close || back) ? kInvalidIndex : HitMainTab(dip);
-    const size_t subTab = (close || back || mainTab != kInvalidIndex) ? kInvalidIndex : HitEmojiSubTab(dip);
-    const size_t more =
-        (close || back || mainTab != kInvalidIndex || subTab != kInvalidIndex) ? kInvalidIndex : HitMoreButton(dip);
-    const size_t item = (close || back || mainTab != kInvalidIndex || subTab != kInvalidIndex || more != kInvalidIndex)
+    const bool enableClipboard = !close && !back && HitEnableClipboardButton(dip);
+    const size_t mainTab = (close || back || enableClipboard) ? kInvalidIndex : HitMainTab(dip);
+    const size_t subTab =
+        (close || back || enableClipboard || mainTab != kInvalidIndex) ? kInvalidIndex : HitEmojiSubTab(dip);
+    const size_t more = (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex)
                             ? kInvalidIndex
-                            : HitItem(dip);
-    if (closeHovered_ != close || backHovered_ != back || hoveredMainTab_ != mainTab || hoveredSubTab_ != subTab ||
-        hoveredMore_ != more || hoveredItem_ != item)
+                            : HitMoreButton(dip);
+    const size_t deleted =
+        (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex || more != kInvalidIndex)
+            ? kInvalidIndex
+            : HitClipboardDelete(dip);
+    const size_t item =
+        (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex || more != kInvalidIndex)
+            ? kInvalidIndex
+            : HitItem(dip);
+    if (closeHovered_ != close || backHovered_ != back || enableClipboardHovered_ != enableClipboard ||
+        hoveredMainTab_ != mainTab || hoveredSubTab_ != subTab || hoveredMore_ != more || hoveredItem_ != item ||
+        hoveredClipboardDelete_ != deleted)
     {
         const bool itemChanged = hoveredItem_ != item;
         closeHovered_ = close;
         backHovered_ = back;
+        enableClipboardHovered_ = enableClipboard;
         hoveredMainTab_ = mainTab;
         hoveredSubTab_ = subTab;
         hoveredMore_ = more;
+        hoveredClipboardDelete_ = deleted;
         hoveredItem_ = item;
         if (itemChanged)
         {
@@ -2226,9 +2682,11 @@ void EmojiPanel::OnMouseLeave()
 {
     closeHovered_ = false;
     backHovered_ = false;
+    enableClipboardHovered_ = false;
     hoveredMainTab_ = kInvalidIndex;
     hoveredSubTab_ = kInvalidIndex;
     hoveredMore_ = kInvalidIndex;
+    hoveredClipboardDelete_ = kInvalidIndex;
     hoveredItem_ = kInvalidIndex;
     CancelTooltip();
     InvalidateVisual();
@@ -2317,8 +2775,18 @@ bool EmojiPanel::OnTimer(UINT_PTR timerId)
         }
         return true;
     }
+    if (timerId == kClipboardPollTimerId)
+    {
+        SyncClipboardState(false);
+        return true;
+    }
     return false;
 }
 
-HCURSOR EmojiPanel::GetCursor() const { return LoadCursor(nullptr, IDC_ARROW); }
+HCURSOR EmojiPanel::GetCursor() const
+{
+    if (enableClipboardHovered_ || hoveredClipboardDelete_ != kInvalidIndex)
+        return LoadCursor(nullptr, IDC_HAND);
+    return LoadCursor(nullptr, IDC_ARROW);
+}
 } // namespace msimeui

@@ -2806,6 +2806,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "utility.clipboard_history")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredClipboardHistoryEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_minus_equal")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));

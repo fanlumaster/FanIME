@@ -12,6 +12,7 @@ class EmojiPanel final : public Visual
 {
   public:
     explicit EmojiPanel(bool lightTheme);
+    ~EmojiPanel() override;
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
     void Render(DeviceResources &deviceResources) override;
@@ -76,8 +77,10 @@ class EmojiPanel final : public Visual
         Page moreTarget = Page::Home;
         bool showMore = false;
         bool flowLayout = false;
+        bool listLayout = false;
         size_t columns = 6;
         float cellSize = 84.0f;
+        float titleHeight = 48.0f;
         std::vector<RectF> itemRects;
         std::vector<size_t> itemRows;
     };
@@ -99,6 +102,13 @@ class EmojiPanel final : public Visual
     size_t HitItem(const PointF &point) const;
     size_t HitMoreButton(const PointF &point) const;
     bool HitBack(const PointF &point) const;
+    RectF EnableClipboardButtonRect() const;
+    RectF ClipboardDeleteRect(const RectF &cell) const;
+    bool HitEnableClipboardButton(const PointF &point) const;
+    size_t HitClipboardDelete(const PointF &point) const;
+    void SyncClipboardState(bool forceReload = false);
+    void EnableClipboardHistory();
+    void RemoveClipboardItem(size_t index);
     void EnsureDisplayLayout() const;
     void EnsureFlowLayout(DeviceResources &deviceResources) const;
     void TryEnsureFlowLayout() const;
@@ -138,6 +148,7 @@ class EmojiPanel final : public Visual
     std::vector<Group> symbolGroups_;
     std::vector<SymbolTab> symbolTabs_;
     std::vector<Item> recentItems_;
+    std::vector<Item> clipboardItems_;
     std::wstring searchText_;
     std::wstring toastText_;
     std::shared_ptr<TextBox> searchBox_;
@@ -154,12 +165,17 @@ class EmojiPanel final : public Visual
     size_t pressedSubTab_ = static_cast<size_t>(-1);
     size_t hoveredMore_ = static_cast<size_t>(-1);
     size_t pressedMore_ = static_cast<size_t>(-1);
+    size_t hoveredClipboardDelete_ = static_cast<size_t>(-1);
+    size_t pressedClipboardDelete_ = static_cast<size_t>(-1);
     float scrollOffset_ = 0.0f;
     bool focused_ = false;
     bool closeHovered_ = false;
     bool closePressed_ = false;
     bool backHovered_ = false;
     bool backPressed_ = false;
+    bool enableClipboardHovered_ = false;
+    bool enableClipboardPressed_ = false;
+    bool clipboardEnabled_ = false;
     bool scrollbarDragging_ = false;
     float scrollbarDragOffsetY_ = 0.0f;
     bool lightTheme_ = false;

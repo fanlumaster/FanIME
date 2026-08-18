@@ -171,6 +171,8 @@ bool GetConfiguredEmojiModeEnabled();
 bool SetConfiguredEmojiModeEnabled(bool enabled);
 bool GetConfiguredKaomojiModeEnabled();
 bool SetConfiguredKaomojiModeEnabled(bool enabled);
+bool GetConfiguredClipboardHistoryEnabled();
+bool SetConfiguredClipboardHistoryEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();

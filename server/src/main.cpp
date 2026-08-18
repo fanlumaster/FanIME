@@ -8,6 +8,7 @@
 #include <utility>
 #include "ipc/ipc.h"
 #include "config/ime_config.h"
+#include "clipboard/clipboard_history.h"
 #include <windows.h>
 #include <fmt/xchar.h>
 #include <spdlog/spdlog.h>
@@ -166,6 +167,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     KaomojiIme::Stop();
     AiAssistant::Stop();
     CloudIme::Stop();
+    ClipboardMonitor::Stop();
     VoiceInput::Shutdown();
 
     pipe_running = false;

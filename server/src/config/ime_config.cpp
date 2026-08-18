@@ -17,6 +17,7 @@
 #include <vector>
 #include "utils/common_utils.h"
 #include "global/globals.h"
+#include "clipboard/clipboard_history.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 
 namespace
@@ -69,6 +70,7 @@ bool g_quick_phrase_enabled = true;
 bool g_date_time_mode_enabled = true;
 bool g_emoji_mode_enabled = true;
 bool g_kaomoji_mode_enabled = true;
+bool g_clipboard_history_enabled = false;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
 bool g_paging_tab_enabled = true;
@@ -128,6 +130,24 @@ class ConfigFileLock
 };
 
 SchemeType ParseScheme(const std::string &value);
+
+template <typename Node>
+bool TomlFlexibleBool(const Node &node, bool fallback)
+{
+    if (const auto value = node.template value<bool>())
+        return *value;
+    if (const auto text = node.template value<std::string>())
+    {
+        std::string value = *text;
+        for (char &ch : value)
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        if (value == "true" || value == "1" || value == "yes" || value == "on")
+            return true;
+        if (value == "false" || value == "0" || value == "no" || value == "off")
+            return false;
+    }
+    return fallback;
+}
 
 std::string Trim(std::string value)
 {
@@ -599,6 +619,15 @@ bool LoadImeConfig()
         g_date_time_mode_enabled = tbl["utility"]["date_time_mode"].value_or(true);
         g_emoji_mode_enabled = tbl["utility"]["emoji_mode"].value_or(true);
         g_kaomoji_mode_enabled = tbl["utility"]["kaomoji_mode"].value_or(true);
+        {
+            const bool previous_clipboard_history = g_clipboard_history_enabled;
+            static bool clipboard_history_loaded = false;
+            g_clipboard_history_enabled = TomlFlexibleBool(tbl["utility"]["clipboard_history"], false);
+            if (!g_clipboard_history_enabled && (previous_clipboard_history || !clipboard_history_loaded))
+                ClipboardHistory::Clear();
+            clipboard_history_loaded = true;
+            ClipboardMonitor::Sync(g_clipboard_history_enabled);
+        }
         const auto legacy_paging_mode = tbl["general"]["paging_mode"].value<std::string>();
         g_paging_minus_equal_enabled =
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
@@ -2112,6 +2141,25 @@ bool SetConfiguredKaomojiModeEnabled(bool enabled)
         return false;
     }
     g_kaomoji_mode_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredClipboardHistoryEnabled()
+{
+    return g_clipboard_history_enabled;
+}
+
+bool SetConfiguredClipboardHistoryEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("utility", "clipboard_history", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    const bool was_enabled = g_clipboard_history_enabled;
+    g_clipboard_history_enabled = enabled;
+    if (was_enabled && !enabled)
+        ClipboardHistory::Clear();
+    ClipboardMonitor::Sync(enabled);
     return true;
 }
 
