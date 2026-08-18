@@ -75,6 +75,9 @@ function query(): void {
 }
 
 export function setupToolsSettings(): void {
+  setupToggleButton('clipboardHistoryToggleBtn', (active) => {
+    updateConfig('utility.clipboard_history', active);
+  });
   setupToggleButton('quickPhraseToggleBtn', (active) => {
     updateConfig('utility.quick_phrase', active);
   });

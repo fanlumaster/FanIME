@@ -17,23 +17,30 @@
   background: var(--card-bg-solid);
 }
 
+.clipboard-history-section {
+  margin-bottom: 18px;
+}
+
 .quick-phrase-heading .ftb-toggle-btn,
 .unicode-mode-section .ftb-toggle-btn,
 .emoji-mode-section .ftb-toggle-btn,
-.kaomoji-mode-section .ftb-toggle-btn {
+.kaomoji-mode-section .ftb-toggle-btn,
+.clipboard-history-section .ftb-toggle-btn {
   flex-shrink: 0;
   margin-top: 2px;
 }
 
 .unicode-mode-section .section-header,
 .emoji-mode-section .section-header,
-.kaomoji-mode-section .section-header {
+.kaomoji-mode-section .section-header,
+.clipboard-history-section .section-header {
   align-items: flex-start;
 }
 
 .unicode-mode-section .section-title,
 .emoji-mode-section .section-title,
-.kaomoji-mode-section .section-title {
+.kaomoji-mode-section .section-title,
+.clipboard-history-section .section-title {
   color: var(--text-color);
 }
 
@@ -45,7 +52,10 @@
 .emoji-mode-section p,
 .kaomoji-mode-section .quick-phrase-description,
 .kaomoji-mode-section .voice-description,
-.kaomoji-mode-section p {
+.kaomoji-mode-section p,
+.clipboard-history-section .quick-phrase-description,
+.clipboard-history-section .voice-description,
+.clipboard-history-section p {
   color: var(--text-muted);
 }
 
