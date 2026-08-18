@@ -36,12 +36,14 @@ class KeyboardPanel final : public Visual
     size_t HitKey(const PointF &point) const;
     void RebuildLayout();
     void ActivateKey(size_t index);
-    void SendVirtualKey(WORD virtualKey);
-    void SendText(const std::wstring &text);
+    void SendKeyStroke(WORD virtualKey, bool withShift, bool includeStickyModifiers);
+    bool CanSendToForeground() const;
+    void RememberInputTargetWindow();
     bool IsKeyActive(const Key &key) const;
 
     std::vector<std::vector<Key>> rows_;
     RectF closeRect_ = {};
+    HWND inputTargetHwnd_ = nullptr;
     size_t hoveredKey_ = static_cast<size_t>(-1);
     size_t pressedKey_ = static_cast<size_t>(-1);
     bool closeHovered_ = false;

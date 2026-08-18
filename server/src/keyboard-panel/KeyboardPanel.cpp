@@ -4,6 +4,7 @@
 #include "msimeui/Window.h"
 
 #include <algorithm>
+#include <array>
 #include <cwctype>
 
 namespace msimeui
@@ -14,6 +15,17 @@ constexpr float kHeaderHeight = 28.0f;
 constexpr float kOuterPadding = 7.0f;
 constexpr float kGap = 4.0f;
 constexpr size_t kInvalidIndex = static_cast<size_t>(-1);
+constexpr size_t kMaxKeyStrokeInputs = 16;
+static_assert(VK_SPACE != 0, "VK_SPACE must not be treated as an invalid virtual key");
+
+bool IsImeCommitKey(WORD virtualKey)
+{
+    if (virtualKey == VK_SPACE || virtualKey == VK_RETURN || virtualKey == VK_TAB || virtualKey == VK_BACK)
+    {
+        return true;
+    }
+    return virtualKey >= L'0' && virtualKey <= L'9';
+}
 
 bool Contains(const RectF &rect, const PointF &point)
 {
@@ -65,27 +77,84 @@ void DrawCloseIcon(DeviceResources &resources, const RectF &rect, const D2D1_COL
     target->DrawLine(D2D1::Point2F(centerX + halfLength, centerY - halfLength),
                      D2D1::Point2F(centerX - halfLength, centerY + halfLength), brush, strokeWidth);
 }
+
+bool IsExtendedVirtualKey(WORD virtualKey)
+{
+    switch (virtualKey)
+    {
+    case VK_DELETE:
+    case VK_LWIN:
+    case VK_RWIN:
+    case VK_RMENU:
+    case VK_RCONTROL:
+    case VK_INSERT:
+    case VK_HOME:
+    case VK_END:
+    case VK_PRIOR:
+    case VK_NEXT:
+    case VK_LEFT:
+    case VK_RIGHT:
+    case VK_UP:
+    case VK_DOWN:
+    case VK_NUMLOCK:
+    case VK_DIVIDE:
+    case VK_APPS:
+        return true;
+    default:
+        return false;
+    }
+}
+
+DWORD KeyboardEventFlags(WORD virtualKey, bool keyUp)
+{
+    DWORD flags = keyUp ? KEYEVENTF_KEYUP : 0;
+    if (IsExtendedVirtualKey(virtualKey))
+    {
+        flags |= KEYEVENTF_EXTENDEDKEY;
+    }
+    return flags;
+}
+
+void PushKeyboardInput(std::array<INPUT, kMaxKeyStrokeInputs> &inputs, size_t &count, WORD virtualKey, DWORD flags,
+                       ULONG_PTR extraInfo)
+{
+    if (count >= inputs.size())
+    {
+        return;
+    }
+
+    INPUT &input = inputs[count++];
+    input = {};
+    input.type = INPUT_KEYBOARD;
+    input.ki.wVk = virtualKey;
+    input.ki.wScan = static_cast<WORD>(MapVirtualKeyW(virtualKey, MAPVK_VK_TO_VSC));
+    input.ki.dwFlags = flags;
+    input.ki.dwExtraInfo = extraInfo;
+}
 } // namespace
 
 KeyboardPanel::KeyboardPanel(bool lightTheme) : lightTheme_(lightTheme)
 {
     rows_ = {
-        {{L"`", L"~"}, {L"1", L"!"}, {L"2", L"@"}, {L"3", L"#"}, {L"4", L"$"}, {L"5", L"%"},
-         {L"6", L"^"}, {L"7", L"&"}, {L"8", L"*"}, {L"9", L"("}, {L"0", L")"}, {L"-", L"_"},
-         {L"=", L"+"}, {L"Backspace", L"", 1.9f, VK_BACK}},
-        {{L"Tab", L"", 1.5f, VK_TAB}, {L"q", L"Q"}, {L"w", L"W"}, {L"e", L"E"}, {L"r", L"R"},
-         {L"t", L"T"}, {L"y", L"Y"}, {L"u", L"U"}, {L"i", L"I"}, {L"o", L"O"}, {L"p", L"P"},
-         {L"[", L"{"}, {L"]", L"}"}, {L"\\", L"|", 1.4f}},
-        {{L"Caps Lock", L"", 1.85f, VK_CAPITAL, {}, true}, {L"a", L"A"}, {L"s", L"S"}, {L"d", L"D"},
-         {L"f", L"F"}, {L"g", L"G"}, {L"h", L"H"}, {L"j", L"J"}, {L"k", L"K"}, {L"l", L"L"},
-         {L";", L":"}, {L"'", L"\""}, {L"Enter", L"", 2.0f, VK_RETURN}},
-        {{L"Shift", L"", 2.35f, VK_SHIFT, {}, true}, {L"z", L"Z"}, {L"x", L"X"}, {L"c", L"C"},
-         {L"v", L"V"}, {L"b", L"B"}, {L"n", L"N"}, {L"m", L"M"}, {L",", L"<"}, {L".", L">"},
-         {L"/", L"?"}, {L"Shift", L"", 2.15f, VK_SHIFT, {}, true}},
+        {{L"`", L"~", 1.0f, VK_OEM_3}, {L"1", L"!", 1.0f, L'1'}, {L"2", L"@", 1.0f, L'2'}, {L"3", L"#", 1.0f, L'3'},
+         {L"4", L"$", 1.0f, L'4'}, {L"5", L"%", 1.0f, L'5'}, {L"6", L"^", 1.0f, L'6'}, {L"7", L"&", 1.0f, L'7'},
+         {L"8", L"*", 1.0f, L'8'}, {L"9", L"(", 1.0f, L'9'}, {L"0", L")", 1.0f, L'0'}, {L"-", L"_", 1.0f, VK_OEM_MINUS},
+         {L"=", L"+", 1.0f, VK_OEM_PLUS}, {L"Backspace", L"", 1.9f, VK_BACK}},
+        {{L"Tab", L"", 1.5f, VK_TAB}, {L"q", L"Q", 1.0f, L'Q'}, {L"w", L"W", 1.0f, L'W'}, {L"e", L"E", 1.0f, L'E'},
+         {L"r", L"R", 1.0f, L'R'}, {L"t", L"T", 1.0f, L'T'}, {L"y", L"Y", 1.0f, L'Y'}, {L"u", L"U", 1.0f, L'U'},
+         {L"i", L"I", 1.0f, L'I'}, {L"o", L"O", 1.0f, L'O'}, {L"p", L"P", 1.0f, L'P'}, {L"[", L"{", 1.0f, VK_OEM_4},
+         {L"]", L"}", 1.0f, VK_OEM_6}, {L"\\", L"|", 1.4f, VK_OEM_5}},
+        {{L"Caps Lock", L"", 1.85f, VK_CAPITAL, {}, true}, {L"a", L"A", 1.0f, L'A'}, {L"s", L"S", 1.0f, L'S'},
+         {L"d", L"D", 1.0f, L'D'}, {L"f", L"F", 1.0f, L'F'}, {L"g", L"G", 1.0f, L'G'}, {L"h", L"H", 1.0f, L'H'},
+         {L"j", L"J", 1.0f, L'J'}, {L"k", L"K", 1.0f, L'K'}, {L"l", L"L", 1.0f, L'L'}, {L";", L":", 1.0f, VK_OEM_1},
+         {L"'", L"\"", 1.0f, VK_OEM_7}, {L"Enter", L"", 2.0f, VK_RETURN}},
+        {{L"Shift", L"", 2.35f, VK_SHIFT, {}, true}, {L"z", L"Z", 1.0f, L'Z'}, {L"x", L"X", 1.0f, L'X'},
+         {L"c", L"C", 1.0f, L'C'}, {L"v", L"V", 1.0f, L'V'}, {L"b", L"B", 1.0f, L'B'}, {L"n", L"N", 1.0f, L'N'},
+         {L"m", L"M", 1.0f, L'M'}, {L",", L"<", 1.0f, VK_OEM_COMMA}, {L".", L">", 1.0f, VK_OEM_PERIOD},
+         {L"/", L"?", 1.0f, VK_OEM_2}, {L"Shift", L"", 2.15f, VK_SHIFT, {}, true}},
         {{L"Ctrl", L"", 1.25f, VK_CONTROL, {}, true}, {L"Win", L"", 1.25f, VK_LWIN, {}, true},
-         {L"Alt", L"", 1.25f, VK_MENU, {}, true}, {L"Space", L" ", 6.7f},
-         {L"Alt", L"", 1.25f, VK_MENU, {}, true}, {L"Win", L"", 1.25f, VK_LWIN, {}, true},
-         {L"Del", L"", 1.25f, VK_DELETE}, {L"Ctrl", L"", 1.25f, VK_CONTROL, {}, true}},
+         {L"Alt", L"", 1.25f, VK_MENU, {}, true}, {L"Space", L" ", 6.7f, VK_SPACE}, {L"Alt", L"", 1.25f, VK_MENU, {}, true},
+         {L"Win", L"", 1.25f, VK_LWIN, {}, true}, {L"Del", L"", 1.25f, VK_DELETE}, {L"Ctrl", L"", 1.25f, VK_CONTROL, {}, true}},
     };
 }
 
@@ -172,6 +241,7 @@ size_t KeyboardPanel::HitKey(const PointF &point) const
 bool KeyboardPanel::OnMouseDown(const POINT &point, WPARAM)
 {
     if (!window_) return false;
+    RememberInputTargetWindow();
     const PointF dip = window_->ClientPixelsToDips(point);
     closePressed_ = Contains(closeRect_, dip);
     pressedKey_ = closePressed_ ? kInvalidIndex : HitKey(dip);
@@ -225,26 +295,67 @@ bool KeyboardPanel::IsKeyActive(const Key &key) const
     return false;
 }
 
+bool KeyboardPanel::CanSendToForeground() const
+{
+    if (!window_)
+    {
+        return false;
+    }
+
+    const HWND keyboard = window_->GetHandle();
+    const HWND foreground = GetForegroundWindow();
+    if (foreground && foreground != keyboard && IsWindow(foreground))
+    {
+        return true;
+    }
+
+    return inputTargetHwnd_ && inputTargetHwnd_ != keyboard && IsWindow(inputTargetHwnd_);
+}
+
+void KeyboardPanel::RememberInputTargetWindow()
+{
+    if (!window_)
+    {
+        return;
+    }
+
+    const HWND keyboard = window_->GetHandle();
+    const HWND foreground = GetForegroundWindow();
+    if (foreground && foreground != keyboard && IsWindow(foreground))
+    {
+        inputTargetHwnd_ = foreground;
+    }
+}
+
 void KeyboardPanel::ActivateKey(size_t target)
 {
+    if (!CanSendToForeground())
+    {
+        return;
+    }
+
     size_t index = 0;
     for (auto &row : rows_)
     {
         for (auto &key : row)
         {
             if (index++ != target) continue;
-            if (key.virtualKey == VK_SHIFT) shiftActive_ = !shiftActive_;
-            else if (key.virtualKey == VK_CAPITAL) capsActive_ = !capsActive_;
-            else if (key.virtualKey == VK_CONTROL) ctrlActive_ = !ctrlActive_;
-            else if (key.virtualKey == VK_MENU) altActive_ = !altActive_;
-            else if (key.virtualKey == VK_LWIN) winActive_ = !winActive_;
-            else if (key.virtualKey) SendVirtualKey(key.virtualKey);
+            if (key.modifier)
+            {
+                if (key.virtualKey == VK_SHIFT) shiftActive_ = !shiftActive_;
+                else if (key.virtualKey == VK_CAPITAL) capsActive_ = !capsActive_;
+                else if (key.virtualKey == VK_CONTROL) ctrlActive_ = !ctrlActive_;
+                else if (key.virtualKey == VK_MENU) altActive_ = !altActive_;
+                else if (key.virtualKey == VK_LWIN) winActive_ = !winActive_;
+            }
             else
             {
-                std::wstring text = shiftActive_ && !key.shifted.empty() ? key.shifted : key.normal;
-                if (key.normal.size() == 1 && std::iswalpha(key.normal[0]) && (capsActive_ != shiftActive_))
-                    text[0] = std::towupper(text[0]);
-                SendText(text);
+                const bool letterKey = key.normal.size() == 1 && std::iswalpha(key.normal[0]);
+                const bool shiftedLabel =
+                    shiftActive_ && key.normal.size() == 1 && !key.shifted.empty() && key.shifted != key.normal;
+                const bool useShift = shiftedLabel || (letterKey && (capsActive_ != shiftActive_));
+                const bool includeStickyModifiers = !IsImeCommitKey(key.virtualKey);
+                SendKeyStroke(key.virtualKey, useShift && includeStickyModifiers, includeStickyModifiers);
                 if (shiftActive_) shiftActive_ = false;
             }
             return;
@@ -252,27 +363,35 @@ void KeyboardPanel::ActivateKey(size_t target)
     }
 }
 
-void KeyboardPanel::SendVirtualKey(WORD virtualKey)
+void KeyboardPanel::SendKeyStroke(WORD virtualKey, bool withShift, bool includeStickyModifiers)
 {
-    INPUT inputs[2] = {};
-    inputs[0].type = INPUT_KEYBOARD;
-    inputs[0].ki.wVk = virtualKey;
-    inputs[1] = inputs[0];
-    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-    SendInput(2, inputs, sizeof(INPUT));
-}
-
-void KeyboardPanel::SendText(const std::wstring &text)
-{
-    for (wchar_t ch : text)
+    // VK_SPACE is 0x20; compare explicitly to zero instead of using !virtualKey.
+    if (virtualKey == 0 || !CanSendToForeground())
     {
-        INPUT inputs[2] = {};
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].ki.wScan = ch;
-        inputs[0].ki.dwFlags = KEYEVENTF_UNICODE;
-        inputs[1] = inputs[0];
-        inputs[1].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-        SendInput(2, inputs, sizeof(INPUT));
+        return;
+    }
+
+    std::array<INPUT, kMaxKeyStrokeInputs> inputs{};
+    size_t count = 0;
+    const ULONG_PTR extraInfo = GetMessageExtraInfo();
+
+    if (includeStickyModifiers && ctrlActive_) PushKeyboardInput(inputs, count, VK_CONTROL, 0, extraInfo);
+    if (includeStickyModifiers && altActive_) PushKeyboardInput(inputs, count, VK_MENU, 0, extraInfo);
+    if (includeStickyModifiers && winActive_) PushKeyboardInput(inputs, count, VK_LWIN, 0, extraInfo);
+    if (withShift) PushKeyboardInput(inputs, count, VK_SHIFT, 0, extraInfo);
+
+    PushKeyboardInput(inputs, count, virtualKey, KeyboardEventFlags(virtualKey, false), extraInfo);
+    PushKeyboardInput(inputs, count, virtualKey, KeyboardEventFlags(virtualKey, true), extraInfo);
+
+    if (withShift) PushKeyboardInput(inputs, count, VK_SHIFT, KEYEVENTF_KEYUP, extraInfo);
+    if (includeStickyModifiers && winActive_)
+        PushKeyboardInput(inputs, count, VK_LWIN, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, extraInfo);
+    if (includeStickyModifiers && altActive_) PushKeyboardInput(inputs, count, VK_MENU, KEYEVENTF_KEYUP, extraInfo);
+    if (includeStickyModifiers && ctrlActive_) PushKeyboardInput(inputs, count, VK_CONTROL, KEYEVENTF_KEYUP, extraInfo);
+
+    if (count > 0)
+    {
+        SendInput(static_cast<UINT>(count), inputs.data(), sizeof(INPUT));
     }
 }
 
