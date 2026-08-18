@@ -511,6 +511,7 @@ EmojiPanel::EmojiPanel(bool lightTheme) : lightTheme_(lightTheme)
 {
     LoadEmojiCatalog();
     LoadKaomojiCatalog();
+    LoadSymbolCatalog();
     searchBox_ = std::make_shared<TextBox>(kSearchHeight * kPanelScale, L"Search");
     searchBox_->SetFontSize(14.0f);
     searchBox_->SetPlaceholderFontSize(12.0f);
@@ -677,6 +678,88 @@ void EmojiPanel::LoadKaomojiCatalog()
     displayDirty_ = true;
 }
 
+void EmojiPanel::LoadSymbolCatalog()
+{
+    symbolGroups_.clear();
+    symbolTabs_.clear();
+    const auto path = OthersDatabasePath();
+    if (path.empty() || !std::filesystem::exists(path))
+    {
+        return;
+    }
+
+    sqlite3 *db = nullptr;
+    const auto widePath = path.wstring();
+    if (sqlite3_open16(widePath.c_str(), &db) != SQLITE_OK)
+    {
+        if (db)
+        {
+            sqlite3_close(db);
+        }
+        return;
+    }
+    sqlite3_busy_timeout(db, 3000);
+
+    sqlite3_stmt *stmt = nullptr;
+    const char *sql =
+        "SELECT symbol, category, parent_category, keywords FROM symbol_catalog ORDER BY sort_order";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        sqlite3_close(db);
+        return;
+    }
+
+    size_t loaded = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        auto symbol = Utf8ToWide(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+        auto category = Utf8ToWide(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
+        auto parent = Utf8ToWide(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
+        auto keywords = Utf8ToWide(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
+        if (symbol.empty() || category.empty())
+        {
+            continue;
+        }
+        if (parent.empty())
+        {
+            parent = category;
+        }
+        if (symbolTabs_.empty() || symbolTabs_.back().title != parent)
+        {
+            symbolTabs_.push_back({parent, symbol, {}});
+        }
+        if (symbolGroups_.empty() || symbolGroups_.back().title != category)
+        {
+            symbolGroups_.push_back({category, symbol, {}});
+            symbolTabs_.back().groupIndices.push_back(symbolGroups_.size() - 1);
+            if (symbolTabs_.back().icon.empty())
+            {
+                symbolTabs_.back().icon = symbol;
+            }
+        }
+        if (keywords.empty())
+        {
+            keywords = category;
+        }
+        const bool longText = symbol.size() > 4;
+        auto keywordsLower = Lower(keywords);
+        symbolGroups_.back().items.push_back(
+            {std::move(symbol), std::move(keywords), std::move(keywordsLower), longText});
+        if ((++loaded % 120) == 0 && EmojiPanelSplash::IsVisible())
+        {
+            EmojiPanelSplash::Pump();
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    if (symbolGroups_.empty())
+    {
+        symbolTabs_.clear();
+    }
+    displayDirty_ = true;
+}
+
 SizeF EmojiPanel::Measure(const SizeF &availableSize)
 {
     return availableSize;
@@ -836,6 +919,10 @@ bool EmojiPanel::InDetailPage() const
 
 size_t EmojiPanel::EmojiSubTabCount() const
 {
+    if (page_ == Page::Symbols)
+    {
+        return symbolTabs_.size();
+    }
     return emojiGroups_.size() + 1;
 }
 
@@ -846,6 +933,15 @@ const EmojiPanel::Group *EmojiPanel::ActiveEmojiGroup() const
         return nullptr;
     }
     return &emojiGroups_[emojiSubTab_ - 1];
+}
+
+const EmojiPanel::SymbolTab *EmojiPanel::ActiveSymbolTab() const
+{
+    if (emojiSubTab_ >= symbolTabs_.size())
+    {
+        return nullptr;
+    }
+    return &symbolTabs_[emojiSubTab_];
 }
 
 std::vector<const EmojiPanel::Item *> EmojiPanel::CollectPreviewItems(const std::vector<Group> &groups,
@@ -863,6 +959,40 @@ std::vector<const EmojiPanel::Item *> EmojiPanel::CollectPreviewItems(const std:
                 return items;
             }
         }
+    }
+    return items;
+}
+
+std::vector<const EmojiPanel::Item *> EmojiPanel::CollectDiversePreviewItems(const std::vector<Group> &groups,
+                                                                              size_t limit) const
+{
+    std::vector<const Item *> items;
+    if (limit == 0 || groups.empty())
+    {
+        return items;
+    }
+    items.reserve(limit);
+    size_t round = 0;
+    while (items.size() < limit)
+    {
+        bool added = false;
+        for (const auto &group : groups)
+        {
+            if (round < group.items.size())
+            {
+                items.push_back(&group.items[round]);
+                added = true;
+                if (items.size() >= limit)
+                {
+                    return items;
+                }
+            }
+        }
+        if (!added)
+        {
+            break;
+        }
+        ++round;
     }
     return items;
 }
@@ -885,7 +1015,11 @@ size_t EmojiPanel::HitMainTab(const PointF &point) const
 
 size_t EmojiPanel::HitEmojiSubTab(const PointF &point) const
 {
-    if (page_ != Page::Emoji)
+    if (page_ != Page::Emoji && page_ != Page::Symbols)
+    {
+        return kInvalidIndex;
+    }
+    if (page_ == Page::Symbols && symbolTabs_.empty())
     {
         return kInvalidIndex;
     }
@@ -1022,16 +1156,27 @@ void EmojiPanel::EnsureDisplayLayout() const
         }
         appendGroup(L"Kaomoji", std::move(kaomojiPreview), Page::Kaomoji, true);
 
-        auto symbolPreview = CollectPreviewItems(symbolGroups_, kPreviewLimit);
+        auto symbolPreview = CollectDiversePreviewItems(symbolGroups_, kPreviewLimit);
         if (searching)
         {
             symbolPreview.clear();
-            if (!symbolGroups_.empty())
+            for (const auto &group : symbolGroups_)
             {
-                symbolPreview = filterItems(symbolGroups_.front().items);
-                if (symbolPreview.size() > kPreviewLimit)
+                for (const auto &item : group.items)
                 {
-                    symbolPreview.resize(kPreviewLimit);
+                    if (item.keywordsLower.find(query) != std::wstring::npos ||
+                        item.text.find(searchText_) != std::wstring::npos)
+                    {
+                        symbolPreview.push_back(&item);
+                        if (symbolPreview.size() >= kPreviewLimit)
+                        {
+                            break;
+                        }
+                    }
+                }
+                if (symbolPreview.size() >= kPreviewLimit)
+                {
+                    break;
                 }
             }
         }
@@ -1065,12 +1210,27 @@ void EmojiPanel::EnsureDisplayLayout() const
     }
     else if (page_ == Page::Symbols)
     {
-        for (const auto &group : symbolGroups_)
+        if (searching || symbolTabs_.empty())
         {
-            auto items = filterItems(group.items);
-            if (!items.empty() || !searching)
+            for (const auto &group : symbolGroups_)
             {
-                appendGroup(group.title, std::move(items), Page::Home, false);
+                auto items = filterItems(group.items);
+                if (!items.empty() || !searching)
+                {
+                    appendGroup(group.title, std::move(items), Page::Home, false);
+                }
+            }
+        }
+        else if (const SymbolTab *tab = ActiveSymbolTab())
+        {
+            for (const size_t groupIndex : tab->groupIndices)
+            {
+                if (groupIndex >= symbolGroups_.size())
+                {
+                    continue;
+                }
+                const auto &group = symbolGroups_[groupIndex];
+                appendGroup(group.title, filterItems(group.items), Page::Home, false);
             }
         }
     }
@@ -1605,8 +1765,9 @@ void EmojiPanel::Render(DeviceResources &resources)
         }
         DrawChevron(resources, back, text, true);
 
-        if (page_ == Page::Emoji)
+        if (page_ == Page::Emoji || (page_ == Page::Symbols && !symbolTabs_.empty()))
         {
+            const bool isSymbolPage = page_ == Page::Symbols;
             for (size_t index = 0; index < EmojiSubTabCount(); ++index)
             {
                 const RectF rect = EmojiSubTabRect(index);
@@ -1615,7 +1776,14 @@ void EmojiPanel::Render(DeviceResources &resources)
                     FillRect(resources, rect, hover, 6.0f);
                 }
                 std::wstring icon = L"\u23F1";
-                if (index > 0 && index - 1 < emojiGroups_.size())
+                if (isSymbolPage)
+                {
+                    if (index < symbolTabs_.size())
+                    {
+                        icon = symbolTabs_[index].icon;
+                    }
+                }
+                else if (index > 0 && index - 1 < emojiGroups_.size())
                 {
                     icon = emojiGroups_[index - 1].icon;
                 }
@@ -1819,6 +1987,8 @@ void EmojiPanel::Render(DeviceResources &resources)
             emptyText = L"Clipboard history can be connected here";
         else if (page_ == Page::Emoji && emojiSubTab_ == 0 && recentItems_.empty())
             emptyText = L"Your recently used items will appear here";
+        else if (page_ == Page::Symbols && symbolGroups_.empty())
+            emptyText = L"Symbol catalog not found";
         DrawText(resources, emptyText,
                  {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 60.0f},
                  20.0f, mutedText, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);

@@ -59,6 +59,13 @@ class EmojiPanel final : public Visual
         std::vector<Item> items;
     };
 
+    struct SymbolTab
+    {
+        std::wstring title;
+        std::wstring icon;
+        std::vector<size_t> groupIndices;
+    };
+
     struct LayoutGroup
     {
         std::wstring title;
@@ -113,6 +120,7 @@ class EmojiPanel final : public Visual
     void ResetView();
     void LoadEmojiCatalog();
     void LoadKaomojiCatalog();
+    void LoadSymbolCatalog();
     void UpdateSearchPlaceholder();
     void ShowToast(std::wstring text);
     void DismissToast();
@@ -121,24 +129,14 @@ class EmojiPanel final : public Visual
     bool InDetailPage() const;
     size_t EmojiSubTabCount() const;
     const Group *ActiveEmojiGroup() const;
+    const SymbolTab *ActiveSymbolTab() const;
     std::vector<const Item *> CollectPreviewItems(const std::vector<Group> &groups, size_t limit) const;
+    std::vector<const Item *> CollectDiversePreviewItems(const std::vector<Group> &groups, size_t limit) const;
 
     std::vector<Group> emojiGroups_;
     std::vector<Group> kaomojiGroups_;
-    std::vector<Group> symbolGroups_ = {
-        {L"Symbols", L"\u2605",
-         {{L"★", L"star \u661F\u661F", L"star \u661F\u661F", false},
-          {L"☆", L"star outline \u661F\u661F", L"star outline \u661F\u661F", false},
-          {L"✓", L"check \u5BF9\u52FE", L"check \u5BF9\u52FE", false},
-          {L"✕", L"cross \u9519", L"cross \u9519", false},
-          {L"→", L"right arrow \u53F3\u7BAD\u5934", L"right arrow \u53F3\u7BAD\u5934", false},
-          {L"←", L"left arrow \u5DE6\u7BAD\u5934", L"left arrow \u5DE6\u7BAD\u5934", false},
-          {L"↑", L"up arrow \u4E0A\u7BAD\u5934", L"up arrow \u4E0A\u7BAD\u5934", false},
-          {L"↓", L"down arrow", L"down arrow", false}, {L"∞", L"infinity", L"infinity", false},
-          {L"©", L"copyright", L"copyright", false}, {L"®", L"registered", L"registered", false},
-          {L"™", L"trademark", L"trademark", false}, {L"§", L"section", L"section", false},
-          {L"•", L"bullet", L"bullet", false}}},
-    };
+    std::vector<Group> symbolGroups_;
+    std::vector<SymbolTab> symbolTabs_;
     std::vector<Item> recentItems_;
     std::wstring searchText_;
     std::wstring toastText_;
