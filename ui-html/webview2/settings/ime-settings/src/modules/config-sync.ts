@@ -77,6 +77,7 @@ export function setupConfigSync(): void {
       if (typeof payload.data.voice_input.enabled === 'boolean') applyToggleState('voiceEnabled', payload.data.voice_input.enabled);
       if (typeof payload.data.voice_input.polish_text === 'boolean') applyToggleState('voicePolishText', payload.data.voice_input.polish_text);
       if (typeof payload.data.voice_input.stream_inline_preedit === 'boolean') applyToggleState('voiceStreamInlinePreedit', payload.data.voice_input.stream_inline_preedit);
+      if (typeof payload.data.voice_input.mute_system_audio === 'boolean') applyToggleState('voiceMuteSystemAudio', payload.data.voice_input.mute_system_audio);
     }
     if (payload.data?.ai_assistant && typeof payload.data.ai_assistant === 'object') {
       applyAiConfig(payload.data.ai_assistant);
