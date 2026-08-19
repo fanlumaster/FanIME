@@ -26,14 +26,23 @@
     <div class="dict-toolbar">
       <input id="quickPhraseSearch" class="dict-input" placeholder="输入编码前缀，留空可查看全部" spellcheck="false">
       <button id="quickPhraseSearchButton" class="dict-button secondary">查询</button>
+      <button id="quickPhraseImportButton" class="dict-button secondary">批量导入</button>
       <button id="quickPhraseAddButton" class="dict-button primary">新增短语</button>
+      <input id="quickPhraseImportFile" type="file" accept=".txt,text/plain" hidden>
     </div>
-    <div class="dict-hint">编码只能包含英文字母；触发键 K 不属于编码内容</div>
+    <div class="dict-hint">编码只能包含英文字母；触发键 K 不属于编码内容。批量导入格式为：编码&lt;Tab&gt;短语&lt;Tab&gt;权重（兼容无权重的两列文件）</div>
     <div id="quickPhraseTableHeaderWrap" class="dict-table-header-wrap">
       <table class="dict-table"><thead><tr><th class="dict-index-column">No.</th><th>编码</th><th>快捷短语</th><th>权重</th><th>操作</th></tr></thead></table>
     </div>
     <div id="quickPhraseTableWrap" class="dict-table-wrap">
       <table class="dict-table"><tbody id="quickPhraseRows"><tr><td colspan="5" class="dict-empty">点击查询后查看快捷短语</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="section dict-export-section quick-phrase-export-section">
+    <div class="dict-export-row">
+      <span>导出快捷短语用户词库</span>
+      <button id="quickPhraseExportButton" class="dict-button primary" type="button">导出</button>
     </div>
   </div>
 

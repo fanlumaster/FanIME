@@ -189,7 +189,7 @@ export function setupDictionary(): void {
   });
   document.querySelectorAll<HTMLButtonElement>('[data-export-dictionary]').forEach((button) => {
     button.addEventListener('click', () => {
-      const exportDictionary = button.dataset.exportDictionary as DictionaryType | 'quick' | undefined;
+      const exportDictionary = button.dataset.exportDictionary as DictionaryType | undefined;
       if (!exportDictionary) return;
       post('export', { dictionary: exportDictionary });
     });

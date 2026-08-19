@@ -24,7 +24,7 @@ function syncHeader(): void {
   });
 }
 
-function showToast(message: string, ok: boolean): void {
+function showToast(message: string, ok: boolean, durationMs = 3200): void {
   const toast = document.getElementById('quickPhraseToast');
   const table = document.getElementById('quickPhraseTableWrap');
   if (!toast) return;
@@ -33,7 +33,7 @@ function showToast(message: string, ok: boolean): void {
   document.getElementById('quickPhraseToastIcon')!.textContent = ok ? '' : '!';
   toast.className = `dict-toast visible ${ok ? 'success' : 'error'}`;
   if (toastTimer !== null) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.classList.remove('visible'); toastTimer = null; }, 3200);
+  toastTimer = window.setTimeout(() => { toast.classList.remove('visible'); toastTimer = null; }, durationMs);
 }
 
 function renderRows(rows: QuickPhraseRow[]): void {
@@ -74,6 +74,21 @@ function query(): void {
   post('query', { code: (document.getElementById('quickPhraseSearch') as HTMLInputElement).value.trim() });
 }
 
+function downloadExport(content: string, filename: string): void {
+  const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), content], {
+    type: 'text/plain;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function setupToolsSettings(): void {
   setupToggleButton('clipboardHistoryToggleBtn', (active) => {
     updateConfig('utility.clipboard_history', active);
@@ -102,6 +117,25 @@ export function setupToolsSettings(): void {
   document.getElementById('quickPhraseSearchButton')?.addEventListener('click', query);
   document.getElementById('quickPhraseSearch')?.addEventListener('keydown', event => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('quickPhraseAddButton')?.addEventListener('click', () => openDialog());
+  document.getElementById('quickPhraseImportButton')?.addEventListener('click', () => {
+    (document.getElementById('quickPhraseImportFile') as HTMLInputElement | null)?.click();
+  });
+  document.getElementById('quickPhraseImportFile')?.addEventListener('change', async (event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const content = await file.text();
+      if (!content.trim()) { showToast('文件内容为空', false); return; }
+      post('import', { content });
+    } catch {
+      showToast('读取文件失败', false);
+    }
+  });
+  document.getElementById('quickPhraseExportButton')?.addEventListener('click', () => {
+    post('export', { dictionary: 'quick' });
+  });
   document.getElementById('quickPhraseCancelButton')?.addEventListener('click', closeDialog);
   document.getElementById('quickPhraseSaveButton')?.addEventListener('click', () => {
     const code = (document.getElementById('quickPhraseCode') as HTMLInputElement).value.trim();
@@ -118,8 +152,13 @@ export function setupToolsSettings(): void {
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('quick-')) return;
-    showToast(payload.message ?? (payload.ok ? '操作成功' : '操作失败'), Boolean(payload.ok));
+    const isImport = lastAction === 'import';
+    const isExport = lastAction === 'export';
+    if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {
+      downloadExport(payload.content, payload.filename);
+    }
+    showToast(payload.message ?? (payload.ok ? '操作成功' : '操作失败'), Boolean(payload.ok), isImport ? 5600 : 3200);
     if (Array.isArray(payload.rows)) renderRows(payload.rows);
-    if (payload.ok && lastAction !== 'query') { closeDialog(); query(); }
+    if (payload.ok && lastAction !== 'query' && !isExport) { closeDialog(); query(); }
   });
 }

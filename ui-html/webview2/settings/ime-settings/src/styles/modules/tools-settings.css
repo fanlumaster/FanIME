@@ -73,3 +73,13 @@
 .quick-phrase-card .dict-table td:nth-child(4) {
   width: 15%;
 }
+
+.quick-phrase-export-section {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.quick-phrase-export-section .dict-export-row {
+  min-height: 42px;
+  border-top: 0;
+}
