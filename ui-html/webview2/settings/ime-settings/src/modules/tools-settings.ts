@@ -96,6 +96,9 @@ export function setupToolsSettings(): void {
   setupToggleButton('jianpinModeToggleBtn', (active) => {
     updateConfig('utility.jianpin_mode', active);
   });
+  setupToggleButton('yModeToggleBtn', (active) => {
+    updateConfig('utility.y_mode', active);
+  });
   document.getElementById('quickPhraseSearchButton')?.addEventListener('click', query);
   document.getElementById('quickPhraseSearch')?.addEventListener('keydown', event => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('quickPhraseAddButton')?.addEventListener('click', () => openDialog());
