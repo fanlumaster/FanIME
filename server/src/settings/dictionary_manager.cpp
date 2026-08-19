@@ -955,9 +955,148 @@ json::object HandleWubi(const json::object &request)
     return Result(ok, ok ? std::string("五笔词条") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
 }
 
+json::object ImportQuickPhrase(const json::object &request)
+{
+    std::string content = StringValue(request, "content");
+    if (content.size() >= 3 && static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB && static_cast<unsigned char>(content[2]) == 0xBF)
+        content.erase(0, 3);
+    if (content.find_first_not_of(" \t\r\n") == std::string::npos)
+        return Result(false, "文件内容为空");
+
+    std::string error;
+    Db db = OpenDatabase("msime.db", error);
+    if (!db) return Result(false, "打开快捷短语表失败：" + error);
+    Stmt insert = Prepare(db.get(),
+        "INSERT OR IGNORE INTO quick_parases(key,value,weight) VALUES(?1,?2,?3)", error);
+    if (!insert) return Result(false, "准备导入失败：" + error);
+
+    const auto trim = [](std::string value) {
+        const auto begin = value.find_first_not_of(" \t");
+        if (begin == std::string::npos) return std::string{};
+        const auto end = value.find_last_not_of(" \t");
+        return value.substr(begin, end - begin + 1);
+    };
+    const auto valid_code = [](const std::string &value) {
+        return !value.empty() &&
+               std::all_of(value.begin(), value.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; });
+    };
+    int inserted = 0;
+    int skipped = 0;
+    int failed = 0;
+    std::vector<std::string> error_details;
+    const auto append_error = [&](int line_no, const std::string &detail) {
+        ++failed;
+        if (error_details.size() < 5)
+            error_details.push_back("第 " + std::to_string(line_no) + " 行：" + detail);
+    };
+
+    sqlite3_exec(db.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    std::istringstream stream(content);
+    std::string line;
+    int line_no = 0;
+    while (std::getline(stream, line))
+    {
+        ++line_no;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (trim(line).empty()) continue;
+
+        std::vector<std::string> fields;
+        std::string::size_type start = 0;
+        for (;;)
+        {
+            const auto separator = line.find('\t', start);
+            fields.push_back(trim(line.substr(start, separator == std::string::npos ? separator : separator - start)));
+            if (separator == std::string::npos) break;
+            start = separator + 1;
+        }
+        if (fields.size() != 2 && fields.size() != 3)
+        {
+            append_error(line_no, "格式错误，应为：编码<Tab>短语<Tab>权重");
+            continue;
+        }
+
+        std::string code = fields[0];
+        const std::string phrase = fields[1];
+        std::transform(code.begin(), code.end(), code.begin(),
+                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (!valid_code(code) || phrase.empty())
+        {
+            append_error(line_no, "编码只能包含英文字母，短语不能为空");
+            continue;
+        }
+        if (!Validation::QuickPhraseFitsNamedPipe(phrase))
+        {
+            append_error(line_no, "快捷短语不能超过 199 个 wchar 字符");
+            continue;
+        }
+        int weight = 10;
+        if (fields.size() == 3)
+        {
+            const std::string &weight_text = fields[2];
+            if (weight_text.empty() || !std::all_of(weight_text.begin(), weight_text.end(),
+                                                    [](unsigned char ch) { return std::isdigit(ch); }))
+            {
+                append_error(line_no, "权重必须是非负整数");
+                continue;
+            }
+            try { weight = std::stoi(weight_text); }
+            catch (...) { append_error(line_no, "权重数值无效"); continue; }
+        }
+
+        sqlite3_reset(insert.get());
+        sqlite3_clear_bindings(insert.get());
+        const bool ok = BindText(insert.get(), 1, code) && BindText(insert.get(), 2, phrase) &&
+                        sqlite3_bind_int(insert.get(), 3, weight) == SQLITE_OK &&
+                        sqlite3_step(insert.get()) == SQLITE_DONE;
+        if (!ok)
+        {
+            append_error(line_no, "写入失败：" + std::string(sqlite3_errmsg(db.get())));
+            continue;
+        }
+        if (sqlite3_changes(db.get()) == 0)
+        {
+            ++skipped;
+            continue;
+        }
+        (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                  user_dictionary::DictionaryKind::QuickPhrase,
+                                                  code, phrase, weight);
+        ++inserted;
+    }
+    sqlite3_exec(db.get(), "COMMIT", nullptr, nullptr, nullptr);
+
+    if (inserted == 0 && skipped == 0 && failed == 0)
+        return Result(false, "文件中没有可导入的词条");
+    std::string message;
+    if (inserted > 0) message += "成功导入 " + std::to_string(inserted) + " 条";
+    if (skipped > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "跳过 " + std::to_string(skipped) + " 条（已存在）";
+    }
+    if (failed > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "失败 " + std::to_string(failed) + " 条";
+        if (!error_details.empty())
+        {
+            message += "。";
+            for (size_t i = 0; i < error_details.size(); ++i)
+            {
+                if (i) message += "；";
+                message += error_details[i];
+            }
+            if (static_cast<int>(error_details.size()) < failed) message += "等";
+        }
+    }
+    return Result(inserted > 0 || (failed == 0 && skipped > 0), message);
+}
+
 json::object HandleQuickPhrase(const json::object &request)
 {
     const std::string action = StringValue(request, "action");
+    if (action == "import") return ImportQuickPhrase(request);
     std::string code = StringValue(request, "code");
     const std::string phrase = StringValue(request, "word");
     const int weight = (std::max)(0, IntValue(request, "weight", 10));
