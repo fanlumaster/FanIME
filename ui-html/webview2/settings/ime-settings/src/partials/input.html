@@ -130,9 +130,36 @@
 
   <div class="section">
     <div class="section-header">
-      <div class="section-title">中英混输</div>
+      <div>
+        <div class="section-title">中英混输</div>
+        <div class="input-setting-description">中文输入时在候选项中补充英文单词</div>
+      </div>
       <div class="ftb-toggle-btn active" id="zhEnToggleBtn" role="switch" aria-checked="true" tabindex="0">
         <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+    <div class="frequency-option-content" id="zhEnMixedInputOptions">
+      <div class="input-option-divider"></div>
+      <div class="section-header frequency-option-row">
+        <div>
+          <div class="section-title">触发字符数</div>
+          <div class="input-setting-description">预编辑字母达到该长度后才出现英文候选项</div>
+        </div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="zhEnTriggerLengthBtn">
+            <span>2</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="zhEnTriggerLengthMenu">
+            <div class="dropdown-item" data-value="1">1</div>
+            <div class="dropdown-item" data-value="2">2</div>
+            <div class="dropdown-item" data-value="3">3</div>
+            <div class="dropdown-item" data-value="4">4</div>
+            <div class="dropdown-item" data-value="5">5</div>
+            <div class="dropdown-item" data-value="6">6</div>
+            <div class="dropdown-item" data-value="7">7</div>
+            <div class="dropdown-item" data-value="8">8</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

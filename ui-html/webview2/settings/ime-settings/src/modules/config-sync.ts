@@ -1,6 +1,6 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 import { applyAppearanceConfig, updateCandidatePreviewHelpcode } from './appearance';
-import { applyFrequencyConfig, applyInputConfig } from './input';
+import { applyFrequencyConfig, applyInputConfig, applyZhEnMixedInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
 import { applyFloatingToolbarAppearanceConfig, applyFloatingToolbarItemsConfig } from './floating-toolbar';
@@ -115,9 +115,10 @@ export function setupConfigSync(): void {
       payload.data?.general?.floating_toolbar_scale,
       payload.data?.general?.floating_toolbar_font_size
     );
-    if (typeof payload.data?.general?.cn_en_mixed_input === 'boolean') {
-      applyToggleState('zhEnToggleBtn', payload.data.general.cn_en_mixed_input);
-    }
+    applyZhEnMixedInputConfig(
+      payload.data?.general?.cn_en_mixed_input,
+      payload.data?.general?.cn_en_mixed_input_min_chars
+    );
     if (typeof payload.data?.general?.emoji_mixed_input === 'boolean') {
       applyToggleState('emojiMixedInputToggleBtn', payload.data.general.emoji_mixed_input);
     }

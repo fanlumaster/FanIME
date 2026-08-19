@@ -10,6 +10,11 @@
   margin-top: 8px;
 }
 
+.frequency-option-content.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .frequency-option-row {
   padding: 10px 0;
 }

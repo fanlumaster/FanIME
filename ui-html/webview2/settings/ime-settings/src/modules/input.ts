@@ -1,4 +1,4 @@
-import { applyDropdownValue, setupDropdownMenu, setupToggleButton } from './shared';
+import { applyDropdownValue, applyToggleState, setupDropdownMenu, setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
 import { updateCandidatePreviewHelpcode } from './appearance';
 
@@ -40,6 +40,20 @@ export function applyFrequencyConfig(config: any): void {
   applyDropdownValue('frequencyLinearStepBtn', 'frequencyLinearStepMenu', String(config?.linear_step ?? 1));
 }
 
+function syncZhEnMixedInputOptionsEnabled(enabled: boolean): void {
+  document.getElementById('zhEnMixedInputOptions')?.classList.toggle('is-disabled', !enabled);
+}
+
+export function applyZhEnMixedInputConfig(enabled?: boolean, minChars?: number): void {
+  if (typeof enabled === 'boolean') {
+    applyToggleState('zhEnToggleBtn', enabled);
+    syncZhEnMixedInputOptionsEnabled(enabled);
+  }
+  if (typeof minChars === 'number' && Number.isFinite(minChars)) {
+    applyDropdownValue('zhEnTriggerLengthBtn', 'zhEnTriggerLengthMenu', String(minChars));
+  }
+}
+
 export function setupInput(): void {
   setupDropdownMenu('characterSetBtn', 'characterSetMenu', 'changeCharacterSet', true, 'input.character_set');
   setupDropdownMenu('defaultImeModeBtn', 'defaultImeModeMenu', '', true, 'input.default_ime_mode');
@@ -79,8 +93,17 @@ export function setupInput(): void {
     updateConfig('input.paired_punctuation', active);
   });
   setupToggleButton('zhEnToggleBtn', (active) => {
+    syncZhEnMixedInputOptionsEnabled(active);
     updateConfig('general.cn_en_mixed_input', active);
   });
+  setupDropdownMenu(
+    'zhEnTriggerLengthBtn',
+    'zhEnTriggerLengthMenu',
+    '',
+    true,
+    'general.cn_en_mixed_input_min_chars',
+    Number
+  );
   setupToggleButton('emojiMixedInputToggleBtn', (active) => {
     updateConfig('general.emoji_mixed_input', active);
   });
