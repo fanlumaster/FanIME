@@ -51,6 +51,12 @@ class EmojiPanel final : public Visual
         std::wstring keywords;
         std::wstring keywordsLower;
         bool longText = false;
+        mutable bool hasCachedFlowTextWidth = false;
+        mutable float cachedFlowTextWidth = 0.0f;
+        mutable float cachedFittedMaxInner = -1.0f;
+        mutable float cachedFittedWidth = 0.0f;
+        mutable float cachedPaintFontSize = -1.0f;
+        mutable float cachedPaintCellWidth = -1.0f;
     };
 
     struct Group
@@ -113,6 +119,9 @@ class EmojiPanel final : public Visual
     void EnsureFlowLayout(DeviceResources &deviceResources) const;
     void TryEnsureFlowLayout() const;
     float FlowGridWidth() const;
+    void InvalidateIdleKaomojiLayout() const;
+    bool RestoreIdleKaomojiLayout() const;
+    void CaptureIdleKaomojiLayout() const;
     size_t NavigateFlowVertical(size_t flatIndex, int direction) const;
     bool IsFlowFlatIndex(size_t index) const;
     void MarkDisplayDirty();
@@ -181,9 +190,14 @@ class EmojiPanel final : public Visual
     bool lightTheme_ = false;
     EmojiPanelIcons tabIcons_;
     mutable std::vector<LayoutGroup> layoutGroups_;
+    mutable std::vector<LayoutGroup> idleKaomojiLayout_;
     mutable float cachedContentHeight_ = 100.0f;
     mutable size_t cachedItemCount_ = 0;
+    mutable float idleKaomojiHeight_ = 100.0f;
+    mutable size_t idleKaomojiCount_ = 0;
+    mutable float idleKaomojiGridWidth_ = -1.0f;
     mutable bool displayDirty_ = true;
     mutable bool flowLayoutDirty_ = true;
+    mutable bool idleKaomojiLayoutValid_ = false;
 };
 } // namespace msimeui

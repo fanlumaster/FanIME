@@ -507,14 +507,28 @@ float FitFontSizeForCell(DeviceResources &resources, const std::wstring &text, f
 }
 
 void DrawLongTextInCell(DeviceResources &resources, const std::wstring &text, const RectF &cell,
-                        const D2D1_COLOR_F &color)
+                        const D2D1_COLOR_F &color, float *cachedFontSize = nullptr, float *cachedCellWidth = nullptr)
 {
     constexpr float kMinFontSize = 9.0f;
     float fontSize = kLongTextFontSize;
-    const TextSize natural = MeasureTextSize(resources, text, fontSize, DWRITE_FONT_WEIGHT_NORMAL);
-    if (natural.width > cell.width || natural.height > cell.height)
+    const bool cacheHit = cachedFontSize && cachedCellWidth && *cachedFontSize > 0.0f &&
+                          std::abs(*cachedCellWidth - cell.width) <= 0.5f;
+    if (cacheHit)
     {
-        fontSize = FitFontSizeForCell(resources, text, cell.width, cell.height, kLongTextFontSize, kMinFontSize);
+        fontSize = *cachedFontSize;
+    }
+    else
+    {
+        const TextSize natural = MeasureTextSize(resources, text, fontSize, DWRITE_FONT_WEIGHT_NORMAL);
+        if (natural.width > cell.width || natural.height > cell.height)
+        {
+            fontSize = FitFontSizeForCell(resources, text, cell.width, cell.height, kLongTextFontSize, kMinFontSize);
+        }
+        if (cachedFontSize && cachedCellWidth)
+        {
+            *cachedFontSize = fontSize;
+            *cachedCellWidth = cell.width;
+        }
     }
 
     auto *target = resources.GetRenderTarget();
@@ -875,6 +889,7 @@ void EmojiPanel::LoadKaomojiCatalog()
     {
         kaomojiGroups_.clear();
     }
+    InvalidateIdleKaomojiLayout();
     displayDirty_ = true;
 }
 
@@ -973,6 +988,7 @@ void EmojiPanel::Arrange(const RectF &finalRect)
     if (std::abs(newWidth - bounds_.width) > 0.5f || std::abs(newHeight - bounds_.height) > 0.5f)
     {
         MarkDisplayDirty();
+        InvalidateIdleKaomojiLayout();
     }
     bounds_ = {0.0f, 0.0f, newWidth, newHeight};
     if (searchBox_)
@@ -1343,6 +1359,11 @@ void EmojiPanel::EnsureDisplayLayout() const
         return;
     }
 
+    if (RestoreIdleKaomojiLayout())
+    {
+        return;
+    }
+
     layoutGroups_.clear();
     cachedItemCount_ = 0;
     cachedContentHeight_ = 0.0f;
@@ -1588,6 +1609,41 @@ float EmojiPanel::FlowGridWidth() const
     return std::max(bounds_.width - kGridLeft - kGridRightPad, kCellSize * 2.0f);
 }
 
+void EmojiPanel::InvalidateIdleKaomojiLayout() const
+{
+    idleKaomojiLayoutValid_ = false;
+    idleKaomojiLayout_.clear();
+}
+
+bool EmojiPanel::RestoreIdleKaomojiLayout() const
+{
+    if (page_ != Page::Kaomoji || !searchText_.empty() || !idleKaomojiLayoutValid_ ||
+        std::abs(idleKaomojiGridWidth_ - FlowGridWidth()) > 0.5f)
+    {
+        return false;
+    }
+
+    layoutGroups_ = idleKaomojiLayout_;
+    cachedContentHeight_ = idleKaomojiHeight_;
+    cachedItemCount_ = idleKaomojiCount_;
+    displayDirty_ = false;
+    flowLayoutDirty_ = false;
+    return true;
+}
+
+void EmojiPanel::CaptureIdleKaomojiLayout() const
+{
+    if (page_ != Page::Kaomoji || !searchText_.empty() || idleKaomojiLayoutValid_)
+    {
+        return;
+    }
+    idleKaomojiLayout_ = layoutGroups_;
+    idleKaomojiHeight_ = cachedContentHeight_;
+    idleKaomojiCount_ = cachedItemCount_;
+    idleKaomojiGridWidth_ = FlowGridWidth();
+    idleKaomojiLayoutValid_ = true;
+}
+
 void EmojiPanel::EnsureFlowLayout(DeviceResources &resources) const
 {
     if (!flowLayoutDirty_)
@@ -1621,19 +1677,37 @@ void EmojiPanel::EnsureFlowLayout(DeviceResources &resources) const
                     continue;
                 }
 
-                TextSize measured =
-                    MeasureTextSize(resources, item->text, kLongTextFontSize, DWRITE_FONT_WEIGHT_NORMAL);
-                float layoutWidth = MeasureTextLayoutWidth(resources, item->text, kLongTextFontSize,
-                                                           DWRITE_FONT_WEIGHT_NORMAL);
-                layoutWidth = std::max(layoutWidth, measured.width);
+                float layoutWidth = item->cachedFlowTextWidth;
+                if (!item->hasCachedFlowTextWidth)
+                {
+                    const TextSize measured =
+                        MeasureTextSize(resources, item->text, kLongTextFontSize, DWRITE_FONT_WEIGHT_NORMAL);
+                    layoutWidth = MeasureTextLayoutWidth(resources, item->text, kLongTextFontSize,
+                                                         DWRITE_FONT_WEIGHT_NORMAL);
+                    layoutWidth = std::max(layoutWidth, measured.width);
+                    item->cachedFlowTextWidth = layoutWidth;
+                    item->hasCachedFlowTextWidth = true;
+                }
+
                 const float maxInnerWidth = gridWidth - kFlowCellPadX * 2.0f;
                 if (layoutWidth > maxInnerWidth)
                 {
-                    const float fitSize = FitFontSizeForCell(resources, item->text, maxInnerWidth,
-                                                             kCellSize - 16.0f, kLongTextFontSize, 9.0f);
-                    measured = MeasureTextSize(resources, item->text, fitSize, DWRITE_FONT_WEIGHT_NORMAL);
-                    layoutWidth = MeasureTextLayoutWidth(resources, item->text, fitSize, DWRITE_FONT_WEIGHT_NORMAL);
-                    layoutWidth = std::max(layoutWidth, measured.width);
+                    if (item->cachedFittedMaxInner >= 0.0f &&
+                        std::abs(item->cachedFittedMaxInner - maxInnerWidth) <= 0.5f)
+                    {
+                        layoutWidth = item->cachedFittedWidth;
+                    }
+                    else
+                    {
+                        const float fitSize = FitFontSizeForCell(resources, item->text, maxInnerWidth,
+                                                                 kCellSize - 16.0f, kLongTextFontSize, 9.0f);
+                        const TextSize measured =
+                            MeasureTextSize(resources, item->text, fitSize, DWRITE_FONT_WEIGHT_NORMAL);
+                        layoutWidth = MeasureTextLayoutWidth(resources, item->text, fitSize, DWRITE_FONT_WEIGHT_NORMAL);
+                        layoutWidth = std::max(layoutWidth, measured.width);
+                        item->cachedFittedMaxInner = maxInnerWidth;
+                        item->cachedFittedWidth = layoutWidth;
+                    }
                 }
 
                 float cellWidth =
@@ -1658,6 +1732,7 @@ void EmojiPanel::EnsureFlowLayout(DeviceResources &resources) const
 
     cachedContentHeight_ = std::max(top, 100.0f);
     flowLayoutDirty_ = false;
+    CaptureIdleKaomojiLayout();
 }
 
 void EmojiPanel::TryEnsureFlowLayout() const
@@ -2306,7 +2381,8 @@ void EmojiPanel::Render(DeviceResources &resources)
                 }
                 if (item->longText)
                 {
-                    DrawLongTextInCell(resources, item->text, cell, text);
+                    DrawLongTextInCell(resources, item->text, cell, text, &item->cachedPaintFontSize,
+                                       &item->cachedPaintCellWidth);
                 }
                 else
                 {
@@ -2355,7 +2431,8 @@ void EmojiPanel::Render(DeviceResources &resources)
                 }
                 if (item->longText)
                 {
-                    DrawLongTextInCell(resources, item->text, cell, text);
+                    DrawLongTextInCell(resources, item->text, cell, text, &item->cachedPaintFontSize,
+                                       &item->cachedPaintCellWidth);
                 }
                 else
                 {
