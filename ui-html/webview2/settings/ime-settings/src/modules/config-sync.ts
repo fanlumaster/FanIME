@@ -141,6 +141,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.utility?.kaomoji_mode === 'boolean') {
       applyToggleState('kaomojiModeToggleBtn', payload.data.utility.kaomoji_mode);
     }
+    if (typeof payload.data?.utility?.jianpin_mode === 'boolean') {
+      applyToggleState('jianpinModeToggleBtn', payload.data.utility.jianpin_mode);
+    }
     if (typeof payload.data?.utility?.clipboard_history === 'boolean') {
       applyToggleState('clipboardHistoryToggleBtn', payload.data.utility.clipboard_history);
     }
