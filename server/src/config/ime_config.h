@@ -177,6 +177,8 @@ bool GetConfiguredKaomojiModeEnabled();
 bool SetConfiguredKaomojiModeEnabled(bool enabled);
 bool GetConfiguredJianpinModeEnabled();
 bool SetConfiguredJianpinModeEnabled(bool enabled);
+bool GetConfiguredYModeEnabled();
+bool SetConfiguredYModeEnabled(bool enabled);
 bool GetConfiguredClipboardHistoryEnabled();
 bool SetConfiguredClipboardHistoryEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();

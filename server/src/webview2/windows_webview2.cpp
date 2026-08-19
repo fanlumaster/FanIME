@@ -2822,6 +2822,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "utility.y_mode")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredYModeEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "utility.clipboard_history")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -3093,7 +3101,8 @@ void PostSettingsConfig()
             {"date_time_mode", GetConfiguredDateTimeModeEnabled()},
             {"emoji_mode", GetConfiguredEmojiModeEnabled()},
             {"kaomoji_mode", GetConfiguredKaomojiModeEnabled()},
-            {"jianpin_mode", GetConfiguredJianpinModeEnabled()}}},
+            {"jianpin_mode", GetConfiguredJianpinModeEnabled()},
+            {"y_mode", GetConfiguredYModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_skin", GetConfiguredCandidateSkin()},

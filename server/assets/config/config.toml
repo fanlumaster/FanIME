@@ -245,6 +245,7 @@ date_time_mode = true # Shift+T 进入日期与时间快捷输入模式
 emoji_mode = true # Shift+E 进入 Emoji 快捷输入模式（支持全拼/简拼/双拼/英文）
 kaomoji_mode = true # Shift+M 进入颜文字快捷输入模式（支持全拼/简拼/双拼/英文）
 jianpin_mode = true # Shift+J 进入超级简拼模式（每个字母作为简拼；双拼按方案转换 zh/ch/sh）
+y_mode = true # Shift+Y 进入临时英文模式（中文状态下直接打英文，上屏后回到中文）
 
 #
 # AI Assistant

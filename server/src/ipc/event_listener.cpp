@@ -64,6 +64,7 @@ bool g_date_time_mode_triggered = false;
 bool g_emoji_mode_triggered = false;
 bool g_kaomoji_mode_triggered = false;
 bool g_jianpin_mode_triggered = false;
+bool g_y_mode_triggered = false;
 bool g_english_input_mode = false;
 // Sticky UILess for the active Main-pipe client. When set, never raise the
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
@@ -206,6 +207,19 @@ bool IsJianpinInput(const std::string &raw)
            });
 }
 
+bool IsYModeCompositionActive(const std::string &raw)
+{
+    return g_y_mode_triggered && !raw.empty() && raw.front() == 'Y' &&
+           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) {
+               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+           });
+}
+
+bool IsYModeInput(const std::string &raw)
+{
+    return IsYModeCompositionActive(raw) && raw.size() > 1;
+}
+
 void ClearSpecialModeTriggers()
 {
     g_quick_phrase_triggered = false;
@@ -214,16 +228,18 @@ void ClearSpecialModeTriggers()
     g_emoji_mode_triggered = false;
     g_kaomoji_mode_triggered = false;
     g_jianpin_mode_triggered = false;
+    g_y_mode_triggered = false;
 }
 
-// True whenever a K/U/T/E/M/J special-mode composition is in progress, even when the
+// True whenever a K/U/T/E/M/J/Y special-mode composition is in progress, even when the
 // typed text is not yet a complete keyword/hex sequence. Such input must never
 // be interpreted as normal pinyin.
 bool IsSpecialModeCompositionActive(const std::string &raw)
 {
     return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) ||
            IsDateTimeCompositionActive(raw) || IsEmojiCompositionActive(raw) ||
-           IsKaomojiCompositionActive(raw) || IsJianpinCompositionActive(raw);
+           IsKaomojiCompositionActive(raw) || IsJianpinCompositionActive(raw) ||
+           IsYModeCompositionActive(raw);
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -1168,6 +1184,8 @@ std::string CurrentRankingContextKey()
 std::string EnglishRankingContextKey()
 {
     std::string key = g_inputSession->get_pinyin_sequence_with_cases();
+    if (IsYModeInput(key))
+        key = key.substr(1);
     std::transform(key.begin(), key.end(), key.begin(),
                    [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     return "english:" + key;
@@ -2628,10 +2646,15 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
                                                items, false);
     }
+    else if (IsYModeInput(current_input))
+    {
+        // Show the typed English immediately; dictionary completions arrive asynchronously.
+        items.emplace_back("", current_input.substr(1), 0, CandidateSource::Generated);
+    }
     else if (IsSpecialModeCompositionActive(current_input))
     {
-        // A K/U/T/E/M/J special-mode prefix that is not yet a complete input (e.g.
-        // "K", "U", "U+", "Tw", "Txin", "E", "M", "J"): do not translate it into
+        // A K/U/T/E/M/J/Y special-mode prefix that is not yet a complete input (e.g.
+        // "K", "U", "U+", "Tw", "Txin", "E", "M", "J", "Y"): do not translate it into
         // normal pinyin candidates. Leave items empty so only the raw typed text
         // shows as the fallback.
     }
@@ -2660,6 +2683,10 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     if (g_english_input_mode)
     {
         UpdateEnglishInput(current_input, client_id, activation_epoch, true);
+    }
+    else if (IsYModeInput(current_input))
+    {
+        UpdateEnglishInput(current_input.substr(1), client_id, activation_epoch, true);
     }
     else if (!IsSpecialModeCompositionActive(current_input) && GetConfiguredEnglishCandidatesEnabled() &&
              scheme != SchemeType::Wubi && !GlobalIme::composition.creating_word.active)
@@ -2785,11 +2812,15 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
 
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
-    const bool dedicated_mode = g_english_input_mode;
+    const std::string session_input =
+        g_inputSession != nullptr ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
+    const bool y_mode = IsYModeInput(session_input);
+    const bool dedicated_mode = g_english_input_mode || y_mode;
+    const std::string expected_input = y_mode ? session_input.substr(1) : session_input;
     if ((!dedicated_mode && !GetConfiguredEnglishCandidatesEnabled()) ||
         !EnglishIme::IsCurrent(input, generation, dedicated_mode) || g_inputSession == nullptr ||
         (!dedicated_mode && g_inputSession->current_scheme_type() == SchemeType::Wubi) ||
-        g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
+        expected_input != input || GlobalIme::composition.creating_word.active)
     {
         return;
     }
@@ -2802,7 +2833,24 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
                        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), "english:" + context_input,
                                                candidates, false, {}, false);
-        if (candidates.empty() && !input.empty())
+        if (y_mode)
+        {
+            candidates.erase(std::remove_if(candidates.begin(), candidates.end(),
+                                            [&](const WordItem &item) {
+                                                if (item.word.size() != input.size())
+                                                    return false;
+                                                for (size_t i = 0; i < input.size(); ++i)
+                                                {
+                                                    if (std::tolower(static_cast<unsigned char>(item.word[i])) !=
+                                                        std::tolower(static_cast<unsigned char>(input[i])))
+                                                        return false;
+                                                }
+                                                return true;
+                                            }),
+                             candidates.end());
+            candidates.insert(candidates.begin(), WordItem("", input, 0, CandidateSource::Generated));
+        }
+        else if (candidates.empty() && !input.empty())
         {
             // A raw fallback is selectable, but it is not an english.db row
             // and therefore must not participate in dictionary mutations.
@@ -2981,6 +3029,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && GetConfiguredJianpinModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'J' && Global::Wch == L'J' && shift_only)
         g_jianpin_mode_triggered = true;
+    if (!g_english_input_mode && GetConfiguredYModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'Y' && Global::Wch == L'Y' && shift_only)
+        g_y_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -3099,6 +3150,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && IsJianpinCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
         // Keep preedit identical to the typed J-prefixed code.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
+    if (!g_english_input_mode && IsYModeCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
+        // Keep preedit identical to the typed Y-prefixed English.
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
     //
@@ -3445,7 +3501,10 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             curWordItem.source == CandidateSource::Kaomoji ||
             curWordItem.source == CandidateSource::Generated)
         {
-            if (curWordItem.source == CandidateSource::EnglishDictionary && g_english_input_mode && isNeedUpdateWeight)
+            if (curWordItem.source == CandidateSource::EnglishDictionary &&
+                (g_english_input_mode ||
+                 IsYModeInput(g_inputSession->get_pinyin_sequence_with_cases())) &&
+                isNeedUpdateWeight)
             {
                 const auto &frequency = GetConfiguredFrequencyAdjustment();
                 (void)user_dictionary::adjust_english_candidate_ranking(

@@ -75,6 +75,7 @@ bool g_date_time_mode_enabled = true;
 bool g_emoji_mode_enabled = true;
 bool g_kaomoji_mode_enabled = true;
 bool g_jianpin_mode_enabled = true;
+bool g_y_mode_enabled = true;
 bool g_clipboard_history_enabled = false;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
@@ -633,6 +634,7 @@ bool LoadImeConfig()
         g_emoji_mode_enabled = tbl["utility"]["emoji_mode"].value_or(true);
         g_kaomoji_mode_enabled = tbl["utility"]["kaomoji_mode"].value_or(true);
         g_jianpin_mode_enabled = tbl["utility"]["jianpin_mode"].value_or(true);
+        g_y_mode_enabled = tbl["utility"]["y_mode"].value_or(true);
         {
             const bool previous_clipboard_history = g_clipboard_history_enabled;
             static bool clipboard_history_loaded = false;
@@ -2186,6 +2188,21 @@ bool SetConfiguredJianpinModeEnabled(bool enabled)
         return false;
     }
     g_jianpin_mode_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredYModeEnabled()
+{
+    return g_y_mode_enabled;
+}
+
+bool SetConfiguredYModeEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("utility", "y_mode", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_y_mode_enabled = enabled;
     return true;
 }
 
