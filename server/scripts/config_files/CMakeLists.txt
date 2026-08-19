@@ -46,6 +46,8 @@ set(SRC_FILES
     "./src/emoji/emoji_query.h"
     "./src/emoji/emoji_ime.cpp"
     "./src/emoji/emoji_ime.h"
+    "./src/jianpin/jianpin_query.cpp"
+    "./src/jianpin/jianpin_query.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/defines/defines.h"

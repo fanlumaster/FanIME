@@ -257,6 +257,7 @@ void PostConfig()
             {"date_time_mode", GetConfiguredDateTimeModeEnabled()},
             {"emoji_mode", GetConfiguredEmojiModeEnabled()},
             {"kaomoji_mode", GetConfiguredKaomojiModeEnabled()},
+            {"jianpin_mode", GetConfiguredJianpinModeEnabled()},
             {"clipboard_history", GetConfiguredClipboardHistoryEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
@@ -426,6 +427,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredEmojiModeEnabled(json::value_to<bool>(data.at("value")));
     if (path == "utility.kaomoji_mode")
         return SetConfiguredKaomojiModeEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "utility.jianpin_mode")
+        return SetConfiguredJianpinModeEnabled(json::value_to<bool>(data.at("value")));
     if (path == "utility.clipboard_history")
         return SetConfiguredClipboardHistoryEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_minus_equal")

@@ -102,6 +102,8 @@ set(SRC_FILES
     "./src/emoji/emoji_query.h"
     "./src/emoji/emoji_ime.cpp"
     "./src/emoji/emoji_ime.h"
+    "./src/jianpin/jianpin_query.cpp"
+    "./src/jianpin/jianpin_query.h"
     "./src/english/english_ime.cpp"
     "./src/english/english_ime.h"
     "./src/global/globals.h"

@@ -46,6 +46,7 @@
 #include "emoji/emoji_ime.h"
 #include "kaomoji/kaomoji_query.h"
 #include "kaomoji/kaomoji_ime.h"
+#include "jianpin/jianpin_query.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <cwchar>
@@ -62,6 +63,7 @@ bool g_unicode_mode_triggered = false;
 bool g_date_time_mode_triggered = false;
 bool g_emoji_mode_triggered = false;
 bool g_kaomoji_mode_triggered = false;
+bool g_jianpin_mode_triggered = false;
 bool g_english_input_mode = false;
 // Sticky UILess for the active Main-pipe client. When set, never raise the
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
@@ -191,14 +193,37 @@ bool IsKaomojiInput(const std::string &raw)
     return IsKaomojiCompositionActive(raw) && raw.size() > 1;
 }
 
-// True whenever a K/U/T/E/M special-mode composition is in progress, even when the
+bool IsJianpinCompositionActive(const std::string &raw)
+{
+    return g_jianpin_mode_triggered && !raw.empty() && raw.front() == 'J';
+}
+
+bool IsJianpinInput(const std::string &raw)
+{
+    return IsJianpinCompositionActive(raw) && raw.size() > 1 &&
+           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) {
+               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+           });
+}
+
+void ClearSpecialModeTriggers()
+{
+    g_quick_phrase_triggered = false;
+    g_unicode_mode_triggered = false;
+    g_date_time_mode_triggered = false;
+    g_emoji_mode_triggered = false;
+    g_kaomoji_mode_triggered = false;
+    g_jianpin_mode_triggered = false;
+}
+
+// True whenever a K/U/T/E/M/J special-mode composition is in progress, even when the
 // typed text is not yet a complete keyword/hex sequence. Such input must never
 // be interpreted as normal pinyin.
 bool IsSpecialModeCompositionActive(const std::string &raw)
 {
     return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) ||
            IsDateTimeCompositionActive(raw) || IsEmojiCompositionActive(raw) ||
-           IsKaomojiCompositionActive(raw);
+           IsKaomojiCompositionActive(raw) || IsJianpinCompositionActive(raw);
 }
 
 constexpr auto kPipeHelloTimeout = std::chrono::seconds(2);
@@ -1121,6 +1146,12 @@ struct Task
 
 std::string CurrentRankingContextKey()
 {
+    if (g_inputSession)
+    {
+        const std::string raw = g_inputSession->get_pinyin_sequence_with_cases();
+        if (IsJianpinCompositionActive(raw) && raw.size() > 1)
+            return JianpinQuery::RankingContextKey(raw.substr(1), g_inputSession->current_scheme_type());
+    }
     std::string converted = g_inputSession->get_quanpin();
     if (converted.empty())
         converted = g_inputSession->get_pinyin_segmentation();
@@ -2585,11 +2616,21 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     {
         items = KaomojiQuery::QueryPrefix(current_input.substr(1), g_inputSession->current_scheme_type());
     }
+    else if (IsJianpinInput(current_input))
+    {
+        const int limit = current_input.size() == 2 ? 24 : 100;
+        items = JianpinQuery::Query(current_input.substr(1), limit, {}, g_inputSession->current_scheme_type());
+        const std::string typed = g_inputSession->get_pinyin_sequence();
+        for (auto &item : items)
+            item.pinyin = typed;
+        user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
+                                               items, false);
+    }
     else if (IsSpecialModeCompositionActive(current_input))
     {
-        // A K/U/T/E/M special-mode prefix that is not yet a complete input (e.g.
-        // "K", "U", "U+", "Tw", "Txin", "E", "M"): do not translate it into normal
-        // pinyin candidates. Leave items empty so only the raw typed text
+        // A K/U/T/E/M/J special-mode prefix that is not yet a complete input (e.g.
+        // "K", "U", "U+", "Tw", "Txin", "E", "M", "J"): do not translate it into
+        // normal pinyin candidates. Leave items empty so only the raw typed text
         // shows as the fallback.
     }
     else
@@ -2935,6 +2976,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && GetConfiguredKaomojiModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'M' && Global::Wch == L'M' && shift_only)
         g_kaomoji_mode_triggered = true;
+    if (!g_english_input_mode && GetConfiguredJianpinModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'J' && Global::Wch == L'J' && shift_only)
+        g_jianpin_mode_triggered = true;
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -3024,11 +3068,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     }
     if (g_inputSession->get_pinyin_sequence_with_cases().empty())
     {
-        g_quick_phrase_triggered = false;
-        g_unicode_mode_triggered = false;
-        g_date_time_mode_triggered = false;
-        g_emoji_mode_triggered = false;
-        g_kaomoji_mode_triggered = false;
+        ClearSpecialModeTriggers();
     }
     if (!g_english_input_mode && IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
@@ -3052,6 +3092,11 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (!g_english_input_mode && IsKaomojiCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
         // Keep preedit identical to the typed M-prefixed code.
+        GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
+    }
+    if (!g_english_input_mode && IsJianpinCompositionActive(GlobalIme::composition.raw_input_with_cases))
+    {
+        // Keep preedit identical to the typed J-prefixed code.
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
     //
@@ -3308,11 +3353,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
 void ClearState()
 {
-    g_quick_phrase_triggered = false;
-    g_unicode_mode_triggered = false;
-    g_date_time_mode_triggered = false;
-    g_emoji_mode_triggered = false;
-    g_kaomoji_mode_triggered = false;
+    ClearSpecialModeTriggers();
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
@@ -3416,11 +3457,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             UpdateKaomojiInput("");
             g_inputSession->reset_state();
             GlobalIme::composition.clear();
-            g_quick_phrase_triggered = false;
-            g_unicode_mode_triggered = false;
-            g_date_time_mode_triggered = false;
-            g_emoji_mode_triggered = false;
-            g_kaomoji_mode_triggered = false;
+            ClearSpecialModeTriggers();
             return;
         }
         std::string cloudCommittedPinyin;
@@ -3528,9 +3565,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             g_inputSession->reset_state();
             GlobalIme::composition.caret_position = 0;
             GlobalIme::composition.raw_input_with_cases.clear();
-            g_quick_phrase_triggered = false;
-            g_emoji_mode_triggered = false;
-            g_kaomoji_mode_triggered = false;
+            ClearSpecialModeTriggers();
         }
         else
         {
