@@ -5,6 +5,7 @@
 #include "config/ime_config.h"
 #include "doubao_asr_client.h"
 #include "ipc/ipc.h"
+#include "system_audio_muter.h"
 #include "utils/common_utils.h"
 #include "wave_overlay.h"
 #include "cue_player.h"
@@ -47,6 +48,7 @@ std::condition_variable g_control_cv;
 enum class ControlCommand { Start, Stop, Toggle, Lock, Cancel, Exit };
 std::deque<ControlCommand> g_control_commands;
 std::atomic<bool> g_recording{false};
+std::atomic<bool> g_muted_system_audio{false};
 std::atomic<bool> g_ime_active{false};
 bool g_initialized = false;
 WaveOverlay g_overlay;
@@ -93,6 +95,21 @@ std::wstring ResolveCuePath(const wchar_t *filename)
 bool StartRecording();
 void StopRecording();
 void CancelRecording();
+
+void MuteSystemAudioIfEnabled(const VoiceInputConfig &config)
+{
+    if (!config.mute_system_audio)
+        return;
+    VoiceInput::MuteOtherSystemAudio();
+    g_muted_system_audio = true;
+}
+
+void RestoreSystemAudioIfMuted()
+{
+    if (!g_muted_system_audio.exchange(false))
+        return;
+    VoiceInput::RestoreOtherSystemAudio();
+}
 
 void EnqueueControlCommand(ControlCommand command)
 {
@@ -680,6 +697,7 @@ bool StartRecording()
     g_overlay.set_listening(true);
     g_overlay.show();
     if (config.start_sound) g_cue_player.play_start();
+    MuteSystemAudioIfEnabled(config);
     return true;
 }
 
@@ -692,6 +710,7 @@ void StopRecording()
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
+    RestoreSystemAudioIfMuted();
     if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
     const bool has_live_overlay = doubao_asr != nullptr;
@@ -771,6 +790,7 @@ void CancelRecording()
     g_overlay.set_input_level(0.0f);
     g_overlay.hide();
     g_overlay.set_transcript(L"");
+    RestoreSystemAudioIfMuted();
     if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
     std::lock_guard<std::mutex> lock(g_mutex);
@@ -790,6 +810,7 @@ bool VoiceInput::Initialize()
     const HINSTANCE instance = GetModuleHandleW(nullptr);
     if (!g_overlay.init(instance)) return false;
     g_cue_player.init(ResolveCuePath(L"start.mp3"), ResolveCuePath(L"end.mp3"));
+    RestoreOtherSystemAudio();
 
     WNDCLASSW window_class{};
     window_class.lpfnWndProc = VoiceMessageWindowProc;
@@ -860,6 +881,8 @@ void VoiceInput::Shutdown()
     if (g_recording) EnqueueControlCommand(ControlCommand::Stop);
     EnqueueControlCommand(ControlCommand::Exit);
     if (g_control_thread.joinable()) g_control_thread.join();
+    RestoreOtherSystemAudio();
+    g_muted_system_audio = false;
     for (auto &task : g_network_tasks) task.wait();
     g_network_tasks.clear();
     if (g_message_window) { DestroyWindow(g_message_window); g_message_window = nullptr; }

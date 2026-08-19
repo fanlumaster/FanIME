@@ -26,6 +26,8 @@ struct VoiceInputConfig
     std::string language = "zh-cn";
     bool start_sound = true;
     bool end_sound = true;
+    // Temporarily mute other apps' playback while the microphone is recording.
+    bool mute_system_audio = false;
     bool polish_text = false;
     // When true, Doubao streaming partials are shown as TSF inline preedit.
     bool stream_inline_preedit = false;

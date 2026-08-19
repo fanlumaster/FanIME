@@ -213,6 +213,8 @@ language = "zh-cn"
 # 开始和结束录音提示音可分别关闭
 start_sound = true
 end_sound = true
+# 录音时暂时静音其他应用的播放声音，结束后自动恢复
+mute_system_audio = false
 polish_text = false
 # 豆包流式识别时，将已识别文本显示在输入框 inline preedit 中，松开录音键后上屏。
 # 仅在 asr_provider = "doubao" 且 commit_mode = "tsf" 时生效。

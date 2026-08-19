@@ -151,6 +151,8 @@ set(SRC_FILES
     "./src/window/window_hook.h"
     "./src/voice-input/voice_input_service.cpp"
     "./src/voice-input/voice_input_service.h"
+    "./src/voice-input/system_audio_muter.cpp"
+    "./src/voice-input/system_audio_muter.h"
     "./src/voice-input/doubao_asr_client.cpp"
     "./src/voice-input/doubao_asr_client.h"
     "./src/voice-input/wave_overlay.cpp"
@@ -226,7 +228,7 @@ add_dependencies(${PROJECT_NAME} Dictionaries)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 target_link_libraries(${PROJECT_NAME} PRIVATE ZLIB::ZLIB)
-target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore)
+target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore ole32)
 
 add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
     "./src/user-dictionary-replay/main.cpp"

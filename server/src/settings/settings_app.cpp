@@ -296,6 +296,7 @@ void PostConfig()
             {"polish_token", voice.polish_token}, {"polish_endpoint", voice.polish_endpoint},
             {"language", voice.language}, {"start_sound", voice.start_sound},
             {"end_sound", voice.end_sound},
+            {"mute_system_audio", voice.mute_system_audio},
             {"notification_sound", voice.start_sound && voice.end_sound},
             {"polish_text", voice.polish_text},
             {"stream_inline_preedit", voice.stream_inline_preedit},

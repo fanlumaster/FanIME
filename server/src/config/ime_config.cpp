@@ -745,6 +745,7 @@ bool LoadImeConfig()
         const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
         g_voice_input.start_sound = tbl["voice_input"]["start_sound"].value_or(legacy_notification_sound);
         g_voice_input.end_sound = tbl["voice_input"]["end_sound"].value_or(legacy_notification_sound);
+        g_voice_input.mute_system_audio = tbl["voice_input"]["mute_system_audio"].value_or(false);
         g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
         g_voice_input.stream_inline_preedit = tbl["voice_input"]["stream_inline_preedit"].value_or(false);
         g_voice_input.commit_mode = tbl["voice_input"]["commit_mode"].value_or(std::string("tsf"));
@@ -2199,6 +2200,8 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
         target = &g_voice_input.start_sound;
     else if (key == "end_sound")
         target = &g_voice_input.end_sound;
+    else if (key == "mute_system_audio")
+        target = &g_voice_input.mute_system_audio;
     else if (key == "notification_sound")
     {
         // Accept settings pages from older installations during a rolling update.
