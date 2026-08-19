@@ -53,6 +53,10 @@
   display: none !important;
 }
 
+.cand-preview .candidate .container.preedit-hidden > .row.pinyin {
+  display: none;
+}
+
 .cand-color-control {
   display: flex;
   align-items: center;

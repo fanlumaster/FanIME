@@ -168,6 +168,9 @@
   background-position: top;
   background-size: 100% var(--wg-radius);
 }
+.candidate.skin-willow-green.wnd-v .container.preedit-hidden > .pinyin + .row-wrapper > .cand {
+  padding-top: 7px;
+}
 .candidate.skin-willow-green.wnd-v .container:has(> .row-wrapper:last-child > .first) {
   background-image: linear-gradient(var(--wg-hilite), var(--wg-hilite));
   background-position: bottom;

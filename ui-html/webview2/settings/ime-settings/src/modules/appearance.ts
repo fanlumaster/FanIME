@@ -51,6 +51,7 @@ let previewFontSize = 16;
 let previewPreeditFontSize = 16;
 let previewTextColor = 'auto';
 let previewPageSize = 6;
+let previewPreeditStyle = 'pinyin';
 let previewCandTheme: ResolvedTheme = 'dark';
 let previewInputSchema = 'shuangpin';
 let previewShuangpinHelpcode = true;
@@ -106,6 +107,15 @@ export function applyCandidatePreviewHelpcode(): void {
   const show = shouldShowHelpcodeInPreview();
   document.querySelectorAll<HTMLElement>('.cand-preview .cand-helpcode').forEach((el) => {
     el.hidden = !show;
+  });
+}
+
+function applyCandidatePreviewPreedit(): void {
+  const hide = previewPreeditStyle === 'empty';
+  appearancePreviewRoots().forEach((el) => {
+    el.querySelectorAll<HTMLElement>('.container').forEach((container) => {
+      container.classList.toggle('preedit-hidden', hide);
+    });
   });
 }
 
@@ -331,6 +341,9 @@ export function applyAppearanceConfig(
 ): void {
   applyDropdownValue('candPreeditStyleBtn', 'candPreeditStyleMenu', candidateWindowPreeditStyle);
   applyDropdownValue('tsfPreeditStyleBtn', 'tsfPreeditStyleMenu', tsfPreeditStyle);
+  if (candidateWindowPreeditStyle) {
+    previewPreeditStyle = candidateWindowPreeditStyle === 'empty' ? 'empty' : 'pinyin';
+  }
   if (themeConfig) {
     applyThemeConfig(themeConfig);
   }
@@ -365,6 +378,7 @@ export function applyAppearanceConfig(
   syncColorControls(candidateAppearance?.cand_text_color);
   applyCandidatePreviewStyle();
   applyCandidatePreviewHelpcode();
+  applyCandidatePreviewPreedit();
 }
 
 export async function setupAppearance() {
@@ -377,6 +391,7 @@ export async function setupAppearance() {
   populateFontMenus(undefined);
   applyCandidatePreviewStyle();
   applyCandidatePreviewHelpcode();
+  applyCandidatePreviewPreedit();
 
   // 主题模式（全局）
   setupDropdownMenu('themeBtn', 'themeMenu', 'changeTheme', false, 'appearance.theme_mode');
@@ -475,7 +490,12 @@ export async function setupAppearance() {
     'candPreeditStyleMenu',
     'changeCandPreeditStyle',
     true,
-    'appearance.candidate_window_preedit_style'
+    'appearance.candidate_window_preedit_style',
+    (value) => {
+      previewPreeditStyle = value === 'empty' ? 'empty' : 'pinyin';
+      applyCandidatePreviewPreedit();
+      return previewPreeditStyle;
+    }
   );
 
   // 行内预编辑
