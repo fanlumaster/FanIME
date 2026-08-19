@@ -421,7 +421,9 @@ void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64
                         bool dedicated_mode = false)
 {
     std::lock_guard lock(g_async_request_mutex);
-    EnglishIme::OnInputChanged(input, dedicated_mode);
+    const size_t mixed_min_prefix =
+        dedicated_mode ? size_t{1} : static_cast<size_t>(GetConfiguredEnglishMixedInputMinChars());
+    EnglishIme::OnInputChanged(input, dedicated_mode, mixed_min_prefix);
     ++g_english_generation;
     g_english_request_origin = input.empty()
                                    ? AsyncRequestOrigin{}

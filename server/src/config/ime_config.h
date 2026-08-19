@@ -157,6 +157,8 @@ int GetConfiguredFloatingToolbarFontSize();
 bool SetConfiguredFloatingToolbarFontSize(int font_size);
 bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
+int GetConfiguredEnglishMixedInputMinChars();
+bool SetConfiguredEnglishMixedInputMinChars(int min_chars);
 bool GetConfiguredEmojiMixedInputEnabled();
 bool SetConfiguredEmojiMixedInputEnabled(bool enabled);
 bool GetConfiguredKaomojiMixedInputEnabled();

@@ -33,6 +33,8 @@ paging_page_up_down = true
 candidate_arrow_navigation = true
 # 中文输入状态下显示英文前缀候选
 cn_en_mixed_input = true
+# 中英混输触发所需的最少字母数，范围 1–8
+cn_en_mixed_input_min_chars = 2
 # 中文输入状态下显示 emoji 前缀候选（第三个候选项，随云候选/AI 联想顺移）
 emoji_mixed_input = false
 # 中文输入状态下显示颜文字前缀候选（排在 emoji 之后）

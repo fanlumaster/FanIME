@@ -11,9 +11,10 @@
 
 namespace
 {
-// Mixed Chinese/English input starts offering completions from the second
-// pinyin character. Dedicated English mode still starts from one character.
-constexpr size_t kMinimumPrefixLength = 2;
+// Mixed Chinese/English input starts offering completions once the prefix
+// reaches the configured length. Dedicated English mode still starts from one
+// character.
+constexpr size_t kDefaultMixedMinPrefix = 2;
 constexpr size_t kMixedCandidateLimit = 5;
 constexpr size_t kDedicatedCandidateLimit = 1000;
 
@@ -24,6 +25,7 @@ std::atomic<bool> g_running{false};
 std::atomic<uint64_t> g_generation{0};
 std::string g_latest_input;
 bool g_dedicated_mode = false;
+size_t g_mixed_min_prefix = kDefaultMixedMinPrefix;
 std::string g_db_path;
 EnglishIme::ApplyCallback g_apply_callback;
 
@@ -66,10 +68,12 @@ void WorkerLoop()
         observed_generation = g_generation.load();
         const std::string input = g_latest_input;
         const bool dedicated_mode = g_dedicated_mode;
+        const size_t mixed_min_prefix = g_mixed_min_prefix;
         lock.unlock();
 
         const std::string prefix = NormalizeInput(input);
-        if (prefix.size() < (dedicated_mode ? 1 : kMinimumPrefixLength))
+        const size_t min_prefix = dedicated_mode ? 1 : (std::max)(size_t{1}, mixed_min_prefix);
+        if (prefix.size() < min_prefix)
         {
             if (dedicated_mode && !input.empty() && g_running &&
                 g_generation.load() == observed_generation && g_apply_callback)
@@ -123,12 +127,13 @@ void Stop()
     g_apply_callback = {};
 }
 
-void OnInputChanged(const std::string &input, bool dedicated_mode)
+void OnInputChanged(const std::string &input, bool dedicated_mode, size_t mixed_min_prefix)
 {
     {
         std::lock_guard lock(g_mutex);
         g_latest_input = input;
         g_dedicated_mode = dedicated_mode;
+        g_mixed_min_prefix = mixed_min_prefix == 0 ? kDefaultMixedMinPrefix : mixed_min_prefix;
         g_generation.fetch_add(1);
     }
     g_cv.notify_one();

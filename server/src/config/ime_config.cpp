@@ -31,6 +31,9 @@ constexpr double kFloatingToolbarScaleMax = 1.5;
 constexpr int kFloatingToolbarFontSizeMin = 16;
 constexpr int kFloatingToolbarFontSizeMax = 28;
 constexpr int kFloatingToolbarFontSizeDefault = 24;
+constexpr int kEnglishMixedInputMinCharsMin = 1;
+constexpr int kEnglishMixedInputMinCharsMax = 8;
+constexpr int kEnglishMixedInputMinCharsDefault = 2;
 
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
@@ -62,6 +65,7 @@ FloatingToolbarItemsConfig g_floating_toolbar_items;
 double g_floating_toolbar_scale = 1.0;
 int g_floating_toolbar_font_size = kFloatingToolbarFontSizeDefault;
 bool g_english_candidates_enabled = false;
+int g_english_mixed_input_min_chars = kEnglishMixedInputMinCharsDefault;
 bool g_cloud_candidates_enabled = true;
 bool g_emoji_mixed_input_enabled = false;
 bool g_kaomoji_mixed_input_enabled = false;
@@ -612,6 +616,14 @@ bool LoadImeConfig()
                     : kFloatingToolbarFontSizeDefault;
         }
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
+        {
+            const int min_chars =
+                tbl["general"]["cn_en_mixed_input_min_chars"].value_or(kEnglishMixedInputMinCharsDefault);
+            g_english_mixed_input_min_chars =
+                min_chars >= kEnglishMixedInputMinCharsMin && min_chars <= kEnglishMixedInputMinCharsMax
+                    ? min_chars
+                    : kEnglishMixedInputMinCharsDefault;
+        }
         g_cloud_candidates_enabled = tbl["general"]["cloud_candidates"].value_or(true);
         g_emoji_mixed_input_enabled = tbl["general"]["emoji_mixed_input"].value_or(false);
         g_kaomoji_mixed_input_enabled = tbl["general"]["kaomoji_mixed_input"].value_or(false);
@@ -1633,6 +1645,21 @@ bool SetConfiguredEnglishCandidatesEnabled(bool enabled)
         return false;
     }
     g_english_candidates_enabled = enabled;
+    return true;
+}
+
+int GetConfiguredEnglishMixedInputMinChars()
+{
+    return g_english_mixed_input_min_chars;
+}
+
+bool SetConfiguredEnglishMixedInputMinChars(int min_chars)
+{
+    if (min_chars < kEnglishMixedInputMinCharsMin || min_chars > kEnglishMixedInputMinCharsMax)
+        return false;
+    if (!WriteConfiguredValue("general", "cn_en_mixed_input_min_chars", std::to_string(min_chars)))
+        return false;
+    g_english_mixed_input_min_chars = min_chars;
     return true;
 }
 
