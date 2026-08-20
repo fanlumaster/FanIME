@@ -6,6 +6,11 @@
   margin-bottom: 18px;
 }
 
+.ai-description.ai-api-description {
+  margin-top: -10px;
+  margin-bottom: 16px;
+}
+
 .ai-description {
   margin-top: 6px;
   color: var(--text-muted);
@@ -27,6 +32,11 @@
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
+}
+
+.ai-grid .dropdown,
+.ai-grid .dropdown-toggle {
+  width: 100%;
 }
 
 .ai-field > label {

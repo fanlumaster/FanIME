@@ -8,8 +8,23 @@
   </div>
   <div class="section ai-section">
     <div class="section-title ai-heading">API 配置</div>
+    <div class="ai-description ai-api-description">DeepSeek、OpenAI、SiliconFlow、Groq 均使用 OpenAI 兼容的 Chat Completions 接口。每个提供商的 Token 分开保存。</div>
     <div class="ai-grid">
-      <label><span>服务提供商</span><input id="aiProvider" type="text" autocomplete="off" spellcheck="false"></label>
+      <div class="ai-field">
+        <span>服务提供商</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="aiProviderBtn" type="button">
+            <span>DeepSeek</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="aiProviderMenu">
+            <div class="dropdown-item" data-value="deepseek">DeepSeek</div>
+            <div class="dropdown-item" data-value="openai">OpenAI</div>
+            <div class="dropdown-item" data-value="siliconflow">SiliconFlow</div>
+            <div class="dropdown-item" data-value="groq">Groq</div>
+          </div>
+        </div>
+      </div>
       <label><span>模型</span><input id="aiModel" type="text" autocomplete="off" spellcheck="false"></label>
       <div class="ai-field">
         <label for="aiToken">API Token</label>
