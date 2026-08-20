@@ -296,9 +296,13 @@ HINTERNET ConnectWebSocket(const std::string &endpoint, const std::string &app_k
 
 DoubaoAsrClient::DoubaoAsrClient(std::string endpoint, std::string app_key,
                                  std::string access_key, std::string resource_id,
+                                 bool enable_itn, bool enable_punc, bool enable_ddc,
+                                 std::string boosting_table_id,
                                  TranscriptCallback transcript_callback)
     : endpoint_(std::move(endpoint)), app_key_(std::move(app_key)),
       access_key_(std::move(access_key)), resource_id_(std::move(resource_id)),
+      enable_itn_(enable_itn), enable_punc_(enable_punc), enable_ddc_(enable_ddc),
+      boosting_table_id_(std::move(boosting_table_id)),
       transcript_callback_(std::move(transcript_callback))
 {
 }
@@ -380,16 +384,20 @@ void DoubaoAsrClient::Run()
         return;
     }
 
+    nlohmann::json request_options =
+        {{"model_name", "bigmodel"},
+         {"enable_itn", enable_itn_},
+         {"enable_punc", enable_punc_},
+         {"enable_ddc", enable_ddc_},
+         {"show_utterances", false},
+         {"result_type", "full"}};
+    if (!boosting_table_id_.empty())
+        request_options["corpus"] = {{"boosting_table_id", boosting_table_id_}};
+
     const nlohmann::json request_json = {
         {"user", {{"uid", "metasequoia-ime"}}},
         {"audio", {{"format", "pcm"}, {"codec", "raw"}, {"rate", 16000}, {"bits", 16}, {"channel", 1}}},
-        {"request",
-         {{"model_name", "bigmodel"},
-          {"enable_itn", true},
-          {"enable_punc", true},
-          {"enable_ddc", false},
-          {"show_utterances", false},
-          {"result_type", "full"}}}};
+        {"request", std::move(request_options)}};
     const std::string request_text = request_json.dump();
     std::int32_t sequence = 1;
     if (!SendBinary(websocket.value,

@@ -785,6 +785,11 @@ bool LoadImeConfig()
         }
         g_voice_input.asr_resource_id =
             tbl["voice_input"]["asr_resource_id"].value_or(std::string("volc.seedasr.sauc.duration"));
+        g_voice_input.doubao_enable_itn = tbl["voice_input"]["doubao_enable_itn"].value_or(true);
+        g_voice_input.doubao_enable_punc = tbl["voice_input"]["doubao_enable_punc"].value_or(true);
+        g_voice_input.doubao_enable_ddc = tbl["voice_input"]["doubao_enable_ddc"].value_or(false);
+        g_voice_input.doubao_boosting_table_id =
+            tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
         g_voice_input.asr_model = tbl["voice_input"]["asr_model"].value_or(std::string());
         g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
         g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
@@ -2207,6 +2212,8 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         target = &g_voice_input.asr_endpoint;
     else if (key == "asr_resource_id")
         target = &g_voice_input.asr_resource_id;
+    else if (key == "doubao_boosting_table_id")
+        target = &g_voice_input.doubao_boosting_table_id;
     else if (key == "asr_model")
         target = &g_voice_input.asr_model;
     else if (key == "polish_provider")
@@ -2419,6 +2426,12 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
         target = &g_voice_input.end_sound;
     else if (key == "mute_system_audio")
         target = &g_voice_input.mute_system_audio;
+    else if (key == "doubao_enable_itn")
+        target = &g_voice_input.doubao_enable_itn;
+    else if (key == "doubao_enable_punc")
+        target = &g_voice_input.doubao_enable_punc;
+    else if (key == "doubao_enable_ddc")
+        target = &g_voice_input.doubao_enable_ddc;
     else if (key == "notification_sound")
     {
         // Accept settings pages from older installations during a rolling update.

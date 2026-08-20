@@ -23,6 +23,10 @@ struct VoiceInputConfig
     std::map<std::string, std::string> asr_tokens;
     std::string asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async";
     std::string asr_resource_id = "volc.seedasr.sauc.duration";
+    bool doubao_enable_itn = true;
+    bool doubao_enable_punc = true;
+    bool doubao_enable_ddc = false;
+    std::string doubao_boosting_table_id;
     // OpenAI-compatible transcriptions model. Unused for doubao streaming.
     std::string asr_model;
     // siliconflow | openai | deepseek | groq

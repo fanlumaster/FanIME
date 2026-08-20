@@ -213,6 +213,12 @@ asr_token_groq = ""
 asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
 # 默认使用豆包流式语音识别模型 2.0 小时版
 asr_resource_id = "volc.seedasr.sauc.duration"
+# 豆包识别选项：数字格式化（ITN）、标点预测默认开启，语义顺滑（DDC）默认关闭。
+doubao_enable_itn = true
+doubao_enable_punc = true
+doubao_enable_ddc = false
+# 在豆包语音控制台“自学习平台 -> 热词管理”创建词表后，将热词 ID 填在这里；留空则不使用。
+doubao_boosting_table_id = ""
 # OpenAI 兼容识别模型。豆包流式不使用此项；留空则按提供商填默认值。
 asr_model = ""
 # 文本润色: siliconflow | openai | deepseek | groq
