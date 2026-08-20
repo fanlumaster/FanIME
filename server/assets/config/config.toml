@@ -198,19 +198,38 @@ hotkey_ctrl_f9 = true
 hotkey_ctrl_win = false
 hotkey_rctrl_ralt = false
 hotkey_hold_space_lock = true
-# ASR 服务: doubao | siliconflow
+# ASR 服务: doubao | openai | siliconflow | groq
+# openai / siliconflow / groq 均走 OpenAI 兼容的 /v1/audio/transcriptions。
 asr_provider = "doubao"
 # 豆包旧版控制台鉴权：App ID + Access Token（Secret Key 不使用）
 # 新版控制台使用单 API Key 时，将 asr_app_key 留空并把 API Key 填入 asr_token。
 asr_app_key = "<YOUR_OWN_DOUBAO_APP_ID>"
 asr_token = "<YOUR_OWN_DOUBAO_ACCESS_TOKEN>"
+# 每个 ASR 提供商单独保存 Token，切换提供商只改当前使用哪一份，不会互相覆盖。
+asr_token_doubao = "<YOUR_OWN_DOUBAO_ACCESS_TOKEN>"
+asr_token_openai = ""
+asr_token_siliconflow = ""
+asr_token_groq = ""
 asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
 # 默认使用豆包流式语音识别模型 2.0 小时版
 asr_resource_id = "volc.seedasr.sauc.duration"
-# 如需切回 SiliconFlow，将 provider、token 和 endpoint 一并改为对应值。
+# OpenAI 兼容识别模型。豆包流式不使用此项；留空则按提供商填默认值。
+asr_model = ""
+# 文本润色: siliconflow | openai | deepseek | groq
+# 均走 OpenAI 兼容的 /v1/chat/completions。
 polish_provider = "siliconflow"
 polish_token = "<YOUR_OWN_POLISH_TOKEN>"
+polish_token_siliconflow = "<YOUR_OWN_POLISH_TOKEN>"
+polish_token_openai = ""
+polish_token_deepseek = ""
+polish_token_groq = ""
 polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions"
+# 留空则按提供商填默认值，例如 Qwen/Qwen3-8B、gpt-4o-mini。
+polish_model = ""
+# 润色提示词: cleanup | faithful | zh2en | casual | custom
+polish_prompt_id = "cleanup"
+# 非空时覆盖对应预设。自定义提示词写在这里。
+polish_prompt = ""
 language = "zh-cn"
 # 开始和结束录音提示音可分别关闭
 start_sound = true
@@ -219,7 +238,7 @@ end_sound = true
 mute_system_audio = false
 polish_text = false
 # 豆包流式识别时，将已识别文本显示在输入框 inline preedit 中，松开录音键后上屏。
-# 仅在 asr_provider = "doubao" 且 commit_mode = "tsf" 时生效。
+# 仅在豆包流式识别且 commit_mode = "tsf" 时生效。
 stream_inline_preedit = false
 # 上屏方式: tsf | sendinput | ctrl_v
 commit_mode = "tsf"

@@ -6,6 +6,7 @@
 #include "settings/dictionary_manager.h"
 #include "utils/common_utils.h"
 #include "utils/single_instance.h"
+#include "voice-input/voice_providers.h"
 
 #include <WebView2.h>
 #include <WebView2EnvironmentOptions.h>
@@ -211,6 +212,13 @@ void PostConfig()
     const AiAssistantConfig &ai = GetConfiguredAiAssistant();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
+    nlohmann::json polish_presets = nlohmann::json::array();
+    for (const auto &preset : VoiceInput::BuiltinPolishPromptPresets())
+    {
+        polish_presets.push_back({{"id", std::string(preset.id)},
+                                  {"name", std::string(preset.name)},
+                                  {"prompt", std::string(preset.prompt)}});
+    }
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -292,10 +300,14 @@ void PostConfig()
             {"hotkey_ctrl_win", voice.hotkey_ctrl_win}, {"hotkey_rctrl_ralt", voice.hotkey_rctrl_ralt},
             {"hotkey_hold_space_lock", voice.hotkey_hold_space_lock},
             {"asr_provider", voice.asr_provider}, {"asr_app_key", voice.asr_app_key},
-            {"asr_token", voice.asr_token},
+            {"asr_token", voice.asr_token}, {"asr_tokens", voice.asr_tokens},
             {"asr_endpoint", voice.asr_endpoint}, {"asr_resource_id", voice.asr_resource_id},
+            {"asr_model", voice.asr_model},
             {"polish_provider", voice.polish_provider},
-            {"polish_token", voice.polish_token}, {"polish_endpoint", voice.polish_endpoint},
+            {"polish_token", voice.polish_token}, {"polish_tokens", voice.polish_tokens}, {"polish_endpoint", voice.polish_endpoint},
+            {"polish_model", voice.polish_model},
+            {"polish_prompt_id", voice.polish_prompt_id},
+            {"polish_prompt", voice.polish_prompt},
             {"language", voice.language}, {"start_sound", voice.start_sound},
             {"end_sound", voice.end_sound},
             {"mute_system_audio", voice.mute_system_audio},
@@ -314,6 +326,7 @@ void PostConfig()
             {"quanpin_helpcode_schema", GetConfiguredQuanpinHelpcodeSchema()},
             {"show_sp_helpcode_in_candidate_window", GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
             {"show_qp_helpcode_in_candidate_window", GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
+    payload["data"]["voice_input"]["polish_presets"] = std::move(polish_presets);
     const std::wstring message = string_to_wstring(payload.dump());
     g_webview->PostWebMessageAsJson(message.c_str());
 }

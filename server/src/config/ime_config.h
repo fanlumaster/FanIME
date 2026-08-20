@@ -3,6 +3,7 @@
 #include "MetasequoiaImeEngine/core/scheme_type.h"
 #include <toml++/toml.h>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -14,15 +15,26 @@ struct VoiceInputConfig
     bool hotkey_ctrl_win = false;
     bool hotkey_rctrl_ralt = false;
     bool hotkey_hold_space_lock = true;
-    // siliconflow | doubao
+    // doubao | openai | siliconflow | groq
     std::string asr_provider = "doubao";
     std::string asr_app_key;
     std::string asr_token;
+    // Per-provider tokens so switching ASR/polish providers restores the matching key.
+    std::map<std::string, std::string> asr_tokens;
     std::string asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async";
     std::string asr_resource_id = "volc.seedasr.sauc.duration";
+    // OpenAI-compatible transcriptions model. Unused for doubao streaming.
+    std::string asr_model;
+    // siliconflow | openai | deepseek | groq
     std::string polish_provider = "siliconflow";
     std::string polish_token;
+    std::map<std::string, std::string> polish_tokens;
     std::string polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions";
+    std::string polish_model;
+    // cleanup | faithful | zh2en | casual | custom
+    std::string polish_prompt_id = "cleanup";
+    // Empty means use the builtin prompt for polish_prompt_id.
+    std::string polish_prompt;
     std::string language = "zh-cn";
     bool start_sound = true;
     bool end_sound = true;

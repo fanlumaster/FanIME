@@ -4,6 +4,7 @@
 #include "voice_input_service.h"
 #include "config/ime_config.h"
 #include "doubao_asr_client.h"
+#include "voice_providers.h"
 #include "ipc/ipc.h"
 #include "system_audio_muter.h"
 #include "utils/common_utils.h"
@@ -352,58 +353,216 @@ size_t WriteResponse(char *data, size_t size, size_t count, void *user)
     return size * count;
 }
 
-std::string Recognize(const std::vector<float> &samples, const VoiceInputConfig &config)
+size_t WriteHeader(char *data, size_t size, size_t count, void *user)
 {
-    if (config.asr_token.empty() || config.asr_endpoint.empty()) return {};
-    const auto wav = MakeWav(samples);
-    CURL *curl = curl_easy_init();
-    if (!curl) return {};
-    std::string response;
-    curl_slist *headers = curl_slist_append(nullptr, ("Authorization: Bearer " + config.asr_token).c_str());
-    curl_mime *mime = curl_mime_init(curl);
-    curl_mimepart *file = curl_mime_addpart(mime);
-    curl_mime_name(file, "file"); curl_mime_filename(file, "audio.wav");
-    curl_mime_type(file, "audio/wav");
-    curl_mime_data(file, reinterpret_cast<const char *>(wav.data()), wav.size());
-    curl_mimepart *model = curl_mime_addpart(mime);
-    curl_mime_name(model, "model"); curl_mime_data(model, "TeleAI/TeleSpeechASR", CURL_ZERO_TERMINATED);
-    if (config.language == "zh-cn" || config.language == "en")
+    const size_t n = size * count;
+    std::string line(data, n);
+    for (char &ch : line)
     {
-        curl_mimepart *language = curl_mime_addpart(mime);
-        curl_mime_name(language, "language");
-        curl_mime_data(language, config.language == "zh-cn" ? "zh" : "en", CURL_ZERO_TERMINATED);
+        if (ch >= 'A' && ch <= 'Z')
+            ch = static_cast<char>(ch - 'A' + 'a');
     }
-    curl_easy_setopt(curl, CURLOPT_URL, config.asr_endpoint.c_str());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteResponse);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    const CURLcode result = curl_easy_perform(curl);
-    curl_mime_free(mime); curl_slist_free_all(headers); curl_easy_cleanup(curl);
-    if (result != CURLE_OK) return {};
+    const char prefix[] = "x-siliconcloud-trace-id:";
+    const auto pos = line.find(prefix);
+    if (pos != std::string::npos)
+    {
+        std::string value = line.substr(pos + sizeof(prefix) - 1);
+        while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
+            value.erase(value.begin());
+        while (!value.empty() && (value.back() == '\r' || value.back() == '\n' || value.back() == ' '))
+            value.pop_back();
+        *static_cast<std::string *>(user) = std::move(value);
+    }
+    return n;
+}
+
+bool IsSiliconFlowAsr(const VoiceInputConfig &config)
+{
+    std::string provider = config.asr_provider;
+    for (char &ch : provider)
+    {
+        if (ch >= 'A' && ch <= 'Z')
+            ch = static_cast<char>(ch - 'A' + 'a');
+    }
+    return provider == "siliconflow";
+}
+
+std::vector<float> PadAsrAudio(const std::vector<float> &samples)
+{
+    constexpr std::size_t kPadFrames = kSampleRate / 5; // 200 ms
+    std::vector<float> padded;
+    padded.reserve(samples.size() + kPadFrames * 2);
+    padded.insert(padded.end(), kPadFrames, 0.0f);
+    padded.insert(padded.end(), samples.begin(), samples.end());
+    padded.insert(padded.end(), kPadFrames, 0.0f);
+    if (padded.size() < kSampleRate)
+        padded.resize(kSampleRate, 0.0f);
+    return padded;
+}
+
+struct RecognitionResult
+{
+    std::string text;
+    std::string error;
+};
+
+std::string JsonErrorMessage(const std::string &body)
+{
+    try
+    {
+        const auto json = nlohmann::json::parse(body);
+        if (json.contains("error"))
+        {
+            const auto &error = json["error"];
+            if (error.is_string())
+                return error.get<std::string>();
+            if (error.is_object())
+            {
+                if (error.contains("message") && error["message"].is_string())
+                    return error["message"].get<std::string>();
+            }
+        }
+        if (json.contains("message") && json["message"].is_string())
+        {
+            std::string message = json["message"].get<std::string>();
+            if (json.contains("code") && !json["code"].is_null())
+                message += "（code " + json["code"].dump() + "）";
+            if (json.contains("data") && json["data"].is_string() && !json["data"].get<std::string>().empty())
+                message += " " + json["data"].get<std::string>();
+            return message;
+        }
+    }
+    catch (...)
+    {
+    }
+    if (body.size() > 240)
+        return body.substr(0, 240) + "...";
+    return body;
+}
+
+RecognitionResult Recognize(const std::vector<float> &samples, const VoiceInputConfig &config)
+{
+    const std::string asr_token = VoiceInput::ResolveAsrToken(config);
+    if (asr_token.empty() || config.asr_endpoint.empty())
+        return {{}, "ASR Token 或接口地址为空。"};
+    const std::string model_name = VoiceInput::ResolveAsrModel(config);
+    if (model_name.empty())
+        return {{}, "ASR 模型名为空。"};
+    const bool siliconflow = IsSiliconFlowAsr(config);
+    const auto wav = MakeWav(siliconflow ? PadAsrAudio(samples) : samples);
+    const int attempts = siliconflow ? 2 : 1;
+    std::string response;
+    std::string trace_id;
+    char curl_error[CURL_ERROR_SIZE] = {};
+    CURLcode result = CURLE_OK;
+    long http_status = 0;
+    for (int attempt = 0; attempt < attempts; ++attempt)
+    {
+        if (attempt > 0)
+            Sleep(400);
+        response.clear();
+        trace_id.clear();
+        curl_error[0] = 0;
+        CURL *curl = curl_easy_init();
+        if (!curl)
+            return {{}, "无法初始化网络请求。"};
+        curl_slist *headers = nullptr;
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + asr_token).c_str());
+        // Some gateways 500 on libcurl's default Expect: 100-continue.
+        headers = curl_slist_append(headers, "Expect:");
+        curl_mime *mime = curl_mime_init(curl);
+        curl_mimepart *file = curl_mime_addpart(mime);
+        curl_mime_name(file, "file");
+        curl_mime_filename(file, "audio.wav");
+        curl_mime_type(file, "audio/wav");
+        curl_mime_data(file, reinterpret_cast<const char *>(wav.data()), wav.size());
+        curl_mimepart *model = curl_mime_addpart(mime);
+        curl_mime_name(model, "model");
+        curl_mime_data(model, model_name.c_str(), CURL_ZERO_TERMINATED);
+        // SiliconFlow's /audio/transcriptions schema only accepts file + model.
+        // Sending Whisper's language field makes it return 400 and we previously
+        // swallowed that as an empty transcript.
+        if (!siliconflow && (config.language == "zh-cn" || config.language == "en"))
+        {
+            curl_mimepart *language = curl_mime_addpart(mime);
+            curl_mime_name(language, "language");
+            curl_mime_data(language, config.language == "zh-cn" ? "zh" : "en", CURL_ZERO_TERMINATED);
+        }
+        curl_easy_setopt(curl, CURLOPT_URL, config.asr_endpoint.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteResponse);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, WriteHeader);
+        curl_easy_setopt(curl, CURLOPT_HEADERDATA, &trace_id);
+        curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_error);
+        curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 15L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+        result = curl_easy_perform(curl);
+        http_status = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_status);
+        curl_mime_free(mime);
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+        if (result == CURLE_OK && http_status < 500)
+            break;
+    }
+    if (result != CURLE_OK)
+    {
+        const char *detail = curl_error[0] ? curl_error : curl_easy_strerror(result);
+        return {{}, std::string("语音识别请求失败：") + detail};
+    }
+    if (http_status >= 400)
+    {
+        std::string detail = JsonErrorMessage(response);
+        if (detail.empty())
+            detail = "HTTP " + std::to_string(http_status);
+        if (http_status >= 500 && siliconflow)
+        {
+            detail += "。这是硅基流动服务端内部错误，模型名 " + model_name + " 本身是官方支持的。";
+            if (!trace_id.empty())
+                detail += " 追踪 ID：" + trace_id + "。";
+        }
+        return {{}, "语音识别失败：" + detail};
+    }
     try
     {
         const auto json = nlohmann::json::parse(response);
-        return json.value("text", std::string());
+        if (json.contains("text") && json["text"].is_string())
+            return {json["text"].get<std::string>(), {}};
+        return {{}, "语音识别返回了无法解析的结果。"};
     }
-    catch (...) { return {}; }
+    catch (...)
+    {
+        return {{}, "语音识别返回了无法解析的结果。"};
+    }
 }
 
 std::string Polish(const std::string &text, const VoiceInputConfig &config)
 {
-    if (!config.polish_text || text.empty() || config.polish_token.empty() || config.polish_endpoint.empty()) return text;
+    const std::string polish_token = VoiceInput::ResolvePolishToken(config);
+    if (!config.polish_text || text.empty() || polish_token.empty() || config.polish_endpoint.empty()) return text;
     CURL *curl = curl_easy_init();
     if (!curl) return text;
+    const std::string model_name = VoiceInput::ResolvePolishModel(config);
+    if (model_name.empty()) return text;
     nlohmann::json body = {
-        {"model", "Qwen/Qwen3-8B"}, {"stream", false}, {"enable_thinking", false},
-        {"messages", {{{"role", "system"}, {"content", "清理语音转写文本：删除无意义停顿词和明显重复，不扩写，只输出最终文本。语言：" + config.language}}, {{"role", "user"}, {"content", text}}}}
-    };
+        {"model", model_name},
+        {"stream", false},
+        {"messages",
+         {{{"role", "system"}, {"content", VoiceInput::ResolvePolishSystemPrompt(config)}},
+          {{"role", "user"}, {"content", VoiceInput::WrapAsrUserMessage(text)}}}}};
+    if (config.polish_provider == "siliconflow")
+        body["enable_thinking"] = false;
+    else if (config.polish_provider == "deepseek")
+        body["thinking"] = {{"type", "disabled"}};
     const std::string payload = body.dump();
     std::string response;
     curl_slist *headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers, ("Authorization: Bearer " + config.polish_token).c_str());
+    headers = curl_slist_append(headers, ("Authorization: Bearer " + polish_token).c_str());
     curl_easy_setopt(curl, CURLOPT_URL, config.polish_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
@@ -489,7 +648,8 @@ void SendTextViaCtrlV(const std::wstring &text)
 
 bool ShouldStreamInlinePreedit(const VoiceInputConfig &config)
 {
-    return config.stream_inline_preedit && config.asr_provider == "doubao" && config.commit_mode == "tsf";
+    return config.stream_inline_preedit && VoiceInput::IsDoubaoAsrProvider(config.asr_provider) &&
+           config.commit_mode == "tsf";
 }
 
 bool SendVoiceComposition(UINT msg_type, const std::wstring &text)
@@ -631,10 +791,12 @@ bool StartRecording()
     if (!g_ime_active) return false;
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     if (!config.enabled) return false;
-    const bool use_doubao = config.asr_provider == "doubao";
-    if (config.asr_token.empty() || config.asr_token.find("<YOUR_OWN_") == 0)
+    const bool use_doubao = VoiceInput::IsDoubaoAsrProvider(config.asr_provider);
+    const std::string asr_token = VoiceInput::ResolveAsrToken(config);
+    if (asr_token.empty())
     {
-        MessageBoxW(nullptr, L"请先在设置的“语音输入”分区填写 ASR API Token。", L"水杉 IME", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(nullptr, L"请先在设置的“语音输入”分区填写当前 ASR 提供商的 API Token。", L"水杉 IME",
+                    MB_OK | MB_ICONINFORMATION);
         return false;
     }
     { std::lock_guard<std::mutex> lock(g_mutex); g_samples.clear(); }
@@ -651,7 +813,7 @@ bool StartRecording()
     if (use_doubao)
     {
         g_doubao_asr = std::make_unique<DoubaoAsrClient>(
-            config.asr_endpoint, config.asr_app_key, config.asr_token, config.asr_resource_id,
+            config.asr_endpoint, config.asr_app_key, asr_token, config.asr_resource_id,
             [voice_session](const std::string &text) {
                 if (g_voice_session != voice_session)
                     return;
@@ -713,13 +875,13 @@ void StopRecording()
     RestoreSystemAudioIfMuted();
     if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
-    const bool has_live_overlay = doubao_asr != nullptr;
     const bool stream_inline = g_stream_inline_this_session.load();
     const std::uint64_t voice_session = g_voice_session.load();
-    if (!has_live_overlay)
+    if (!stream_inline)
     {
-        g_overlay.hide();
-        g_overlay.set_transcript(L"");
+        g_overlay.set_show_transcript(true);
+        g_overlay.set_transcript(L"正在识别…");
+        g_overlay.show();
     }
     const std::size_t recorded_frames = g_recorded_frames;
     std::vector<float> samples;
@@ -746,13 +908,30 @@ void StopRecording()
         }),
         g_network_tasks.end());
     g_network_tasks.emplace_back(std::async(std::launch::async,
-        [samples = std::move(samples), client = std::move(doubao_asr), config, has_live_overlay, stream_inline,
+        [samples = std::move(samples), client = std::move(doubao_asr), config, stream_inline,
          voice_session]() mutable {
-        const std::string recognized = client ? client->Finish() : Recognize(samples, config);
-        if (has_live_overlay && !stream_inline && g_voice_session == voice_session && !recognized.empty())
-            g_overlay.set_transcript(string_to_wstring(recognized));
-        const std::string text = Polish(recognized, config);
-        if (has_live_overlay && !stream_inline && g_voice_session == voice_session && !text.empty())
+        RecognitionResult recognition;
+        if (client)
+        {
+            recognition.text = client->Finish();
+            recognition.error = client->LastError();
+        }
+        else
+            recognition = Recognize(samples, config);
+        if (!stream_inline && g_voice_session == voice_session)
+        {
+            if (!recognition.error.empty())
+                g_overlay.set_transcript(string_to_wstring(recognition.error));
+            else if (!recognition.text.empty())
+                g_overlay.set_transcript(string_to_wstring(recognition.text));
+        }
+        if (!recognition.error.empty())
+        {
+            MessageBoxW(nullptr, string_to_wstring(recognition.error).c_str(), L"水杉 IME",
+                        MB_OK | MB_ICONERROR);
+        }
+        const std::string text = recognition.error.empty() ? Polish(recognition.text, config) : std::string();
+        if (!stream_inline && g_voice_session == voice_session && !text.empty())
             g_overlay.set_transcript(string_to_wstring(text));
         if (!text.empty() && g_voice_session == voice_session)
             CommitRecognizedText(text, config, stream_inline);
@@ -761,15 +940,12 @@ void StopRecording()
             std::lock_guard<std::mutex> send_lock(g_send_mutex);
             CancelInlinePreedit();
         }
-        if (has_live_overlay)
+        // Keep the finalized result visible briefly without delaying the commit.
+        Sleep(recognition.error.empty() ? 160 : 1200);
+        if (g_voice_session == voice_session && !g_recording)
         {
-            // Keep the finalized, punctuated result visible briefly without delaying the commit.
-            Sleep(160);
-            if (g_voice_session == voice_session && !g_recording)
-            {
-                g_overlay.hide();
-                g_overlay.set_transcript(L"");
-            }
+            g_overlay.hide();
+            g_overlay.set_transcript(L"");
         }
     }));
 }

@@ -352,6 +352,11 @@ std::string DoubaoAsrClient::Finish()
     return result_;
 }
 
+std::string DoubaoAsrClient::LastError() const
+{
+    return error_;
+}
+
 void DoubaoAsrClient::Cancel()
 {
     {
@@ -370,7 +375,10 @@ void DoubaoAsrClient::Run()
     WinHttpHandle websocket(
         ConnectWebSocket(endpoint_, app_key_, access_key_, resource_id_, session, connection));
     if (!websocket.value)
+    {
+        error_ = "无法连接豆包语音识别。请检查 App ID、Access Token 和接口地址。";
         return;
+    }
 
     const nlohmann::json request_json = {
         {"user", {{"uid", "metasequoia-ime"}}},
@@ -387,7 +395,10 @@ void DoubaoAsrClient::Run()
     if (!SendBinary(websocket.value,
                     BuildPacket(0x01, 0x01, sequence++, reinterpret_cast<const std::uint8_t *>(request_text.data()),
                                 request_text.size())))
+    {
+        error_ = "豆包语音识别握手失败。";
         return;
+    }
 
     // WinHTTP WebSocket supports one concurrent send and one concurrent receive.
     // Receiving here, instead of waiting for Finish(), makes partial ASR text available live.
@@ -408,7 +419,11 @@ void DoubaoAsrClient::Run()
                 }
             }
             if (response.last || response.code != 0)
+            {
+                if (response.code != 0 && error_.empty())
+                    error_ = "豆包语音识别失败（code " + std::to_string(response.code) + "）。请检查 Access Token。";
                 break;
+            }
         }
     });
 

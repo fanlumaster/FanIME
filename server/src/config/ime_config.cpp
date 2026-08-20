@@ -19,6 +19,7 @@
 #include "global/globals.h"
 #include "clipboard/clipboard_history.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "voice-input/voice_providers.h"
 
 namespace
 {
@@ -99,6 +100,8 @@ std::string g_theme_screen_keyboard = "follow";
 std::string g_theme_handwriting = "follow";
 std::string g_theme_voice = "follow";
 VoiceInputConfig g_voice_input;
+bool g_persist_asr_token_slot = false;
+bool g_persist_polish_token_slot = false;
 AiAssistantConfig g_ai_assistant;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
@@ -173,6 +176,21 @@ std::string EscapeTomlBasicString(const std::string &value)
     result.push_back('"');
     for (char ch : value)
     {
+        if (ch == '\n')
+        {
+            result += "\\n";
+            continue;
+        }
+        if (ch == '\r')
+        {
+            result += "\\r";
+            continue;
+        }
+        if (ch == '\t')
+        {
+            result += "\\t";
+            continue;
+        }
         if (ch == '\\' || ch == '"')
         {
             result.push_back('\\');
@@ -739,6 +757,23 @@ bool LoadImeConfig()
         g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("doubao"));
         g_voice_input.asr_app_key = tbl["voice_input"]["asr_app_key"].value_or(std::string());
         g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
+        g_voice_input.asr_tokens.clear();
+        for (const auto provider : VoiceInput::AsrProviders())
+        {
+            const std::string id(provider);
+            g_voice_input.asr_tokens[id] = VoiceInput::UsableToken(
+                tbl["voice_input"][VoiceInput::AsrTokenSlotKey(id)].value_or(std::string()));
+        }
+        {
+            const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
+            std::string &stored = g_voice_input.asr_tokens[provider];
+            if (VoiceInput::IsPlaceholderToken(stored) && !VoiceInput::IsPlaceholderToken(g_voice_input.asr_token))
+            {
+                stored = g_voice_input.asr_token;
+                g_persist_asr_token_slot = true;
+            }
+            g_voice_input.asr_token = stored;
+        }
         g_voice_input.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
             g_voice_input.asr_provider == "doubao"
                 ? std::string("wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async")
@@ -750,10 +785,37 @@ bool LoadImeConfig()
         }
         g_voice_input.asr_resource_id =
             tbl["voice_input"]["asr_resource_id"].value_or(std::string("volc.seedasr.sauc.duration"));
+        g_voice_input.asr_model = tbl["voice_input"]["asr_model"].value_or(std::string());
         g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
         g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
+        g_voice_input.polish_tokens.clear();
+        for (const auto provider : VoiceInput::PolishProviders())
+        {
+            const std::string id(provider);
+            g_voice_input.polish_tokens[id] = VoiceInput::UsableToken(
+                tbl["voice_input"][VoiceInput::PolishTokenSlotKey(id)].value_or(std::string()));
+        }
+        {
+            const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
+            std::string &stored = g_voice_input.polish_tokens[provider];
+            if (VoiceInput::IsPlaceholderToken(stored) && !VoiceInput::IsPlaceholderToken(g_voice_input.polish_token))
+            {
+                stored = g_voice_input.polish_token;
+                g_persist_polish_token_slot = true;
+            }
+            g_voice_input.polish_token = stored;
+        }
         g_voice_input.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
             std::string("https://api.siliconflow.cn/v1/chat/completions"));
+        g_voice_input.polish_model = tbl["voice_input"]["polish_model"].value_or(std::string());
+        g_voice_input.polish_prompt_id = tbl["voice_input"]["polish_prompt_id"].value_or(std::string("cleanup"));
+        if (g_voice_input.polish_prompt_id != "cleanup" && g_voice_input.polish_prompt_id != "faithful" &&
+            g_voice_input.polish_prompt_id != "zh2en" && g_voice_input.polish_prompt_id != "casual" &&
+            g_voice_input.polish_prompt_id != "custom")
+        {
+            g_voice_input.polish_prompt_id = "cleanup";
+        }
+        g_voice_input.polish_prompt = tbl["voice_input"]["polish_prompt"].value_or(std::string());
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         // notification_sound is retained as a fallback for configs written by older versions.
         const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
@@ -833,6 +895,26 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
     return true;
 }
 
+void PersistSeededVoiceInputTokenSlots()
+{
+    if (g_persist_asr_token_slot)
+    {
+        const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
+        const std::string key = VoiceInput::AsrTokenSlotKey(id);
+        if (!key.empty())
+            WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(g_voice_input.asr_tokens[id]));
+        g_persist_asr_token_slot = false;
+    }
+    if (g_persist_polish_token_slot)
+    {
+        const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
+        const std::string key = VoiceInput::PolishTokenSlotKey(id);
+        if (!key.empty())
+            WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(g_voice_input.polish_tokens[id]));
+        g_persist_polish_token_slot = false;
+    }
+}
+
 void MigrateLegacyVoiceInputConfig()
 {
     if (!g_voice_input.asr_token.empty())
@@ -910,6 +992,23 @@ void InitImeConfig()
     if (LoadImeConfig())
     {
         MigrateLegacyVoiceInputConfig();
+        {
+            const std::string asr_id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
+            if (VoiceInput::IsPlaceholderToken(g_voice_input.asr_tokens[asr_id]) &&
+                !VoiceInput::IsPlaceholderToken(g_voice_input.asr_token))
+            {
+                g_voice_input.asr_tokens[asr_id] = g_voice_input.asr_token;
+                g_persist_asr_token_slot = true;
+            }
+            const std::string polish_id = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
+            if (VoiceInput::IsPlaceholderToken(g_voice_input.polish_tokens[polish_id]) &&
+                !VoiceInput::IsPlaceholderToken(g_voice_input.polish_token))
+            {
+                g_voice_input.polish_tokens[polish_id] = g_voice_input.polish_token;
+                g_persist_polish_token_slot = true;
+            }
+        }
+        PersistSeededVoiceInputTokenSlots();
 #ifdef FANY_DEBUG
         (void)0;
 #endif
@@ -2059,6 +2158,44 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         return false;
     if (key == "commit_mode" && value != "tsf" && value != "sendinput" && value != "ctrl_v")
         return false;
+    if (key == "polish_prompt_id" && value != "cleanup" && value != "faithful" && value != "zh2en" &&
+        value != "casual" && value != "custom")
+        return false;
+
+    const auto persist = [](const std::string &toml_key, const std::string &toml_value, std::string &target) {
+        if (!WriteConfiguredValue("voice_input", toml_key, EscapeTomlBasicString(toml_value)))
+            return false;
+        target = toml_value;
+        return true;
+    };
+
+    if (key.rfind("asr_token_", 0) == 0)
+    {
+        const std::string provider = key.substr(std::string("asr_token_").size());
+        if (VoiceInput::AsrTokenSlotKey(provider) != key)
+            return false;
+        const std::string id = VoiceInput::NormalizeProviderId(provider);
+        if (!WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
+            return false;
+        g_voice_input.asr_tokens[id] = value;
+        if (VoiceInput::NormalizeProviderId(g_voice_input.asr_provider) == id)
+            persist("asr_token", value, g_voice_input.asr_token);
+        return true;
+    }
+    if (key.rfind("polish_token_", 0) == 0)
+    {
+        const std::string provider = key.substr(std::string("polish_token_").size());
+        if (VoiceInput::PolishTokenSlotKey(provider) != key)
+            return false;
+        const std::string id = VoiceInput::NormalizeProviderId(provider);
+        if (!WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
+            return false;
+        g_voice_input.polish_tokens[id] = value;
+        if (VoiceInput::NormalizeProviderId(g_voice_input.polish_provider) == id)
+            persist("polish_token", value, g_voice_input.polish_token);
+        return true;
+    }
+
     std::string *target = nullptr;
     if (key == "asr_provider")
         target = &g_voice_input.asr_provider;
@@ -2070,12 +2207,20 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         target = &g_voice_input.asr_endpoint;
     else if (key == "asr_resource_id")
         target = &g_voice_input.asr_resource_id;
+    else if (key == "asr_model")
+        target = &g_voice_input.asr_model;
     else if (key == "polish_provider")
         target = &g_voice_input.polish_provider;
     else if (key == "polish_token")
         target = &g_voice_input.polish_token;
     else if (key == "polish_endpoint")
         target = &g_voice_input.polish_endpoint;
+    else if (key == "polish_model")
+        target = &g_voice_input.polish_model;
+    else if (key == "polish_prompt_id")
+        target = &g_voice_input.polish_prompt_id;
+    else if (key == "polish_prompt")
+        target = &g_voice_input.polish_prompt;
     else if (key == "language")
         target = &g_voice_input.language;
     else if (key == "commit_mode")
@@ -2083,6 +2228,34 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
     if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
         return false;
     *target = value;
+    if (key == "asr_token")
+    {
+        const std::string slot = VoiceInput::AsrTokenSlotKey(g_voice_input.asr_provider);
+        if (!slot.empty())
+        {
+            const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
+            g_voice_input.asr_tokens[id] = value;
+            WriteConfiguredValue("voice_input", slot, EscapeTomlBasicString(value));
+        }
+    }
+    else if (key == "polish_token")
+    {
+        const std::string slot = VoiceInput::PolishTokenSlotKey(g_voice_input.polish_provider);
+        if (!slot.empty())
+        {
+            const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
+            g_voice_input.polish_tokens[id] = value;
+            WriteConfiguredValue("voice_input", slot, EscapeTomlBasicString(value));
+        }
+    }
+    else if (key == "asr_provider")
+    {
+        persist("asr_token", VoiceInput::ResolveAsrToken(g_voice_input), g_voice_input.asr_token);
+    }
+    else if (key == "polish_provider")
+    {
+        persist("polish_token", VoiceInput::ResolvePolishToken(g_voice_input), g_voice_input.polish_token);
+    }
     return true;
 }
 

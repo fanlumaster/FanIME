@@ -27,6 +27,7 @@ class DoubaoAsrClient
     bool Start();
     void PushFloatSamples(const float *samples, std::size_t count);
     std::string Finish();
+    std::string LastError() const;
     void Cancel();
 
   private:
@@ -45,4 +46,5 @@ class DoubaoAsrClient
     bool started_ = false;
     std::thread worker_;
     std::string result_;
+    std::string error_;
 };
