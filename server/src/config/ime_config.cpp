@@ -107,6 +107,23 @@ FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
 
+const std::vector<std::string_view> &AiAssistantProviders()
+{
+    static const std::vector<std::string_view> providers{"deepseek", "openai", "siliconflow", "groq"};
+    return providers;
+}
+
+std::string AiAssistantTokenSlotKey(std::string_view provider)
+{
+    const std::string id = VoiceInput::NormalizeProviderId(provider);
+    for (const auto known : AiAssistantProviders())
+    {
+        if (id == known)
+            return "token_" + id;
+    }
+    return {};
+}
+
 class ConfigFileLock
 {
   public:
@@ -836,8 +853,24 @@ bool LoadImeConfig()
             g_voice_input.commit_mode = "tsf";
         }
         g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
-        g_ai_assistant.provider = tbl["ai_assistant"]["provider"].value_or(std::string("deepseek"));
+        g_ai_assistant.provider = VoiceInput::NormalizeProviderId(
+            tbl["ai_assistant"]["provider"].value_or(std::string("deepseek")));
+        if (AiAssistantTokenSlotKey(g_ai_assistant.provider).empty())
+            g_ai_assistant.provider = "deepseek";
         g_ai_assistant.token = tbl["ai_assistant"]["token"].value_or(std::string());
+        g_ai_assistant.tokens.clear();
+        for (const auto provider : AiAssistantProviders())
+        {
+            const std::string id(provider);
+            g_ai_assistant.tokens[id] = VoiceInput::UsableToken(
+                tbl["ai_assistant"][AiAssistantTokenSlotKey(id)].value_or(std::string()));
+        }
+        {
+            std::string &stored = g_ai_assistant.tokens[g_ai_assistant.provider];
+            if (stored.empty())
+                stored = VoiceInput::UsableToken(g_ai_assistant.token);
+            g_ai_assistant.token = stored;
+        }
         g_ai_assistant.endpoint =
             tbl["ai_assistant"]["endpoint"].value_or(std::string("https://api.deepseek.com/chat/completions"));
         g_ai_assistant.model = tbl["ai_assistant"]["model"].value_or(std::string("deepseek-v4-flash"));
@@ -2485,9 +2518,34 @@ bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value)
 
 bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value)
 {
+    const auto persist = [](const std::string &toml_key, const std::string &toml_value, std::string &target) {
+        if (!WriteConfiguredValue("ai_assistant", toml_key, EscapeTomlBasicString(toml_value)))
+            return false;
+        target = toml_value;
+        return true;
+    };
+
+    if (key.rfind("token_", 0) == 0)
+    {
+        const std::string provider = key.substr(std::string("token_").size());
+        if (AiAssistantTokenSlotKey(provider) != key)
+            return false;
+        if (!WriteConfiguredValue("ai_assistant", key, EscapeTomlBasicString(value)))
+            return false;
+        const std::string id = VoiceInput::NormalizeProviderId(provider);
+        g_ai_assistant.tokens[id] = value;
+        if (g_ai_assistant.provider == id)
+            persist("token", value, g_ai_assistant.token);
+        return true;
+    }
+
     std::string *target = nullptr;
     if (key == "provider")
+    {
+        if (AiAssistantTokenSlotKey(value).empty())
+            return false;
         target = &g_ai_assistant.provider;
+    }
     else if (key == "token")
         target = &g_ai_assistant.token;
     else if (key == "endpoint")
@@ -2498,7 +2556,17 @@ bool SetConfiguredAiAssistantString(const std::string &key, const std::string &v
         target = &g_ai_assistant.prompt;
     if (!target || !WriteConfiguredValue("ai_assistant", key, EscapeTomlBasicString(value)))
         return false;
-    *target = value;
+    *target = key == "provider" ? VoiceInput::NormalizeProviderId(value) : value;
+    if (key == "provider")
+    {
+        persist("token", g_ai_assistant.tokens[g_ai_assistant.provider], g_ai_assistant.token);
+    }
+    else if (key == "token")
+    {
+        const std::string slot = AiAssistantTokenSlotKey(g_ai_assistant.provider);
+        g_ai_assistant.tokens[g_ai_assistant.provider] = value;
+        WriteConfiguredValue("ai_assistant", slot, EscapeTomlBasicString(value));
+    }
     return true;
 }
 

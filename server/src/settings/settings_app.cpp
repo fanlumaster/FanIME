@@ -321,7 +321,7 @@ void PostConfig()
             {"commit_mode", voice.commit_mode}}},
           {"ai_assistant",
            {{"enabled", ai.enabled}, {"provider", ai.provider}, {"token", ai.token},
-            {"endpoint", ai.endpoint}, {"model", ai.model},
+            {"tokens", ai.tokens}, {"endpoint", ai.endpoint}, {"model", ai.model},
             {"candidate_limit", ai.candidate_limit}, {"prompt", ai.prompt}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},

@@ -54,8 +54,10 @@ struct VoiceInputConfig
 struct AiAssistantConfig
 {
     bool enabled = false;
+    // deepseek | openai | siliconflow | groq (all use Chat Completions)
     std::string provider = "deepseek";
     std::string token;
+    std::map<std::string, std::string> tokens;
     std::string endpoint = "https://api.deepseek.com/chat/completions";
     std::string model = "deepseek-v4-flash";
     int candidate_limit = 3;
