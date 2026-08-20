@@ -9,6 +9,7 @@ const fields: Record<string, string> = {
   voiceAsrToken: 'voice_input.asr_token',
   voiceAsrEndpoint: 'voice_input.asr_endpoint',
   voiceAsrModel: 'voice_input.asr_model',
+  voiceDoubaoBoostingTableId: 'voice_input.doubao_boosting_table_id',
   voicePolishToken: 'voice_input.polish_token',
   voicePolishEndpoint: 'voice_input.polish_endpoint',
   voicePolishModel: 'voice_input.polish_model'
@@ -186,6 +187,7 @@ function syncAsrProviderUi(provider: string): void {
   const doubao = provider === 'doubao';
   setHidden('voiceAsrAppKeyField', !doubao);
   setHidden('voiceAsrModelField', doubao);
+  setHidden('voiceDoubaoOptions', !doubao);
   const model = document.getElementById('voiceAsrModel') as HTMLInputElement | null;
   const defaults = ASR_DEFAULTS[provider];
   if (model && defaults?.model) model.placeholder = defaults.model;
@@ -280,6 +282,9 @@ export function setupVoiceInput(): void {
   setupToggleButton('voicePolishText', value => updateConfig('voice_input.polish_text', value));
   setupToggleButton('voiceStreamInlinePreedit', value => updateConfig('voice_input.stream_inline_preedit', value));
   setupToggleButton('voiceMuteSystemAudio', value => updateConfig('voice_input.mute_system_audio', value));
+  setupToggleButton('voiceDoubaoEnableItn', value => updateConfig('voice_input.doubao_enable_itn', value));
+  setupToggleButton('voiceDoubaoEnablePunc', value => updateConfig('voice_input.doubao_enable_punc', value));
+  setupToggleButton('voiceDoubaoEnableDdc', value => updateConfig('voice_input.doubao_enable_ddc', value));
   setupTokenVisibilityToggle('voiceAsrToken', 'voiceAsrTokenVisibility', 'Access Token / API Key');
   setupTokenVisibilityToggle('voicePolishToken', 'voicePolishTokenVisibility', 'API Token');
   setupToggleButton('voiceSoundEnabled', value => {
@@ -454,6 +459,15 @@ export function applyVoiceConfig(config: Record<string, unknown>): void {
   const endSound = typeof config.end_sound === 'boolean' ? config.end_sound : legacySound;
   if (typeof startSound === 'boolean') applyToggleState('voiceStartSound', startSound);
   if (typeof endSound === 'boolean') applyToggleState('voiceEndSound', endSound);
+  if (typeof config.doubao_enable_itn === 'boolean') {
+    applyToggleState('voiceDoubaoEnableItn', config.doubao_enable_itn);
+  }
+  if (typeof config.doubao_enable_punc === 'boolean') {
+    applyToggleState('voiceDoubaoEnablePunc', config.doubao_enable_punc);
+  }
+  if (typeof config.doubao_enable_ddc === 'boolean') {
+    applyToggleState('voiceDoubaoEnableDdc', config.doubao_enable_ddc);
+  }
   syncSoundMaster();
   applyingConfig = false;
 }

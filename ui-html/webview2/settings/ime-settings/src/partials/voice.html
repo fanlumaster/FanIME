@@ -77,6 +77,14 @@
       </div>
       <label class="voice-wide"><span>接口地址</span><input id="voiceAsrEndpoint" type="url" autocomplete="off"></label>
     </div>
+    <div class="voice-doubao-options" id="voiceDoubaoOptions">
+      <div class="section-title voice-doubao-options-title">豆包识别选项</div>
+      <div class="voice-basic-row"><div><span>数字格式化</span><div class="voice-description">将口述数字转换为常用数字格式（ITN）</div></div><div class="ftb-toggle-btn active" id="voiceDoubaoEnableItn" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <div class="voice-basic-row"><div><span>标点预测</span><div class="voice-description">根据语义自动补充标点符号</div></div><div class="ftb-toggle-btn active" id="voiceDoubaoEnablePunc" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <div class="voice-basic-row"><div><span>语义顺滑</span><div class="voice-description">减少重复、犹豫和口头语；与文本润色同时开启时可能产生二次改写</div></div><div class="ftb-toggle-btn" id="voiceDoubaoEnableDdc" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <label class="voice-doubao-hotword"><span>热词表 ID</span><input id="voiceDoubaoBoostingTableId" type="text" autocomplete="off" spellcheck="false" placeholder="在豆包语音自学习平台创建后填写"></label>
+      <div class="voice-description">每次识别使用一张热词表；留空时不使用热词。</div>
+    </div>
   </div>
 
   <div class="section voice-section">

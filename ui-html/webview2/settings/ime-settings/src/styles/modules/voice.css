@@ -276,6 +276,51 @@
 }
 
 #voiceAsrAppKeyField.is-hidden,
-#voiceAsrModelField.is-hidden {
+#voiceAsrModelField.is-hidden,
+#voiceDoubaoOptions.is-hidden {
   display: none;
+}
+
+.voice-doubao-options {
+  margin-top: 20px;
+}
+
+.voice-doubao-options-title {
+  margin-bottom: 4px;
+}
+
+.voice-doubao-options .voice-basic-row {
+  min-height: 50px;
+}
+
+.voice-doubao-options .voice-basic-row .voice-description {
+  margin-top: 2px;
+}
+
+.voice-doubao-hotword {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.voice-doubao-hotword input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--text-color);
+  background: var(--surface-sunken);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  outline: none;
+  font: inherit;
+}
+
+.voice-doubao-hotword input:focus {
+  border-color: var(--accent-color);
+  background: var(--control-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent);
 }
