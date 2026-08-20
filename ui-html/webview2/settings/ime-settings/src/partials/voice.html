@@ -39,9 +39,25 @@
 
   <div class="section voice-section">
     <div class="section-title voice-heading">ASR API</div>
+    <div class="voice-description">豆包为流式识别；OpenAI、SiliconFlow、Groq 走 OpenAI 兼容的语音转写接口。每个提供商的 Token 分开保存，切换时只换当前使用的那一份。</div>
     <div class="voice-grid">
-      <label><span>服务提供商</span><input id="voiceAsrProvider" type="text" autocomplete="off"></label>
-      <label><span>App ID / App Key</span><input id="voiceAsrAppKey" type="text" autocomplete="off"></label>
+      <div class="voice-field">
+        <span>服务提供商</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="voiceAsrProviderBtn" type="button">
+            <span>豆包</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="voiceAsrProviderMenu">
+            <div class="dropdown-item" data-value="doubao">豆包</div>
+            <div class="dropdown-item" data-value="openai">OpenAI</div>
+            <div class="dropdown-item" data-value="siliconflow">SiliconFlow</div>
+            <div class="dropdown-item" data-value="groq">Groq</div>
+          </div>
+        </div>
+      </div>
+      <label id="voiceAsrAppKeyField"><span>App ID / App Key</span><input id="voiceAsrAppKey" type="text" autocomplete="off"></label>
+      <label id="voiceAsrModelField"><span>模型</span><input id="voiceAsrModel" type="text" autocomplete="off" spellcheck="false" placeholder="whisper-1"></label>
       <div class="voice-field voice-wide">
         <label for="voiceAsrToken">Access Token / API Key</label>
         <span class="voice-secret-input">
@@ -65,9 +81,25 @@
 
   <div class="section voice-section">
     <div class="section-header voice-heading"><div class="section-title">文本润色 API</div><div class="ftb-toggle-btn" id="voicePolishText" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+    <div class="voice-description">SiliconFlow、OpenAI、DeepSeek、Groq 均走 OpenAI 兼容的 Chat Completions 接口。</div>
     <div class="voice-grid">
-      <label><span>服务提供商</span><input id="voicePolishProvider" type="text" autocomplete="off"></label>
       <div class="voice-field">
+        <span>服务提供商</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="voicePolishProviderBtn" type="button">
+            <span>SiliconFlow</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="voicePolishProviderMenu">
+            <div class="dropdown-item" data-value="siliconflow">SiliconFlow</div>
+            <div class="dropdown-item" data-value="openai">OpenAI</div>
+            <div class="dropdown-item" data-value="deepseek">DeepSeek</div>
+            <div class="dropdown-item" data-value="groq">Groq</div>
+          </div>
+        </div>
+      </div>
+      <label><span>模型</span><input id="voicePolishModel" type="text" autocomplete="off" spellcheck="false" placeholder="Qwen/Qwen3-8B"></label>
+      <div class="voice-field voice-wide">
         <label for="voicePolishToken">API Token</label>
         <span class="voice-secret-input">
           <input id="voicePolishToken" type="password" autocomplete="off" spellcheck="false">
@@ -86,6 +118,26 @@
       </div>
       <label class="voice-wide"><span>接口地址</span><input id="voicePolishEndpoint" type="url" autocomplete="off"></label>
     </div>
+    <div class="voice-prompt-header">
+      <div class="voice-field">
+        <span>润色提示词</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="voicePolishPromptBtn" type="button">
+            <span>精炼整理</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="voicePolishPromptMenu">
+            <div class="dropdown-item" data-value="cleanup">精炼整理</div>
+            <div class="dropdown-item" data-value="faithful">忠实校对</div>
+            <div class="dropdown-item" data-value="zh2en">中翻英</div>
+            <div class="dropdown-item" data-value="casual">口语整理</div>
+            <div class="dropdown-item" data-value="custom">自定义</div>
+          </div>
+        </div>
+      </div>
+      <button class="voice-prompt-reset" id="voicePolishPromptReset" type="button">恢复默认</button>
+    </div>
+    <textarea id="voicePolishPrompt" class="voice-prompt" autocomplete="off" spellcheck="false" placeholder="选择预设后可直接使用，也可改成自己的提示词。"></textarea>
   </div>
 
   <div class="section voice-section">

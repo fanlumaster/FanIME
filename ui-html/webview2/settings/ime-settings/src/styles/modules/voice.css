@@ -3,7 +3,11 @@
 }
 
 .voice-heading {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
+}
+
+.voice-section > .voice-description {
+  margin: -6px 0 16px;
 }
 
 .voice-description {
@@ -182,4 +186,96 @@
 .voice-language-menu,
 .voice-commit-menu {
   min-width: 132px;
+}
+
+.voice-grid .dropdown {
+  display: block;
+  width: 100%;
+}
+
+.voice-grid .dropdown-toggle {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.voice-grid .dropdown-menu {
+  left: 0;
+  right: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.voice-prompt-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 18px 0 10px;
+}
+
+.voice-prompt-header .voice-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.voice-prompt-header .dropdown {
+  display: block;
+  width: min(220px, 100%);
+}
+
+.voice-prompt-header .dropdown-toggle {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.voice-prompt-reset {
+  margin-bottom: 1px;
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.voice-prompt-reset:hover {
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+.voice-prompt {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 220px;
+  padding: 10px 12px;
+  color: var(--text-color);
+  background: var(--surface-sunken);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  outline: none;
+  font: inherit;
+  line-height: 1.65;
+  resize: vertical;
+}
+
+.voice-prompt:focus {
+  border-color: var(--accent-color);
+  background: var(--control-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent);
+}
+
+#voiceAsrAppKeyField.is-hidden,
+#voiceAsrModelField.is-hidden {
+  display: none;
 }
