@@ -157,6 +157,14 @@
               fill="#1a1a1a" />
           </svg>
         </div>
+        <!-- 日文状态 -->
+        <div class="icon" id="ja" style="display: none" title="日文">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M5 4.4H19V5.9H5V4.4ZM5 18.1H19V19.6H5V18.1ZM5 4.4H6.5V19.6H5V4.4ZM17.5 4.4H19V19.6H17.5V4.4ZM6.5 11.25H17.5V12.75H6.5V11.25Z"
+              fill="#1a1a1a" />
+          </svg>
+        </div>
         <!-- 英文状态 -->
         <div class="icon" id="en">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -284,11 +292,19 @@
   // Default status is CN
   document.getElementById('en').style.display = 'none';
   document.getElementById('en-candidate').style.display = 'none';
+  const jaIcon = document.getElementById('ja');
+  if (jaIcon) jaIcon.style.display = 'none';
   // document.getElementById('cn').style.display = 'none';
   // 中英切换点击，向 Cpp 端发送消息
   document.getElementById('cn').addEventListener('click', () => {
     window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
   });
+  const jaButton = document.getElementById('ja');
+  if (jaButton) {
+    jaButton.addEventListener('click', () => {
+      window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
+    });
+  }
   document.getElementById('en').addEventListener('click', () => {
     window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'cn' }));
   });
