@@ -5,6 +5,8 @@ import { updateCandidatePreviewHelpcode } from './appearance';
 type InputScheme = 'quanpin' | 'shuangpin' | 'wubi';
 type InputMode = 'chinese' | 'japanese';
 
+let applyingInputConfig = false;
+
 function updateInputConfig(path: string, value: string): void {
   window.chrome?.webview?.postMessage(JSON.stringify({
     type: 'configUpdate',
@@ -22,7 +24,9 @@ export function applyInputConfig(
   imeModeScope?: string | undefined,
   japaneseSchema?: string | undefined
 ): void {
-  const mode: InputMode = inputMode === 'japanese' ? 'japanese' : 'chinese';
+  applyingInputConfig = true;
+  try {
+    const mode: InputMode = inputMode === 'japanese' ? 'japanese' : 'chinese';
   const modeRadio = document.querySelector<HTMLInputElement>(`input[name="input-mode"][value="${mode}"]`);
   if (modeRadio) modeRadio.checked = true;
   syncInputModeView(mode);
@@ -44,6 +48,9 @@ export function applyInputConfig(
     `input[name="japanese-input-method"][value="${japaneseSchema === 'romaji' ? japaneseSchema : 'romaji'}"]`
   );
   if (japaneseRadio) japaneseRadio.checked = true;
+  } finally {
+    applyingInputConfig = false;
+  }
 }
 
 function syncInputModeView(mode: InputMode): void {
@@ -79,6 +86,7 @@ export function applyZhEnMixedInputConfig(enabled?: boolean, minChars?: number):
 export function setupInput(): void {
   document.querySelectorAll<HTMLInputElement>('input[name="input-mode"]').forEach((radio) => {
     radio.addEventListener('change', () => {
+      if (applyingInputConfig) return;
       if (!radio.checked || (radio.value !== 'chinese' && radio.value !== 'japanese')) return;
       const mode = radio.value as InputMode;
       syncInputModeView(mode);
@@ -88,7 +96,9 @@ export function setupInput(): void {
 
   document.querySelectorAll<HTMLInputElement>('input[name="japanese-input-method"]').forEach((radio) => {
     radio.addEventListener('change', () => {
-      if (radio.checked && radio.value === 'romaji') updateInputConfig('input.japanese_schema', radio.value);
+      if (radio.checked && radio.value === 'romaji' && !applyingInputConfig) {
+        updateInputConfig('input.japanese_schema', radio.value);
+      }
     });
   });
 
@@ -97,6 +107,7 @@ export function setupInput(): void {
   setupDropdownMenu('imeModeScopeBtn', 'imeModeScopeMenu', '', true, 'input.ime_mode_scope');
   document.querySelectorAll<HTMLInputElement>('input[name="input-method"]').forEach((radio) => {
     radio.addEventListener('change', () => {
+      if (applyingInputConfig) return;
       if (!radio.checked || (radio.value !== 'quanpin' && radio.value !== 'shuangpin' && radio.value !== 'wubi')) {
         return;
       }
