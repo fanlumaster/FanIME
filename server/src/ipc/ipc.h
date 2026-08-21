@@ -367,8 +367,10 @@ constexpr UINT UpdateVoiceComposition = 15;
 constexpr UINT CancelVoiceComposition = 16;
 // Streaming ASR: replace the inline composition with this snapshot and commit.
 constexpr UINT CommitVoiceComposition = 17;
+// Payload "1" when input.mode is Japanese, otherwise "0".
+constexpr UINT InputModeChanged = 18;
 // Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = CommitVoiceComposition;
+constexpr UINT MaxKnown = InputModeChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

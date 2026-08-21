@@ -956,6 +956,9 @@ void ApplyConfiguredFloatingToolbarSize()
 void ApplyConfiguredInputScheme()
 {
     FanyNamedPipe::EnqueueReloadInputSessionTask();
+    UpdateFtbInputModeState(::webviewFtbWnd);
+    BroadcastToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged,
+                                           GetConfiguredInputMode() == "japanese" ? L"1" : L"0");
 }
 
 void ApplyConfiguredShuangpinSchema()

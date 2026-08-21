@@ -759,21 +759,40 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
     }
 
     std::wstring script;
-    script.reserve(896);
+    script.reserve(1280);
+    const bool japanese_mode = GetConfiguredInputMode() == "japanese";
+    constexpr wchar_t kHideJa[] = L"{const ja=document.getElementById('ja');if(ja)ja.style.display='none';}";
+    constexpr wchar_t kShowJa[] = L"{const ja=document.getElementById('ja');if(ja)ja.style.display='flex';}";
     if (floatingToolbarState.cn_en == 1)
     {
-        script.append(floatingToolbarState.english_input_mode == 1
-                          ? L"document.getElementById('cn').style.display = 'none';"
-                            L"document.getElementById('en-candidate').style.display = 'flex';"
-                          : L"document.getElementById('cn').style.display = 'flex';"
-                            L"document.getElementById('en-candidate').style.display = 'none';");
-        script.append(L"document.getElementById('en').style.display = 'none';");
+        if (floatingToolbarState.english_input_mode == 1)
+        {
+            script.append(L"document.getElementById('cn').style.display = 'none';"
+                          L"document.getElementById('en-candidate').style.display = 'flex';"
+                          L"document.getElementById('en').style.display = 'none';");
+            script.append(kHideJa);
+        }
+        else if (japanese_mode)
+        {
+            script.append(L"document.getElementById('cn').style.display = 'none';"
+                          L"document.getElementById('en-candidate').style.display = 'none';"
+                          L"document.getElementById('en').style.display = 'none';");
+            script.append(kShowJa);
+        }
+        else
+        {
+            script.append(L"document.getElementById('cn').style.display = 'flex';"
+                          L"document.getElementById('en-candidate').style.display = 'none';"
+                          L"document.getElementById('en').style.display = 'none';");
+            script.append(kHideJa);
+        }
     }
     else
     {
         script.append(L"document.getElementById('cn').style.display = 'none';");
         script.append(L"document.getElementById('en-candidate').style.display = 'none';");
         script.append(L"document.getElementById('en').style.display = 'flex';");
+        script.append(kHideJa);
     }
 
     if (floatingToolbarState.double_single_byte == 1)
@@ -3741,6 +3760,11 @@ void UpdateFtbEnglishInputModeState(ComPtr<ICoreWebView2> webview, int enabled)
 }
 
 void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview)
+{
+    RenderFloatingToolbarState(webview.Get());
+}
+
+void UpdateFtbInputModeState(ComPtr<ICoreWebView2> webview)
 {
     RenderFloatingToolbarState(webview.Get());
 }
