@@ -34,6 +34,8 @@
 #include "ipc/event_listener.h"
 #include "utils/ime_utils.h"
 #include "cloud/cloud_ime.h"
+#include "cloud/cloud_translation.h"
+#include "cloud/translation_gloss.h"
 #include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "config/ime_config.h"
@@ -87,6 +89,8 @@ bool BuildTranslationQuery(const WordItem &item, EnglishIme::TranslationQuery &q
     // converted to traditional Chinese at render/commit time.
     const std::string visible = item.word;
     if (visible.empty())
+        return false;
+    if (item.source == CandidateSource::Emoji || item.source == CandidateSource::Kaomoji)
         return false;
     if (item.source == CandidateSource::EnglishDictionary && !item.pinyin.empty())
     {
@@ -953,8 +957,10 @@ std::string BuildCurrentCandidatePage()
 
 void PrepareCandidateTranslationRequest()
 {
+    const bool japanese =
+        g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji;
     const bool enabled = GetConfiguredCandidateTranslationsEnabled() &&
-                         GetConfiguredCandidateWindowLayout() == "vertical" && !IsUiLessMode();
+                         GetConfiguredCandidateWindowLayout() == "vertical" && !IsUiLessMode() && !japanese;
     auto &ui = Global::candidate_ui;
     if (!enabled || ui.items.empty())
     {
@@ -963,6 +969,7 @@ void PrepareCandidateTranslationRequest()
             g_candidate_translation_signature.clear();
             g_candidate_translation_glosses.clear();
             EnglishIme::ClearTranslations();
+            CloudTranslation::Clear();
         }
         return;
     }
@@ -988,6 +995,7 @@ void PrepareCandidateTranslationRequest()
         return;
     g_candidate_translation_signature = std::move(signature);
     g_candidate_translation_glosses.clear();
+    CloudTranslation::Clear();
     EnglishIme::RequestTranslations(std::move(queries));
 }
 
@@ -1274,6 +1282,7 @@ struct Task
     uint64_t english_generation = 0;
     std::vector<EnglishIme::TranslationResult> translation_results;
     uint64_t translation_generation = 0;
+    bool translation_merge = false;
     std::vector<WordItem> emoji_candidates;
     std::string emoji_input;
     uint64_t emoji_generation = 0;
@@ -1341,7 +1350,8 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
-void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation);
+void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation,
+                                bool merge);
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void ApplyKaomojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word, bool pinyin_is_canonical = false);
@@ -1471,7 +1481,8 @@ void WorkerThread()
         }
 
         case TaskType::ApplyCandidateTranslations: {
-            ApplyCandidateTranslations(std::move(task.translation_results), task.translation_generation);
+            ApplyCandidateTranslations(std::move(task.translation_results), task.translation_generation,
+                                       task.translation_merge);
             break;
         }
 
@@ -1894,7 +1905,7 @@ void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::strin
     pipe_queueCv.notify_one();
 }
 
-void EnqueueCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation)
+void EnqueueCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation, bool merge)
 {
     {
         std::lock_guard lock(queueMutex);
@@ -1902,6 +1913,7 @@ void EnqueueCandidateTranslations(std::vector<EnglishIme::TranslationResult> res
         task.type = TaskType::ApplyCandidateTranslations;
         task.translation_results = std::move(results);
         task.translation_generation = generation;
+        task.translation_merge = merge;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -3085,22 +3097,34 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
     RefreshCandidatePageUi(true);
 }
 
-void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation)
+void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation, bool merge)
 {
     if (!EnglishIme::IsTranslationCurrent(generation) || !GetConfiguredCandidateTranslationsEnabled() ||
         GetConfiguredCandidateWindowLayout() != "vertical" || IsUiLessMode() ||
-        g_candidate_translation_signature.empty())
+        g_candidate_translation_signature.empty() ||
+        (g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji))
         return;
 
-    g_candidate_translation_glosses.clear();
+    if (!merge)
+        g_candidate_translation_glosses.clear();
+
+    std::vector<EnglishIme::TranslationQuery> misses;
     for (auto &result : results)
     {
-        if (!result.gloss.empty())
-            g_candidate_translation_glosses[TranslationIdentity({result.key, result.direction})] = std::move(result.gloss);
+        std::string gloss = std::move(result.gloss);
+        if (gloss.empty() && !merge)
+            gloss = CloudTranslation::LookupCache(result.key, result.direction);
+        if (!gloss.empty())
+            g_candidate_translation_glosses[TranslationIdentity({result.key, result.direction})] = std::move(gloss);
+        else if (!merge && result.direction == EnglishIme::TranslationDirection::ChineseToEnglish &&
+                 CloudTranslation::IsCloudTranslatableChinese(result.key))
+            misses.push_back({result.key, result.direction});
     }
     const FanyImeIpc::CandidateUiOwner owner = SnapshotCandidateUiOwner();
     if (owner && IsPipeActivationCurrent(owner.client_id, owner.activation_epoch))
         RefreshCandidatePageUi(true);
+    if (!merge)
+        CloudTranslation::RequestMisses(std::move(misses), generation);
 }
 
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
@@ -3630,6 +3654,7 @@ void ClearState()
     g_candidate_translation_signature.clear();
     g_candidate_translation_glosses.clear();
     EnglishIme::ClearTranslations();
+    CloudTranslation::Clear();
     UpdateEmojiInput("");
     UpdateKaomojiInput("");
     UpdateAiInput("");

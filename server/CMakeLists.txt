@@ -91,6 +91,12 @@ set(SRC_FILES
     "./src/clipboard/clipboard_history.h"
     "./src/cloud/cloud_ime.cpp"
     "./src/cloud/cloud_ime.h"
+    "./src/cloud/cloud_translation.cpp"
+    "./src/cloud/cloud_translation.h"
+    "./src/cloud/tencent_tmt.cpp"
+    "./src/cloud/tencent_tmt.h"
+    "./src/cloud/translation_gloss.cpp"
+    "./src/cloud/translation_gloss.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/conversion/chinese_converter.cpp"
@@ -235,7 +241,7 @@ add_dependencies(${PROJECT_NAME} Dictionaries)
 target_link_libraries(${PROJECT_NAME} PRIVATE winhttp)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 target_link_libraries(${PROJECT_NAME} PRIVATE ZLIB::ZLIB)
-target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore ole32)
+target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore ole32 bcrypt)
 
 add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
     "./src/user-dictionary-replay/main.cpp"

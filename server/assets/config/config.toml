@@ -46,6 +46,15 @@ cloud_candidates = true
 # TODO: 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。
 clean_mode = false
 
+#
+# 腾讯云机器翻译（竖排候选项本地词库未命中时的补全）
+#
+[tencent_tmt]
+enabled = true
+secret_id = ""
+secret_key = ""
+region = "ap-guangzhou"
+
 [frequency_adjustment]
 # disabled / pin / halve / linear / promote
 mode = "promote"

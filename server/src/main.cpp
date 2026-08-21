@@ -13,6 +13,7 @@
 #include <fmt/xchar.h>
 #include <spdlog/spdlog.h>
 #include "cloud/cloud_ime.h"
+#include "cloud/cloud_translation.h"
 #include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "emoji/emoji_ime.h"
@@ -153,6 +154,10 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
                       [](std::vector<EnglishIme::TranslationResult> results, uint64_t generation) {
                           FanyNamedPipe::EnqueueCandidateTranslations(std::move(results), generation);
                       });
+    CloudTranslation::Start(CommonUtils::get_ime_data_path() + "\\english.db",
+                            [](std::vector<EnglishIme::TranslationResult> results, uint64_t generation) {
+                                FanyNamedPipe::EnqueueCandidateTranslations(std::move(results), generation, true);
+                            });
     EmojiIme::Start(CommonUtils::get_ime_data_path() + "\\others.db",
                     [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
                         FanyNamedPipe::EnqueueEmojiCandidates(std::move(candidates), input, generation);
@@ -168,6 +173,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     ShutdownWebviews();
 
     EnglishIme::Stop();
+    CloudTranslation::Stop();
     EmojiIme::Stop();
     KaomojiIme::Stop();
     AiAssistant::Stop();

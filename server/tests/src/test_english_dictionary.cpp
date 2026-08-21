@@ -130,3 +130,13 @@ TEST_CASE(EnglishDictionaryQueriesBothGlossDirections)
     REQUIRE_EQ(dictionary.query_english_gloss("实现"), std::string("realize; implement"));
     REQUIRE(dictionary.query_chinese_gloss("missing").empty());
 }
+
+TEST_CASE(EnglishDictionaryUpsertsGlossForCloudFallback)
+{
+    TemporaryEnglishDatabase database;
+    EnglishDictionary dictionary(database.path().string());
+    REQUIRE(EnglishDictionary::upsert_gloss(database.path().string(), true, "水杉", "metasequoia"));
+    REQUIRE_EQ(dictionary.query_english_gloss("水杉"), std::string("metasequoia"));
+    REQUIRE(EnglishDictionary::upsert_gloss(database.path().string(), false, "metasequoia", "水杉"));
+    REQUIRE_EQ(dictionary.query_chinese_gloss("metasequoia"), std::string("水杉"));
+}

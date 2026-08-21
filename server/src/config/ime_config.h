@@ -92,6 +92,14 @@ struct AiAssistantConfig
 候选按推荐程度降序排列，数量不超过指定上限；没有合理结果时返回空数组。)PROMPT";
 };
 
+struct TencentTmtConfig
+{
+    bool enabled = true;
+    std::string secret_id;
+    std::string secret_key;
+    std::string region = "ap-guangzhou";
+};
+
 struct FrequencyAdjustmentConfig
 {
     std::string mode = "promote"; // disabled | pin | halve | linear | promote
@@ -272,6 +280,7 @@ const VoiceInputConfig &GetConfiguredVoiceInput();
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value);
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
 const AiAssistantConfig &GetConfiguredAiAssistant();
+const TencentTmtConfig &GetConfiguredTencentTmt();
 const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment();
 bool SetConfiguredFrequencyAdjustmentString(const std::string &key, const std::string &value);
 bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value);

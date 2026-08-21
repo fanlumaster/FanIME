@@ -107,6 +107,7 @@ VoiceInputConfig g_voice_input;
 bool g_persist_asr_token_slot = false;
 bool g_persist_polish_token_slot = false;
 AiAssistantConfig g_ai_assistant;
+TencentTmtConfig g_tencent_tmt;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
@@ -916,6 +917,12 @@ bool LoadImeConfig()
         g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
                               : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
                                                                         : g_ai_assistant.prompt_custom_1;
+        g_tencent_tmt.enabled = tbl["tencent_tmt"]["enabled"].value_or(true);
+        g_tencent_tmt.secret_id = tbl["tencent_tmt"]["secret_id"].value_or(std::string());
+        g_tencent_tmt.secret_key = tbl["tencent_tmt"]["secret_key"].value_or(std::string());
+        g_tencent_tmt.region = tbl["tencent_tmt"]["region"].value_or(std::string("ap-guangzhou"));
+        if (g_tencent_tmt.region.empty())
+            g_tencent_tmt.region = "ap-guangzhou";
         RememberConfigWriteTime();
         return true;
     }
@@ -2640,6 +2647,11 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
 const AiAssistantConfig &GetConfiguredAiAssistant()
 {
     return g_ai_assistant;
+}
+
+const TencentTmtConfig &GetConfiguredTencentTmt()
+{
+    return g_tencent_tmt;
 }
 
 const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment()
