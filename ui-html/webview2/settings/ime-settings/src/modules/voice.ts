@@ -26,7 +26,7 @@ const ASR_DEFAULTS: Record<string, ProviderDefaults> = {
   },
   siliconflow: {
     endpoint: 'https://api.siliconflow.cn/v1/audio/transcriptions',
-    model: 'TeleAI/TeleSpeechASR'
+    model: 'FunAudioLLM/SenseVoiceSmall'
   },
   groq: {
     endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
@@ -115,6 +115,7 @@ let currentAsrProvider = 'doubao';
 let currentPolishProvider = 'siliconflow';
 let polishPresets: PolishPreset[] = FALLBACK_PRESETS.slice();
 let selectedPromptId = 'cleanup';
+let customPrompts: Record<string, string> = { custom_1: '', custom_2: '', custom_3: '' };
 let applyingConfig = false;
 
 function knownValues(table: Record<string, ProviderDefaults>, field: keyof ProviderDefaults): string[] {
@@ -206,7 +207,7 @@ function applyAsrProviderDefaults(provider: string): void {
   fillIfDefault(
     document.getElementById('voiceAsrModel') as HTMLInputElement | null,
     defaults.model,
-    [...knownValues(ASR_DEFAULTS, 'model'), 'FunAudioLLM/SenseVoiceSmall'],
+    [...knownValues(ASR_DEFAULTS, 'model'), 'TeleAI/TeleSpeechASR'],
     'voice_input.asr_model'
   );
 }
@@ -234,6 +235,14 @@ function builtinPrompt(id: string): string {
   return polishPresets.find((preset) => preset.id === id)?.prompt ?? '';
 }
 
+function isCustomPrompt(id: string): boolean {
+  return id === 'custom_1' || id === 'custom_2' || id === 'custom_3';
+}
+
+function customPromptPath(id: string): string {
+  return `voice_input.polish_prompt_${id}`;
+}
+
 function promptTextarea(): HTMLTextAreaElement | null {
   return document.getElementById('voicePolishPrompt') as HTMLTextAreaElement | null;
 }
@@ -241,24 +250,30 @@ function promptTextarea(): HTMLTextAreaElement | null {
 function fillPromptTextarea(id: string, storedPrompt?: string): void {
   const textarea = promptTextarea();
   if (!textarea) return;
-  textarea.value = storedPrompt || builtinPrompt(id);
+  textarea.value = isCustomPrompt(id) ? (customPrompts[id] ?? '') : (storedPrompt || builtinPrompt(id));
 }
 
 function onPromptPresetSelected(id: string): void {
-  selectedPromptId = id;
-  if (id === 'custom') {
-    const textarea = promptTextarea();
-    updateConfig('voice_input.polish_prompt', textarea?.value.trim() ?? '');
-    return;
+  const textarea = promptTextarea();
+  if (isCustomPrompt(selectedPromptId) && textarea) {
+    customPrompts[selectedPromptId] = textarea.value;
+    updateConfig(customPromptPath(selectedPromptId), textarea.value);
   }
+  selectedPromptId = id;
   fillPromptTextarea(id);
-  updateConfig('voice_input.polish_prompt', '');
+  if (!isCustomPrompt(id)) updateConfig('voice_input.polish_prompt', '');
 }
 
 function savePromptText(): void {
   if (applyingConfig) return;
   const textarea = promptTextarea();
-  updateConfig('voice_input.polish_prompt', textarea?.value ?? '');
+  const value = textarea?.value ?? '';
+  if (isCustomPrompt(selectedPromptId)) {
+    customPrompts[selectedPromptId] = value;
+    updateConfig(customPromptPath(selectedPromptId), value);
+  } else {
+    updateConfig('voice_input.polish_prompt', value);
+  }
 }
 
 function isToggleActive(id: string): boolean {
@@ -333,8 +348,8 @@ export function setupVoiceInput(): void {
   listenMenuSelection('voicePolishProviderMenu', switchPolishProvider);
   listenMenuSelection('voicePolishPromptMenu', onPromptPresetSelected);
   document.getElementById('voicePolishPromptReset')?.addEventListener('click', () => {
-    const id = selectedPromptId === 'custom' ? 'cleanup' : selectedPromptId;
-    if (selectedPromptId === 'custom') {
+    const id = isCustomPrompt(selectedPromptId) ? 'cleanup' : selectedPromptId;
+    if (isCustomPrompt(selectedPromptId)) {
       selectedPromptId = 'cleanup';
       applyDropdownValue('voicePolishPromptBtn', 'voicePolishPromptMenu', 'cleanup');
       updateConfig('voice_input.polish_prompt_id', 'cleanup');
@@ -445,6 +460,14 @@ export function applyVoiceConfig(config: Record<string, unknown>): void {
   const polishDefaults = POLISH_DEFAULTS[polishProvider];
   if (polishModel && polishDefaults?.model) polishModel.placeholder = polishDefaults.model;
   selectedPromptId = typeof config.polish_prompt_id === 'string' ? config.polish_prompt_id : 'cleanup';
+  if (selectedPromptId === 'custom') selectedPromptId = 'custom_1';
+  customPrompts = {
+    custom_1: typeof config.polish_prompt_custom_1 === 'string'
+      ? config.polish_prompt_custom_1
+      : (typeof config.polish_prompt === 'string' ? config.polish_prompt : ''),
+    custom_2: typeof config.polish_prompt_custom_2 === 'string' ? config.polish_prompt_custom_2 : '',
+    custom_3: typeof config.polish_prompt_custom_3 === 'string' ? config.polish_prompt_custom_3 : ''
+  };
   applyDropdownValue('voicePolishPromptBtn', 'voicePolishPromptMenu', selectedPromptId);
   fillPromptTextarea(
     selectedPromptId,

@@ -48,7 +48,22 @@
     </div>
   </div>
   <div class="section ai-section">
-    <div class="section-title ai-heading">自定义提示词</div>
+    <div class="ai-prompt-header">
+      <div class="ai-field">
+        <span>自定义提示词</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="aiPromptSlotBtn" type="button">
+            <span>自定义一</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="aiPromptSlotMenu">
+            <div class="dropdown-item" data-value="custom_1">自定义一</div>
+            <div class="dropdown-item" data-value="custom_2">自定义二</div>
+            <div class="dropdown-item" data-value="custom_3">自定义三</div>
+          </div>
+        </div>
+      </div>
+    </div>
     <textarea id="aiPrompt" class="ai-prompt" autocomplete="off" spellcheck="false"></textarea>
   </div>
 </div>

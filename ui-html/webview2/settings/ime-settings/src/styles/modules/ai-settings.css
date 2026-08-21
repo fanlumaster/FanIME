@@ -6,6 +6,26 @@
   margin-bottom: 18px;
 }
 
+.ai-prompt-header {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.ai-prompt-header .ai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 168px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ai-prompt-header .dropdown,
+.ai-prompt-header .dropdown-toggle {
+  width: 100%;
+}
+
 .ai-description.ai-api-description {
   margin-top: -10px;
   margin-bottom: 16px;
