@@ -38,6 +38,8 @@ constexpr int kEnglishMixedInputMinCharsDefault = 2;
 
 std::string g_session_backend = "legacy";
 SchemeType g_input_scheme = SchemeType::Shuangpin;
+std::string g_input_mode = "chinese";
+std::string g_japanese_schema = "romaji";
 std::string g_character_set = "simplified";
 std::string g_default_ime_mode = "chinese";
 std::string g_ime_mode_scope = "app";
@@ -606,6 +608,14 @@ bool LoadImeConfig()
         }
         g_session_backend = tbl["input"]["session_backend"].value_or(std::string("legacy"));
         g_input_scheme = ParseScheme(tbl["input"]["schema"].value_or(std::string("shuangpin")));
+        {
+            const std::string mode = tbl["input"]["mode"].value_or(std::string("chinese"));
+            g_input_mode = mode == "japanese" ? "japanese" : "chinese";
+        }
+        {
+            const std::string schema = tbl["input"]["japanese_schema"].value_or(std::string("romaji"));
+            g_japanese_schema = schema == "romaji" ? schema : "romaji";
+        }
         const std::string character_set = tbl["input"]["character_set"].value_or(std::string("simplified"));
         g_character_set = character_set == "traditional" ? "traditional" : "simplified";
         {
@@ -1412,6 +1422,11 @@ SchemeType GetConfiguredInputScheme()
     return g_input_scheme;
 }
 
+SchemeType GetConfiguredActiveInputScheme()
+{
+    return g_input_mode == "japanese" ? SchemeType::JapaneseRomaji : g_input_scheme;
+}
+
 std::string GetConfiguredInputSchemeName()
 {
     switch (g_input_scheme)
@@ -1819,6 +1834,44 @@ bool SetConfiguredEnglishCandidatesEnabled(bool enabled)
         return false;
     }
     g_english_candidates_enabled = enabled;
+    return true;
+}
+
+const std::string &GetConfiguredInputMode()
+{
+    return g_input_mode;
+}
+
+bool SetConfiguredInputMode(const std::string &mode)
+{
+    if (mode != "chinese" && mode != "japanese")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "mode", EscapeTomlBasicString(mode)))
+    {
+        return false;
+    }
+    g_input_mode = mode;
+    return true;
+}
+
+const std::string &GetConfiguredJapaneseSchema()
+{
+    return g_japanese_schema;
+}
+
+bool SetConfiguredJapaneseSchema(const std::string &schema)
+{
+    if (schema != "romaji")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "japanese_schema", EscapeTomlBasicString(schema)))
+    {
+        return false;
+    }
+    g_japanese_schema = schema;
     return true;
 }
 

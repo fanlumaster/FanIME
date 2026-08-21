@@ -2427,7 +2427,16 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                         {
                             const auto &data = val.at("data").as_object();
                             const std::string path = json::value_to<std::string>(data.at("path"));
-                            if (path == "input.schema")
+                            if (path == "input.mode")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredInputMode(value))
+                                {
+                                    ApplyConfiguredInputScheme();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "input.schema")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredInputScheme(value))
@@ -2738,6 +2747,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
                                 if (SetConfiguredEnglishCandidatesEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "input.japanese_schema")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredJapaneseSchema(value))
                                 {
                                     PostSettingsConfig();
                                 }
@@ -3070,7 +3087,9 @@ void PostSettingsConfig()
         {"type", "configSnapshot"},
         {"data",
          {{"input",
-           {{"schema", GetConfiguredInputSchemeName()},
+           {{"mode", GetConfiguredInputMode()},
+            {"schema", GetConfiguredInputSchemeName()},
+            {"japanese_schema", GetConfiguredJapaneseSchema()},
             {"character_set", GetConfiguredCharacterSet()},
             {"default_ime_mode", GetConfiguredDefaultImeMode()},
             {"ime_mode_scope", GetConfiguredImeModeScope()},

@@ -24,6 +24,7 @@ std::thread g_worker;
 std::atomic<bool> g_running{false};
 std::atomic<uint64_t> g_generation{0};
 std::string g_latest_pinyin;
+bool g_latest_japanese = false;
 std::chrono::steady_clock::time_point g_last_input_time;
 CloudIme::ApplyCallback g_apply_callback;
 
@@ -146,7 +147,7 @@ std::string ParseCandidate(const std::string &response)
 }
 
 // TODO: 可以添加其他的云服务接口，甚至是自己搭建的接口，暂时先只支持 Google 的接口，Google 带善人
-std::string FetchCloudCandidate(const std::string &pinyin, uint64_t generation)
+std::string FetchCloudCandidate(const std::string &pinyin, bool japanese, uint64_t generation)
 {
     if (pinyin.empty())
         return "";
@@ -155,7 +156,8 @@ std::string FetchCloudCandidate(const std::string &pinyin, uint64_t generation)
         return "";
 
     std::string encoded = UrlEncode(pinyin);
-    std::string path_utf8 = "/request?text=" + encoded + "&itc=zh-t-i0-pinyin&num=1&ie=utf-8&oe=utf-8";
+    const char *input_tool = japanese ? "ja-t-i0-und" : "zh-t-i0-pinyin";
+    std::string path_utf8 = "/request?text=" + encoded + "&itc=" + input_tool + "&num=1&ie=utf-8&oe=utf-8";
     std::wstring path(path_utf8.begin(), path_utf8.end());
 
     std::string response;
@@ -186,6 +188,7 @@ void WorkerLoop()
 
         observed_generation = g_generation.load();
         std::string pinyin = g_latest_pinyin;
+        bool japanese = g_latest_japanese;
         auto target_time = g_last_input_time + kIdleDelay;
 
         while (g_running)
@@ -197,6 +200,7 @@ void WorkerLoop()
                     return;
                 observed_generation = g_generation.load();
                 pinyin = g_latest_pinyin;
+                japanese = g_latest_japanese;
                 target_time = g_last_input_time + kIdleDelay;
                 continue;
             }
@@ -212,7 +216,7 @@ void WorkerLoop()
             continue;
 
         uint64_t request_generation = observed_generation;
-        std::string candidate = FetchCloudCandidate(pinyin, request_generation);
+        std::string candidate = FetchCloudCandidate(pinyin, japanese, request_generation);
         if (candidate.empty())
             continue;
         if (g_generation.load() != request_generation)
@@ -247,11 +251,12 @@ void Stop()
         g_worker.join();
 }
 
-void OnInputChanged(const std::string &pure_pinyin)
+void OnInputChanged(const std::string &pure_pinyin, bool japanese)
 {
     {
         std::lock_guard lock(g_mutex);
         g_latest_pinyin = pure_pinyin;
+        g_latest_japanese = japanese;
         g_last_input_time = std::chrono::steady_clock::now();
         g_generation.fetch_add(1);
     }
@@ -260,6 +265,6 @@ void OnInputChanged(const std::string &pure_pinyin)
 
 void Clear()
 {
-    OnInputChanged("");
+    OnInputChanged("", false);
 }
 } // namespace CloudIme

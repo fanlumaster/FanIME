@@ -508,7 +508,8 @@ void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t
 {
     std::lock_guard lock(g_async_request_mutex);
     const std::string effective_input = GetConfiguredCloudCandidatesEnabled() ? input : std::string{};
-    CloudIme::OnInputChanged(effective_input);
+    const bool japanese = g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji;
+    CloudIme::OnInputChanged(effective_input, japanese);
     ++g_cloud_generation;
     g_cloud_request_origin = effective_input.empty()
                                  ? AsyncRequestOrigin{}
@@ -561,7 +562,9 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
 {
     std::lock_guard lock(g_async_request_mutex);
     const AiAssistantConfig config = GetConfiguredAiAssistant();
-    const bool usable = config.enabled && g_inputSession && g_inputSession->current_scheme_type() != SchemeType::Wubi &&
+    const bool usable = config.enabled && g_inputSession &&
+                        (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
+                         g_inputSession->current_scheme_type() == SchemeType::Shuangpin) &&
                         g_inputSession->is_all_complete_pure_pinyin() && !g_inputSession->has_active_helpcode() &&
                         !identity.empty();
     (void)0;
@@ -629,6 +632,8 @@ AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t genera
 
 std::string CandidateTextForOutput(const std::string &text)
 {
+    if (g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji)
+        return text;
     return GetConfiguredCharacterSet() == "traditional" ? ChineseConverter::ToTraditional(text) : text;
 }
 
@@ -2826,7 +2831,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
         UpdateEnglishInput(current_input.substr(1), client_id, activation_epoch, true);
     }
     else if (!IsSpecialModeCompositionActive(current_input) && GetConfiguredEnglishCandidatesEnabled() &&
-             scheme != SchemeType::Wubi && !GlobalIme::composition.creating_word.active)
+             (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
+             !GlobalIme::composition.creating_word.active)
     {
         UpdateEnglishInput(current_input, client_id, activation_epoch);
     }
@@ -2836,7 +2842,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
 
     if (!g_english_input_mode && !IsSpecialModeCompositionActive(current_input) &&
-        GetConfiguredEmojiMixedInputEnabled() && scheme != SchemeType::Wubi &&
+        GetConfiguredEmojiMixedInputEnabled() &&
+        (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
         !GlobalIme::composition.creating_word.active)
     {
         UpdateEmojiInput(current_input, client_id, activation_epoch);
@@ -2847,7 +2854,8 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
 
     if (!g_english_input_mode && !IsSpecialModeCompositionActive(current_input) &&
-        GetConfiguredKaomojiMixedInputEnabled() && scheme != SchemeType::Wubi &&
+        GetConfiguredKaomojiMixedInputEnabled() &&
+        (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
         !GlobalIme::composition.creating_word.active)
     {
         UpdateKaomojiInput(current_input, client_id, activation_epoch);
@@ -2907,11 +2915,12 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
 {
     const bool enabled = GetConfiguredAiAssistant().enabled;
     const bool has_session = static_cast<bool>(g_inputSession);
-    const bool wubi = has_session && g_inputSession->current_scheme_type() == SchemeType::Wubi;
+    const bool non_pinyin = has_session && g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
+                            g_inputSession->current_scheme_type() != SchemeType::Shuangpin;
     const bool complete = has_session && g_inputSession->is_all_complete_pure_pinyin();
     const bool helpcode_active = has_session && g_inputSession->has_active_helpcode();
     const std::string current_identity = has_session ? g_inputSession->get_pinyin_segmentation() : std::string{};
-    if (!enabled || candidate.empty() || !has_session || wubi || !complete || helpcode_active ||
+    if (!enabled || candidate.empty() || !has_session || non_pinyin || !complete || helpcode_active ||
         GlobalIme::composition.creating_word.active || current_identity != identity)
     {
         (void)0;
@@ -2956,7 +2965,8 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
     const std::string expected_input = y_mode ? session_input.substr(1) : session_input;
     if ((!dedicated_mode && !GetConfiguredEnglishCandidatesEnabled()) ||
         !EnglishIme::IsCurrent(input, generation, dedicated_mode) || g_inputSession == nullptr ||
-        (!dedicated_mode && g_inputSession->current_scheme_type() == SchemeType::Wubi) ||
+        (!dedicated_mode && g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
+         g_inputSession->current_scheme_type() != SchemeType::Shuangpin) ||
         expected_input != input || GlobalIme::composition.creating_word.active)
     {
         return;
@@ -3057,7 +3067,8 @@ void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> resul
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
     if (!GetConfiguredEmojiMixedInputEnabled() || !EmojiIme::IsCurrent(input, generation) || g_inputSession == nullptr ||
-        g_inputSession->current_scheme_type() == SchemeType::Wubi ||
+        (g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
+         g_inputSession->current_scheme_type() != SchemeType::Shuangpin) ||
         g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
     {
         return;
@@ -3100,7 +3111,9 @@ void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &i
 void ApplyKaomojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
     if (!GetConfiguredKaomojiMixedInputEnabled() || !KaomojiIme::IsCurrent(input, generation) ||
-        g_inputSession == nullptr || g_inputSession->current_scheme_type() == SchemeType::Wubi ||
+        g_inputSession == nullptr ||
+        (g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
+         g_inputSession->current_scheme_type() != SchemeType::Shuangpin) ||
         g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
     {
         return;
@@ -3166,25 +3179,28 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const std::string input_before_key =
         g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
-    if (!g_english_input_mode && GetConfiguredQuickPhraseEnabled() && input_before_key.empty() &&
+    const bool chinese_scheme = g_inputSession &&
+                                (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
+                                 g_inputSession->current_scheme_type() == SchemeType::Shuangpin);
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredQuickPhraseEnabled() && input_before_key.empty() &&
         Global::Keycode == 'K' && Global::Wch == L'K' && shift_only)
         g_quick_phrase_triggered = true;
-    if (!g_english_input_mode && GetConfiguredUnicodeModeEnabled() && input_before_key.empty() &&
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredUnicodeModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'U' && Global::Wch == L'U' && shift_only)
         g_unicode_mode_triggered = true;
-    if (!g_english_input_mode && GetConfiguredDateTimeModeEnabled() && input_before_key.empty() &&
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredDateTimeModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'T' && Global::Wch == L'T' && shift_only)
         g_date_time_mode_triggered = true;
-    if (!g_english_input_mode && GetConfiguredEmojiModeEnabled() && input_before_key.empty() &&
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredEmojiModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'E' && Global::Wch == L'E' && shift_only)
         g_emoji_mode_triggered = true;
-    if (!g_english_input_mode && GetConfiguredKaomojiModeEnabled() && input_before_key.empty() &&
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredKaomojiModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'M' && Global::Wch == L'M' && shift_only)
         g_kaomoji_mode_triggered = true;
-    if (!g_english_input_mode && GetConfiguredJianpinModeEnabled() && input_before_key.empty() &&
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredJianpinModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'J' && Global::Wch == L'J' && shift_only)
         g_jianpin_mode_triggered = true;
-    if (!g_english_input_mode && GetConfiguredYModeEnabled() && input_before_key.empty() &&
+    if (chinese_scheme && !g_english_input_mode && GetConfiguredYModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'Y' && Global::Wch == L'Y' && shift_only)
         g_y_mode_triggered = true;
 
@@ -3333,7 +3349,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool ai_eligible =
         !g_english_input_mode &&
         !IsSpecialModeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        g_inputSession->current_scheme_type() != SchemeType::Wubi && g_inputSession->is_all_complete_pure_pinyin() &&
+        (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
+         g_inputSession->current_scheme_type() == SchemeType::Shuangpin) &&
+        g_inputSession->is_all_complete_pure_pinyin() &&
         !g_inputSession->has_active_helpcode() && !GlobalIme::composition.creating_word.active;
     if (!suppress_async_lookup)
     {

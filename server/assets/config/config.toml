@@ -129,6 +129,8 @@ paired_punctuation = true
 # 会话后端，可选："legacy", "engine"
 # session_backend = "legacy"
 session_backend = "engine"
+# 输入模式，可选："chinese", "japanese"。切换模式时保留各语言上次使用的方案。
+mode = "chinese"
 # 输入方案，可选："quanpin", "shuangpin", "wubi"
 schema = "shuangpin"
 # schema = "quanpin"
@@ -142,6 +144,8 @@ shuangpin_preedit_mode = "shuangpin"
 shuangpin_schema = "xiaohe"
 # 五笔方案，可选："wubi86", "wubi98"
 wubi_schema = "wubi86"
+# 日语方案，当前支持："romaji"
+japanese_schema = "romaji"
 
 #
 # Helpcode

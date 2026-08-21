@@ -1384,7 +1384,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_TIMER: {
         if (wParam == TIMER_ID_CONFIG_SYNC)
         {
-            const SchemeType previous_input_scheme = GetConfiguredInputScheme();
+            const SchemeType previous_input_scheme = GetConfiguredActiveInputScheme();
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
@@ -1414,7 +1414,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
-                if (previous_input_scheme != GetConfiguredInputScheme())
+                if (previous_input_scheme != GetConfiguredActiveInputScheme())
                     ApplyConfiguredInputScheme();
                 else if (previous_shuangpin_schema != GetConfiguredShuangpinSchema())
                     ApplyConfiguredShuangpinSchema();
@@ -1992,7 +1992,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
         }
         else if (wParam == TIMER_ID_CONFIG_SYNC)
         {
-            const SchemeType previous_input_scheme = GetConfiguredInputScheme();
+            const SchemeType previous_input_scheme = GetConfiguredActiveInputScheme();
             const std::string previous_shuangpin_schema = GetConfiguredShuangpinSchema();
             const std::string previous_character_set = GetConfiguredCharacterSet();
             const std::string previous_layout = GetConfiguredCandidateWindowLayout();
@@ -2021,7 +2021,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             if (ReloadImeConfigIfChanged())
             {
                 FanyNamedPipe::EnqueueApplyCandidatePageSizeTask();
-                if (previous_input_scheme != GetConfiguredInputScheme())
+                if (previous_input_scheme != GetConfiguredActiveInputScheme())
                 {
                     ApplyConfiguredInputScheme();
                 }

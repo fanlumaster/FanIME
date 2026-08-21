@@ -55,6 +55,7 @@ class EngineInputSession : public IInputSession
     const QueryRequest &request() const;
     bool is_shuangpin() const;
     bool is_wubi() const;
+    bool is_japanese() const;
     void clear_pending_sequence();
     void apply_pending_sequence();
 

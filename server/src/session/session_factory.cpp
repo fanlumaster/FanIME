@@ -29,6 +29,8 @@ std::string ResolveEffectiveBackend(std::string configured_backend, SchemeType s
             return "engine-quanpin";
         case SchemeType::Wubi:
             return "engine-wubi";
+        case SchemeType::JapaneseRomaji:
+            return "engine-japanese-romaji";
         default:
             throw std::runtime_error("Unknown input scheme.");
         }
@@ -44,6 +46,8 @@ std::string ResolveEffectiveBackend(std::string configured_backend, SchemeType s
             return "engine-quanpin";
         case SchemeType::Wubi:
             return "engine-wubi";
+        case SchemeType::JapaneseRomaji:
+            return "engine-japanese-romaji";
         default:
             throw std::runtime_error("Unknown input scheme.");
         }
@@ -69,6 +73,10 @@ std::shared_ptr<IInputSession> CreateInputSessionFromConfig()
     {
         return std::make_shared<EngineInputSession>(SchemeType::Wubi);
     }
+    if (backend == "engine-japanese-romaji")
+    {
+        return std::make_shared<EngineInputSession>(SchemeType::JapaneseRomaji);
+    }
 
     if (backend == "legacy-shuangpin")
     {
@@ -85,5 +93,5 @@ std::string DescribeConfiguredInputSessionBackendFromConfig()
 
 std::string DescribeEffectiveInputSessionBackendFromConfig()
 {
-    return ResolveEffectiveBackend(DescribeConfiguredInputSessionBackendFromConfig(), GetConfiguredInputScheme());
+    return ResolveEffectiveBackend(DescribeConfiguredInputSessionBackendFromConfig(), GetConfiguredActiveInputScheme());
 }

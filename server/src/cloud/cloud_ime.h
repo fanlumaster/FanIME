@@ -10,6 +10,6 @@ using ApplyCallback = std::function<void(const std::string &candidate, const std
 
 void Start(ApplyCallback apply_callback);
 void Stop();
-void OnInputChanged(const std::string &pure_pinyin);
+void OnInputChanged(const std::string &input, bool japanese = false);
 void Clear();
 } // namespace CloudIme

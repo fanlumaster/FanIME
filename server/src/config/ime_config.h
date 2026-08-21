@@ -127,8 +127,14 @@ const std::vector<std::string> &GetSystemFontFamilies();
 // typographic family name Chromium expects in CSS. Returns the input on failure.
 std::string ResolveSystemFontFamilyForCss(const std::string &font);
 SchemeType GetConfiguredInputScheme();
+// The Chinese scheme is preserved while Japanese mode is active.
+SchemeType GetConfiguredActiveInputScheme();
 std::string GetConfiguredInputSchemeName();
 bool SetConfiguredInputScheme(const std::string &scheme);
+const std::string &GetConfiguredInputMode();
+bool SetConfiguredInputMode(const std::string &mode);
+const std::string &GetConfiguredJapaneseSchema();
+bool SetConfiguredJapaneseSchema(const std::string &schema);
 const std::string &GetConfiguredCharacterSet();
 bool SetConfiguredCharacterSet(const std::string &character_set);
 // "chinese" | "english" — default CN/EN when activating this IME.

@@ -223,7 +223,9 @@ void PostConfig()
         {"type", "configSnapshot"},
         {"data",
          {{"input",
-           {{"schema", GetConfiguredInputSchemeName()},
+           {{"mode", GetConfiguredInputMode()},
+            {"schema", GetConfiguredInputSchemeName()},
+            {"japanese_schema", GetConfiguredJapaneseSchema()},
             {"character_set", GetConfiguredCharacterSet()},
             {"default_ime_mode", GetConfiguredDefaultImeMode()},
             {"ime_mode_scope", GetConfiguredImeModeScope()},
@@ -362,8 +364,12 @@ void PostMaximizeButtonEvent(const char *event_name)
 bool ApplyConfigUpdate(const json::object &data)
 {
     const std::string path = json::value_to<std::string>(data.at("path"));
+    if (path == "input.mode")
+        return SetConfiguredInputMode(json::value_to<std::string>(data.at("value")));
     if (path == "input.schema")
         return SetConfiguredInputScheme(json::value_to<std::string>(data.at("value")));
+    if (path == "input.japanese_schema")
+        return SetConfiguredJapaneseSchema(json::value_to<std::string>(data.at("value")));
     if (path == "input.character_set")
         return SetConfiguredCharacterSet(json::value_to<std::string>(data.at("value")));
     if (path == "input.default_ime_mode")

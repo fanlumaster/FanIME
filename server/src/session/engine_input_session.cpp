@@ -6,11 +6,16 @@
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_utils.h"
+#include "MetasequoiaImeEngine/japanese/romaji_converter.h"
 
 namespace
 {
 void SelectConfiguredHelpcodeSchema(SchemeType scheme)
 {
+    if (scheme == SchemeType::Wubi || scheme == SchemeType::JapaneseRomaji)
+    {
+        return;
+    }
     HelpcodeUtils::select_helpcode_schema(scheme == SchemeType::Quanpin ? GetConfiguredQuanpinHelpcodeSchema()
                                                                         : GetConfiguredShuangpinHelpcodeSchema());
 }
@@ -270,7 +275,7 @@ const std::string &EngineInputSession::get_pinyin_segmentation() const
 
 std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
 {
-    if (is_wubi())
+    if (is_wubi() || is_japanese())
     {
         return request().raw_input;
     }
@@ -309,6 +314,10 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
     {
         return request().valid;
     }
+    if (is_japanese())
+    {
+        return japanese::ConvertRomaji(request().raw_input).complete;
+    }
     if (is_shuangpin())
     {
         const auto base = ResolveShuangpinCompositionBase(request(), shuangpin_profile_);
@@ -328,7 +337,7 @@ bool EngineInputSession::is_all_complete_pure_pinyin() const
 
 bool EngineInputSession::has_active_helpcode() const
 {
-    if (is_wubi())
+    if (is_wubi() || is_japanese())
     {
         return false;
     }
@@ -391,6 +400,13 @@ IInputSession::SelectionTransition EngineInputSession::advance_composition_after
 {
     SelectionTransition transition;
     transition.selected_canonical_pinyin = selected_canonical_pinyin;
+    if (is_japanese())
+    {
+        transition.full_pure_pinyin = request().raw_input;
+        transition.current_segmentation = request().segmentation;
+        transition.current_segmentation_with_cases = request().raw_input_with_cases;
+        return transition;
+    }
     if (is_wubi())
     {
         transition.full_pure_pinyin = request().normalized_input;
@@ -495,6 +511,15 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
 {
     CloudQueryState state;
 
+    if (is_japanese())
+    {
+        state.cache_key = request().raw_input;
+        state.committed_pinyin = request().raw_input;
+        state.should_query = japanese::ConvertRomaji(request().raw_input).complete;
+        state.query_text = state.should_query ? request().raw_input : std::string{};
+        return state;
+    }
+
     if (is_wubi())
     {
         state.cache_key = request().normalized_input;
@@ -579,6 +604,11 @@ bool EngineInputSession::is_wubi() const
     return current_scheme_type() == SchemeType::Wubi;
 }
 
+bool EngineInputSession::is_japanese() const
+{
+    return current_scheme_type() == SchemeType::JapaneseRomaji;
+}
+
 void EngineInputSession::clear_pending_sequence()
 {
     pending_pinyin_sequence_.clear();
@@ -603,6 +633,9 @@ void EngineInputSession::apply_pending_sequence()
         break;
     case SchemeType::Wubi:
         session_.replace_wubi_raw_input(raw_input, raw_input_with_cases);
+        break;
+    case SchemeType::JapaneseRomaji:
+        session_.replace_japanese_raw_input(raw_input, raw_input_with_cases);
         break;
     }
     clear_pending_sequence();
