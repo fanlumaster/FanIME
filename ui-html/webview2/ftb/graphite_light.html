@@ -25,6 +25,8 @@
       margin: 0;
       height: 100vh;
       overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     body {
@@ -90,6 +92,8 @@
       border-radius: calc(6px * var(--ftb-scale));
       transition: background-color 0.15s ease;
       cursor: default;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .lang-label {
@@ -97,6 +101,14 @@
       font-weight: 500;
       font-size: calc(var(--ftb-icon-size) * 0.72 * var(--ftb-scale));
       line-height: 1;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .lang-label::selection,
+    .english-candidate-label::selection {
+      background: transparent;
+      color: inherit;
     }
 
     .icon svg {
