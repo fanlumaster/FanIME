@@ -14,11 +14,6 @@
 #include "Compartment.h"
 #include "Ipc.h"
 #include "fmt/xchar.h"
-#include <algorithm>
-#include <cmath>
-#include <cstdint>
-#include <cstring>
-#include <vector>
 
 namespace
 {
@@ -46,107 +41,15 @@ DWORD ResolveThemeIconIndex(DWORD lightIconIndex)
     {
         return static_cast<DWORD>(IME_MODE_ON_DARK_ICON_INDEX);
     }
+    if (lightIconIndex == static_cast<DWORD>(IME_MODE_ON_JP_ICON_INDEX))
+    {
+        return static_cast<DWORD>(IME_MODE_ON_JP_DARK_ICON_INDEX);
+    }
     if (lightIconIndex == static_cast<DWORD>(IME_MODE_OFF_ICON_INDEX))
     {
         return static_cast<DWORD>(IME_MODE_OFF_DARK_ICON_INDEX);
     }
     return lightIconIndex;
-}
-
-HICON CreateJapaneseModeIcon(int size, bool darkMode)
-{
-    if (size <= 0)
-    {
-        size = 16;
-    }
-
-    BITMAPINFO info{};
-    info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    info.bmiHeader.biWidth = size;
-    info.bmiHeader.biHeight = -size;
-    info.bmiHeader.biPlanes = 1;
-    info.bmiHeader.biBitCount = 32;
-    info.bmiHeader.biCompression = BI_RGB;
-
-    void *bits = nullptr;
-    HDC screen = GetDC(nullptr);
-    HDC dc = CreateCompatibleDC(screen);
-    HBITMAP color = CreateDIBSection(dc, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!dc || !color || !bits)
-    {
-        if (color)
-        {
-            DeleteObject(color);
-        }
-        if (dc)
-        {
-            DeleteDC(dc);
-        }
-        if (screen)
-        {
-            ReleaseDC(nullptr, screen);
-        }
-        return nullptr;
-    }
-
-    std::memset(bits, 0, static_cast<size_t>(size) * static_cast<size_t>(size) * 4);
-    const std::uint32_t pixel = darkMode ? 0xFFFFFFFFu : 0xFF1A1A1Au;
-    auto *pixels = static_cast<std::uint32_t *>(bits);
-    const auto map = [size](double value) {
-        const int mapped = static_cast<int>(std::lround(value * size / 24.0));
-        return (std::max)(0, (std::min)(size, mapped));
-    };
-    const auto fill = [&](double left, double top, double right, double bottom) {
-        const int x0 = map(left);
-        const int y0 = map(top);
-        const int x1 = map(right);
-        const int y1 = map(bottom);
-        for (int y = y0; y < y1; ++y)
-        {
-            for (int x = x0; x < x1; ++x)
-            {
-                pixels[static_cast<size_t>(y) * static_cast<size_t>(size) + static_cast<size_t>(x)] = pixel;
-            }
-        }
-    };
-    fill(5.0, 4.4, 19.0, 5.9);
-    fill(5.0, 18.1, 19.0, 19.6);
-    fill(5.0, 4.4, 6.5, 19.6);
-    fill(17.5, 4.4, 19.0, 19.6);
-    fill(6.5, 11.25, 17.5, 12.75);
-
-    const int maskStride = ((size + 31) / 32) * 4;
-    std::vector<std::uint8_t> maskBits(static_cast<size_t>(maskStride) * static_cast<size_t>(size), 0xFF);
-    for (int y = 0; y < size; ++y)
-    {
-        for (int x = 0; x < size; ++x)
-        {
-            if (pixels[static_cast<size_t>(y) * static_cast<size_t>(size) + static_cast<size_t>(x)] == 0)
-            {
-                continue;
-            }
-            const int bit = 7 - (x % 8);
-            const int maskY = size - 1 - y;
-            maskBits[static_cast<size_t>(maskY) * static_cast<size_t>(maskStride) + static_cast<size_t>(x / 8)] &=
-                static_cast<std::uint8_t>(~(1u << bit));
-        }
-    }
-    HBITMAP mask = CreateBitmap(size, size, 1, 1, maskBits.data());
-    ICONINFO iconInfo{};
-    iconInfo.fIcon = TRUE;
-    iconInfo.hbmMask = mask;
-    iconInfo.hbmColor = color;
-    HICON icon = mask ? CreateIconIndirect(&iconInfo) : nullptr;
-
-    if (mask)
-    {
-        DeleteObject(mask);
-    }
-    SelectObject(dc, GetStockObject(NULL_BRUSH));
-    DeleteObject(color);
-    DeleteDC(dc);
-    ReleaseDC(nullptr, screen);
-    return icon;
 }
 } // namespace
 
@@ -618,23 +521,19 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
         desiredSize = 24;
     }
 
-    const DWORD iconIndex =
-        ResolveThemeIconIndex((isOn && !(status & TF_LBI_STATUS_DISABLED)) ? _onIconIndex : _offIconIndex);
+    DWORD lightIconIndex = (isOn && !(status & TF_LBI_STATUS_DISABLED)) ? _onIconIndex : _offIconIndex;
+    if (isOn && !(status & TF_LBI_STATUS_DISABLED) &&
+        _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
+        Global::JapaneseInputModeEnabled.load(std::memory_order_relaxed))
+    {
+        lightIconIndex = static_cast<DWORD>(IME_MODE_ON_JP_ICON_INDEX);
+    }
+    const DWORD iconIndex = ResolveThemeIconIndex(lightIconIndex);
 
     if (Global::dllInstanceHandle)
     {
-        const bool japaneseOn = isOn && !(status & TF_LBI_STATUS_DISABLED) &&
-                                _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
-                                Global::JapaneseInputModeEnabled.load(std::memory_order_relaxed);
-        if (japaneseOn)
-        {
-            *phIcon = CreateJapaneseModeIcon(desiredSize, IsSystemDarkMode());
-        }
-        else
-        {
-            *phIcon = reinterpret_cast<HICON>(LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(iconIndex), IMAGE_ICON,
-                                                        desiredSize, desiredSize, 0));
-        }
+        *phIcon = reinterpret_cast<HICON>(LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(iconIndex), IMAGE_ICON,
+                                                    desiredSize, desiredSize, 0));
     }
 
     return (*phIcon != NULL) ? S_OK : E_FAIL;
