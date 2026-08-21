@@ -830,14 +830,25 @@ bool LoadImeConfig()
         g_voice_input.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
             std::string("https://api.siliconflow.cn/v1/chat/completions"));
         g_voice_input.polish_model = tbl["voice_input"]["polish_model"].value_or(std::string());
+        g_voice_input.polish_prompt = tbl["voice_input"]["polish_prompt"].value_or(std::string());
         g_voice_input.polish_prompt_id = tbl["voice_input"]["polish_prompt_id"].value_or(std::string("cleanup"));
+        if (g_voice_input.polish_prompt_id == "custom")
+            g_voice_input.polish_prompt_id = "custom_1";
         if (g_voice_input.polish_prompt_id != "cleanup" && g_voice_input.polish_prompt_id != "faithful" &&
             g_voice_input.polish_prompt_id != "zh2en" && g_voice_input.polish_prompt_id != "casual" &&
-            g_voice_input.polish_prompt_id != "custom")
+            g_voice_input.polish_prompt_id != "custom_1" && g_voice_input.polish_prompt_id != "custom_2" &&
+            g_voice_input.polish_prompt_id != "custom_3")
         {
             g_voice_input.polish_prompt_id = "cleanup";
         }
-        g_voice_input.polish_prompt = tbl["voice_input"]["polish_prompt"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_1 =
+            tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
+        if (g_voice_input.polish_prompt_custom_1.empty())
+            g_voice_input.polish_prompt_custom_1 = g_voice_input.polish_prompt;
+        g_voice_input.polish_prompt_custom_2 =
+            tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_3 =
+            tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         // notification_sound is retained as a fallback for configs written by older versions.
         const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
@@ -876,7 +887,22 @@ bool LoadImeConfig()
         g_ai_assistant.model = tbl["ai_assistant"]["model"].value_or(std::string("deepseek-v4-flash"));
         const int ai_limit = tbl["ai_assistant"]["candidate_limit"].value_or(3);
         g_ai_assistant.candidate_limit = ai_limit >= 1 && ai_limit <= 10 ? ai_limit : 3;
-        g_ai_assistant.prompt = tbl["ai_assistant"]["prompt"].value_or(g_ai_assistant.prompt);
+        const std::string legacy_ai_prompt = tbl["ai_assistant"]["prompt"].value_or(g_ai_assistant.prompt);
+        g_ai_assistant.prompt_id = tbl["ai_assistant"]["prompt_id"].value_or(std::string("custom_1"));
+        if (g_ai_assistant.prompt_id != "custom_1" && g_ai_assistant.prompt_id != "custom_2" &&
+            g_ai_assistant.prompt_id != "custom_3")
+            g_ai_assistant.prompt_id = "custom_1";
+        g_ai_assistant.prompt_custom_1 =
+            tbl["ai_assistant"]["prompt_custom_1"].value_or(std::string());
+        if (g_ai_assistant.prompt_custom_1.empty())
+            g_ai_assistant.prompt_custom_1 = legacy_ai_prompt;
+        g_ai_assistant.prompt_custom_2 =
+            tbl["ai_assistant"]["prompt_custom_2"].value_or(std::string());
+        g_ai_assistant.prompt_custom_3 =
+            tbl["ai_assistant"]["prompt_custom_3"].value_or(std::string());
+        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
+                              : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
+                                                                        : g_ai_assistant.prompt_custom_1;
         RememberConfigWriteTime();
         return true;
     }
@@ -2204,7 +2230,7 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
     if (key == "commit_mode" && value != "tsf" && value != "sendinput" && value != "ctrl_v")
         return false;
     if (key == "polish_prompt_id" && value != "cleanup" && value != "faithful" && value != "zh2en" &&
-        value != "casual" && value != "custom")
+        value != "casual" && value != "custom_1" && value != "custom_2" && value != "custom_3")
         return false;
 
     const auto persist = [](const std::string &toml_key, const std::string &toml_value, std::string &target) {
@@ -2268,6 +2294,12 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         target = &g_voice_input.polish_prompt_id;
     else if (key == "polish_prompt")
         target = &g_voice_input.polish_prompt;
+    else if (key == "polish_prompt_custom_1")
+        target = &g_voice_input.polish_prompt_custom_1;
+    else if (key == "polish_prompt_custom_2")
+        target = &g_voice_input.polish_prompt_custom_2;
+    else if (key == "polish_prompt_custom_3")
+        target = &g_voice_input.polish_prompt_custom_3;
     else if (key == "language")
         target = &g_voice_input.language;
     else if (key == "commit_mode")
@@ -2275,6 +2307,11 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
     if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
         return false;
     *target = value;
+    if (key == "polish_prompt_custom_1")
+    {
+        WriteConfiguredValue("voice_input", "polish_prompt", EscapeTomlBasicString(""));
+        g_voice_input.polish_prompt.clear();
+    }
     if (key == "asr_token")
     {
         const std::string slot = VoiceInput::AsrTokenSlotKey(g_voice_input.asr_provider);
@@ -2525,6 +2562,8 @@ bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value)
 
 bool SetConfiguredAiAssistantString(const std::string &key, const std::string &value)
 {
+    if (key == "prompt_id" && value != "custom_1" && value != "custom_2" && value != "custom_3")
+        return false;
     const auto persist = [](const std::string &toml_key, const std::string &toml_value, std::string &target) {
         if (!WriteConfiguredValue("ai_assistant", toml_key, EscapeTomlBasicString(toml_value)))
             return false;
@@ -2559,11 +2598,29 @@ bool SetConfiguredAiAssistantString(const std::string &key, const std::string &v
         target = &g_ai_assistant.endpoint;
     else if (key == "model")
         target = &g_ai_assistant.model;
+    else if (key == "prompt_id")
+        target = &g_ai_assistant.prompt_id;
+    else if (key == "prompt_custom_1")
+        target = &g_ai_assistant.prompt_custom_1;
+    else if (key == "prompt_custom_2")
+        target = &g_ai_assistant.prompt_custom_2;
+    else if (key == "prompt_custom_3")
+        target = &g_ai_assistant.prompt_custom_3;
     else if (key == "prompt")
         target = &g_ai_assistant.prompt;
     if (!target || !WriteConfiguredValue("ai_assistant", key, EscapeTomlBasicString(value)))
         return false;
     *target = key == "provider" ? VoiceInput::NormalizeProviderId(value) : value;
+    if (key == "prompt_custom_1")
+        WriteConfiguredValue("ai_assistant", "prompt", EscapeTomlBasicString(""));
+    if (key == "prompt")
+        g_ai_assistant.prompt_custom_1 = value;
+    if (key == "prompt" || key == "prompt_id" || key.rfind("prompt_custom_", 0) == 0)
+    {
+        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
+                              : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
+                                                                        : g_ai_assistant.prompt_custom_1;
+    }
     if (key == "provider")
     {
         persist("token", g_ai_assistant.tokens[g_ai_assistant.provider], g_ai_assistant.token);

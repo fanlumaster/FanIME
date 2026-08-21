@@ -35,10 +35,13 @@ struct VoiceInputConfig
     std::map<std::string, std::string> polish_tokens;
     std::string polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions";
     std::string polish_model;
-    // cleanup | faithful | zh2en | casual | custom
+    // cleanup | faithful | zh2en | casual | custom_1 | custom_2 | custom_3
     std::string polish_prompt_id = "cleanup";
-    // Empty means use the builtin prompt for polish_prompt_id.
+    // Legacy single custom prompt. Retained for config compatibility.
     std::string polish_prompt;
+    std::string polish_prompt_custom_1;
+    std::string polish_prompt_custom_2;
+    std::string polish_prompt_custom_3;
     std::string language = "zh-cn";
     bool start_sound = true;
     bool end_sound = true;
@@ -61,6 +64,12 @@ struct AiAssistantConfig
     std::string endpoint = "https://api.deepseek.com/chat/completions";
     std::string model = "deepseek-v4-flash";
     int candidate_limit = 3;
+    // custom_1 | custom_2 | custom_3
+    std::string prompt_id = "custom_1";
+    std::string prompt_custom_1;
+    std::string prompt_custom_2;
+    std::string prompt_custom_3;
+    // Resolved active prompt. `prompt` is also retained as the legacy slot-one key.
     std::string prompt =
         R"PROMPT(你是一个中文全拼输入法联想引擎。输入为已经切分好的拼音数组、前文上下文和候选数量。
 

@@ -60,7 +60,11 @@ TEST_CASE(voice_providers_use_builtin_prompt_until_overridden)
 TEST_CASE(voice_providers_empty_custom_falls_back_to_cleanup)
 {
     VoiceInputConfig config;
-    config.polish_prompt_id = "custom";
+    config.polish_prompt_id = "custom_2";
+    config.polish_prompt.clear();
+    config.polish_prompt_custom_2 = "第二个自定义提示词";
+    REQUIRE_EQ(VoiceInput::ResolvePolishSystemPrompt(config), "第二个自定义提示词");
+    config.polish_prompt_custom_2.clear();
     const std::string prompt = VoiceInput::ResolvePolishSystemPrompt(config);
     REQUIRE(prompt.find("整理助手") != std::string::npos);
 }

@@ -233,10 +233,13 @@ polish_token_groq = ""
 polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions"
 # 留空则按提供商填默认值，例如 Qwen/Qwen3-8B、gpt-4o-mini。
 polish_model = ""
-# 润色提示词: cleanup | faithful | zh2en | casual | custom
+# 润色提示词: cleanup | faithful | zh2en | casual | custom_1 | custom_2 | custom_3
 polish_prompt_id = "cleanup"
-# 非空时覆盖对应预设。自定义提示词写在这里。
+# 旧版单槽位提示词，升级时作为“自定义一”的回退值。
 polish_prompt = ""
+polish_prompt_custom_1 = ""
+polish_prompt_custom_2 = ""
+polish_prompt_custom_3 = ""
 language = "zh-cn"
 # 开始和结束录音提示音可分别关闭
 start_sound = true
@@ -288,6 +291,7 @@ token_groq = ""
 endpoint = "https://api.deepseek.com/chat/completions"
 model = "deepseek-v4-flash"
 candidate_limit = 3
+prompt_id = "custom_1"
 prompt = """你是一个中文全拼输入法联想引擎。输入为已经切分好的拼音数组、前文上下文和候选数量。
 
 优先生成与拼音严格对应的中文候选：若有 N 段拼音，首选必须尽量为 N 个汉字，每段拼音对应一个汉字，不得随意增删或改变读音。结合上下文、常用程度、语义完整性和固定搭配排序。
@@ -307,3 +311,7 @@ prompt = """你是一个中文全拼输入法联想引擎。输入为已经切�
 }
 
 候选按推荐程度降序排列，数量不超过指定上限；没有合理结果时返回空数组。"""
+# prompt 是旧版“自定义一”；首次修改后会写入下面的独立槽位。
+prompt_custom_1 = ""
+prompt_custom_2 = ""
+prompt_custom_3 = ""

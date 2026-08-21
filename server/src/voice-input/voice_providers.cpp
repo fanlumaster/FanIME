@@ -199,13 +199,19 @@ const std::vector<PolishPromptPreset> &BuiltinPolishPromptPresets()
 
 std::string ResolvePolishSystemPrompt(const VoiceInputConfig &config)
 {
+    const std::string id = config.polish_prompt_id.empty() ? std::string("cleanup") : config.polish_prompt_id;
+    if (id == "custom_1" || id == "custom")
+    {
+        const std::string &prompt =
+            config.polish_prompt_custom_1.empty() ? config.polish_prompt : config.polish_prompt_custom_1;
+        return prompt.empty() ? std::string(kCleanupPrompt) : prompt;
+    }
+    if (id == "custom_2")
+        return config.polish_prompt_custom_2.empty() ? std::string(kCleanupPrompt) : config.polish_prompt_custom_2;
+    if (id == "custom_3")
+        return config.polish_prompt_custom_3.empty() ? std::string(kCleanupPrompt) : config.polish_prompt_custom_3;
     if (!config.polish_prompt.empty())
         return config.polish_prompt;
-
-    const std::string id = config.polish_prompt_id.empty() ? std::string("cleanup") : config.polish_prompt_id;
-    if (id == "custom")
-        return std::string(kCleanupPrompt);
-
     for (const PolishPromptPreset &preset : BuiltinPolishPromptPresets())
     {
         if (preset.id == id)
