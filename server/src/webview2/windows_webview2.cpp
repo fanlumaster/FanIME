@@ -2742,6 +2742,15 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.candidate_translations")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCandidateTranslationsEnabled(value))
+                                {
+                                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.cn_en_mixed_input_min_chars")
                             {
                                 const int value = static_cast<int>(data.at("value").as_int64());
@@ -3082,6 +3091,7 @@ void PostSettingsConfig()
             {"floating_toolbar_scale", GetConfiguredFloatingToolbarScale()},
             {"floating_toolbar_font_size", GetConfiguredFloatingToolbarFontSize()},
             {"cn_en_mixed_input", GetConfiguredEnglishCandidatesEnabled()},
+            {"candidate_translations", GetConfiguredCandidateTranslationsEnabled()},
             {"cn_en_mixed_input_min_chars", GetConfiguredEnglishMixedInputMinChars()},
             {"emoji_mixed_input", GetConfiguredEmojiMixedInputEnabled()},
             {"kaomoji_mixed_input", GetConfiguredKaomojiMixedInputEnabled()},

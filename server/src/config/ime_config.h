@@ -184,6 +184,8 @@ int GetConfiguredFloatingToolbarFontSize();
 bool SetConfiguredFloatingToolbarFontSize(int font_size);
 bool GetConfiguredEnglishCandidatesEnabled();
 bool SetConfiguredEnglishCandidatesEnabled(bool enabled);
+bool GetConfiguredCandidateTranslationsEnabled();
+bool SetConfiguredCandidateTranslationsEnabled(bool enabled);
 int GetConfiguredEnglishMixedInputMinChars();
 bool SetConfiguredEnglishMixedInputMinChars(int min_chars);
 bool GetConfiguredEmojiMixedInputEnabled();

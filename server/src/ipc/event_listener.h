@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cstdint>
 #include "session/input_session.h"
+#include "english/english_ime.h"
 
 inline std::condition_variable pipe_queueCv;
 inline std::atomic_bool pipe_running = true;
@@ -42,6 +43,7 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
 void EnqueueAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void CancelCloudCandidateRequest();
 void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
+void EnqueueCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation);
 void EnqueueEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueKaomojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueCandidateUiAction(CandidateUiAction action, int one_based_index, int fixed_position = 0);

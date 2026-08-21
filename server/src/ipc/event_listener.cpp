@@ -58,6 +58,7 @@
 namespace
 {
 std::string BuildCurrentCandidatePage();
+void PrepareCandidateTranslationRequest();
 bool g_quick_phrase_triggered = false;
 bool g_unicode_mode_triggered = false;
 bool g_date_time_mode_triggered = false;
@@ -70,6 +71,84 @@ bool g_english_input_mode = false;
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
 bool g_activate_uiless = false;
 bool g_session_uiless = false;
+std::unordered_map<std::string, std::string> g_candidate_translation_glosses;
+std::string g_candidate_translation_signature;
+
+std::string TranslationIdentity(const EnglishIme::TranslationQuery &query)
+{
+    return std::string(query.direction == EnglishIme::TranslationDirection::EnglishToChinese ? "e:" : "z:") +
+           query.key;
+}
+
+bool BuildTranslationQuery(const WordItem &item, EnglishIme::TranslationQuery &query)
+{
+    // Dictionary keys remain simplified even when the visible candidate is
+    // converted to traditional Chinese at render/commit time.
+    const std::string visible = item.word;
+    if (visible.empty())
+        return false;
+    if (item.source == CandidateSource::EnglishDictionary && !item.pinyin.empty())
+    {
+        query = {item.pinyin, EnglishIme::TranslationDirection::EnglishToChinese};
+        return true;
+    }
+
+    bool has_ascii_letter = false;
+    bool english = true;
+    std::string normalized;
+    normalized.reserve(visible.size());
+    for (const unsigned char ch : visible)
+    {
+        if (ch >= 'A' && ch <= 'Z')
+        {
+            normalized.push_back(static_cast<char>(ch + ('a' - 'A')));
+            has_ascii_letter = true;
+        }
+        else if (ch >= 'a' && ch <= 'z')
+        {
+            normalized.push_back(static_cast<char>(ch));
+            has_ascii_letter = true;
+        }
+        else if (ch == ' ' || ch == '-' || ch == '\'')
+        {
+            normalized.push_back(static_cast<char>(ch));
+        }
+        else
+        {
+            english = false;
+            break;
+        }
+    }
+    if (english && has_ascii_letter)
+    {
+        query = {std::move(normalized), EnglishIme::TranslationDirection::EnglishToChinese};
+        return true;
+    }
+    if (HelpcodeUtils::count_han_chars(visible) > 0)
+    {
+        query = {visible, EnglishIme::TranslationDirection::ChineseToEnglish};
+        return true;
+    }
+    return false;
+}
+
+std::string EscapeCandidateHtml(std::string text)
+{
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (const char ch : text)
+    {
+        switch (ch)
+        {
+        case '&': escaped += "&amp;"; break;
+        case '<': escaped += "&lt;"; break;
+        case '>': escaped += "&gt;"; break;
+        case '"': escaped += "&quot;"; break;
+        default: escaped += ch; break;
+        }
+    }
+    return escaped;
+}
 
 bool IsUiLessMode()
 {
@@ -99,6 +178,9 @@ void ApplyUiLessFromPacket(const FanyImeNamedpipeData &pipe_data)
 
     if (!wasUiLess && IsUiLessMode())
     {
+        g_candidate_translation_signature.clear();
+        g_candidate_translation_glosses.clear();
+        EnglishIme::ClearTranslations();
         // A prior non-UILess session may have left the WebView2 candidate HWND
         // visible; hide it immediately when the host takes over drawing.
         ::is_global_wnd_cand_shown = false;
@@ -815,25 +897,17 @@ std::string BuildCurrentCandidatePage()
         // HTML into the WebView2 template, and kaomoji commonly contain < > & "
         // which would otherwise corrupt the DOM and freeze the window on the
         // previous page.
-        {
-            std::string escaped;
-            escaped.reserve(display_word.size());
-            for (const char ch : display_word)
-            {
-                switch (ch)
-                {
-                case '&': escaped += "&amp;"; break;
-                case '<': escaped += "&lt;"; break;
-                case '>': escaped += "&gt;"; break;
-                case '"': escaped += "&quot;"; break;
-                default: escaped += ch; break;
-                }
-            }
-            display_word = std::move(escaped);
-        }
+        display_word = EscapeCandidateHtml(std::move(display_word));
         if (item.fixed_position > 0)
         {
             display_word = "<span style=\"color:#379AD3\">" + display_word + "</span>";
+        }
+        EnglishIme::TranslationQuery translation_query;
+        if (BuildTranslationQuery(item, translation_query))
+        {
+            const auto gloss = g_candidate_translation_glosses.find(TranslationIdentity(translation_query));
+            if (gloss != g_candidate_translation_glosses.end() && !gloss->second.empty())
+                display_word += "<span class=\"cand-translation\">" + EscapeCandidateHtml(gloss->second) + "</span>";
         }
         // Escape ASCII commas so the comma-joined candidate payload survives
         // InflateCandidateTemplate's split (kaomoji commonly contain commas).
@@ -871,8 +945,49 @@ std::string BuildCurrentCandidatePage()
     return candidate_string;
 }
 
+void PrepareCandidateTranslationRequest()
+{
+    const bool enabled = GetConfiguredCandidateTranslationsEnabled() &&
+                         GetConfiguredCandidateWindowLayout() == "vertical" && !IsUiLessMode();
+    auto &ui = Global::candidate_ui;
+    if (!enabled || ui.items.empty())
+    {
+        if (!g_candidate_translation_signature.empty() || !g_candidate_translation_glosses.empty())
+        {
+            g_candidate_translation_signature.clear();
+            g_candidate_translation_glosses.clear();
+            EnglishIme::ClearTranslations();
+        }
+        return;
+    }
+
+    std::vector<EnglishIme::TranslationQuery> queries;
+    std::string signature;
+    const int start = ui.current_page_start();
+    const int count = ui.current_page_count();
+    for (int i = 0; i < count; ++i)
+    {
+        EnglishIme::TranslationQuery query;
+        if (!BuildTranslationQuery(ui.items[start + i], query))
+            continue;
+        const std::string identity = TranslationIdentity(query);
+        signature += std::to_string(identity.size()) + ":" + identity;
+        if (std::none_of(queries.begin(), queries.end(), [&](const auto &existing) {
+                return existing.key == query.key && existing.direction == query.direction;
+            }))
+            queries.push_back(std::move(query));
+    }
+
+    if (signature == g_candidate_translation_signature)
+        return;
+    g_candidate_translation_signature = std::move(signature);
+    g_candidate_translation_glosses.clear();
+    EnglishIme::RequestTranslations(std::move(queries));
+}
+
 void RefreshCandidatePageUi(bool show_window)
 {
+    PrepareCandidateTranslationRequest();
     const std::string candidate_string = BuildCurrentCandidatePage();
     if (IsUiLessMode())
     {
@@ -1113,6 +1228,7 @@ enum class TaskType
     ApplyCloudCandidate,
     ApplyAiCandidate,
     ApplyEnglishCandidates,
+    ApplyCandidateTranslations,
     ApplyEmojiCandidates,
     ApplyKaomojiCandidates,
     StoreUserPhrase,
@@ -1149,6 +1265,8 @@ struct Task
     std::vector<WordItem> english_candidates;
     std::string english_input;
     uint64_t english_generation = 0;
+    std::vector<EnglishIme::TranslationResult> translation_results;
+    uint64_t translation_generation = 0;
     std::vector<WordItem> emoji_candidates;
     std::string emoji_input;
     uint64_t emoji_generation = 0;
@@ -1216,6 +1334,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
 void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
+void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation);
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void ApplyKaomojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word, bool pinyin_is_canonical = false);
@@ -1341,6 +1460,11 @@ void WorkerThread()
 
         case TaskType::ApplyEnglishCandidates: {
             ApplyEnglishCandidates(std::move(task.english_candidates), task.english_input, task.english_generation);
+            break;
+        }
+
+        case TaskType::ApplyCandidateTranslations: {
+            ApplyCandidateTranslations(std::move(task.translation_results), task.translation_generation);
             break;
         }
 
@@ -1742,6 +1866,19 @@ void EnqueueEnglishCandidates(std::vector<WordItem> candidates, const std::strin
         task.english_generation = generation;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation)
+{
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::ApplyCandidateTranslations;
+        task.translation_results = std::move(results);
+        task.translation_generation = generation;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -2899,6 +3036,24 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
     RefreshCandidatePageUi(true);
 }
 
+void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation)
+{
+    if (!EnglishIme::IsTranslationCurrent(generation) || !GetConfiguredCandidateTranslationsEnabled() ||
+        GetConfiguredCandidateWindowLayout() != "vertical" || IsUiLessMode() ||
+        g_candidate_translation_signature.empty())
+        return;
+
+    g_candidate_translation_glosses.clear();
+    for (auto &result : results)
+    {
+        if (!result.gloss.empty())
+            g_candidate_translation_glosses[TranslationIdentity({result.key, result.direction})] = std::move(result.gloss);
+    }
+    const FanyImeIpc::CandidateUiOwner owner = SnapshotCandidateUiOwner();
+    if (owner && IsPipeActivationCurrent(owner.client_id, owner.activation_epoch))
+        RefreshCandidatePageUi(true);
+}
+
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
     if (!GetConfiguredEmojiMixedInputEnabled() || !EmojiIme::IsCurrent(input, generation) || g_inputSession == nullptr ||
@@ -3415,6 +3570,9 @@ void ClearState()
     ClearCandidateUiOwner();
     UpdateCloudInput("");
     UpdateEnglishInput("");
+    g_candidate_translation_signature.clear();
+    g_candidate_translation_glosses.clear();
+    EnglishIme::ClearTranslations();
     UpdateEmojiInput("");
     UpdateKaomojiInput("");
     UpdateAiInput("");

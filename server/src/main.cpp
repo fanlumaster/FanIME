@@ -147,6 +147,9 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     EnglishIme::Start(CommonUtils::get_ime_data_path() + "\\english.db",
                       [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
                           FanyNamedPipe::EnqueueEnglishCandidates(std::move(candidates), input, generation);
+                      },
+                      [](std::vector<EnglishIme::TranslationResult> results, uint64_t generation) {
+                          FanyNamedPipe::EnqueueCandidateTranslations(std::move(results), generation);
                       });
     EmojiIme::Start(CommonUtils::get_ime_data_path() + "\\others.db",
                     [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {

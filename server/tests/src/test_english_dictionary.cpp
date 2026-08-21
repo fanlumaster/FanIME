@@ -111,3 +111,22 @@ TEST_CASE(EnglishDictionaryMigratesLegacySchemaAndSupportsMultipleDisplaysPerKey
     REQUIRE_EQ(candidates[0].word, std::string("Hello"));
     REQUIRE_EQ(candidates[1].word, std::string("hello"));
 }
+
+TEST_CASE(EnglishDictionaryQueriesBothGlossDirections)
+{
+    TemporaryEnglishDatabase database;
+    EnglishDictionary dictionary(database.path().string());
+
+    sqlite3 *db = nullptr;
+    REQUIRE_EQ(sqlite3_open(database.path().string().c_str(), &db), SQLITE_OK);
+    REQUIRE_EQ(sqlite3_exec(db,
+                           "INSERT INTO en_zh_glosses VALUES('implement','实现；执行');"
+                           "INSERT INTO zh_en_glosses VALUES('实现','realize; implement');",
+                           nullptr, nullptr, nullptr),
+               SQLITE_OK);
+    sqlite3_close(db);
+
+    REQUIRE_EQ(dictionary.query_chinese_gloss("implement"), std::string("实现；执行"));
+    REQUIRE_EQ(dictionary.query_english_gloss("实现"), std::string("realize; implement"));
+    REQUIRE(dictionary.query_chinese_gloss("missing").empty());
+}

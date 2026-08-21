@@ -66,6 +66,7 @@ FloatingToolbarItemsConfig g_floating_toolbar_items;
 double g_floating_toolbar_scale = 1.0;
 int g_floating_toolbar_font_size = kFloatingToolbarFontSizeDefault;
 bool g_english_candidates_enabled = false;
+bool g_candidate_translations_enabled = true;
 int g_english_mixed_input_min_chars = kEnglishMixedInputMinCharsDefault;
 bool g_cloud_candidates_enabled = true;
 bool g_emoji_mixed_input_enabled = false;
@@ -652,6 +653,7 @@ bool LoadImeConfig()
                     : kFloatingToolbarFontSizeDefault;
         }
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
+        g_candidate_translations_enabled = tbl["general"]["candidate_translations"].value_or(true);
         {
             const int min_chars =
                 tbl["general"]["cn_en_mixed_input_min_chars"].value_or(kEnglishMixedInputMinCharsDefault);
@@ -1817,6 +1819,19 @@ bool SetConfiguredEnglishCandidatesEnabled(bool enabled)
         return false;
     }
     g_english_candidates_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredCandidateTranslationsEnabled()
+{
+    return g_candidate_translations_enabled;
+}
+
+bool SetConfiguredCandidateTranslationsEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "candidate_translations", enabled ? "true" : "false"))
+        return false;
+    g_candidate_translations_enabled = enabled;
     return true;
 }
 

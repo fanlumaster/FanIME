@@ -23,11 +23,14 @@ std::condition_variable g_cv;
 std::thread g_worker;
 std::atomic<bool> g_running{false};
 std::atomic<uint64_t> g_generation{0};
+std::atomic<uint64_t> g_translation_generation{0};
 std::string g_latest_input;
+std::vector<EnglishIme::TranslationQuery> g_latest_translation_queries;
 bool g_dedicated_mode = false;
 size_t g_mixed_min_prefix = kDefaultMixedMinPrefix;
 std::string g_db_path;
 EnglishIme::ApplyCallback g_apply_callback;
+EnglishIme::TranslationCallback g_translation_callback;
 
 std::string NormalizeInput(const std::string &input)
 {
@@ -55,21 +58,54 @@ void WorkerLoop()
 {
     EnglishDictionary dictionary(g_db_path);
     uint64_t observed_generation = g_generation.load();
+    uint64_t observed_translation_generation = g_translation_generation.load();
 
     while (g_running)
     {
         std::unique_lock lock(g_mutex);
-        g_cv.wait(lock, [&] { return !g_running || g_generation.load() != observed_generation; });
+        g_cv.wait(lock, [&] {
+            return !g_running || g_generation.load() != observed_generation ||
+                   g_translation_generation.load() != observed_translation_generation;
+        });
         if (!g_running)
         {
             break;
         }
 
-        observed_generation = g_generation.load();
+        const uint64_t next_generation = g_generation.load();
+        const uint64_t next_translation_generation = g_translation_generation.load();
+        const bool run_candidates = next_generation != observed_generation;
+        const bool run_translations = next_translation_generation != observed_translation_generation;
+        observed_generation = next_generation;
+        observed_translation_generation = next_translation_generation;
         const std::string input = g_latest_input;
+        const auto translation_queries = g_latest_translation_queries;
         const bool dedicated_mode = g_dedicated_mode;
         const size_t mixed_min_prefix = g_mixed_min_prefix;
         lock.unlock();
+
+        if (run_translations)
+        {
+            std::vector<EnglishIme::TranslationResult> results;
+            results.reserve(translation_queries.size());
+            for (const auto &query : translation_queries)
+            {
+                if (!g_running || g_translation_generation.load() != observed_translation_generation)
+                    break;
+                std::string gloss = query.direction == EnglishIme::TranslationDirection::EnglishToChinese
+                                        ? dictionary.query_chinese_gloss(query.key)
+                                        : dictionary.query_english_gloss(query.key);
+                results.push_back({query.key, query.direction, std::move(gloss)});
+            }
+            if (g_running && g_translation_generation.load() == observed_translation_generation &&
+                g_translation_callback)
+            {
+                g_translation_callback(std::move(results), observed_translation_generation);
+            }
+        }
+
+        if (!run_candidates)
+            continue;
 
         const std::string prefix = NormalizeInput(input);
         const size_t min_prefix = dedicated_mode ? 1 : (std::max)(size_t{1}, mixed_min_prefix);
@@ -100,7 +136,7 @@ void WorkerLoop()
 
 namespace EnglishIme
 {
-void Start(const std::string &db_path, ApplyCallback apply_callback)
+void Start(const std::string &db_path, ApplyCallback apply_callback, TranslationCallback translation_callback)
 {
     if (g_running)
     {
@@ -108,6 +144,7 @@ void Start(const std::string &db_path, ApplyCallback apply_callback)
     }
     g_db_path = db_path;
     g_apply_callback = std::move(apply_callback);
+    g_translation_callback = std::move(translation_callback);
     g_running = true;
     g_worker = std::thread(WorkerLoop);
 }
@@ -125,6 +162,7 @@ void Stop()
         g_worker.join();
     }
     g_apply_callback = {};
+    g_translation_callback = {};
 }
 
 void OnInputChanged(const std::string &input, bool dedicated_mode, size_t mixed_min_prefix)
@@ -149,5 +187,25 @@ bool IsCurrent(const std::string &input, uint64_t generation, bool dedicated_mod
     std::lock_guard lock(g_mutex);
     return g_running && g_generation.load() == generation && g_latest_input == input &&
            g_dedicated_mode == dedicated_mode;
+}
+
+void RequestTranslations(std::vector<TranslationQuery> queries)
+{
+    {
+        std::lock_guard lock(g_mutex);
+        g_latest_translation_queries = std::move(queries);
+        g_translation_generation.fetch_add(1);
+    }
+    g_cv.notify_one();
+}
+
+void ClearTranslations()
+{
+    RequestTranslations({});
+}
+
+bool IsTranslationCurrent(uint64_t generation)
+{
+    return g_running && g_translation_generation.load() == generation;
 }
 } // namespace EnglishIme
