@@ -515,7 +515,7 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
     {
         state.cache_key = request().raw_input;
         state.committed_pinyin = request().raw_input;
-        state.should_query = japanese::ConvertRomaji(request().raw_input).complete;
+        state.should_query = !request().raw_input.empty();
         state.query_text = state.should_query ? request().raw_input : std::string{};
         return state;
     }

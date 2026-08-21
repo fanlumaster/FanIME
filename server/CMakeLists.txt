@@ -178,6 +178,7 @@ set(SRC_FILES_IME_ENGINE
     "./MetasequoiaImeEngine/providers/japanese_candidate_provider.cpp"
     "./MetasequoiaImeEngine/japanese/romaji_converter.cpp"
     "./MetasequoiaImeEngine/japanese/japanese_sentence_decoder.cpp"
+    "./MetasequoiaImeEngine/japanese/japanese_matrix_search.cpp"
     "./MetasequoiaImeEngine/quanpin/engine.cpp"
     "./MetasequoiaImeEngine/quanpin/quanpin_dictionary.cpp"
     "./MetasequoiaImeEngine/quanpin/quanpin_query.cpp"

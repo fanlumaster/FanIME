@@ -52,6 +52,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/japanese_candidate_provider.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/japanese/romaji_converter.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/japanese/japanese_sentence_decoder.cpp"
+    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/japanese/japanese_matrix_search.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/engine.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_dictionary.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
