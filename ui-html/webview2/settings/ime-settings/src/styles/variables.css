@@ -24,9 +24,11 @@ html[data-theme="dark"] {
   --surface-sunken: rgba(255, 255, 255, 0.045);
   --surface-subtle: rgba(255, 255, 255, 0.035);
   --dropdown-bg: rgba(45, 45, 45, 0.85);
-  --dropdown-menu-bg: rgba(40, 40, 40, 0.96);
+  --dropdown-menu-bg: rgba(50, 50, 54, 0.98);
+  --dropdown-menu-border: rgba(255, 255, 255, 0.19);
+  --dropdown-menu-shadow: 0 18px 42px rgba(0, 0, 0, 0.58), 0 5px 14px rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.07);
   --dropdown-item-color: #eee;
-  --dropdown-item-hover-bg: rgba(255, 255, 255, 0.08);
+  --dropdown-item-hover-bg: rgba(142, 140, 216, 0.2);
   --control-bg: rgba(45, 45, 45, 0.8);
   --control-border: rgba(255, 255, 255, 0.12);
   --button-secondary-bg: #3b3b3b;
@@ -92,8 +94,10 @@ html[data-theme="light"] {
   --surface-subtle: #f7f7f7;
   --dropdown-bg: #ffffff;
   --dropdown-menu-bg: #ffffff;
+  --dropdown-menu-border: rgba(0, 0, 0, 0.17);
+  --dropdown-menu-shadow: 0 18px 38px rgba(30, 30, 40, 0.2), 0 4px 12px rgba(30, 30, 40, 0.12), inset 0 1px rgba(255, 255, 255, 0.9);
   --dropdown-item-color: #242424;
-  --dropdown-item-hover-bg: rgba(0, 0, 0, 0.04);
+  --dropdown-item-hover-bg: rgba(111, 107, 199, 0.12);
   --control-bg: #ffffff;
   --control-border: rgba(0, 0, 0, 0.14);
   --button-secondary-bg: #f0f0f0;
