@@ -184,6 +184,10 @@
         <div class="icon" id="ja" style="display: none" title="日文">
           <span class="lang-label">日</span>
         </div>
+        <!-- 大写锁定 -->
+        <div class="icon" id="cap" style="display: none" title="大写锁定">
+          <span class="lang-label">A</span>
+        </div>
         <!-- 英文状态 -->
         <div class="icon" id="en" title="英文">
           <span class="lang-label">英</span>
@@ -309,6 +313,8 @@
   document.getElementById('en-candidate').style.display = 'none';
   const jaIcon = document.getElementById('ja');
   if (jaIcon) jaIcon.style.display = 'none';
+  const capIcon = document.getElementById('cap');
+  if (capIcon) capIcon.style.display = 'none';
   // document.getElementById('cn').style.display = 'none';
   // 中英切换点击，向 Cpp 端发送消息
   document.getElementById('cn').addEventListener('click', () => {
@@ -326,6 +332,19 @@
   document.getElementById('en-candidate').addEventListener('click', () => {
     window.chrome.webview.postMessage(JSON.stringify({ type: 'exitEnglishInputMode' }));
   });
+  const capButton = document.getElementById('cap');
+  if (capButton) {
+    capButton.addEventListener('click', () => {
+      const lang = (document.getElementById('cn-en').dataset.lang || 'cn');
+      if (lang === 'en') {
+        window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'cn' }));
+      } else if (lang === 'en-candidate') {
+        window.chrome.webview.postMessage(JSON.stringify({ type: 'exitEnglishInputMode' }));
+      } else {
+        window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
+      }
+    });
+  }
 
   //
   // 半角全角切换
