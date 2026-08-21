@@ -220,6 +220,7 @@ doubao_enable_ddc = false
 # 在豆包语音控制台“自学习平台 -> 热词管理”创建词表后，将热词 ID 填在这里；留空则不使用。
 doubao_boosting_table_id = ""
 # OpenAI 兼容识别模型。豆包流式不使用此项；留空则按提供商填默认值。
+# SiliconFlow 当前默认使用 FunAudioLLM/SenseVoiceSmall，也可在这里填写其他模型名。
 asr_model = ""
 # 文本润色: siliconflow | openai | deepseek | groq
 # 均走 OpenAI 兼容的 /v1/chat/completions。

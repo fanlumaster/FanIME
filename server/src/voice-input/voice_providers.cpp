@@ -149,7 +149,7 @@ std::string DefaultAsrModel(std::string_view provider)
         return "whisper-large-v3-turbo";
     if (id == "doubao")
         return {};
-    return "TeleAI/TeleSpeechASR";
+    return "FunAudioLLM/SenseVoiceSmall";
 }
 
 std::string DefaultPolishEndpoint(std::string_view provider)

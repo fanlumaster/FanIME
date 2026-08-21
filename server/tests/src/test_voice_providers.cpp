@@ -10,7 +10,7 @@ TEST_CASE(voice_providers_resolve_openai_compatible_defaults)
 
     REQUIRE_EQ(VoiceInput::DefaultAsrEndpoint("openai"), "https://api.openai.com/v1/audio/transcriptions");
     REQUIRE_EQ(VoiceInput::DefaultAsrModel("openai"), "whisper-1");
-    REQUIRE_EQ(VoiceInput::DefaultAsrModel("siliconflow"), "TeleAI/TeleSpeechASR");
+    REQUIRE_EQ(VoiceInput::DefaultAsrModel("siliconflow"), "FunAudioLLM/SenseVoiceSmall");
     REQUIRE_EQ(VoiceInput::AsrTokenSlotKey("siliconflow"), "asr_token_siliconflow");
     REQUIRE(VoiceInput::IsPlaceholderToken("<YOUR_OWN_DOUBAO_ACCESS_TOKEN>"));
     {
@@ -24,6 +24,10 @@ TEST_CASE(voice_providers_resolve_openai_compatible_defaults)
         REQUIRE_EQ(VoiceInput::ResolveAsrToken(config), "sk-siliconflow");
         config.asr_provider = "groq";
         REQUIRE_EQ(VoiceInput::ResolveAsrToken(config), "");
+        config.asr_provider = "siliconflow";
+        REQUIRE_EQ(VoiceInput::ResolveAsrModel(config), "FunAudioLLM/SenseVoiceSmall");
+        config.asr_model = "custom/asr-model";
+        REQUIRE_EQ(VoiceInput::ResolveAsrModel(config), "custom/asr-model");
     }
     {
         VoiceInputConfig config;

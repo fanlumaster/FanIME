@@ -1030,6 +1030,13 @@ void InitImeConfig()
     if (LoadImeConfig())
     {
         MigrateLegacyVoiceInputConfig();
+        if (VoiceInput::NormalizeProviderId(g_voice_input.asr_provider) == "siliconflow" &&
+            g_voice_input.asr_model == "TeleAI/TeleSpeechASR")
+        {
+            const std::string model = VoiceInput::DefaultAsrModel("siliconflow");
+            if (WriteConfiguredValue("voice_input", "asr_model", EscapeTomlBasicString(model)))
+                g_voice_input.asr_model = model;
+        }
         {
             const std::string asr_id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
             if (VoiceInput::IsPlaceholderToken(g_voice_input.asr_tokens[asr_id]) &&
