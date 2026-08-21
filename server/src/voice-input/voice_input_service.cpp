@@ -39,6 +39,7 @@ std::vector<float> g_samples;
 std::unique_ptr<DoubaoAsrClient> g_doubao_asr;
 std::atomic<std::size_t> g_recorded_frames{0};
 std::atomic<std::uint64_t> g_voice_session{0};
+std::atomic<std::uint64_t> g_dismissed_overlay_session{0};
 std::vector<std::future<void>> g_network_tasks;
 std::mutex g_send_mutex;
 std::atomic<bool> g_stream_inline_this_session{false};
@@ -140,7 +141,11 @@ void ControlLoop()
             if (g_recording) StopRecording();
             else StartRecording();
         }
-        else if (command == ControlCommand::Lock) g_ralt_lock_mode = true;
+        else if (command == ControlCommand::Lock)
+        {
+            g_ralt_lock_mode = true;
+            g_overlay.set_actions_visible(true);
+        }
         else if (command == ControlCommand::Cancel) CancelRecording();
     }
 }
@@ -540,14 +545,19 @@ RecognitionResult Recognize(const std::vector<float> &samples, const VoiceInputC
     }
 }
 
+bool ShouldPolish(const std::string &text, const VoiceInputConfig &config)
+{
+    return config.polish_text && !text.empty() && !VoiceInput::ResolvePolishToken(config).empty() &&
+           !config.polish_endpoint.empty() && !VoiceInput::ResolvePolishModel(config).empty();
+}
+
 std::string Polish(const std::string &text, const VoiceInputConfig &config)
 {
+    if (!ShouldPolish(text, config)) return text;
     const std::string polish_token = VoiceInput::ResolvePolishToken(config);
-    if (!config.polish_text || text.empty() || polish_token.empty() || config.polish_endpoint.empty()) return text;
     CURL *curl = curl_easy_init();
     if (!curl) return text;
     const std::string model_name = VoiceInput::ResolvePolishModel(config);
-    if (model_name.empty()) return text;
     nlohmann::json body = {
         {"model", model_name},
         {"stream", false},
@@ -805,10 +815,13 @@ bool StartRecording()
     {
         std::lock_guard<std::mutex> send_lock(g_send_mutex);
         voice_session = ++g_voice_session;
+        g_dismissed_overlay_session = 0;
         g_last_inline_preedit.clear();
         g_stream_inline_this_session.store(use_doubao && ShouldStreamInlinePreedit(config));
     }
     g_overlay.set_show_transcript(!g_stream_inline_this_session.load());
+    g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+    g_overlay.set_actions_visible(false);
     g_overlay.set_transcript(L"");
     if (use_doubao)
     {
@@ -877,12 +890,22 @@ void StopRecording()
     RestoreSystemAudioIfMuted();
     if (config.end_sound) g_cue_player.play_end();
     auto doubao_asr = std::move(g_doubao_asr);
+    const bool batch_recognition = !doubao_asr;
     const bool stream_inline = g_stream_inline_this_session.load();
     const std::uint64_t voice_session = g_voice_session.load();
     if (!stream_inline)
     {
+        g_overlay.set_compact_status(batch_recognition ? WaveOverlay::CompactStatus::Recognizing
+                                                       : WaveOverlay::CompactStatus::None);
         g_overlay.set_show_transcript(true);
-        g_overlay.set_transcript(L"正在识别…");
+        g_overlay.set_transcript(batch_recognition ? L"" : L"正在识别…");
+        g_overlay.set_actions_visible(batch_recognition);
+        g_overlay.show();
+    }
+    else
+    {
+        g_overlay.set_compact_status(WaveOverlay::CompactStatus::Recognizing);
+        g_overlay.set_actions_visible(true);
         g_overlay.show();
     }
     const std::size_t recorded_frames = g_recorded_frames;
@@ -896,6 +919,7 @@ void StopRecording()
             CancelInlinePreedit();
         }
         g_overlay.hide();
+        g_overlay.set_actions_visible(false);
         g_overlay.set_transcript(L"");
         if (doubao_asr)
         {
@@ -910,8 +934,8 @@ void StopRecording()
         }),
         g_network_tasks.end());
     g_network_tasks.emplace_back(std::async(std::launch::async,
-        [samples = std::move(samples), client = std::move(doubao_asr), config, stream_inline,
-         voice_session]() mutable {
+        [samples = std::move(samples), client = std::move(doubao_asr), config, batch_recognition,
+         stream_inline, voice_session]() mutable {
         RecognitionResult recognition;
         if (client)
         {
@@ -920,12 +944,26 @@ void StopRecording()
         }
         else
             recognition = Recognize(samples, config);
-        if (!stream_inline && g_voice_session == voice_session)
+        if (!batch_recognition && !stream_inline && g_voice_session == voice_session)
         {
             if (!recognition.error.empty())
                 g_overlay.set_transcript(string_to_wstring(recognition.error));
             else if (!recognition.text.empty())
                 g_overlay.set_transcript(string_to_wstring(recognition.text));
+        }
+        const bool polishing = recognition.error.empty() && ShouldPolish(recognition.text, config);
+        if (polishing && g_voice_session == voice_session)
+        {
+            g_overlay.set_compact_status(WaveOverlay::CompactStatus::Processing);
+            g_overlay.set_actions_visible(true);
+            if (g_dismissed_overlay_session != voice_session)
+                g_overlay.show();
+        }
+        else if (batch_recognition && g_voice_session == voice_session)
+        {
+            g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+            g_overlay.set_actions_visible(false);
+            g_overlay.hide();
         }
         if (!recognition.error.empty())
         {
@@ -933,10 +971,25 @@ void StopRecording()
                         MB_OK | MB_ICONERROR);
         }
         const std::string text = recognition.error.empty() ? Polish(recognition.text, config) : std::string();
-        if (!stream_inline && g_voice_session == voice_session && !text.empty())
+        if (!batch_recognition && !polishing && !stream_inline && g_voice_session == voice_session && !text.empty())
+        {
             g_overlay.set_transcript(string_to_wstring(text));
+        }
         if (!text.empty() && g_voice_session == voice_session)
             CommitRecognizedText(text, config, stream_inline);
+        if (!polishing && stream_inline && g_voice_session == voice_session)
+        {
+            g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+            g_overlay.set_actions_visible(false);
+            g_overlay.hide();
+        }
+        if (polishing && g_voice_session == voice_session)
+        {
+            g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+            g_overlay.set_actions_visible(false);
+            g_overlay.hide();
+            g_overlay.set_transcript(L"");
+        }
         if (text.empty() && stream_inline && g_voice_session == voice_session)
         {
             std::lock_guard<std::mutex> send_lock(g_send_mutex);
@@ -946,6 +999,8 @@ void StopRecording()
         Sleep(recognition.error.empty() ? 160 : 1200);
         if (g_voice_session == voice_session && !g_recording)
         {
+            g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+            g_overlay.set_actions_visible(false);
             g_overlay.hide();
             g_overlay.set_transcript(L"");
         }
@@ -954,7 +1009,19 @@ void StopRecording()
 
 void CancelRecording()
 {
-    if (!g_recording) return;
+    if (!g_recording)
+    {
+        {
+            std::lock_guard<std::mutex> send_lock(g_send_mutex);
+            ++g_voice_session;
+            CancelInlinePreedit();
+        }
+        g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+        g_overlay.set_actions_visible(false);
+        g_overlay.hide();
+        g_overlay.set_transcript(L"");
+        return;
+    }
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     g_recording = false;
     {
@@ -966,6 +1033,8 @@ void CancelRecording()
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
+    g_overlay.set_compact_status(WaveOverlay::CompactStatus::None);
+    g_overlay.set_actions_visible(false);
     g_overlay.hide();
     g_overlay.set_transcript(L"");
     RestoreSystemAudioIfMuted();
@@ -986,7 +1055,26 @@ bool VoiceInput::Initialize()
     if (g_initialized) return true;
     curl_global_init(CURL_GLOBAL_DEFAULT);
     const HINSTANCE instance = GetModuleHandleW(nullptr);
-    if (!g_overlay.init(instance)) return false;
+    if (!g_overlay.init(instance, [](WaveOverlay::Action action) {
+            if (action == WaveOverlay::Action::Cancel)
+            {
+                if (!g_recording)
+                    ++g_voice_session;
+                if (g_message_window)
+                    PostMessageW(g_message_window, kCancelRecordingMessage, 0, 0);
+                return;
+            }
+            if (g_recording)
+            {
+                if (g_message_window)
+                    PostMessageW(g_message_window, kStopRecordingMessage, 0, 0);
+                return;
+            }
+            g_dismissed_overlay_session = g_voice_session.load();
+            g_overlay.set_actions_visible(false);
+            g_overlay.hide();
+        }))
+        return false;
     g_cue_player.init(ResolveCuePath(L"start.mp3"), ResolveCuePath(L"end.mp3"));
     RestoreOtherSystemAudio();
 

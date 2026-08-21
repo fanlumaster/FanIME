@@ -2,19 +2,33 @@
 
 #include <windows.h>
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 
 class WaveOverlay
 {
   public:
+    enum class CompactStatus
+    {
+        None,
+        Recognizing,
+        Processing,
+    };
+
+    enum class Action
+    {
+        Cancel,
+        Confirm,
+    };
+
     WaveOverlay();
     ~WaveOverlay();
 
     WaveOverlay(const WaveOverlay &) = delete;
     WaveOverlay &operator=(const WaveOverlay &) = delete;
 
-    bool init(HINSTANCE instance);
+    bool init(HINSTANCE instance, std::function<void(Action)> action_handler);
     void shutdown();
 
     void show();
@@ -25,6 +39,8 @@ class WaveOverlay
     void set_transcript(const std::wstring &text);
     // When false, the overlay stays compact and never paints live ASR text.
     void set_show_transcript(bool show);
+    void set_compact_status(CompactStatus status);
+    void set_actions_visible(bool visible);
 
   private:
     static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -38,6 +54,7 @@ class WaveOverlay
     void draw();
     void update_dpi_scale();
     void update_window_bounds();
+    bool hit_test_action(float x, float y, Action &action) const;
 
   private:
     static constexpr int kLevelCount = 12;
@@ -51,6 +68,11 @@ class WaveOverlay
     std::atomic<bool> listening_{false};
     std::atomic<float> input_level_{0.0f};
     std::atomic<bool> show_transcript_{true};
+    std::atomic<CompactStatus> compact_status_{CompactStatus::None};
+    std::atomic<bool> actions_visible_{false};
+    Action pressed_action_ = Action::Confirm;
+    bool action_pressed_ = false;
+    std::function<void(Action)> action_handler_;
     std::mutex transcript_mutex_;
     std::wstring transcript_;
     float levels_[kLevelCount] = {};
@@ -64,8 +86,10 @@ class WaveOverlay
     struct ID2D1SolidColorBrush *bar_brush_ = nullptr;
     struct ID2D1SolidColorBrush *bg_brush_ = nullptr;
     struct ID2D1SolidColorBrush *border_brush_ = nullptr;
+    struct ID2D1SolidColorBrush *action_bg_brush_ = nullptr;
     struct IDWriteFactory *write_factory_ = nullptr;
     struct IDWriteTextFormat *text_format_ = nullptr;
+    struct IDWriteTextFormat *processing_text_format_ = nullptr;
     struct IDWriteTextLayout *text_layout_ = nullptr;
     std::wstring layout_source_transcript_;
 };

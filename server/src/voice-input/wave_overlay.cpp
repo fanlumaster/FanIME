@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <dwmapi.h>
+#include <windowsx.h>
 
 namespace
 {
@@ -17,6 +18,12 @@ constexpr UINT kTimerMs = 16;
 constexpr UINT kTranscriptChangedMessage = WM_APP + 186;
 constexpr int kCompactWidth = 78;
 constexpr int kCompactHeight = 32;
+constexpr int kProcessingWidth = 112;
+constexpr int kProcessingHeight = 40;
+constexpr int kActionWidth = 142;
+constexpr int kActionHeight = 40;
+constexpr float kActionCenterInset = 18.0f;
+constexpr float kActionRadius = 12.0f;
 constexpr int kTranscriptWidth = 420;
 constexpr int kTranscriptHeight = 112;
 constexpr float kTranscriptHorizontalPadding = 14.0f;
@@ -56,7 +63,7 @@ WaveOverlay::~WaveOverlay()
     shutdown();
 }
 
-bool WaveOverlay::init(HINSTANCE instance)
+bool WaveOverlay::init(HINSTANCE instance, std::function<void(Action)> action_handler)
 {
     if (hwnd_)
     {
@@ -64,6 +71,7 @@ bool WaveOverlay::init(HINSTANCE instance)
     }
 
     instance_ = instance;
+    action_handler_ = std::move(action_handler);
 
     const HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &factory_);
     if (FAILED(hr))
@@ -73,8 +81,11 @@ bool WaveOverlay::init(HINSTANCE instance)
     if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
                                    reinterpret_cast<IUnknown **>(&write_factory_))) ||
         FAILED(write_factory_->CreateTextFormat(L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL,
-                                                DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-                                                15.0f, L"zh-cn", &text_format_)))
+                                                DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 15.0f, L"zh-cn",
+                                                &text_format_)) ||
+        FAILED(write_factory_->CreateTextFormat(L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL,
+                                                DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 14.0f, L"zh-cn",
+                                                &processing_text_format_)))
     {
         shutdown();
         return false;
@@ -83,6 +94,8 @@ bool WaveOverlay::init(HINSTANCE instance)
     text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     text_format_->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
     text_format_->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, 22.0f, 18.0f);
+    processing_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+    processing_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 
     WNDCLASSW wc{};
     wc.lpfnWndProc = WaveOverlay::wnd_proc;
@@ -136,6 +149,7 @@ void WaveOverlay::shutdown()
 
     release_render_target();
     release_text_layout();
+    safe_release(&processing_text_format_);
     safe_release(&text_format_);
     safe_release(&write_factory_);
     safe_release(&factory_);
@@ -205,6 +219,24 @@ void WaveOverlay::set_show_transcript(bool show)
         PostMessageW(hwnd_, kTranscriptChangedMessage, 0, 0);
 }
 
+void WaveOverlay::set_compact_status(CompactStatus status)
+{
+    const CompactStatus previous = compact_status_.exchange(status);
+    if (previous == status)
+        return;
+    if (hwnd_)
+        PostMessageW(hwnd_, kTranscriptChangedMessage, 0, 0);
+}
+
+void WaveOverlay::set_actions_visible(bool visible)
+{
+    const bool previous = actions_visible_.exchange(visible);
+    if (previous == visible)
+        return;
+    if (hwnd_)
+        PostMessageW(hwnd_, kTranscriptChangedMessage, 0, 0);
+}
+
 LRESULT CALLBACK WaveOverlay::wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     WaveOverlay *self = reinterpret_cast<WaveOverlay *>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -249,7 +281,51 @@ LRESULT WaveOverlay::handle_message(HWND hwnd, UINT message, WPARAM wParam, LPAR
         update_dpi_scale();
         update_window_bounds();
         return 0;
+    case WM_MOUSEACTIVATE:
+        return MA_NOACTIVATE;
+    case WM_SETCURSOR: {
+        POINT point{};
+        GetCursorPos(&point);
+        ScreenToClient(hwnd, &point);
+        Action action{};
+        if (hit_test_action(static_cast<float>(point.x) / scale_x_,
+                            static_cast<float>(point.y) / scale_y_, action))
+        {
+            SetCursor(LoadCursorW(nullptr, IDC_HAND));
+            return TRUE;
+        }
+        break;
+    }
+    case WM_LBUTTONDOWN: {
+        Action action{};
+        if (hit_test_action(static_cast<float>(GET_X_LPARAM(lParam)) / scale_x_,
+                            static_cast<float>(GET_Y_LPARAM(lParam)) / scale_y_, action))
+        {
+            pressed_action_ = action;
+            action_pressed_ = true;
+            SetCapture(hwnd);
+            return 0;
+        }
+        break;
+    }
+    case WM_LBUTTONUP: {
+        if (!action_pressed_)
+            break;
+        ReleaseCapture();
+        action_pressed_ = false;
+        Action action{};
+        if (hit_test_action(static_cast<float>(GET_X_LPARAM(lParam)) / scale_x_,
+                            static_cast<float>(GET_Y_LPARAM(lParam)) / scale_y_, action) &&
+            action == pressed_action_ && action_handler_)
+            action_handler_(action);
+        return 0;
+    }
+    case WM_CAPTURECHANGED:
+        action_pressed_ = false;
+        return 0;
     case kTranscriptChangedMessage:
+        if (!actions_visible_.load())
+            action_pressed_ = false;
         release_text_layout();
         update_window_bounds();
         InvalidateRect(hwnd, nullptr, FALSE);
@@ -269,6 +345,7 @@ LRESULT WaveOverlay::handle_message(HWND hwnd, UINT message, WPARAM wParam, LPAR
     default:
         return DefWindowProcW(hwnd, message, wParam, lParam);
     }
+    return DefWindowProcW(hwnd, message, wParam, lParam);
 }
 
 bool WaveOverlay::ensure_render_target()
@@ -282,7 +359,10 @@ bool WaveOverlay::ensure_render_target()
     GetClientRect(hwnd_, &rc);
 
     D2D1_SIZE_U size = D2D1::SizeU(static_cast<UINT>(rc.right - rc.left), static_cast<UINT>(rc.bottom - rc.top));
-    const HRESULT hr = factory_->CreateHwndRenderTarget(D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)), D2D1::HwndRenderTargetProperties(hwnd_, size), &render_target_);
+    const HRESULT hr = factory_->CreateHwndRenderTarget(
+        D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
+                                     D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
+        D2D1::HwndRenderTargetProperties(hwnd_, size), &render_target_);
 
     if (FAILED(hr))
     {
@@ -291,10 +371,11 @@ bool WaveOverlay::ensure_render_target()
 
     const D2D1_COLOR_F background = light_theme_ ? D2D1::ColorF(0.98f, 0.98f, 0.99f, kPanelOpacity)
                                                  : D2D1::ColorF(0.07f, 0.08f, 0.10f, kPanelOpacity);
-    const D2D1_COLOR_F bars =
-        light_theme_ ? D2D1::ColorF(0.35f, 0.18f, 0.42f) : D2D1::ColorF(D2D1::ColorF::White);
+    const D2D1_COLOR_F bars = light_theme_ ? D2D1::ColorF(0.35f, 0.18f, 0.42f) : D2D1::ColorF(D2D1::ColorF::White);
     const D2D1_COLOR_F border =
         light_theme_ ? D2D1::ColorF(0.20f, 0.20f, 0.24f, 0.22f) : D2D1::ColorF(0.90f, 0.93f, 1.0f, 0.20f);
+    const D2D1_COLOR_F action_background =
+        light_theme_ ? D2D1::ColorF(0.86f, 0.87f, 0.89f) : D2D1::ColorF(0.18f, 0.19f, 0.21f);
 
     if (FAILED(render_target_->CreateSolidColorBrush(background, &bg_brush_)))
     {
@@ -314,6 +395,12 @@ bool WaveOverlay::ensure_render_target()
         return false;
     }
 
+    if (FAILED(render_target_->CreateSolidColorBrush(action_background, &action_bg_brush_)))
+    {
+        release_render_target();
+        return false;
+    }
+
     update_dpi_scale();
     return true;
 }
@@ -323,6 +410,7 @@ void WaveOverlay::release_render_target()
     safe_release(&bar_brush_);
     safe_release(&bg_brush_);
     safe_release(&border_brush_);
+    safe_release(&action_bg_brush_);
     safe_release(&render_target_);
 }
 
@@ -402,8 +490,14 @@ void WaveOverlay::update_window_bounds()
         std::lock_guard<std::mutex> lock(transcript_mutex_);
         has_transcript = !transcript_.empty();
     }
-    const int logical_width = has_transcript ? kTranscriptWidth : kCompactWidth;
-    const int logical_height = has_transcript ? kTranscriptHeight : kCompactHeight;
+    const bool has_compact_status = compact_status_.load() != CompactStatus::None;
+    const bool has_actions = actions_visible_.load();
+    const int logical_width = has_actions ? kActionWidth
+                                         : (has_compact_status ? kProcessingWidth
+                                                               : (has_transcript ? kTranscriptWidth : kCompactWidth));
+    const int logical_height = has_actions ? kActionHeight
+                                          : (has_compact_status ? kProcessingHeight
+                                                                : (has_transcript ? kTranscriptHeight : kCompactHeight));
     const int width = static_cast<int>(std::lround(logical_width * scale_x_));
     const int height = static_cast<int>(std::lround(logical_height * scale_y_));
     const RECT monitor = mvi_utils::GetMonitorCoordinates();
@@ -411,6 +505,33 @@ void WaveOverlay::update_window_bounds()
     const int x = (monitor.right + monitor.left) / 2 - width / 2;
     const int y = monitor.bottom - taskbar_height - height - 10;
     SetWindowPos(hwnd_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE);
+}
+
+bool WaveOverlay::hit_test_action(float x, float y, Action &action) const
+{
+    if (!actions_visible_.load() || !hwnd_)
+        return false;
+    RECT rc{};
+    GetClientRect(hwnd_, &rc);
+    const float width = static_cast<float>(rc.right - rc.left) / scale_x_;
+    const float height = static_cast<float>(rc.bottom - rc.top) / scale_y_;
+    const float center_y = height * 0.5f;
+    const auto inside = [&](float center_x) {
+        const float dx = x - center_x;
+        const float dy = y - center_y;
+        return dx * dx + dy * dy <= kActionRadius * kActionRadius;
+    };
+    if (inside(kActionCenterInset))
+    {
+        action = Action::Cancel;
+        return true;
+    }
+    if (inside(width - kActionCenterInset))
+    {
+        action = Action::Confirm;
+        return true;
+    }
+    return false;
 }
 
 void WaveOverlay::update_wave_levels()
@@ -470,16 +591,24 @@ void WaveOverlay::draw()
         std::lock_guard<std::mutex> lock(transcript_mutex_);
         transcript = transcript_;
     }
-    const bool has_transcript = show_transcript && !transcript.empty();
-    const float wave_width = has_transcript ? (std::min)(78.0f, w) : w;
+    const CompactStatus compact_status = compact_status_.load();
+    const bool has_compact_status = compact_status != CompactStatus::None;
+    const bool has_actions = actions_visible_.load();
+    const bool has_transcript = !has_compact_status && show_transcript && !transcript.empty();
+    const float content_left = has_actions ? 35.0f : 0.0f;
+    const float content_right = has_actions ? w - 35.0f : w;
+    const float content_width = content_right - content_left;
+    const float wave_width = has_transcript ? (std::min)(78.0f, w)
+                                            : (has_actions ? (std::min)(78.0f, content_width) : w);
     const float wave_left = has_transcript ? (w - wave_width) * 0.5f : 0.0f;
+    const float centered_wave_left = has_actions ? content_left + (content_width - wave_width) * 0.5f : wave_left;
     const float center_y = has_transcript ? 18.0f : h * 0.5f;
     const float side_margin = kDotRadius + 0.25f;
     const float track_width = std::max(1.0f, wave_width - 2.0f * side_margin);
     const float base_step = (kBarCount > 1) ? (track_width / static_cast<float>(kBarCount - 1)) : 0.0f;
     const float step = base_step * 0.75f; // 减小一点间距，让波形更紧凑一些
     const float used_width = step * static_cast<float>(kBarCount - 1);
-    const float start_x = wave_left + (wave_width - used_width) * 0.5f;
+    const float start_x = centered_wave_left + (wave_width - used_width) * 0.5f;
     const float dot_radius = kDotRadius;
     const float bar_width = std::max(dot_radius * 2.0f, base_step * 0.26f);
 
@@ -487,25 +616,37 @@ void WaveOverlay::draw()
     render_target_->SetTransform(D2D1::Matrix3x2F::Identity());
     render_target_->Clear(D2D1::ColorF(0, 0, 0, 0));
 
-    const float corner = has_transcript ? 16.0f : 10.0f;
+    const float corner = (has_compact_status || has_actions) ? h * 0.5f : (has_transcript ? 16.0f : 10.0f);
     const D2D1_ROUNDED_RECT panel = D2D1::RoundedRect(D2D1::RectF(0.5f, 0.5f, w - 0.5f, h - 0.5f), corner, corner);
     render_target_->FillRoundedRectangle(panel, bg_brush_);
     render_target_->DrawRoundedRectangle(panel, border_brush_, 1.0f);
 
-    for (int i = 0; i < kBarCount; ++i)
+    if (has_compact_status)
     {
-        const float x = start_x + i * step;
-        const float display_level = has_transcript ? (std::min)(1.0f, levels_[i] * 1.35f) : levels_[i];
-        const float max_half_height = has_transcript ? 14.0f : kMaxHalfHeight;
-        const float half = dot_radius + display_level * (max_half_height - dot_radius);
-        if (display_level < 0.06f)
+        const wchar_t *label = compact_status == CompactStatus::Recognizing ? L"识别中..." : L"处理中...";
+        render_target_->DrawTextW(label, static_cast<UINT32>(wcslen(label)), processing_text_format_,
+                                  D2D1::RectF(content_left, 0.0f, content_right, h), bar_brush_);
+    }
+    else
+    {
+        for (int i = 0; i < kBarCount; ++i)
         {
-            render_target_->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, center_y), dot_radius, dot_radius), bar_brush_);
-        }
-        else
-        {
-            const D2D1_ROUNDED_RECT rr = D2D1::RoundedRect(D2D1::RectF(x - bar_width * 0.5f, center_y - half, x + bar_width * 0.5f, center_y + half), bar_width * 0.5f, bar_width * 0.5f);
-            render_target_->FillRoundedRectangle(rr, bar_brush_);
+            const float x = start_x + i * step;
+            const float display_level = has_transcript ? (std::min)(1.0f, levels_[i] * 1.35f) : levels_[i];
+            const float max_half_height = has_transcript ? 14.0f : kMaxHalfHeight;
+            const float half = dot_radius + display_level * (max_half_height - dot_radius);
+            if (display_level < 0.06f)
+            {
+                render_target_->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, center_y), dot_radius, dot_radius),
+                                            bar_brush_);
+            }
+            else
+            {
+                const D2D1_ROUNDED_RECT rr = D2D1::RoundedRect(
+                    D2D1::RectF(x - bar_width * 0.5f, center_y - half, x + bar_width * 0.5f, center_y + half),
+                    bar_width * 0.5f, bar_width * 0.5f);
+                render_target_->FillRoundedRectangle(rr, bar_brush_);
+            }
         }
     }
 
@@ -518,6 +659,27 @@ void WaveOverlay::draw()
             render_target_->DrawTextLayout(D2D1::Point2F(kTranscriptHorizontalPadding, kTranscriptTextTop),
                                            text_layout_, bar_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
+    }
+
+    if (has_actions)
+    {
+        const float button_y = h * 0.5f;
+        const float left_x = kActionCenterInset;
+        const float right_x = w - kActionCenterInset;
+        render_target_->FillEllipse(D2D1::Ellipse(D2D1::Point2F(left_x, button_y), kActionRadius, kActionRadius),
+                                    action_bg_brush_);
+        render_target_->FillEllipse(D2D1::Ellipse(D2D1::Point2F(right_x, button_y), kActionRadius, kActionRadius),
+                                    action_bg_brush_);
+
+        constexpr float x_half = 3.0f;
+        render_target_->DrawLine(D2D1::Point2F(left_x - x_half, button_y - x_half),
+                                 D2D1::Point2F(left_x + x_half, button_y + x_half), bar_brush_, 1.7f);
+        render_target_->DrawLine(D2D1::Point2F(left_x + x_half, button_y - x_half),
+                                 D2D1::Point2F(left_x - x_half, button_y + x_half), bar_brush_, 1.7f);
+        render_target_->DrawLine(D2D1::Point2F(right_x - 3.8f, button_y),
+                                 D2D1::Point2F(right_x - 0.8f, button_y + 3.0f), bar_brush_, 1.7f);
+        render_target_->DrawLine(D2D1::Point2F(right_x - 0.8f, button_y + 3.0f),
+                                 D2D1::Point2F(right_x + 4.2f, button_y - 3.5f), bar_brush_, 1.7f);
     }
 
     const HRESULT hr = render_target_->EndDraw();
