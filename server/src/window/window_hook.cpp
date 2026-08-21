@@ -8,10 +8,26 @@
 #include "defines/defines.h"
 #include "watchdog/watchdog_protocol.h"
 #include "log/ftb_diag_log.h"
+#include <atomic>
 #include <fmt/xchar.h>
 #include <winuser.h>
 
 void OnWinEvent(HWND hwnd);
+
+namespace
+{
+std::atomic<int> g_caps_lock{0};
+}
+
+void InitServerCapsLockState()
+{
+    g_caps_lock.store((GetKeyState(VK_CAPITAL) & 0x0001) != 0 ? 1 : 0, std::memory_order_relaxed);
+}
+
+int GetServerCapsLockState()
+{
+    return g_caps_lock.load(std::memory_order_relaxed);
+}
 
 bool IsKeyPressed(int vk)
 {
@@ -26,6 +42,16 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN))
     {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
+
+        if (p->vkCode == VK_CAPITAL && (p->flags & LLKHF_UP) == 0)
+        {
+            const int next = g_caps_lock.load(std::memory_order_relaxed) ? 0 : 1;
+            g_caps_lock.store(next, std::memory_order_relaxed);
+            if (::global_hwnd_ftb && IsWindow(::global_hwnd_ftb))
+            {
+                PostMessage(::global_hwnd_ftb, UPDATE_FTB_CAPS_LOCK, static_cast<WPARAM>(next), 0);
+            }
+        }
 
         bool ctrl = IsKeyPressed(VK_CONTROL);
         bool alt = IsKeyPressed(VK_MENU);

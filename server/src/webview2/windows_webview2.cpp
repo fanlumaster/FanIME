@@ -524,6 +524,7 @@ struct FloatingToolbarState
     int double_single_byte = 0;
     int punctuation = 1;
     int english_input_mode = 0;
+    int caps_lock = 0;
 };
 
 FloatingToolbarState floatingToolbarState;
@@ -759,12 +760,40 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
     }
 
     std::wstring script;
-    script.reserve(1280);
+    script.reserve(1600);
     const bool japanese_mode = GetConfiguredInputMode() == "japanese";
     constexpr wchar_t kHideJa[] = L"{const ja=document.getElementById('ja');if(ja)ja.style.display='none';}";
     constexpr wchar_t kShowJa[] = L"{const ja=document.getElementById('ja');if(ja)ja.style.display='flex';}";
-    if (floatingToolbarState.cn_en == 1)
+    constexpr wchar_t kHideCap[] = L"{const cap=document.getElementById('cap');if(cap)cap.style.display='none';}";
+    constexpr wchar_t kShowCap[] = L"{const cap=document.getElementById('cap');if(cap)cap.style.display='flex';}";
+    const wchar_t *lang_token = L"cn";
+    if (floatingToolbarState.cn_en != 1)
     {
+        lang_token = L"en";
+    }
+    else if (floatingToolbarState.english_input_mode == 1)
+    {
+        lang_token = L"en-candidate";
+    }
+    else if (japanese_mode)
+    {
+        lang_token = L"ja";
+    }
+    script.append(L"{const host=document.getElementById('cn-en');if(host)host.dataset.lang='");
+    script.append(lang_token);
+    script.append(L"';}");
+
+    if (floatingToolbarState.caps_lock == 1)
+    {
+        script.append(L"document.getElementById('cn').style.display = 'none';"
+                      L"document.getElementById('en-candidate').style.display = 'none';"
+                      L"document.getElementById('en').style.display = 'none';");
+        script.append(kHideJa);
+        script.append(kShowCap);
+    }
+    else if (floatingToolbarState.cn_en == 1)
+    {
+        script.append(kHideCap);
         if (floatingToolbarState.english_input_mode == 1)
         {
             script.append(L"document.getElementById('cn').style.display = 'none';"
@@ -789,6 +818,7 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
     }
     else
     {
+        script.append(kHideCap);
         script.append(L"document.getElementById('cn').style.display = 'none';");
         script.append(L"document.getElementById('en-candidate').style.display = 'none';");
         script.append(L"document.getElementById('en').style.display = 'flex';");
@@ -3711,12 +3741,14 @@ void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
     ComPtr<ICoreWebView2> webview,             //
     int cnEnState,                             //
     int doubleSingleByteState,                 //
-    int puncState                              //
+    int puncState,                             //
+    int capsLockState                          //
 )
 {
     bool changed = UpdateBinaryState(cnEnState, floatingToolbarState.cn_en);
     changed |= UpdateBinaryState(doubleSingleByteState, floatingToolbarState.double_single_byte);
     changed |= UpdateBinaryState(puncState, floatingToolbarState.punctuation);
+    changed |= UpdateBinaryState(capsLockState, floatingToolbarState.caps_lock);
     if (changed)
     {
         RenderFloatingToolbarState(webview.Get());
@@ -3754,6 +3786,14 @@ void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSin
 void UpdateFtbEnglishInputModeState(ComPtr<ICoreWebView2> webview, int enabled)
 {
     if (UpdateBinaryState(enabled, floatingToolbarState.english_input_mode))
+    {
+        RenderFloatingToolbarState(webview.Get());
+    }
+}
+
+void UpdateFtbCapsLockState(ComPtr<ICoreWebView2> webview, int enabled)
+{
+    if (UpdateBinaryState(enabled, floatingToolbarState.caps_lock))
     {
         RenderFloatingToolbarState(webview.Get());
     }

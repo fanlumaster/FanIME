@@ -182,11 +182,13 @@ void UpdateFtbCnEnAndDoubleSingleAndPuncState( //
     ComPtr<ICoreWebView2> webview,             //
     int cnEnState,                             //
     int doubleSingleByteState,                 //
-    int puncState                              //
+    int puncState,                             //
+    int capsLockState = 0                      //
 );
 void UpdateFtbPuncState(ComPtr<ICoreWebView2> webview, int puncState);
 void UpdateFtbDoubleSingleByteState(ComPtr<ICoreWebView2> webview, int doubleSingleByteState);
 void UpdateFtbEnglishInputModeState(ComPtr<ICoreWebView2> webview, int enabled);
+void UpdateFtbCapsLockState(ComPtr<ICoreWebView2> webview, int enabled);
 void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview);
 void UpdateFtbInputModeState(ComPtr<ICoreWebView2> webview);
 // Reapply configured optional buttons to the live toolbar and resize its host.

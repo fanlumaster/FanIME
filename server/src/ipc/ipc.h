@@ -93,7 +93,7 @@ struct FanyImeSharedMemoryData
 //  10: ClientHello
 //  11: ClientActivated
 //  12: ClientDeactivated (terminal route reset; toolbar hidden)
-//  13: StatusSnapshot
+//  13: StatusSnapshot (wch: CapsLock 1/0)
 //  14: ClientSuspended (recoverable route reset; toolbar unchanged)
 //  15: FocusRestored (StatusSnapshot payload + thread-focus ownership claim)
 //
@@ -369,8 +369,8 @@ constexpr UINT CancelVoiceComposition = 16;
 constexpr UINT CommitVoiceComposition = 17;
 // Payload "1" when input.mode is Japanese, otherwise "0".
 constexpr UINT InputModeChanged = 18;
-// Highest worker opcode this build emits. Keep in sync with TSF MaxKnown.
-constexpr UINT MaxKnown = InputModeChanged;
+constexpr UINT CapsLockChanged = 19;
+constexpr UINT MaxKnown = CapsLockChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

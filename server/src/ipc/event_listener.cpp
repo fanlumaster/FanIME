@@ -37,6 +37,7 @@
 #include "ai/ai_assistant.h"
 #include "english/english_ime.h"
 #include "config/ime_config.h"
+#include "window/window_hook.h"
 #include "conversion/chinese_converter.h"
 #include "session/session_factory.h"
 #include "quick-phrases/quick_phrase_query.h"
@@ -1619,7 +1620,9 @@ void WorkerThread()
                 g_last_status_snapshot_client_id = task.client_id;
             }
 
-            const int packed_state = (effective_cn << 2) | (fullwidth_state << 1) | punctuation_state;
+            const int caps_state = GetServerCapsLockState();
+            const int packed_state =
+                (caps_state << 3) | (effective_cn << 2) | (fullwidth_state << 1) | punctuation_state;
             if (FanyImeIpc::ShouldResetCompositionForImeMode(effective_cn != 0))
             {
                 if (effective_cn == 0)
@@ -2593,6 +2596,9 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged,
                 GetConfiguredInputMode() == "japanese" ? L"1" : L"0");
+            SendToTsfWorkerThreadClientViaNamedpipe(
+                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged,
+                GetServerCapsLockState() != 0 ? L"1" : L"0");
         }
     }
 

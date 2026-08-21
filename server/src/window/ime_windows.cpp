@@ -1165,6 +1165,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     //
     // 注册一下全局钩子
     //
+    InitServerCapsLockState();
     g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
     if (!g_hHook)
     {
@@ -2322,15 +2323,23 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
     switch (message)
     {
     case UPDATE_FTB_STATUS: {
+        int capsLockState = (wParam >> 3) & 0x1;
         int cnEnState = (wParam >> 2) & 0x1;
         int doubleSingleByteState = (wParam >> 1) & 0x1;
         int puncState = wParam & 0x1;
-        UpdateFtbCnEnAndDoubleSingleAndPuncState(::webviewFtbWnd, cnEnState, doubleSingleByteState, puncState);
+        UpdateFtbCnEnAndDoubleSingleAndPuncState(::webviewFtbWnd, cnEnState, doubleSingleByteState, puncState,
+                                                 capsLockState);
         break;
     }
 
     case UPDATE_FTB_ENGLISH_INPUT_MODE:
         UpdateFtbEnglishInputModeState(::webviewFtbWnd, wParam != 0 ? 1 : 0);
+        break;
+
+    case UPDATE_FTB_CAPS_LOCK:
+        UpdateFtbCapsLockState(::webviewFtbWnd, wParam != 0 ? 1 : 0);
+        BroadcastToTsfWorkerThreadViaNamedpipe(Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged,
+                                               wParam != 0 ? L"1" : L"0");
         break;
 
     case WM_EXITSIZEMOVE:
