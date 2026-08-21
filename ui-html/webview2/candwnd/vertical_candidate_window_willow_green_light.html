@@ -248,6 +248,7 @@
     .context-submenu { background: #fbfcfa; border-color: #d8ded9; }
     .context-menu-item { color: #343936; }
     .context-menu-item:hover { background: #e9eeea; }
+    .cand-translation { margin-left: 0.65em; font-size: 0.78em; opacity: 0.62; }
   </style>
 
   <script>
@@ -264,7 +265,9 @@
       const contentEl = candElement.querySelector('.cand-content');
       if (!contentEl) return false;
 
-      let text = contentEl.textContent.trim();
+      const candidateOnly = contentEl.cloneNode(true);
+      candidateOnly.querySelectorAll('.cand-translation').forEach((node) => node.remove());
+      let text = candidateOnly.textContent.trim();
 
       // 去掉括号里的编码，例如：你们(rR) → 你们
       text = text.replace(/\(.*?\)$/, '').trim();

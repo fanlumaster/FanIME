@@ -119,6 +119,9 @@ export function setupConfigSync(): void {
       payload.data?.general?.cn_en_mixed_input,
       payload.data?.general?.cn_en_mixed_input_min_chars
     );
+    if (typeof payload.data?.general?.candidate_translations === 'boolean') {
+      applyToggleState('candidateTranslationsToggleBtn', payload.data.general.candidate_translations);
+    }
     if (typeof payload.data?.general?.emoji_mixed_input === 'boolean') {
       applyToggleState('emojiMixedInputToggleBtn', payload.data.general.emoji_mixed_input);
     }

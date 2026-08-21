@@ -96,6 +96,9 @@ export function setupInput(): void {
     syncZhEnMixedInputOptionsEnabled(active);
     updateConfig('general.cn_en_mixed_input', active);
   });
+  setupToggleButton('candidateTranslationsToggleBtn', (active) => {
+    updateConfig('general.candidate_translations', active);
+  });
   setupDropdownMenu(
     'zhEnTriggerLengthBtn',
     'zhEnTriggerLengthMenu',
