@@ -571,19 +571,6 @@ void RememberConfigWriteTime()
     }
 }
 
-void InvalidateImeConfigWriteTime()
-{
-    g_config_last_write_time.reset();
-}
-
-void NotifyImeServerConfigChanged()
-{
-    if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", nullptr))
-    {
-        PostMessageW(hwnd, WM_APPLY_IME_CONFIG, 0, 0);
-    }
-}
-
 bool LoadImeConfig()
 {
     ConfigFileLock lock;
@@ -1067,6 +1054,19 @@ SchemeType ParseScheme(const std::string &value)
     return SchemeType::Shuangpin;
 }
 } // namespace
+
+void InvalidateImeConfigWriteTime()
+{
+    g_config_last_write_time.reset();
+}
+
+void NotifyImeServerConfigChanged()
+{
+    if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", nullptr))
+    {
+        PostMessageW(hwnd, WM_APPLY_IME_CONFIG, 0, 0);
+    }
+}
 
 std::string MergeConfigIntoTemplate(const std::string &template_text, const std::string &user_text,
                                     const std::string &baseline_text)
