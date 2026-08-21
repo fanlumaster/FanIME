@@ -57,12 +57,14 @@ export function setupConfigSync(): void {
       }
     );
     applyInputConfig(
+      payload.data?.input?.mode,
       payload.data?.input?.schema,
       payload.data?.input?.character_set,
       payload.data?.input?.shuangpin_schema,
       payload.data?.input?.wubi_schema,
       payload.data?.input?.default_ime_mode,
-      payload.data?.input?.ime_mode_scope
+      payload.data?.input?.ime_mode_scope,
+      payload.data?.input?.japanese_schema
     );
     updateCandidatePreviewHelpcode({
       input_schema: payload.data?.input?.schema,

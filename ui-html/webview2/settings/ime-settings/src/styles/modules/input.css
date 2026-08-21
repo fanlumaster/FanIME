@@ -6,6 +6,21 @@
   gap: 8px;
 }
 
+.input-mode-options {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.japanese-scheme-description {
+  margin-top: 10px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
 .frequency-option-content {
   margin-top: 8px;
 }

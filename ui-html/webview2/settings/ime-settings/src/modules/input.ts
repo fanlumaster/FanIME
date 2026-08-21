@@ -3,6 +3,7 @@ import { updateConfig } from './config-sync';
 import { updateCandidatePreviewHelpcode } from './appearance';
 
 type InputScheme = 'quanpin' | 'shuangpin' | 'wubi';
+type InputMode = 'chinese' | 'japanese';
 
 function updateInputConfig(path: string, value: string): void {
   window.chrome?.webview?.postMessage(JSON.stringify({
@@ -12,13 +13,20 @@ function updateInputConfig(path: string, value: string): void {
 }
 
 export function applyInputConfig(
+  inputMode: string | undefined,
   schema: string | undefined,
   characterSet: string | undefined,
   shuangpinSchema: string | undefined,
   wubiSchema: string | undefined,
   defaultImeMode?: string | undefined,
-  imeModeScope?: string | undefined
+  imeModeScope?: string | undefined,
+  japaneseSchema?: string | undefined
 ): void {
+  const mode: InputMode = inputMode === 'japanese' ? 'japanese' : 'chinese';
+  const modeRadio = document.querySelector<HTMLInputElement>(`input[name="input-mode"][value="${mode}"]`);
+  if (modeRadio) modeRadio.checked = true;
+  syncInputModeView(mode);
+
   if (schema === 'quanpin' || schema === 'shuangpin' || schema === 'wubi') {
     const radio = document.querySelector<HTMLInputElement>(`input[name="input-method"][value="${schema}"]`);
     if (radio) {
@@ -32,6 +40,20 @@ export function applyInputConfig(
   applyDropdownValue('wubiSchemeBtn', 'wubiSchemeMenu', wubiSchema);
   applyDropdownValue('defaultImeModeBtn', 'defaultImeModeMenu', defaultImeMode);
   applyDropdownValue('imeModeScopeBtn', 'imeModeScopeMenu', imeModeScope);
+  const japaneseRadio = document.querySelector<HTMLInputElement>(
+    `input[name="japanese-input-method"][value="${japaneseSchema === 'romaji' ? japaneseSchema : 'romaji'}"]`
+  );
+  if (japaneseRadio) japaneseRadio.checked = true;
+}
+
+function syncInputModeView(mode: InputMode): void {
+  const japanese = mode === 'japanese';
+  document.querySelectorAll<HTMLElement>('.chinese-scheme-settings').forEach((element) => {
+    element.hidden = japanese;
+  });
+  document.querySelectorAll<HTMLElement>('.japanese-scheme-settings').forEach((element) => {
+    element.hidden = !japanese;
+  });
 }
 
 export function applyFrequencyConfig(config: any): void {
@@ -55,6 +77,21 @@ export function applyZhEnMixedInputConfig(enabled?: boolean, minChars?: number):
 }
 
 export function setupInput(): void {
+  document.querySelectorAll<HTMLInputElement>('input[name="input-mode"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked || (radio.value !== 'chinese' && radio.value !== 'japanese')) return;
+      const mode = radio.value as InputMode;
+      syncInputModeView(mode);
+      updateInputConfig('input.mode', mode);
+    });
+  });
+
+  document.querySelectorAll<HTMLInputElement>('input[name="japanese-input-method"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (radio.checked && radio.value === 'romaji') updateInputConfig('input.japanese_schema', radio.value);
+    });
+  });
+
   setupDropdownMenu('characterSetBtn', 'characterSetMenu', 'changeCharacterSet', true, 'input.character_set');
   setupDropdownMenu('defaultImeModeBtn', 'defaultImeModeMenu', '', true, 'input.default_ime_mode');
   setupDropdownMenu('imeModeScopeBtn', 'imeModeScopeMenu', '', true, 'input.ime_mode_scope');
