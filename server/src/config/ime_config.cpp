@@ -1060,12 +1060,36 @@ void InvalidateImeConfigWriteTime()
     g_config_last_write_time.reset();
 }
 
+namespace
+{
+HWND FindImeServerCandidateWindow()
+{
+    // Candidate, tray menu, and floating toolbar share the same class. FindWindow
+    // without a title often hits the toolbar, which does not apply config.
+    if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", L"metaseuqoiaimecandwnd"))
+    {
+        return hwnd;
+    }
+    return FindWindowW(L"metasequoiaime_windows", nullptr);
+}
+
+void PostToImeServerCandidateWindow(UINT message)
+{
+    if (const HWND hwnd = FindImeServerCandidateWindow())
+    {
+        PostMessageW(hwnd, message, 0, 0);
+    }
+}
+} // namespace
+
 void NotifyImeServerConfigChanged()
 {
-    if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", nullptr))
-    {
-        PostMessageW(hwnd, WM_APPLY_IME_CONFIG, 0, 0);
-    }
+    PostToImeServerCandidateWindow(WM_APPLY_IME_CONFIG);
+}
+
+void NotifyImeServerInputSchemeChanged()
+{
+    PostToImeServerCandidateWindow(WM_APPLY_IME_INPUT_SCHEME);
 }
 
 std::string MergeConfigIntoTemplate(const std::string &template_text, const std::string &user_text,
@@ -1468,6 +1492,7 @@ bool SetConfiguredInputScheme(const std::string &scheme)
         return false;
     }
     g_input_scheme = ParseScheme(scheme);
+    NotifyImeServerInputSchemeChanged();
     return true;
 }
 
@@ -1868,6 +1893,7 @@ bool SetConfiguredInputMode(const std::string &mode)
         return false;
     }
     g_input_mode = mode;
+    NotifyImeServerInputSchemeChanged();
     return true;
 }
 

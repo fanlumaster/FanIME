@@ -1207,6 +1207,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         UpdateSmallWindowWebviewVisibility(hwnd, wParam != FALSE);
     }
 
+    if (message == WM_APPLY_IME_CONFIG || message == WM_APPLY_IME_INPUT_SCHEME)
+    {
+        if (hwnd != ::global_hwnd && ::global_hwnd && IsWindow(::global_hwnd))
+        {
+            PostMessageW(::global_hwnd, message, wParam, lParam);
+            return 0;
+        }
+    }
+
     /* 候选窗口 */
     if (hwnd == ::global_hwnd)
     {
@@ -1390,6 +1399,14 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    if (message == WM_APPLY_IME_INPUT_SCHEME)
+    {
+        InvalidateImeConfigWriteTime();
+        ReloadImeConfigIfChanged();
+        ApplyConfiguredInputScheme();
+        return 0;
+    }
+
     switch (message)
     {
     case WM_TIMER: {
@@ -1504,6 +1521,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     VoiceInput::RefreshKeyboardHook();
                 }
             }
+            FanyNamedPipe::EnqueueEnsureInputSessionMatchesConfigTask();
             ApplyConfiguredCandidateSkinIfChanged();
         }
         break;
@@ -2111,6 +2129,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                 }
                 PostSettingsConfig();
             }
+            FanyNamedPipe::EnqueueEnsureInputSessionMatchesConfigTask();
             ApplyConfiguredCandidateSkinIfChanged();
         }
         else if (wParam == TIMER_ID_MOVE_WEBVIEW_SETTINGS)

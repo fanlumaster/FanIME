@@ -1249,6 +1249,7 @@ enum class TaskType
     UiFixCandidatePosition,
     UiClearCandidatePosition,
     ReloadInputSession,
+    EnsureInputSessionMatchesConfig,
     ApplyCandidatePageSize,
     RefreshCandidatePage,
     ResetInputSessionCache,
@@ -1746,6 +1747,20 @@ void WorkerThread()
             break;
         }
 
+        case TaskType::EnsureInputSessionMatchesConfig: {
+            const SchemeType wanted = GetConfiguredActiveInputScheme();
+            if (g_inputSession && g_inputSession->current_scheme_type() == wanted)
+            {
+                break;
+            }
+            ClearState();
+            Global::candidate_ui.page_size = GetConfiguredCandidatePageSize();
+            g_inputSession = CreateInputSessionFromConfig();
+            Global::candidate_ui.set_items({});
+            PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
+            break;
+        }
+
         case TaskType::ApplyCandidatePageSize: {
             const int pageSize = GetConfiguredCandidatePageSize();
             if (Global::candidate_ui.page_size != pageSize)
@@ -2030,6 +2045,21 @@ void EnqueueReloadInputSessionTask()
         std::lock_guard lock(queueMutex);
         Task task;
         task.type = TaskType::ReloadInputSession;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueEnsureInputSessionMatchesConfigTask()
+{
+    if (!pipe_running)
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::EnsureInputSessionMatchesConfig;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();

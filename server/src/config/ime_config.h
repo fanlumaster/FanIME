@@ -102,6 +102,7 @@ struct FrequencyAdjustmentConfig
 void InitImeConfig();
 void InvalidateImeConfigWriteTime();
 void NotifyImeServerConfigChanged();
+void NotifyImeServerInputSchemeChanged();
 // 升级用：以新版模板为骨架重建配置。用户改过的值（与 baseline 中的旧默认值不同）保留，
 // 其余跟随新默认值；模板里没有的旧键被丢弃。baseline 为空时一律保留用户值。
 std::string MergeConfigIntoTemplate(const std::string &template_text, const std::string &user_text,
