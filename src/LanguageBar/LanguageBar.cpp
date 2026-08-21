@@ -45,6 +45,10 @@ DWORD ResolveThemeIconIndex(DWORD lightIconIndex)
     {
         return static_cast<DWORD>(IME_MODE_ON_JP_DARK_ICON_INDEX);
     }
+    if (lightIconIndex == static_cast<DWORD>(IME_MODE_CAP_ICON_INDEX))
+    {
+        return static_cast<DWORD>(IME_MODE_CAP_DARK_ICON_INDEX);
+    }
     if (lightIconIndex == static_cast<DWORD>(IME_MODE_OFF_ICON_INDEX))
     {
         return static_cast<DWORD>(IME_MODE_OFF_DARK_ICON_INDEX);
@@ -522,9 +526,14 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
     }
 
     DWORD lightIconIndex = (isOn && !(status & TF_LBI_STATUS_DISABLED)) ? _onIconIndex : _offIconIndex;
-    if (isOn && !(status & TF_LBI_STATUS_DISABLED) &&
-        _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
-        Global::JapaneseInputModeEnabled.load(std::memory_order_relaxed))
+    if (!(status & TF_LBI_STATUS_DISABLED) && _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
+        Global::CapsLockEnabled.load(std::memory_order_relaxed))
+    {
+        lightIconIndex = static_cast<DWORD>(IME_MODE_CAP_ICON_INDEX);
+    }
+    else if (isOn && !(status & TF_LBI_STATUS_DISABLED) &&
+             _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
+             Global::JapaneseInputModeEnabled.load(std::memory_order_relaxed))
     {
         lightIconIndex = static_cast<DWORD>(IME_MODE_ON_JP_ICON_INDEX);
     }

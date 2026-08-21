@@ -476,6 +476,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _StartThemeRegistryWatcher();
     void _StopThemeRegistryWatcher();
     void _RefreshLanguageBarThemeIcons();
+    void _RequestLanguageBarCapsIconRefresh();
 
     BOOL VerifyMetasequoiaIMECLSID(_In_ REFCLSID clsid);
 

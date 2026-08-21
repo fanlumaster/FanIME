@@ -79,7 +79,7 @@ constexpr UINT LangbarRightClick = 4; // Aux text protocol; not accepted on Main
 constexpr UINT ClientHello = 10;
 constexpr UINT ClientActivated = 11;
 constexpr UINT ClientDeactivated = 12; // terminal TIP switch; toolbar hidden
-constexpr UINT StatusSnapshot = 13;
+constexpr UINT StatusSnapshot = 13; // wch: CapsLock 1/0
 constexpr UINT ClientSuspended = 14; // temporary focus route reset; toolbar kept
 // Same payload as StatusSnapshot, but additionally asserts that this client
 // owns thread focus right now. Sent when document focus returns to a session
@@ -333,9 +333,9 @@ constexpr UINT CancelVoiceComposition = 16;
 constexpr UINT CommitVoiceComposition = 17;
 // Payload "1" when input.mode is Japanese, otherwise "0".
 constexpr UINT InputModeChanged = 18;
-// Highest opcode this build understands. Unknown higher opcodes must be
-// ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = InputModeChanged;
+// Payload "1" when Caps Lock is on. Server is the source of truth.
+constexpr UINT CapsLockChanged = 19;
+constexpr UINT MaxKnown = CapsLockChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
@@ -347,6 +347,7 @@ inline std::atomic_bool SmartPunctuationRepeatToChineseEnabled{true};
 inline std::atomic_bool PairedPunctuationEnabled{true};
 inline std::atomic_bool MicrosoftShuangpinEnabled{false};
 inline std::atomic_bool JapaneseInputModeEnabled{false};
+inline std::atomic_bool CapsLockEnabled{false};
 inline thread_local bool g_connected = false;
 
 } // namespace Global

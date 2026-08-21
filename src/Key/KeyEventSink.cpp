@@ -1308,6 +1308,11 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
         *pIsEaten = FALSE;
         return S_OK;
     }
+    if (wParam == VK_CAPITAL)
+    {
+        Global::CapsLockEnabled.store((GetKeyState(VK_CAPITAL) & 0x0001) == 0, std::memory_order_relaxed);
+        _RequestLanguageBarCapsIconRefresh();
+    }
     PerfTimer onTestKeyDownTimer;
     Global::UpdateModifiers(wParam, lParam);
     _TrackModifierHotkeyArming(wParam, lParam, false);

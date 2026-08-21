@@ -1416,6 +1416,8 @@ STDAPI CMetasequoiaIME::ActivateEx(ITfThreadMgr *pThreadMgr, TfClientId tfClient
         goto ExitError;
     }
 
+    Global::CapsLockEnabled.store((GetKeyState(VK_CAPITAL) & 0x0001) != 0, std::memory_order_relaxed);
+
     // Apply configured default CN/EN whenever switching back to this IME
     _pCompositionProcessorEngine->InitializeMetasequoiaIMECompartment(pThreadMgr, tfClientId);
     _InitMinttyKeyboardHook();
@@ -1776,7 +1778,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                                Global::DataToTsfWorkerThreadMsgType::SmartPunctuationRepeatToChineseChanged ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged))
+                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
+                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged))
         {
             bool hasTerminator = false;
             for (const wchar_t ch : buf.data)
@@ -1839,6 +1842,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::FocusSessionReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
@@ -1938,6 +1942,15 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 PostMessage(ownerWindow, WM_RefreshLanguageBarTheme, 0, 0);
             }
         }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged)
+        {
+            Global::CapsLockEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
+            const HWND ownerWindow = pIME->_msgWndHandle;
+            if (ownerWindow && IsWindow(ownerWindow))
+            {
+                PostMessage(ownerWindow, WM_RefreshLanguageBarTheme, 1, 0);
+            }
+        }
     }
 }
 
@@ -1953,6 +1966,14 @@ void CMetasequoiaIME::_RefreshLanguageBarThemeIcons()
     if (pEngine)
     {
         pEngine->RefreshLanguageBarIcons();
+    }
+}
+
+void CMetasequoiaIME::_RequestLanguageBarCapsIconRefresh()
+{
+    if (_msgWndHandle && IsWindow(_msgWndHandle))
+    {
+        PostMessage(_msgWndHandle, WM_RefreshLanguageBarTheme, 1, 0);
     }
 }
 
@@ -2652,6 +2673,11 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         break;
     }
     case WM_RefreshLanguageBarTheme: {
+        if (wParam != 0)
+        {
+            pIME->_RefreshLanguageBarThemeIcons();
+            break;
+        }
         SetTimer(hWnd, TIMER_REFRESH_LANG_BAR_THEME, REFRESH_LANG_BAR_THEME_DELAY_MS, nullptr);
         break;
     }

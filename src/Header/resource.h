@@ -19,6 +19,8 @@
 #define IDI_IME_MODE_OFF_DARK 30
 #define IDI_IME_MODE_ON_JP 31
 #define IDI_IME_MODE_ON_JP_DARK 32
+#define IDI_IME_MODE_CAP 33
+#define IDI_IME_MODE_CAP_DARK 34
 #define IDR_VERSION2 107
 
 // Next default values for new objects

@@ -1502,6 +1502,7 @@ int SendIMEStatusSnapshotToUIProcessViaNamedPipe(bool kbdIsOpen, bool fullwidthI
     namedpipeData.keycode = kbdIsOpen ? 1u : 0u;
     namedpipeData.modifiers_down = fullwidthIsOpen ? 1u : 0u;
     namedpipeData.pinyin_length = puncIsOpen ? 1 : 0;
+    namedpipeData.wch = (GetKeyState(VK_CAPITAL) & 0x0001) != 0 ? 1 : 0;
     const bool sent = SendToNamedpipe();
     return sent ? 0 : -1;
 }
