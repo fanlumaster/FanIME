@@ -914,6 +914,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             g_window_active = active;
             ApplyWindowActivationAppearance();
         }
+        if (active)
+        {
+            if (g_webview3)
+                g_webview3->Resume();
+            if (g_controller)
+                g_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+            PostConfig();
+        }
         break;
     }
     case WM_MOUSEMOVE: case WM_MOUSELEAVE:

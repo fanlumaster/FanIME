@@ -18,6 +18,7 @@
 #include "utils/common_utils.h"
 #include "global/globals.h"
 #include "clipboard/clipboard_history.h"
+#include "defines/defines.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "voice-input/voice_providers.h"
 
@@ -570,6 +571,19 @@ void RememberConfigWriteTime()
     }
 }
 
+void InvalidateImeConfigWriteTime()
+{
+    g_config_last_write_time.reset();
+}
+
+void NotifyImeServerConfigChanged()
+{
+    if (const HWND hwnd = FindWindowW(L"metasequoiaime_windows", nullptr))
+    {
+        PostMessageW(hwnd, WM_APPLY_IME_CONFIG, 0, 0);
+    }
+}
+
 bool LoadImeConfig()
 {
     ConfigFileLock lock;
@@ -968,6 +982,7 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
     }
 
     RememberConfigWriteTime();
+    NotifyImeServerConfigChanged();
     return true;
 }
 

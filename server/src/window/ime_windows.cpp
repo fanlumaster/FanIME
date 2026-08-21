@@ -1382,6 +1382,13 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    if (message == WM_APPLY_IME_CONFIG)
+    {
+        InvalidateImeConfigWriteTime();
+        PostMessage(hwnd, WM_TIMER, TIMER_ID_CONFIG_SYNC, 0);
+        return 0;
+    }
+
     switch (message)
     {
     case WM_TIMER: {
