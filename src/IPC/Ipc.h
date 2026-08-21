@@ -331,9 +331,11 @@ constexpr UINT UpdateVoiceComposition = 15;
 constexpr UINT CancelVoiceComposition = 16;
 // Streaming ASR: replace the inline composition with this snapshot and commit.
 constexpr UINT CommitVoiceComposition = 17;
+// Payload "1" when input.mode is Japanese, otherwise "0".
+constexpr UINT InputModeChanged = 18;
 // Highest opcode this build understands. Unknown higher opcodes must be
 // ignored by the worker reader (never tear down the pipe).
-constexpr UINT MaxKnown = CommitVoiceComposition;
+constexpr UINT MaxKnown = InputModeChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
@@ -344,6 +346,7 @@ inline std::atomic_bool SmartPunctuationRepeatToChineseEnabled{true};
 // Default on until the Server sends the persisted setting.
 inline std::atomic_bool PairedPunctuationEnabled{true};
 inline std::atomic_bool MicrosoftShuangpinEnabled{false};
+inline std::atomic_bool JapaneseInputModeEnabled{false};
 inline thread_local bool g_connected = false;
 
 } // namespace Global

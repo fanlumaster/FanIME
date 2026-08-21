@@ -122,6 +122,59 @@ BOOL ReadConfiguredDefaultImeModeChinese()
     return TRUE;
 }
 
+BOOL ReadConfiguredJapaneseInputMode()
+{
+    const std::string configPath = SharedConfigPath();
+    if (configPath.empty())
+    {
+        return FALSE;
+    }
+
+    std::ifstream input(configPath);
+    if (!input)
+    {
+        return FALSE;
+    }
+
+    bool inInputSection = false;
+    std::string line;
+    while (std::getline(input, line))
+    {
+        const size_t comment = line.find('#');
+        if (comment != std::string::npos)
+        {
+            line = line.substr(0, comment);
+        }
+        line = TrimAscii(line);
+        if (line.empty())
+        {
+            continue;
+        }
+        if (line.front() == '[' && line.back() == ']')
+        {
+            inInputSection = (line == "[input]");
+            continue;
+        }
+        if (!inInputSection)
+        {
+            continue;
+        }
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos)
+        {
+            continue;
+        }
+        const std::string key = TrimAscii(line.substr(0, eq));
+        if (key != "mode")
+        {
+            continue;
+        }
+        const std::string value = to_lower_copy(UnquoteTomlBasicString(TrimAscii(line.substr(eq + 1))));
+        return value == "japanese";
+    }
+    return FALSE;
+}
+
 SwitchLanguageHotkeys ReadConfiguredSwitchLanguageHotkeys()
 {
     SwitchLanguageHotkeys result;
