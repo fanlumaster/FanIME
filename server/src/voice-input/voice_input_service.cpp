@@ -33,6 +33,7 @@
 namespace
 {
 constexpr unsigned kSampleRate = 16000;
+constexpr long kPolishTimeoutMs = 3000L;
 ma_device g_device{};
 std::mutex g_mutex;
 std::vector<float> g_samples;
@@ -578,7 +579,9 @@ std::string Polish(const std::string &text, const VoiceInputConfig &config)
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteResponse);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    // Polishing is optional: if it cannot finish promptly, abort the request and
+    // let the caller commit the original ASR text returned below.
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, kPolishTimeoutMs);
     const CURLcode result = curl_easy_perform(curl);
     curl_slist_free_all(headers); curl_easy_cleanup(curl);
     if (result != CURLE_OK) return text;
