@@ -90,6 +90,12 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.general?.floating_toolbar === 'boolean') {
       applyToggleState('ftbToggleBtn', payload.data.general.floating_toolbar);
     }
+    if (typeof payload.data?.general?.candidate_window_diagnostic_log === 'boolean') {
+      applyToggleState(
+        'candidateWindowDiagnosticLogToggleBtn',
+        payload.data.general.candidate_window_diagnostic_log
+      );
+    }
     if (typeof payload.data?.input?.word_to_character === 'boolean') {
       applyToggleState('wordToCharacterToggleBtn', payload.data.input.word_to_character);
     }

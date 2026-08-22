@@ -1,3 +1,6 @@
+import { updateConfig } from './config-sync';
+import { setupToggleButton } from './shared';
+
 const UPDATE_MANIFEST_URL = 'https://msime.app/update.json';
 const RELEASES_PAGE_URL = 'https://github.com/metasequoiaime/MetasequoiaImeTsf/releases';
 const REQUEST_TIMEOUT_MS = 10000;
@@ -63,6 +66,10 @@ function setDialogOpen(dialog: HTMLDialogElement, open: boolean): void {
 }
 
 export function setupAboutSettings(): void {
+  setupToggleButton('candidateWindowDiagnosticLogToggleBtn', (active) => {
+    updateConfig('general.candidate_window_diagnostic_log', active);
+  });
+
   const checkButton = document.getElementById('about-check-update');
   const versionLabel = document.querySelector('#about-settings .about-version');
   const statusLabel = document.getElementById('about-update-status');
