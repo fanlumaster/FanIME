@@ -7,6 +7,7 @@
 #include <winreg.h>
 #include <cctype>
 #include <cmath>
+#include <cwchar>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -20,6 +21,7 @@
 #include "global/globals.h"
 #include "clipboard/clipboard_history.h"
 #include "defines/defines.h"
+#include "ipc/ipc.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "voice-input/voice_providers.h"
 
@@ -1086,23 +1088,63 @@ HWND FindImeServerCandidateWindow()
     return FindWindowW(L"metasequoiaime_windows", nullptr);
 }
 
-void PostToImeServerCandidateWindow(UINT message)
+bool SendAuxConfigNotification(const wchar_t *message)
 {
-    if (const HWND hwnd = FindImeServerCandidateWindow())
+    HANDLE pipe = CreateFileW(FANY_IME_AUX_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (pipe == INVALID_HANDLE_VALUE && GetLastError() == ERROR_PIPE_BUSY &&
+        WaitNamedPipeW(FANY_IME_AUX_NAMED_PIPE, 200))
     {
-        PostMessageW(hwnd, message, 0, 0);
+        pipe = CreateFileW(FANY_IME_AUX_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    }
+    if (pipe == INVALID_HANDLE_VALUE)
+    {
+        return false;
+    }
+
+    DWORD bytesWritten = 0;
+    const DWORD byteCount = static_cast<DWORD>(wcslen(message) * sizeof(wchar_t));
+    const bool sent = WriteFile(pipe, message, byteCount, &bytesWritten, nullptr) != FALSE && bytesWritten == byteCount;
+    CloseHandle(pipe);
+    return sent;
+}
+
+void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
+{
+    const HWND hwnd = FindImeServerCandidateWindow();
+    DWORD serverProcessId = 0;
+    if (hwnd)
+    {
+        GetWindowThreadProcessId(hwnd, &serverProcessId);
+    }
+
+    if (serverProcessId == GetCurrentProcessId())
+    {
+        PostMessageW(hwnd, windowMessage, 0, 0);
+        return;
+    }
+
+    // MetasequoiaImeServer runs with uiAccess while the standalone Settings
+    // process does not. Cross-process WM_USER delivery can therefore be
+    // rejected by UIPI. The session-less Aux pipe is already the supported
+    // cross-integrity control path; use it for config invalidation as well.
+    if (!SendAuxConfigNotification(auxMessage) && hwnd)
+    {
+        // Retain the old route as a best-effort fallback. The Server's periodic
+        // file watcher remains the final recovery path if both transports are
+        // temporarily unavailable during startup.
+        PostMessageW(hwnd, windowMessage, 0, 0);
     }
 }
 } // namespace
 
 void NotifyImeServerConfigChanged()
 {
-    PostToImeServerCandidateWindow(WM_APPLY_IME_CONFIG);
+    NotifyImeServer(WM_APPLY_IME_CONFIG, L"ConfigChanged");
 }
 
 void NotifyImeServerInputSchemeChanged()
 {
-    PostToImeServerCandidateWindow(WM_APPLY_IME_INPUT_SCHEME);
+    NotifyImeServer(WM_APPLY_IME_INPUT_SCHEME, L"InputSchemeChanged");
 }
 
 std::string MergeConfigIntoTemplate(const std::string &template_text, const std::string &user_text,

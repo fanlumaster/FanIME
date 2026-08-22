@@ -526,6 +526,7 @@ struct FloatingToolbarState
     int punctuation = 1;
     int english_input_mode = 0;
     int caps_lock = 0;
+    int japanese_input_mode = 0;
 };
 
 FloatingToolbarState floatingToolbarState;
@@ -762,7 +763,7 @@ void RenderFloatingToolbarState(ICoreWebView2 *webview)
 
     std::wstring script;
     script.reserve(1600);
-    const bool japanese_mode = GetConfiguredInputMode() == "japanese";
+    const bool japanese_mode = floatingToolbarState.japanese_input_mode == 1;
     constexpr wchar_t kHideJa[] = L"{const ja=document.getElementById('ja');if(ja)ja.style.display='none';}";
     constexpr wchar_t kShowJa[] = L"{const ja=document.getElementById('ja');if(ja)ja.style.display='flex';}";
     constexpr wchar_t kHideCap[] = L"{const cap=document.getElementById('cap');if(cap)cap.style.display='none';}";
@@ -3415,6 +3416,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                 {
                     NotifySmallWindowNavigationReady(floatingToolbarNavigationReady, L"floating-toolbar");
                     ApplyConfiguredFloatingToolbarAppearance();
+                    floatingToolbarState.japanese_input_mode = GetConfiguredInputMode() == "japanese" ? 1 : 0;
                     RenderFloatingToolbarState(sender);
                     ApplyConfiguredFloatingToolbarSize();
                     InjectSurfaceViewportLimits(sender, ::global_hwnd_ftb);
@@ -3863,8 +3865,13 @@ void UpdateFtbCharacterSetState(ComPtr<ICoreWebView2> webview)
     RenderFloatingToolbarState(webview.Get());
 }
 
-void UpdateFtbInputModeState(ComPtr<ICoreWebView2> webview)
+void UpdateFtbInputModeState(ComPtr<ICoreWebView2> webview, int japaneseMode)
 {
+    if (japaneseMode != 0 && japaneseMode != 1)
+    {
+        return;
+    }
+    floatingToolbarState.japanese_input_mode = japaneseMode;
     RenderFloatingToolbarState(webview.Get());
 }
 

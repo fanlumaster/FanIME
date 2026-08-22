@@ -1107,6 +1107,23 @@ void SendFocusSessionReady(const PipeClientActivation &activation)
                                             std::to_wstring(activation.focus_token));
 }
 
+void SendInputModeState(const PipeClientActivation &activation)
+{
+    if (activation.client_id == 0 || activation.epoch == 0)
+    {
+        return;
+    }
+
+    // Input candidates use the Server's current session/config, whereas the
+    // TSF language-bar icon is cached inside every host process.  Re-send the
+    // authoritative mode at focus/activation boundaries so a background host
+    // that missed the original broadcast cannot retain a stale Japanese or
+    // Chinese icon indefinitely.
+    SendToTsfWorkerThreadClientViaNamedpipe(activation.client_id, activation.epoch,
+                                            Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged,
+                                            GetConfiguredInputMode() == "japanese" ? L"1" : L"0");
+}
+
 bool IsKnownMainPipeEvent(UINT event_type)
 {
     switch (event_type)
@@ -2366,6 +2383,7 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             // client_id 0 means the reverse pipes never reported ready inside the
             // 100ms budget, so the whole packet is about to be discarded.
             SendFocusSessionReady(activation);
+            SendInputModeState(activation);
             if (activation.changed)
             {
                 EnqueueTask(TaskType::ClientActivated, pipeData, activation.epoch);
@@ -2404,6 +2422,10 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             // enqueueing the corresponding task. Repeated markers for one
             // epoch are intentional and harmless.
             SendFocusSessionReady(activation);
+            if (pipeData.event_type == FanyImePipeEventType::FocusRestored)
+            {
+                SendInputModeState(activation);
+            }
             if (activation.changed)
             {
                 EnqueueTask(TaskType::ClientActivated, pipeData, activation.epoch);
@@ -2465,6 +2487,14 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             // The ownership claim was already consumed above; the payload is
             // identical, so both feed the same toolbar update.
             EnqueueTask(TaskType::StatusSnapshot, pipeData, activation.epoch);
+            // A plain StatusSnapshot is also emitted by OnSetThreadFocus in
+            // hosts that do not produce a document-focus transition.  Replying
+            // here makes that path converge too.  FocusRestored was already
+            // answered above, so avoid a duplicate worker frame.
+            if (pipeData.event_type == FanyImePipeEventType::StatusSnapshot)
+            {
+                SendInputModeState(activation);
+            }
             break;
         }
         }
@@ -2799,6 +2829,23 @@ void AuxPipeEventListenerLoopThread()
                     // client_id/epoch stay 0 so WorkerThread skips active-client
                     // gating and never activates a suspended TIP for a menu click.
                     EnqueueTask(TaskType::LangbarRightClick, pipeData, 0);
+                }
+                else if (message == L"ConfigChanged" || message == L"InputSchemeChanged")
+                {
+                    const UINT configMessage =
+                        message == L"InputSchemeChanged" ? WM_APPLY_IME_INPUT_SCHEME : WM_APPLY_IME_CONFIG;
+                    const HWND candidateWindow = ::global_hwnd;
+                    if (candidateWindow && IsWindow(candidateWindow))
+                    {
+                        PostMessageW(candidateWindow, configMessage, 0, 0);
+                    }
+                    else
+                    {
+                        // The next startup load reads the already-persisted
+                        // config. Explicit invalidation also prevents an early
+                        // cached timestamp from suppressing that convergence.
+                        InvalidateImeConfigWriteTime();
+                    }
                 }
                 else
                 {
