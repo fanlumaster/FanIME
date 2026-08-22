@@ -110,6 +110,18 @@ void CMetasequoiaIME::_UpdateLanguageBarOnSetFocus(_In_ ITfDocumentMgr *pDocMgrF
     pCompositionProcessorEngine = _pCompositionProcessorEngine;
 
     pCompositionProcessorEngine->SetLanguageBarStatus(TF_LBI_STATUS_DISABLED, needDisableButtons);
+
+    // SetStatus intentionally keeps the item enabled when focus is absent so
+    // Firefox does not replace our mode glyph with its disabled/close glyph.
+    // Consequently, returning to a document may not change the status bits and
+    // therefore may not generate an ITfLangBarItemSink update.  Always refresh
+    // the newly focused thread's item: Windows caches each host/thread's icon,
+    // and another host may have changed the shared Chinese/Japanese mode while
+    // this one was in the background.
+    if (!needDisableButtons)
+    {
+        pCompositionProcessorEngine->RefreshLanguageBarIcons();
+    }
 }
 
 //+---------------------------------------------------------------------------

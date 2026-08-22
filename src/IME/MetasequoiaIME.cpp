@@ -2399,6 +2399,10 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         break;
     }
     case WM_ThreadFocus: {
+        // Some Chromium/Electron window switches surface only as thread-focus
+        // changes. Refresh this thread's cached TSF language-bar item even when
+        // there was no document-focus transition.
+        pIME->_RefreshLanguageBarThemeIcons();
         SendCurrentImeStatusSnapshot(pIME);
         break;
     }
