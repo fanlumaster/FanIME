@@ -158,6 +158,9 @@ export function setupConfigSync(): void {
     if (typeof payload.data?.utility?.y_mode === 'boolean') {
       applyToggleState('yModeToggleBtn', payload.data.utility.y_mode);
     }
+    if (typeof payload.data?.utility?.r_mode === 'boolean') {
+      applyToggleState('rModeToggleBtn', payload.data.utility.r_mode);
+    }
     if (typeof payload.data?.utility?.clipboard_history === 'boolean') {
       applyToggleState('clipboardHistoryToggleBtn', payload.data.utility.clipboard_history);
     }
