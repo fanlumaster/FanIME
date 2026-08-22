@@ -593,6 +593,8 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     bool _deferredProjectedPunctuationOpen;
     bool _deferredProjectedDoubleSingleByteOpen;
     size_t _deferredProjectedInputLength;
+    std::wstring _deferredProjectedRawInput;
+    size_t _deferredProjectedCaret;
     bool _deferredProjectedCandidateActive;
     bool _deferredProjectedUnicodeMode;
     uint64_t _deferredKeyFocusGeneration;

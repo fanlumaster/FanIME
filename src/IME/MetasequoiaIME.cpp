@@ -448,6 +448,8 @@ CMetasequoiaIME::CMetasequoiaIME()
     _deferredProjectedPunctuationOpen = false;
     _deferredProjectedDoubleSingleByteOpen = false;
     _deferredProjectedInputLength = 0;
+    _deferredProjectedRawInput.clear();
+    _deferredProjectedCaret = 0;
     _deferredProjectedCandidateActive = false;
     _deferredProjectedUnicodeMode = false;
     _deferredKeyFocusGeneration = 1;

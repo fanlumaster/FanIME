@@ -36,6 +36,8 @@ struct DeferredShadowState
     bool punctuationOpen = false;
     bool doubleSingleByteOpen = false;
     size_t inputLength = 0;
+    std::wstring rawInput;
+    size_t caret = 0;
     bool candidateActive = false;
     bool unicodeMode = false;
 };
@@ -64,6 +66,14 @@ bool IsBareModifierKey(UINT code)
 void ApplyDeferredKeyState(DeferredShadowState &shadow,
                            const _KEYSTROKE_STATE &keyState, WCHAR wch = 0)
 {
+    const auto clearComposition = [&shadow]() {
+        shadow.inputLength = 0;
+        shadow.rawInput.clear();
+        shadow.caret = 0;
+        shadow.candidateActive = false;
+        shadow.unicodeMode = false;
+    };
+
     switch (keyState.Function)
     {
     case FUNCTION_INPUT:
@@ -71,23 +81,38 @@ void ApplyDeferredKeyState(DeferredShadowState &shadow,
         {
             shadow.unicodeMode = (wch == L'U');
         }
-        if (shadow.inputLength < MAX_PINYIN_LENGTH)
+        shadow.caret = min(shadow.caret, shadow.rawInput.size());
+        if (shadow.rawInput.size() < MAX_PINYIN_LENGTH && wch != L'\0')
         {
-            ++shadow.inputLength;
+            const bool duplicateSeparator =
+                wch == L'\'' &&
+                ((shadow.caret > 0 && shadow.rawInput[shadow.caret - 1] == L'\'') ||
+                 (shadow.caret < shadow.rawInput.size() && shadow.rawInput[shadow.caret] == L'\''));
+            if (!duplicateSeparator)
+            {
+                shadow.rawInput.insert(shadow.caret, 1, wch);
+                ++shadow.caret;
+            }
         }
+        shadow.inputLength = shadow.rawInput.size();
         shadow.candidateActive = false;
         break;
     case FUNCTION_FINALIZE_TEXTSTORE_AND_INPUT:
     case FUNCTION_FINALIZE_CANDIDATELIST_AND_INPUT:
-        shadow.inputLength = 1;
+        shadow.rawInput.assign(wch == L'\0' ? 0 : 1, wch);
+        shadow.caret = shadow.rawInput.size();
+        shadow.inputLength = shadow.rawInput.size();
         shadow.candidateActive = false;
         shadow.unicodeMode = (wch == L'U');
         break;
     case FUNCTION_BACKSPACE:
-        if (shadow.inputLength > 0)
+        shadow.caret = min(shadow.caret, shadow.rawInput.size());
+        if (shadow.caret > 0)
         {
-            --shadow.inputLength;
+            shadow.rawInput.erase(shadow.caret - 1, 1);
+            --shadow.caret;
         }
+        shadow.inputLength = shadow.rawInput.size();
         if (shadow.inputLength == 0)
         {
             shadow.candidateActive = false;
@@ -100,14 +125,22 @@ void ApplyDeferredKeyState(DeferredShadowState &shadow,
     case FUNCTION_CONVERT:
         // This TIP routes Space+Convert to WM_AsyncFinalizeCandidate, which
         // commits and ends the composition rather than merely opening a list.
-        shadow.inputLength = 0;
-        shadow.candidateActive = false;
-        shadow.unicodeMode = false;
+        clearComposition();
         break;
     case FUNCTION_CANCEL:
-        shadow.inputLength = 0;
-        shadow.candidateActive = false;
-        shadow.unicodeMode = false;
+        clearComposition();
+        break;
+    case FUNCTION_MOVE_LEFT:
+        if (shadow.caret > 0)
+        {
+            --shadow.caret;
+        }
+        break;
+    case FUNCTION_MOVE_RIGHT:
+        if (shadow.caret < shadow.rawInput.size())
+        {
+            ++shadow.caret;
+        }
         break;
     case FUNCTION_FINALIZE_TEXTSTORE:
     case FUNCTION_FINALIZE_CANDIDATELIST:
@@ -116,9 +149,7 @@ void ApplyDeferredKeyState(DeferredShadowState &shadow,
     case FUNCTION_TOGGLE_IME_MODE:
     case FUNCTION_PUNCTUATION:
     case FUNCTION_DOUBLE_SINGLE_BYTE:
-        shadow.inputLength = 0;
-        shadow.candidateActive = false;
-        shadow.unicodeMode = false;
+        clearComposition();
         break;
     default:
         break;
@@ -912,6 +943,18 @@ void CMetasequoiaIME::_EnsureDeferredKeyProjection()
                   static_cast<size_t>(
                       _pCompositionProcessorEngine->GetVirtualKeyLength()))
             : 0;
+    _deferredProjectedRawInput.clear();
+    _deferredProjectedCaret = 0;
+    if (_pCompositionProcessorEngine)
+    {
+        const CStringRange &buffer = _pCompositionProcessorEngine->GetKeystrokeBuffer();
+        if (buffer.Get() && buffer.GetLength() > 0)
+        {
+            _deferredProjectedRawInput.assign(buffer.Get(), buffer.GetLength());
+        }
+        _deferredProjectedCaret = min(static_cast<size_t>(_pCompositionProcessorEngine->GetCaretPosition()),
+                                      _deferredProjectedRawInput.size());
+    }
     // Incremental candidates are still the ordinary composing path: another
     // letter extends the same raw input.  Only an explicit/original candidate
     // list makes the next input a finalize-and-start-new boundary.
@@ -930,10 +973,14 @@ void CMetasequoiaIME::_ApplyDeferredKeyProjection(
     shadow.punctuationOpen = _deferredProjectedPunctuationOpen;
     shadow.doubleSingleByteOpen = _deferredProjectedDoubleSingleByteOpen;
     shadow.inputLength = _deferredProjectedInputLength;
+    shadow.rawInput = _deferredProjectedRawInput;
+    shadow.caret = _deferredProjectedCaret;
     shadow.candidateActive = _deferredProjectedCandidateActive;
     shadow.unicodeMode = _deferredProjectedUnicodeMode;
     ApplyDeferredKeyState(shadow, keyState, wch);
     _deferredProjectedInputLength = shadow.inputLength;
+    _deferredProjectedRawInput = std::move(shadow.rawInput);
+    _deferredProjectedCaret = shadow.caret;
     _deferredProjectedCandidateActive = shadow.candidateActive;
     _deferredProjectedUnicodeMode = shadow.unicodeMode;
 }
@@ -952,6 +999,8 @@ void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(
         _deferredProjectedImeOpen = !_deferredProjectedImeOpen;
         _deferredProjectedPunctuationOpen = _deferredProjectedImeOpen;
         _deferredProjectedInputLength = 0;
+        _deferredProjectedRawInput.clear();
+        _deferredProjectedCaret = 0;
         _deferredProjectedCandidateActive = false;
         _deferredProjectedUnicodeMode = false;
         break;
@@ -1129,6 +1178,8 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
         shadow.doubleSingleByteOpen =
             _deferredProjectedDoubleSingleByteOpen;
         shadow.inputLength = _deferredProjectedInputLength;
+        shadow.rawInput = _deferredProjectedRawInput;
+        shadow.caret = _deferredProjectedCaret;
         shadow.candidateActive = _deferredProjectedCandidateActive;
         shadow.unicodeMode = _deferredProjectedUnicodeMode;
     }
@@ -1145,6 +1196,13 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
             static_cast<size_t>(MAX_PINYIN_LENGTH),
             static_cast<size_t>(
                 _pCompositionProcessorEngine->GetVirtualKeyLength()));
+        const CStringRange &buffer = _pCompositionProcessorEngine->GetKeystrokeBuffer();
+        if (buffer.Get() && buffer.GetLength() > 0)
+        {
+            shadow.rawInput.assign(buffer.Get(), buffer.GetLength());
+        }
+        shadow.caret = min(static_cast<size_t>(_pCompositionProcessorEngine->GetCaretPosition()),
+                           shadow.rawInput.size());
         shadow.candidateActive = _candidateMode == CANDIDATE_ORIGINAL;
         shadow.unicodeMode =
             _pCompositionProcessorEngine->IsUnicodeModeComposition() != FALSE;
@@ -1171,6 +1229,14 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
               _pCompositionProcessorEngine->IsWildcardChar(*classifiedWch))))
         {
             isInputKey = true;
+        }
+        if (!isInputKey && Global::MicrosoftShuangpinEnabled.load(std::memory_order_relaxed) &&
+            *classifiedCode == VK_OEM_1 && *classifiedWch == L';' && !shadow.rawInput.empty())
+        {
+            const size_t caret = min(shadow.caret, shadow.rawInput.size());
+            const size_t separator = caret == 0 ? std::wstring::npos : shadow.rawInput.rfind(L'\'', caret - 1);
+            const size_t chunkStart = separator == std::wstring::npos ? 0 : separator + 1;
+            isInputKey = (caret - chunkStart) % 2 == 1;
         }
         if (shadow.inputLength == 0 &&
             (GetKeyState(VK_CAPITAL) & 0x0001) != 0 &&
@@ -1478,6 +1544,8 @@ void CMetasequoiaIME::_ClearDeferredKeyDowns()
     _deferredProjectedPunctuationOpen = false;
     _deferredProjectedDoubleSingleByteOpen = false;
     _deferredProjectedInputLength = 0;
+    _deferredProjectedRawInput.clear();
+    _deferredProjectedCaret = 0;
     _deferredProjectedCandidateActive = false;
     _deferredProjectedUnicodeMode = false;
     _shiftHotkeyArmed = false;
@@ -1502,6 +1570,8 @@ void CMetasequoiaIME::_CompleteDeferredKeyReplay(uint64_t replayToken)
         // to rebuild the composition.
         _deferredKeyProjectionValid = false;
         _deferredProjectedInputLength = 0;
+        _deferredProjectedRawInput.clear();
+        _deferredProjectedCaret = 0;
         _deferredProjectedCandidateActive = false;
         _deferredProjectedUnicodeMode = false;
         (void)_RefreshDeferredRecoveryPrefix(context);
