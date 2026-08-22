@@ -2654,6 +2654,21 @@ const TencentTmtConfig &GetConfiguredTencentTmt()
     return g_tencent_tmt;
 }
 
+bool SetConfiguredTencentTmtString(const std::string &key, const std::string &value)
+{
+    std::string *target = nullptr;
+    if (key == "secret_id")
+        target = &g_tencent_tmt.secret_id;
+    else if (key == "secret_key")
+        target = &g_tencent_tmt.secret_key;
+    else if (key == "region")
+        target = &g_tencent_tmt.region;
+    if (!target || !WriteConfiguredValue("tencent_tmt", key, EscapeTomlBasicString(value)))
+        return false;
+    *target = value;
+    return true;
+}
+
 const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment()
 {
     return g_frequency_adjustment;

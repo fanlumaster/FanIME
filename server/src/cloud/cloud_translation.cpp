@@ -3,15 +3,11 @@
 #include "config/ime_config.h"
 #include "tencent_tmt.h"
 #include "translation_gloss.h"
-#include "utils/common_utils.h"
 #include "MetasequoiaImeEngine/english/english_dictionary.h"
-#include <Windows.h>
 #include <curl/curl.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <filesystem>
-#include <fstream>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -79,15 +75,6 @@ void RememberNegative(const std::string &identity)
     g_negative[identity] = std::chrono::steady_clock::now() + kNegativeTtl;
 }
 
-std::string ReadKeyFile(const std::filesystem::path &path)
-{
-    std::ifstream input(path, std::ios::binary);
-    if (!input)
-        return {};
-    std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    return CloudTranslation::TrimSecret(text);
-}
-
 TencentTmt::Credentials ResolveCredentials()
 {
     TencentTmt::Credentials credentials;
@@ -97,21 +84,6 @@ TencentTmt::Credentials ResolveCredentials()
     credentials.region = config.region.empty() ? "ap-guangzhou" : config.region;
     credentials.secret_id = CloudTranslation::TrimSecret(config.secret_id);
     credentials.secret_key = CloudTranslation::TrimSecret(config.secret_key);
-    if (!CloudTranslation::IsUsableSecret(credentials.secret_id) ||
-        !CloudTranslation::IsUsableSecret(credentials.secret_key))
-    {
-        const auto keys_dir = std::filesystem::path(CommonUtils::get_ime_data_path()) / "keys";
-        credentials.secret_id = ReadKeyFile(keys_dir / "id.txt");
-        credentials.secret_key = ReadKeyFile(keys_dir / "key.txt");
-    }
-    if (!CloudTranslation::IsUsableSecret(credentials.secret_id) ||
-        !CloudTranslation::IsUsableSecret(credentials.secret_key))
-    {
-        const auto demo_keys = std::filesystem::path(
-            R"(C:\Users\SonnyCalcr\EDisk\CppCodes\Win32Codes\WindowsCppIpcDemo\SecondProcessWindow\keys)");
-        credentials.secret_id = ReadKeyFile(demo_keys / "id.txt");
-        credentials.secret_key = ReadKeyFile(demo_keys / "key.txt");
-    }
     if (!CloudTranslation::IsUsableSecret(credentials.secret_id) ||
         !CloudTranslation::IsUsableSecret(credentials.secret_key))
         return {};

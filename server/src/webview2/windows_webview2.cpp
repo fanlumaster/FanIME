@@ -2817,6 +2817,15 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path.rfind("tencent_tmt.", 0) == 0)
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredTencentTmtString(
+                                        path.substr(std::string("tencent_tmt.").size()), value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.cn_en_mixed_input_min_chars")
                             {
                                 const int value = static_cast<int>(data.at("value").as_int64());
@@ -3132,6 +3141,7 @@ void PostSettingsConfig()
     }
 
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
+    const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -3173,6 +3183,9 @@ void PostSettingsConfig()
            {{"switch_language_shift", GetConfiguredSwitchLanguageShiftEnabled()},
             {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
             {"switch_language_ctrl_alt_space", GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
+          {"tencent_tmt",
+           {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
+            {"region", tencent_tmt.region}}},
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},

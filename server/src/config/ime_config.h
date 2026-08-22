@@ -281,6 +281,7 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
 const AiAssistantConfig &GetConfiguredAiAssistant();
 const TencentTmtConfig &GetConfiguredTencentTmt();
+bool SetConfiguredTencentTmtString(const std::string &key, const std::string &value);
 const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment();
 bool SetConfiguredFrequencyAdjustmentString(const std::string &key, const std::string &value);
 bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value);

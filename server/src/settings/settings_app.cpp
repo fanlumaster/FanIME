@@ -210,6 +210,7 @@ void PostConfig()
 
     const VoiceInputConfig &voice = GetConfiguredVoiceInput();
     const AiAssistantConfig &ai = GetConfiguredAiAssistant();
+    const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     nlohmann::json polish_presets = nlohmann::json::array();
@@ -331,6 +332,9 @@ void PostConfig()
             {"candidate_limit", ai.candidate_limit}, {"prompt", ai.prompt},
             {"prompt_id", ai.prompt_id}, {"prompt_custom_1", ai.prompt_custom_1},
             {"prompt_custom_2", ai.prompt_custom_2}, {"prompt_custom_3", ai.prompt_custom_3}}},
+          {"tencent_tmt",
+           {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
+            {"region", tencent_tmt.region}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
             {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
@@ -514,6 +518,12 @@ bool ApplyConfigUpdate(const json::object &data)
         if (value.is_string()) return SetConfiguredAiAssistantString(key, json::value_to<std::string>(value));
         if (value.is_int64()) return SetConfiguredAiAssistantInt(key, static_cast<int>(value.as_int64()));
         return false;
+    }
+    if (path.rfind("tencent_tmt.", 0) == 0)
+    {
+        const json::value &value = data.at("value");
+        return value.is_string() && SetConfiguredTencentTmtString(
+            path.substr(std::string("tencent_tmt.").size()), json::value_to<std::string>(value));
     }
     if (path == "helpcode.show_sp_helpcode_in_candidate_window")
         return SetConfiguredShowShuangpinHelpcodeInCandidateWindow(json::value_to<bool>(data.at("value")));
