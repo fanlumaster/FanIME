@@ -18,6 +18,7 @@
 #include "ipc/ipc.h"
 #include "ipc/event_listener.h"
 #include "ipc/candidate_ui_action_policy.h"
+#include "log/candidate_diag_log.h"
 #include "log/ftb_diag_log.h"
 #include "settings/settings_launcher.h"
 #include "utils/window_utils.h"
@@ -961,6 +962,11 @@ bool AreSmallWindowWebviewsReady()
     return AreSmallWindowWebviewsReadyUnlocked();
 }
 
+bool IsCandidateWebviewReady()
+{
+    return candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr;
+}
+
 bool IsFloatingToolbarWebviewReady()
 {
     return floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr;
@@ -1083,6 +1089,18 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible)
         SetWebviewMemoryUsageTarget(webview, visible ? COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
                                                      : COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW);
     }
+}
+
+bool GetCandidateWebviewState(bool &isVisible, RECT &bounds)
+{
+    if (!webviewControllerCandWnd)
+        return false;
+    BOOL visible = FALSE;
+    if (FAILED(webviewControllerCandWnd->get_IsVisible(&visible)) ||
+        FAILED(webviewControllerCandWnd->get_Bounds(&bounds)))
+        return false;
+    isVisible = visible != FALSE;
+    return true;
 }
 
 std::wstring ReadHtmlFile(const std::wstring &filePath)
@@ -1606,6 +1624,8 @@ HRESULT OnControllerCreatedCandWnd(     //
     ICoreWebView2Controller *controller //
 )
 {
+    CAND_DIAG_LOGF(L"webview controller callback hr={:#x} controller_present={} hwnd_valid={}",
+                   static_cast<unsigned>(result), controller != nullptr, IsWindow(hwnd) != FALSE);
     if (!controller || FAILED(result))
     {
         OnSmallWindowControllerSettled(FAILED(result) ? result : E_FAIL);
@@ -1617,6 +1637,7 @@ HRESULT OnControllerCreatedCandWnd(     //
 
     if (!webviewCandWnd)
     {
+        CAND_DIAG_LOGF(L"webview get_CoreWebView2 failed hr={:#x}", static_cast<unsigned>(getWebviewHr));
         webviewControllerCandWnd.Reset();
         OnSmallWindowControllerSettled(FAILED(getWebviewHr) ? getWebviewHr : E_FAIL);
         return E_FAIL;
@@ -1696,6 +1717,8 @@ HRESULT OnControllerCreatedCandWnd(     //
 
     // Navigate to HTML
     HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
+    CAND_DIAG_LOGF(L"webview NavigateToString hr={:#x} html_chars={} skin={}", static_cast<unsigned>(hr),
+                   HTMLStringCandWnd.size(), string_to_wstring(preparedCandidateSkin));
     if (SUCCEEDED(hr))
     {
         loadedCandidateSkin = preparedCandidateSkin;
@@ -1847,7 +1870,10 @@ HRESULT OnControllerCreatedCandWnd(     //
                 COREWEBVIEW2_WEB_ERROR_STATUS errorStatus = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
                 const HRESULT successHr = args->get_IsSuccess(&success);
                 const HRESULT statusHr = args->get_WebErrorStatus(&errorStatus);
-                (void)0;
+                CAND_DIAG_LOGF(L"webview navigation completed success={} success_hr={:#x} status_hr={:#x} "
+                               L"web_error={} logical_shown={}",
+                               success != FALSE, static_cast<unsigned>(successHr), static_cast<unsigned>(statusHr),
+                               static_cast<int>(errorStatus), ::is_global_wnd_cand_shown);
                 if (success)
                 {
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
@@ -1882,7 +1908,8 @@ HRESULT OnControllerCreatedCandWnd(     //
                                               COREWEBVIEW2_PROCESS_FAILED_KIND kind =
                                                   COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
                                               const HRESULT hr = args->get_ProcessFailedKind(&kind);
-                                              (void)0;
+                                              CAND_DIAG_LOGF(L"webview process failed kind={} hr={:#x}",
+                                                             static_cast<int>(kind), static_cast<unsigned>(hr));
                                               return S_OK;
                                           })
                                           .Get(),
@@ -2817,6 +2844,15 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.candidate_window_diagnostic_log")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCandidateWindowDiagnosticLogEnabled(value))
+                                {
+                                    CAND_DIAG_LOGF(L"diagnostic logging enabled from Settings");
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("tencent_tmt.", 0) == 0)
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -3167,7 +3203,8 @@ void PostSettingsConfig()
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
             {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
-           {{"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
+           {{"candidate_window_diagnostic_log", GetConfiguredCandidateWindowDiagnosticLogEnabled()},
+            {"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
             {"floating_toolbar_punctuation", toolbar.punctuation},
             {"floating_toolbar_character_set", toolbar.character_set},

@@ -124,6 +124,8 @@ set(SRC_FILES
     "./src/kaomoji/kaomoji_ime.h"
     "./src/log/fanylog.cpp"
     "./src/log/fanylog.h"
+    "./src/log/candidate_diag_log.cpp"
+    "./src/log/candidate_diag_log.h"
     "./src/log/ftb_diag_log.cpp"
     "./src/log/ftb_diag_log.h"
     "./src/quick-phrases/quick_phrase_query.cpp"

@@ -51,6 +51,7 @@
 #include "kaomoji/kaomoji_query.h"
 #include "kaomoji/kaomoji_ime.h"
 #include "jianpin/jianpin_query.h"
+#include "log/candidate_diag_log.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <cwchar>
@@ -208,8 +209,11 @@ void RequestShowCandidateWindow()
 {
     if (IsUiLessMode() || !::global_hwnd)
     {
+        CAND_DIAG_LOGF(L"show request skipped uiless={} hwnd_present={}", IsUiLessMode(), ::global_hwnd != nullptr);
         return;
     }
+    CAND_DIAG_LOGF(L"show request posted raw_units={} candidate_count={}",
+                   GlobalIme::composition.raw_input_with_cases.size(), Global::candidate_ui.items.size());
     PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
 }
 
@@ -1021,6 +1025,11 @@ void RefreshCandidatePageUi(bool show_window)
     {
         ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
     }
+    CAND_DIAG_LOGF(L"candidate UI refreshed show={} uiless={} items={} page_words={} selected={} page={} "
+                   L"serialized_units={}",
+                   show_window, IsUiLessMode(), Global::candidate_ui.items.size(),
+                   Global::candidate_ui.page_words.size(), Global::candidate_ui.selected_index_in_page,
+                   Global::candidate_ui.page_index, candidate_string.size());
     if (show_window)
     {
         RequestShowCandidateWindow();
@@ -1030,6 +1039,7 @@ void RefreshCandidatePageUi(bool show_window)
 void LogPipeConnectResult(const wchar_t *pipe_name, BOOL connected)
 {
     const DWORD gle = connected ? ERROR_SUCCESS : GetLastError();
+    CAND_DIAG_LOGF(L"pipe connect name={} connected={} gle={}", pipe_name, connected != FALSE, gle);
     if (connected)
     {
         FANY_IPC_LOGF(L"[msime]: [ipc] {} connected", pipe_name);
@@ -1042,13 +1052,16 @@ void LogPipeConnectResult(const wchar_t *pipe_name, BOOL connected)
 
 void LogPipeReadFailure(const wchar_t *pipe_name, DWORD bytes_read)
 {
+    const DWORD gle = GetLastError();
     FANY_IPC_LOGF(L"[msime]: [ipc] {} ReadFile failed or returned empty: gle={}, bytes_read={}", pipe_name,
-                  GetLastError(), bytes_read);
+                  gle, bytes_read);
+    CAND_DIAG_LOGF(L"pipe read failure name={} gle={} bytes={}", pipe_name, gle, bytes_read);
 }
 
 void LogPipeDisconnect(const wchar_t *pipe_name)
 {
     FANY_IPC_LOGF(L"[msime]: [ipc] {} disconnected", pipe_name);
+    CAND_DIAG_LOGF(L"pipe disconnected name={}", pipe_name);
 }
 
 void LogPipeEvent(const wchar_t *pipe_name, UINT event_type, UINT keycode, WCHAR wch, UINT modifiers_down)
@@ -1391,6 +1404,9 @@ void WorkerThread()
                 FTB_DIAG_LOGF(L"task {} epoch={} rejected as stale",
                               task.type == TaskType::ClientDeactivated ? L"ClientDeactivated" : L"ClientSuspended",
                               task.activation_epoch);
+                CAND_DIAG_LOGF(L"candidate lifecycle task rejected stale type={} epoch={}",
+                               task.type == TaskType::ClientDeactivated ? L"deactivated" : L"suspended",
+                               task.activation_epoch);
                 continue;
             }
         }
@@ -1428,6 +1444,9 @@ void WorkerThread()
             // refreshes (creating-word progress and candidate context-menu
             // actions), whose current packet does not carry a valid point.
             ::ReadDataFromNamedPipe(0b111111);
+            CAND_DIAG_LOGF(L"task ShowCandidate client={} epoch={} request={} caret=({},{}) input_units={}",
+                           task.client_id, task.activation_epoch, task.pipe_data.request_id, Global::Point[0],
+                           Global::Point[1], GlobalIme::composition.raw_input_with_cases.size());
             PrepareCandidateList(task.client_id, task.activation_epoch);
             RequestShowCandidateWindow();
             break;
@@ -1435,6 +1454,8 @@ void WorkerThread()
 
         case TaskType::HideCandidate: {
             ::ReadDataFromNamedPipe(0b100000);
+            CAND_DIAG_LOGF(L"task HideCandidate client={} epoch={} request={}", task.client_id,
+                           task.activation_epoch, task.pipe_data.request_id);
             PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             /* 清理状态 */
             ClearState();
@@ -1444,6 +1465,8 @@ void WorkerThread()
         case TaskType::MoveCandidate: {
             static int cnt = 0;
             ::ReadDataFromNamedPipe(0b001000);
+            CAND_DIAG_LOGF(L"task MoveCandidate client={} epoch={} caret=({},{})", task.client_id,
+                           task.activation_epoch, Global::Point[0], Global::Point[1]);
             PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
             break;
         }
@@ -1527,6 +1550,8 @@ void WorkerThread()
         }
 
         case TaskType::ClientActivated: {
+            CAND_DIAG_LOGF(L"client activated client={} epoch={} hwnd_present={}", task.client_id,
+                           task.activation_epoch, ::global_hwnd != nullptr);
             VoiceInput::SetImeActive(true);
             // Activation replaces all composition/candidate state from the
             // previous focus session. A terminal TIP activation also makes
@@ -1564,6 +1589,7 @@ void WorkerThread()
         }
 
         case TaskType::ClientDeactivated: {
+            CAND_DIAG_LOGF(L"client deactivated client={} epoch={}", task.client_id, task.activation_epoch);
             VoiceInput::SetImeActive(false);
             // Unlike a route-only suspension, terminal TIP deactivation means
             // the user switched to another input method.
@@ -1583,6 +1609,7 @@ void WorkerThread()
         }
 
         case TaskType::ClientSuspended: {
+            CAND_DIAG_LOGF(L"client suspended client={} epoch={}", task.client_id, task.activation_epoch);
             // A suspension rotates the IPC focus session while the TIP may
             // still own thread focus. It clears candidates just like terminal
             // deactivation, but never changes floating-toolbar visibility.
@@ -2390,6 +2417,8 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
         {
             FANY_IPC_LOGF(L"[msime]: [ipc] ignored inactive main-pipe event: client_id={}, type={}", clientId,
                           pipeData.event_type);
+            CAND_DIAG_LOGF(L"main-pipe event ignored inactive client={} type={} request={}", clientId,
+                           pipeData.event_type, pipeData.request_id);
             continue;
         }
 

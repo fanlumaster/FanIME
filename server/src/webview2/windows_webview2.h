@@ -99,6 +99,7 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 // after the WebViews report ready.
 bool AreSmallWindowsTopmostApplied();
 bool AreSmallWindowWebviewsReady();
+bool IsCandidateWebviewReady();
 // True once the floating toolbar's WebView2 has completed its first navigation
 // and can actually paint. Its host must stay on-monitor and "visible" until
 // then, otherwise WebView2 never finishes raster setup for it.
@@ -122,6 +123,7 @@ bool GetFloatingToolbarWebviewState(bool &isVisible, RECT &bounds);
 // Same for the tray menu, whose blank-but-clickable failure mode needs exactly
 // this to be separated from a host that was never uncloaked.
 bool GetTrayMenuWebviewState(bool &isVisible, RECT &bounds);
+bool GetCandidateWebviewState(bool &isVisible, RECT &bounds);
 void LogSmallWindowReadyGate(const wchar_t *context);
 // Lift the tray menu to the front of the small-window topmost band (e.g. after
 // FTB was pinned last), renotifying its controller about the band change. Only

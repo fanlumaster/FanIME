@@ -22,6 +22,7 @@
 #include "utils/ime_utils.h"
 #include "window_hook.h"
 #include "window/floating_toolbar_visibility_policy.h"
+#include "log/candidate_diag_log.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
 #include <windowsx.h>
@@ -652,6 +653,16 @@ std::wstring DescribeFloatingToolbarHostState()
 }
 } // namespace
 
+std::wstring DescribeCandidateHostState()
+{
+    bool webview_visible = false;
+    RECT webview_bounds{};
+    const bool has_controller = GetCandidateWebviewState(webview_visible, webview_bounds);
+    return fmt::format(L"logical_shown={} nav_ready={} {}", ::is_global_wnd_cand_shown,
+                       IsCandidateWebviewReady(),
+                       DescribeHostWindowState(::global_hwnd, has_controller, webview_visible, webview_bounds));
+}
+
 // External linkage, unlike its toolbar counterpart: the menu's own lifecycle
 // events live in windows_webview2.cpp and are the ones worth recording.
 std::wstring DescribeTrayMenuHostState()
@@ -1052,6 +1063,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
 
     ::global_hwnd = hwnd_cand;
+    CAND_DIAG_LOGF(L"candidate host created {}", DescribeCandidateHostState());
 
     // A client can activate while the pipe server is already listening but this
     // window does not exist yet, which is the race that leaves the toolbar
@@ -1205,6 +1217,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (message == WM_SHOWWINDOW)
     {
         UpdateSmallWindowWebviewVisibility(hwnd, wParam != FALSE);
+        if (hwnd == ::global_hwnd)
+        {
+            CAND_DIAG_LOGF(L"host WM_SHOWWINDOW showing={} reason={} {}", wParam != FALSE,
+                           static_cast<unsigned long long>(lParam), DescribeCandidateHostState());
+        }
     }
 
     if (message == WM_APPLY_IME_CONFIG || message == WM_APPLY_IME_INPUT_SCHEME)
@@ -1239,6 +1256,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (message == WM_POWERBROADCAST || message == WM_DISPLAYCHANGE || message == WM_DWMCOMPOSITIONCHANGED ||
+        message == WM_SETTINGCHANGE)
+    {
+        CAND_DIAG_LOGF(L"system window event message={:#x} wparam={:#x} lparam={:#x} {}", message,
+                       static_cast<unsigned long long>(wParam), static_cast<unsigned long long>(lParam),
+                       DescribeCandidateHostState());
+    }
+
     if (message == WM_IMEACTIVATE)
     {
         g_is_ime_active = true;
@@ -1262,6 +1287,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         std::wstring str = preedit + L"," + Global::CandidateString;
         (void)0;
         LogSmallWindowReadyGate(L"show-candidate");
+        CAND_DIAG_LOGF(L"show message preedit_units={} payload_units={} caret=({},{}) {}", preedit.size(),
+                       Global::CandidateString.size(), Global::Point[0], Global::Point[1],
+                       DescribeCandidateHostState());
         if (!EnsureSmallWindowsTopmost(L"show-candidate"))
         {
             (void)0;
@@ -1284,6 +1312,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_HIDE_MAIN_WINDOW)
     {
+        CAND_DIAG_LOGF(L"hide message begin {}", DescribeCandidateHostState());
         (void)0;
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
@@ -1312,6 +1341,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         SetHostWindowCloaked(hwnd, true);
         UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
+        CAND_DIAG_LOGF(L"hide message end {}", DescribeCandidateHostState());
         /* 候选词部分使用全角空格来占位 */
         // std::wstring str = L" ,　,　,　,　,　,　,　,　";
         // InflateCandWnd(str);
@@ -1321,6 +1351,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_MOVE_CANDIDATE_WINDOW)
     {
+        CAND_DIAG_LOGF(L"move message caret=({},{}) {}", Global::Point[0], Global::Point[1],
+                       DescribeCandidateHostState());
         FineTuneWindow(hwnd);
         return 0;
     }
@@ -2448,9 +2480,12 @@ int FineTuneWindow(HWND hwnd)
     {
         (void)0;
         LogSmallWindowReadyGate(L"fine-tune-no-webview");
+        CAND_DIAG_LOGF(L"fine-tune skipped: no webview {}", DescribeCandidateHostState());
         return 0;
     }
     const uint64_t generation = ++g_candidate_finetune_generation;
+    CAND_DIAG_LOGF(L"fine-tune begin generation={} caret=({},{}) {}", generation, caretX, caretY,
+                   DescribeCandidateHostState());
     // Wrap/scroll budget = stable host size (half-screen DIP). Width wraps;
     // height scrolls inside the card when fonts make the list taller than host.
     const HalfScreenDipLimits measureLimits = QueryHalfScreenDipLimitsForPoint(caretPt);
@@ -2477,12 +2512,15 @@ int FineTuneWindow(HWND hwnd)
             // measure callback was still pending — do not resurrect it.
             if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
             {
-                (void)0;
+                CAND_DIAG_LOGF(L"fine-tune generation={} discarded: hidden={} invalid_caret={}", generation,
+                               !::is_global_wnd_cand_shown, caretY == Global::INVALID_Y);
                 return;
             }
             // A newer show/update already queued another FineTune — ignore this one.
             if (generation != g_candidate_finetune_generation.load())
             {
+                CAND_DIAG_LOGF(L"fine-tune generation={} discarded: superseded_by={}", generation,
+                               g_candidate_finetune_generation.load());
                 return;
             }
 
@@ -2694,8 +2732,12 @@ int FineTuneWindow(HWND hwnd)
                     UpdateSmallWindowWebviewVisibility(hwnd, true);
                     RECT actualRect{};
                     GetWindowRect(hwnd, &actualRect);
-                    (void)actualRect;
-                    (void)0;
+                    CAND_DIAG_LOGF(L"fine-tune generation={} completed size_dip=({:.1f},{:.1f}) "
+                                   L"margin=({},{}) rect=({},{},{}x{}) {}",
+                                   generation, finalSize.first, finalSize.second, Global::MarginLeft,
+                                   Global::MarginTop, actualRect.left, actualRect.top,
+                                   actualRect.right - actualRect.left, actualRect.bottom - actualRect.top,
+                                   DescribeCandidateHostState());
                 };
 
                 // Pass 2: remeasure the painted card after margins. Keep the stable
