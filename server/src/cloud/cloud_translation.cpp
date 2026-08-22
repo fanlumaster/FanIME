@@ -158,22 +158,29 @@ void WorkerLoop()
         if (!CloudTranslation::IsUsableSecret(credentials.secret_id))
             continue;
 
+        std::vector<EnglishIme::TranslationQuery> en_zh;
         std::vector<EnglishIme::TranslationQuery> zh_en;
         {
             std::lock_guard cache_lock(g_mutex);
             for (const auto &query : queries)
             {
-                if (query.direction != EnglishIme::TranslationDirection::ChineseToEnglish || TooLong(query.key) ||
-                    !CloudTranslation::IsCloudTranslatableChinese(query.key))
+                if (TooLong(query.key))
                     continue;
                 const std::string identity = Identity(query);
                 if (g_cache.find(identity) != g_cache.end() || IsNegative(identity))
                     continue;
-                zh_en.push_back(query);
+                if (query.direction == EnglishIme::TranslationDirection::EnglishToChinese &&
+                    CloudTranslation::IsCloudTranslatableEnglish(query.key))
+                    en_zh.push_back(query);
+                else if (query.direction == EnglishIme::TranslationDirection::ChineseToEnglish &&
+                         CloudTranslation::IsCloudTranslatableChinese(query.key))
+                    zh_en.push_back(query);
             }
         }
 
         std::vector<EnglishIme::TranslationResult> results;
+        if (!en_zh.empty())
+            TranslateGroup(credentials, en_zh, "en", "zh", results);
         if (!zh_en.empty())
             TranslateGroup(credentials, zh_en, "zh", "en", results);
         if (results.empty() || !g_running || g_job.load() != observed_job ||

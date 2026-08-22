@@ -3212,9 +3212,15 @@ void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> resul
             gloss = CloudTranslation::LookupCache(result.key, result.direction);
         if (!gloss.empty())
             g_candidate_translation_glosses[TranslationIdentity({result.key, result.direction})] = std::move(gloss);
-        else if (!merge && result.direction == EnglishIme::TranslationDirection::ChineseToEnglish &&
-                 CloudTranslation::IsCloudTranslatableChinese(result.key))
-            misses.push_back({result.key, result.direction});
+        else if (!merge)
+        {
+            const bool cloud_translatable =
+                result.direction == EnglishIme::TranslationDirection::EnglishToChinese
+                    ? CloudTranslation::IsCloudTranslatableEnglish(result.key)
+                    : CloudTranslation::IsCloudTranslatableChinese(result.key);
+            if (cloud_translatable)
+                misses.push_back({result.key, result.direction});
+        }
     }
     const FanyImeIpc::CandidateUiOwner owner = SnapshotCandidateUiOwner();
     if (owner && IsPipeActivationCurrent(owner.client_id, owner.activation_epoch))

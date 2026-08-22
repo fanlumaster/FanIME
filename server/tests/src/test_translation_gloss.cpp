@@ -35,3 +35,15 @@ TEST_CASE(CloudTranslationOnlySendsChineseWithoutEmoji)
     REQUIRE(!CloudTranslation::IsCloudTranslatableChinese("笑😀"));
     REQUIRE(!CloudTranslation::IsCloudTranslatableChinese(""));
 }
+
+TEST_CASE(CloudTranslationAcceptsEnglishCandidateShapes)
+{
+    REQUIRE(CloudTranslation::IsCloudTranslatableEnglish("metasequoia"));
+    REQUIRE(CloudTranslation::IsCloudTranslatableEnglish("Meta Sequoia"));
+    REQUIRE(CloudTranslation::IsCloudTranslatableEnglish("cloud-based"));
+    REQUIRE(CloudTranslation::IsCloudTranslatableEnglish("user's"));
+    REQUIRE(!CloudTranslation::IsCloudTranslatableEnglish(""));
+    REQUIRE(!CloudTranslation::IsCloudTranslatableEnglish("123"));
+    REQUIRE(!CloudTranslation::IsCloudTranslatableEnglish("hello!"));
+    REQUIRE(!CloudTranslation::IsCloudTranslatableEnglish("水杉"));
+}

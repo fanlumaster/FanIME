@@ -130,4 +130,22 @@ bool IsCloudTranslatableChinese(const std::string &text)
     }
     return has_han;
 }
+
+bool IsCloudTranslatableEnglish(const std::string &text)
+{
+    if (text.empty())
+        return false;
+    bool has_ascii_letter = false;
+    for (const unsigned char ch : text)
+    {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))
+        {
+            has_ascii_letter = true;
+            continue;
+        }
+        if (ch != ' ' && ch != '-' && ch != '\'')
+            return false;
+    }
+    return has_ascii_letter;
+}
 } // namespace CloudTranslation
