@@ -134,6 +134,21 @@ TEST_CASE(KaomojiMixedCandidateSitsRightAfterEmoji)
     REQUIRE_EQ(items[5].source, CandidateSource::Kaomoji);
 }
 
+TEST_CASE(JapaneseSingleKanaPairStaysAheadOfCloudCandidate)
+{
+    std::vector<WordItem> items = {
+        WordItem("Ka", "か", 1000000, CandidateSource::Generated),
+        WordItem("Ka", "カ", 999999, CandidateSource::Generated),
+        WordItem("ka", "蚊", 1, CandidateSource::CloudSuggestion),
+        WordItem("ka", "科", 100, CandidateSource::Database),
+    };
+
+    FanyImeIpc::NormalizeMixedCandidateOrder(items, 2);
+    REQUIRE_EQ(items[0].word, std::string("か"));
+    REQUIRE_EQ(items[1].word, std::string("カ"));
+    REQUIRE_EQ(items[2].source, CandidateSource::CloudSuggestion);
+}
+
 TEST_CASE(EngineShuangpinAiCandidateConsumesFullRawInput)
 {
     EngineInputSession session(SchemeType::Shuangpin);

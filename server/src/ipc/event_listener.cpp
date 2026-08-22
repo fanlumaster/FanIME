@@ -29,6 +29,7 @@
 #include <utf8.h>
 #include "global/globals.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
+#include "MetasequoiaImeEngine/japanese/romaji_converter.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
 #include "ipc/event_listener.h"
@@ -2951,7 +2952,10 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
     size_t insert_index = items.size() >= 1 ? 1 : 0;
     items.insert(items.begin() + insert_index, WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
-    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    const bool preserve_single_kana_pair =
+        g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji &&
+        japanese::IsSingleKanaConversion(japanese::ConvertRomaji(g_inputSession->get_pinyin_sequence()));
+    FanyImeIpc::NormalizeMixedCandidateOrder(items, preserve_single_kana_pair ? 2 : 1);
     g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate, CandidateSource::CloudSuggestion);
     Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
 

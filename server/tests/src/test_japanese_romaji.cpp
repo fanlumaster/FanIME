@@ -4,6 +4,7 @@
 #include "MetasequoiaImeEngine/japanese/japanese_matrix_search.h"
 #include "MetasequoiaImeEngine/providers/japanese_candidate_provider.h"
 #include "MetasequoiaImeEngine/schemes/japanese_romaji_scheme.h"
+#include "src/session/engine_input_session.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -76,6 +77,19 @@ TEST_CASE(JapaneseRomajiSchemePreservesTypedCodeAndShowsKanaSegmentation)
     REQUIRE_EQ(request.segmentation, std::string("にほんご"));
 }
 
+TEST_CASE(JapanesePreeditPreservesTypedCasesAcrossEngineAndCandidateUi)
+{
+    EngineInputSession session(SchemeType::JapaneseRomaji);
+    for (const char ch : std::string("NiHonGo"))
+    {
+        const char vk = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        session.handle_key(static_cast<UINT>(vk), 0, static_cast<WCHAR>(ch));
+    }
+    REQUIRE_EQ(session.get_pinyin_sequence(), std::string("nihongo"));
+    REQUIRE_EQ(session.get_pinyin_sequence_with_cases(), std::string("NiHonGo"));
+    REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("NiHonGo"));
+}
+
 TEST_CASE(JapaneseProviderCombinesGeneratedKanaAndSqliteCandidates)
 {
     const auto path = CreateJapaneseDatabase();
@@ -89,6 +103,17 @@ TEST_CASE(JapaneseProviderCombinesGeneratedKanaAndSqliteCandidates)
         const auto kana_candidates = provider.query(kana);
         REQUIRE(ContainsWord(kana_candidates, "にほんご"));
         REQUIRE(ContainsWord(kana_candidates, "ニホンゴ"));
+
+        QueryRequest single_kana;
+        single_kana.scheme = SchemeType::JapaneseRomaji;
+        single_kana.raw_input = "ka";
+        single_kana.raw_input_with_cases = "Ka";
+        single_kana.valid = true;
+        const auto single_kana_candidates = provider.query(single_kana);
+        REQUIRE(single_kana_candidates.size() >= 2);
+        REQUIRE_EQ(single_kana_candidates[0].word, std::string("か"));
+        REQUIRE_EQ(single_kana_candidates[1].word, std::string("カ"));
+        REQUIRE_EQ(single_kana_candidates[0].pinyin, std::string("Ka"));
 
         QueryRequest direct;
         direct.scheme = SchemeType::JapaneseRomaji;
@@ -185,6 +210,22 @@ TEST_CASE(JapaneseMatrixSearchDecodesWholeSentenceWhenModelAvailable)
         found_kawaii = found_kawaii || lemma.surface == "可愛い" || lemma.reading == "かわいい" ||
                        lemma.surface == "かわいい";
     REQUIRE(found_kawaii);
+
+    const auto exact = decoder.ExactLemmas("にほん", 64);
+    const auto best_exact = decoder.ExactLemmas("にほん", 1);
+    REQUIRE(!exact.empty());
+    REQUIRE(best_exact.size() == 1);
+    REQUIRE(best_exact.front().word_cost == exact.front().word_cost);
+    for (size_t index = 1; index < exact.size(); ++index)
+        REQUIRE(exact[index - 1].word_cost <= exact[index].word_cost);
+
+    const auto short_prefix = decoder.PrefixLemmas("か", 32);
+    REQUIRE(short_prefix.size() == 32);
+    for (size_t index = 1; index < short_prefix.size(); ++index)
+        REQUIRE(short_prefix[index - 1].word_cost <= short_prefix[index].word_cost);
+
+    const auto pending_consonant = search.Search("k", 12);
+    REQUIRE(!pending_consonant.empty());
 }
 
 TEST_CASE(JapaneseSentenceDecoderReadsGeneratedMozcModelWhenAvailable)

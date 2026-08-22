@@ -275,9 +275,14 @@ const std::string &EngineInputSession::get_pinyin_segmentation() const
 
 std::string EngineInputSession::get_pinyin_segmentation_with_cases() const
 {
-    if (is_wubi() || is_japanese())
+    if (is_wubi())
     {
         return request().raw_input;
+    }
+    if (is_japanese())
+    {
+        return request().raw_input_with_cases.empty() ? request().raw_input
+                                                      : request().raw_input_with_cases;
     }
     if (is_shuangpin() && GetConfiguredShuangpinPreeditMode() == "shuangpin")
     {

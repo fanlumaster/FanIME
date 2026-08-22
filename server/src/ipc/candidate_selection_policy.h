@@ -24,7 +24,7 @@ constexpr bool ShouldEnterCreatingWord(CandidateSource source, bool continues_co
 //   cloud:            Chinese, cloud, AI, English, emoji, kaomoji
 //   cloud only:       Chinese, cloud, English, emoji, kaomoji
 //   base:             Chinese, English, emoji, kaomoji
-inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items)
+inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items, size_t local_prefix_slots = 1)
 {
     std::vector<WordItem> local_candidates;
     std::vector<WordItem> english_candidates;
@@ -67,7 +67,7 @@ inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items)
         items.insert(items.begin() + offset, std::move(candidate));
     };
 
-    size_t slot = 1;
+    size_t slot = (std::min)(local_prefix_slots, items.size());
     if (cloud_candidate)
     {
         insert_at(slot++, std::move(*cloud_candidate));
