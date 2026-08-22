@@ -225,7 +225,18 @@ TEST_CASE(MicrosoftSchemeAcceptsSemicolonAsIngFinalOnlyInSecondPosition)
     ShuangpinScheme scheme(GetMicrosoftShuangpinProfile());
     InputKey(scheme, 'M', L'm');
     InputKey(scheme, VK_OEM_1, L';');
-    REQUIRE_EQ(scheme.build_request().normalized_segmentation, std::string("ming"));
+    auto request = scheme.build_request();
+    REQUIRE_EQ(request.raw_input, std::string("m;"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("m;"));
+    REQUIRE_EQ(request.normalized_segmentation, std::string("ming"));
+
+    scheme.reset();
+    InputKey(scheme, 'X', L'x');
+    InputKey(scheme, VK_OEM_1, L';');
+    request = scheme.build_request();
+    REQUIRE_EQ(request.raw_input, std::string("x;"));
+    REQUIRE_EQ(request.raw_segmentation, std::string("x;"));
+    REQUIRE_EQ(request.normalized_segmentation, std::string("xing"));
 
     scheme.reset();
     InputKey(scheme, VK_OEM_1, L';');

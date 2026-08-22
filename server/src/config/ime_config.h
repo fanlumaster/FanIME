@@ -225,6 +225,8 @@ bool GetConfiguredJianpinModeEnabled();
 bool SetConfiguredJianpinModeEnabled(bool enabled);
 bool GetConfiguredYModeEnabled();
 bool SetConfiguredYModeEnabled(bool enabled);
+bool GetConfiguredRModeEnabled();
+bool SetConfiguredRModeEnabled(bool enabled);
 bool GetConfiguredClipboardHistoryEnabled();
 bool SetConfiguredClipboardHistoryEnabled(bool enabled);
 bool GetConfiguredPagingMinusEqualEnabled();

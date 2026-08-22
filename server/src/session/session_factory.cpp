@@ -86,6 +86,11 @@ std::shared_ptr<IInputSession> CreateInputSessionFromConfig()
     throw std::runtime_error("Unsupported effective input session backend: " + backend);
 }
 
+std::shared_ptr<IInputSession> CreateTemporaryJapaneseInputSession()
+{
+    return std::make_shared<EngineInputSession>(SchemeType::JapaneseRomaji);
+}
+
 std::string DescribeConfiguredInputSessionBackendFromConfig()
 {
     return ToLowerAscii(GetConfiguredSessionBackend());

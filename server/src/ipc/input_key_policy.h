@@ -46,4 +46,18 @@ constexpr bool ShouldResetCompositionForImeMode(bool chinese_mode)
 {
     return !chinese_mode;
 }
+
+constexpr bool InputSessionMatchesConfig(bool configured_scheme_matches, bool temporary_r_mode_active,
+                                         bool session_is_japanese)
+{
+    return configured_scheme_matches || (temporary_r_mode_active && session_is_japanese);
+}
+
+constexpr bool ShouldSendCompositionReply(bool is_alpha_key, bool is_manual_pinyin_separator,
+                                          bool is_microsoft_shuangpin_ing_key, bool is_unicode_hex_digit,
+                                          bool is_unicode_plus)
+{
+    return is_alpha_key || is_manual_pinyin_separator || is_microsoft_shuangpin_ing_key ||
+           is_unicode_hex_digit || is_unicode_plus;
+}
 } // namespace FanyImeIpc

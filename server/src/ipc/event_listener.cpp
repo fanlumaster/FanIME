@@ -70,6 +70,8 @@ bool g_emoji_mode_triggered = false;
 bool g_kaomoji_mode_triggered = false;
 bool g_jianpin_mode_triggered = false;
 bool g_y_mode_triggered = false;
+bool g_r_mode_triggered = false;
+std::shared_ptr<IInputSession> g_r_mode_original_session;
 bool g_english_input_mode = false;
 // Sticky UILess for the active Main-pipe client. When set, never raise the
 // WebView2 candidate HWND — hosts (games) draw via ITfUIElementSink instead.
@@ -77,6 +79,11 @@ bool g_activate_uiless = false;
 bool g_session_uiless = false;
 std::unordered_map<std::string, std::string> g_candidate_translation_glosses;
 std::string g_candidate_translation_signature;
+
+std::shared_ptr<IInputSession> PersistentInputSession()
+{
+    return g_r_mode_original_session ? g_r_mode_original_session : g_inputSession;
+}
 
 std::string TranslationIdentity(const EnglishIme::TranslationQuery &query)
 {
@@ -317,6 +324,7 @@ void ClearSpecialModeTriggers()
     g_kaomoji_mode_triggered = false;
     g_jianpin_mode_triggered = false;
     g_y_mode_triggered = false;
+    g_r_mode_triggered = false;
 }
 
 // True whenever a K/U/T/E/M/J/Y special-mode composition is in progress, even when the
@@ -1498,21 +1506,23 @@ void WorkerThread()
         }
 
         case TaskType::StoreUserPhrase: {
+            const auto session = PersistentInputSession();
             if (task.session_pinyin_is_canonical)
             {
-                g_inputSession->store_user_phrase_from_canonical_pinyin(task.session_pinyin, task.session_word);
+                session->store_user_phrase_from_canonical_pinyin(task.session_pinyin, task.session_word);
             }
             else
             {
-                g_inputSession->store_user_phrase(task.session_pinyin, task.session_word);
+                session->store_user_phrase(task.session_pinyin, task.session_word);
             }
-            g_inputSession->reset_cache();
+            session->reset_cache();
             break;
         }
 
         case TaskType::PinCandidate: {
-            g_inputSession->pin_candidate(task.session_pinyin, task.session_word);
-            g_inputSession->reset_cache();
+            const auto session = PersistentInputSession();
+            session->pin_candidate(task.session_pinyin, task.session_word);
+            session->reset_cache();
             break;
         }
 
@@ -1761,7 +1771,12 @@ void WorkerThread()
 
         case TaskType::EnsureInputSessionMatchesConfig: {
             const SchemeType wanted = GetConfiguredActiveInputScheme();
-            if (g_inputSession && g_inputSession->current_scheme_type() == wanted)
+            const bool has_session = g_inputSession != nullptr;
+            const bool configured_scheme_matches = has_session && g_inputSession->current_scheme_type() == wanted;
+            const bool session_is_japanese =
+                has_session && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji;
+            if (FanyImeIpc::InputSessionMatchesConfig(configured_scheme_matches, g_r_mode_triggered,
+                                                      session_is_japanese))
             {
                 break;
             }
@@ -1803,9 +1818,10 @@ void WorkerThread()
         }
 
         case TaskType::ResetInputSessionCache: {
-            if (g_inputSession)
+            const auto session = PersistentInputSession();
+            if (session)
             {
-                g_inputSession->reset_cache();
+                session->reset_cache();
             }
             break;
         }
@@ -3243,6 +3259,14 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         return;
     }
 
+    if (g_r_mode_triggered && !GlobalIme::composition.raw_input_with_cases.empty() &&
+        GlobalIme::composition.raw_input_with_cases.front() == 'R' && GlobalIme::composition.caret_position > 0)
+    {
+        // The published preedit has one extra display-only prefix. Normalize
+        // the caret before every R-mode key, including paging and selection.
+        --GlobalIme::composition.caret_position;
+    }
+
     const std::string input_before_key =
         g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
@@ -3270,6 +3294,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (chinese_scheme && !g_english_input_mode && GetConfiguredYModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'Y' && Global::Wch == L'Y' && shift_only)
         g_y_mode_triggered = true;
+    const bool r_mode_trigger_key =
+        chinese_scheme && !g_english_input_mode && GetConfiguredRModeEnabled() && input_before_key.empty() &&
+        Global::Keycode == 'R' && Global::Wch == L'R' && shift_only;
+    if (r_mode_trigger_key)
+    {
+        g_r_mode_original_session = g_inputSession;
+        g_inputSession = CreateTemporaryJapaneseInputSession();
+        g_r_mode_triggered = true;
+    }
 
     if (FanyImeIpc::IsBackendIndependentCompositionResetKey(Global::Keycode))
     {
@@ -3341,7 +3374,13 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
     /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
      * 等等，然后再在下面处理其中的特殊的按键 */
-    if (is_composition_edit_key)
+    const bool r_mode_prefix_backspace =
+        g_r_mode_triggered && Global::Keycode == VK_BACK && input_before_key.empty();
+    if (r_mode_prefix_backspace)
+    {
+        ClearState();
+    }
+    else if (is_composition_edit_key && !r_mode_trigger_key)
     {
         ApplyCompositionEditKey(Global::Keycode, Global::Wch);
     }
@@ -3357,9 +3396,18 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         // the Chinese pinyin session's syllable boundaries in the preedit.
         GlobalIme::composition.segmented_pinyin = GlobalIme::composition.raw_input_with_cases;
     }
-    if (g_inputSession->get_pinyin_sequence_with_cases().empty())
+    if (g_inputSession->get_pinyin_sequence_with_cases().empty() && !g_r_mode_triggered)
     {
         ClearSpecialModeTriggers();
+    }
+    if (!g_english_input_mode && g_r_mode_triggered)
+    {
+        // R is a visible mode prefix but is not part of the romaji sent to the
+        // temporary Japanese engine. Keep both TSF and candidate-window preedit
+        // aligned, including their caret coordinates.
+        GlobalIme::composition.segmented_pinyin.insert(0, 1, 'R');
+        GlobalIme::composition.raw_input_with_cases.insert(0, 1, 'R');
+        ++GlobalIme::composition.caret_position;
     }
     if (!g_english_input_mode && IsUnicodeCompositionActive(GlobalIme::composition.raw_input_with_cases))
     {
@@ -3429,8 +3477,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
     //
-    if ((Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator || is_unicode_hex_digit ||
-        is_unicode_plus)
+    if (FanyImeIpc::ShouldSendCompositionReply(
+            Global::Keycode >= 'A' && Global::Keycode <= 'Z', is_manual_pinyin_separator,
+            is_microsoft_shuangpin_ing_key, is_unicode_hex_digit, is_unicode_plus))
     {
         if (IsUiLessMode())
         {
@@ -3651,6 +3700,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
 void ClearState()
 {
+    const auto r_mode_original_session = g_r_mode_original_session;
     ClearSpecialModeTriggers();
     ClearCandidateUiOwner();
     UpdateCloudInput("");
@@ -3664,6 +3714,11 @@ void ClearState()
     UpdateAiInput("");
     /* Clear dict engine state */
     g_inputSession->reset_state();
+    if (r_mode_original_session)
+    {
+        g_inputSession = r_mode_original_session;
+        g_r_mode_original_session.reset();
+    }
     /* 造词的状态也要清理 */
     GlobalIme::composition.clear();
     // Drop published candidates before any in-flight FineTuneWindow callback
@@ -3761,6 +3816,11 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             UpdateEmojiInput("");
             UpdateKaomojiInput("");
             g_inputSession->reset_state();
+            if (g_r_mode_original_session)
+            {
+                g_inputSession = g_r_mode_original_session;
+                g_r_mode_original_session.reset();
+            }
             GlobalIme::composition.clear();
             ClearSpecialModeTriggers();
             return;
@@ -3868,6 +3928,11 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         if (!isNeedCreateWord)
         {
             g_inputSession->reset_state();
+            if (g_r_mode_original_session)
+            {
+                g_inputSession = g_r_mode_original_session;
+                g_r_mode_original_session.reset();
+            }
             GlobalIme::composition.caret_position = 0;
             GlobalIme::composition.raw_input_with_cases.clear();
             ClearSpecialModeTriggers();

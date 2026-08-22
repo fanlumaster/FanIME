@@ -38,3 +38,18 @@ TEST_CASE(english_mode_toggle_requires_ctrl_shift_e)
     REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('E', 0b00000001u));
     REQUIRE(!FanyImeIpc::IsEnglishModeToggleKey('A', 0b00000011u));
 }
+
+TEST_CASE(composition_reply_includes_microsoft_shuangpin_ing_key)
+{
+    REQUIRE(FanyImeIpc::ShouldSendCompositionReply(false, false, true, false, false));
+    REQUIRE(FanyImeIpc::ShouldSendCompositionReply(true, false, false, false, false));
+    REQUIRE(!FanyImeIpc::ShouldSendCompositionReply(false, false, false, false, false));
+}
+
+TEST_CASE(temporary_r_mode_japanese_session_is_not_replaced_by_config_sync)
+{
+    REQUIRE(FanyImeIpc::InputSessionMatchesConfig(false, true, true));
+    REQUIRE(FanyImeIpc::InputSessionMatchesConfig(true, false, false));
+    REQUIRE(!FanyImeIpc::InputSessionMatchesConfig(false, false, true));
+    REQUIRE(!FanyImeIpc::InputSessionMatchesConfig(false, true, false));
+}
