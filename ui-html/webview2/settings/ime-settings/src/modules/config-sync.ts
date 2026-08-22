@@ -1,6 +1,6 @@
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 import { applyAppearanceConfig, updateCandidatePreviewHelpcode } from './appearance';
-import { applyFrequencyConfig, applyInputConfig, applyZhEnMixedInputConfig } from './input';
+import { applyFrequencyConfig, applyInputConfig, applyTencentTmtConfig, applyZhEnMixedInputConfig } from './input';
 import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
 import { applyFloatingToolbarAppearanceConfig, applyFloatingToolbarItemsConfig } from './floating-toolbar';
@@ -121,8 +121,12 @@ export function setupConfigSync(): void {
       payload.data?.general?.cn_en_mixed_input,
       payload.data?.general?.cn_en_mixed_input_min_chars
     );
+    applyTencentTmtConfig(payload.data?.tencent_tmt);
     if (typeof payload.data?.general?.candidate_translations === 'boolean') {
       applyToggleState('candidateTranslationsToggleBtn', payload.data.general.candidate_translations);
+      document.getElementById('candidateTranslationApiOptions')?.classList.toggle(
+        'is-disabled', !payload.data.general.candidate_translations
+      );
     }
     if (typeof payload.data?.general?.emoji_mixed_input === 'boolean') {
       applyToggleState('emojiMixedInputToggleBtn', payload.data.general.emoji_mixed_input);

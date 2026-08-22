@@ -125,6 +125,38 @@
         <div class="ftb-toggle-knob"></div>
       </div>
     </div>
+    <div class="translation-api-options" id="candidateTranslationApiOptions">
+      <div class="input-option-divider"></div>
+      <div class="translation-api-heading">
+        <div class="section-title">腾讯云 API 凭据</div>
+        <div class="input-setting-description">用于本地词库未命中时请求机器翻译，凭据仅保存在本机配置文件中</div>
+      </div>
+      <div class="translation-api-grid">
+        <label class="translation-api-field">
+          <span>SecretId</span>
+          <input id="tencentTmtSecretId" type="text" autocomplete="off" spellcheck="false" placeholder="AKID...">
+        </label>
+        <label class="translation-api-field">
+          <span>SecretKey</span>
+          <span class="translation-secret-input">
+            <input id="tencentTmtSecretKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="SecretKey">
+            <button id="tencentTmtSecretKeyVisibility" class="translation-secret-toggle" type="button"
+              aria-label="显示 SecretKey" aria-pressed="false" title="显示 SecretKey">
+              <svg class="translation-secret-icon translation-secret-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                <circle cx="12" cy="12" r="2.6"></circle>
+              </svg>
+              <svg class="translation-secret-icon translation-secret-icon-hide" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m3 3 18 18"></path>
+                <path d="M10.6 6.1A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 3"></path>
+                <path d="M6.2 6.3C3.8 8.1 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5"></path>
+              </svg>
+            </button>
+          </span>
+        </label>
+      </div>
+      <div class="translation-api-warning" id="candidateTranslationApiWarning" role="status">请填写 SecretId 和 SecretKey 后使用云端翻译</div>
+    </div>
   </div>
 
   <div class="section">

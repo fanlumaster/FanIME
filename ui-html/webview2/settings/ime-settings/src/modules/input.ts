@@ -83,6 +83,26 @@ export function applyZhEnMixedInputConfig(enabled?: boolean, minChars?: number):
   }
 }
 
+function syncCandidateTranslationOptions(enabled: boolean): void {
+  document.getElementById('candidateTranslationApiOptions')?.classList.toggle('is-disabled', !enabled);
+}
+
+function syncCandidateTranslationWarning(): void {
+  const secretId = (document.getElementById('tencentTmtSecretId') as HTMLInputElement | null)?.value.trim();
+  const secretKey = (document.getElementById('tencentTmtSecretKey') as HTMLInputElement | null)?.value.trim();
+  document.getElementById('candidateTranslationApiWarning')?.classList.toggle(
+    'is-hidden', Boolean(secretId && secretKey)
+  );
+}
+
+export function applyTencentTmtConfig(config: Record<string, unknown> | undefined): void {
+  const secretId = document.getElementById('tencentTmtSecretId') as HTMLInputElement | null;
+  const secretKey = document.getElementById('tencentTmtSecretKey') as HTMLInputElement | null;
+  if (secretId && typeof config?.secret_id === 'string') secretId.value = config.secret_id;
+  if (secretKey && typeof config?.secret_key === 'string') secretKey.value = config.secret_key;
+  syncCandidateTranslationWarning();
+}
+
 export function setupInput(): void {
   document.querySelectorAll<HTMLInputElement>('input[name="input-mode"]').forEach((radio) => {
     radio.addEventListener('change', () => {
@@ -145,7 +165,31 @@ export function setupInput(): void {
     updateConfig('general.cn_en_mixed_input', active);
   });
   setupToggleButton('candidateTranslationsToggleBtn', (active) => {
+    syncCandidateTranslationOptions(active);
     updateConfig('general.candidate_translations', active);
+  });
+  const translationFields: Record<string, string> = {
+    tencentTmtSecretId: 'tencent_tmt.secret_id',
+    tencentTmtSecretKey: 'tencent_tmt.secret_key'
+  };
+  Object.entries(translationFields).forEach(([id, path]) => {
+    const input = document.getElementById(id) as HTMLInputElement | null;
+    input?.addEventListener('change', () => {
+      input.value = input.value.trim();
+      updateConfig(path, input.value);
+      syncCandidateTranslationWarning();
+    });
+  });
+  const secretKey = document.getElementById('tencentTmtSecretKey') as HTMLInputElement | null;
+  const visibility = document.getElementById('tencentTmtSecretKeyVisibility') as HTMLButtonElement | null;
+  visibility?.addEventListener('click', () => {
+    if (!secretKey) return;
+    const show = secretKey.type === 'password';
+    secretKey.type = show ? 'text' : 'password';
+    visibility.setAttribute('aria-pressed', String(show));
+    const label = show ? '隐藏 SecretKey' : '显示 SecretKey';
+    visibility.setAttribute('aria-label', label);
+    visibility.title = label;
   });
   setupDropdownMenu(
     'zhEnTriggerLengthBtn',
