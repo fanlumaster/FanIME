@@ -10,8 +10,8 @@ theme = "dark"
 # 通用
 #
 [general]
-# 候选框诊断日志（默认关闭；不记录输入内容或候选文本）
-candidate_window_diagnostic_log = false
+# 界面诊断日志总开关（默认关闭；不记录输入内容或候选文本）
+diagnostic_log = false
 # 悬浮工具栏
 floating_toolbar = true
 # 悬浮工具栏组件（中英文切换始终显示）

@@ -130,8 +130,8 @@ int GetConfiguredCandidateFontSize();
 bool SetConfiguredCandidateFontSize(int font_size);
 int GetConfiguredCandidateWindowPreeditFontSize();
 bool SetConfiguredCandidateWindowPreeditFontSize(int font_size);
-bool GetConfiguredCandidateWindowDiagnosticLogEnabled();
-bool SetConfiguredCandidateWindowDiagnosticLogEnabled(bool enabled);
+bool GetConfiguredDiagnosticLogEnabled();
+bool SetConfiguredDiagnosticLogEnabled(bool enabled);
 const std::string &GetConfiguredCandidateTextColor();
 bool SetConfiguredCandidateTextColor(const std::string &color);
 // Installed font family names for settings dropdowns (cached after first call).

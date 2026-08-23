@@ -41,6 +41,7 @@ bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 void ClearFloatingToolbarNavigationState();
 std::wstring DescribeTrayMenuHostState();
+std::wstring DescribeCandidateHostState();
 std::wstring GetAppdataPath();
 HRESULT OnEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
 HRESULT OnMenuWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2Environment *env);
@@ -142,7 +143,12 @@ void InjectSurfaceViewportLimitsImpl(ICoreWebView2 *webview, HWND hwnd)
         L"if(window.CheckContentTruncation)window.CheckContentTruncation();"
         L"})(" +
         string_to_wstring(cfg.dump()) + L");";
-    webview->ExecuteScript(script.c_str(), nullptr);
+    const HRESULT hr = webview->ExecuteScript(script.c_str(), nullptr);
+    DIAG_LOGF(L"ui-viewport-limits hwnd={:#x} monitor=({},{})-({},{}) max_dip=({:.2f},{:.2f}) "
+              L"scale={:.3f} submit_hr={:#x}",
+              reinterpret_cast<UINT_PTR>(hwnd), limits.monitor.left, limits.monitor.top, limits.monitor.right,
+              limits.monitor.bottom, limits.maxWidthDip, limits.maxHeightDip, static_cast<double>(limits.scale),
+              static_cast<unsigned>(hr));
 }
 
 // Fallback only: grow the host to 1.2x HTML content (DIP), capped at half the
@@ -231,12 +237,11 @@ bool HandleContentTruncatedMessage( //
     int extraShadowDip              //
 )
 {
-    if (!AllowContentTruncationRemeasure(cooldownSlot))
-    {
-        return false;
-    }
     double widthDip = 0.0;
     double heightDip = 0.0;
+    double viewportWidthDip = 0.0;
+    double viewportHeightDip = 0.0;
+    std::string surface = "unknown";
     if (const auto *data = val.as_object().if_contains("data"))
     {
         if (data->is_object())
@@ -250,7 +255,28 @@ bool HandleContentTruncatedMessage( //
             {
                 heightDip = JsonNumberAsDouble(*h);
             }
+            if (const auto *w = obj.if_contains("viewportWidth"))
+            {
+                viewportWidthDip = JsonNumberAsDouble(*w);
+            }
+            if (const auto *h = obj.if_contains("viewportHeight"))
+            {
+                viewportHeightDip = JsonNumberAsDouble(*h);
+            }
+            if (const auto *s = obj.if_contains("surface"); s && s->is_string())
+            {
+                surface = s->as_string().c_str();
+            }
         }
+    }
+    const bool cooldownAllowed = AllowContentTruncationRemeasure(cooldownSlot);
+    DIAG_LOGF(L"ui-truncated surface={} content_dip=({:.2f},{:.2f}) viewport_dip=({:.2f},{:.2f}) "
+              L"cooldown_allowed={} {}",
+              string_to_wstring(surface), widthDip, heightDip, viewportWidthDip, viewportHeightDip, cooldownAllowed,
+              hwnd == ::global_hwnd ? DescribeCandidateHostState() : L"");
+    if (!cooldownAllowed)
+    {
+        return false;
     }
     if (widthDip < 1.0 || heightDip < 1.0)
     {
@@ -1256,7 +1282,10 @@ void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
         (std::max)(candidateBoundExtraFloorPx, static_cast<int>(std::ceil(extraBottomDip * scale)));
     bounds.right += extraRightPx;
     bounds.bottom += extraBottomPx;
-    webviewControllerCandWnd->put_Bounds(bounds);
+    const HRESULT hr = webviewControllerCandWnd->put_Bounds(bounds);
+    DIAG_LOGF(L"ui-webview-bounds phase=measure client_plus_reserve={}x{} extra_px=({},{}) scale={:.3f} hr={:#x}",
+              bounds.right - bounds.left, bounds.bottom - bounds.top, extraRightPx, extraBottomPx,
+              static_cast<double>(scale), static_cast<unsigned>(hr));
 }
 
 void SyncCandidateWebViewBoundsToHost(HWND hwnd)
@@ -1271,7 +1300,57 @@ void SyncCandidateWebViewBoundsToHost(HWND hwnd)
     // room than it was measured with and it wraps into a taller card that the
     // window region then clips.
     PrepareCandidateWebViewBoundsForMeasure(hwnd);
-    webviewControllerCandWnd->NotifyParentWindowPositionChanged();
+    const HRESULT hr = webviewControllerCandWnd->NotifyParentWindowPositionChanged();
+    DIAG_LOGF(L"ui-webview-bounds phase=sync-parent notify_hr={:#x}", static_cast<unsigned>(hr));
+}
+
+void LogCandidateLayoutSnapshot(const wchar_t *stage)
+{
+    if (!DiagnosticLog::IsEnabled())
+    {
+        return;
+    }
+    if (!webviewCandWnd)
+    {
+        DIAG_LOGF(L"ui-dom stage={} skipped: no webview", stage ? stage : L"unknown");
+        return;
+    }
+    const wchar_t *script = LR"JS((function(){
+      function snap(id){
+        var e=document.getElementById(id); if(!e)return null;
+        var r=e.getBoundingClientRect(),s=getComputedStyle(e);
+        return {id:id,rect:[r.left,r.top,r.right,r.bottom,r.width,r.height],
+          client:[e.clientWidth,e.clientHeight],offset:[e.offsetWidth,e.offsetHeight],
+          scroll:[e.scrollWidth,e.scrollHeight],overflow:[s.overflowX,s.overflowY],
+          boxSizing:s.boxSizing,max:[s.maxWidth,s.maxHeight],margin:[s.marginLeft,s.marginTop],
+          padding:[s.paddingLeft,s.paddingTop,s.paddingRight,s.paddingBottom],
+          font:[s.fontFamily,s.fontSize,s.lineHeight]};
+      }
+      var de=document.documentElement,b=document.body,v=window.visualViewport;
+      return JSON.stringify({ready:document.readyState,dpr:window.devicePixelRatio,
+        window:[window.innerWidth,window.innerHeight,window.outerWidth,window.outerHeight],
+        viewport:v?[v.width,v.height,v.scale,v.offsetLeft,v.offsetTop]:null,
+        document:de?[de.clientWidth,de.clientHeight,de.scrollWidth,de.scrollHeight]:null,
+        body:b?[b.clientWidth,b.clientHeight,b.scrollWidth,b.scrollHeight]:null,
+        screen:[screen.width,screen.height,screen.availWidth,screen.availHeight],
+        nodes:[snap('measureContainerParent'),snap('measureContainer'),
+          snap('realContainerParent'),snap('realContainer')]});
+    })())JS";
+    const std::wstring stageName = stage ? stage : L"unknown";
+    const HRESULT submitHr = webviewCandWnd->ExecuteScript(
+        script, Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+                    [stageName](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+                        constexpr size_t kMaxSnapshotChars = 8192;
+                        const std::wstring snapshot = result
+                                                          ? std::wstring(result, (std::min)(wcslen(result),
+                                                                                         kMaxSnapshotChars))
+                                                          : L"<null>";
+                        DIAG_LOGF(L"ui-dom stage={} callback_hr={:#x} snapshot={}", stageName,
+                                  static_cast<unsigned>(errorCode), snapshot);
+                        return S_OK;
+                    })
+                    .Get());
+    DIAG_LOGF(L"ui-dom stage={} submit_hr={:#x}", stageName, static_cast<unsigned>(submitHr));
 }
 
 int PrepareHtmlForWnds()
@@ -2845,10 +2924,11 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
-                            else if (path == "general.candidate_window_diagnostic_log")
+                            else if (path == "general.diagnostic_log" ||
+                                     path == "general.candidate_window_diagnostic_log")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
-                                if (SetConfiguredCandidateWindowDiagnosticLogEnabled(value))
+                                if (SetConfiguredDiagnosticLogEnabled(value))
                                 {
                                     CAND_DIAG_LOGF(L"diagnostic logging enabled from Settings");
                                     PostSettingsConfig();
@@ -3204,7 +3284,8 @@ void PostSettingsConfig()
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
             {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
-           {{"candidate_window_diagnostic_log", GetConfiguredCandidateWindowDiagnosticLogEnabled()},
+           {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
+            {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
             {"floating_toolbar_punctuation", toolbar.punctuation},

@@ -1,6 +1,7 @@
 #include "candidate_diag_log.h"
 
 #include <windows.h>
+#include <shlobj.h>
 
 #include <mutex>
 #include <string>
@@ -23,17 +24,37 @@ const std::wstring &ResolveLogPathUnlocked()
         return g_log_path;
     g_path_resolved = true;
 
+    // Use the shell-known Desktop rather than %USERPROFILE%\Desktop: Windows
+    // may redirect it to OneDrive, a domain location, or another folder.
+    PWSTR desktopPath = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, KF_FLAG_DEFAULT, nullptr, &desktopPath)) && desktopPath)
+    {
+        const std::wstring desktop(desktopPath);
+        CoTaskMemFree(desktopPath);
+        const DWORD attributes = GetFileAttributesW(desktop.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        {
+            g_log_path = desktop + L"\\水杉IME诊断日志.log";
+            return g_log_path;
+        }
+    }
+    else if (desktopPath)
+    {
+        CoTaskMemFree(desktopPath);
+    }
+
+    // Diagnostics should still be available when the Desktop is temporarily
+    // unavailable (for example, an offline redirected profile).
     const std::string local_appdata = CommonUtils::get_local_appdata_path();
     if (local_appdata.empty())
         return g_log_path;
-
     const std::wstring app_directory = string_to_wstring(local_appdata) + L"\\" + GlobalIme::AppName;
     const std::wstring log_directory = app_directory + L"\\logs";
     CreateDirectoryW(app_directory.c_str(), nullptr);
     if (!CreateDirectoryW(log_directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS)
         return g_log_path;
 
-    g_log_path = log_directory + L"\\candidate-window-diagnostic.log";
+    g_log_path = log_directory + L"\\水杉IME诊断日志.log";
     return g_log_path;
 }
 
@@ -65,11 +86,11 @@ std::wstring Timestamp()
 }
 } // namespace
 
-namespace CandidateDiag
+namespace DiagnosticLog
 {
 bool IsEnabled()
 {
-    return GetConfiguredCandidateWindowDiagnosticLogEnabled();
+    return GetConfiguredDiagnosticLogEnabled();
 }
 
 void Write(const std::wstring &line)
@@ -106,4 +127,4 @@ void Write(const std::wstring &line)
         // Diagnostics must never affect the input path.
     }
 }
-} // namespace CandidateDiag
+} // namespace DiagnosticLog

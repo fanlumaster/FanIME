@@ -2,6 +2,7 @@
 #include "defines/globals.h"
 #include "fmt/xchar.h"
 #include "global/globals.h"
+#include "log/candidate_diag_log.h"
 #include "spdlog/spdlog.h"
 #include "utils/common_utils.h"
 #include <boost/json.hpp>
@@ -63,6 +64,7 @@ void GetCandidateCardSize(
 {
     if (!webview)
     {
+        DIAG_LOGF(L"ui-measure box={} parent={} skipped: no webview", boxId, parentId);
         callback({0.0, 0.0});
         return;
     }
@@ -135,16 +137,24 @@ void GetCandidateCardSize(
         boxId, parentId, maxWidthDip, maxHeightDip);
     const HRESULT submitHr = webview->ExecuteScript(
         script.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback, boxId = std::wstring(boxId),
+                                                               parentId = std::wstring(parentId), maxWidthDip,
+                                                               maxHeightDip](HRESULT errorCode,
+                                                                             LPCWSTR result) -> HRESULT {
             std::pair<double, double> size{};
             if (SUCCEEDED(errorCode) && result)
             {
                 size = ParseDivSize(result);
             }
+            DIAG_LOGF(L"ui-measure box={} parent={} max_dip=({:.1f},{:.1f}) callback_hr={:#x} "
+                      L"result_chars={} measured_dip=({:.2f},{:.2f})",
+                      boxId, parentId, maxWidthDip, maxHeightDip, static_cast<unsigned>(errorCode),
+                      result ? wcslen(result) : 0, size.first, size.second);
             callback(size);
             return S_OK;
         }).Get());
-    (void)submitHr;
+    DIAG_LOGF(L"ui-measure submit box={} parent={} max_dip=({:.1f},{:.1f}) hr={:#x}", boxId, parentId,
+              maxWidthDip, maxHeightDip, static_cast<unsigned>(submitHr));
 }
 } // namespace
 

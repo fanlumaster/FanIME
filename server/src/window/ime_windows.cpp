@@ -271,6 +271,11 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
 
     if (right <= left || bottom <= top)
     {
+        DIAG_LOGF(L"ui-region invalid client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
+                  L"input_scale={:.3f} hwnd_scale={:.3f} computed=({},{})-({},{}) -> cleared",
+                  client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
+                  containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, top, right,
+                  bottom);
         ClearCandidateWindowRegion(hwnd);
         return;
     }
@@ -281,10 +286,18 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
         return;
     }
     // On success Windows owns the region handle; on failure it remains ours.
-    if (SetWindowRgn(hwnd, region, TRUE) == 0)
+    SetLastError(0);
+    const int regionResult = SetWindowRgn(hwnd, region, TRUE);
+    const DWORD regionError = regionResult == 0 ? GetLastError() : ERROR_SUCCESS;
+    if (regionResult == 0)
     {
         DeleteObject(region);
     }
+    DIAG_LOGF(L"ui-region client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
+              L"input_scale={:.3f} hwnd_scale={:.3f} region=({},{})-({},{}) result={} gle={}",
+              client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
+              containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, top, right,
+              bottom, regionResult, regionError);
 }
 
 // After host clamp + MarginLeft/Top, keep the painted card inside both the
@@ -804,7 +817,7 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
     // the UI thread. Collapsing identical consecutive records keeps the trace
     // complete without letting the diagnostics starve WebView2 initialisation.
     bool trace = false;
-    if (::FtbDiag::IsEnabled())
+    if (::DiagnosticLog::IsEnabled())
     {
         // Every input of the decision, so a blank toolbar can be attributed to a
         // specific term rather than guessed at. Cloak and webview readiness
@@ -831,7 +844,7 @@ void ApplyConfiguredFloatingToolbarVisibility(const wchar_t *reason)
                 repeats = 0;
             }
             last_decision = decision;
-            ::FtbDiag::Write(decision);
+            ::DiagnosticLog::Write(decision);
             // The decision above only explains a hidden toolbar. A blank one
             // needs the host and controller state, which nothing else reports.
             FTB_DIAG_LOGF(L"  state before reason={} {}", reason, DescribeFloatingToolbarHostState());
@@ -2494,6 +2507,21 @@ int FineTuneWindow(HWND hwnd)
     const double wrapMaxHeightDip = measureLimits.maxHeightDip > 1.0
                                         ? measureLimits.maxHeightDip
                                         : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    HMONITOR caretMonitor = MonitorFromPoint(caretPt, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO caretMonitorInfo{sizeof(caretMonitorInfo)};
+    const bool hasMonitorInfo = caretMonitor && GetMonitorInfo(caretMonitor, &caretMonitorInfo);
+    DIAG_LOGF(L"ui-layout generation={} config layout={} font={} cn_font_size={} preedit_font_size={} page_size={} "
+              L"caret=({},{}) point_scale={:.3f} hwnd_dpi={} system_dpi={} monitor=({},{})-({},{}) "
+              L"work=({},{})-({},{}) half_dip=({:.2f},{:.2f}) monitor_info={}",
+              generation, string_to_wstring(GetConfiguredCandidateWindowLayout()),
+              string_to_wstring(GetConfiguredCandidateFont()), GetConfiguredCandidateFontSize(),
+              GetConfiguredCandidateWindowPreeditFontSize(), GetConfiguredCandidatePageSize(), caretX, caretY,
+              static_cast<double>(scale), GetDpiForWindow(hwnd), GetDpiForSystem(), measureLimits.monitor.left,
+              measureLimits.monitor.top, measureLimits.monitor.right, measureLimits.monitor.bottom,
+              hasMonitorInfo ? caretMonitorInfo.rcWork.left : 0, hasMonitorInfo ? caretMonitorInfo.rcWork.top : 0,
+              hasMonitorInfo ? caretMonitorInfo.rcWork.right : 0, hasMonitorInfo ? caretMonitorInfo.rcWork.bottom : 0,
+              measureLimits.maxWidthDip, measureLimits.maxHeightDip, hasMonitorInfo);
+    LogCandidateLayoutSnapshot(L"fine-tune-begin");
     // Give horizontal measure an unconstrained viewport before reading DOM size.
     PrepareCandidateWebViewBoundsForMeasure(hwnd);
     InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
@@ -2529,6 +2557,7 @@ int FineTuneWindow(HWND hwnd)
             auto capCandWidthDip = [&](double widthDip) { return ClampWidthDipToHalfScreen(widthDip, halfLimits); };
             auto capCandHeightDip = [&](double heightDip) { return ClampHeightDipToHalfScreen(heightDip, halfLimits); };
 
+            const std::pair<double, double> measuredSize = containerSize;
             // Parentheses keep Windows min() macro from eating std::min.
             containerSize.first = capCandWidthDip(containerSize.first);
             containerSize.second = capCandHeightDip(containerSize.second);
@@ -2537,6 +2566,13 @@ int FineTuneWindow(HWND hwnd)
             // necessarily the host HWND — host stays at a stable quarter-screen size
             // while the card slides via MarginLeft/MarginTop.
             AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+            DIAG_LOGF(L"ui-layout generation={} pass=measure measured_dip=({:.2f},{:.2f}) "
+                      L"capped_dip=({:.2f},{:.2f}) cap=({:.2f},{:.2f}) scale={:.3f} "
+                      L"monitor=({},{})-({},{}) proper_pos=({},{}) packing_margin_top={}",
+                      generation, measuredSize.first, measuredSize.second, containerSize.first, containerSize.second,
+                      halfLimits.maxWidthDip, halfLimits.maxHeightDip, static_cast<double>(halfLimits.scale),
+                      halfLimits.monitor.left, halfLimits.monitor.top, halfLimits.monitor.right,
+                      halfLimits.monitor.bottom, properPos->first, properPos->second, Global::MarginTop);
 
             std::wstring preedit =
                 GetConfiguredCandidateWindowPreeditStyle() == "empty" ? std::wstring{} : GetPreeditWithCaretMarker();
@@ -2631,6 +2667,7 @@ int FineTuneWindow(HWND hwnd)
             BOOL positioned = FALSE;
             {
                 SuppressCandidateDpiChange suppressDpi;
+                SetLastError(0);
                 positioned = SetWindowPos( //
                     hwnd,                  //
                     nullptr,               //
@@ -2641,6 +2678,11 @@ int FineTuneWindow(HWND hwnd)
                     newFlag                //
                 );
             }
+            const DWORD positionError = positioned ? ERROR_SUCCESS : GetLastError();
+            DIAG_LOGF(L"ui-layout generation={} pass=host-place desired=({},{},{}x{}) flags={:#x} "
+                      L"result={} gle={} point_scale={:.3f} margin=({},{})",
+                      generation, hostX, hostY, newWidth, newHeight, newFlag, positioned != FALSE, positionError,
+                      static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop);
 
             // After the host lands on the caret's monitor, Per-Monitor V2 may update
             // HWND DPI. Re-sync physical size + CSS margins to that scale so
@@ -2648,6 +2690,7 @@ int FineTuneWindow(HWND hwnd)
             FLOAT hwndScale = GetWindowScale(hwnd);
             if (hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
             {
+                const FLOAT oldLayoutScale = layoutScale;
                 layoutScale = hwndScale;
                 halfLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
                 hostPx = computeHostPixels(halfLimits);
@@ -2692,7 +2735,14 @@ int FineTuneWindow(HWND hwnd)
                 }
                 {
                     SuppressCandidateDpiChange suppressDpi;
-                    SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+                    SetLastError(0);
+                    const BOOL resyncResult = SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+                    DIAG_LOGF(L"ui-layout generation={} pass=dpi-resync scale={:.3f}->{:.3f} "
+                              L"desired=({},{},{}x{}) result={} gle={} half_dip=({:.2f},{:.2f}) margin=({},{})",
+                              generation, static_cast<double>(oldLayoutScale), static_cast<double>(layoutScale), hostX,
+                              hostY, hostWidthPx, hostHeightPx, resyncResult != FALSE,
+                              resyncResult ? ERROR_SUCCESS : GetLastError(), halfLimits.maxWidthDip,
+                              halfLimits.maxHeightDip, Global::MarginLeft, Global::MarginTop);
                 }
                 newWidth = hostWidthPx;
                 newHeight = hostHeightPx;
@@ -2738,6 +2788,7 @@ int FineTuneWindow(HWND hwnd)
                                    Global::MarginTop, actualRect.left, actualRect.top,
                                    actualRect.right - actualRect.left, actualRect.bottom - actualRect.top,
                                    DescribeCandidateHostState());
+                    LogCandidateLayoutSnapshot(L"fine-tune-final");
                 };
 
                 // Pass 2: remeasure the painted card after margins. Keep the stable
@@ -2762,9 +2813,17 @@ int FineTuneWindow(HWND hwnd)
                             finalizeClip(containerSize);
                             return;
                         }
+                        const std::pair<double, double> rawPaintedSize = paintedSize;
                         HalfScreenDipLimits pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
                         paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, pass2Limits);
                         paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, pass2Limits);
+                        DIAG_LOGF(L"ui-layout generation={} pass=painted measured_dip=({:.2f},{:.2f}) "
+                                  L"capped_dip=({:.2f},{:.2f}) first_pass=({:.2f},{:.2f}) "
+                                  L"cap=({:.2f},{:.2f}) hwnd_scale={:.3f}",
+                                  generation, rawPaintedSize.first, rawPaintedSize.second, paintedSize.first,
+                                  paintedSize.second, containerSize.first, containerSize.second,
+                                  pass2Limits.maxWidthDip, pass2Limits.maxHeightDip,
+                                  static_cast<double>(pass2Limits.scale));
 
                         const bool sizeChanged = std::fabs(paintedSize.first - containerSize.first) > 0.75 ||
                                                  std::fabs(paintedSize.second - containerSize.second) > 0.75;

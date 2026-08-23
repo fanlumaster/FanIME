@@ -56,7 +56,7 @@ std::string g_candidate_english_font = "Segoe UI";
 std::string g_candidate_default_font = "Microsoft YaHei";
 int g_candidate_font_size = 16;
 int g_candidate_window_preedit_font_size = 16;
-std::atomic_bool g_candidate_window_diagnostic_log_enabled{false};
+std::atomic_bool g_diagnostic_log_enabled{false};
 std::string g_candidate_text_color = "auto";
 std::string g_shuangpin_schema = "xiaohe";
 std::string g_wubi_schema = "wubi86";
@@ -652,8 +652,12 @@ bool LoadImeConfig()
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
-        g_candidate_window_diagnostic_log_enabled.store(
-            tbl["general"]["candidate_window_diagnostic_log"].value_or(false), std::memory_order_relaxed);
+        // Read the old candidate-only key as a migration fallback. New writes
+        // use the unified key.
+        g_diagnostic_log_enabled.store(
+            tbl["general"]["diagnostic_log"].value_or(
+                tbl["general"]["candidate_window_diagnostic_log"].value_or(false)),
+            std::memory_order_relaxed);
         g_floating_toolbar_items.fullwidth = tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
         g_floating_toolbar_items.punctuation = tbl["general"]["floating_toolbar_punctuation"].value_or(true);
         g_floating_toolbar_items.character_set = tbl["general"]["floating_toolbar_character_set"].value_or(true);
@@ -1312,16 +1316,16 @@ bool SetConfiguredCandidateWindowPreeditFontSize(int font_size)
     return true;
 }
 
-bool GetConfiguredCandidateWindowDiagnosticLogEnabled()
+bool GetConfiguredDiagnosticLogEnabled()
 {
-    return g_candidate_window_diagnostic_log_enabled.load(std::memory_order_relaxed);
+    return g_diagnostic_log_enabled.load(std::memory_order_relaxed);
 }
 
-bool SetConfiguredCandidateWindowDiagnosticLogEnabled(bool enabled)
+bool SetConfiguredDiagnosticLogEnabled(bool enabled)
 {
-    if (!WriteConfiguredValue("general", "candidate_window_diagnostic_log", enabled ? "true" : "false"))
+    if (!WriteConfiguredValue("general", "diagnostic_log", enabled ? "true" : "false"))
         return false;
-    g_candidate_window_diagnostic_log_enabled.store(enabled, std::memory_order_relaxed);
+    g_diagnostic_log_enabled.store(enabled, std::memory_order_relaxed);
     return true;
 }
 

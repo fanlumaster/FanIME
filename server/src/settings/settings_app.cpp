@@ -237,7 +237,8 @@ void PostConfig()
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
             {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
           {"general",
-           {{"candidate_window_diagnostic_log", GetConfiguredCandidateWindowDiagnosticLogEnabled()},
+           {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
+            {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
             {"floating_toolbar_punctuation", toolbar.punctuation},
@@ -434,8 +435,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredThemeVoice(json::value_to<std::string>(data.at("value")));
     if (path == "general.floating_toolbar")
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
-    if (path == "general.candidate_window_diagnostic_log")
-        return SetConfiguredCandidateWindowDiagnosticLogEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.diagnostic_log" || path == "general.candidate_window_diagnostic_log")
+        return SetConfiguredDiagnosticLogEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.floating_toolbar_scale")
     {
         const json::value &value = data.at("value");

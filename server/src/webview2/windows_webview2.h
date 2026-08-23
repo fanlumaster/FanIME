@@ -88,6 +88,9 @@ bool PrepareTrayMenuWebviewForShow();
 // is not constrained by a still-narrow HWND.
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd);
 void SyncCandidateWebViewBoundsToHost(HWND hwnd);
+// Capture geometry-only browser/CSS state for clipping investigations. Never
+// includes DOM text or candidate content.
+void LogCandidateLayoutSnapshot(const wchar_t *stage);
 
 // uiAccess + HWND WebView2: request TOPMOST on first real show. If WebViews are
 // not ready yet, the request is queued and applied after all small-window

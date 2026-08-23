@@ -4,10 +4,11 @@
 
 #include "fmt/xchar.h"
 
-// Diagnostic trace for candidate-window disappearance investigations. The
+// Unified UI diagnostic trace. It covers candidate windows, the floating
+// toolbar, tray menus, WebView2 and the IPC lifecycle that drives them. The
 // trace deliberately records only state, counts, identifiers, coordinates and
 // error codes; user input and candidate text must never be written here.
-namespace CandidateDiag
+namespace DiagnosticLog
 {
 // When disabled, call sites pay for one relaxed atomic load and do not format
 // strings or touch the filesystem.
@@ -15,13 +16,17 @@ bool IsEnabled();
 
 // Appends one timestamped line. Thread-safe, bounded by rotation, never throws.
 void Write(const std::wstring &line);
-} // namespace CandidateDiag
+} // namespace DiagnosticLog
 
-#define CAND_DIAG_LOGF(...)                                                                                            \
+#define DIAG_LOGF(...)                                                                                                 \
     do                                                                                                                 \
     {                                                                                                                  \
-        if (::CandidateDiag::IsEnabled())                                                                              \
+        if (::DiagnosticLog::IsEnabled())                                                                              \
         {                                                                                                              \
-            ::CandidateDiag::Write(fmt::format(__VA_ARGS__));                                                          \
+            ::DiagnosticLog::Write(fmt::format(__VA_ARGS__));                                                          \
         }                                                                                                              \
     } while (0)
+
+// Kept while call sites are migrated; both names use the one global switch
+// and the same file.
+#define CAND_DIAG_LOGF(...) DIAG_LOGF(__VA_ARGS__)
