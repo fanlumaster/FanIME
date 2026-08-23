@@ -81,11 +81,10 @@ constexpr wchar_t kMessageWindowClass[] = L"MetasequoiaImeVoiceInputMessageWindo
 
 std::wstring ResolveCuePath(const wchar_t *filename)
 {
-    wchar_t local_app_data[MAX_PATH]{};
-    const DWORD size = GetEnvironmentVariableW(L"LOCALAPPDATA", local_app_data, MAX_PATH);
-    if (size && size < MAX_PATH)
+    const std::wstring ime_data = CommonUtils::get_ime_data_path_w();
+    if (!ime_data.empty())
     {
-        const std::wstring installed = std::wstring(local_app_data) + L"\\metasequoiaime\\assets\\audios\\" + filename;
+        const std::wstring installed = ime_data + L"\\assets\\audios\\" + filename;
         if (GetFileAttributesW(installed.c_str()) != INVALID_FILE_ATTRIBUTES) return installed;
     }
     wchar_t executable[MAX_PATH]{};

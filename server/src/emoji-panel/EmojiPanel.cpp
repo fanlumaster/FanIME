@@ -2,6 +2,7 @@
 #include "emoji_panel_icons.h"
 #include "emoji_panel_splash.h"
 #include "clipboard/clipboard_history.h"
+#include "utils/common_utils.h"
 
 #include "msimeui/DeviceResources.h"
 #include "msimeui/Theme.h"
@@ -282,15 +283,12 @@ std::wstring Utf8ToWide(const char *text)
 
 std::filesystem::path OthersDatabasePath()
 {
-    std::wstring localAppData(32768, L'\0');
-    const DWORD length =
-        GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData.data(), static_cast<DWORD>(localAppData.size()));
-    if (length == 0 || length >= localAppData.size())
+    const std::wstring path = CommonUtils::get_ime_data_path_w();
+    if (path.empty())
     {
         return {};
     }
-    localAppData.resize(length);
-    return std::filesystem::path(localAppData) / L"metasequoiaime" / L"others.db";
+    return std::filesystem::path(path) / L"others.db";
 }
 
 float GroupBodyHeight(size_t itemCount, size_t columns, float cellSize)

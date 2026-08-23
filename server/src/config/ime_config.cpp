@@ -56,7 +56,7 @@ std::string g_candidate_english_font = "Segoe UI";
 std::string g_candidate_default_font = "Microsoft YaHei";
 int g_candidate_font_size = 16;
 int g_candidate_window_preedit_font_size = 16;
-std::atomic_bool g_diagnostic_log_enabled{true};
+std::atomic_bool g_diagnostic_log_enabled{false};
 std::string g_candidate_text_color = "auto";
 std::string g_shuangpin_schema = "xiaohe";
 std::string g_wubi_schema = "wubi86";
@@ -99,7 +99,7 @@ bool g_paired_punctuation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
 std::string g_candidate_skin = "fluent";
 std::string g_candidate_window_preedit_style = "pinyin";
-std::string g_theme_mode = "dark";
+std::string g_theme_mode = "system";
 std::string g_theme_settings = "follow";
 std::string g_theme_cand = "follow";
 std::string g_theme_ftb = "follow";
@@ -656,7 +656,7 @@ bool LoadImeConfig()
         // use the unified key.
         g_diagnostic_log_enabled.store(
             tbl["general"]["diagnostic_log"].value_or(
-                tbl["general"]["candidate_window_diagnostic_log"].value_or(true)),
+                tbl["general"]["candidate_window_diagnostic_log"].value_or(false)),
             std::memory_order_relaxed);
         g_floating_toolbar_items.fullwidth = tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
         g_floating_toolbar_items.punctuation = tbl["general"]["floating_toolbar_punctuation"].value_or(true);
@@ -765,7 +765,7 @@ bool LoadImeConfig()
             g_candidate_window_preedit_style = preedit_style == "empty" ? "empty" : "pinyin";
         }
         {
-            const std::string theme_mode = tbl["appearance"]["theme_mode"].value_or(std::string("dark"));
+            const std::string theme_mode = tbl["appearance"]["theme_mode"].value_or(std::string("system"));
             if (theme_mode == "light" || theme_mode == "system" || theme_mode == "auto")
                 g_theme_mode = theme_mode == "auto" ? "system" : theme_mode;
             else

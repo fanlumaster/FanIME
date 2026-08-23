@@ -1,4 +1,5 @@
 #include "clipboard/clipboard_history.h"
+#include "utils/common_utils.h"
 
 #include <Windows.h>
 
@@ -49,11 +50,10 @@ class NamedMutex
 
 std::filesystem::path LocalAppDataDir()
 {
-    wchar_t buffer[MAX_PATH] = {};
-    const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer, MAX_PATH);
-    if (length == 0 || length >= MAX_PATH)
+    const std::wstring path = CommonUtils::get_ime_data_path_w();
+    if (path.empty())
         return {};
-    return std::filesystem::path(buffer) / L"metasequoiaime";
+    return std::filesystem::path(path);
 }
 
 std::filesystem::path ConfigPath()

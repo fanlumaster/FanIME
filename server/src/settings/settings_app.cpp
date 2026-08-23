@@ -784,8 +784,7 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
 
 void InitWebView(HWND hwnd)
 {
-    std::filesystem::path user_data = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
-                                      GlobalIme::AppName / "webview2-settings";
+    std::filesystem::path user_data = CommonUtils::get_webview2_user_data_path(L"webview2-settings");
     std::error_code ec;
     std::filesystem::create_directories(user_data, ec);
     CreateCoreWebView2EnvironmentWithOptions(

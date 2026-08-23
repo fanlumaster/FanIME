@@ -1,4 +1,5 @@
 #include "surface_theme_config.h"
+#include "utils/common_utils.h"
 
 #include <Windows.h>
 #include <filesystem>
@@ -27,13 +28,10 @@ std::string Unquote(std::string value)
 std::unordered_map<std::string, std::string> ReadAppearance()
 {
     std::unordered_map<std::string, std::string> values;
-    std::wstring local_app_data(32768, L'\0');
-    const DWORD length =
-        GetEnvironmentVariableW(L"LOCALAPPDATA", local_app_data.data(), static_cast<DWORD>(local_app_data.size()));
-    if (length == 0 || length >= local_app_data.size()) return values;
-    local_app_data.resize(length);
+    const std::wstring ime_data = CommonUtils::get_ime_data_path_w();
+    if (ime_data.empty()) return values;
 
-    std::ifstream input(std::filesystem::path(local_app_data) / L"metasequoiaime" / L"config.toml");
+    std::ifstream input(std::filesystem::path(ime_data) / L"config.toml");
     bool in_appearance = false;
     for (std::string line; std::getline(input, line);)
     {

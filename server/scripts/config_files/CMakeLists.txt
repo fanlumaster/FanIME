@@ -76,6 +76,7 @@ set(SRC_FILES
     "./src/session/shuangpin_input_session.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
+    "./src/utils/ime_paths.cpp"
     "./src/utils/ime_utils.cpp"
     "./src/utils/ime_utils.h"
     "./src/utils/webview_utils.cpp"

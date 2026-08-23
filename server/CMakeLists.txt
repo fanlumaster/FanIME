@@ -144,6 +144,7 @@ set(SRC_FILES
     "./src/session/shuangpin_input_session.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
+    "./src/utils/ime_paths.cpp"
     "./src/utils/ime_utils.cpp"
     "./src/utils/ime_utils.h"
     "./src/utils/webview_utils.cpp"
@@ -278,12 +279,13 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/resource.h"
     "./src/clipboard/clipboard_history.cpp"
     "./src/clipboard/clipboard_history.h"
+    "./src/utils/ime_paths.cpp"
     "./src/utils/surface_theme_config.cpp"
     "./src/utils/surface_theme_config.h"
 )
 add_dependencies(${MY_EXECUTABLE_NAME} ${WATCHDOG_EXECUTABLE_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
-target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui unofficial::sqlite3::sqlite3)
+target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui unofficial::sqlite3::sqlite3 shell32 advapi32 ole32)
 target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
@@ -305,10 +307,11 @@ add_executable(${KEYBOARD_EXECUTABLE_NAME} WIN32
     "./src/keyboard-panel/main.cpp"
     "./src/keyboard-panel/keyboard_panel.rc"
     "./src/keyboard-panel/resource.h"
+    "./src/utils/ime_paths.cpp"
     "./src/utils/surface_theme_config.cpp"
     "./src/utils/surface_theme_config.h"
 )
-target_link_libraries(${KEYBOARD_EXECUTABLE_NAME} PRIVATE msimeui)
+target_link_libraries(${KEYBOARD_EXECUTABLE_NAME} PRIVATE msimeui shell32 advapi32 ole32)
 target_compile_definitions(${KEYBOARD_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
@@ -325,10 +328,11 @@ add_executable(${HANDWRITING_EXECUTABLE_NAME} WIN32
     "./src/handwriting-panel/main.cpp"
     "./src/handwriting-panel/handwriting_panel.rc"
     "./src/handwriting-panel/resource.h"
+    "./src/utils/ime_paths.cpp"
     "./src/utils/surface_theme_config.cpp"
     "./src/utils/surface_theme_config.h"
 )
-target_link_libraries(${HANDWRITING_EXECUTABLE_NAME} PRIVATE msimeui windowsapp.lib)
+target_link_libraries(${HANDWRITING_EXECUTABLE_NAME} PRIVATE msimeui windowsapp.lib shell32 advapi32 ole32)
 target_compile_definitions(${HANDWRITING_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
@@ -370,6 +374,7 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/clipboard/clipboard_history.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
+    "./src/utils/ime_paths.cpp"
     "./MetasequoiaImeEngine/common/helpcode_utils.cpp"
     "./MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
     "./MetasequoiaImeEngine/quanpin/quanpin_query.cpp"

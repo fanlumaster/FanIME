@@ -1212,11 +1212,7 @@ std::wstring ReadHtmlFile(const std::wstring &filePath)
 
 std::wstring GetAppdataPath()
 {
-    return string_to_wstring(CommonUtils::get_local_appdata_path()) + //
-           LR"(\)" +                                                  //
-           GlobalIme::AppName +                                       //
-           LR"(\)" +                                                  //
-           LR"(webview2)";
+    return CommonUtils::get_webview2_user_data_path(L"webview2");
 }
 
 // An unreadable themed asset must never turn into an empty NavigateToString:

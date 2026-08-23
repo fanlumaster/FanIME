@@ -44,6 +44,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"
     "${CMAKE_SOURCE_DIR}/src/session/engine_input_session.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/common_utils.cpp"
+    "${CMAKE_SOURCE_DIR}/src/utils/ime_paths.cpp"
     "${CMAKE_SOURCE_DIR}/src/settings/dictionary_validation.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/common/helpcode_utils.cpp"
     "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/core/ime_session.cpp"
@@ -104,6 +105,9 @@ target_link_libraries(${TEST_EXECUTABLE_NAME}
     Boost::json
     unofficial::sqlite3::sqlite3
     dwrite
+    shell32
+    advapi32
+    ole32
 )
 
 add_test(NAME ${TEST_EXECUTABLE_NAME} COMMAND ${TEST_EXECUTABLE_NAME})
