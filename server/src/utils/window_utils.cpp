@@ -224,7 +224,8 @@ int GetTaskbarHeight()
 int AdjustCandidateWindowPosition(                  //
     const POINT *point,                             //
     const std::pair<double, double> &containerSize, //
-    std::shared_ptr<std::pair<int, int>> properPos  //
+    std::shared_ptr<std::pair<int, int>> properPos, //
+    FLOAT layoutScale                              //
 )
 {
     Global::MarginTop = 0;
@@ -240,7 +241,7 @@ int AdjustCandidateWindowPosition(                  //
     // focus transitions on an extended display can otherwise pull the card onto
     // the wrong screen and clip its left edge at the virtual-desktop seam.
     MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(*point);
-    FLOAT scale = GetScaleForPoint(*point);
+    FLOAT scale = layoutScale > 0.0f ? layoutScale : GetScaleForPoint(*point);
     if (scale <= 0.0f)
     {
         scale = 1.0f;

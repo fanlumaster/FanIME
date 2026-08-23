@@ -33,7 +33,8 @@ double ClampHeightDipToHalfScreen(double heightDip, const HalfScreenDipLimits &l
 int AdjustCandidateWindowPosition(       //
     const POINT *point,                  //
     const std::pair<double, double> &,   //
-    std::shared_ptr<std::pair<int, int>> //
+    std::shared_ptr<std::pair<int, int>>, //
+    FLOAT layoutScale = 0.0f             //
 );
 
 int AdjustWndPosition( //

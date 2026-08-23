@@ -223,11 +223,11 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
         return;
     }
 
-    // Region math must use the candidate HWND's DPI — WebView2 rasterizes CSS
-    // DIPs (MarginLeft/Top) against that scale. A stale foreground/caret scale
-    // that is larger than the HWND scale shifts the region right and truncates
-    // the left of the card (seen on mixed-DPI extended displays in Office).
-    FLOAT clipScale = GetWindowScale(hwnd);
+    // Region math must use WebView2's rasterization scale, which also includes
+    // Windows accessibility text scaling. GetDpiForWindow alone can therefore
+    // be smaller than the scale used to paint CSS DIPs (for example 2.0 vs
+    // 2.2), making the native region cut off the right/bottom of the card.
+    FLOAT clipScale = GetWebViewRasterizationScale(hwnd);
     if (clipScale <= 0.0f)
     {
         clipScale = scale;
@@ -417,13 +417,16 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
         ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
         ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
     }
-    FLOAT scale = scaleOverride > 0.0f ? scaleOverride : GetWindowScale(hwnd);
+    const FLOAT nativeScale = GetWindowScale(hwnd);
+    const FLOAT rasterScale = GetWebViewRasterizationScale(hwnd);
+    const FLOAT textScale = nativeScale > 0.0f ? rasterScale / nativeScale : 1.0f;
+    FLOAT scale = scaleOverride > 0.0f ? scaleOverride * textScale : rasterScale;
     if (scale <= 0.0f)
     {
         scale = 1.0f;
     }
     // Main-path half-screen cap so HTML wrap/scroll and HWND agree before show.
-    HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
     if (scaleOverride > 0.0f)
     {
         const double monitorWidthPx = static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
@@ -511,7 +514,7 @@ void UpdateMenuPhysicalSizeCache(HWND hwnd, FLOAT scale)
     {
         scale = 1.0f;
     }
-    HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
     // During WM_DPICHANGED, GetDpiForWindow can still expose the old DPI. Derive
     // the DIP budget from the message's scale so cap and pixel conversion agree.
     const double monitorWidthPx = static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
@@ -1686,7 +1689,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         int bottom = Global::ModifiersDown;
         // Refresh physical size from CSS DIPs * this HWND's current DPI so a
         // live display-scale change cannot leave a stale pixel cache.
-        const FLOAT scale = GetWindowScale(hwnd);
+        const FLOAT scale = GetWebViewRasterizationScale(hwnd);
         ::SCALE = scale;
         if (::MENU_CONTENT_WIDTH_DIP <= 0.0)
         {
@@ -1762,7 +1765,10 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // Prefer dip * newScale over the suggested rect alone: the menu host is
         // content-sized, and a stale/oversized create-time rect would otherwise
         // keep the wrong physical size across display-scale changes.
-        const FLOAT scale = HIWORD(wParam) / 96.0f;
+        const FLOAT nativeScale = GetWindowScale(hwnd);
+        const FLOAT rasterScale = GetWebViewRasterizationScale(hwnd);
+        const FLOAT textScale = nativeScale > 0.0f ? rasterScale / nativeScale : 1.0f;
+        const FLOAT scale = (HIWORD(wParam) / 96.0f) * textScale;
         const auto *suggested = reinterpret_cast<const RECT *>(lParam);
         UpdateMenuPhysicalSizeCache(hwnd, scale);
         if (suggested)
@@ -1813,7 +1819,7 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                         const bool wasVisible = IsWindowVisible(hwnd) != FALSE;
                         UINT flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
                         flag |= wasVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
-                        FLOAT scale = GetWindowScale(hwnd);
+                        FLOAT scale = GetWebViewRasterizationScale(hwnd);
                         ApplyMenuPhysicalSizeFromDips(hwnd, scale, flag);
                         InjectSurfaceViewportLimits(::webviewMenuWnd.Get(), hwnd);
                         (void)0;
@@ -2486,7 +2492,7 @@ int FineTuneWindow(HWND hwnd)
     POINT caretPt{caretX, caretY};
     // Size/clamp against the composition anchor's monitor DPI — not the
     // foreground HWND — so mixed-DPI extended screens stay consistent.
-    FLOAT scale = GetScaleForPoint(caretPt);
+    FLOAT scale = QueryCandidateHalfScreenDipLimitsForPoint(hwnd, caretPt).scale;
 
     (void)0;
     if (!webviewCandWnd)
@@ -2501,7 +2507,7 @@ int FineTuneWindow(HWND hwnd)
                    DescribeCandidateHostState());
     // Wrap/scroll budget = stable host size (half-screen DIP). Width wraps;
     // height scrolls inside the card when fonts make the list taller than host.
-    const HalfScreenDipLimits measureLimits = QueryHalfScreenDipLimitsForPoint(caretPt);
+    const HalfScreenDipLimits measureLimits = QueryCandidateHalfScreenDipLimitsForPoint(hwnd, caretPt);
     const double wrapMaxDip = measureLimits.maxWidthDip > 1.0 ? measureLimits.maxWidthDip
                                                               : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
     const double wrapMaxHeightDip = measureLimits.maxHeightDip > 1.0
@@ -2511,12 +2517,14 @@ int FineTuneWindow(HWND hwnd)
     MONITORINFO caretMonitorInfo{sizeof(caretMonitorInfo)};
     const bool hasMonitorInfo = caretMonitor && GetMonitorInfo(caretMonitor, &caretMonitorInfo);
     DIAG_LOGF(L"ui-layout generation={} config layout={} font={} cn_font_size={} preedit_font_size={} page_size={} "
-              L"caret=({},{}) point_scale={:.3f} hwnd_dpi={} system_dpi={} monitor=({},{})-({},{}) "
+              L"caret=({},{}) point_scale={:.3f} webview_scale={:.3f} hwnd_dpi={} system_dpi={} "
+              L"monitor=({},{})-({},{}) "
               L"work=({},{})-({},{}) half_dip=({:.2f},{:.2f}) monitor_info={}",
               generation, string_to_wstring(GetConfiguredCandidateWindowLayout()),
               string_to_wstring(GetConfiguredCandidateFont()), GetConfiguredCandidateFontSize(),
               GetConfiguredCandidateWindowPreeditFontSize(), GetConfiguredCandidatePageSize(), caretX, caretY,
-              static_cast<double>(scale), GetDpiForWindow(hwnd), GetDpiForSystem(), measureLimits.monitor.left,
+              static_cast<double>(scale), static_cast<double>(GetWebViewRasterizationScale(hwnd)),
+              GetDpiForWindow(hwnd), GetDpiForSystem(), measureLimits.monitor.left,
               measureLimits.monitor.top, measureLimits.monitor.right, measureLimits.monitor.bottom,
               hasMonitorInfo ? caretMonitorInfo.rcWork.left : 0, hasMonitorInfo ? caretMonitorInfo.rcWork.top : 0,
               hasMonitorInfo ? caretMonitorInfo.rcWork.right : 0, hasMonitorInfo ? caretMonitorInfo.rcWork.bottom : 0,
@@ -2553,7 +2561,7 @@ int FineTuneWindow(HWND hwnd)
             }
 
             POINT pt = {caretX, caretY};
-            HalfScreenDipLimits halfLimits = QueryHalfScreenDipLimitsForPoint(pt);
+            HalfScreenDipLimits halfLimits = QueryCandidateHalfScreenDipLimitsForPoint(hwnd, pt);
             auto capCandWidthDip = [&](double widthDip) { return ClampWidthDipToHalfScreen(widthDip, halfLimits); };
             auto capCandHeightDip = [&](double heightDip) { return ClampHeightDipToHalfScreen(heightDip, halfLimits); };
 
@@ -2565,7 +2573,7 @@ int FineTuneWindow(HWND hwnd)
             // properPos is the desired top-left of the opaque card (content), not
             // necessarily the host HWND — host stays at a stable quarter-screen size
             // while the card slides via MarginLeft/MarginTop.
-            AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+            AdjustCandidateWindowPosition(&pt, containerSize, properPos, halfLimits.scale);
             DIAG_LOGF(L"ui-layout generation={} pass=measure measured_dip=({:.2f},{:.2f}) "
                       L"capped_dip=({:.2f},{:.2f}) cap=({:.2f},{:.2f}) scale={:.3f} "
                       L"monitor=({},{})-({},{}) proper_pos=({},{}) packing_margin_top={}",
@@ -2684,20 +2692,20 @@ int FineTuneWindow(HWND hwnd)
                       generation, hostX, hostY, newWidth, newHeight, newFlag, positioned != FALSE, positionError,
                       static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop);
 
-            // After the host lands on the caret's monitor, Per-Monitor V2 may update
-            // HWND DPI. Re-sync physical size + CSS margins to that scale so
-            // MarginLeft*HWND_DPI matches WebView painting and SetWindowRgn.
-            FLOAT hwndScale = GetWindowScale(hwnd);
+            // After the host lands on the caret's monitor, WebView2 may update
+            // its rasterization scale. Re-sync physical size + CSS margins so
+            // MarginLeft*rasterScale matches painting and SetWindowRgn.
+            FLOAT hwndScale = GetWebViewRasterizationScale(hwnd);
             if (hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
             {
                 const FLOAT oldLayoutScale = layoutScale;
                 layoutScale = hwndScale;
-                halfLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                halfLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                 hostPx = computeHostPixels(halfLimits);
                 hostWidthPx = hostPx.first;
                 hostHeightPx = hostPx.second;
 
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos);
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos, layoutScale);
                 hostX = properPos->first;
                 hostY = properPos->second;
                 const int resyncEdgePadPx =
@@ -2771,7 +2779,7 @@ int FineTuneWindow(HWND hwnd)
                     {
                         return;
                     }
-                    const HalfScreenDipLimits clipLimits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                    const HalfScreenDipLimits clipLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                     finalSize.first = ClampWidthDipToHalfScreen(finalSize.first, clipLimits);
                     finalSize.second = ClampHeightDipToHalfScreen(finalSize.second, clipLimits);
                     ClipCandidateWindowToContent(hwnd, finalSize, layoutScale);
@@ -2793,7 +2801,7 @@ int FineTuneWindow(HWND hwnd)
 
                 // Pass 2: remeasure the painted card after margins. Keep the stable
                 // quarter-screen host; only re-clamp position / margins / region.
-                const HalfScreenDipLimits pass2LimitsForWrap = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                const HalfScreenDipLimits pass2LimitsForWrap = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                 const double pass2WrapMaxDip = pass2LimitsForWrap.maxWidthDip > 1.0
                                                    ? pass2LimitsForWrap.maxWidthDip
                                                    : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
@@ -2814,7 +2822,7 @@ int FineTuneWindow(HWND hwnd)
                             return;
                         }
                         const std::pair<double, double> rawPaintedSize = paintedSize;
-                        HalfScreenDipLimits pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                        HalfScreenDipLimits pass2Limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                         paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, pass2Limits);
                         paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, pass2Limits);
                         DIAG_LOGF(L"ui-layout generation={} pass=painted measured_dip=({:.2f},{:.2f}) "
@@ -2834,16 +2842,15 @@ int FineTuneWindow(HWND hwnd)
                         }
 
                         POINT pt = {caretX, caretY};
-                        auto properPos = std::make_shared<std::pair<int, int>>();
-                        AdjustCandidateWindowPosition(&pt, paintedSize, properPos);
-
                         FLOAT pass2Scale = layoutScale;
-                        FLOAT hwndScale = GetWindowScale(hwnd);
+                        FLOAT hwndScale = GetWebViewRasterizationScale(hwnd);
                         if (hwndScale > 0.0f)
                         {
                             pass2Scale = hwndScale;
-                            pass2Limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                            pass2Limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                         }
+                        auto properPos = std::make_shared<std::pair<int, int>>();
+                        AdjustCandidateWindowPosition(&pt, paintedSize, properPos, pass2Scale);
 
                         const int hostWidthPx =
                             (std::max)(1, (pass2Limits.monitor.right - pass2Limits.monitor.left) / 2);

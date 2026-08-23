@@ -123,13 +123,76 @@ double JsonNumberAsDouble(const json::value &value)
     return 0.0;
 }
 
+ICoreWebView2Controller *ControllerForHost(HWND hwnd)
+{
+    if (hwnd == ::global_hwnd)
+        return webviewControllerCandWnd.Get();
+    if (hwnd == ::global_hwnd_menu)
+        return webviewControllerMenuWnd.Get();
+    if (hwnd == ::global_hwnd_ftb)
+        return webviewControllerFtbWnd.Get();
+    if (hwnd == ::global_hwnd_settings)
+        return webviewControllerSettingsWnd.Get();
+    return nullptr;
+}
+
+HalfScreenDipLimits ApplyRasterizationScale(HalfScreenDipLimits limits, FLOAT scale)
+{
+    if (scale <= 0.0f)
+        return limits;
+    const double monitorWidthPx = static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+    const double monitorHeightPx = static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+    limits.scale = scale;
+    limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(scale);
+    limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(scale);
+    return limits;
+}
+
+} // namespace
+
+FLOAT GetWebViewRasterizationScale(HWND hwnd)
+{
+    ICoreWebView2Controller *controller = ControllerForHost(hwnd);
+    if (controller)
+    {
+        ComPtr<ICoreWebView2Controller3> controller3;
+        double scale = 0.0;
+        if (SUCCEEDED(controller->QueryInterface(IID_PPV_ARGS(&controller3))) &&
+            SUCCEEDED(controller3->get_RasterizationScale(&scale)) && std::isfinite(scale) && scale > 0.0)
+        {
+            return static_cast<FLOAT>(scale);
+        }
+    }
+    return GetWindowScale(hwnd);
+}
+
+HalfScreenDipLimits QueryWebViewHalfScreenDipLimitsForHwnd(HWND hwnd)
+{
+    return ApplyRasterizationScale(QueryHalfScreenDipLimitsForHwnd(hwnd), GetWebViewRasterizationScale(hwnd));
+}
+
+HalfScreenDipLimits QueryCandidateHalfScreenDipLimitsForPoint(HWND hwnd, POINT pt)
+{
+    HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForPoint(pt);
+    const FLOAT hostNativeScale = GetWindowScale(hwnd);
+    const FLOAT webViewScale = GetWebViewRasterizationScale(hwnd);
+    // RasterizationScale = monitor DPI scale * user text scale. Preserve the
+    // text-scale component when the caret is on another monitor.
+    const FLOAT textScale = hostNativeScale > 0.0f ? webViewScale / hostNativeScale : 1.0f;
+    const FLOAT targetScale = limits.scale * (textScale > 0.0f ? textScale : 1.0f);
+    return ApplyRasterizationScale(limits, targetScale);
+}
+
+namespace
+{
+
 void InjectSurfaceViewportLimitsImpl(ICoreWebView2 *webview, HWND hwnd)
 {
     if (!webview || !hwnd)
     {
         return;
     }
-    const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
     nlohmann::json cfg = {{"maxWidthDip", limits.maxWidthDip},
                           {"maxHeightDip", limits.maxHeightDip},
                           {"scale", limits.scale}};
@@ -166,7 +229,7 @@ bool ApplyContentTruncationResize( //
     {
         return false;
     }
-    const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+    const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
     const double cappedContentW = ClampWidthDipToHalfScreen(contentWidthDip, limits);
     const double cappedContentH = ClampHeightDipToHalfScreen(contentHeightDip, limits);
     double hostWidthDip =
@@ -1267,7 +1330,7 @@ void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
     // MarginLeft can push the card nearly a full max-width across the viewport
     // near a screen edge. Reserve that room in DIPs so 200% scaling still has
     // enough CSS pixels; a fixed 1000 physical-px pad is only ~500 DIP at 200%.
-    FLOAT scale = GetWindowScale(hwnd);
+    FLOAT scale = GetWebViewRasterizationScale(hwnd);
     if (scale <= 0.0f)
     {
         scale = 1.0f;
@@ -1764,6 +1827,42 @@ HRESULT OnControllerCreatedCandWnd(     //
 
     webviewControllerCandWnd->put_ZoomFactor(1.0);
 
+    if (SUCCEEDED(controller->QueryInterface(IID_PPV_ARGS(&webviewController3CandWnd))))
+    {
+        // Let WebView2 track both monitor DPI and the user's accessibility text
+        // scale. Every native clip/layout conversion reads this same value.
+        const HRESULT detectHr = webviewController3CandWnd->put_ShouldDetectMonitorScaleChanges(TRUE);
+        double rasterizationScale = 0.0;
+        const HRESULT scaleHr = webviewController3CandWnd->get_RasterizationScale(&rasterizationScale);
+        const HRESULT eventHr = webviewController3CandWnd->add_RasterizationScaleChanged(
+            Callback<ICoreWebView2RasterizationScaleChangedEventHandler>(
+                [hwnd](ICoreWebView2Controller *sender, IUnknown *) -> HRESULT {
+                    if (!IsWindow(hwnd))
+                    {
+                        return S_OK;
+                    }
+                    ComPtr<ICoreWebView2Controller3> controller3;
+                    double scale = 0.0;
+                    const HRESULT hr = sender ? sender->QueryInterface(IID_PPV_ARGS(&controller3)) : E_POINTER;
+                    const HRESULT scaleHr = SUCCEEDED(hr) ? controller3->get_RasterizationScale(&scale) : hr;
+                    DIAG_LOGF(L"candidate rasterization scale changed scale={:.4f} native_scale={:.4f} hr={:#x}",
+                              scale, static_cast<double>(GetWindowScale(hwnd)), static_cast<unsigned>(scaleHr));
+                    InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
+                    if (::is_global_wnd_cand_shown && IsCandidateWebviewReady())
+                    {
+                        FineTuneWindow(hwnd);
+                    }
+                    return S_OK;
+                })
+                .Get(),
+            &candidateRasterizationScaleChangedToken);
+        candidateRasterizationScaleChangedRegistered = SUCCEEDED(eventHr);
+        DIAG_LOGF(L"candidate rasterization scale initialized scale={:.4f} native_scale={:.4f} "
+                  L"scale_hr={:#x} detect_hr={:#x} event_hr={:#x}",
+                  rasterizationScale, static_cast<double>(GetWindowScale(hwnd)), static_cast<unsigned>(scaleHr),
+                  static_cast<unsigned>(detectHr), static_cast<unsigned>(eventHr));
+    }
+
     // Configure virtual host path
     if (SUCCEEDED(webviewCandWnd->QueryInterface(IID_PPV_ARGS(&webview3CandWnd))))
     {
@@ -1868,7 +1967,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                                 left_expansion = (std::max)(0, json::value_to<int>(*value));
                             RECT window_rect{};
                             GetWindowRect(hwnd, &window_rect);
-                            const FLOAT scale = static_cast<FLOAT>(GetDpiForWindow(hwnd)) / 96.0f;
+                            const FLOAT scale = GetWebViewRasterizationScale(hwnd);
                             const int current_width = static_cast<int>(window_rect.right - window_rect.left);
                             const int current_height = static_cast<int>(window_rect.bottom - window_rect.top);
                             const int top_expansion_px = static_cast<int>(std::ceil(top_expansion * scale));
@@ -2229,7 +2328,7 @@ HRESULT OnControllerCreatedMenuWnd(     //
                                 (std::max)(::MENU_CONTENT_WIDTH_DIP, JsonNumberAsDouble(val.at("data").at("width")));
                             ::MENU_CONTENT_HEIGHT_DIP =
                                 (std::max)(::MENU_CONTENT_HEIGHT_DIP, JsonNumberAsDouble(val.at("data").at("height")));
-                            const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                            const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                             ::MENU_CONTENT_WIDTH_DIP =
                                 ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP, limits);
                             ::MENU_CONTENT_HEIGHT_DIP =
@@ -3677,7 +3776,7 @@ HRESULT OnControllerCreatedFtbWnd(      //
                         {
                             const double widthDip = JsonNumberAsDouble(val.at("data").at("width"));
                             const double heightDip = JsonNumberAsDouble(val.at("data").at("height"));
-                            const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForHwnd(hwnd);
+                            const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                             ::FTB_CONTENT_WIDTH_DIP = ClampWidthDipToHalfScreen(widthDip, limits);
                             ::FTB_CONTENT_HEIGHT_DIP = ClampHeightDipToHalfScreen(heightDip, limits);
                             ::FTB_WND_WIDTH =
@@ -3796,6 +3895,11 @@ void ShutdownWebviews()
         KillTimer(smallWindowCandHwnd, kRetrySmallWindowWebviewTimerId);
     }
 
+    if (candidateRasterizationScaleChangedRegistered && webviewController3CandWnd)
+    {
+        webviewController3CandWnd->remove_RasterizationScaleChanged(candidateRasterizationScaleChangedToken);
+        candidateRasterizationScaleChangedRegistered = false;
+    }
     if (webviewControllerCandWnd)
     {
         webviewControllerCandWnd->Close();
@@ -3814,6 +3918,7 @@ void ShutdownWebviews()
     }
 
     webviewController2CandWnd.Reset();
+    webviewController3CandWnd.Reset();
     webviewController2MenuWnd.Reset();
     webviewController2FtbWnd.Reset();
     webviewController2SettingsWnd.Reset();

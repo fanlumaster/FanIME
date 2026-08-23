@@ -15,6 +15,7 @@
 #include <dcomp.h>
 #include <cmath>
 #include "utils/common_utils.h"
+#include "utils/window_utils.h"
 #include "global/globals.h"
 
 using namespace Microsoft::WRL;
@@ -55,6 +56,9 @@ inline ComPtr<ICoreWebView2Controller> webviewControllerCandWnd;
 inline ComPtr<ICoreWebView2> webviewCandWnd;
 inline ComPtr<ICoreWebView2_3> webview3CandWnd;
 inline ComPtr<ICoreWebView2Controller2> webviewController2CandWnd;
+inline ComPtr<ICoreWebView2Controller3> webviewController3CandWnd;
+inline EventRegistrationToken candidateRasterizationScaleChangedToken{};
+inline bool candidateRasterizationScaleChangedRegistered = false;
 
 inline std::wstring HTMLStringCandWnd = LR"()";
 inline std::wstring BodyStringCandWnd = LR"()";
@@ -72,6 +76,11 @@ bool ApplyConfiguredFloatingToolbarAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete);
 // Push half-monitor CSS max width/height (DIP) into a small-window page.
 void InjectSurfaceViewportLimits(ICoreWebView2 *webview, HWND hwnd);
+// WebView2 rasterization scale includes both monitor DPI and the user's text
+// scaling. It can therefore differ from GetDpiForWindow()/96.
+FLOAT GetWebViewRasterizationScale(HWND hwnd);
+HalfScreenDipLimits QueryWebViewHalfScreenDipLimitsForHwnd(HWND hwnd);
+HalfScreenDipLimits QueryCandidateHalfScreenDipLimitsForPoint(HWND hwnd, POINT pt);
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
 void InflateCandWnd(std::wstring &str);
