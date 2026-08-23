@@ -20,7 +20,8 @@ static_assert(VK_SPACE != 0, "VK_SPACE must not be treated as an invalid virtual
 
 bool IsImeCommitKey(WORD virtualKey)
 {
-    if (virtualKey == VK_SPACE || virtualKey == VK_RETURN || virtualKey == VK_TAB || virtualKey == VK_BACK)
+    if (virtualKey == VK_SPACE || virtualKey == VK_RETURN || virtualKey == VK_TAB || virtualKey == VK_BACK ||
+        virtualKey == VK_DELETE)
     {
         return true;
     }

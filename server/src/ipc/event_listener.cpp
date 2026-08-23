@@ -794,6 +794,13 @@ bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
             --composition.caret_position;
         }
     }
+    else if (keycode == VK_DELETE)
+    {
+        if (composition.caret_position < raw.size())
+        {
+            raw.erase(composition.caret_position, 1);
+        }
+    }
     else
     {
         char input = 0;
@@ -3412,6 +3419,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool is_unicode_plus = unicode_composition_active && Global::Keycode == VK_OEM_PLUS && Global::Wch == L'+';
     const bool is_composition_edit_key =
         Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT || Global::Keycode == VK_BACK ||
+        Global::Keycode == VK_DELETE ||
         (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator ||
         is_microsoft_shuangpin_ing_key || is_unicode_hex_digit || is_unicode_plus;
     const bool should_forward_key_to_session = !is_commit_with_highlighted_candidate_punctuation && !is_selection_key &&
@@ -3579,7 +3587,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             }
         }
     }
-    else if (Global::Keycode == VK_BACK)
+    else if (Global::Keycode == VK_BACK || Global::Keycode == VK_DELETE)
     {
         if (IsUiLessMode())
         {
