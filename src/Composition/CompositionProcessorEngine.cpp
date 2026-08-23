@@ -328,6 +328,10 @@ BOOL CCompositionProcessorEngine::AddVirtualKey(WCHAR wch)
 void CCompositionProcessorEngine::RemoveVirtualKey(DWORD_PTR dwIndex)
 {
     DWORD_PTR srgKeystrokeBufLen = _keystrokeBuffer.GetLength();
+    if (dwIndex >= srgKeystrokeBufLen)
+    {
+        return;
+    }
 
     if (dwIndex + 1 < srgKeystrokeBufLen)
     {
@@ -352,6 +356,16 @@ BOOL CCompositionProcessorEngine::RemoveVirtualKeyBeforeCaret()
         return FALSE;
     }
     RemoveVirtualKey(_caretPosition - 1);
+    return TRUE;
+}
+
+BOOL CCompositionProcessorEngine::RemoveVirtualKeyAtCaret()
+{
+    if (_caretPosition >= _keystrokeBuffer.GetLength())
+    {
+        return FALSE;
+    }
+    RemoveVirtualKey(_caretPosition);
     return TRUE;
 }
 
@@ -2278,6 +2292,13 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
                     pKeyState->Function = FUNCTION_BACKSPACE;
                 }
                 return TRUE;
+            case VK_DELETE:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_DELETE;
+                }
+                return TRUE;
 
             case VK_UP:
                 if (pKeyState)
@@ -2400,6 +2421,13 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
                 {
                     pKeyState->Category = CATEGORY_COMPOSING;
                     pKeyState->Function = FUNCTION_BACKSPACE;
+                }
+                return TRUE;
+            case VK_DELETE:
+                if (pKeyState)
+                {
+                    pKeyState->Category = CATEGORY_COMPOSING;
+                    pKeyState->Function = FUNCTION_DELETE;
                 }
                 return TRUE;
 
@@ -2589,6 +2617,7 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
             }
             return TRUE;
         case VK_BACK:
+        case VK_DELETE:
             if (pKeyState)
             {
                 pKeyState->Category = CATEGORY_CANDIDATE;

@@ -46,6 +46,7 @@ class CCompositionProcessorEngine
     BOOL AddVirtualKey(WCHAR wch);
     void RemoveVirtualKey(DWORD_PTR dwIndex);
     BOOL RemoveVirtualKeyBeforeCaret();
+    BOOL RemoveVirtualKeyAtCaret();
     void PurgeVirtualKey();
     BOOL MoveCaret(int offset);
     DWORD_PTR GetCaretPosition() const

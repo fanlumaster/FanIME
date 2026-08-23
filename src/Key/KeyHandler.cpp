@@ -953,6 +953,66 @@ Exit:
 
 //+---------------------------------------------------------------------------
 //
+// _HandleCompositionDelete
+//
+//----------------------------------------------------------------------------
+
+HRESULT CMetasequoiaIME::_HandleCompositionDelete(TfEditCookie ec, _In_ ITfContext *pContext,
+                                                  uint64_t requestId)
+{
+    HRESULT workerResult = S_OK;
+    ITfRange *pRangeComposition = nullptr;
+    TF_SELECTION tfSelection = {};
+    ULONG fetched = 0;
+
+    if (!_IsComposing())
+    {
+        return S_OK;
+    }
+
+    if (FAILED(pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched)) || fetched != 1)
+    {
+        return S_FALSE;
+    }
+
+    BOOL isCovered = TRUE;
+    if (SUCCEEDED(_pComposition->GetRange(&pRangeComposition)))
+    {
+        isCovered = _IsRangeCovered(ec, tfSelection.range, pRangeComposition);
+        pRangeComposition->Release();
+    }
+
+    if (isCovered)
+    {
+        CCompositionProcessorEngine *pCompositionProcessorEngine = _pCompositionProcessorEngine;
+        const DWORD_PTR caret = pCompositionProcessorEngine->GetCaretPosition();
+        const BOOL removed = pCompositionProcessorEngine->RemoveVirtualKeyAtCaret();
+
+        if (removed && caret < g_toggleImeFallbackBuffer.size())
+        {
+            g_toggleImeFallbackBuffer.erase(static_cast<size_t>(caret), 1);
+        }
+
+        if (removed)
+        {
+            if (pCompositionProcessorEngine->GetVirtualKeyLength())
+            {
+                workerResult = _HandleCompositionInputWorker(
+                    pCompositionProcessorEngine, ec, pContext, requestId);
+            }
+            else
+            {
+                _HandleCancel(ec, pContext);
+            }
+        }
+    }
+
+    tfSelection.range->Release();
+    return workerResult;
+}
+
+//+---------------------------------------------------------------------------
+//
 // _HandleCompositionArrowKey
 //
 // Update the selection within a composition.

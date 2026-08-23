@@ -92,6 +92,9 @@ class CKeyStateCategory
     // HandleKeyBackspace
     virtual HRESULT HandleKeyBackspace(KeyHandlerEditSessionDTO dto);
 
+    // HandleKeyDelete
+    virtual HRESULT HandleKeyDelete(KeyHandlerEditSessionDTO dto);
+
     // HandleKeyArrow
     virtual HRESULT HandleKeyArrow(KeyHandlerEditSessionDTO dto);
 
@@ -143,6 +146,9 @@ class CKeyStateComposing : public CKeyStateCategory
 
     // HandleCompositionBackspace
     HRESULT HandleKeyBackspace(KeyHandlerEditSessionDTO dto);
+
+    // HandleCompositionDelete
+    HRESULT HandleKeyDelete(KeyHandlerEditSessionDTO dto);
 
     // HandleArrowKey
     HRESULT HandleKeyArrow(KeyHandlerEditSessionDTO dto);

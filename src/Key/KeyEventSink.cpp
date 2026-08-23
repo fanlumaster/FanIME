@@ -136,6 +136,19 @@ void ApplyDeferredKeyState(DeferredShadowState &shadow,
             --shadow.caret;
         }
         break;
+    case FUNCTION_DELETE:
+        shadow.caret = min(shadow.caret, shadow.rawInput.size());
+        if (shadow.caret < shadow.rawInput.size())
+        {
+            shadow.rawInput.erase(shadow.caret, 1);
+        }
+        shadow.inputLength = shadow.rawInput.size();
+        if (shadow.inputLength == 0)
+        {
+            shadow.candidateActive = false;
+            shadow.unicodeMode = false;
+        }
+        break;
     case FUNCTION_MOVE_RIGHT:
         if (shadow.caret < shadow.rawInput.size())
         {
@@ -162,6 +175,7 @@ bool IsRecoverableDeferredPrefix(const _KEYSTROKE_STATE &keyState)
     {
     case FUNCTION_INPUT:
     case FUNCTION_BACKSPACE:
+    case FUNCTION_DELETE:
     case FUNCTION_MOVE_LEFT:
     case FUNCTION_MOVE_RIGHT:
     case FUNCTION_MOVE_UP:
@@ -1268,6 +1282,10 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
             return candidateKey
                        ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL)
                        : setKeyState(CATEGORY_COMPOSING, FUNCTION_BACKSPACE);
+        case VK_DELETE:
+            return candidateKey
+                       ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL)
+                       : setKeyState(CATEGORY_COMPOSING, FUNCTION_DELETE);
         case VK_SPACE:
             return setKeyState(CATEGORY_CANDIDATE, FUNCTION_CONVERT);
         case VK_RETURN:
@@ -2093,11 +2111,15 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
 
     const bool isPunctuationKey = _pCompositionProcessorEngine &&
                                   _pCompositionProcessorEngine->IsPunctuation(wch);
+    const bool isNoOpForwardDelete =
+        KeystrokeState.Function == FUNCTION_DELETE && _pCompositionProcessorEngine &&
+        _pCompositionProcessorEngine->GetCaretPosition() >=
+            _pCompositionProcessorEngine->GetVirtualKeyLength();
 
     Global::firefox_like_cnt = 0;
 
     /* Send key event to server process */
-    if (*pIsEaten)
+    if (*pIsEaten && !isNoOpForwardDelete)
     {
         // 检查是否应该跳过发送此键到服务器，由于长度限制。
         // 当达到限制时，我们只阻止字符输入键（FUNCTION_INPUT）。

@@ -166,6 +166,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     HRESULT _HandleCompositionFinalize(TfEditCookie ec, _In_ ITfContext *pContext, BOOL fCandidateList);
     HRESULT _HandleCompositionConvert(TfEditCookie ec, _In_ ITfContext *pContext, BOOL isWildcardSearch);
     HRESULT _HandleCompositionBackspace(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId);
+    HRESULT _HandleCompositionDelete(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId);
     HRESULT _HandleCompositionArrowKey(TfEditCookie ec, _In_ ITfContext *pContext, KEYSTROKE_FUNCTION keyFunction,
                                        uint64_t requestId = FANY_IME_NO_REQUEST_ID);
     HRESULT _HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfContext *pContext, UINT code, WCHAR wch,
