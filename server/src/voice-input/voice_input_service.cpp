@@ -51,6 +51,8 @@ std::condition_variable g_control_cv;
 enum class ControlCommand { Start, Stop, Toggle, Lock, Cancel, Exit };
 std::deque<ControlCommand> g_control_commands;
 std::atomic<bool> g_recording{false};
+std::atomic<bool> g_starting{false};
+std::atomic<bool> g_abort_start{false};
 std::atomic<bool> g_muted_system_audio{false};
 std::atomic<bool> g_ime_active{false};
 bool g_initialized = false;
@@ -118,6 +120,31 @@ void EnqueueControlCommand(ControlCommand command)
 {
     {
         std::lock_guard<std::mutex> lock(g_control_mutex);
+        if (command == ControlCommand::Start)
+        {
+            if (!g_control_commands.empty() && g_control_commands.back() == ControlCommand::Start)
+                return;
+        }
+        else if (command == ControlCommand::Stop || command == ControlCommand::Cancel)
+        {
+            if (g_starting)
+                g_abort_start = true;
+            if (!g_control_commands.empty() && g_control_commands.back() == ControlCommand::Start)
+            {
+                g_control_commands.pop_back();
+                if (!g_recording && !g_starting)
+                {
+                    g_abort_start = false;
+                    return;
+                }
+            }
+            if (!g_recording && !g_starting)
+                return;
+            if (!g_control_commands.empty() &&
+                (g_control_commands.back() == ControlCommand::Stop ||
+                 g_control_commands.back() == ControlCommand::Cancel))
+                return;
+        }
         g_control_commands.push_back(command);
     }
     g_control_cv.notify_one();
@@ -134,7 +161,11 @@ void ControlLoop()
             command = g_control_commands.front();
             g_control_commands.pop_front();
         }
-        if (command == ControlCommand::Exit) return;
+        if (command == ControlCommand::Exit)
+        {
+            g_cue_player.shutdown();
+            return;
+        }
         if (command == ControlCommand::Start) StartRecording();
         else if (command == ControlCommand::Stop) StopRecording();
         else if (command == ControlCommand::Toggle)
@@ -798,10 +829,26 @@ void AudioCallback(ma_device *, void *, const void *input, ma_uint32 frames)
     g_samples.insert(g_samples.end(), samples, samples + frames);
 }
 
+void AbortPendingStart(const char *reason)
+{
+    (void)reason;
+    g_starting = false;
+    g_abort_start = false;
+    ++g_voice_session;
+    g_stream_inline_this_session.store(false);
+    g_last_inline_preedit.clear();
+    if (g_doubao_asr)
+    {
+        g_doubao_asr->Cancel();
+        g_doubao_asr.reset();
+    }
+}
+
 bool StartRecording()
 {
     if (g_recording) return true;
     if (!g_ime_active) return false;
+    if (g_abort_start.exchange(false)) return false;
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     if (!config.enabled) return false;
     const bool use_doubao = VoiceInput::IsDoubaoAsrProvider(config.asr_provider);
@@ -812,6 +859,7 @@ bool StartRecording()
                     MB_OK | MB_ICONINFORMATION);
         return false;
     }
+    g_starting = true;
     { std::lock_guard<std::mutex> lock(g_mutex); g_samples.clear(); }
     g_recorded_frames = 0;
     std::uint64_t voice_session = 0;
@@ -851,28 +899,41 @@ bool StartRecording()
             g_doubao_asr.reset();
             MessageBoxW(nullptr, L"无法启动豆包流式语音识别。请检查 config.toml。", L"水杉 IME",
                         MB_OK | MB_ICONERROR);
+            g_starting = false;
             return false;
         }
+    }
+    if (g_abort_start.exchange(false))
+    {
+        AbortPendingStart("aborted before capture");
+        return false;
     }
     ma_device_config device_config = ma_device_config_init(ma_device_type_capture);
     device_config.capture.format = ma_format_f32;
     device_config.capture.channels = 1;
     device_config.sampleRate = kSampleRate;
     device_config.dataCallback = AudioCallback;
-    if (ma_device_init(nullptr, &device_config, &g_device) != MA_SUCCESS || ma_device_start(&g_device) != MA_SUCCESS)
+    const ma_result device_init = ma_device_init(nullptr, &device_config, &g_device);
+    if (device_init != MA_SUCCESS)
     {
-        if (g_doubao_asr)
-        {
-            ++g_voice_session;
-            g_stream_inline_this_session.store(false);
-            g_last_inline_preedit.clear();
-            g_doubao_asr->Cancel();
-            g_doubao_asr.reset();
-        }
+        AbortPendingStart("capture init failed");
         MessageBoxW(nullptr, L"无法启动麦克风。", L"水杉 IME", MB_OK | MB_ICONERROR);
         return false;
     }
+    if (g_abort_start.load() || ma_device_start(&g_device) != MA_SUCCESS)
+    {
+        ma_device_uninit(&g_device);
+        AbortPendingStart("aborted during capture start");
+        return false;
+    }
+    if (g_abort_start.exchange(false))
+    {
+        ma_device_uninit(&g_device);
+        AbortPendingStart("aborted after capture start");
+        return false;
+    }
     g_recording = true;
+    g_starting = false;
     g_overlay.set_input_level(0.0f);
     g_overlay.set_listening(true);
     g_overlay.show();

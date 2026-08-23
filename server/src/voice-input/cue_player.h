@@ -29,5 +29,3 @@ class CuePlayer
     bool start_loaded_ = false;
     bool end_loaded_ = false;
 };
-
-

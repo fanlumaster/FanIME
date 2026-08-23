@@ -151,5 +151,3 @@ std::string CuePlayer::wstring_to_utf8(const std::wstring &wstr) const
     }
     return out;
 }
-
-
