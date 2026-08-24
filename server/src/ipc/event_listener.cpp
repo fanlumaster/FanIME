@@ -426,7 +426,7 @@ uint64_t g_last_status_snapshot_client_id = 0;
 // main pipe unregisters.
 std::unordered_map<uint64_t, int> g_client_status_snapshots;
 // After switching away from this IME, the next StatusSnapshot must restore the
-// global mode even when the same process/thread client_id reconnects.
+// configured default mode even when the same process/thread client_id reconnects.
 bool g_force_global_ime_sync = false;
 HWND g_status_snapshot_window = nullptr;
 std::mutex g_candidate_ui_owner_mutex;
@@ -1616,7 +1616,10 @@ void WorkerThread()
             CAND_DIAG_LOGF(L"client deactivated client={} epoch={}", task.client_id, task.activation_epoch);
             VoiceInput::SetImeActive(false);
             // Unlike a route-only suspension, terminal TIP deactivation means
-            // the user switched to another input method.
+            // the user switched to another input method. Forget the previous
+            // global authority so switching back starts from default_ime_mode
+            // instead of restoring the mode used before deactivation.
+            g_authoritative_cn_mode = -1;
             g_force_global_ime_sync = true;
             // Supersede any activation still waiting for the window, otherwise
             // the replay would resurrect a toolbar the user just switched away
@@ -1662,8 +1665,9 @@ void WorkerThread()
                     g_last_status_snapshot_client_id != 0 && task.client_id != g_last_status_snapshot_client_id;
                 if (client_changed || force_global_sync)
                 {
-                    // Focus moved to another app, or switched back to this IME:
-                    // keep the unified mode.
+                    // Focus moved to another app: keep the unified mode. After
+                    // switching back from another IME, the authority was reset
+                    // on ClientDeactivated and is seeded from default_ime_mode.
                     effective_cn = authoritative;
                     if (cn_state != authoritative && task.client_id != 0)
                     {
