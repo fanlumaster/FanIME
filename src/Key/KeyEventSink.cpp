@@ -1485,6 +1485,7 @@ bool CMetasequoiaIME::_QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wP
     key.modifiersDown = modifiersDown;
     key.keyState = keyState;
     key.focusGeneration = _deferredKeyFocusGeneration;
+    key.queuedAtMs = GetTickCount64();
     _deferredKeyDowns.push_back(key);
     if (key.kind == DeferredKeyDown::Kind::KeyDown)
     {
@@ -1512,6 +1513,7 @@ bool CMetasequoiaIME::_QueueDeferredPreservedKey(_In_ ITfContext *pContext,
     key.context = pContext;
     key.preservedKey = preservedKey;
     key.focusGeneration = _deferredKeyFocusGeneration;
+    key.queuedAtMs = GetTickCount64();
     _deferredKeyDowns.push_back(key);
     _ApplyDeferredPreservedKeyProjection(preservedKey);
     _ScheduleDeferredKeyDownDrain();
@@ -1797,6 +1799,11 @@ void CMetasequoiaIME::_DrainOneDeferredKeyDown()
     } while (_deferredKeyReplayToken == 0);
 
     DeferredKeyDown &key = _deferredKeyInFlight;
+    if (key.queuedAtMs != 0)
+    {
+        DebugTsfKeyLatency(L"deferred-key-queue", 0,
+                           static_cast<double>(GetTickCount64() - key.queuedAtMs), S_OK);
+    }
     ++key.replayAttempts;
     const uint64_t replayToken = _deferredKeyReplayToken;
     const uint64_t focusToken = _CaptureFocusSessionToken();
@@ -1931,6 +1938,7 @@ STDAPI CMetasequoiaIME::OnKeyDown(ITfContext *pContext, WPARAM wParam, LPARAM lP
     const uint64_t focusGeneration = _deferredKeyFocusGeneration;
     (void)_DispatchKeyDown(pContext, wParam, lParam, pIsEaten, nullptr, nullptr,
                            nullptr, true, focusGeneration);
+    DebugTsfKeyLatency(L"on-key-down", 0, onKeyDownTimer.ElapsedMs(), S_OK);
     return S_OK;
 }
 
@@ -2146,6 +2154,8 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
 
         PerfTimer sendKeyEventTimer;
         const KeyEventSendResult sendResult = SendKeyEventToUIProcess(&requestId);
+        DebugTsfKeyLatency(L"main-pipe-send", requestId, sendKeyEventTimer.ElapsedMs(),
+                           sendResult == KeyEventSendResult::Sent ? S_OK : E_FAIL);
         if (sendResult != KeyEventSendResult::Sent)
         {
             if (!canDefer)

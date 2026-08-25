@@ -14,6 +14,10 @@ inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
 inline const wchar_t *FANY_IME_TO_TSF_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfNamedPipe";
 inline const wchar_t *FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfWorkerThreadNamedPipe";
 inline const wchar_t *FANY_IME_AUX_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeAuxNamedPipe";
+inline const wchar_t *FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeTsfDiagnosticNamedPipe";
+inline constexpr uint32_t FANY_IME_TSF_DIAGNOSTIC_MAGIC = 0x474F4C54; // "TLOG"
+inline constexpr uint32_t FANY_IME_TSF_DIAGNOSTIC_VERSION = 1;
+inline constexpr size_t FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES = 16 * 1024;
 inline constexpr uint64_t FANY_IME_UNSOLICITED_REQUEST_ID = 0;
 inline constexpr uint64_t FANY_IME_NO_REQUEST_ID = UINT64_MAX;
 
@@ -142,6 +146,17 @@ struct FanyImeNamedpipeDataToTsfWorkerThread
     wchar_t data[200];
 };
 
+struct FanyImeTsfDiagnosticBatchHeader
+{
+    uint32_t magic = FANY_IME_TSF_DIAGNOSTIC_MAGIC;
+    uint32_t version = FANY_IME_TSF_DIAGNOSTIC_VERSION;
+    uint32_t header_size = 28;
+    uint32_t payload_bytes = 0;
+    uint32_t record_count = 0;
+    uint32_t dropped_count = 0;
+    uint32_t source_process_id = 0;
+};
+
 static_assert(sizeof(WCHAR) == 2, "The IPC ABI requires 16-bit WCHAR.");
 static_assert(offsetof(FanyImeNamedpipeData, client_id) == 8);
 static_assert(offsetof(FanyImeNamedpipeData, request_id) == 16);
@@ -153,6 +168,7 @@ static_assert(offsetof(FanyImeNamedpipeDataToTsf, candidate_string) == 16);
 static_assert(sizeof(FanyImeNamedpipeDataToTsf) == 416);
 static_assert(sizeof(FanyImePipeHello) == 16);
 static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) == 404);
+static_assert(sizeof(FanyImeTsfDiagnosticBatchHeader) == 28);
 
 enum class KeyEventSendResult
 {
@@ -200,6 +216,8 @@ int WriteDataToSharedMemory(           //
     UINT write_flag                    //
 );
 KeyEventSendResult SendKeyEventToUIProcess(_Out_opt_ uint64_t *requestId = nullptr);
+void DebugTsfKeyLatency(_In_z_ const wchar_t *stage, uint64_t requestId, double elapsedMs, HRESULT result);
+void QueueTsfDiagnosticLog(const std::wstring &line);
 int SendHideCandidateWndEventToUIProcess();
 int SendShowCandidateWndEventToUIProcess();
 int SendMoveCandidateWndEventToUIProcess();
@@ -335,7 +353,9 @@ constexpr UINT CommitVoiceComposition = 17;
 constexpr UINT InputModeChanged = 18;
 // Payload "1" when Caps Lock is on. Server is the source of truth.
 constexpr UINT CapsLockChanged = 19;
-constexpr UINT MaxKnown = CapsLockChanged;
+// Enables buffered TSF diagnostics sent to Server. Payload "0"/"1".
+constexpr UINT TsfDiagnosticLogChanged = 20;
+constexpr UINT MaxKnown = TsfDiagnosticLogChanged;
 } // namespace DataToTsfWorkerThreadMsgType
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
@@ -348,6 +368,7 @@ inline std::atomic_bool PairedPunctuationEnabled{true};
 inline std::atomic_bool MicrosoftShuangpinEnabled{false};
 inline std::atomic_bool JapaneseInputModeEnabled{false};
 inline std::atomic_bool CapsLockEnabled{false};
+inline std::atomic_bool TsfDiagnosticLogEnabled{false};
 inline thread_local bool g_connected = false;
 
 } // namespace Global

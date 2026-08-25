@@ -90,7 +90,10 @@ bool LaunchServerIfNeeded()
     const std::wstring serverPath = ReadServerPath();
     if (serverPath.empty() || GetFileAttributesW(serverPath.c_str()) == INVALID_FILE_ATTRIBUTES)
     {
-        OutputDebugStringW(L"[msime]: Server path is unavailable; cannot revive Server.\n");
+        if (Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
+        {
+            QueueTsfDiagnosticLog(L"[msime]: Server path is unavailable; cannot revive Server.");
+        }
         ReleaseMutex(launchMutex);
         CloseHandle(launchMutex);
         return false;
@@ -1781,7 +1784,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged))
+                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged ||
+                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged))
         {
             bool hasTerminator = false;
             for (const wchar_t ch : buf.data)
@@ -1845,6 +1849,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::FocusSessionReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
@@ -1943,6 +1948,10 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             {
                 PostMessage(ownerWindow, WM_RefreshLanguageBarTheme, 0, 0);
             }
+        }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged)
+        {
+            Global::TsfDiagnosticLogEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
         }
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged)
         {

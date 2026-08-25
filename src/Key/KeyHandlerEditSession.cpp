@@ -4,6 +4,7 @@
 #include "MetasequoiaIME.h"
 #include "CompositionProcessorEngine.h"
 #include "KeyStateCategory.h"
+#include "Ipc.h"
 #include "fmt/xchar.h"
 #include "../Utils/PerfTimer.h"
 
@@ -75,6 +76,7 @@ STDAPI CKeyHandlerEditSession::DoEditSession(TfEditCookie ec)
     QueryPerformanceCounter(&nowQpc);
     double queueElapsedMs = static_cast<double>(nowQpc.QuadPart - _requestStartQpc.QuadPart) * 1000.0 /
                             static_cast<double>(freq.QuadPart);
+    DebugTsfKeyLatency(L"edit-session-queue", _requestId, queueElapsedMs, S_OK);
 
     CKeyStateCategoryFactory *pKeyStateCategoryFactory = CKeyStateCategoryFactory::Instance();
     CKeyStateCategory *pKeyStateCategory = pKeyStateCategoryFactory
@@ -100,5 +102,6 @@ STDAPI CKeyHandlerEditSession::DoEditSession(TfEditCookie ec)
     {
         _pTextService->_CompleteLocalSessionReset(_localResetToken);
     }
+    DebugTsfKeyLatency(L"edit-session-body", _requestId, doEditSessionTimer.ElapsedMs(), hResult);
     return hResult;
 }

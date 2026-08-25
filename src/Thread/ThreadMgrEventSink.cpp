@@ -49,6 +49,23 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
         return S_OK;
     }
 
+    if (pDocMgrFocus && _pContext && _IsComposing() &&
+        !_localSessionResetPending.load(std::memory_order_acquire))
+    {
+        ITfDocumentMgr *compositionDocumentMgr = nullptr;
+        const HRESULT ownerHr = _pContext->GetDocumentMgr(&compositionDocumentMgr);
+        if (FAILED(ownerHr) || compositionDocumentMgr == nullptr ||
+            !_IsSameComObject(compositionDocumentMgr, pDocMgrFocus))
+        {
+            _DebugCompositionRecovery(L"focus-document-mismatch", ownerHr);
+            MarkNamedpipeSessionDirtyForOwner(this);
+        }
+        if (compositionDocumentMgr)
+        {
+            compositionDocumentMgr->Release();
+        }
+    }
+
     // Chrome / Twitter contenteditable swaps ITfDocumentMgr on almost every
     // edit (digit passthrough, Backspace, etc.): both pointers are non-null and
     // unequal. Resetting smart-punctuation there drops a just-armed ASCII

@@ -229,6 +229,8 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     uint64_t _CaptureCompositionEpoch() const;
     bool _IsCompositionEpochCurrent(uint64_t compositionEpoch) const;
     bool _IsCompositionCurrent(_In_opt_ ITfComposition *expectedComposition) const;
+    static bool _IsSameComObject(_In_opt_ IUnknown *left, _In_opt_ IUnknown *right);
+    void _DebugCompositionRecovery(_In_z_ const WCHAR *reason, HRESULT hr) const;
     bool _IsLocalSessionResetCurrent(UINT resetToken) const;
     void _CompleteLocalSessionReset(UINT resetToken);
     bool _IsDeferredKeyReplayCurrent(uint64_t replayToken,
@@ -322,6 +324,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
         _KEYSTROKE_STATE keyState = {};
         GUID preservedKey = {};
         uint64_t focusGeneration = 0;
+        ULONGLONG queuedAtMs = 0;
         UINT replayAttempts = 0;
         bool preservedApplied = false;
     };

@@ -1,8 +1,11 @@
 #include "Ipc.h"
+#include <algorithm>
+#include <cstring>
 #include <debugapi.h>
 #include <deque>
 #include <handleapi.h>
 #include <map>
+#include <mutex>
 #include <minwindef.h>
 #include <utility>
 #include <winnt.h>
@@ -11,6 +14,7 @@
 #include "FanyDefines.h"
 #include "MetasequoiaIME.h"
 #include <fmt/xchar.h>
+#include "../Utils/PerfTimer.h"
 
 
 static thread_local HANDLE hMapFile = nullptr;
@@ -46,6 +50,140 @@ static const int ServerDtPipeDataSize = 512;
 namespace
 {
 constexpr size_t MaxPendingReplyCount = 64;
+constexpr size_t MaxDiagnosticRecordCount = 256;
+constexpr size_t MaxDiagnosticQueuedUnits = 32 * 1024;
+constexpr DWORD DiagnosticFlushDelayMs = 250;
+std::mutex diagnosticLogMutex;
+std::deque<std::wstring> diagnosticLogRecords;
+size_t diagnosticLogQueuedUnits = 0;
+uint32_t diagnosticLogDroppedCount = 0;
+bool diagnosticFlushScheduled = false;
+
+void CALLBACK FlushTsfDiagnosticLogs(PTP_CALLBACK_INSTANCE, PVOID);
+
+void ScheduleDiagnosticFlushLocked()
+{
+    if (diagnosticFlushScheduled)
+    {
+        return;
+    }
+    diagnosticFlushScheduled = true;
+    DllAddRef();
+    if (!TrySubmitThreadpoolCallback(FlushTsfDiagnosticLogs, nullptr, nullptr))
+    {
+        diagnosticFlushScheduled = false;
+        DllRelease();
+    }
+}
+
+bool SendDiagnosticBatch(const FanyImeTsfDiagnosticBatchHeader &header, const std::wstring &payload)
+{
+    HANDLE pipe = INVALID_HANDLE_VALUE;
+    for (int attempt = 0; attempt < 2; ++attempt)
+    {
+        pipe = CreateFileW(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (pipe != INVALID_HANDLE_VALUE)
+        {
+            break;
+        }
+        if (GetLastError() != ERROR_PIPE_BUSY || !WaitNamedPipeW(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, 20))
+        {
+            break;
+        }
+    }
+    if (pipe == INVALID_HANDLE_VALUE)
+    {
+        return false;
+    }
+
+    const size_t payloadBytes = payload.size() * sizeof(wchar_t);
+    std::vector<unsigned char> frame(sizeof(header) + payloadBytes);
+    memcpy(frame.data(), &header, sizeof(header));
+    if (payloadBytes != 0)
+    {
+        memcpy(frame.data() + sizeof(header), payload.data(), payloadBytes);
+    }
+    DWORD bytesWritten = 0;
+    const BOOL writeResult = WriteFile(pipe, frame.data(), static_cast<DWORD>(frame.size()), &bytesWritten, nullptr);
+    CloseHandle(pipe);
+    return writeResult && bytesWritten == frame.size();
+}
+
+void CALLBACK FlushTsfDiagnosticLogs(PTP_CALLBACK_INSTANCE, PVOID)
+{
+    Sleep(DiagnosticFlushDelayMs);
+
+    FanyImeTsfDiagnosticBatchHeader header;
+    std::vector<std::wstring> batchRecords;
+    batchRecords.reserve(MaxDiagnosticRecordCount);
+    size_t batchUnits = 0;
+    std::wstring payload;
+    bool loggingDisabled = false;
+    {
+        std::lock_guard lock(diagnosticLogMutex);
+        if (!Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
+        {
+            diagnosticLogRecords.clear();
+            diagnosticLogQueuedUnits = 0;
+            diagnosticLogDroppedCount = 0;
+            diagnosticFlushScheduled = false;
+            loggingDisabled = true;
+        }
+        else
+        {
+            const size_t maxPayloadUnits =
+                (FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES - sizeof(FanyImeTsfDiagnosticBatchHeader)) /
+                sizeof(wchar_t);
+            while (!diagnosticLogRecords.empty())
+            {
+                const std::wstring &record = diagnosticLogRecords.front();
+                if (!batchRecords.empty() && batchUnits + record.size() > maxPayloadUnits)
+                {
+                    break;
+                }
+                batchUnits += (std::min)(record.size(), maxPayloadUnits - batchUnits);
+                diagnosticLogQueuedUnits -= record.size();
+                batchRecords.push_back(std::move(diagnosticLogRecords.front()));
+                diagnosticLogRecords.pop_front();
+                ++header.record_count;
+                if (batchUnits == maxPayloadUnits)
+                {
+                    break;
+                }
+            }
+            header.dropped_count = diagnosticLogDroppedCount;
+            header.source_process_id = GetCurrentProcessId();
+            diagnosticLogDroppedCount = 0;
+        }
+    }
+    if (loggingDisabled)
+    {
+        DllRelease();
+        return;
+    }
+
+    payload.reserve(batchUnits);
+    for (const std::wstring &record : batchRecords)
+    {
+        payload.append(record.data(), (std::min)(record.size(), batchUnits - payload.size()));
+    }
+    header.payload_bytes = static_cast<uint32_t>(payload.size() * sizeof(wchar_t));
+
+    const bool sent = header.record_count != 0 && SendDiagnosticBatch(header, payload);
+    {
+        std::lock_guard lock(diagnosticLogMutex);
+        if (!sent)
+        {
+            diagnosticLogDroppedCount += header.record_count;
+        }
+        diagnosticFlushScheduled = false;
+        if (!diagnosticLogRecords.empty())
+        {
+            ScheduleDiagnosticFlushLocked();
+        }
+    }
+    DllRelease();
+}
 // These tokens fence messages that can outlive a CMetasequoiaIME instance.
 // Per-instance counters can collide after HWND/HANDLE reuse during a rapid
 // deactivate/reactivate cycle.
@@ -846,6 +984,68 @@ KeyEventSendResult SendKeyEventToUIProcess(uint64_t *requestId)
     return SendKeyEventToUIProcessViaNamedPipe(requestId);
 }
 
+void DebugTsfKeyLatency(const wchar_t *stage, uint64_t requestId, double elapsedMs, HRESULT result)
+{
+    constexpr double kSlowStageThresholdMs = 8.0;
+    if (!Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed) ||
+        (elapsedMs < kSlowStageThresholdMs && SUCCEEDED(result)))
+    {
+        return;
+    }
+
+    const std::wstring message = fmt::format(
+        L"[msime][key-latency] side=tsf stage={} request={} elapsed_ms={:.3f} result=0x{:08X} process={}\n",
+        stage, requestId, elapsedMs, static_cast<unsigned long>(result),
+        Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
+    QueueTsfDiagnosticLog(message);
+}
+
+void QueueTsfDiagnosticLog(const std::wstring &line)
+{
+    if (!Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
+    {
+        return;
+    }
+
+    std::wstring sanitized = line;
+    for (wchar_t &ch : sanitized)
+    {
+        if (ch == L'\r' || ch == L'\n')
+        {
+            ch = L' ';
+        }
+    }
+    while (!sanitized.empty() && sanitized.back() == L' ')
+    {
+        sanitized.pop_back();
+    }
+    constexpr size_t MaxSingleRecordUnits = 1024;
+    if (sanitized.size() > MaxSingleRecordUnits)
+    {
+        sanitized.resize(MaxSingleRecordUnits);
+    }
+    SYSTEMTIME sourceTime{};
+    GetLocalTime(&sourceTime);
+    sanitized = fmt::format(
+        L"[tsf source={:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} p{}:t{} tick={}] {}\n",
+        sourceTime.wYear, sourceTime.wMonth, sourceTime.wDay, sourceTime.wHour, sourceTime.wMinute,
+        sourceTime.wSecond, sourceTime.wMilliseconds, GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(),
+        sanitized);
+
+    std::lock_guard lock(diagnosticLogMutex);
+    while (!diagnosticLogRecords.empty() &&
+           (diagnosticLogRecords.size() >= MaxDiagnosticRecordCount ||
+            diagnosticLogQueuedUnits + sanitized.size() > MaxDiagnosticQueuedUnits))
+    {
+        diagnosticLogQueuedUnits -= diagnosticLogRecords.front().size();
+        diagnosticLogRecords.pop_front();
+        ++diagnosticLogDroppedCount;
+    }
+    diagnosticLogQueuedUnits += sanitized.size();
+    diagnosticLogRecords.push_back(std::move(sanitized));
+    ScheduleDiagnosticFlushLocked();
+}
+
 int SendHideCandidateWndEventToUIProcess()
 {
     return SendHideCandidateWndEventToUIProcessViaNamedPipe();
@@ -997,6 +1197,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
                                                                       bool abortTransportOnTimeout)
 {
     constexpr int timeoutMs = 50;
+    PerfTimer replyWaitTimer;
 
     auto transportUnavailable = []() {
         transportUnavailableReply = {};
@@ -1052,6 +1253,8 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
             hFromServerPipe, &namedpipeDataFromServer, sizeof(namedpipeDataFromServer), remainingMs, bytesRead);
         if (readResult == OverlappedReadResult::TimedOut)
         {
+            DebugTsfKeyLatency(L"reply-wait-timeout", expectedRequestId, replyWaitTimer.ElapsedMs(),
+                               HRESULT_FROM_WIN32(ERROR_TIMEOUT));
             if (!abortTransportOnTimeout)
             {
                 return softMiss(expectedRequestId);
@@ -1062,6 +1265,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
         }
         if (readResult == OverlappedReadResult::Failed)
         {
+            DebugTsfKeyLatency(L"reply-read-failed", expectedRequestId, replyWaitTimer.ElapsedMs(), E_FAIL);
             ClosePipeHandleIfValid(hFromServerPipe);
             pendingReplies.clear();
             unsolicitedReplies.clear();
@@ -1070,6 +1274,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
         }
         if (bytesRead != sizeof(namedpipeDataFromServer))
         {
+            DebugTsfKeyLatency(L"reply-size-invalid", expectedRequestId, replyWaitTimer.ElapsedMs(), E_FAIL);
             ClosePipeHandleIfValid(hFromServerPipe);
             pendingReplies.clear();
             unsolicitedReplies.clear();
@@ -1078,6 +1283,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
         }
         if (!IsValidServerReply(namedpipeDataFromServer))
         {
+            DebugTsfKeyLatency(L"reply-frame-invalid", expectedRequestId, replyWaitTimer.ElapsedMs(), E_FAIL);
             ClosePipeHandleIfValid(hFromServerPipe);
             pendingReplies.clear();
             unsolicitedReplies.clear();
@@ -1090,6 +1296,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
         if (namedpipeDataFromServer.msg_type != Global::DataFromServerMsgType::PipeReady &&
             namedpipeDataFromServer.request_id == expectedRequestId)
         {
+            DebugTsfKeyLatency(L"reply-wait", expectedRequestId, replyWaitTimer.ElapsedMs(), S_OK);
             return &namedpipeDataFromServer;
         }
 
@@ -1109,8 +1316,11 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
     // a broken transport and schedule a tokenized reset plus local cancel.
     if (!abortTransportOnTimeout)
     {
+        DebugTsfKeyLatency(L"reply-soft-miss", expectedRequestId, replyWaitTimer.ElapsedMs(), S_FALSE);
         return softMiss(expectedRequestId);
     }
+    DebugTsfKeyLatency(L"reply-id-timeout", expectedRequestId, replyWaitTimer.ElapsedMs(),
+                       HRESULT_FROM_WIN32(ERROR_TIMEOUT));
     ClosePipeHandleIfValid(hFromServerPipe);
     RequestNamedpipeReconnect();
     return transportUnavailable();

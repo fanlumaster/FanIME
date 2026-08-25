@@ -3,6 +3,94 @@
 #include "MetasequoiaIME.h"
 #include "Ipc.h"
 
+bool CMetasequoiaIME::_IsSameComObject(_In_opt_ IUnknown *left, _In_opt_ IUnknown *right)
+{
+    if (left == nullptr || right == nullptr)
+    {
+        return left == right;
+    }
+
+    IUnknown *leftIdentity = nullptr;
+    IUnknown *rightIdentity = nullptr;
+    const HRESULT leftHr = left->QueryInterface(IID_IUnknown, reinterpret_cast<void **>(&leftIdentity));
+    const HRESULT rightHr = right->QueryInterface(IID_IUnknown, reinterpret_cast<void **>(&rightIdentity));
+    const bool matches = SUCCEEDED(leftHr) && SUCCEEDED(rightHr) && leftIdentity == rightIdentity;
+    if (leftIdentity)
+    {
+        leftIdentity->Release();
+    }
+    if (rightIdentity)
+    {
+        rightIdentity->Release();
+    }
+    return matches;
+}
+
+void CMetasequoiaIME::_DebugCompositionRecovery(_In_z_ const WCHAR *reason, HRESULT hr) const
+{
+    if (!Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
+    {
+        return;
+    }
+
+    WCHAR message[512] = {};
+    const WCHAR *processName =
+        Global::current_process_name.empty() ? L"unknown" : Global::current_process_name.c_str();
+    StringCchPrintfW(message, ARRAYSIZE(message),
+                     L"[msime][composition-recovery] reason=%s hr=0x%08lX epoch=%llu focus_token=%llu process=%s\n",
+                     reason, static_cast<unsigned long>(hr),
+                     static_cast<unsigned long long>(_CaptureCompositionEpoch()),
+                     static_cast<unsigned long long>(_CaptureFocusSessionToken()), processName);
+    QueueTsfDiagnosticLog(message);
+}
+
+namespace
+{
+bool HasActiveComposingProperty(_In_ ITfContext *context, TfEditCookie ecReadOnly,
+                                _In_ ITfComposition *composition, _Out_ HRESULT *result)
+{
+    *result = E_FAIL;
+    ITfRange *compositionRange = nullptr;
+    HRESULT hr = composition->GetRange(&compositionRange);
+    if (FAILED(hr) || compositionRange == nullptr)
+    {
+        *result = FAILED(hr) ? hr : E_FAIL;
+        return false;
+    }
+
+    BOOL isEmpty = FALSE;
+    hr = compositionRange->IsEmpty(ecReadOnly, &isEmpty);
+    if (SUCCEEDED(hr) && isEmpty)
+    {
+        // StartComposition legitimately creates an empty range before the
+        // first preedit update. There is no covered text on which GetValue
+        // could return GUID_PROP_COMPOSING yet.
+        compositionRange->Release();
+        *result = S_OK;
+        return true;
+    }
+
+    ITfProperty *composingProperty = nullptr;
+    hr = context->GetProperty(GUID_PROP_COMPOSING, &composingProperty);
+    if (FAILED(hr) || composingProperty == nullptr)
+    {
+        compositionRange->Release();
+        *result = FAILED(hr) ? hr : E_FAIL;
+        return false;
+    }
+
+    VARIANT value;
+    VariantInit(&value);
+    hr = composingProperty->GetValue(ecReadOnly, compositionRange, &value);
+    const bool active = SUCCEEDED(hr) && value.vt == VT_I4 && value.lVal != 0;
+    VariantClear(&value);
+    composingProperty->Release();
+    compositionRange->Release();
+    *result = hr;
+    return active;
+}
+} // namespace
+
 //+---------------------------------------------------------------------------
 //
 // ITfTextEditSink::OnEndEdit
@@ -28,6 +116,20 @@ STDAPI CMetasequoiaIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCook
     if (pEditRecord == nullptr)
     {
         return E_INVALIDARG;
+    }
+    if (_IsComposing() && !_localSessionResetPending.load(std::memory_order_acquire))
+    {
+        HRESULT compositionStateHr = S_OK;
+        const bool ownerMatches = pContext && _pContext && _IsSameComObject(pContext, _pContext);
+        const bool propertyActive =
+            ownerMatches && HasActiveComposingProperty(pContext, ecReadOnly, _pComposition, &compositionStateHr);
+        if (!ownerMatches || !propertyActive)
+        {
+            _DebugCompositionRecovery(ownerMatches ? L"composing-property-missing" : L"edit-context-mismatch",
+                                      compositionStateHr);
+            MarkNamedpipeSessionDirtyForOwner(this);
+            return S_OK;
+        }
     }
     if (SUCCEEDED(pEditRecord->GetSelectionStatus(&isSelectionChanged)) && isSelectionChanged)
     {
