@@ -320,6 +320,13 @@ bool IsYModeInput(const std::string &raw)
     return IsYModeCompositionActive(raw) && raw.size() > 1;
 }
 
+bool IsShiftLetterSpecialModeTriggered()
+{
+    return g_quick_phrase_triggered || g_unicode_mode_triggered || g_date_time_mode_triggered ||
+           g_emoji_mode_triggered || g_kaomoji_mode_triggered || g_jianpin_mode_triggered ||
+           g_y_mode_triggered || g_r_mode_triggered;
+}
+
 void ClearSpecialModeTriggers()
 {
     g_quick_phrase_triggered = false;
@@ -1294,6 +1301,7 @@ enum class TaskType
     ApplyEmojiCandidates,
     ApplyKaomojiCandidates,
     StoreUserPhrase,
+    LearnEnteredEnglishWord,
     PinCandidate,
     ClientActivated,
     ClientDeactivated,
@@ -1591,6 +1599,13 @@ void WorkerThread()
                 session->store_user_phrase(task.session_pinyin, task.session_word);
             }
             session->reset_cache();
+            break;
+        }
+
+        case TaskType::LearnEnteredEnglishWord: {
+            (void)user_dictionary::learn_entered_english_word(
+                CommonUtils::get_ime_data_path() + "\\english.db", user_dictionary::default_user_db_path(),
+                task.session_word);
             break;
         }
 
@@ -2071,6 +2086,19 @@ void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &wo
         task.session_pinyin = pinyin;
         task.session_word = word;
         task.session_pinyin_is_canonical = pinyin_is_canonical;
+        taskQueue.push(std::move(task));
+    }
+    pipe_queueCv.notify_one();
+}
+
+void EnqueueLearnEnteredEnglishWordTask(const std::string &word)
+{
+    if (word.empty()) return;
+    {
+        std::lock_guard lock(queueMutex);
+        Task task;
+        task.type = TaskType::LearnEnteredEnglishWord;
+        task.session_word = word;
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -3496,6 +3524,15 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool chinese_scheme = g_inputSession &&
                                 (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
                                  g_inputSession->current_scheme_type() == SchemeType::Shuangpin);
+    if (Global::Keycode == VK_RETURN && !input_before_key.empty())
+    {
+        std::string english_word;
+        const bool shift_letter_special_mode = IsShiftLetterSpecialModeTriggered();
+        if (FanyImeIpc::ShouldLearnEnteredEnglishWord(g_english_input_mode, shift_letter_special_mode, chinese_scheme,
+                                                      g_inputSession->is_all_complete_pure_pinyin()))
+            english_word = g_r_mode_triggered ? "R" + input_before_key : input_before_key;
+        EnqueueLearnEnteredEnglishWordTask(english_word);
+    }
     if (chinese_scheme && !g_english_input_mode && GetConfiguredQuickPhraseEnabled() && input_before_key.empty() &&
         Global::Keycode == 'K' && Global::Wch == L'K' && shift_only)
         g_quick_phrase_triggered = true;

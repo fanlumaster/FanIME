@@ -20,6 +20,17 @@ TEST_CASE(english_ime_status_requires_backend_independent_composition_reset)
     REQUIRE(!FanyImeIpc::ShouldResetCompositionForImeMode(true));
 }
 
+TEST_CASE(enter_english_learning_does_not_conflict_with_shift_letter_special_modes)
+{
+    REQUIRE(FanyImeIpc::ShouldLearnEnteredEnglishWord(false, false, true, false));
+    REQUIRE(FanyImeIpc::ShouldLearnEnteredEnglishWord(true, false, true, true));
+    // K/U/T/E/M/J/Y modes and the temporary R-mode session all use this path.
+    REQUIRE(FanyImeIpc::ShouldLearnEnteredEnglishWord(false, true, true, true));
+    REQUIRE(FanyImeIpc::ShouldLearnEnteredEnglishWord(false, true, false, true));
+    REQUIRE(!FanyImeIpc::ShouldLearnEnteredEnglishWord(false, false, true, true));
+    REQUIRE(!FanyImeIpc::ShouldLearnEnteredEnglishWord(false, false, false, false));
+}
+
 TEST_CASE(numpad_digits_are_normalized_to_candidate_digit_keys)
 {
     REQUIRE(FanyImeIpc::NormalizeNumpadDigitKey(0x60) == '0');

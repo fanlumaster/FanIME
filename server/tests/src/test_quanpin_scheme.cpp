@@ -31,9 +31,20 @@ std::filesystem::path CreatePinyinCacheDatabase()
         "PRAGMA journal_mode=WAL;"
         "CREATE TABLE tbl_1_n(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
         "CREATE TABLE tbl_1_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_1_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
         "CREATE TABLE tbl_2_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_2_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
         "CREATE TABLE tbl_3_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
-        "INSERT INTO tbl_3_a VALUES('ao''shi''ke','ask','奥湿克',1);";
+        "CREATE TABLE tbl_3_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_4_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_5_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "INSERT INTO tbl_3_a VALUES('ao''shi''ke','ask','奥湿克',1);"
+        "INSERT INTO tbl_1_x VALUES('xian','x','__primary_xian_1__',1000);"
+        "INSERT INTO tbl_1_x VALUES('xian','x','__primary_xian_2__',900);"
+        "INSERT INTO tbl_1_x VALUES('xian','x','__primary_xian_3__',800);"
+        "INSERT INTO tbl_2_x VALUES('xi''an','xa','__alternative_xi_an__',1);"
+        "INSERT INTO tbl_4_x VALUES('xi''an''xian''xian','xaxx','__three_syllable_alternative__',100);"
+        "INSERT INTO tbl_5_x VALUES('xi''an''xian''xian''xian','xaxxx','__four_syllable_alternative__',100);";
     const int result = sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
     sqlite3_close(db);
     if (result != SQLITE_OK)
@@ -141,6 +152,89 @@ TEST_CASE(QuanpinCandidateCacheKeepsManualSegmentationBoundariesDistinct)
     const auto manual_candidates = dictionary.query("fang'an", "fang'an");
     REQUIRE(std::none_of(manual_candidates.begin(), manual_candidates.end(),
                          [&](const WordItem &item) { return item.word == automatic_only_candidate; }));
+
+    const auto same_segmentation_manual_candidates = dictionary.query("fan'gan", "fan'gan");
+    REQUIRE(std::none_of(same_segmentation_manual_candidates.begin(), same_segmentation_manual_candidates.end(),
+                         [&](const WordItem &item) { return item.word == automatic_only_candidate; }));
+}
+
+TEST_CASE(QuanpinSyllableGraphKeepsEveryCompleteSegmentation)
+{
+    REQUIRE(quanpin::has_only_complete_pinyin_segments(quanpin::Segments{"xi", "an"}));
+    REQUIRE(!quanpin::has_only_complete_pinyin_segments(quanpin::Segments{"x", "ian"}));
+
+    const auto graph = quanpin::build_syllable_graph("xian");
+    const auto segmentations = quanpin::enumerate_complete_segmentations(graph);
+    REQUIRE_EQ(segmentations.size(), static_cast<size_t>(2));
+    REQUIRE(std::find(segmentations.begin(), segmentations.end(), quanpin::Segments{"xian"}) != segmentations.end());
+    REQUIRE(std::find(segmentations.begin(), segmentations.end(), quanpin::Segments{"xi", "an"}) !=
+            segmentations.end());
+}
+
+TEST_CASE(QuanpinDictionaryUsesSyllableGraphAlternativeSegmentations)
+{
+    QuanpinDictionary dictionary;
+
+    const auto fangan_candidates = dictionary.query("fangan", "fan'gan");
+    const auto fangan_solution = std::find_if(fangan_candidates.begin(), fangan_candidates.end(),
+                                              [](const WordItem &item) { return item.word == "方案"; });
+    REQUIRE(fangan_solution != fangan_candidates.end());
+    REQUIRE_EQ(fangan_solution->canonical_pinyin, std::string("fang'an"));
+    REQUIRE_EQ(fangan_candidates.front().word, std::string("方案"));
+
+    const auto qinai_candidates = dictionary.query("qinai", "qi'nai");
+    const auto qinai_solution = std::find_if(qinai_candidates.begin(), qinai_candidates.end(),
+                                             [](const WordItem &item) { return item.word == "亲爱"; });
+    REQUIRE(qinai_solution != qinai_candidates.end());
+    REQUIRE_EQ(qinai_solution->canonical_pinyin, std::string("qin'ai"));
+    REQUIRE_EQ(qinai_candidates.front().word, std::string("亲爱"));
+
+    const auto xian_candidates = dictionary.query("xian", "xian");
+    const auto xian_solution = std::find_if(xian_candidates.begin(), xian_candidates.end(),
+                                            [](const WordItem &item) { return item.word == "西安"; });
+    REQUIRE(xian_solution != xian_candidates.end());
+    REQUIRE_EQ(xian_solution->canonical_pinyin, std::string("xi'an"));
+    REQUIRE(static_cast<size_t>(std::distance(xian_candidates.begin(), xian_solution)) <= static_cast<size_t>(1));
+}
+
+TEST_CASE(QuanpinDictionaryRequiresCompletePrimarySegmentsBeforeTryingAlternatives)
+{
+    QuanpinDictionary dictionary;
+    const auto candidates = dictionary.query("xian", "x'ian");
+    REQUIRE(
+        std::none_of(candidates.begin(), candidates.end(), [](const WordItem &item) { return item.word == "西安"; }));
+}
+
+TEST_CASE(QuanpinDictionaryKeepsBestAlternativeSegmentationNearTheFront)
+{
+    const auto db_path = CreatePinyinCacheDatabase();
+    {
+        QuanpinDictionary dictionary(db_path.string());
+        const auto candidates = dictionary.query("xian", "xian");
+        const auto alternative = std::find_if(candidates.begin(), candidates.end(), [](const WordItem &item) {
+            return item.word == "__alternative_xi_an__";
+        });
+        REQUIRE(alternative != candidates.end());
+        REQUIRE(static_cast<size_t>(std::distance(candidates.begin(), alternative)) <= static_cast<size_t>(1));
+    }
+    std::filesystem::remove(db_path);
+}
+
+TEST_CASE(QuanpinDictionaryOnlyTriesMultipleSegmentationsForAtMostThreeSyllables)
+{
+    const auto db_path = CreatePinyinCacheDatabase();
+    {
+        QuanpinDictionary dictionary(db_path.string());
+
+        const auto three_syllable_candidates = dictionary.query("xianxianxian", "xian'xian'xian");
+        REQUIRE(std::any_of(three_syllable_candidates.begin(), three_syllable_candidates.end(),
+                            [](const WordItem &item) { return item.word == "__three_syllable_alternative__"; }));
+
+        const auto four_syllable_candidates = dictionary.query("xianxianxianxian", "xian'xian'xian'xian");
+        REQUIRE(std::none_of(four_syllable_candidates.begin(), four_syllable_candidates.end(),
+                             [](const WordItem &item) { return item.word == "__four_syllable_alternative__"; }));
+    }
+    std::filesystem::remove(db_path);
 }
 
 TEST_CASE(QuanpinCandidateCacheDetectsExternalDictionaryWrites)

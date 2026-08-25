@@ -47,6 +47,16 @@ constexpr bool ShouldResetCompositionForImeMode(bool chinese_mode)
     return !chinese_mode;
 }
 
+// Enter commits the raw composition instead of choosing a special-mode
+// candidate. Therefore a Shift+letter wake key must not by itself prevent an
+// otherwise non-pinyin English word (for example "Metasequoia") from being
+// learned. The database layer still validates the final string.
+constexpr bool ShouldLearnEnteredEnglishWord(bool dedicated_english_mode, bool shift_letter_special_mode,
+                                             bool chinese_scheme, bool all_complete_pinyin)
+{
+    return dedicated_english_mode || shift_letter_special_mode || (chinese_scheme && !all_complete_pinyin);
+}
+
 constexpr bool InputSessionMatchesConfig(bool configured_scheme_matches, bool temporary_r_mode_active,
                                          bool session_is_japanese)
 {

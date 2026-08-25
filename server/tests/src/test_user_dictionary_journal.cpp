@@ -154,6 +154,40 @@ TEST_CASE(UserDictionaryTracksOnlyExplicitUserInsertionsForExport)
     std::filesystem::remove_all(directory);
 }
 
+TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
+{
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("msime-enter-english-" + std::to_string(GetCurrentProcessId()));
+    std::filesystem::create_directories(directory);
+    const auto user_path = directory / "msime_user.db";
+    const auto english_path = directory / "english.db";
+
+    {
+        TestDatabase english_db(english_path);
+    }
+
+    REQUIRE(user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), "Codex"));
+    REQUIRE(user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), "Codex"));
+    for (const char *word : {"Kotlin", "Ubuntu", "TypeScript", "Emoji", "Metasequoia", "Java", "YouTube", "Rust"})
+        REQUIRE(user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), word));
+    REQUIRE(!user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), "ni'hao"));
+    REQUIRE(!user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), "hello2"));
+    REQUIRE(!user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(),
+                                                         std::string(65, 'a')));
+
+    {
+        TestDatabase english_db(english_path);
+        REQUIRE_EQ(english_db.scalar_int(
+                       "SELECT COUNT(*) FROM english_words WHERE word='codex' AND display='Codex' AND weight=10"),
+                   1);
+        REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words"), 9);
+    }
+    REQUIRE(user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::English,
+                                              "codex", "Codex"));
+
+    std::filesystem::remove_all(directory);
+}
+
 TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
 {
     const auto directory = std::filesystem::temp_directory_path() /
