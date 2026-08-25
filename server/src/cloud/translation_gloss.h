@@ -4,7 +4,7 @@
 
 namespace CloudTranslation
 {
-// Collapse whitespace and keep a short candidate-window gloss.
+// Collapse whitespace for candidate-window gloss. Length is left to layout.
 std::string FormatGloss(const std::string &text);
 bool ShouldPersistGloss(const std::string &key, const std::string &formatted);
 size_t Utf8Length(const std::string &text);

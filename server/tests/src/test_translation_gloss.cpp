@@ -1,7 +1,7 @@
 #include "tests/includes/test_framework.h"
 #include "cloud/translation_gloss.h"
 
-TEST_CASE(CloudTranslationFormatsAndTruncatesGloss)
+TEST_CASE(CloudTranslationFormatsGlossWithoutTruncating)
 {
     REQUIRE_EQ(CloudTranslation::FormatGloss("  hello   world \n"), std::string("hello world"));
     REQUIRE(CloudTranslation::FormatGloss("   ").empty());
@@ -9,16 +9,16 @@ TEST_CASE(CloudTranslationFormatsAndTruncatesGloss)
     std::string long_text;
     for (int i = 0; i < 30; ++i)
         long_text += "字";
-    const std::string formatted = CloudTranslation::FormatGloss(long_text);
-    REQUIRE_EQ(CloudTranslation::Utf8Length(formatted), static_cast<size_t>(27));
-    REQUIRE(formatted.size() >= 3);
-    REQUIRE(formatted.substr(formatted.size() - 3) == "...");
+    REQUIRE_EQ(CloudTranslation::FormatGloss(long_text), long_text);
+    REQUIRE_EQ(CloudTranslation::Utf8Length(CloudTranslation::FormatGloss(long_text)), static_cast<size_t>(30));
 }
 
 TEST_CASE(CloudTranslationPersistPolicyRejectsUselessGloss)
 {
     REQUIRE(CloudTranslation::ShouldPersistGloss("水杉", "metasequoia"));
     REQUIRE(!CloudTranslation::ShouldPersistGloss("hello", "hello"));
+    REQUIRE(CloudTranslation::ShouldPersistGloss("长句", std::string(32, 'a')));
+    REQUIRE(!CloudTranslation::ShouldPersistGloss("长句", std::string(33, 'a')));
     REQUIRE(!CloudTranslation::ShouldPersistGloss("a", ""));
     REQUIRE(!CloudTranslation::IsUsableSecret(""));
     REQUIRE(!CloudTranslation::IsUsableSecret("  <YOUR_OWN_TENCENT_SECRET_ID> "));
