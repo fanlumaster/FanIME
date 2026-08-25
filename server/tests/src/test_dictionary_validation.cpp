@@ -26,3 +26,22 @@ TEST_CASE(QuickPhraseValidationMatchesNamedPipeWcharCapacity)
     REQUIRE(SettingsDictionary::Validation::QuickPhraseFitsNamedPipe(std::string(197, 'a') + emoji));
     REQUIRE(!SettingsDictionary::Validation::QuickPhraseFitsNamedPipe(std::string(198, 'a') + emoji));
 }
+
+TEST_CASE(CodedDictionaryImportRequiresTabsAndPreservesSpacesInWords)
+{
+    std::string word;
+    std::string code;
+    std::string message;
+    int weight = -1;
+
+    REQUIRE(SettingsDictionary::Validation::ParseCodedImportLine("包含 空格的词\tbao'han'kong'ge'de'ci\t123", word,
+                                                                 code, weight, message));
+    REQUIRE_EQ(word, std::string("包含 空格的词"));
+    REQUIRE_EQ(code, std::string("bao'han'kong'ge'de'ci"));
+    REQUIRE_EQ(weight, 123);
+
+    REQUIRE(!SettingsDictionary::Validation::ParseCodedImportLine("普通词 putongci 10", word, code, weight, message));
+    REQUIRE(!SettingsDictionary::Validation::ParseCodedImportLine("普通词\tputongci", word, code, weight, message));
+    REQUIRE(!SettingsDictionary::Validation::ParseCodedImportLine("普通词\tputongci\t10\textra", word, code, weight,
+                                                                  message));
+}

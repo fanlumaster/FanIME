@@ -5,6 +5,9 @@
 #include "MetasequoiaImeEngine/quanpin/quanpin_utils.h"
 #include "MetasequoiaImeEngine/schemes/quanpin_scheme.h"
 #include <algorithm>
+#include <filesystem>
+#include <sqlite3.h>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -13,6 +16,32 @@ namespace
 void InputKey(QuanpinScheme &scheme, UINT vk, WCHAR wch, UINT modifiers_down = 0)
 {
     scheme.handle_key(vk, modifiers_down, wch);
+}
+
+std::filesystem::path CreatePinyinCacheDatabase()
+{
+    const auto path = std::filesystem::temp_directory_path() / "msime-pinyin-cache-refresh-test.db";
+    std::filesystem::remove(path);
+    sqlite3 *db = nullptr;
+    if (sqlite3_open(path.string().c_str(), &db) != SQLITE_OK)
+    {
+        throw std::runtime_error("Failed to create temporary pinyin database.");
+    }
+    const char *sql =
+        "PRAGMA journal_mode=WAL;"
+        "CREATE TABLE tbl_1_n(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_1_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_2_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_3_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "INSERT INTO tbl_3_a VALUES('ao''shi''ke','ask','奥湿克',1);";
+    const int result = sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
+    sqlite3_close(db);
+    if (result != SQLITE_OK)
+    {
+        std::filesystem::remove(path);
+        throw std::runtime_error("Failed to initialize temporary pinyin database.");
+    }
+    return path;
 }
 }
 
@@ -112,6 +141,29 @@ TEST_CASE(QuanpinCandidateCacheKeepsManualSegmentationBoundariesDistinct)
     const auto manual_candidates = dictionary.query("fang'an", "fang'an");
     REQUIRE(std::none_of(manual_candidates.begin(), manual_candidates.end(),
                          [&](const WordItem &item) { return item.word == automatic_only_candidate; }));
+}
+
+TEST_CASE(QuanpinCandidateCacheDetectsExternalDictionaryWrites)
+{
+    const auto db_path = CreatePinyinCacheDatabase();
+    {
+        QuanpinDictionary dictionary(db_path.string());
+        const auto before = dictionary.query("aoshike", "ao'shi'ke");
+        REQUIRE(std::none_of(before.begin(), before.end(),
+                             [](const WordItem &item) { return item.word == "澳鳾科"; }));
+
+        sqlite3 *writer = nullptr;
+        REQUIRE_EQ(sqlite3_open(db_path.string().c_str(), &writer), SQLITE_OK);
+        REQUIRE_EQ(sqlite3_exec(writer,
+                                "INSERT INTO tbl_3_a VALUES('ao''shi''ke','ask','澳鳾科',1)",
+                                nullptr, nullptr, nullptr), SQLITE_OK);
+        sqlite3_close(writer);
+
+        const auto after = dictionary.query("aoshike", "ao'shi'ke");
+        REQUIRE(std::any_of(after.begin(), after.end(),
+                            [](const WordItem &item) { return item.word == "澳鳾科"; }));
+    }
+    std::filesystem::remove(db_path);
 }
 
 TEST_CASE(QuanpinSchemePreservesUppercaseRawInputForHelpcodes)

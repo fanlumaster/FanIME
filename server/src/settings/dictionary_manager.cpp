@@ -375,35 +375,7 @@ bool InsertChineseWord(sqlite3 *db, const quanpin::Segments &segments, const std
 
 bool ParseImportLine(const std::string &line, std::string &word, std::string &code, int &weight, std::string &message)
 {
-    std::istringstream iss(line);
-    std::string weight_str;
-    std::string extra;
-    if (!(iss >> word >> code >> weight_str) || (iss >> extra))
-    {
-        message = "格式错误，应为：词语 全拼 权重（全拼可用 ' 分音节）";
-        return false;
-    }
-    if (word.empty() || code.empty())
-    {
-        message = "词语和拼音不能为空";
-        return false;
-    }
-    if (weight_str.empty() || !std::all_of(weight_str.begin(), weight_str.end(),
-                                           [](unsigned char ch) { return std::isdigit(ch); }))
-    {
-        message = "权重必须是非负整数";
-        return false;
-    }
-    try
-    {
-        weight = (std::max)(0, std::stoi(weight_str));
-    }
-    catch (...)
-    {
-        message = "权重数值无效";
-        return false;
-    }
-    return true;
+    return Validation::ParseCodedImportLine(line, word, code, weight, message);
 }
 
 json::object ImportChinese(const json::object &request)
@@ -438,10 +410,7 @@ json::object ImportChinese(const json::object &request)
     {
         ++line_no;
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        const auto begin = line.find_first_not_of(" \t");
-        if (begin == std::string::npos) continue;
-        const auto end = line.find_last_not_of(" \t");
-        line = line.substr(begin, end - begin + 1);
+        if (line.find_first_not_of(" \t") == std::string::npos) continue;
 
         std::string word, code;
         int weight = 0;
@@ -889,9 +858,118 @@ json::object HandleEnglish(const json::object &request)
     return Result(ok, ok ? std::string("英文词条") + label + "成功" : std::string(label) + "失败：" + sqlite3_errmsg(db.get()));
 }
 
+json::object ImportWubi(const json::object &request)
+{
+    std::string content = StringValue(request, "content");
+    if (content.size() >= 3 && static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB && static_cast<unsigned char>(content[2]) == 0xBF)
+        content.erase(0, 3);
+    if (content.find_first_not_of(" \t\r\n") == std::string::npos)
+        return Result(false, "文件内容为空");
+
+    std::string error;
+    Db db = OpenDatabase("msime.db", error);
+    if (!db) return Result(false, "打开五笔词库失败：" + error);
+    Stmt insert = Prepare(db.get(),
+        "INSERT INTO wubi86(key,value,weight) SELECT ?1,?2,?3 "
+        "WHERE NOT EXISTS (SELECT 1 FROM wubi86 WHERE key=?1 AND value=?2)", error);
+    if (!insert) return Result(false, "准备导入失败：" + error);
+
+    const auto valid_code = [](const std::string &value) {
+        return !value.empty() &&
+               std::all_of(value.begin(), value.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; });
+    };
+    int inserted = 0;
+    int skipped = 0;
+    int failed = 0;
+    std::vector<std::string> error_details;
+    const auto append_error = [&](int line_no, const std::string &detail) {
+        ++failed;
+        if (error_details.size() < 5)
+            error_details.push_back("第 " + std::to_string(line_no) + " 行：" + detail);
+    };
+
+    sqlite3_exec(db.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    std::istringstream stream(content);
+    std::string line;
+    int line_no = 0;
+    while (std::getline(stream, line))
+    {
+        ++line_no;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.find_first_not_of(" \t") == std::string::npos) continue;
+
+        std::string word;
+        std::string code;
+        std::string message;
+        int weight = 0;
+        if (!Validation::ParseCodedImportLine(line, word, code, weight, message))
+        {
+            append_error(line_no, message);
+            continue;
+        }
+        std::transform(code.begin(), code.end(), code.begin(),
+                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (!valid_code(code))
+        {
+            append_error(line_no, "五笔编码只能包含英文字母");
+            continue;
+        }
+
+        sqlite3_reset(insert.get());
+        sqlite3_clear_bindings(insert.get());
+        const bool ok = BindText(insert.get(), 1, code) && BindText(insert.get(), 2, word) &&
+                        sqlite3_bind_int(insert.get(), 3, weight) == SQLITE_OK &&
+                        sqlite3_step(insert.get()) == SQLITE_DONE;
+        if (!ok)
+        {
+            append_error(line_no, "写入失败：" + std::string(sqlite3_errmsg(db.get())));
+            continue;
+        }
+        if (sqlite3_changes(db.get()) == 0)
+        {
+            ++skipped;
+            continue;
+        }
+        (void)user_dictionary::record_user_insert(user_dictionary::default_user_db_path(),
+                                                  user_dictionary::DictionaryKind::Wubi,
+                                                  code, word, weight);
+        ++inserted;
+    }
+    sqlite3_exec(db.get(), "COMMIT", nullptr, nullptr, nullptr);
+
+    if (inserted == 0 && skipped == 0 && failed == 0)
+        return Result(false, "文件中没有可导入的词条");
+    std::string message;
+    if (inserted > 0) message += "成功导入 " + std::to_string(inserted) + " 条";
+    if (skipped > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "跳过 " + std::to_string(skipped) + " 条（已存在）";
+    }
+    if (failed > 0)
+    {
+        if (!message.empty()) message += "，";
+        message += "失败 " + std::to_string(failed) + " 条";
+        if (!error_details.empty())
+        {
+            message += "。";
+            for (size_t i = 0; i < error_details.size(); ++i)
+            {
+                if (i) message += "；";
+                message += error_details[i];
+            }
+            if (static_cast<int>(error_details.size()) < failed) message += "等";
+        }
+    }
+    if (inserted > 0) NotifyImeServerClearDictCache();
+    return Result(inserted > 0 || (failed == 0 && skipped > 0), message);
+}
+
 json::object HandleWubi(const json::object &request)
 {
     const std::string action = StringValue(request, "action");
+    if (action == "import") return ImportWubi(request);
     std::string code = StringValue(request, "code");
     const std::string word = StringValue(request, "word");
     const int weight = (std::max)(0, IntValue(request, "weight", 10));
