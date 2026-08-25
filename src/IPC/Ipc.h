@@ -1,4 +1,5 @@
 #pragma once
+
 #include "VoiceCompositionPipe.h"
 #include <Windows.h>
 #include <atomic>
@@ -217,6 +218,9 @@ int WriteDataToSharedMemory(           //
 );
 KeyEventSendResult SendKeyEventToUIProcess(_Out_opt_ uint64_t *requestId = nullptr);
 void DebugTsfKeyLatency(_In_z_ const wchar_t *stage, uint64_t requestId, double elapsedMs, HRESULT result);
+void DebugTsfIssue47(_In_z_ const wchar_t *stage, uint64_t requestId, UINT code, WCHAR wch,
+                     UINT category, UINT function, int eaten, BOOL composing,
+                     size_t virtualKeyLength, HRESULT result, uint64_t correlationToken = 0);
 void QueueTsfDiagnosticLog(const std::wstring &line);
 int SendHideCandidateWndEventToUIProcess();
 int SendShowCandidateWndEventToUIProcess();

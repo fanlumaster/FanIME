@@ -401,10 +401,23 @@ STDAPI CMetasequoiaIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfCo
     PerfTimer timer;
     if (pComposition == nullptr || !_IsCompositionCurrent(pComposition))
     {
+        DebugTsfIssue47(L"host-terminated-stale-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0',
+                        0, 0, -1, _IsComposing(),
+                        _pCompositionProcessorEngine
+                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
+                            : 0,
+                        S_FALSE, _CaptureCompositionEpoch());
         // A delayed termination callback for an older composition must never
         // delete the current candidate presenter or release newer ownership.
         return S_OK;
     }
+
+    DebugTsfIssue47(L"host-terminated-current-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0',
+                    0, 0, -1, TRUE,
+                    _pCompositionProcessorEngine
+                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
+                        : 0,
+                    S_OK, _CaptureCompositionEpoch());
 
     // The callback already carries a write cookie and the host has already
     // ended this exact composition. Detach ownership before making COM calls,

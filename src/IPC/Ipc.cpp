@@ -1,6 +1,7 @@
 #include "Ipc.h"
 #include <algorithm>
 #include <cstring>
+#include <cwctype>
 #include <debugapi.h>
 #include <deque>
 #include <handleapi.h>
@@ -58,6 +59,7 @@ std::deque<std::wstring> diagnosticLogRecords;
 size_t diagnosticLogQueuedUnits = 0;
 uint32_t diagnosticLogDroppedCount = 0;
 bool diagnosticFlushScheduled = false;
+std::atomic<uint64_t> issue47Sequence{0};
 
 void CALLBACK FlushTsfDiagnosticLogs(PTP_CALLBACK_INSTANCE, PVOID);
 
@@ -996,6 +998,62 @@ void DebugTsfKeyLatency(const wchar_t *stage, uint64_t requestId, double elapsed
     const std::wstring message = fmt::format(
         L"[msime][key-latency] side=tsf stage={} request={} elapsed_ms={:.3f} result=0x{:08X} process={}\n",
         stage, requestId, elapsedMs, static_cast<unsigned long>(result),
+        Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
+    QueueTsfDiagnosticLog(message);
+}
+
+void DebugTsfIssue47(const wchar_t *stage, uint64_t requestId, UINT code, WCHAR wch,
+                     UINT category, UINT function, int eaten, BOOL composing,
+                     size_t virtualKeyLength, HRESULT result, uint64_t correlationToken)
+{
+    if (!Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
+    {
+        return;
+    }
+
+    // This is an explicitly enabled, short-lived diagnostic trace. Keep both
+    // the VK and translated code point so a TestKeyDown can be matched to the
+    // exact OnKeyDown/edit-session path. Composition/candidate/document text
+    // is deliberately still excluded.
+    const wchar_t *keyClass = L"other";
+    if (wch != L'\0' && std::iswprint(static_cast<wint_t>(wch)) != 0)
+    {
+        keyClass = L"printable";
+    }
+    else if (code == VK_BACK)
+    {
+        keyClass = L"backspace";
+    }
+    else if (code == VK_DELETE)
+    {
+        keyClass = L"delete";
+    }
+    else if (code == VK_LEFT || code == VK_RIGHT || code == VK_UP || code == VK_DOWN ||
+             code == VK_HOME || code == VK_END || code == VK_PRIOR || code == VK_NEXT)
+    {
+        keyClass = L"navigation";
+    }
+    else if (code == VK_SHIFT || code == VK_CONTROL || code == VK_MENU ||
+             code == VK_LWIN || code == VK_RWIN)
+    {
+        keyClass = L"modifier";
+    }
+    else if (code == VK_RETURN || code == VK_SPACE || code == VK_TAB || code == VK_ESCAPE)
+    {
+        keyClass = L"control";
+    }
+    const wchar_t keyText[2] = {
+        wch != L'\0' && std::iswprint(static_cast<wint_t>(wch)) != 0 ? wch : L'-',
+        L'\0'};
+
+    const uint64_t sequence = issue47Sequence.fetch_add(1, std::memory_order_relaxed) + 1;
+    const std::wstring message = fmt::format(
+        L"[msime][issue47] seq={} stage={} request={} vk=0x{:02X} wch=U+{:04X} key={} "
+        L"key_class={} category={} function={} eaten={} composing={} buffer_len={} "
+        L"result=0x{:08X} correlation={} process={}\n",
+        sequence, stage, requestId, code, static_cast<unsigned int>(wch), keyText,
+        keyClass, category, function, eaten, composing ? 1 : 0, virtualKeyLength,
+        static_cast<unsigned long>(result), correlationToken,
         Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
     QueueTsfDiagnosticLog(message);
 }

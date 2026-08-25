@@ -365,7 +365,7 @@ HRESULT CMetasequoiaIME::_HandleCancelVoiceComposition(TfEditCookie ec, _In_ ITf
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch,
-                                                 uint64_t requestId)
+                                                  uint64_t requestId)
 {
     HRESULT workerResult = S_OK;
     ITfRange *pRangeComposition = nullptr;
@@ -385,11 +385,27 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
     if (!_IsComposing())
     {
         _StartComposition(pContext);
+        if (!_IsComposing())
+        {
+            DebugTsfIssue47(L"composition-start-missing", requestId, 0, wch,
+                            CATEGORY_COMPOSING, FUNCTION_INPUT, 1, FALSE,
+                            pCompositionProcessorEngine
+                                ? pCompositionProcessorEngine->GetVirtualKeyLength()
+                                : 0,
+                            E_FAIL);
+            return E_FAIL;
+        }
     }
 
     // first, test where a keystroke would go in the document if we did an insert
     if (pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched) != S_OK || fetched != 1)
     {
+        DebugTsfIssue47(L"composition-selection-failed", requestId, 0, wch,
+                        CATEGORY_COMPOSING, FUNCTION_INPUT, 1, _IsComposing(),
+                        pCompositionProcessorEngine
+                            ? pCompositionProcessorEngine->GetVirtualKeyLength()
+                            : 0,
+                        E_FAIL);
         return S_FALSE;
     }
 
@@ -402,6 +418,9 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
 
         if (!isCovered)
         {
+            DebugTsfIssue47(L"composition-selection-outside", requestId, 0, wch,
+                            CATEGORY_COMPOSING, FUNCTION_INPUT, 1, _IsComposing(),
+                            pCompositionProcessorEngine->GetVirtualKeyLength(), S_FALSE);
             goto Exit;
         }
     }
@@ -416,6 +435,11 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
 
     workerResult = _HandleCompositionInputWorker(
         pCompositionProcessorEngine, ec, pContext, requestId);
+
+    DebugTsfIssue47(L"composition-input-complete", requestId, 0, wch,
+                    CATEGORY_COMPOSING, FUNCTION_INPUT, 1, _IsComposing(),
+                    pCompositionProcessorEngine->GetVirtualKeyLength(), workerResult,
+                    static_cast<uint64_t>(previousLength));
 
 Exit:
     tfSelection.range->Release();
@@ -1370,6 +1394,12 @@ HRESULT CMetasequoiaIME::_InvokeKeyHandler(_In_ ITfContext *pContext, UINT code,
     HRESULT requestHr = pContext->RequestEditSession(_tfClientId, pEditSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE,
                                                      &editSessionHr);
     hr = FAILED(requestHr) ? requestHr : editSessionHr;
+    DebugTsfIssue47(L"edit-session-request", requestId, code, wch,
+                    keyState.Category, keyState.Function, 1, _IsComposing(),
+                    _pCompositionProcessorEngine
+                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
+                        : 0,
+                    hr, deferredReplayToken);
     if ((FAILED(requestHr) || FAILED(editSessionHr)) &&
         deferredReplayToken != 0)
     {
