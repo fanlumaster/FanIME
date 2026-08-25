@@ -100,6 +100,11 @@ export function applyTencentTmtConfig(config: Record<string, unknown> | undefine
   const secretKey = document.getElementById('tencentTmtSecretKey') as HTMLInputElement | null;
   if (secretId && typeof config?.secret_id === 'string') secretId.value = config.secret_id;
   if (secretKey && typeof config?.secret_key === 'string') secretKey.value = config.secret_key;
+  applyDropdownValue(
+    'translationTargetLanguageBtn',
+    'translationTargetLanguageMenu',
+    typeof config?.target_language === 'string' ? config.target_language : 'en'
+  );
   syncCandidateTranslationWarning();
 }
 
@@ -168,6 +173,13 @@ export function setupInput(): void {
     syncCandidateTranslationOptions(active);
     updateConfig('general.candidate_translations', active);
   });
+  setupDropdownMenu(
+    'translationTargetLanguageBtn',
+    'translationTargetLanguageMenu',
+    '',
+    true,
+    'tencent_tmt.target_language'
+  );
   const translationFields: Record<string, string> = {
     tencentTmtSecretId: 'tencent_tmt.secret_id',
     tencentTmtSecretKey: 'tencent_tmt.secret_key'

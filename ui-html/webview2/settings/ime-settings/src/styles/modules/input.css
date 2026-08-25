@@ -53,8 +53,19 @@
   opacity: 0.45;
 }
 
-.translation-api-options.is-disabled .translation-api-grid {
+.translation-api-options.is-disabled .translation-api-grid,
+.translation-api-options.is-disabled .translation-language-row {
   pointer-events: none;
+}
+
+.translation-language-row {
+  padding: 14px 0;
+  gap: 16px;
+}
+
+.translation-language-toggle,
+.translation-language-menu {
+  min-width: 140px;
 }
 
 .translation-api-heading {

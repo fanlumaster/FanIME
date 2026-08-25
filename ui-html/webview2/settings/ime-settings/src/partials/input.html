@@ -119,7 +119,7 @@
     <div class="section-header">
       <div>
         <div class="section-title">候选词翻译</div>
-        <div class="input-setting-description">仅在竖排候选窗口中显示中英互译，每项最多两个简短释义</div>
+        <div class="input-setting-description">仅在竖排候选窗口中显示中文与所选语种的互译，每项最多两个简短释义</div>
       </div>
       <div class="ftb-toggle-btn active" id="candidateTranslationsToggleBtn" role="switch" aria-checked="true" tabindex="0">
         <div class="ftb-toggle-knob"></div>
@@ -127,9 +127,28 @@
     </div>
     <div class="translation-api-options" id="candidateTranslationApiOptions">
       <div class="input-option-divider"></div>
+      <div class="section-header translation-language-row">
+        <div>
+          <div class="section-title">目标语种</div>
+          <div class="input-setting-description">英语优先使用本地词库；其他语种直接使用腾讯云翻译</div>
+        </div>
+        <div class="dropdown">
+          <button class="dropdown-toggle translation-language-toggle" id="translationTargetLanguageBtn">
+            <span>英语</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu translation-language-menu" id="translationTargetLanguageMenu">
+            <div class="dropdown-item" data-value="en">英语</div>
+            <div class="dropdown-item" data-value="fr">法语</div>
+            <div class="dropdown-item" data-value="ja">日语</div>
+            <div class="dropdown-item" data-value="es">西班牙语</div>
+            <div class="dropdown-item" data-value="ru">俄语</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
       <div class="translation-api-heading">
         <div class="section-title">腾讯云 API 凭据</div>
-        <div class="input-setting-description">用于本地词库未命中时请求机器翻译，凭据仅保存在本机配置文件中</div>
+        <div class="input-setting-description">用于在线机器翻译，凭据仅保存在本机配置文件中</div>
       </div>
       <div class="translation-api-grid">
         <label class="translation-api-field">
