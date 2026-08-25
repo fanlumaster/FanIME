@@ -420,6 +420,12 @@ HANDLE CreateAuxNamedPipeInstance()
     return CreateNamedPipeInstance(FANY_IME_AUX_NAMED_PIPE, 128, 128);
 }
 
+HANDLE CreateTsfDiagnosticNamedPipeInstance()
+{
+    return CreateNamedPipeInstance(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, 128,
+                                   static_cast<DWORD>(FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES));
+}
+
 HANDLE CreateToTsfNamedPipeInstance()
 {
     return CreateNamedPipeInstance(
@@ -450,6 +456,10 @@ int InitNamedPipe()
 
     // Nmaedpipe for reconnecting main pipe
     hAuxPipe = CreateAuxNamedPipeInstance();
+
+    // Short-lived, batch-only TSF diagnostic transport. It is independent of
+    // Aux so logging can never delay lifecycle or settings notifications.
+    hTsfDiagnosticPipe = CreateTsfDiagnosticNamedPipeInstance();
 
     // Namedpipe for passing data from this process to TSF process
     hToTsfPipe = CreateToTsfNamedPipeInstance();

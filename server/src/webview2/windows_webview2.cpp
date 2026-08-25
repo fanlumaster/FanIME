@@ -27,6 +27,11 @@
 #include <algorithm>
 #include <cmath>
 
+// WebView diagnostics were useful while fixing the rendering issues, but they
+// overwhelm the input-latency trace. Keep these call sites compiled out.
+#undef DIAG_LOGF
+#define DIAG_LOGF(...) ((void)0)
+
 #pragma comment(lib, "dcomp.lib")
 
 namespace json = boost::json;
@@ -1365,51 +1370,7 @@ void SyncCandidateWebViewBoundsToHost(HWND hwnd)
 
 void LogCandidateLayoutSnapshot(const wchar_t *stage)
 {
-    if (!DiagnosticLog::IsEnabled())
-    {
-        return;
-    }
-    if (!webviewCandWnd)
-    {
-        DIAG_LOGF(L"ui-dom stage={} skipped: no webview", stage ? stage : L"unknown");
-        return;
-    }
-    const wchar_t *script = LR"JS((function(){
-      function snap(id){
-        var e=document.getElementById(id); if(!e)return null;
-        var r=e.getBoundingClientRect(),s=getComputedStyle(e);
-        return {id:id,rect:[r.left,r.top,r.right,r.bottom,r.width,r.height],
-          client:[e.clientWidth,e.clientHeight],offset:[e.offsetWidth,e.offsetHeight],
-          scroll:[e.scrollWidth,e.scrollHeight],overflow:[s.overflowX,s.overflowY],
-          boxSizing:s.boxSizing,max:[s.maxWidth,s.maxHeight],margin:[s.marginLeft,s.marginTop],
-          padding:[s.paddingLeft,s.paddingTop,s.paddingRight,s.paddingBottom],
-          font:[s.fontFamily,s.fontSize,s.lineHeight]};
-      }
-      var de=document.documentElement,b=document.body,v=window.visualViewport;
-      return JSON.stringify({ready:document.readyState,dpr:window.devicePixelRatio,
-        window:[window.innerWidth,window.innerHeight,window.outerWidth,window.outerHeight],
-        viewport:v?[v.width,v.height,v.scale,v.offsetLeft,v.offsetTop]:null,
-        document:de?[de.clientWidth,de.clientHeight,de.scrollWidth,de.scrollHeight]:null,
-        body:b?[b.clientWidth,b.clientHeight,b.scrollWidth,b.scrollHeight]:null,
-        screen:[screen.width,screen.height,screen.availWidth,screen.availHeight],
-        nodes:[snap('measureContainerParent'),snap('measureContainer'),
-          snap('realContainerParent'),snap('realContainer')]});
-    })())JS";
-    const std::wstring stageName = stage ? stage : L"unknown";
-    const HRESULT submitHr = webviewCandWnd->ExecuteScript(
-        script, Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-                    [stageName](HRESULT errorCode, LPCWSTR result) -> HRESULT {
-                        constexpr size_t kMaxSnapshotChars = 8192;
-                        const std::wstring snapshot = result
-                                                          ? std::wstring(result, (std::min)(wcslen(result),
-                                                                                         kMaxSnapshotChars))
-                                                          : L"<null>";
-                        DIAG_LOGF(L"ui-dom stage={} callback_hr={:#x} snapshot={}", stageName,
-                                  static_cast<unsigned>(errorCode), snapshot);
-                        return S_OK;
-                    })
-                    .Get());
-    DIAG_LOGF(L"ui-dom stage={} submit_hr={:#x}", stageName, static_cast<unsigned>(submitHr));
+    (void)stage;
 }
 
 int PrepareHtmlForWnds()
@@ -3029,6 +2990,17 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.tsf_diagnostic_log")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredTsfDiagnosticLogEnabled(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged,
+                                        value ? L"1" : L"0");
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("tencent_tmt.", 0) == 0)
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -3383,6 +3355,7 @@ void PostSettingsConfig()
           {"general",
            {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
+            {"tsf_diagnostic_log", GetConfiguredTsfDiagnosticLogEnabled()},
             {"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
             {"floating_toolbar_punctuation", toolbar.punctuation},

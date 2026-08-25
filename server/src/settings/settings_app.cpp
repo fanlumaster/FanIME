@@ -239,6 +239,7 @@ void PostConfig()
           {"general",
            {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
+            {"tsf_diagnostic_log", GetConfiguredTsfDiagnosticLogEnabled()},
             {"floating_toolbar", GetConfiguredFloatingToolbarEnabled()},
             {"floating_toolbar_fullwidth", toolbar.fullwidth},
             {"floating_toolbar_punctuation", toolbar.punctuation},
@@ -437,6 +438,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredFloatingToolbarEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.diagnostic_log" || path == "general.candidate_window_diagnostic_log")
         return SetConfiguredDiagnosticLogEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.tsf_diagnostic_log")
+        return SetConfiguredTsfDiagnosticLogEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.floating_toolbar_scale")
     {
         const json::value &value = data.at("value");

@@ -16,12 +16,17 @@ inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
 inline const wchar_t *FANY_IME_TO_TSF_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfNamedPipe";
 inline const wchar_t *FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfWorkerThreadNamedPipe";
 inline const wchar_t *FANY_IME_AUX_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeAuxNamedPipe";
+inline const wchar_t *FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeTsfDiagnosticNamedPipe";
+inline constexpr uint32_t FANY_IME_TSF_DIAGNOSTIC_MAGIC = 0x474F4C54; // "TLOG"
+inline constexpr uint32_t FANY_IME_TSF_DIAGNOSTIC_VERSION = 1;
+inline constexpr size_t FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES = 16 * 1024;
 inline constexpr DWORD FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY = 64;
 inline constexpr DWORD FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY = 32;
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
 inline HANDLE hToTsfPipe = INVALID_HANDLE_VALUE;
 inline HANDLE hToTsfWorkerThreadPipe = INVALID_HANDLE_VALUE;
 inline HANDLE hAuxPipe = INVALID_HANDLE_VALUE;
+inline HANDLE hTsfDiagnosticPipe = INVALID_HANDLE_VALUE;
 inline bool mainConnected = false;
 inline HANDLE mainPipeThread = NULL;
 inline bool toTsfConnected = false;
@@ -218,9 +223,22 @@ struct FanyImeNamedpipeDataToTsfWorkerThread
     wchar_t data[200];
 };
 
+struct FanyImeTsfDiagnosticBatchHeader
+{
+    uint32_t magic = FANY_IME_TSF_DIAGNOSTIC_MAGIC;
+    uint32_t version = FANY_IME_TSF_DIAGNOSTIC_VERSION;
+    uint32_t header_size = 28;
+    uint32_t payload_bytes = 0;
+    uint32_t record_count = 0;
+    uint32_t dropped_count = 0;
+    uint32_t source_process_id = 0;
+};
+
 static_assert(sizeof(FanyImePipeHello) == 16, "FanyImePipeHello ABI must match the TSF client");
 static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) == 404,
               "FanyImeNamedpipeDataToTsfWorkerThread ABI must match the TSF client");
+static_assert(sizeof(FanyImeTsfDiagnosticBatchHeader) == 28,
+              "FanyImeTsfDiagnosticBatchHeader ABI must match the TSF client");
 static_assert(sizeof(FanyImeNamedpipeDataToTsf) * FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY >=
                   sizeof(FanyImeNamedpipeDataToTsf) * 64,
               "The TSF reply pipe must buffer at least 64 complete replies");
@@ -234,6 +252,7 @@ int InitNamedPipe();
 int CloseNamedPipe();
 HANDLE CreateMainNamedPipeInstance();
 HANDLE CreateAuxNamedPipeInstance();
+HANDLE CreateTsfDiagnosticNamedPipeInstance();
 HANDLE CreateToTsfNamedPipeInstance();
 HANDLE CreateToTsfWorkerThreadNamedPipeInstance();
 int OpenToTsfNamedPipe();
@@ -370,7 +389,9 @@ constexpr UINT CommitVoiceComposition = 17;
 // Payload "1" when input.mode is Japanese, otherwise "0".
 constexpr UINT InputModeChanged = 18;
 constexpr UINT CapsLockChanged = 19;
-constexpr UINT MaxKnown = CapsLockChanged;
+// Enables buffered TSF diagnostics sent to Server. Payload "0"/"1".
+constexpr UINT TsfDiagnosticLogChanged = 20;
+constexpr UINT MaxKnown = TsfDiagnosticLogChanged;
 } // namespace DataFromServerMsgTypeToTsfWorkerThread
 
 } // namespace Global

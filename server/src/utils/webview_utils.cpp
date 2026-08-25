@@ -7,6 +7,9 @@
 #include "utils/common_utils.h"
 #include <boost/json.hpp>
 
+#undef DIAG_LOGF
+#define DIAG_LOGF(...) ((void)0)
+
 namespace json = boost::json;
 
 void MeasureDomUpdateTime(ComPtr<ICoreWebView2> webview)

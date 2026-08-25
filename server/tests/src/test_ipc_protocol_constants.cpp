@@ -13,6 +13,15 @@ TEST_CASE(ipc_reverse_pipes_buffer_multiple_complete_frames)
             sizeof(FanyImeNamedpipeDataToTsfWorkerThread) * 16);
 }
 
+TEST_CASE(tsf_diagnostic_batches_have_a_bounded_versioned_frame)
+{
+    REQUIRE_EQ(FANY_IME_TSF_DIAGNOSTIC_MAGIC, 0x474F4C54u);
+    REQUIRE_EQ(FANY_IME_TSF_DIAGNOSTIC_VERSION, 1u);
+    REQUIRE_EQ(sizeof(FanyImeTsfDiagnosticBatchHeader), 28u);
+    REQUIRE_EQ(FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES, 16u * 1024u);
+    REQUIRE(sizeof(FanyImeTsfDiagnosticBatchHeader) < FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES);
+}
+
 TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
 {
     REQUIRE_EQ(Global::DataFromServerMsgType::PipeReady, 9u);
@@ -33,7 +42,8 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::CommitVoiceComposition, 17u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged, 18u);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged, 19u);
-    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown, 19u);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged, 20u);
+    REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown, 20u);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::FocusSessionReady >
             Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady >
@@ -58,8 +68,10 @@ TEST_CASE(ipc_pipe_ready_is_a_distinct_server_reply)
             Global::DataFromServerMsgTypeToTsfWorkerThread::CommitVoiceComposition);
     REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged >
             Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged);
+    REQUIRE(Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged >
+            Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged);
     REQUIRE_EQ(Global::DataFromServerMsgTypeToTsfWorkerThread::MaxKnown,
-               Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged);
+               Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged);
 }
 
 TEST_CASE(ipc_client_suspension_is_a_distinct_nonterminal_route_reset)

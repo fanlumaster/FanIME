@@ -28,6 +28,8 @@
 #include <windowsx.h>
 #include "resource/resource.h"
 
+#define WEBVIEW_DIAG_LOGF(...) ((void)0)
+
 #pragma comment(lib, "dwmapi.lib")
 
 constexpr UINT_PTR TIMER_ID_INIT_WEBVIEW_MENU = 2;
@@ -271,7 +273,7 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
 
     if (right <= left || bottom <= top)
     {
-        DIAG_LOGF(L"ui-region invalid client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
+        WEBVIEW_DIAG_LOGF(L"ui-region invalid client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
                   L"input_scale={:.3f} hwnd_scale={:.3f} computed=({},{})-({},{}) -> cleared",
                   client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
                   containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, top, right,
@@ -293,7 +295,7 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
     {
         DeleteObject(region);
     }
-    DIAG_LOGF(L"ui-region client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
+    WEBVIEW_DIAG_LOGF(L"ui-region client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
               L"input_scale={:.3f} hwnd_scale={:.3f} region=({},{})-({},{}) result={} gle={}",
               client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
               containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, top, right,
@@ -1475,6 +1477,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_smart_punctuation_repeat_to_chinese =
                 GetConfiguredSmartPunctuationRepeatToChineseEnabled();
             const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
+            const bool previous_tsf_diagnostic_log = GetConfiguredTsfDiagnosticLogEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
             const std::string previous_theme_cand = GetConfiguredThemeCand();
@@ -1558,6 +1561,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
                         GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_tsf_diagnostic_log != GetConfiguredTsfDiagnosticLogEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged,
+                        GetConfiguredTsfDiagnosticLogEnabled() ? L"1" : L"0");
                 }
                 const VoiceInputConfig &voice_input = GetConfiguredVoiceInput();
                 if (previous_voice_input.enabled != voice_input.enabled ||
@@ -2087,6 +2096,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_smart_punctuation_repeat_to_chinese =
                 GetConfiguredSmartPunctuationRepeatToChineseEnabled();
             const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
+            const bool previous_tsf_diagnostic_log = GetConfiguredTsfDiagnosticLogEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
             const std::string previous_theme_cand = GetConfiguredThemeCand();
@@ -2177,6 +2187,12 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
                         GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_tsf_diagnostic_log != GetConfiguredTsfDiagnosticLogEnabled())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged,
+                        GetConfiguredTsfDiagnosticLogEnabled() ? L"1" : L"0");
                 }
                 PostSettingsConfig();
             }
@@ -2499,11 +2515,11 @@ int FineTuneWindow(HWND hwnd)
     {
         (void)0;
         LogSmallWindowReadyGate(L"fine-tune-no-webview");
-        CAND_DIAG_LOGF(L"fine-tune skipped: no webview {}", DescribeCandidateHostState());
+        WEBVIEW_DIAG_LOGF(L"fine-tune skipped: no webview {}", DescribeCandidateHostState());
         return 0;
     }
     const uint64_t generation = ++g_candidate_finetune_generation;
-    CAND_DIAG_LOGF(L"fine-tune begin generation={} caret=({},{}) {}", generation, caretX, caretY,
+    WEBVIEW_DIAG_LOGF(L"fine-tune begin generation={} caret=({},{}) {}", generation, caretX, caretY,
                    DescribeCandidateHostState());
     // Wrap/scroll budget = stable host size (half-screen DIP). Width wraps;
     // height scrolls inside the card when fonts make the list taller than host.
@@ -2516,7 +2532,7 @@ int FineTuneWindow(HWND hwnd)
     HMONITOR caretMonitor = MonitorFromPoint(caretPt, MONITOR_DEFAULTTONEAREST);
     MONITORINFO caretMonitorInfo{sizeof(caretMonitorInfo)};
     const bool hasMonitorInfo = caretMonitor && GetMonitorInfo(caretMonitor, &caretMonitorInfo);
-    DIAG_LOGF(L"ui-layout generation={} config layout={} font={} cn_font_size={} preedit_font_size={} page_size={} "
+    WEBVIEW_DIAG_LOGF(L"ui-layout generation={} config layout={} font={} cn_font_size={} preedit_font_size={} page_size={} "
               L"caret=({},{}) point_scale={:.3f} webview_scale={:.3f} hwnd_dpi={} system_dpi={} "
               L"monitor=({},{})-({},{}) "
               L"work=({},{})-({},{}) half_dip=({:.2f},{:.2f}) monitor_info={}",
@@ -2548,14 +2564,14 @@ int FineTuneWindow(HWND hwnd)
             // measure callback was still pending — do not resurrect it.
             if (!::is_global_wnd_cand_shown || caretY == Global::INVALID_Y)
             {
-                CAND_DIAG_LOGF(L"fine-tune generation={} discarded: hidden={} invalid_caret={}", generation,
+                WEBVIEW_DIAG_LOGF(L"fine-tune generation={} discarded: hidden={} invalid_caret={}", generation,
                                !::is_global_wnd_cand_shown, caretY == Global::INVALID_Y);
                 return;
             }
             // A newer show/update already queued another FineTune — ignore this one.
             if (generation != g_candidate_finetune_generation.load())
             {
-                CAND_DIAG_LOGF(L"fine-tune generation={} discarded: superseded_by={}", generation,
+                WEBVIEW_DIAG_LOGF(L"fine-tune generation={} discarded: superseded_by={}", generation,
                                g_candidate_finetune_generation.load());
                 return;
             }
@@ -2574,7 +2590,7 @@ int FineTuneWindow(HWND hwnd)
             // necessarily the host HWND — host stays at a stable quarter-screen size
             // while the card slides via MarginLeft/MarginTop.
             AdjustCandidateWindowPosition(&pt, containerSize, properPos, halfLimits.scale);
-            DIAG_LOGF(L"ui-layout generation={} pass=measure measured_dip=({:.2f},{:.2f}) "
+            WEBVIEW_DIAG_LOGF(L"ui-layout generation={} pass=measure measured_dip=({:.2f},{:.2f}) "
                       L"capped_dip=({:.2f},{:.2f}) cap=({:.2f},{:.2f}) scale={:.3f} "
                       L"monitor=({},{})-({},{}) proper_pos=({},{}) packing_margin_top={}",
                       generation, measuredSize.first, measuredSize.second, containerSize.first, containerSize.second,
@@ -2687,7 +2703,7 @@ int FineTuneWindow(HWND hwnd)
                 );
             }
             const DWORD positionError = positioned ? ERROR_SUCCESS : GetLastError();
-            DIAG_LOGF(L"ui-layout generation={} pass=host-place desired=({},{},{}x{}) flags={:#x} "
+            WEBVIEW_DIAG_LOGF(L"ui-layout generation={} pass=host-place desired=({},{},{}x{}) flags={:#x} "
                       L"result={} gle={} point_scale={:.3f} margin=({},{})",
                       generation, hostX, hostY, newWidth, newHeight, newFlag, positioned != FALSE, positionError,
                       static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop);
@@ -2745,7 +2761,7 @@ int FineTuneWindow(HWND hwnd)
                     SuppressCandidateDpiChange suppressDpi;
                     SetLastError(0);
                     const BOOL resyncResult = SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
-                    DIAG_LOGF(L"ui-layout generation={} pass=dpi-resync scale={:.3f}->{:.3f} "
+                    WEBVIEW_DIAG_LOGF(L"ui-layout generation={} pass=dpi-resync scale={:.3f}->{:.3f} "
                               L"desired=({},{},{}x{}) result={} gle={} half_dip=({:.2f},{:.2f}) margin=({},{})",
                               generation, static_cast<double>(oldLayoutScale), static_cast<double>(layoutScale), hostX,
                               hostY, hostWidthPx, hostHeightPx, resyncResult != FALSE,
@@ -2783,14 +2799,14 @@ int FineTuneWindow(HWND hwnd)
                     finalSize.first = ClampWidthDipToHalfScreen(finalSize.first, clipLimits);
                     finalSize.second = ClampHeightDipToHalfScreen(finalSize.second, clipLimits);
                     ClipCandidateWindowToContent(hwnd, finalSize, layoutScale);
-                    FTB_DIAG_LOGF(L"cand-clip scale={:.3f} margin=({},{}) size=({:.1f},{:.1f})",
+                    WEBVIEW_DIAG_LOGF(L"cand-clip scale={:.3f} margin=({},{}) size=({:.1f},{:.1f})",
                                   static_cast<double>(layoutScale), Global::MarginLeft, Global::MarginTop,
                                   finalSize.first, finalSize.second);
                     SetHostWindowCloaked(hwnd, false);
                     UpdateSmallWindowWebviewVisibility(hwnd, true);
                     RECT actualRect{};
                     GetWindowRect(hwnd, &actualRect);
-                    CAND_DIAG_LOGF(L"fine-tune generation={} completed size_dip=({:.1f},{:.1f}) "
+                    WEBVIEW_DIAG_LOGF(L"fine-tune generation={} completed size_dip=({:.1f},{:.1f}) "
                                    L"margin=({},{}) rect=({},{},{}x{}) {}",
                                    generation, finalSize.first, finalSize.second, Global::MarginLeft,
                                    Global::MarginTop, actualRect.left, actualRect.top,
@@ -2825,7 +2841,7 @@ int FineTuneWindow(HWND hwnd)
                         HalfScreenDipLimits pass2Limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
                         paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, pass2Limits);
                         paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, pass2Limits);
-                        DIAG_LOGF(L"ui-layout generation={} pass=painted measured_dip=({:.2f},{:.2f}) "
+                        WEBVIEW_DIAG_LOGF(L"ui-layout generation={} pass=painted measured_dip=({:.2f},{:.2f}) "
                                   L"capped_dip=({:.2f},{:.2f}) first_pass=({:.2f},{:.2f}) "
                                   L"cap=({:.2f},{:.2f}) hwnd_scale={:.3f}",
                                   generation, rawPaintedSize.first, rawPaintedSize.second, paintedSize.first,

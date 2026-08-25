@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstring>
 #include <cstdint>
 #include <iterator>
 #include <thread>
@@ -1245,6 +1246,7 @@ void WakeNamedPipeListenersForShutdown()
     WakePipeListener(FANY_IME_TO_TSF_NAMED_PIPE);
     WakePipeListener(FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE);
     WakePipeListener(FANY_IME_AUX_NAMED_PIPE);
+    WakePipeListener(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE);
 }
 
 // The pipe server accepts clients before the candidate window exists, so an
@@ -1317,6 +1319,7 @@ struct Task
     FanyImeNamedpipeData pipe_data = {};
     uint64_t client_id = 0;
     uint64_t activation_epoch = 0;
+    ULONGLONG enqueued_at_ms = 0;
     std::string cloud_candidate;
     std::string cloud_pinyin;
     uint64_t cloud_generation = 0;
@@ -1340,6 +1343,24 @@ struct Task
     bool session_pinyin_is_canonical = false;
     int candidate_one_based_index = 0;
     int fixed_position = 0;
+};
+
+struct ScopedServerKeyLatency
+{
+    uint64_t client_id;
+    uint64_t activation_epoch;
+    uint64_t request_id;
+    ULONGLONG started_at_ms = GetTickCount64();
+
+    ~ScopedServerKeyLatency()
+    {
+        const ULONGLONG elapsed_ms = GetTickCount64() - started_at_ms;
+        if (elapsed_ms >= 8)
+        {
+            DIAG_LOGF(L"[key-latency] side=server stage=handle request={} client={} epoch={} elapsed_ms={}",
+                      request_id, client_id, activation_epoch, elapsed_ms);
+        }
+    }
 };
 
 std::string CurrentRankingContextKey()
@@ -1496,6 +1517,13 @@ void WorkerThread()
         }
 
         case TaskType::ImeKeyEvent: {
+            const ULONGLONG queue_elapsed_ms =
+                task.enqueued_at_ms == 0 ? 0 : GetTickCount64() - task.enqueued_at_ms;
+            if (queue_elapsed_ms >= 8)
+            {
+                DIAG_LOGF(L"[key-latency] side=server stage=queue request={} client={} epoch={} elapsed_ms={}",
+                          task.pipe_data.request_id, task.client_id, task.activation_epoch, queue_elapsed_ms);
+            }
             HandleImeKey(task.client_id, task.activation_epoch, task.pipe_data.request_id);
             break;
         }
@@ -1911,6 +1939,7 @@ void EnqueueTask(TaskType type, const FanyImeNamedpipeData &pipeData, uint64_t a
         task.pipe_data = pipeData;
         task.client_id = pipeData.client_id;
         task.activation_epoch = activation_epoch;
+        task.enqueued_at_ms = GetTickCount64();
         taskQueue.push(std::move(task));
     }
     pipe_queueCv.notify_one();
@@ -2214,8 +2243,15 @@ bool SendCurrentDataToClient(uint64_t client_id, uint64_t activation_epoch, uint
     const UINT msg_type = Global::MsgTypeToTsf;
     FANY_IPC_LOGF(L"[msime]: [ipc] send-current-data: msg_type={}, text={}", msg_type,
                   ::Global::candidate_ui.selected_text);
+    const ULONGLONG send_started_at_ms = GetTickCount64();
     const bool sent = SendToTsfClientViaNamedpipe(client_id, activation_epoch, msg_type, request_id,
                                                   ::Global::candidate_ui.selected_text);
+    const ULONGLONG send_elapsed_ms = GetTickCount64() - send_started_at_ms;
+    if (!sent || send_elapsed_ms >= 8)
+    {
+        DIAG_LOGF(L"[key-latency] side=server stage=reply-send request={} client={} epoch={} elapsed_ms={} sent={}",
+                  request_id, client_id, activation_epoch, send_elapsed_ms, sent);
+    }
     if (sent &&
         (msg_type == Global::DataFromServerMsgType::Normal ||
          msg_type == Global::DataFromServerMsgType::CommitExactText) &&
@@ -2728,6 +2764,9 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged,
                 GetServerCapsLockState() != 0 ? L"1" : L"0");
+            SendToTsfWorkerThreadClientViaNamedpipe(
+                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged,
+                GetConfiguredTsfDiagnosticLogEnabled() ? L"1" : L"0");
         }
     }
 
@@ -2899,6 +2938,96 @@ void AuxPipeEventListenerLoopThread()
     {
         DisconnectNamedPipe(listeningPipe);
         CloseHandle(listeningPipe);
+    }
+}
+
+void TsfDiagnosticPipeEventListenerLoopThread()
+{
+    HANDLE listeningPipe = hTsfDiagnosticPipe;
+    hTsfDiagnosticPipe = INVALID_HANDLE_VALUE;
+    while (pipe_running)
+    {
+        if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+        {
+            listeningPipe = CreateTsfDiagnosticNamedPipeInstance();
+            if (!listeningPipe || listeningPipe == INVALID_HANDLE_VALUE)
+            {
+                Sleep(50);
+                continue;
+            }
+        }
+
+        const BOOL connected = WaitForPipeClient(listeningPipe);
+        if (connected && pipe_running)
+        {
+            std::vector<unsigned char> frame(FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES);
+            DWORD bytesRead = 0;
+            BOOL readResult = FALSE;
+            DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
+            if (SetNamedPipeHandleState(listeningPipe, &pipeMode, nullptr, nullptr))
+            {
+                while (pipe_running)
+                {
+                    readResult = ReadFile(listeningPipe, frame.data(), static_cast<DWORD>(frame.size()),
+                                          &bytesRead, nullptr);
+                    if (readResult || GetLastError() != ERROR_NO_DATA)
+                    {
+                        break;
+                    }
+                    Sleep(1);
+                }
+            }
+
+            FanyImeTsfDiagnosticBatchHeader header{};
+            if (readResult && bytesRead >= sizeof(header))
+            {
+                memcpy(&header, frame.data(), sizeof(header));
+                ULONG clientProcessId = 0;
+                const bool clientMatches =
+                    GetNamedPipeClientProcessId(listeningPipe, &clientProcessId) &&
+                    clientProcessId == header.source_process_id;
+                const bool frameValid =
+                    clientMatches && header.magic == FANY_IME_TSF_DIAGNOSTIC_MAGIC &&
+                    header.version == FANY_IME_TSF_DIAGNOSTIC_VERSION &&
+                    header.header_size == sizeof(header) && header.record_count != 0 &&
+                    header.payload_bytes != 0 && (header.payload_bytes % sizeof(wchar_t)) == 0 &&
+                    sizeof(header) + header.payload_bytes == bytesRead;
+                if (frameValid && GetConfiguredTsfDiagnosticLogEnabled())
+                {
+                    std::wstring payload(header.payload_bytes / sizeof(wchar_t), L'\0');
+                    memcpy(payload.data(), frame.data() + sizeof(header), header.payload_bytes);
+                    if (header.dropped_count != 0)
+                    {
+                        DiagnosticLog::Write(fmt::format(
+                            L"[tsf-log] source_pid={} dropped_records={}", header.source_process_id,
+                            header.dropped_count));
+                    }
+                    size_t start = 0;
+                    while (start < payload.size())
+                    {
+                        const size_t end = payload.find(L'\n', start);
+                        const size_t length =
+                            end == std::wstring::npos ? payload.size() - start : end - start;
+                        if (length != 0)
+                        {
+                            DiagnosticLog::Write(payload.substr(start, length));
+                        }
+                        if (end == std::wstring::npos)
+                        {
+                            break;
+                        }
+                        start = end + 1;
+                    }
+                }
+            }
+        }
+
+        if (listeningPipe && listeningPipe != INVALID_HANDLE_VALUE)
+        {
+            DisconnectNamedPipe(listeningPipe);
+            CloseHandle(listeningPipe);
+            listeningPipe = INVALID_HANDLE_VALUE;
+        }
     }
 }
 
@@ -3337,6 +3466,7 @@ void ApplyKaomojiCandidates(std::vector<WordItem> candidates, const std::string 
  */
 void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id)
 {
+    const ScopedServerKeyLatency latency{client_id, activation_epoch, request_id};
     /* 先清理一下状态 */
     Global::MsgTypeToTsf = Global::DataFromServerMsgType::Normal;
     ::ReadDataFromNamedPipe(0b000111);

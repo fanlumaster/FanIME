@@ -4,8 +4,8 @@
 
 #include "fmt/xchar.h"
 
-// Unified UI diagnostic trace. It covers candidate windows, the floating
-// toolbar, tray menus, WebView2 and the IPC lifecycle that drives them. The
+// Unified Server diagnostic trace. It covers input latency, candidate windows,
+// the floating toolbar, tray menus and the IPC lifecycle that drives them. The
 // trace deliberately records only state, counts, identifiers, coordinates and
 // error codes; user input and candidate text must never be written here.
 namespace DiagnosticLog

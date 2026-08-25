@@ -29,6 +29,7 @@ enum class CandidateUiAction
 void WorkerThread();
 void EventListenerLoopThread();
 void AuxPipeEventListenerLoopThread();
+void TsfDiagnosticPipeEventListenerLoopThread();
 void ToTsfPipeEventListenerLoopThread();
 void ToTsfWorkerThreadPipeEventListenerLoopThread();
 

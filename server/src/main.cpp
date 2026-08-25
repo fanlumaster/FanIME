@@ -140,6 +140,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     ::toTsfWorkerThreadPipeThread = to_tsf_worker_thread_pipe_listener.native_handle();
     /* Aux Named Pipe: session-less UI notices (e.g. langbar right-click menu) */
     std::thread aux_pipe_listener(FanyNamedPipe::AuxPipeEventListenerLoopThread);
+    /* Short-lived TSF diagnostic batches; isolated from all control pipes. */
+    std::thread tsf_diagnostic_pipe_listener(FanyNamedPipe::TsfDiagnosticPipeEventListenerLoopThread);
 
     CloudIme::Start([](const std::string &candidate, const std::string &pinyin, uint64_t generation) {
         FanyNamedPipe::EnqueueCloudCandidate(candidate, pinyin, generation);
@@ -189,6 +191,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     to_tsf_pipe_listener.join();
     to_tsf_worker_thread_pipe_listener.join();
     aux_pipe_listener.join();
+    tsf_diagnostic_pipe_listener.join();
 
     ::CloseIpc();
     CoUninitialize();
