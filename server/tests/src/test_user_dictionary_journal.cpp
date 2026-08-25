@@ -185,6 +185,32 @@ TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
     REQUIRE(user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::English,
                                               "codex", "Codex"));
 
+    const auto main_path = directory / "msime.db";
+    {
+        TestDatabase main_db(main_path);
+        main_db.exec("CREATE TABLE tbl_1_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);");
+        std::filesystem::remove(english_path);
+        TestDatabase factory_english(english_path);
+        factory_english.exec("CREATE TABLE english_words ("
+                             "word TEXT PRIMARY KEY COLLATE BINARY, display TEXT NOT NULL"
+                             ") WITHOUT ROWID;"
+                             "INSERT INTO english_words VALUES('hello','hello');");
+    }
+    const auto replay = user_dictionary::replay(user_path.string(), main_path.string(), english_path.string());
+    REQUIRE(replay.error.empty());
+    REQUIRE_EQ(replay.failed, 0);
+    {
+        TestDatabase english_db(english_path);
+        REQUIRE_EQ(english_db.scalar_int(
+                       "SELECT COUNT(*) FROM english_words WHERE word='codex' AND display='Codex' AND weight=10"),
+                   1);
+        REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='metasequoia' AND "
+                                        "display='Metasequoia' AND weight=10"),
+                   1);
+        REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='hello' AND display='hello'"),
+                   1);
+    }
+
     std::filesystem::remove_all(directory);
 }
 
