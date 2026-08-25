@@ -66,8 +66,11 @@ function setDialogOpen(dialog: HTMLDialogElement, open: boolean): void {
 }
 
 export function setupAboutSettings(): void {
-  setupToggleButton('candidateWindowDiagnosticLogToggleBtn', (active) => {
+  setupToggleButton('serverDiagnosticLogToggleBtn', (active) => {
     updateConfig('general.diagnostic_log', active);
+  });
+  setupToggleButton('tsfDiagnosticLogToggleBtn', (active) => {
+    updateConfig('general.tsf_diagnostic_log', active);
   });
 
   const checkButton = document.getElementById('about-check-update');

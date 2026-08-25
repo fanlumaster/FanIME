@@ -27,10 +27,22 @@
   <div class="section candidate-window-diagnostic-section">
     <div class="section-header">
       <div>
-        <div class="section-title">诊断日志</div>
-        <div class="quick-phrase-description">排查界面异常时开启的总日志开关。记录候选窗、悬浮工具栏、菜单、WebView2、显示器/DPI、焦点会话和通信状态，不记录输入内容或候选文本。日志默认保存到桌面的“水杉IME诊断日志.log”，复现后可直接发送该文件。</div>
+        <div class="section-title">Server 端日志</div>
+        <div class="quick-phrase-description">排查 Server 通信和输入延迟时开启。记录慢请求阶段、候选窗、悬浮工具栏、菜单、焦点会话和通信状态，不记录按键、输入内容或候选文本。日志默认保存到桌面的“水杉IME诊断日志.log”，复现后可直接发送该文件。</div>
       </div>
-      <div class="ftb-toggle-btn" id="candidateWindowDiagnosticLogToggleBtn" role="switch" aria-checked="false" tabindex="0">
+      <div class="ftb-toggle-btn" id="serverDiagnosticLogToggleBtn" role="switch" aria-checked="false" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section candidate-window-diagnostic-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">TSF 端日志</div>
+        <div class="quick-phrase-description">排查应用内预编辑和输入延迟时开启。TSF 日志会在内存中限量缓冲，并通过独立管道批量汇总到桌面的“水杉IME诊断日志.log”；不记录按键、输入内容或候选文本。</div>
+      </div>
+      <div class="ftb-toggle-btn" id="tsfDiagnosticLogToggleBtn" role="switch" aria-checked="false" tabindex="0">
         <div class="ftb-toggle-knob"></div>
       </div>
     </div>

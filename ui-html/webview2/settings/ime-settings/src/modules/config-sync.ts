@@ -94,9 +94,12 @@ export function setupConfigSync(): void {
       payload.data?.general?.candidate_window_diagnostic_log;
     if (typeof diagnosticLog === 'boolean') {
       applyToggleState(
-        'candidateWindowDiagnosticLogToggleBtn',
+        'serverDiagnosticLogToggleBtn',
         diagnosticLog
       );
+    }
+    if (typeof payload.data?.general?.tsf_diagnostic_log === 'boolean') {
+      applyToggleState('tsfDiagnosticLogToggleBtn', payload.data.general.tsf_diagnostic_log);
     }
     if (typeof payload.data?.input?.word_to_character === 'boolean') {
       applyToggleState('wordToCharacterToggleBtn', payload.data.input.word_to_character);
