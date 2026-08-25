@@ -95,10 +95,10 @@ function updateMode(): void {
   document.getElementById('dictHint')!.textContent = english
     ? '按英文前缀查询；批量导入格式为：单词<Tab>显示内容<Tab>权重（兼容无权重的两列文件）'
     : quanpin
-      ? '全拼新增会校验拼音合法性、汉字数量和重复词条；批量导入格式为：词语 全拼 权重（空格或 Tab 分隔，全拼可用 \' 分音节，如 ni\'hao）'
-      : '管理 86 五笔编码、词条及权重';
+      ? '全拼新增会校验拼音合法性、汉字数量和重复词条；批量导入格式为：词语<Tab>全拼<Tab>权重（仅支持 Tab 分隔，全拼可用 \' 分音节，如 ni\'hao）'
+      : '管理 86 五笔编码、词条及权重；批量导入格式为：词语<Tab>五笔编码<Tab>权重（仅支持 Tab 分隔）';
   const importButton = document.getElementById('dictImportButton') as HTMLButtonElement | null;
-  if (importButton) importButton.style.display = dictionary === 'wubi' ? 'none' : '';
+  if (importButton) importButton.style.display = '';
   document.getElementById('dictTableHeader')!.innerHTML = english
     ? '<th class="dict-index-column">No.</th><th>单词</th><th>显示内容</th><th>权重</th><th>操作</th>'
     : '<th class="dict-index-column">No.</th><th>编码</th><th>词条</th><th>权重</th><th>操作</th>';
@@ -155,7 +155,6 @@ export function setupDictionary(): void {
   document.getElementById('dictSearch')?.addEventListener('keydown', (event) => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('dictAddButton')?.addEventListener('click', () => openDialog());
   document.getElementById('dictImportButton')?.addEventListener('click', () => {
-    if (dictionary === 'wubi') { showToast('五笔词库暂不支持批量导入', false); return; }
     (document.getElementById('dictImportFile') as HTMLInputElement | null)?.click();
   });
   document.getElementById('dictImportFile')?.addEventListener('change', async (event) => {
