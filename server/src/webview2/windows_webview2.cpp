@@ -3035,6 +3035,8 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 if (SetConfiguredTencentTmtString(
                                         path.substr(std::string("tencent_tmt.").size()), value))
                                 {
+                                    if (path == "tencent_tmt.target_language")
+                                        FanyNamedPipe::EnqueueRefreshCandidatePageTask();
                                     PostSettingsConfig();
                                 }
                             }
@@ -3407,7 +3409,7 @@ void PostSettingsConfig()
             {"switch_language_ctrl_alt_space", GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
           {"tencent_tmt",
            {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
-            {"region", tencent_tmt.region}}},
+            {"region", tencent_tmt.region}, {"target_language", tencent_tmt.target_language}}},
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},

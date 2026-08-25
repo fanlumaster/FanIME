@@ -935,6 +935,12 @@ bool LoadImeConfig()
         g_tencent_tmt.region = tbl["tencent_tmt"]["region"].value_or(std::string("ap-guangzhou"));
         if (g_tencent_tmt.region.empty())
             g_tencent_tmt.region = "ap-guangzhou";
+        g_tencent_tmt.target_language =
+            tbl["tencent_tmt"]["target_language"].value_or(std::string("en"));
+        if (g_tencent_tmt.target_language != "en" && g_tencent_tmt.target_language != "fr" &&
+            g_tencent_tmt.target_language != "ja" && g_tencent_tmt.target_language != "es" &&
+            g_tencent_tmt.target_language != "ru")
+            g_tencent_tmt.target_language = "en";
         RememberConfigWriteTime();
         return true;
     }
@@ -2743,6 +2749,9 @@ bool SetConfiguredTencentTmtString(const std::string &key, const std::string &va
         target = &g_tencent_tmt.secret_key;
     else if (key == "region")
         target = &g_tencent_tmt.region;
+    else if (key == "target_language" &&
+             (value == "en" || value == "fr" || value == "ja" || value == "es" || value == "ru"))
+        target = &g_tencent_tmt.target_language;
     if (!target || !WriteConfiguredValue("tencent_tmt", key, EscapeTomlBasicString(value)))
         return false;
     *target = value;

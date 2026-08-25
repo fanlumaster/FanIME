@@ -88,8 +88,8 @@ std::shared_ptr<IInputSession> PersistentInputSession()
 
 std::string TranslationIdentity(const EnglishIme::TranslationQuery &query)
 {
-    return std::string(query.direction == EnglishIme::TranslationDirection::EnglishToChinese ? "e:" : "z:") +
-           query.key;
+    return GetConfiguredTencentTmt().target_language + ":" +
+           (query.direction == EnglishIme::TranslationDirection::EnglishToChinese ? "e:" : "z:") + query.key;
 }
 
 bool BuildTranslationQuery(const WordItem &item, EnglishIme::TranslationQuery &query)
@@ -1016,7 +1016,7 @@ void PrepareCandidateTranslationRequest()
     g_candidate_translation_signature = std::move(signature);
     g_candidate_translation_glosses.clear();
     CloudTranslation::Clear();
-    EnglishIme::RequestTranslations(std::move(queries));
+    EnglishIme::RequestTranslations(std::move(queries), GetConfiguredTencentTmt().target_language == "en");
 }
 
 void RefreshCandidatePageUi(bool show_window)

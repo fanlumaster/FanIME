@@ -34,10 +34,16 @@ CloudTranslation::ApplyCallback g_callback;
 std::unordered_map<std::string, std::string> g_cache;
 std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_negative;
 
-std::string Identity(const EnglishIme::TranslationQuery &query)
+std::string TargetLanguage()
 {
-    return std::string(query.direction == EnglishIme::TranslationDirection::EnglishToChinese ? "e:" : "z:") +
-           query.key;
+    const auto &language = GetConfiguredTencentTmt().target_language;
+    return language.empty() ? "en" : language;
+}
+
+std::string Identity(const EnglishIme::TranslationQuery &query, const std::string &target_language)
+{
+    return target_language + ":" +
+           (query.direction == EnglishIme::TranslationDirection::EnglishToChinese ? "e:" : "z:") + query.key;
 }
 
 bool TooLong(const std::string &key)
@@ -90,16 +96,19 @@ TencentTmt::Credentials ResolveCredentials()
     return credentials;
 }
 
-void PersistGloss(const EnglishIme::TranslationQuery &query, const std::string &gloss)
+void PersistGloss(const EnglishIme::TranslationQuery &query, const std::string &gloss,
+                  const std::string &target_language)
 {
-    if (g_db_path.empty() || !CloudTranslation::ShouldPersistGloss(query.key, gloss))
+    // english.db is language-specific. Other target languages remain in the
+    // in-memory cloud cache only.
+    if (target_language != "en" || g_db_path.empty() || !CloudTranslation::ShouldPersistGloss(query.key, gloss))
         return;
     const bool chinese_to_english = query.direction == EnglishIme::TranslationDirection::ChineseToEnglish;
     EnglishDictionary::upsert_gloss(g_db_path, chinese_to_english, query.key, gloss);
 }
 
 void TranslateGroup(const TencentTmt::Credentials &credentials, const std::vector<EnglishIme::TranslationQuery> &group,
-                    const std::string &source, const std::string &target,
+                    const std::string &source, const std::string &target, const std::string &target_language,
                     std::vector<EnglishIme::TranslationResult> &out)
 {
     std::vector<std::string> texts;
@@ -109,7 +118,7 @@ void TranslateGroup(const TencentTmt::Credentials &credentials, const std::vecto
     const auto translated = TencentTmt::TextTranslateBatch(credentials, texts, source, target);
     for (size_t i = 0; i < group.size(); ++i)
     {
-        const std::string identity = Identity(group[i]);
+        const std::string identity = Identity(group[i], target_language);
         const std::string raw = i < translated.size() ? translated[i] : std::string{};
         const std::string gloss = CloudTranslation::FormatGloss(raw);
         if (gloss.empty())
@@ -118,7 +127,7 @@ void TranslateGroup(const TencentTmt::Credentials &credentials, const std::vecto
             continue;
         }
         RememberPositive(identity, gloss);
-        PersistGloss(group[i], gloss);
+        PersistGloss(group[i], gloss, target_language);
         out.push_back({group[i].key, group[i].direction, gloss});
     }
 }
@@ -158,31 +167,42 @@ void WorkerLoop()
         if (!CloudTranslation::IsUsableSecret(credentials.secret_id))
             continue;
 
+        const std::string target_language = TargetLanguage();
         std::vector<EnglishIme::TranslationQuery> en_zh;
-        std::vector<EnglishIme::TranslationQuery> zh_en;
+        std::vector<EnglishIme::TranslationQuery> zh_target;
+        std::vector<EnglishIme::TranslationResult> results;
         {
             std::lock_guard cache_lock(g_mutex);
             for (const auto &query : queries)
             {
                 if (TooLong(query.key))
                     continue;
-                const std::string identity = Identity(query);
-                if (g_cache.find(identity) != g_cache.end() || IsNegative(identity))
+                const std::string identity = Identity(query, target_language);
+                const auto cached = g_cache.find(identity);
+                if (cached != g_cache.end())
+                {
+                    // A previous request may have finished after its candidate
+                    // generation became stale. Its result is still valid for
+                    // this language, so publish it to the current generation
+                    // instead of silently skipping it.
+                    results.push_back({query.key, query.direction, cached->second});
+                    continue;
+                }
+                if (IsNegative(identity))
                     continue;
                 if (query.direction == EnglishIme::TranslationDirection::EnglishToChinese &&
                     CloudTranslation::IsCloudTranslatableEnglish(query.key))
                     en_zh.push_back(query);
                 else if (query.direction == EnglishIme::TranslationDirection::ChineseToEnglish &&
                          CloudTranslation::IsCloudTranslatableChinese(query.key))
-                    zh_en.push_back(query);
+                    zh_target.push_back(query);
             }
         }
 
-        std::vector<EnglishIme::TranslationResult> results;
         if (!en_zh.empty())
-            TranslateGroup(credentials, en_zh, "en", "zh", results);
-        if (!zh_en.empty())
-            TranslateGroup(credentials, zh_en, "zh", "en", results);
+            TranslateGroup(credentials, en_zh, "en", "zh", target_language, results);
+        if (!zh_target.empty())
+            TranslateGroup(credentials, zh_target, "zh", target_language, target_language, results);
         if (results.empty() || !g_running || g_job.load() != observed_job ||
             !EnglishIme::IsTranslationCurrent(generation) || !g_callback)
             continue;
@@ -235,7 +255,7 @@ void Clear()
 std::string LookupCache(const std::string &key, EnglishIme::TranslationDirection direction)
 {
     std::lock_guard lock(g_mutex);
-    const auto found = g_cache.find(Identity({key, direction}));
+    const auto found = g_cache.find(Identity({key, direction}, TargetLanguage()));
     return found == g_cache.end() ? std::string{} : found->second;
 }
 } // namespace CloudTranslation

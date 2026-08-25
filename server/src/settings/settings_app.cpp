@@ -337,7 +337,7 @@ void PostConfig()
             {"prompt_custom_2", ai.prompt_custom_2}, {"prompt_custom_3", ai.prompt_custom_3}}},
           {"tencent_tmt",
            {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
-            {"region", tencent_tmt.region}}},
+            {"region", tencent_tmt.region}, {"target_language", tencent_tmt.target_language}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
             {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
