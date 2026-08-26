@@ -363,13 +363,27 @@ TEST_CASE(QuanpinCorrectionNormalizesTransposedPinyinLetters)
         {"laio", "liao"},  {"ahng", "hang"},   {"cehng", "cheng"}, {"zehng", "zheng"},
         {"zhehng", "zheng"},
         {"mihng", "ming"},
+        {"agn", "ang"},
+        {"bagn", "bang"},
+        {"chagn", "chang"},
+        {"zagn", "zang"},
+        {"egn", "eng"},
+        {"begn", "beng"},
+        {"chegn", "cheng"},
+        {"zhegn", "zheng"},
+        {"jv", "ju"},
     };
 
     for (const auto &[typed, expected] : cases)
     {
         const auto cuts = quanpin::cut_pinyin_by_mode(typed, "correction");
         REQUIRE(!cuts.empty());
-        REQUIRE_EQ(quanpin::join_segments(cuts.front()), expected);
+        const auto actual = quanpin::join_segments(cuts.front());
+        if (actual != expected)
+        {
+            throw std::runtime_error("Expected '" + typed + "' to normalize to '" + expected + "', got '" + actual +
+                                     "'.");
+        }
     }
 }
 
@@ -382,6 +396,14 @@ TEST_CASE(QuanpinCorrectionHandlesContinuousAndManuallySegmentedInput)
     const auto manual = quanpin::cut_pinyin_by_mode("wo'xain'xin", "correction");
     REQUIRE(!manual.empty());
     REQUIRE_EQ(quanpin::join_segments(manual.front()), std::string("wo'xian'xin"));
+
+    const auto continuous_jv = quanpin::cut_pinyin_by_mode("wojv", "correction");
+    REQUIRE(!continuous_jv.empty());
+    REQUIRE_EQ(quanpin::join_segments(continuous_jv.front()), std::string("wo'ju"));
+
+    const auto manual_jv = quanpin::cut_pinyin_by_mode("wo'jv", "correction");
+    REQUIRE(!manual_jv.empty());
+    REQUIRE_EQ(quanpin::join_segments(manual_jv.front()), std::string("wo'ju"));
 }
 
 TEST_CASE(QuanpinCorrectionAppliesSuffixRulesToEveryValidPinyinPrefix)
