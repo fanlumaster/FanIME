@@ -524,9 +524,31 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
     DWORD status = 0;
     GetStatus(&status);
 
-    // Use the system small-icon size so HiDPI taskbars get 20/24/32px assets
-    // instead of upscaling a forced 16x16 (which looks blurry).
-    int desiredSize = GetSystemMetrics(SM_CXSMICON);
+    // GetIcon is invoked on the *focused application's* TSF thread, and
+    // GetSystemMetrics(SM_CXSMICON) follows the process's *system* DPI, which
+    // Windows keeps lagging behind the per-monitor scale until sign-out and
+    // caches per process start (e.g. 20px at registry 120% even while the
+    // monitor really runs at 175% and the taskbar slot is 28px). The shell
+    // draws the returned HICON scaled into that slot, so a 20px icon gets
+    // upscaled to 28px and looks blurry (desktop focus only appeared sharp
+    // while explorer happened to have started at 175% and thus asked 28px).
+    // Query the primary monitor's *effective* DPI (awareness-independent) and
+    // size the icon to the real physical small-icon slot.
+    int desiredSize = 16;
+    HMONITOR mon = MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY);
+    UINT dpiX = 0, dpiY = 0;
+    using GetDpiForMonitorFn = HRESULT(WINAPI *)(HMONITOR, int, UINT *, UINT *);
+    static const auto fnGetDpiForMonitor = reinterpret_cast<GetDpiForMonitorFn>(
+        GetProcAddress(GetModuleHandleW(L"shcore.dll"), "GetDpiForMonitor"));
+    if (mon && fnGetDpiForMonitor &&
+        SUCCEEDED(fnGetDpiForMonitor(mon, 0 /* MDT_EFFECTIVE_DPI */, &dpiX, &dpiY)) && dpiX > 0)
+    {
+        desiredSize = MulDiv(16, static_cast<int>(dpiX), 96);
+    }
+    else
+    {
+        desiredSize = GetSystemMetrics(SM_CXSMICON);
+    }
     if (desiredSize <= 0)
     {
         desiredSize = 16;
