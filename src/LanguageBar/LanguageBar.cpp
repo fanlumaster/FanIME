@@ -538,8 +538,19 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
     HMONITOR mon = MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY);
     UINT dpiX = 0, dpiY = 0;
     using GetDpiForMonitorFn = HRESULT(WINAPI *)(HMONITOR, int, UINT *, UINT *);
-    static const auto fnGetDpiForMonitor = reinterpret_cast<GetDpiForMonitorFn>(
-        GetProcAddress(GetModuleHandleW(L"shcore.dll"), "GetDpiForMonitor"));
+    // shcore.dll ships with Windows 8.1+ and is usually already loaded by the
+    // host; resolve it on demand so processes that never touched DPI APIs
+    // still get the real slot size instead of dropping to SM_CXSMICON.
+    static const auto fnGetDpiForMonitor =
+        []() -> GetDpiForMonitorFn
+    {
+        HMODULE shcore = GetModuleHandleW(L"shcore.dll");
+        if (!shcore)
+        {
+            shcore = LoadLibraryW(L"shcore.dll"); // system DLL; freed at process exit
+        }
+        return shcore ? reinterpret_cast<GetDpiForMonitorFn>(GetProcAddress(shcore, "GetDpiForMonitor")) : nullptr;
+    }();
     if (mon && fnGetDpiForMonitor &&
         SUCCEEDED(fnGetDpiForMonitor(mon, 0 /* MDT_EFFECTIVE_DPI */, &dpiX, &dpiY)) && dpiX > 0)
     {
