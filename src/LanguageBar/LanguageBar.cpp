@@ -15,6 +15,8 @@
 #include "Ipc.h"
 #include "fmt/xchar.h"
 
+#include <atomic>
+
 namespace
 {
 // Taskbar/system tray follows SystemUsesLightTheme (0 = dark).
@@ -54,6 +56,59 @@ DWORD ResolveThemeIconIndex(DWORD lightIconIndex)
         return static_cast<DWORD>(IME_MODE_OFF_DARK_ICON_INDEX);
     }
     return lightIconIndex;
+}
+
+// Design size of the mode icons for language bar / taskbar indicators (at 96 DPI).
+constexpr int kSmallIconDesignSize = 16;
+
+// Avoids relying on USER_DEFAULT_SCREEN_DPI, which older Windows SDK headers
+// targeted by this project may not provide.
+constexpr int kUserDefaultScreenDpi = 96;
+
+using GetDpiForMonitorFn = HRESULT(WINAPI *)(HMONITOR, int /*MONITOR_DPI_TYPE*/, UINT *, UINT *);
+using SetThreadDpiAwarenessCtxFn = HANDLE(WINAPI *)(HANDLE);
+
+// Entry points are resolved lazily and cached in these atomics instead of
+// function-local statics: the project compiles with /Zc:threadSafeInit-, under
+// which magic statics are NOT thread-safe, while GetIcon can be reached from
+// several TSF threads of the host process. Failed lookups are not cached - they
+// are cheap enough to retry on the next call.
+std::atomic<GetDpiForMonitorFn> s_getDpiForMonitor{nullptr};
+std::atomic<SetThreadDpiAwarenessCtxFn> s_setThreadDpiAwarenessCtx{nullptr};
+
+template <typename T>
+T ResolveOnce(std::atomic<T> &slot, T (*resolver)())
+{
+    T resolved = slot.load(std::memory_order_acquire);
+    if (resolved == nullptr)
+    {
+        resolved = resolver();
+        if (resolved != nullptr)
+        {
+            slot.store(resolved, std::memory_order_release);
+        }
+    }
+    return resolved;
+}
+
+GetDpiForMonitorFn ResolveGetDpiForMonitor()
+{
+    // shcore.dll ships with Windows 8.1+; most hosts already have it mapped.
+    HMODULE shcore = ::GetModuleHandleW(L"shcore.dll");
+    if (!shcore)
+    {
+        shcore = ::LoadLibraryW(L"shcore.dll"); // system DLL; intentionally kept until process exit
+    }
+    return shcore ? reinterpret_cast<GetDpiForMonitorFn>(::GetProcAddress(shcore, "GetDpiForMonitor")) : nullptr;
+}
+
+SetThreadDpiAwarenessCtxFn ResolveSetThreadDpiAwarenessContext()
+{
+    // user32.dll is always mapped inside any host of this DLL.
+    HMODULE user32 = ::GetModuleHandleW(L"user32.dll");
+    return user32 ? reinterpret_cast<SetThreadDpiAwarenessCtxFn>(
+                        ::GetProcAddress(user32, "SetThreadDpiAwarenessContext")) // Win10 1607+
+                  : nullptr;
 }
 } // namespace
 
@@ -524,12 +579,58 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
     DWORD status = 0;
     GetStatus(&status);
 
-    // Use the system small-icon size so HiDPI taskbars get 20/24/32px assets
-    // instead of upscaling a forced 16x16 (which looks blurry).
-    int desiredSize = GetSystemMetrics(SM_CXSMICON);
+    // GetIcon runs on the *focused application's* TSF thread, so sizing must
+    // not depend on that process's DPI awareness. The taskbar lays the input
+    // indicator out in physical pixels of its monitor (e.g. a 28px slot at
+    // 175%), while GetSystemMetrics(SM_CXSMICON) reports the system-DPI
+    // snapshot cached when the host started (e.g. 20px). The shell then has to
+    // upscale our returned icon into the larger slot, which is the blur of
+    // issue #50 (focus-dependent only because explorer happens to start at the
+    // correct scale).
+    //
+    // Query the primary monitor's effective DPI instead. Per MS docs,
+    // GetDpiForMonitor scales its answer to the caller's DPI awareness
+    // (PROCESS_DPI_UNAWARE -> 96, PROCESS_SYSTEM_DPI_AWARE -> system DPI,
+    // PROCESS_PER_MONITOR_DPI_AWARE -> the real value), so temporarily flip
+    // this thread to PER_MONITOR_AWARE_V2 around the query; otherwise unaware
+    // or system-aware hosts would still end up with the wrong size. Hosts
+    // lacking these APIs fall back to the legacy SM_CXSMICON path unchanged.
+    int desiredSize = kSmallIconDesignSize;
+    bool sizedByMonitorDpi = false;
+    if (HMONITOR mon = ::MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY))
+    {
+        SetThreadDpiAwarenessCtxFn setCtx =
+            ResolveOnce(s_setThreadDpiAwarenessCtx, &ResolveSetThreadDpiAwarenessContext);
+        HANDLE prevCtx = nullptr;
+        if (setCtx)
+        {
+            // (HANDLE)(INT_PTR)-4 == DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+            // spelled out via casts to avoid requiring WINVER >= Win10 targets.
+            prevCtx = setCtx(reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-4)));
+        }
+
+        UINT dpiX = 0;
+        UINT dpiY = 0;
+        GetDpiForMonitorFn getDpi = ResolveOnce(s_getDpiForMonitor, &ResolveGetDpiForMonitor);
+        if (getDpi && SUCCEEDED(getDpi(mon, 0 /* MDT_EFFECTIVE_DPI */, &dpiX, &dpiY)) && dpiX > 0)
+        {
+            desiredSize = MulDiv(kSmallIconDesignSize, static_cast<int>(dpiX), kUserDefaultScreenDpi);
+            sizedByMonitorDpi = true;
+        }
+
+        if (prevCtx)
+        {
+            setCtx(prevCtx); // restore the caller's thread awareness
+        }
+    }
+    if (!sizedByMonitorDpi)
+    {
+        // No shcore/awareness-switch available: exactly the legacy behavior.
+        desiredSize = GetSystemMetrics(SM_CXSMICON);
+    }
     if (desiredSize <= 0)
     {
-        desiredSize = 16;
+        desiredSize = kSmallIconDesignSize;
     }
     // UAC/secure desktop historically expects at least 24x24.
     if (_isSecureMode && desiredSize < 24)
