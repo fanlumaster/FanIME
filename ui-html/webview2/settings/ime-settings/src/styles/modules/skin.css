@@ -1,4 +1,7 @@
 .skin-theme-card { padding: 0; overflow: hidden; }
+.skin-theme-card.has-skin-decoration { overflow: visible; }
+.skin-theme-card.has-skin-decoration .skin-preview-list,
+.skin-theme-card.has-skin-decoration .skin-preview-stage { overflow: visible; }
 .skin-theme-card + .skin-theme-card { margin-top: 18px; }
 .skin-theme-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; }
 .skin-theme-description { margin-top: 5px; color: var(--text-muted); font-size: 13px; }
@@ -60,8 +63,15 @@
 }
 .candidate.skin-wechat .container { padding: 2px; border-radius: 5px; }
 .candidate.skin-wechat .cand { border-radius: 4px; }
+.candidate.skin-wechat.wnd-v .cand {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
 .candidate.skin-wechat .first { border-radius: 5px; }
 .candidate.skin-wechat .first::before { display: none; }
+.candidate.skin-wechat .cand.first:hover {
+  background-color: var(--cand-selected);
+}
 .candidate.skin-wechat .first .text,
 .candidate.skin-wechat .first .num,
 .candidate.skin-wechat .first .cand-no { color: #fff; }
@@ -263,7 +273,7 @@
 }
 .external-skin-refresh { flex: 0 0 auto; height: 30px; margin-top: 2px; }
 .external-skin-actions { display: flex; gap: 8px; flex: 0 0 auto; }
-.external-skin-list { display: grid; gap: 12px; }
+.external-skin-list { display: grid; gap: 18px; }
 .external-skin-card {
   display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center;
   gap: 16px; min-height: 92px; padding: 14px 18px;

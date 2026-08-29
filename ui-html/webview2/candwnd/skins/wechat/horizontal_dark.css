@@ -181,7 +181,8 @@
     }
     .cand { border-radius: 4px; }
     .cursor { background: #07c160; }
-    .hover-active .cand:hover { background-color: rgba(7, 193, 96, .32); }
+    .hover-active .cand:not(.first):hover { background-color: rgba(7, 193, 96, .32); }
+    .hover-active .cand.first:hover { background-color: #07c160; }
     .first {
       background-color: #07c160;
       border-radius: 5px;

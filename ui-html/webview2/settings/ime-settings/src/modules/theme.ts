@@ -80,7 +80,7 @@ export function applyDocumentTheme(theme: ResolvedTheme): void {
 }
 
 export function applyCandidatePreviewTheme(theme: ResolvedTheme): void {
-  document.querySelectorAll('.candidate:not(#skinCandidateHorizontal):not(#skinCandidateVertical)').forEach((element) => {
+  document.querySelectorAll('.cand-preview .candidate').forEach((element) => {
     element.classList.toggle('theme-light', theme === 'light');
     element.classList.toggle('theme-dark', theme === 'dark');
   });
@@ -153,7 +153,7 @@ export function applyThemeConfig(config: ThemeConfig | undefined): void {
 }
 
 export function applyFtbPreviewTheme(theme: ResolvedTheme): void {
-  document.querySelectorAll('.ftb-preview-host:not(#skinToolbarPreview)').forEach((element) => {
+  document.querySelectorAll('.ftb-preview-host:not(#skinToolbarPreview):not([data-skin-toolbar])').forEach((element) => {
     element.classList.toggle('theme-light', theme === 'light');
     element.classList.toggle('theme-dark', theme === 'dark');
   });

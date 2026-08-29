@@ -68,6 +68,8 @@
 
     .cand {
       border-radius: 4px;
+      padding-top: 1px;
+      padding-bottom: 1px;
     }
 
     .hover-active .cand:hover {

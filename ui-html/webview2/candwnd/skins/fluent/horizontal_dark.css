@@ -29,7 +29,7 @@
       margin-left: 0px;
       background: #202020;
       /* background: url("https://appassets/background.jpg"); */
-      padding: 2px;
+      padding: 2px 1px;
       border-radius: 6px;
       box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
       min-width: 7em;
@@ -70,6 +70,7 @@
 
     .cand {
       border-radius: 4px;
+      padding: 2px 4px 2px 0;
     }
 
     .hover-active .cand:hover {
@@ -89,10 +90,11 @@
     }
 
     .first-row-wrapper {
-      margin-left: 2px;
+      margin-left: 0;
     }
 
     .first {
+      position: relative;
       background-color: #3e3e3eb9;
       border-radius: 4px;
     }
@@ -122,9 +124,9 @@
     }
 
     .cand .text {
-      padding-left: calc(0.1em + 1px);
-      padding-right: 2.5px;
-      line-height: 1.2;
+      padding-left: calc(0.2em + 3px);
+      padding-right: 4px;
+      line-height: 1.25;
     }
 
     .num {

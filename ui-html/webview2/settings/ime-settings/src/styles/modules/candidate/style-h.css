@@ -9,7 +9,7 @@
     margin-top: 0px;
     margin-left: 0px;
     background: var(--cand-bg);
-    padding: 2px;
+    padding: 2px 1px;
     border-radius: 6px;
     box-shadow: var(--cand-shadow);
     min-width: 7em;
@@ -44,6 +44,7 @@
 
   .cand {
     border-radius: 4px;
+    padding: 2px 4px 2px 0;
   }
 
   .cand:hover {
@@ -63,10 +64,11 @@
   }
 
   .first-row-wrapper {
-    margin-left: 2px;
+    margin-left: 0;
   }
 
   .first {
+    position: relative;
     background-color: var(--cand-selected);
     border-radius: 4px;
   }
@@ -96,9 +98,9 @@
   }
 
   .cand .text {
-    padding-left: calc(0.1em + 1px);
-    padding-right: 2.5px;
-    line-height: 1.2;
+    padding-left: calc(0.2em + 3px);
+    padding-right: 4px;
+    line-height: 1.25;
   }
 
   .num {

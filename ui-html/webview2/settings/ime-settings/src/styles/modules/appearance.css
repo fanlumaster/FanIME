@@ -15,6 +15,14 @@
   flex-direction: row;
   justify-content: center;
   align-items: center;
+  overflow: visible;
+}
+.cand-preview.has-skin-decoration {
+  min-height: 22rem;
+  padding: 16px;
+}
+.cand-preview .candidate {
+  margin-top: 0;
 }
 
 .candidate {
