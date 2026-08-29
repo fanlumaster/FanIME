@@ -60,6 +60,9 @@ function wrapCandidateHtml(html: string): string {
 
 function fillPreviewHost(host: HTMLElement, html: string): void {
   host.innerHTML = wrapCandidateHtml(html);
+  host.querySelectorAll('.container').forEach((container) => {
+    container.classList.add('hover-active');
+  });
   limitCandidatePreview(host);
 }
 
@@ -98,27 +101,32 @@ function clearDecorationVars(host: HTMLElement): void {
   host.style.removeProperty('--msime-skin-decoration-width');
 }
 
-async function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined, styleId: string): Promise<void> {
-  if (!stylesheet || loadedExternalStyleIds.has(styleId)) return;
+async function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined, styleId: string, force = false): Promise<void> {
+  if (!stylesheet) return;
+  if (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId)) return;
   try {
-    const response = await fetch(resourceUrl(skin.id, stylesheet));
+    const response = await fetch(resourceUrl(skin.id, stylesheet), { cache: 'no-store' });
     if (!response.ok) return;
     const css = rewriteSkinCssUrls(await response.text(), skin.id).replace(/:root\b/g, ':scope');
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.dataset.externalSkinStyle = skin.id;
-    style.textContent = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
-    document.head.appendChild(style);
+    const scoped = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
+    let style = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      style.dataset.externalSkinStyle = skin.id;
+      document.head.appendChild(style);
+    }
+    style.textContent = scoped;
     loadedExternalStyleIds.add(styleId);
   } catch {
     // Preview stays on the inherited built-in base if the stylesheet cannot load.
   }
 }
 
-async function ensureExternalSkinStyle(skin: ExternalSkin): Promise<void> {
+async function ensureExternalSkinStyle(skin: ExternalSkin, force = false): Promise<void> {
   await Promise.all([
-    injectScopedSkinCss(skin, skin.stylesheet, `external-skin-style-${skin.id}`),
-    injectScopedSkinCss(skin, skin.toolbarStylesheet, `external-toolbar-style-${skin.id}`)
+    injectScopedSkinCss(skin, skin.stylesheet, `external-skin-style-${skin.id}`, force),
+    injectScopedSkinCss(skin, skin.toolbarStylesheet, `external-toolbar-style-${skin.id}`, force)
   ]);
 }
 
@@ -329,7 +337,7 @@ function renderExternalSkins(): void {
     previews.append(horizontal, vertical, toolbar);
 
     card.append(header, previews);
-    void ensureExternalSkinStyle(skin).then(() => applyExternalCardTheme(skin));
+    void ensureExternalSkinStyle(skin, true).then(() => applyExternalCardTheme(skin));
     return card;
   }));
   empty.textContent = catalogScanned ? '没有发现外部皮肤。' : '尚未扫描。点击“刷新皮肤”读取皮肤目录。';
@@ -389,6 +397,7 @@ export function syncSkinPreviewTheme(theme: SkinPreviewTheme): void {
 }
 
 export async function setupSkin(): Promise<void> {
+  resetExternalSkinStyles();
   previewHorizontalHtml = await loadHTML('/src/partials/candidate/candidate-wnd-h.html');
   previewVerticalHtml = await loadHTML('/src/partials/candidate/candidate-wnd-v.html');
   document.querySelectorAll<HTMLElement>('[data-skin-horizontal]').forEach((host) => {
