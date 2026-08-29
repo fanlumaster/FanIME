@@ -101,6 +101,11 @@
   padding-right: 42px;
 }
 
+.ai-secret-input input::-ms-reveal,
+.ai-secret-input input::-ms-clear {
+  display: none;
+}
+
 #aiToken {
   font-family: Consolas, "Cascadia Mono", monospace;
   letter-spacing: -0.1ch;

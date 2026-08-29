@@ -72,6 +72,11 @@
   padding-right: 42px;
 }
 
+.voice-secret-input input::-ms-reveal,
+.voice-secret-input input::-ms-clear {
+  display: none;
+}
+
 #voiceAsrToken,
 #voicePolishToken {
   font-family: Consolas, "Cascadia Mono", monospace;
