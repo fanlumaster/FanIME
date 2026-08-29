@@ -65,7 +65,7 @@ target_language = "en"
 # disabled / pin / halve / linear / promote
 mode = "promote"
 # 每选中几次执行一次调频，范围 1~10
-trigger_count = 2
+trigger_count = 1
 # 线性调频每次前移数量，范围 1~10
 linear_step = 1
 

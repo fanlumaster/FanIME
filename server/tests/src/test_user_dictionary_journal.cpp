@@ -547,3 +547,43 @@ TEST_CASE(UserDictionaryRankingIgnoresShorterKeysWithoutCanonicalPinyin)
     }
     std::filesystem::remove_all(directory);
 }
+
+TEST_CASE(UserDictionaryWubiPromoteUpdatesWubiTable)
+{
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("msime-wubi-ranking-" + std::to_string(GetCurrentProcessId()));
+    std::filesystem::create_directories(directory);
+    const auto user_path = directory / "msime_user.db";
+    const auto main_path = directory / "msime.db";
+    {
+        TestDatabase db(main_path);
+        db.exec("CREATE TABLE wubi86(key TEXT,value TEXT,weight INTEGER);"
+                "CREATE TABLE tbl_1_a(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+                "INSERT INTO wubi86 VALUES('aaaa','工',100),('aaaa','或',50);"
+                "INSERT INTO tbl_1_a VALUES('aaaa','a','啊',1);");
+    }
+    std::vector<WordItem> candidates = {
+        {"aaaa", "工", 100},
+        {"aaaa", "或", 50},
+    };
+    bool ranking_changed = false;
+    REQUIRE(user_dictionary::adjust_candidate_ranking(
+        main_path.string(), user_path.string(), "aaaa", candidates, "aaaa", "或", "promote", 1, 1, false,
+        &ranking_changed, user_dictionary::DictionaryKind::Wubi));
+    REQUIRE(ranking_changed);
+    {
+        TestDatabase db(main_path);
+        REQUIRE(db.scalar_int64("SELECT weight FROM wubi86 WHERE value='或'") >
+                db.scalar_int64("SELECT weight FROM wubi86 WHERE value='工'"));
+        REQUIRE_EQ(db.scalar_int64("SELECT weight FROM tbl_1_a WHERE value='啊'"), 1);
+    }
+    {
+        TestDatabase user_db(user_path);
+        REQUIRE_EQ(user_db.scalar_int(
+                       "SELECT COUNT(*) FROM user_dictionary_operations WHERE dictionary='wubi' AND value='或'"),
+                   1);
+        REQUIRE_EQ(user_db.scalar_int("SELECT COUNT(*) FROM user_dictionary_operations WHERE dictionary='pinyin'"),
+                   0);
+    }
+    std::filesystem::remove_all(directory);
+}

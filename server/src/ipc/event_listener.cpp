@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdint>
 #include <iterator>
+#include <utility>
 #include <thread>
 #include <unordered_map>
 #include "Ipc.h"
@@ -1415,6 +1416,23 @@ std::string CandidateDatabaseKey(const WordItem &item, const std::string &contex
     return quanpin::join_segments(segments);
 }
 
+bool IsWubiRankingScheme()
+{
+    return g_inputSession && g_inputSession->current_scheme_type() == SchemeType::Wubi;
+}
+
+std::pair<std::string, std::string> RankingKeysForCandidate(const WordItem &item)
+{
+    if (IsWubiRankingScheme())
+    {
+        const std::string key = item.pinyin.empty() && g_inputSession ? g_inputSession->get_pinyin_sequence()
+                                                                      : item.pinyin;
+        return {key, item.pinyin};
+    }
+    const std::string context_key = CurrentRankingContextKey();
+    return {context_key, CandidateDatabaseKey(item, context_key)};
+}
+
 std::queue<Task> taskQueue;
 std::mutex queueMutex;
 
@@ -1806,8 +1824,9 @@ void WorkerThread()
             }
 
             const bool english_candidate = item.source == CandidateSource::EnglishDictionary;
-            const std::string context_key = english_candidate ? EnglishRankingContextKey() : CurrentRankingContextKey();
-            const std::string entry_key = english_candidate ? item.pinyin : CandidateDatabaseKey(item, context_key);
+            const auto ranking_keys = RankingKeysForCandidate(item);
+            const std::string context_key = english_candidate ? EnglishRankingContextKey() : ranking_keys.first;
+            const std::string entry_key = english_candidate ? item.pinyin : ranking_keys.second;
 
             if (task.type == TaskType::UiPinCandidate)
             {
@@ -1818,7 +1837,9 @@ void WorkerThread()
                 else
                     (void)user_dictionary::adjust_candidate_ranking(
                         CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-                        context_key, Global::candidate_ui.items, entry_key, item.word, "pin", 1, 1, true);
+                        context_key, Global::candidate_ui.items, entry_key, item.word, "pin", 1, 1, true, nullptr,
+                        IsWubiRankingScheme() ? user_dictionary::DictionaryKind::Wubi
+                                              : user_dictionary::DictionaryKind::Pinyin);
             }
             else if (task.type == TaskType::UiDeleteCandidate)
             {
@@ -4052,9 +4073,13 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         // input sequence. CandidateDatabaseKey() consults get_pinyin_sequence(),
         // and for single-code lists (e.g. "n") it must keep item.pinyin ("na"/"nv")
         // rather than falling back to the one-letter context key.
-        const std::string ranking_context_key = CurrentRankingContextKey();
-        const std::string ranking_entry_key = CandidateDatabaseKey(curWordItem, ranking_context_key);
-        isNeedUpdateWeight = is_digit_selection;
+        const auto ranking_keys = RankingKeysForCandidate(curWordItem);
+        const std::string ranking_context_key = ranking_keys.first;
+        const std::string ranking_entry_key = ranking_keys.second;
+        // First-page first slot is already the default commit; space/mouse/digit
+        // should only learn when the user picked something else.
+        const bool is_first_page_first = Global::candidate_ui.page_index == 0 && index == 0;
+        isNeedUpdateWeight = !is_first_page_first;
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
@@ -4214,7 +4239,9 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             (void)user_dictionary::adjust_candidate_ranking(
                 CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
                 ranking_context_key, Global::candidate_ui.items, ranking_entry_key, curWord, frequency.mode,
-                frequency.linear_step, frequency.trigger_count, false, &ranking_changed);
+                frequency.linear_step, frequency.trigger_count, false, &ranking_changed,
+                IsWubiRankingScheme() ? user_dictionary::DictionaryKind::Wubi
+                                      : user_dictionary::DictionaryKind::Pinyin);
             if (ranking_changed)
             {
                 g_inputSession->reset_cache();
