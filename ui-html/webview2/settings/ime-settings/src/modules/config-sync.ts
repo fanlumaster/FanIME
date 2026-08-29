@@ -5,7 +5,7 @@ import { applyVoiceConfig } from './voice';
 import { applyAiConfig } from './ai-settings';
 import { applyFloatingToolbarAppearanceConfig, applyFloatingToolbarItemsConfig } from './floating-toolbar';
 import { applyShortcutConfig } from './shortcut';
-import { applyCandidateSkin } from './skin';
+import { applyCandidateSkin, applyCandidateSkinCatalog } from './skin';
 
 function safeParseJson(value: string): unknown {
   try {
@@ -27,6 +27,13 @@ export function setupConfigSync(): void {
     }
 
     applyCandidateArrange(payload.data?.appearance?.candidate_window_layout);
+    applyCandidateSkinCatalog(
+      payload.data?.appearance?.external_candidate_skins,
+      payload.data?.appearance?.candidate_skin_scan_issues,
+      payload.data?.appearance?.candidate_skin_directory,
+      payload.data?.appearance?.candidate_skin_catalog_scanned,
+      payload.data?.appearance?.candidate_skin_catalog_revision
+    );
     applyCandidateSkin(payload.data?.appearance?.candidate_skin);
     applyAppearanceConfig(
       payload.data?.appearance?.candidate_window_preedit_style,

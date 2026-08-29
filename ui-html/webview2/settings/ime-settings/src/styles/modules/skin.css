@@ -252,3 +252,32 @@
 }
 .ftb-preview-host.skin-willow-green.theme-dark .drag-handle { background: #65c98d; }
 .ftb-preview-host.skin-willow-green.theme-light .drag-handle { background: #58b980; }
+
+.external-skin-heading {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+  margin: 28px 4px 12px;
+}
+.external-skin-directory {
+  display: inline-block; max-width: 620px; margin-top: 8px; padding: 4px 7px;
+  overflow-wrap: anywhere; color: var(--text-muted); background: var(--button-secondary-bg); border-radius: 5px;
+}
+.external-skin-refresh { flex: 0 0 auto; height: 30px; margin-top: 2px; }
+.external-skin-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.external-skin-list { display: grid; gap: 12px; }
+.external-skin-card {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center;
+  gap: 16px; min-height: 92px; padding: 14px 18px;
+}
+.external-skin-preview {
+  display: flex; align-items: center; justify-content: center; width: 112px; height: 72px;
+  overflow: hidden; color: var(--text-muted); background: var(--skin-preview-stage-bg); border-radius: 8px; font-size: 12px;
+}
+.external-skin-preview img { width: 100%; height: 100%; object-fit: contain; }
+.external-skin-info { min-width: 0; }
+.external-skin-meta { margin-top: 4px; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.external-skin-card.is-incompatible { opacity: .62; }
+.external-skin-card [aria-disabled="true"] { cursor: not-allowed; }
+.external-skin-empty { padding: 22px; color: var(--text-muted); text-align: center; }
+.external-skin-diagnostics { margin: 10px 4px 0; color: var(--text-muted); font-size: 12px; }
+.external-skin-diagnostics summary { cursor: pointer; }
+.external-skin-diagnostics ul { margin: 7px 0 0; padding-left: 20px; }

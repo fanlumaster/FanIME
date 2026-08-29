@@ -108,4 +108,19 @@
       </div>
     </div>
   </div>
+
+  <div class="external-skin-heading">
+    <div>
+      <div class="section-title">外部皮肤</div>
+      <div class="skin-theme-description">把包含 skin.json 的皮肤文件夹复制到下面的目录，然后刷新。</div>
+      <code id="externalSkinDirectory" class="external-skin-directory">%LOCALAPPDATA%\metasequoiaime\skins</code>
+    </div>
+    <div class="external-skin-actions">
+      <button type="button" class="skin-preview-switch external-skin-refresh" id="openExternalSkinDirectory">打开目录</button>
+      <button type="button" class="skin-preview-switch external-skin-refresh" id="refreshExternalSkins">刷新皮肤</button>
+    </div>
+  </div>
+  <div id="externalSkinList" class="external-skin-list"></div>
+  <div id="externalSkinEmpty" class="section external-skin-empty">尚未扫描。点击“刷新皮肤”读取皮肤目录。</div>
+  <div id="externalSkinDiagnostics" class="external-skin-diagnostics"></div>
 </div>
