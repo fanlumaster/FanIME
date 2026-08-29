@@ -11,6 +11,7 @@
 
 #include <WebView2.h>
 #include <WebView2EnvironmentOptions.h>
+#include <WebView2EnvironmentOptions.h>
 #include <boost/json.hpp>
 #include <dcomp.h>
 #include <dwmapi.h>
@@ -34,6 +35,7 @@
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
+using Microsoft::WRL::Make;
 namespace json = boost::json;
 
 namespace
@@ -43,6 +45,7 @@ constexpr wchar_t kWindowTitle[] = L"Metasequoia IME Settings";
 constexpr wchar_t kSingleInstanceMutex[] = L"Local\\MetasequoiaImeSettings.SingleInstance";
 constexpr UINT kActivateExistingWindow = WM_APP + 1;
 constexpr UINT kOpenAboutSection = WM_APP + 2;
+constexpr UINT kScanSkinCatalog = WM_APP + 3;
 constexpr UINT_PTR kConfigReloadTimer = 1;
 
 ComPtr<ICoreWebView2Controller> g_controller;
@@ -59,6 +62,7 @@ bool g_maximize_button_hover = false;
 bool g_window_active = true;
 bool g_window_minimized = false;
 bool g_open_about_on_ready = false;
+bool g_webview_content_started = false;
 HWND g_settings_hwnd = nullptr;
 std::optional<CandidateSkinCatalog::ScanResult> g_candidate_skin_catalog;
 uint64_t g_candidate_skin_catalog_revision = 0;
@@ -220,7 +224,7 @@ void PostConfig(bool refresh_skin_catalog = false)
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
                                              GlobalIme::AppName / L"skins";
-    if (refresh_skin_catalog || !g_candidate_skin_catalog)
+    if (refresh_skin_catalog)
     {
         g_candidate_skin_catalog = CandidateSkinCatalog::Scan(skins_root);
         ++g_candidate_skin_catalog_revision;
@@ -697,7 +701,8 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "configRequest")
         {
-            PostConfig(true);
+            PostConfig(false);
+            PostMessageW(hwnd, kScanSkinCatalog, 0, 0);
         }
         else if (type == "skinCatalogRequest")
         {
@@ -788,6 +793,7 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
         settings->put_IsZoomControlEnabled(FALSE);
+        settings->put_IsStatusBarEnabled(FALSE);
     }
     g_controller->put_ZoomFactor(1.0);
 
@@ -820,6 +826,14 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
     g_controller->put_Bounds(bounds);
 
     EventRegistrationToken token{};
+    g_webview->add_ContentLoading(
+        Callback<ICoreWebView2ContentLoadingEventHandler>(
+            [](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
+                g_webview_content_started = true;
+                SettingsSplash::Dismiss();
+                return S_OK;
+            }).Get(),
+        &token);
     g_webview->add_NavigationCompleted(
         Callback<ICoreWebView2NavigationCompletedEventHandler>(
             [hwnd](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
@@ -856,8 +870,16 @@ void InitWebView(HWND hwnd)
     std::filesystem::path user_data = CommonUtils::get_webview2_user_data_path(L"webview2-settings");
     std::error_code ec;
     std::filesystem::create_directories(user_data, ec);
+    auto options = Make<CoreWebView2EnvironmentOptions>();
+    options->put_AdditionalBrowserArguments(
+        L"--disable-features=TranslateUI "
+        L"--disable-background-networking "
+        L"--disable-default-apps "
+        L"--disable-sync "
+        L"--disable-prompt-on-repost "
+        L"--no-first-run");
     CreateCoreWebView2EnvironmentWithOptions(
-        nullptr, user_data.c_str(), nullptr,
+        nullptr, user_data.c_str(), options.Get(),
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [hwnd](HRESULT result, ICoreWebView2Environment *environment) -> HRESULT {
                 if (FAILED(result) || !environment)
@@ -967,6 +989,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     case kOpenAboutSection:
         ActivateWindow(hwnd);
         ShowAboutSection();
+        return 0;
+    case kScanSkinCatalog:
+        PostConfig(true);
         return 0;
     case WM_NCCALCSIZE:
         if (w_param)
@@ -1171,11 +1196,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
+    SetTimer(hwnd, kConfigReloadTimer, 300, nullptr);
+    InitWebView(hwnd);
     ShowWindow(hwnd, show_command == SW_HIDE ? SW_SHOWNORMAL : show_command);
     UpdateWindow(hwnd);
     SettingsSplash::Show(hwnd);
-    SetTimer(hwnd, kConfigReloadTimer, 300, nullptr);
-    InitWebView(hwnd);
+    if (g_webview_content_started)
+        SettingsSplash::Dismiss();
 
     MSG message{};
     while (GetMessageW(&message, nullptr, 0, 0) > 0)
