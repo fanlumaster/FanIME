@@ -1,14 +1,23 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
+const rootDir = dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
-  // Use relative asset paths so WebView2 can load from file://
   base: "./",
-  // plugins: [
-  //   {
-  //     name: "strip-crossorigin",
-  //     transformIndexHtml(html) {
-  //       return html.replace(/\s+crossorigin(=(["']).*?\2)?/g, "");
-  //     },
-  //   },
-  // ],
+  plugins: [
+    {
+      name: "inline-first-paint-partials",
+      transformIndexHtml(html) {
+        const partials = resolve(rootDir, "src/partials");
+        const sidebar = readFileSync(resolve(partials, "sidebar.html"), "utf8");
+        const appearance = readFileSync(resolve(partials, "appearance.html"), "utf8");
+        return html
+          .replace("<!--INLINE_SIDEBAR-->", sidebar)
+          .replace("<!--INLINE_APPEARANCE-->", appearance);
+      },
+    },
+  ],
 });

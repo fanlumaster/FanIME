@@ -1,7 +1,8 @@
-import { syncSkinPreviewTheme } from './skin';
-import { onCandidateSurfaceThemeChanged } from './appearance';
-import { applyScreenKeyboardPreviewTheme } from './screenkb-settings';
-import { applyHandwritingPreviewTheme } from './handwriting-settings';
+let candidateSurfaceThemeListener: ((theme: ResolvedTheme) => void) | null = null;
+
+export function setCandidateSurfaceThemeListener(listener: ((theme: ResolvedTheme) => void) | null): void {
+  candidateSurfaceThemeListener = listener;
+}
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 export type SurfaceTheme = 'follow' | 'dark' | 'light';
@@ -84,7 +85,7 @@ export function applyCandidatePreviewTheme(theme: ResolvedTheme): void {
     element.classList.toggle('theme-light', theme === 'light');
     element.classList.toggle('theme-dark', theme === 'dark');
   });
-  onCandidateSurfaceThemeChanged(theme);
+  candidateSurfaceThemeListener?.(theme);
 }
 
 function ensureSystemThemeListener(onChange: () => void): void {
@@ -108,12 +109,18 @@ export function applyThemeConfig(config: ThemeConfig | undefined): void {
   applyDocumentTheme(settingsResolved);
   applyCandidatePreviewTheme(candResolved);
   applyFtbPreviewTheme(resolveTheme(mode, normalizeSurfaceTheme(config?.theme_ftb)));
-  applyScreenKeyboardPreviewTheme(
-    resolveTheme(mode, normalizeSurfaceTheme(config?.theme_screen_keyboard))
-  );
-  applyHandwritingPreviewTheme(
-    resolveTheme(mode, normalizeSurfaceTheme(config?.theme_handwriting))
-  );
+  if (document.querySelector('.screenkb-preview')) {
+    const screenKeyboardTheme = resolveTheme(mode, normalizeSurfaceTheme(config?.theme_screen_keyboard));
+    void import('./screenkb-settings').then((module) => {
+      module.applyScreenKeyboardPreviewTheme(screenKeyboardTheme);
+    });
+  }
+  if (document.querySelector('.handwriting-preview')) {
+    const handwritingTheme = resolveTheme(mode, normalizeSurfaceTheme(config?.theme_handwriting));
+    void import('./handwriting-settings').then((module) => {
+      module.applyHandwritingPreviewTheme(handwritingTheme);
+    });
+  }
 
   applyDropdownLabel('themeBtn', THEME_MODE_LABELS[mode]);
   applyDropdownLabel('settingsThemeBtn', SURFACE_THEME_LABELS[settingsTheme]);
@@ -180,7 +187,11 @@ function updateSkinThemeCard(
   }
 
   // Fluent preview follows the same resolved theme as the real candidate surface.
-  syncSkinPreviewTheme(candResolved);
+  if (document.querySelector('[data-skin-switch]')) {
+    void import('./skin').then((module) => {
+      module.syncSkinPreviewTheme(candResolved);
+    });
+  }
 }
 
 export function setThemeMode(value: string | undefined): void {

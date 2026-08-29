@@ -1,7 +1,7 @@
-import './styles/index.css';
+import './styles/critical.css';
 
 import { loadHTML, showOnlyCurrentModule } from './utils/common-utils';
-import { loadContent, setupSidebar } from './modules/sidebar';
+import { loadContent, scheduleBackgroundModuleLoad, setupSidebar } from './modules/sidebar';
 import { setupConfigSync } from './modules/config-sync';
 
 const RESIZE_BORDER = 4;
@@ -43,37 +43,17 @@ async function initializeApp() {
   setupTitlebarDrag();
   setupResizeHitTest();
 
-  // 加载侧边栏
-  const sidebarHTML = await loadHTML('/src/partials/sidebar.html');
-  document.getElementById('sidebar-container')!.innerHTML = sidebarHTML;
+  const sidebarContainer = document.getElementById('sidebar-container');
+  if (sidebarContainer && !sidebarContainer.querySelector('.sidebar')) {
+    sidebarContainer.innerHTML = await loadHTML('/src/partials/sidebar.html');
+  }
 
-  const container = document.getElementById('content-container')!;
-  container.style.visibility = 'hidden';
-
-  // 先将所有的 sidebar 中的分区的 html 加载进来
-  await loadContent('floating-toolbar');
-  await loadContent('appearance');
-  await loadContent('input');
-  await loadContent('helpcode');
-  await loadContent('dict');
-  await loadContent('skin');
-  await loadContent('voice');
-  await loadContent('screenkb-settings');
-  await loadContent('handwriting-settings');
-  await loadContent('tools-settings');
-  await loadContent('ai-settings');
-  await loadContent('shortcut');
-  await loadContent('help-settings');
-  await loadContent('about-settings');
-  await loadContent('feedback-settings');
   setupConfigSync();
-
-  // 加载默认内容(通用设置)，初始化功能
-  // 隐藏其他的分区
+  await loadContent('appearance');
   showOnlyCurrentModule('appearance');
   setupSidebar();
-
-  container.style.visibility = 'visible';
+  void import('./styles/deferred.css');
+  scheduleBackgroundModuleLoad();
 }
 
 function setupWindowStateSync(): void {

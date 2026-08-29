@@ -1,71 +1,114 @@
 import { loadHTML, showOnlyCurrentModule } from '../utils/common-utils';
-import { setupAppearance } from './appearance';
-import { setupInput } from './input';
-import { setupHelpcode } from './helpcode';
-import { setupFloatingToolbar } from './floating-toolbar';
-import { setupVoiceInput } from './voice';
-import { setupScreenKeyboardSettings } from './screenkb-settings';
-import { setupHandwritingSettings } from './handwriting-settings';
-import { setupDictionary } from './dict';
-import { setupSkin } from './skin';
-import { setupToolsSettings } from './tools-settings';
-import { setupAiSettings } from './ai-settings';
-import { setupFeedbackSettings } from './feedback-settings';
-import { setupShortcut } from './shortcut';
-import { setupAboutSettings } from './about-settings';
+import { notifySettingsModuleReady } from './config-sync';
 
-// 动态加载内容
-export async function loadContent(moduleName: string) {
-  const contentHTML = await loadHTML(`/src/partials/${moduleName}.html`);
-  const container = document.getElementById(moduleName)!;
+const BACKGROUND_MODULES = [
+  'input',
+  'helpcode',
+  'shortcut',
+  'dict',
+  'skin',
+  'voice',
+  'screenkb-settings',
+  'handwriting-settings',
+  'tools-settings',
+  'ai-settings',
+  'floating-toolbar',
+  'help-settings',
+  'about-settings',
+  'feedback-settings'
+] as const;
 
-  container.innerHTML = contentHTML;
-
-  // 根据加载的模块初始化对应的功能
-  switch (moduleName) {
-    case 'floating-toolbar':
-      setupFloatingToolbar();
-      break;
-    case 'appearance':
-      await setupAppearance();
-      break;
-    case 'input':
-      setupInput();
-      break;
-    case 'helpcode':
-      setupHelpcode();
-      break;
-    case 'dict':
-      setupDictionary();
-      break;
-    case 'skin':
-      await setupSkin();
-      break;
-    case 'voice':
-      setupVoiceInput();
-      break;
-    case 'screenkb-settings':
-      setupScreenKeyboardSettings();
-      break;
-    case 'handwriting-settings':
-      setupHandwritingSettings();
-      break;
-    case 'tools-settings':
-      setupToolsSettings();
-      break;
-    case 'ai-settings':
-      setupAiSettings();
-      break;
-    case 'shortcut':
-      setupShortcut();
-      break;
-    case 'about-settings':
-      setupAboutSettings();
-      break;
-    case 'feedback-settings':
-      setupFeedbackSettings();
-      break;
+const setupLoaders: Record<string, () => Promise<void>> = {
+  appearance: async () => {
+    const module = await import('./appearance');
+    await module.setupAppearance();
+  },
+  input: async () => {
+    (await import('./input')).setupInput();
+  },
+  helpcode: async () => {
+    (await import('./helpcode')).setupHelpcode();
+  },
+  dict: async () => {
+    (await import('./dict')).setupDictionary();
+  },
+  skin: async () => {
+    await (await import('./skin')).setupSkin();
+  },
+  voice: async () => {
+    (await import('./voice')).setupVoiceInput();
+  },
+  'screenkb-settings': async () => {
+    (await import('./screenkb-settings')).setupScreenKeyboardSettings();
+  },
+  'handwriting-settings': async () => {
+    (await import('./handwriting-settings')).setupHandwritingSettings();
+  },
+  'tools-settings': async () => {
+    (await import('./tools-settings')).setupToolsSettings();
+  },
+  'ai-settings': async () => {
+    (await import('./ai-settings')).setupAiSettings();
+  },
+  shortcut: async () => {
+    (await import('./shortcut')).setupShortcut();
+  },
+  'floating-toolbar': async () => {
+    (await import('./floating-toolbar')).setupFloatingToolbar();
+  },
+  'about-settings': async () => {
+    (await import('./about-settings')).setupAboutSettings();
+  },
+  'feedback-settings': async () => {
+    (await import('./feedback-settings')).setupFeedbackSettings();
   }
+};
+
+const loadedModules = new Set<string>();
+const inflightModules = new Map<string, Promise<void>>();
+
+export async function loadContent(moduleName: string): Promise<void> {
+  if (loadedModules.has(moduleName)) return;
+  const inflight = inflightModules.get(moduleName);
+  if (inflight) {
+    await inflight;
+    return;
+  }
+
+  const task = (async () => {
+    try {
+      const container = document.getElementById(moduleName);
+      if (!container) return;
+      if (!container.innerHTML.trim()) {
+        container.innerHTML = await loadHTML(`/src/partials/${moduleName}.html`);
+      }
+      await setupLoaders[moduleName]?.();
+      loadedModules.add(moduleName);
+      notifySettingsModuleReady(moduleName);
+    } finally {
+      inflightModules.delete(moduleName);
+    }
+  })();
+
+  inflightModules.set(moduleName, task);
+  await task;
+}
+
+export function scheduleBackgroundModuleLoad(): void {
+  const run = async () => {
+    for (const name of BACKGROUND_MODULES) {
+      try {
+        await loadContent(name);
+      } catch {
+        // Keep remaining sections loading even if one partial fails.
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+  };
+
+  window.setTimeout(() => {
+    void run();
+  }, 1200);
 }
 
 export function setupSidebar(): void {
@@ -88,7 +131,7 @@ export function setupSidebar(): void {
 
       const targetId = htmlItem.dataset.target;
       if (targetId) {
-        showOnlyCurrentModule(targetId);
+        void loadContent(targetId).then(() => showOnlyCurrentModule(targetId));
       }
     });
   });

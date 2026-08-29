@@ -5,7 +5,7 @@ import {
   setupDropdownMenu
 } from './shared';
 import { loadHTML } from '../utils/common-utils';
-import { applyThemeConfig, type ResolvedTheme, type ThemeConfig } from './theme';
+import { applyThemeConfig, setCandidateSurfaceThemeListener, type ResolvedTheme, type ThemeConfig } from './theme';
 
 function postConfigUpdate(path: string, value: string | number): void {
   window.chrome?.webview?.postMessage(
@@ -188,6 +188,8 @@ export function onCandidateSurfaceThemeChanged(theme: ResolvedTheme): void {
     applyCandidatePreviewStyle();
   }
 }
+
+setCandidateSurfaceThemeListener(onCandidateSurfaceThemeChanged);
 
 type FontMenu = {
   btnId: string;
