@@ -16,6 +16,7 @@ struct Package
     std::string description;
     std::string base = "fluent";
     std::string stylesheet;
+    std::string toolbarStylesheet;
     std::string preview;
     std::vector<std::string> layouts;
     std::vector<std::string> themes;

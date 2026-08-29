@@ -220,7 +220,7 @@ void PostConfig(bool refresh_skin_catalog = false)
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
                                              GlobalIme::AppName / L"skins";
-    if (refresh_skin_catalog)
+    if (refresh_skin_catalog || !g_candidate_skin_catalog)
     {
         g_candidate_skin_catalog = CandidateSkinCatalog::Scan(skins_root);
         ++g_candidate_skin_catalog_revision;
@@ -238,9 +238,14 @@ void PostConfig(bool refresh_skin_catalog = false)
                                       {"author", skin.author},
                                       {"description", skin.description},
                                       {"base", skin.base},
+                                      {"stylesheet", skin.stylesheet},
+                                      {"toolbarStylesheet", skin.toolbarStylesheet},
                                       {"preview", skin.preview},
                                       {"layouts", skin.layouts},
                                       {"themes", skin.themes},
+                                      {"minWidthDip", skin.minWidthDip},
+                                      {"decorationTopDip", skin.decorationTopDip},
+                                      {"decorationWidthDip", skin.decorationWidthDip},
                                       {"compatible", CandidateSkinCatalog::Supports(skin, skin_layout, skin_theme)}});
         }
     }
@@ -692,7 +697,7 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "configRequest")
         {
-            PostConfig();
+            PostConfig(true);
         }
         else if (type == "skinCatalogRequest")
         {

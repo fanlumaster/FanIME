@@ -1490,6 +1490,38 @@ void NeutralizeEmbeddedStyleClosers(std::wstring &css)
     }
 }
 
+bool InjectExternalSkinCssFile(
+    std::wstring &html,
+    const CandidateSkinCatalog::Package &skin,
+    const std::wstring &skinsRoot,
+    const std::string &stylesheet,
+    const wchar_t *styleId)
+{
+    if (html.empty() || skinsRoot.empty() || stylesheet.empty() || !styleId)
+    {
+        return false;
+    }
+    // NavigateToString documents cannot reliably load a cross-origin <link>
+    // stylesheet (virtual-host CORS). Built-in skins are inlined for the same
+    // reason; keep external skins on that path so padding/decoration CSS is
+    // present before SetWindowRgn applies candidateWindow.decoration.
+    const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" +
+                                 string_to_wstring(stylesheet);
+    std::wstring css = RewriteCandidateSkinCssUrls(ReadHtmlFile(cssPath), skinsRoot, skin.id);
+    if (css.empty())
+    {
+        return false;
+    }
+    NeutralizeEmbeddedStyleClosers(css);
+    const size_t headEnd = html.find(L"</head>");
+    if (headEnd == std::wstring::npos)
+    {
+        return false;
+    }
+    html.insert(headEnd, std::wstring(L"<style id=\"") + styleId + L"\">" + css + L"</style>");
+    return true;
+}
+
 bool InjectExternalCandidateSkin(
     std::wstring &html,
     const CandidateSkinCatalog::Package &skin,
@@ -1499,31 +1531,17 @@ bool InjectExternalCandidateSkin(
     {
         return false;
     }
-    // NavigateToString documents cannot reliably load a cross-origin <link>
-    // stylesheet (virtual-host CORS). Built-in skins are inlined for the same
-    // reason; keep external skins on that path so padding/decoration CSS is
-    // present before SetWindowRgn applies candidateWindow.decoration.
-    const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" +
-                                 string_to_wstring(skin.stylesheet);
-    std::wstring css = RewriteCandidateSkinCssUrls(ReadHtmlFile(cssPath), skinsRoot, skin.id);
-    if (css.empty())
-    {
-        return false;
-    }
-    NeutralizeEmbeddedStyleClosers(css);
     const std::wstring vars = fmt::format(
         L"<style id=\"external-candidate-skin-vars\">:root{{--msime-skin-min-width:{}px;"
         L"--msime-skin-decoration-top:{}px;--msime-skin-decoration-width:{}px;}}</style>",
         skin.minWidthDip, skin.decorationTopDip, skin.decorationWidthDip);
-    const std::wstring additions =
-        vars + L"<style id=\"external-candidate-skin\">" + css + L"</style>";
     const size_t headEnd = html.find(L"</head>");
     if (headEnd == std::wstring::npos)
     {
         return false;
     }
-    html.insert(headEnd, additions);
-    return true;
+    html.insert(headEnd, vars);
+    return InjectExternalSkinCssFile(html, skin, skinsRoot, skin.stylesheet, L"external-candidate-skin");
 }
 
 void InjectCandidateDocumentSkin(
@@ -1813,6 +1831,28 @@ int PrepareHtmlForWnds()
     }
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
     ::HTMLStringFtbWnd = ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
+    if (activeExternalCandidateSkin && !::HTMLStringFtbWnd.empty())
+    {
+        const size_t htmlTag = ::HTMLStringFtbWnd.find(L"<html");
+        const size_t htmlTagEnd = htmlTag == std::wstring::npos ? std::wstring::npos
+                                                                : ::HTMLStringFtbWnd.find(L'>', htmlTag);
+        if (htmlTagEnd != std::wstring::npos)
+        {
+            ::HTMLStringFtbWnd.insert(
+                htmlTagEnd,
+                fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                            L"data-candidate-theme=\"{}\"",
+                            string_to_wstring(candidateSkin), string_to_wstring(baseCandidateSkin),
+                            ftbLight ? L"light" : L"dark"));
+        }
+        if (!activeExternalCandidateSkin->toolbarStylesheet.empty())
+        {
+            const std::wstring skinsRoot = assetPath + L"\\skins";
+            InjectExternalSkinCssFile(::HTMLStringFtbWnd, *activeExternalCandidateSkin, skinsRoot,
+                                      activeExternalCandidateSkin->toolbarStylesheet,
+                                      L"external-toolbar-skin");
+        }
+    }
     preparedCandidateSkin = candidateSkin;
 
     return 0;

@@ -133,6 +133,13 @@ std::optional<Package> Load(const std::filesystem::path &skinsRoot, const std::s
             SetError(error, "manifest 的基本信息或文件名无效");
             return std::nullopt;
         }
+        if (root.contains("toolbarStylesheet") &&
+            (!ReadString(root, "toolbarStylesheet", package.toolbarStylesheet, 128, true) ||
+             !IsSafeFileName(package.toolbarStylesheet, ".css")))
+        {
+            SetError(error, "toolbarStylesheet 文件名无效");
+            return std::nullopt;
+        }
         if (root.contains("preview") &&
             (!ReadString(root, "preview", package.preview, 256, false) ||
              !IsSafeRelativeResource(package.preview)))
@@ -176,6 +183,13 @@ std::optional<Package> Load(const std::filesystem::path &skinsRoot, const std::s
         if (!std::filesystem::is_regular_file(directory / std::filesystem::u8path(package.stylesheet), ec))
         {
             SetError(error, "找不到 stylesheet 文件");
+            return std::nullopt;
+        }
+        if (!package.toolbarStylesheet.empty() &&
+            !std::filesystem::is_regular_file(directory / std::filesystem::u8path(package.toolbarStylesheet),
+                                              ec))
+        {
+            SetError(error, "找不到 toolbarStylesheet 文件");
             return std::nullopt;
         }
         // Preview is settings-only. A missing thumbnail must not disable the live
