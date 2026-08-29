@@ -1,6 +1,7 @@
 #include "ime_config.h"
 #include <fmt/xchar.h>
 #include <Windows.h>
+#include <algorithm>
 #include <atomic>
 #include <dwrite.h>
 #include <wrl/client.h>
@@ -117,6 +118,17 @@ TencentTmtConfig g_tencent_tmt;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
+
+bool IsValidCandidateSkinId(const std::string &skin)
+{
+    if (skin.empty() || skin.size() > 64 || !std::isalnum(static_cast<unsigned char>(skin.front())))
+    {
+        return false;
+    }
+    return std::all_of(skin.begin(), skin.end(), [](unsigned char ch) {
+        return std::islower(ch) || std::isdigit(ch) || ch == '.' || ch == '_' || ch == '-';
+    });
+}
 
 const std::vector<std::string_view> &AiAssistantProviders()
 {
@@ -761,7 +773,7 @@ bool LoadImeConfig()
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
-        g_candidate_skin = skin == "wechat" || skin == "graphite" || skin == "willow_green" ? skin : "fluent";
+        g_candidate_skin = IsValidCandidateSkinId(skin) ? skin : "fluent";
         {
             const std::string preedit_style =
                 tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
@@ -1121,7 +1133,7 @@ bool SendAuxConfigNotification(const wchar_t *message)
     return sent;
 }
 
-void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
+void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage, WPARAM wParam = 0)
 {
     const HWND hwnd = FindImeServerCandidateWindow();
     DWORD serverProcessId = 0;
@@ -1132,7 +1144,7 @@ void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
 
     if (serverProcessId == GetCurrentProcessId())
     {
-        PostMessageW(hwnd, windowMessage, 0, 0);
+        PostMessageW(hwnd, windowMessage, wParam, 0);
         return;
     }
 
@@ -1145,7 +1157,7 @@ void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
         // Retain the old route as a best-effort fallback. The Server's periodic
         // file watcher remains the final recovery path if both transports are
         // temporarily unavailable during startup.
-        PostMessageW(hwnd, windowMessage, 0, 0);
+        PostMessageW(hwnd, windowMessage, wParam, 0);
     }
 }
 } // namespace
@@ -1153,6 +1165,11 @@ void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
 void NotifyImeServerConfigChanged()
 {
     NotifyImeServer(WM_APPLY_IME_CONFIG, L"ConfigChanged");
+}
+
+void NotifyImeServerCandidateSkinRefresh()
+{
+    NotifyImeServer(WM_APPLY_IME_CONFIG, L"CandidateSkinRefresh", 1);
 }
 
 void NotifyImeServerInputSchemeChanged()
@@ -2236,7 +2253,7 @@ const std::string &GetConfiguredCandidateSkin()
 
 bool SetConfiguredCandidateSkin(const std::string &skin)
 {
-    if (skin != "fluent" && skin != "wechat" && skin != "graphite" && skin != "willow_green")
+    if (!IsValidCandidateSkinId(skin))
     {
         return false;
     }

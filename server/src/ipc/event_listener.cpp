@@ -2908,14 +2908,16 @@ void AuxPipeEventListenerLoopThread()
                     // gating and never activates a suspended TIP for a menu click.
                     EnqueueTask(TaskType::LangbarRightClick, pipeData, 0);
                 }
-                else if (message == L"ConfigChanged" || message == L"InputSchemeChanged")
+                else if (message == L"ConfigChanged" || message == L"InputSchemeChanged" ||
+                         message == L"CandidateSkinRefresh")
                 {
                     const UINT configMessage =
                         message == L"InputSchemeChanged" ? WM_APPLY_IME_INPUT_SCHEME : WM_APPLY_IME_CONFIG;
+                    const WPARAM configWParam = message == L"CandidateSkinRefresh" ? 1 : 0;
                     const HWND candidateWindow = ::global_hwnd;
                     if (candidateWindow && IsWindow(candidateWindow))
                     {
-                        PostMessageW(candidateWindow, configMessage, 0, 0);
+                        PostMessageW(candidateWindow, configMessage, configWParam, 0);
                     }
                     else
                     {

@@ -118,7 +118,6 @@ void GetCandidateCardSize(
             }}
             if (el) {{
                 el.style.maxWidth = maxW + "px";
-                el.style.maxHeight = maxH + "px";
                 el.style.width = "fit-content";
             }}
             void target.offsetWidth;

@@ -4,6 +4,7 @@
 #include "settings/settings_launcher.h"
 #include "settings/settings_splash.h"
 #include "settings/dictionary_manager.h"
+#include "skin/candidate_skin_catalog.h"
 #include "utils/common_utils.h"
 #include "utils/single_instance.h"
 #include "voice-input/voice_providers.h"
@@ -21,7 +22,9 @@
 #include <wrl.h>
 
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -57,6 +60,8 @@ bool g_window_active = true;
 bool g_window_minimized = false;
 bool g_open_about_on_ready = false;
 HWND g_settings_hwnd = nullptr;
+std::optional<CandidateSkinCatalog::ScanResult> g_candidate_skin_catalog;
+uint64_t g_candidate_skin_catalog_revision = 0;
 
 void ShowAboutSection()
 {
@@ -203,7 +208,7 @@ void ResetTitlebarHoverAfterVisibilityChange()
     })())JS", nullptr);
 }
 
-void PostConfig()
+void PostConfig(bool refresh_skin_catalog = false)
 {
     if (!g_webview)
         return;
@@ -213,6 +218,38 @@ void PostConfig()
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
+    const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+                                             GlobalIme::AppName / L"skins";
+    if (refresh_skin_catalog)
+    {
+        g_candidate_skin_catalog = CandidateSkinCatalog::Scan(skins_root);
+        ++g_candidate_skin_catalog_revision;
+    }
+    const std::string skin_layout = GetConfiguredCandidateWindowLayout();
+    const std::string skin_theme = ResolveConfiguredTheme(GetConfiguredThemeCand());
+    nlohmann::json external_skins = nlohmann::json::array();
+    if (g_candidate_skin_catalog)
+    {
+        for (const auto &skin : g_candidate_skin_catalog->packages)
+        {
+            external_skins.push_back({{"id", skin.id},
+                                      {"name", skin.name},
+                                      {"version", skin.version},
+                                      {"author", skin.author},
+                                      {"description", skin.description},
+                                      {"base", skin.base},
+                                      {"preview", skin.preview},
+                                      {"layouts", skin.layouts},
+                                      {"themes", skin.themes},
+                                      {"compatible", CandidateSkinCatalog::Supports(skin, skin_layout, skin_theme)}});
+        }
+    }
+    nlohmann::json skin_issues = nlohmann::json::array();
+    if (g_candidate_skin_catalog)
+    {
+        for (const auto &issue : g_candidate_skin_catalog->issues)
+            skin_issues.push_back({{"folder", issue.folder}, {"reason", issue.reason}});
+    }
     nlohmann::json polish_presets = nlohmann::json::array();
     for (const auto &preset : VoiceInput::BuiltinPolishPromptPresets())
     {
@@ -301,7 +338,12 @@ void PostConfig()
             {"font_size", GetConfiguredCandidateFontSize()},
             {"candidate_window_preedit_font_size", GetConfiguredCandidateWindowPreeditFontSize()},
             {"cand_text_color", GetConfiguredCandidateTextColor()},
-            {"system_fonts", GetSystemFontFamilies()}}},
+            {"system_fonts", GetSystemFontFamilies()},
+            {"external_candidate_skins", std::move(external_skins)},
+            {"candidate_skin_scan_issues", std::move(skin_issues)},
+            {"candidate_skin_catalog_scanned", g_candidate_skin_catalog.has_value()},
+            {"candidate_skin_catalog_revision", g_candidate_skin_catalog_revision},
+            {"candidate_skin_directory", skins_root.u8string()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
             {"hotkey_ralt", voice.hotkey_ralt}, {"hotkey_ctrl_f9", voice.hotkey_ctrl_f9},
@@ -652,6 +694,19 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         {
             PostConfig();
         }
+        else if (type == "skinCatalogRequest")
+        {
+            PostConfig(true);
+            NotifyImeServerCandidateSkinRefresh();
+        }
+        else if (type == "openSkinDirectory")
+        {
+            const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+                                                GlobalIme::AppName / L"skins";
+            std::error_code ec;
+            std::filesystem::create_directories(skins, ec);
+            if (!ec) ShellExecuteW(hwnd, L"open", skins.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
         else if (type == "configUpdate" && ApplyConfigUpdate(value.at("data").as_object()))
         {
             const auto &data = value.at("data").as_object();
@@ -736,6 +791,12 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
         const std::filesystem::path assets = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
                                              GlobalIme::AppName / "html/webview2/settings/ime-settings/dist";
         g_webview3->SetVirtualHostNameToFolderMapping(L"imesettings", assets.c_str(),
+                                                       COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+                                            GlobalIme::AppName / L"skins";
+        std::error_code ec;
+        std::filesystem::create_directories(skins, ec);
+        g_webview3->SetVirtualHostNameToFolderMapping(L"candidate-skins", skins.c_str(),
                                                        COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
     }
     if (SUCCEEDED(g_controller.As(&g_controller2)))

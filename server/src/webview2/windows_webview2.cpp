@@ -21,11 +21,18 @@
 #include "log/candidate_diag_log.h"
 #include "log/ftb_diag_log.h"
 #include "settings/settings_launcher.h"
+#include "skin/candidate_skin_catalog.h"
 #include "utils/window_utils.h"
 #include "voice-input/voice_input_service.h"
 #include <WebView2EnvironmentOptions.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cwctype>
+#include <filesystem>
+#include <fstream>
+#include <optional>
+#include <vector>
 
 // WebView diagnostics were useful while fixing the rendering issues, but they
 // overwhelm the input-latency trace. Keep these call sites compiled out.
@@ -44,6 +51,7 @@ void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+void SetCandidateHostCloaked(bool cloaked);
 void ClearFloatingToolbarNavigationState();
 std::wstring DescribeTrayMenuHostState();
 std::wstring DescribeCandidateHostState();
@@ -59,6 +67,7 @@ std::wstring bodyRes = L"";
 std::string loadedCandidateSkin;
 std::string loadedFloatingToolbarSkin;
 std::string preparedCandidateSkin;
+uint64_t candidateSkinReloadRevision = 0;
 
 namespace
 {
@@ -97,6 +106,8 @@ constexpr ULONGLONG kContentTruncationCooldownMs = 400;
 ULONGLONG g_last_content_truncation_ftb_ms = 0;
 ULONGLONG g_last_content_truncation_menu_ms = 0;
 ULONGLONG g_last_content_truncation_cand_ms = 0;
+
+std::optional<CandidateSkinCatalog::Package> activeExternalCandidateSkin;
 
 bool AllowContentTruncationRemeasure(ULONGLONG &last_ms)
 {
@@ -154,6 +165,16 @@ HalfScreenDipLimits ApplyRasterizationScale(HalfScreenDipLimits limits, FLOAT sc
 }
 
 } // namespace
+
+double GetActiveCandidateSkinDecorationTopDip()
+{
+    return activeExternalCandidateSkin ? activeExternalCandidateSkin->decorationTopDip : 0.0;
+}
+
+double GetActiveCandidateSkinDecorationWidthDip()
+{
+    return activeExternalCandidateSkin ? activeExternalCandidateSkin->decorationWidthDip : 0.0;
+}
 
 FLOAT GetWebViewRasterizationScale(HWND hwnd)
 {
@@ -1232,6 +1253,303 @@ std::wstring ReadHtmlFileWithFallback(const std::wstring &primaryPath, const std
     return content;
 }
 
+namespace
+{
+bool IsRewritableSkinCssUrl(std::wstring url)
+{
+    while (!url.empty() && iswspace(url.front()))
+    {
+        url.erase(url.begin());
+    }
+    while (!url.empty() && iswspace(url.back()))
+    {
+        url.pop_back();
+    }
+    if (url.empty() || url.find(L"..") != std::wstring::npos)
+    {
+        return false;
+    }
+    if (url.find(L"://") != std::wstring::npos)
+    {
+        return false;
+    }
+    if (url.size() >= 5)
+    {
+        std::wstring scheme = url.substr(0, 5);
+        for (wchar_t &ch : scheme)
+        {
+            ch = static_cast<wchar_t>(towlower(ch));
+        }
+        if (scheme == L"data:")
+        {
+            return false;
+        }
+    }
+    return url.front() != L'/' && url.front() != L'\\' && url.front() != L'#';
+}
+
+std::wstring NormalizeSkinCssUrl(std::wstring url)
+{
+    while (!url.empty() && iswspace(url.front()))
+    {
+        url.erase(url.begin());
+    }
+    while (!url.empty() && iswspace(url.back()))
+    {
+        url.pop_back();
+    }
+    while (url.size() >= 2 && url[0] == L'.' && url[1] == L'/')
+    {
+        url.erase(0, 2);
+    }
+    std::replace(url.begin(), url.end(), L'\\', L'/');
+    return url;
+}
+
+std::wstring EncodeBase64(const std::vector<unsigned char> &bytes)
+{
+    static constexpr wchar_t kTable[] =
+        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::wstring out;
+    out.reserve(((bytes.size() + 2) / 3) * 4);
+    size_t i = 0;
+    while (i + 2 < bytes.size())
+    {
+        const unsigned int triple =
+            (static_cast<unsigned int>(bytes[i]) << 16) | (static_cast<unsigned int>(bytes[i + 1]) << 8) |
+            static_cast<unsigned int>(bytes[i + 2]);
+        out.push_back(kTable[(triple >> 18) & 63]);
+        out.push_back(kTable[(triple >> 12) & 63]);
+        out.push_back(kTable[(triple >> 6) & 63]);
+        out.push_back(kTable[triple & 63]);
+        i += 3;
+    }
+    if (i < bytes.size())
+    {
+        unsigned int triple = static_cast<unsigned int>(bytes[i]) << 16;
+        if (i + 1 < bytes.size())
+        {
+            triple |= static_cast<unsigned int>(bytes[i + 1]) << 8;
+        }
+        out.push_back(kTable[(triple >> 18) & 63]);
+        out.push_back(kTable[(triple >> 12) & 63]);
+        out.push_back(i + 1 < bytes.size() ? kTable[(triple >> 6) & 63] : L'=');
+        out.push_back(L'=');
+    }
+    return out;
+}
+
+std::wstring MimeForSkinAsset(const std::wstring &relativePath)
+{
+    std::wstring lower = relativePath;
+    for (wchar_t &ch : lower)
+    {
+        ch = static_cast<wchar_t>(towlower(ch));
+    }
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".png") == 0)
+        return L"image/png";
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".jpg") == 0)
+        return L"image/jpeg";
+    if (lower.size() >= 5 && lower.compare(lower.size() - 5, 5, L".jpeg") == 0)
+        return L"image/jpeg";
+    if (lower.size() >= 5 && lower.compare(lower.size() - 5, 5, L".webp") == 0)
+        return L"image/webp";
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".gif") == 0)
+        return L"image/gif";
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".svg") == 0)
+        return L"image/svg+xml";
+    return L"application/octet-stream";
+}
+
+std::wstring EmbedSkinCssUrl(const std::wstring &skinsRoot, const std::string &skinId, const std::wstring &rawUrl)
+{
+    const std::wstring relative = NormalizeSkinCssUrl(rawUrl);
+    const std::filesystem::path filePath = std::filesystem::path(skinsRoot) /
+                                           std::filesystem::u8path(skinId) /
+                                           std::filesystem::u8path(wstring_to_string(relative));
+    std::error_code ec;
+    constexpr std::uintmax_t kMaxEmbedBytes = 1500 * 1024;
+    const auto fileSize = std::filesystem::file_size(filePath, ec);
+    if (!ec && fileSize > 0 && fileSize <= kMaxEmbedBytes)
+    {
+        std::ifstream stream(filePath, std::ios::binary);
+        std::vector<unsigned char> bytes(static_cast<size_t>(fileSize));
+        if (stream && stream.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(fileSize)))
+        {
+            return L"url(\"data:" + MimeForSkinAsset(relative) + L";base64," + EncodeBase64(bytes) + L"\")";
+        }
+    }
+    return L"url(\"https://candidate-skins/" + string_to_wstring(skinId) + L"/" + relative + L"\")";
+}
+
+std::wstring RewriteCandidateSkinCssUrls(const std::wstring &css, const std::wstring &skinsRoot,
+                                         const std::string &skinId)
+{
+    std::wstring result;
+    result.reserve(css.size() + 64);
+    size_t pos = 0;
+    while (pos < css.size())
+    {
+        size_t urlPos = std::wstring::npos;
+        for (size_t i = pos; i + 4 <= css.size(); ++i)
+        {
+            if ((css[i] == L'u' || css[i] == L'U') && (css[i + 1] == L'r' || css[i + 1] == L'R') &&
+                (css[i + 2] == L'l' || css[i + 2] == L'L') && css[i + 3] == L'(')
+            {
+                urlPos = i;
+                break;
+            }
+        }
+        if (urlPos == std::wstring::npos)
+        {
+            result.append(css, pos, std::wstring::npos);
+            break;
+        }
+        result.append(css, pos, urlPos - pos);
+        size_t cursor = urlPos + 4;
+        while (cursor < css.size() && iswspace(css[cursor]))
+        {
+            ++cursor;
+        }
+        wchar_t quote = 0;
+        if (cursor < css.size() && (css[cursor] == L'"' || css[cursor] == L'\''))
+        {
+            quote = css[cursor++];
+        }
+        const size_t valueStart = cursor;
+        while (cursor < css.size())
+        {
+            if (quote != 0)
+            {
+                if (css[cursor] == quote)
+                {
+                    break;
+                }
+            }
+            else if (css[cursor] == L')' || iswspace(css[cursor]))
+            {
+                break;
+            }
+            ++cursor;
+        }
+        const std::wstring rawUrl = css.substr(valueStart, cursor - valueStart);
+        if (IsRewritableSkinCssUrl(rawUrl))
+        {
+            result.append(EmbedSkinCssUrl(skinsRoot, skinId, rawUrl));
+        }
+        else
+        {
+            result.append(L"url(");
+            if (quote != 0)
+            {
+                result.push_back(quote);
+                result.append(rawUrl);
+                result.push_back(quote);
+            }
+            else
+            {
+                result.append(rawUrl);
+            }
+            result.push_back(L')');
+        }
+        if (quote != 0 && cursor < css.size() && css[cursor] == quote)
+        {
+            ++cursor;
+        }
+        while (cursor < css.size() && iswspace(css[cursor]))
+        {
+            ++cursor;
+        }
+        if (cursor < css.size() && css[cursor] == L')')
+        {
+            ++cursor;
+        }
+        pos = cursor;
+    }
+    return result;
+}
+
+void NeutralizeEmbeddedStyleClosers(std::wstring &css)
+{
+    for (size_t i = 0; i + 7 < css.size(); ++i)
+    {
+        if (css[i] != L'<' || css[i + 1] != L'/')
+        {
+            continue;
+        }
+        std::wstring tag = css.substr(i + 2, 5);
+        for (wchar_t &ch : tag)
+        {
+            ch = static_cast<wchar_t>(towlower(ch));
+        }
+        if (tag == L"style")
+        {
+            css.insert(i + 1, 1, L' ');
+            i += 2;
+        }
+    }
+}
+
+bool InjectExternalCandidateSkin(
+    std::wstring &html,
+    const CandidateSkinCatalog::Package &skin,
+    const std::wstring &skinsRoot)
+{
+    if (html.empty() || skinsRoot.empty())
+    {
+        return false;
+    }
+    // NavigateToString documents cannot reliably load a cross-origin <link>
+    // stylesheet (virtual-host CORS). Built-in skins are inlined for the same
+    // reason; keep external skins on that path so padding/decoration CSS is
+    // present before SetWindowRgn applies candidateWindow.decoration.
+    const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" +
+                                 string_to_wstring(skin.stylesheet);
+    std::wstring css = RewriteCandidateSkinCssUrls(ReadHtmlFile(cssPath), skinsRoot, skin.id);
+    if (css.empty())
+    {
+        return false;
+    }
+    NeutralizeEmbeddedStyleClosers(css);
+    const std::wstring vars = fmt::format(
+        L"<style id=\"external-candidate-skin-vars\">:root{{--msime-skin-min-width:{}px;"
+        L"--msime-skin-decoration-top:{}px;--msime-skin-decoration-width:{}px;}}</style>",
+        skin.minWidthDip, skin.decorationTopDip, skin.decorationWidthDip);
+    const std::wstring additions =
+        vars + L"<style id=\"external-candidate-skin\">" + css + L"</style>";
+    const size_t headEnd = html.find(L"</head>");
+    if (headEnd == std::wstring::npos)
+    {
+        return false;
+    }
+    html.insert(headEnd, additions);
+    return true;
+}
+
+void InjectCandidateDocumentSkin(
+    std::wstring &html,
+    const std::wstring &builtInCss,
+    const std::string &skin,
+    const std::string &base,
+    const std::string &layout,
+    const std::string &theme)
+{
+    if (html.empty()) return;
+    const size_t htmlTagEnd = html.find(L'>', html.find(L"<html"));
+    if (htmlTagEnd != std::wstring::npos)
+    {
+        html.insert(htmlTagEnd,
+                    fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                                L"data-candidate-layout=\"{}\" data-candidate-theme=\"{}\"",
+                                string_to_wstring(skin), string_to_wstring(base), string_to_wstring(layout),
+                                string_to_wstring(theme)));
+    }
+    const size_t headEnd = html.find(L"</head>");
+    if (headEnd != std::wstring::npos && !builtInCss.empty())
+        html.insert(headEnd, L"<style id=\"built-in-candidate-skin\">" + builtInCss + L"</style>");
+}
+} // namespace
+
 static std::wstring EscapeForJsTemplateLiteral(const std::wstring &text)
 {
     // Content is injected as an untagged JavaScript template literal. Kaomoji
@@ -1386,36 +1704,65 @@ int PrepareHtmlForWnds()
     const bool isHorizontal = GetConfiguredCandidateWindowLayout() == "horizontal";
     const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
     const std::string candidateSkin = GetConfiguredCandidateSkin();
-    const bool useWechatSkin = candidateSkin == "wechat";
-    const bool useGraphiteSkin = candidateSkin == "graphite";
-    const bool useWillowGreenSkin = candidateSkin == "willow_green";
-    const wchar_t *candThemeSuffix =
-        useWechatSkin         ? (candLight ? L"wechat_light" : L"wechat")
-        : useGraphiteSkin     ? (candLight ? L"graphite_light" : L"graphite")
-        : useWillowGreenSkin  ? (candLight ? L"willow_green_light" : L"willow_green")
-                              : (candLight ? L"light" : L"dark");
+    const std::string candidateLayout = isHorizontal ? "horizontal" : "vertical";
+    const std::string candidateTheme = candLight ? "light" : "dark";
+    activeExternalCandidateSkin.reset();
+    std::string baseCandidateSkin = candidateSkin;
+    if (!CandidateSkinCatalog::IsBuiltIn(candidateSkin))
+    {
+        const std::wstring skinsRoot = assetPath + L"\\skins";
+        activeExternalCandidateSkin = CandidateSkinCatalog::Load(skinsRoot, candidateSkin);
+        if (activeExternalCandidateSkin &&
+            !CandidateSkinCatalog::Supports(*activeExternalCandidateSkin, candidateLayout, candidateTheme))
+            activeExternalCandidateSkin.reset();
+        baseCandidateSkin = activeExternalCandidateSkin ? activeExternalCandidateSkin->base : "fluent";
+    }
     std::wstring htmlCandWnd;
     std::wstring bodyHtmlCandWnd;
     std::wstring measureHtmlCandWnd;
     if (isHorizontal)
     {
-        htmlCandWnd = fmt::format(L"/html/webview2/candwnd/horizontal_candidate_window_{}.html", candThemeSuffix);
+        htmlCandWnd = L"/html/webview2/candwnd/horizontal_candidate_window.html";
         // Body/measure fragments are theme-agnostic markup; keep the existing dark assets.
         bodyHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark.html";
         measureHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark_measure.html";
     }
     else
     {
-        htmlCandWnd = fmt::format(L"/html/webview2/candwnd/vertical_candidate_window_{}.html", candThemeSuffix);
+        htmlCandWnd = L"/html/webview2/candwnd/vertical_candidate_window.html";
         bodyHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark.html";
         measureHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark_measure.html";
     }
 
     std::wstring entireHtmlPathCandWnd = assetPath + htmlCandWnd;
-    ::HTMLStringCandWnd = ReadHtmlFileWithFallback(
-        entireHtmlPathCandWnd,
-        assetPath + (isHorizontal ? L"/html/webview2/candwnd/horizontal_candidate_window_dark.html"
-                                  : L"/html/webview2/candwnd/vertical_candidate_window_dark.html"));
+    ::HTMLStringCandWnd = ReadHtmlFile(entireHtmlPathCandWnd);
+    const std::wstring candidateStyleName = fmt::format(
+        L"{}_{}.css", string_to_wstring(candidateLayout), string_to_wstring(candidateTheme));
+    const std::wstring candidateStylePath = fmt::format(
+        L"/html/webview2/candwnd/skins/{}/{}", string_to_wstring(baseCandidateSkin), candidateStyleName);
+    std::wstring builtInCandidateCss = ReadHtmlFile(assetPath + candidateStylePath);
+    if (builtInCandidateCss.empty())
+    {
+        builtInCandidateCss = ReadHtmlFile(
+            assetPath + L"/html/webview2/candwnd/skins/fluent/" + candidateStyleName);
+    }
+    if (builtInCandidateCss.empty() && candLight)
+    {
+        builtInCandidateCss = ReadHtmlFile(
+            assetPath + L"/html/webview2/candwnd/skins/fluent/" +
+            string_to_wstring(candidateLayout) + L"_dark.css");
+    }
+    InjectCandidateDocumentSkin(::HTMLStringCandWnd, builtInCandidateCss, candidateSkin,
+                                baseCandidateSkin, candidateLayout, candidateTheme);
+    if (activeExternalCandidateSkin)
+    {
+        const std::wstring skinsRoot = assetPath + L"\\skins";
+        if (!InjectExternalCandidateSkin(::HTMLStringCandWnd, *activeExternalCandidateSkin, skinsRoot))
+        {
+            // Without the stylesheet, native decoration insets would clip the card.
+            activeExternalCandidateSkin.reset();
+        }
+    }
     std::wstring bodyHtmlPathCandWnd = assetPath + bodyHtmlCandWnd;
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
     std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
@@ -1447,15 +1794,15 @@ int PrepareHtmlForWnds()
     //
     const bool ftbLight = ResolveConfiguredTheme(GetConfiguredThemeFtb()) == "light";
     std::wstring htmlFtbWnd;
-    if (useWechatSkin)
+    if (baseCandidateSkin == "wechat")
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/wechat_light.html" : L"/html/webview2/ftb/wechat.html";
     }
-    else if (useGraphiteSkin)
+    else if (baseCandidateSkin == "graphite")
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/graphite_light.html" : L"/html/webview2/ftb/graphite.html";
     }
-    else if (useWillowGreenSkin)
+    else if (baseCandidateSkin == "willow_green")
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/willow_green_light.html"
                               : L"/html/webview2/ftb/willow_green.html";
@@ -1529,6 +1876,20 @@ bool ApplyConfiguredCandidateSkinIfChanged()
         return true;
     }
     return ApplyConfiguredUiThemes();
+}
+
+bool ForceReloadConfiguredCandidateSkin()
+{
+    ++candidateSkinReloadRevision;
+    loadedCandidateSkin.clear();
+    loadedFloatingToolbarSkin.clear();
+    const bool cloakCandidate = ::is_global_wnd_cand_shown && ::global_hwnd && IsWindow(::global_hwnd);
+    if (cloakCandidate)
+        SetCandidateHostCloaked(true);
+    const bool ok = ApplyConfiguredUiThemes();
+    if (!ok && cloakCandidate)
+        SetCandidateHostCloaked(false);
+    return ok;
 }
 
 bool ApplyConfiguredCandidateAppearance()
@@ -1835,6 +2196,14 @@ HRESULT OnControllerCreatedCandWnd(     //
             assetPath.c_str(),                                                        //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS                          //
         );                                                                            //
+        const std::wstring skinsPath = fmt::format(                    //
+            L"{}\\{}\\skins",                                        //
+            string_to_wstring(CommonUtils::get_local_appdata_path()), //
+            GlobalIme::AppName                                        //
+        );
+        const HRESULT skinsMappingHr = webview3CandWnd->SetVirtualHostNameToFolderMapping(
+            L"candidate-skins", skinsPath.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        (void)skinsMappingHr;
         (void)0;
     }
 
@@ -2019,6 +2388,8 @@ HRESULT OnControllerCreatedCandWnd(     //
                 else
                 {
                     (void)0;
+                    if (::is_global_wnd_cand_shown)
+                        SetCandidateHostCloaked(false);
                 }
                 if (success && ::is_global_wnd_cand_shown)
                 {

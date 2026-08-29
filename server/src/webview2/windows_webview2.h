@@ -71,9 +71,13 @@ bool ApplyConfiguredUiThemes();
 // Reconcile the actual WebView skin even when another thread consumed the
 // config file timestamp before the UI timer observed it.
 bool ApplyConfiguredCandidateSkinIfChanged();
+bool ForceReloadConfiguredCandidateSkin();
 bool ApplyConfiguredCandidateAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete);
+// Geometry declared by the active external skin package. Built-in skins return 0.
+double GetActiveCandidateSkinDecorationTopDip();
+double GetActiveCandidateSkinDecorationWidthDip();
 // Push half-monitor CSS max width/height (DIP) into a small-window page.
 void InjectSurfaceViewportLimits(ICoreWebView2 *webview, HWND hwnd);
 // WebView2 rasterization scale includes both monitor DPI and the user's text

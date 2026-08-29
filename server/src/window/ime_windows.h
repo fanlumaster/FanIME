@@ -25,6 +25,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
 LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 bool ActivateSettingsWindow(HWND hwnd);
 void RequestSettingsWindowActivation(HWND hwnd);
+void SetCandidateHostCloaked(bool cloaked);
 // reason identifies the trigger in the floating-toolbar diagnostic trace. The
 // whole class of bugs here is "nothing ever called this", so the caller has to
 // be recoverable from the log.
