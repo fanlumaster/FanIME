@@ -14,6 +14,11 @@
 inline std::condition_variable pipe_queueCv;
 inline std::atomic_bool pipe_running = true;
 inline std::shared_ptr<IInputSession> g_inputSession;
+// Collapse bursty TSF show/move packets so the UI thread runs one FineTune
+// against the latest Global::Point / CandidateString instead of restarting
+// the WebView2 measure chain on every cloud refresh or layout notification.
+inline std::atomic<bool> g_candidate_show_msg_pending{false};
+inline std::atomic<bool> g_candidate_move_msg_pending{false};
 
 namespace FanyNamedPipe
 {

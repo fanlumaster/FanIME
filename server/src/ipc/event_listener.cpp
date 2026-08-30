@@ -214,9 +214,19 @@ void RequestShowCandidateWindow()
         CAND_DIAG_LOGF(L"show request skipped uiless={} hwnd_present={}", IsUiLessMode(), ::global_hwnd != nullptr);
         return;
     }
+    bool expected = false;
+    if (!g_candidate_show_msg_pending.compare_exchange_strong(expected, true))
+    {
+        CAND_DIAG_LOGF(L"show request coalesced raw_units={} candidate_count={}",
+                       GlobalIme::composition.raw_input_with_cases.size(), Global::candidate_ui.items.size());
+        return;
+    }
     CAND_DIAG_LOGF(L"show request posted raw_units={} candidate_count={}",
                    GlobalIme::composition.raw_input_with_cases.size(), Global::candidate_ui.items.size());
-    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+    if (!PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0))
+    {
+        g_candidate_show_msg_pending.store(false);
+    }
 }
 
 bool IsHexChar(unsigned char ch)
@@ -1538,7 +1548,16 @@ void WorkerThread()
             ::ReadDataFromNamedPipe(0b001000);
             CAND_DIAG_LOGF(L"task MoveCandidate client={} epoch={} caret=({},{})", task.client_id,
                            task.activation_epoch, Global::Point[0], Global::Point[1]);
-            PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
+            bool expected = false;
+            if (!g_candidate_move_msg_pending.compare_exchange_strong(expected, true))
+            {
+                CAND_DIAG_LOGF(L"move request coalesced caret=({},{})", Global::Point[0], Global::Point[1]);
+                break;
+            }
+            if (!PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0))
+            {
+                g_candidate_move_msg_pending.store(false);
+            }
             break;
         }
 

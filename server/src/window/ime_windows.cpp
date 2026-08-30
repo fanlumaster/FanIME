@@ -47,6 +47,7 @@ constexpr UINT WM_ACTIVATE_SETTINGS_WINDOW = WM_APP + 110;
 
 int FineTuneWindow(HWND hwnd);
 int FineTuneWindow(HWND hwnd, UINT firstFlag, UINT secondFlag);
+std::wstring DescribeCandidateHostState();
 
 namespace
 {
@@ -54,6 +55,14 @@ int g_settings_activation_retries_remaining = 0;
 bool g_is_ime_active = false;
 // Drop stale FineTune measure callbacks when a newer show/update supersedes them.
 std::atomic<uint64_t> g_candidate_finetune_generation{0};
+std::atomic<bool> g_candidate_layout_inflight{false};
+// WM_DPICHANGED must remasure even when the caret has not moved.
+std::atomic<bool> g_candidate_force_layout{false};
+int g_last_placed_caret_x = Global::INVALID_Y;
+int g_last_placed_caret_y = Global::INVALID_Y;
+bool g_has_last_candidate_clip = false;
+std::pair<double, double> g_last_candidate_clip_size{};
+FLOAT g_last_candidate_clip_scale = 1.0f;
 // SetWindowPos on the candidate host can synchronously deliver WM_DPICHANGED on
 // the same call stack (hide-to-offscreen, FineTune cross-monitor moves). Applying
 // the suggested rect or re-entering FineTune from that handler races the hide
@@ -102,6 +111,202 @@ int GetCandidateOuterTopPx(int cardAnchorY, int packingTopDip, FLOAT scale)
     }
     const double outerOffsetDip = static_cast<double>(packingTopDip) - GetCandidateDecorationTopDip();
     return cardAnchorY + static_cast<int>(std::lround(outerOffsetDip * static_cast<double>(scale)));
+}
+
+void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale);
+int GetCandidateOuterMarginDip(int desiredOuterTopPx, int hostY, FLOAT scale);
+void KeepCandidateCardInsideHostAndMonitor(int hostX, int hostY, int hostWidthPx, int hostHeightPx,
+                                           double contentWidthDip, double contentHeightDip, FLOAT layoutScale,
+                                           const MonitorCoordinates &coordinates, double minContentWidthDip = 0.0);
+void SetHostWindowCloaked(HWND hwnd, bool cloaked);
+bool IsHostWindowCloaked(HWND hwnd);
+
+void EndCandidateLayoutIfCurrent(uint64_t generation)
+{
+    if (generation == g_candidate_finetune_generation.load())
+    {
+        g_candidate_layout_inflight.store(false);
+    }
+}
+
+void RememberCandidateClip(const std::pair<double, double> &decoratedSize, FLOAT scale, int caretX, int caretY)
+{
+    g_has_last_candidate_clip = decoratedSize.first > 1.0 && decoratedSize.second > 1.0;
+    if (g_has_last_candidate_clip)
+    {
+        g_last_candidate_clip_size = decoratedSize;
+        g_last_candidate_clip_scale = scale > 0.0f ? scale : 1.0f;
+    }
+    g_last_placed_caret_x = caretX;
+    g_last_placed_caret_y = caretY;
+}
+
+// First-pass DOM measure is often short (layout not settled). Using it as the
+// native region is what truncated candidates and the skin decoration image.
+constexpr double kProvisionalClipPadWidthDip = 96.0;
+constexpr double kProvisionalClipPadHeightDip = 56.0;
+
+void RevealCandidateHost(HWND hwnd, const std::pair<double, double> &decoratedSize, FLOAT scale, bool provisional)
+{
+    std::pair<double, double> clipSize = decoratedSize;
+    if (provisional)
+    {
+        clipSize.first += kProvisionalClipPadWidthDip;
+        clipSize.second += kProvisionalClipPadHeightDip;
+        if (g_has_last_candidate_clip)
+        {
+            clipSize.first = (std::max)(clipSize.first, g_last_candidate_clip_size.first);
+            clipSize.second = (std::max)(clipSize.second, g_last_candidate_clip_size.second);
+        }
+        const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
+        clipSize.first = ClampWidthDipToHalfScreen(clipSize.first, limits);
+        clipSize.second = ClampHeightDipToHalfScreen(clipSize.second, limits);
+    }
+    ClipCandidateWindowToContent(hwnd, clipSize, scale);
+    SetHostWindowCloaked(hwnd, false);
+    UpdateSmallWindowWebviewVisibility(hwnd, true);
+}
+
+void RefreshCandidateClipAfterPaint(HWND hwnd)
+{
+    if (!hwnd || !::is_global_wnd_cand_shown || !webviewCandWnd)
+    {
+        return;
+    }
+    const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
+    const double wrapMaxDip =
+        limits.maxWidthDip > 1.0 ? limits.maxWidthDip : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    const double wrapMaxHeightDip =
+        limits.maxHeightDip > 1.0 ? limits.maxHeightDip : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    GetRealCandidateCardSize(
+        webviewCandWnd,
+        [hwnd](std::pair<double, double> paintedSize) {
+            if (!::is_global_wnd_cand_shown || paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
+            {
+                return;
+            }
+            const HalfScreenDipLimits clipLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
+            paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, clipLimits);
+            paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, clipLimits);
+            const std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(paintedSize);
+            FLOAT scale = GetWebViewRasterizationScale(hwnd);
+            if (scale <= 0.0f)
+            {
+                scale = clipLimits.scale > 0.0f ? clipLimits.scale : 1.0f;
+            }
+            ClipCandidateWindowToContent(hwnd, decoratedSize, scale);
+            RememberCandidateClip(decoratedSize, scale, Global::Point[0], Global::Point[1]);
+            CAND_DIAG_LOGF(L"clip refreshed after paint size_dip=({:.1f},{:.1f}) {}", decoratedSize.first,
+                           decoratedSize.second, ::DescribeCandidateHostState());
+        },
+        wrapMaxDip, wrapMaxHeightDip);
+}
+
+bool IsCandidateHostPaintedVisible(HWND hwnd)
+{
+    if (!hwnd || !::is_global_wnd_cand_shown || Global::Point[1] == Global::INVALID_Y)
+    {
+        return false;
+    }
+    RECT windowRect{};
+    if (!GetWindowRect(hwnd, &windowRect) || windowRect.top == Global::INVALID_Y)
+    {
+        return false;
+    }
+    return !IsHostWindowCloaked(hwnd) && MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL) != nullptr;
+}
+
+void PlaceCandidateHostNearCaret(HWND hwnd)
+{
+    if (!hwnd || Global::Point[1] == Global::INVALID_Y)
+    {
+        return;
+    }
+
+    POINT caretPt{Global::Point[0], Global::Point[1]};
+    const HalfScreenDipLimits halfLimits = QueryCandidateHalfScreenDipLimitsForPoint(hwnd, caretPt);
+    FLOAT layoutScale = halfLimits.scale > 0.0f ? halfLimits.scale : 1.0f;
+    const int hostWidthPx = (std::max)(1, (halfLimits.monitor.right - halfLimits.monitor.left) / 2);
+    const int hostHeightPx = (std::max)(1, (halfLimits.monitor.bottom - halfLimits.monitor.top) / 2);
+
+    std::pair<double, double> cardSize{
+        static_cast<double>(::CANDIDATE_WINDOW_WIDTH),
+        static_cast<double>(::CANDIDATE_WINDOW_HEIGHT),
+    };
+    if (g_has_last_candidate_clip)
+    {
+        cardSize = g_last_candidate_clip_size;
+        if (g_last_candidate_clip_scale > 0.0f)
+        {
+            layoutScale = g_last_candidate_clip_scale;
+        }
+    }
+    cardSize.first = ClampWidthDipToHalfScreen(cardSize.first, halfLimits);
+    cardSize.second = ClampHeightDipToHalfScreen(cardSize.second, halfLimits);
+
+    auto properPos = std::make_shared<std::pair<int, int>>();
+    AdjustCandidateWindowPosition(&caretPt, cardSize, properPos, layoutScale, halfLimits.maxWidthDip);
+
+    MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(caretPt);
+    int hostX = properPos->first;
+    const int packingMarginTop = (std::max)(0, Global::MarginTop);
+    int desiredOuterTopPx = GetCandidateOuterTopPx(properPos->second, packingMarginTop, layoutScale);
+    int hostY = desiredOuterTopPx;
+    const int edgePadPx = static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale)));
+    if (hostX + hostWidthPx > coordinates.right)
+    {
+        hostX = coordinates.right - hostWidthPx - edgePadPx;
+    }
+    if (hostX < coordinates.left)
+    {
+        hostX = coordinates.left + edgePadPx;
+    }
+    if (hostY + hostHeightPx > coordinates.bottom)
+    {
+        hostY = coordinates.bottom - hostHeightPx - edgePadPx;
+    }
+    if (hostY < coordinates.top)
+    {
+        hostY = coordinates.top + edgePadPx;
+    }
+
+    const int offsetXDip =
+        static_cast<int>(std::lround((properPos->first - hostX) / static_cast<double>(layoutScale)));
+    Global::MarginLeft = (std::max)(0, offsetXDip);
+    Global::MarginTop = GetCandidateOuterMarginDip(desiredOuterTopPx, hostY, layoutScale);
+    const std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(cardSize);
+    KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, decoratedSize.first,
+                                          decoratedSize.second, layoutScale, coordinates, halfLimits.maxWidthDip);
+
+    UINT flag = SWP_NOZORDER | SWP_SHOWWINDOW;
+    RECT currentRect{};
+    if (GetWindowRect(hwnd, &currentRect))
+    {
+        if ((currentRect.right - currentRect.left) == hostWidthPx &&
+            (currentRect.bottom - currentRect.top) == hostHeightPx)
+        {
+            flag |= SWP_NOSIZE;
+        }
+        if (currentRect.left == hostX && currentRect.top == hostY)
+        {
+            flag |= SWP_NOMOVE;
+        }
+    }
+
+    {
+        SuppressCandidateDpiChange suppressDpi;
+        SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, flag);
+    }
+    if ((flag & SWP_NOSIZE) == 0)
+    {
+        SyncCandidateWebViewBoundsToHost(hwnd);
+    }
+    else if (webviewControllerCandWnd)
+    {
+        webviewControllerCandWnd->NotifyParentWindowPositionChanged();
+    }
+    g_last_placed_caret_x = Global::Point[0];
+    g_last_placed_caret_y = Global::Point[1];
 }
 
 int GetCandidateOuterMarginDip(int desiredOuterTopPx, int hostY, FLOAT scale)
@@ -394,7 +599,7 @@ void KeepCandidateCardInsideHostAndMonitor( //
     double contentHeightDip,                //
     FLOAT layoutScale,                      //
     const MonitorCoordinates &coordinates,  //
-    double minContentWidthDip = 0.0         //
+    double minContentWidthDip               //
 )
 {
     if (layoutScale <= 0.0f)
@@ -1385,6 +1590,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_SHOW_MAIN_WINDOW)
     {
+        g_candidate_show_msg_pending.store(false);
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
         std::wstring preedit =
@@ -1402,8 +1608,42 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // Mark shown before measure/FineTune so in-flight work is not treated as
         // a post-hide resurrection; the measure callback still re-checks the flag.
         ::is_global_wnd_cand_shown = true;
-        // Invalidate any FineTune still measuring the previous keystroke.
-        ++g_candidate_finetune_generation;
+        const bool sameCaret = g_last_placed_caret_x == Global::Point[0] && g_last_placed_caret_y == Global::Point[1];
+        const bool alreadyVisible = IsCandidateHostPaintedVisible(hwnd);
+        const bool layoutInflight = g_candidate_layout_inflight.load();
+        // Only pre-place while still cloaked / parked. Doing this on an already
+        // visible host jumps the card to last-frame geometry, then FineTune
+        // corrects it — the "flash at the wrong place" on every key.
+        if (!alreadyVisible)
+        {
+            PlaceCandidateHostNearCaret(hwnd);
+        }
+        if (alreadyVisible && sameCaret)
+        {
+            CAND_DIAG_LOGF(L"show content-only already_visible=true inflight={}", layoutInflight);
+            InflateCandWnd(str, [hwnd]() {
+                if (!::is_global_wnd_cand_shown)
+                {
+                    return;
+                }
+                RefreshCandidateClipAfterPaint(hwnd);
+            });
+            return 0;
+        }
+        if (layoutInflight && sameCaret)
+        {
+            // A FineTune for this caret is already measuring. Let it pick up the
+            // latest CandidateString at InflateCandWnd time instead of killing it.
+            CAND_DIAG_LOGF(L"show folded into in-flight fine-tune caret=({},{})", Global::Point[0], Global::Point[1]);
+            InflateCandWnd(str, [hwnd]() {
+                if (!::is_global_wnd_cand_shown)
+                {
+                    return;
+                }
+                RefreshCandidateClipAfterPaint(hwnd);
+            });
+            return 0;
+        }
         InflateMeasureDivCandWnd(str, [hwnd]() {
             if (!::is_global_wnd_cand_shown)
             {
@@ -1421,6 +1661,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         (void)0;
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
+        g_candidate_layout_inflight.store(false);
         ++g_candidate_finetune_generation;
         Global::MarginTop = 0;
         Global::MarginLeft = 0;
@@ -1456,8 +1697,22 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_MOVE_CANDIDATE_WINDOW)
     {
+        g_candidate_move_msg_pending.store(false);
         CAND_DIAG_LOGF(L"move message caret=({},{}) {}", Global::Point[0], Global::Point[1],
                        DescribeCandidateHostState());
+        const bool forceLayout = g_candidate_force_layout.exchange(false);
+        const bool sameCaret = g_last_placed_caret_x == Global::Point[0] && g_last_placed_caret_y == Global::Point[1];
+        if (!forceLayout && sameCaret &&
+            (g_candidate_layout_inflight.load() || IsCandidateHostPaintedVisible(hwnd)))
+        {
+            CAND_DIAG_LOGF(L"move skipped same caret inflight={} visible={}", g_candidate_layout_inflight.load(),
+                           IsCandidateHostPaintedVisible(hwnd));
+            return 0;
+        }
+        if (!::is_global_wnd_cand_shown)
+        {
+            return 0;
+        }
         FineTuneWindow(hwnd);
         return 0;
     }
@@ -1477,6 +1732,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // we never nest ExecuteScript/measure on this stack.
         if (::is_global_wnd_cand_shown && Global::Point[1] != Global::INVALID_Y)
         {
+            g_candidate_force_layout.store(true);
             PostMessage(hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
         }
         // Hidden: keep the off-screen park / warmup size. DefWindowProc must not
@@ -2611,6 +2867,7 @@ int FineTuneWindow(HWND hwnd)
         return 0;
     }
     const uint64_t generation = ++g_candidate_finetune_generation;
+    g_candidate_layout_inflight.store(true);
     WEBVIEW_DIAG_LOGF(L"fine-tune begin generation={} caret=({},{}) {}", generation, caretX, caretY,
                    DescribeCandidateHostState());
     // Wrap/scroll budget = stable host size (half-screen DIP). Width wraps;
@@ -2658,6 +2915,7 @@ int FineTuneWindow(HWND hwnd)
             {
                 WEBVIEW_DIAG_LOGF(L"fine-tune generation={} discarded: hidden={} invalid_caret={}", generation,
                                !::is_global_wnd_cand_shown, caretY == Global::INVALID_Y);
+                EndCandidateLayoutIfCurrent(generation);
                 return;
             }
             // A newer show/update already queued another FineTune — ignore this one.
@@ -2700,6 +2958,7 @@ int FineTuneWindow(HWND hwnd)
             if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
             {
                 (void)0;
+                EndCandidateLayoutIfCurrent(generation);
                 return;
             }
 
@@ -2750,11 +3009,17 @@ int FineTuneWindow(HWND hwnd)
                 Global::MarginLeft = (std::max)(0, offsetXDip);
                 Global::MarginTop = GetCandidateOuterMarginDip(desiredOuterTopPx, hostY, marginScale);
             };
-            applyCardMargins(layoutScale);
+            // Already on screen: first-pass size/flip is a guess. Applying it
+            // moves the visible card, then pass 2 snaps it — that is the flash.
+            const bool deferHostMove = IsCandidateHostPaintedVisible(hwnd);
             const std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(containerSize);
-            KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, decoratedSize.first,
-                                                  decoratedSize.second, layoutScale, coordinates,
-                                                  halfLimits.maxWidthDip);
+            if (!deferHostMove)
+            {
+                applyCardMargins(layoutScale);
+                KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, decoratedSize.first,
+                                                      decoratedSize.second, layoutScale, coordinates,
+                                                      halfLimits.maxWidthDip);
+            }
 
             int newWidth = hostWidthPx;
             int newHeight = hostHeightPx;
@@ -2778,12 +3043,14 @@ int FineTuneWindow(HWND hwnd)
 
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
+                EndCandidateLayoutIfCurrent(generation);
                 return;
             }
 
             // Geometry size is stable (quarter-screen). Do not cloak — card motion
             // is CSS margin inside the already-placed transparent host.
             BOOL positioned = FALSE;
+            if (!deferHostMove)
             {
                 SuppressCandidateDpiChange suppressDpi;
                 SetLastError(0);
@@ -2807,7 +3074,7 @@ int FineTuneWindow(HWND hwnd)
             // its rasterization scale. Re-sync physical size + CSS margins so
             // MarginLeft*rasterScale matches painting and SetWindowRgn.
             FLOAT hwndScale = GetWebViewRasterizationScale(hwnd);
-            if (hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
+            if (!deferHostMove && hwndScale > 0.0f && std::fabs(hwndScale - layoutScale) > 0.001f)
             {
                 const FLOAT oldLayoutScale = layoutScale;
                 layoutScale = hwndScale;
@@ -2851,6 +3118,7 @@ int FineTuneWindow(HWND hwnd)
 
                 if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                 {
+                    EndCandidateLayoutIfCurrent(generation);
                     return;
                 }
                 {
@@ -2880,15 +3148,28 @@ int FineTuneWindow(HWND hwnd)
             InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);
 
             InflateCandWnd(str, [hwnd, positioned, generation, containerSize, layoutScale, caretX, caretY,
-                                 packingMarginTop]() {
+                                 packingMarginTop, deferHostMove]() {
                 if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                 {
+                    EndCandidateLayoutIfCurrent(generation);
                     return;
                 }
 
-                auto finalizeClip = [hwnd, generation, layoutScale](std::pair<double, double> finalSize) {
+                // First reveal only: uncloak after the cloaked host is already at
+                // the caret. A visible host must not uncloak/reclip on pass 1 —
+                // that paints the guessed geometry for a frame.
+                if (!deferHostMove)
+                {
+                    const std::pair<double, double> earlyDecoratedSize = AddCandidateDecorationToSize(containerSize);
+                    RevealCandidateHost(hwnd, earlyDecoratedSize, layoutScale, /*provisional=*/true);
+                    CAND_DIAG_LOGF(L"fine-tune generation={} early-uncloak size_dip=({:.1f},{:.1f}) {}", generation,
+                                   earlyDecoratedSize.first, earlyDecoratedSize.second, DescribeCandidateHostState());
+                }
+
+                auto finalizeClip = [hwnd, generation, layoutScale, caretX, caretY](std::pair<double, double> finalSize) {
                     if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                     {
+                        EndCandidateLayoutIfCurrent(generation);
                         return;
                     }
                     const HalfScreenDipLimits clipLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
@@ -2901,6 +3182,8 @@ int FineTuneWindow(HWND hwnd)
                                   decoratedFinalSize.first, decoratedFinalSize.second);
                     SetHostWindowCloaked(hwnd, false);
                     UpdateSmallWindowWebviewVisibility(hwnd, true);
+                    RememberCandidateClip(decoratedFinalSize, layoutScale, caretX, caretY);
+                    EndCandidateLayoutIfCurrent(generation);
                     RECT actualRect{};
                     GetWindowRect(hwnd, &actualRect);
                     WEBVIEW_DIAG_LOGF(L"fine-tune generation={} completed size_dip=({:.1f},{:.1f}) "
@@ -2927,6 +3210,7 @@ int FineTuneWindow(HWND hwnd)
                      finalizeClip](std::pair<double, double> paintedSize) {
                         if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                         {
+                            EndCandidateLayoutIfCurrent(generation);
                             return;
                         }
                         if (paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
@@ -2999,6 +3283,7 @@ int FineTuneWindow(HWND hwnd)
 
                         if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                         {
+                            EndCandidateLayoutIfCurrent(generation);
                             return;
                         }
                         {
