@@ -87,6 +87,11 @@ HalfScreenDipLimits QueryWebViewHalfScreenDipLimitsForHwnd(HWND hwnd);
 HalfScreenDipLimits QueryCandidateHalfScreenDipLimitsForPoint(HWND hwnd, POINT pt);
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
+// CSS hover is gated on .hover-active. WebView2 synthesizes mousemove when
+// the HWND is placed under a stationary cursor; arm only after the OS cursor
+// has actually moved (GetCursorPos), not after a Chromium mouse event.
+void DisarmCandidatePointerHover();
+void MaybeArmCandidatePointerHover();
 void InflateCandWnd(std::wstring &str);
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete);
 void InflateMeasureDivCandWnd(std::wstring &str);

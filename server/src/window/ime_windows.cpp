@@ -58,6 +58,9 @@ std::atomic<uint64_t> g_candidate_finetune_generation{0};
 std::atomic<bool> g_candidate_layout_inflight{false};
 // WM_DPICHANGED must remasure even when the caret has not moved.
 std::atomic<bool> g_candidate_force_layout{false};
+// Drop clip measurements that completed after newer candidate content was
+// already submitted to WebView2.
+std::atomic<uint64_t> g_candidate_content_generation{0};
 int g_last_placed_caret_x = Global::INVALID_Y;
 int g_last_placed_caret_y = Global::INVALID_Y;
 bool g_has_last_candidate_clip = false;
@@ -141,35 +144,10 @@ void RememberCandidateClip(const std::pair<double, double> &decoratedSize, FLOAT
     g_last_placed_caret_y = caretY;
 }
 
-// First-pass DOM measure is often short (layout not settled). Using it as the
-// native region is what truncated candidates and the skin decoration image.
-constexpr double kProvisionalClipPadWidthDip = 96.0;
-constexpr double kProvisionalClipPadHeightDip = 56.0;
-
-void RevealCandidateHost(HWND hwnd, const std::pair<double, double> &decoratedSize, FLOAT scale, bool provisional)
+void RefreshCandidateClipAfterPaint(HWND hwnd, uint64_t contentGeneration, ULONGLONG updateStartedTick)
 {
-    std::pair<double, double> clipSize = decoratedSize;
-    if (provisional)
-    {
-        clipSize.first += kProvisionalClipPadWidthDip;
-        clipSize.second += kProvisionalClipPadHeightDip;
-        if (g_has_last_candidate_clip)
-        {
-            clipSize.first = (std::max)(clipSize.first, g_last_candidate_clip_size.first);
-            clipSize.second = (std::max)(clipSize.second, g_last_candidate_clip_size.second);
-        }
-        const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
-        clipSize.first = ClampWidthDipToHalfScreen(clipSize.first, limits);
-        clipSize.second = ClampHeightDipToHalfScreen(clipSize.second, limits);
-    }
-    ClipCandidateWindowToContent(hwnd, clipSize, scale);
-    SetHostWindowCloaked(hwnd, false);
-    UpdateSmallWindowWebviewVisibility(hwnd, true);
-}
-
-void RefreshCandidateClipAfterPaint(HWND hwnd)
-{
-    if (!hwnd || !::is_global_wnd_cand_shown || !webviewCandWnd)
+    if (!hwnd || !::is_global_wnd_cand_shown || !webviewCandWnd ||
+        contentGeneration != g_candidate_content_generation.load())
     {
         return;
     }
@@ -178,11 +156,21 @@ void RefreshCandidateClipAfterPaint(HWND hwnd)
         limits.maxWidthDip > 1.0 ? limits.maxWidthDip : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
     const double wrapMaxHeightDip =
         limits.maxHeightDip > 1.0 ? limits.maxHeightDip : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    const ULONGLONG measureStartedTick = GetTickCount64();
+    CAND_DIAG_LOGF(L"candidate-frame clip-measure-submit content_gen={} update_elapsed_ms={}", contentGeneration,
+                   measureStartedTick - updateStartedTick);
     GetRealCandidateCardSize(
         webviewCandWnd,
-        [hwnd](std::pair<double, double> paintedSize) {
-            if (!::is_global_wnd_cand_shown || paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
+        [hwnd, contentGeneration, updateStartedTick, measureStartedTick](std::pair<double, double> paintedSize) {
+            const ULONGLONG completedTick = GetTickCount64();
+            if (!::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load() ||
+                paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
             {
+                CAND_DIAG_LOGF(L"candidate-frame clip-measure-drop content_gen={} current_gen={} shown={} "
+                               L"size_dip=({:.1f},{:.1f}) measure_ms={} total_ms={}",
+                               contentGeneration, g_candidate_content_generation.load(),
+                               ::is_global_wnd_cand_shown, paintedSize.first, paintedSize.second,
+                               completedTick - measureStartedTick, completedTick - updateStartedTick);
                 return;
             }
             const HalfScreenDipLimits clipLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
@@ -196,8 +184,11 @@ void RefreshCandidateClipAfterPaint(HWND hwnd)
             }
             ClipCandidateWindowToContent(hwnd, decoratedSize, scale);
             RememberCandidateClip(decoratedSize, scale, Global::Point[0], Global::Point[1]);
-            CAND_DIAG_LOGF(L"clip refreshed after paint size_dip=({:.1f},{:.1f}) {}", decoratedSize.first,
-                           decoratedSize.second, ::DescribeCandidateHostState());
+            CAND_DIAG_LOGF(L"candidate-frame clip-measure-apply content_gen={} size_dip=({:.1f},{:.1f}) "
+                           L"measure_ms={} total_ms={} {}",
+                           contentGeneration, decoratedSize.first, decoratedSize.second,
+                           completedTick - measureStartedTick, completedTick - updateStartedTick,
+                           ::DescribeCandidateHostState());
         },
         wrapMaxDip, wrapMaxHeightDip);
 }
@@ -572,14 +563,35 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
             }
         }
     }
+    HRGN currentRegion = CreateRectRgn(0, 0, 0, 0);
+    if (currentRegion)
+    {
+        const int currentRegionType = GetWindowRgn(hwnd, currentRegion);
+        if (currentRegionType != ERROR && EqualRgn(currentRegion, region))
+        {
+            DeleteObject(currentRegion);
+            DeleteObject(region);
+            CAND_DIAG_LOGF(L"candidate-frame region-unchanged rect=({},{})-({},{}) redraw=skipped",
+                           left, outerTop, right, bottom);
+            return;
+        }
+        DeleteObject(currentRegion);
+    }
+    // Do not ask USER32 to repaint synchronously here. During a content-only
+    // update WebView2 has accepted the DOM mutation, but its new compositor
+    // frame may not have reached the HWND yet. SetWindowRgn(..., TRUE) can then
+    // expose a blank/old frame for one refresh. The WebView2 frame submission
+    // (or the first uncloak) paints the newly clipped area naturally.
     // On success Windows owns the region handle; on failure it remains ours.
     SetLastError(0);
-    const int regionResult = SetWindowRgn(hwnd, region, TRUE);
+    const int regionResult = SetWindowRgn(hwnd, region, FALSE);
     const DWORD regionError = regionResult == 0 ? GetLastError() : ERROR_SUCCESS;
     if (regionResult == 0)
     {
         DeleteObject(region);
     }
+    CAND_DIAG_LOGF(L"candidate-frame region-apply rect=({},{})-({},{}) redraw=false result={} gle={}",
+                   left, outerTop, right, bottom, regionResult, regionError);
     WEBVIEW_DIAG_LOGF(L"ui-region client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
               L"input_scale={:.3f} hwnd_scale={:.3f} region=({},{})-({},{}) result={} gle={}",
               client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
@@ -848,7 +860,12 @@ void SetHostWindowCloaked(HWND hwnd, bool cloaked)
         return;
     }
     BOOL value = cloaked ? TRUE : FALSE;
-    DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(value));
+    const HRESULT hr = DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(value));
+    if (hwnd == ::global_hwnd)
+    {
+        CAND_DIAG_LOGF(L"candidate-frame cloak requested={} hr={:#x} actual={} tick={}", cloaked,
+                       static_cast<unsigned>(hr), IsHostWindowCloaked(hwnd), GetTickCount64());
+    }
 }
 
 // A cloaked host is still "visible" to IsWindowVisible and still reports its
@@ -1591,6 +1608,8 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     if (message == WM_SHOW_MAIN_WINDOW)
     {
         g_candidate_show_msg_pending.store(false);
+        const uint64_t contentGeneration = ++g_candidate_content_generation;
+        const ULONGLONG updateStartedTick = GetTickCount64();
         /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
         std::wstring preedit =
@@ -1598,9 +1617,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         std::wstring str = preedit + L"," + Global::CandidateString;
         (void)0;
         LogSmallWindowReadyGate(L"show-candidate");
-        CAND_DIAG_LOGF(L"show message preedit_units={} payload_units={} caret=({},{}) {}", preedit.size(),
-                       Global::CandidateString.size(), Global::Point[0], Global::Point[1],
-                       DescribeCandidateHostState());
+        CAND_DIAG_LOGF(L"candidate-frame show content_gen={} tick={} preedit_units={} payload_units={} "
+                       L"caret=({},{}) {}",
+                       contentGeneration, updateStartedTick, preedit.size(), Global::CandidateString.size(),
+                       Global::Point[0], Global::Point[1], DescribeCandidateHostState());
         if (!EnsureSmallWindowsTopmost(L"show-candidate"))
         {
             (void)0;
@@ -1620,13 +1640,18 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         }
         if (alreadyVisible && sameCaret)
         {
-            CAND_DIAG_LOGF(L"show content-only already_visible=true inflight={}", layoutInflight);
-            InflateCandWnd(str, [hwnd]() {
-                if (!::is_global_wnd_cand_shown)
+            CAND_DIAG_LOGF(L"candidate-frame path=content-only content_gen={} inflight={}", contentGeneration,
+                           layoutInflight);
+            InflateCandWnd(str, [hwnd, contentGeneration, updateStartedTick]() {
+                const ULONGLONG callbackTick = GetTickCount64();
+                CAND_DIAG_LOGF(L"candidate-frame dom-callback content_gen={} current_gen={} elapsed_ms={}",
+                               contentGeneration, g_candidate_content_generation.load(),
+                               callbackTick - updateStartedTick);
+                if (!::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load())
                 {
                     return;
                 }
-                RefreshCandidateClipAfterPaint(hwnd);
+                RefreshCandidateClipAfterPaint(hwnd, contentGeneration, updateStartedTick);
             });
             return 0;
         }
@@ -1635,15 +1660,21 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             // A FineTune for this caret is already measuring. Let it pick up the
             // latest CandidateString at InflateCandWnd time instead of killing it.
             CAND_DIAG_LOGF(L"show folded into in-flight fine-tune caret=({},{})", Global::Point[0], Global::Point[1]);
-            InflateCandWnd(str, [hwnd]() {
-                if (!::is_global_wnd_cand_shown)
+            CAND_DIAG_LOGF(L"candidate-frame path=folded-inflight content_gen={}", contentGeneration);
+            InflateCandWnd(str, [hwnd, contentGeneration, updateStartedTick]() {
+                const ULONGLONG callbackTick = GetTickCount64();
+                CAND_DIAG_LOGF(L"candidate-frame dom-callback content_gen={} current_gen={} elapsed_ms={}",
+                               contentGeneration, g_candidate_content_generation.load(),
+                               callbackTick - updateStartedTick);
+                if (!::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load())
                 {
                     return;
                 }
-                RefreshCandidateClipAfterPaint(hwnd);
+                RefreshCandidateClipAfterPaint(hwnd, contentGeneration, updateStartedTick);
             });
             return 0;
         }
+        CAND_DIAG_LOGF(L"candidate-frame path=full-layout content_gen={}", contentGeneration);
         InflateMeasureDivCandWnd(str, [hwnd]() {
             if (!::is_global_wnd_cand_shown)
             {
@@ -1661,6 +1692,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         (void)0;
         // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
+        ++g_candidate_content_generation;
         g_candidate_layout_inflight.store(false);
         ++g_candidate_finetune_generation;
         Global::MarginTop = 0;
@@ -2868,6 +2900,9 @@ int FineTuneWindow(HWND hwnd)
     }
     const uint64_t generation = ++g_candidate_finetune_generation;
     g_candidate_layout_inflight.store(true);
+    CAND_DIAG_LOGF(L"candidate-frame fine-tune-begin layout_gen={} content_gen={} tick={} caret=({},{}) {}",
+                   generation, g_candidate_content_generation.load(), GetTickCount64(), caretX, caretY,
+                   DescribeCandidateHostState());
     WEBVIEW_DIAG_LOGF(L"fine-tune begin generation={} caret=({},{}) {}", generation, caretX, caretY,
                    DescribeCandidateHostState());
     // Wrap/scroll budget = stable host size (half-screen DIP). Width wraps;
@@ -3155,16 +3190,9 @@ int FineTuneWindow(HWND hwnd)
                     return;
                 }
 
-                // First reveal only: uncloak after the cloaked host is already at
-                // the caret. A visible host must not uncloak/reclip on pass 1 —
-                // that paints the guessed geometry for a frame.
-                if (!deferHostMove)
-                {
-                    const std::pair<double, double> earlyDecoratedSize = AddCandidateDecorationToSize(containerSize);
-                    RevealCandidateHost(hwnd, earlyDecoratedSize, layoutScale, /*provisional=*/true);
-                    CAND_DIAG_LOGF(L"fine-tune generation={} early-uncloak size_dip=({:.1f},{:.1f}) {}", generation,
-                                   earlyDecoratedSize.first, earlyDecoratedSize.second, DescribeCandidateHostState());
-                }
+                // Stay cloaked through pass 1. First-pass size is routinely taller
+                // than the painted card (log: 289dip then 201dip). Uncloaking with
+                // that provisional region is the flash at the wrong clip.
 
                 auto finalizeClip = [hwnd, generation, layoutScale, caretX, caretY](std::pair<double, double> finalSize) {
                     if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
@@ -3186,6 +3214,12 @@ int FineTuneWindow(HWND hwnd)
                     EndCandidateLayoutIfCurrent(generation);
                     RECT actualRect{};
                     GetWindowRect(hwnd, &actualRect);
+                    CAND_DIAG_LOGF(L"candidate-frame fine-tune-complete layout_gen={} content_gen={} tick={} "
+                                   L"size_dip=({:.1f},{:.1f}) rect=({},{},{}x{}) {}",
+                                   generation, g_candidate_content_generation.load(), GetTickCount64(),
+                                   finalSize.first, finalSize.second, actualRect.left, actualRect.top,
+                                   actualRect.right - actualRect.left, actualRect.bottom - actualRect.top,
+                                   DescribeCandidateHostState());
                     WEBVIEW_DIAG_LOGF(L"fine-tune generation={} completed size_dip=({:.1f},{:.1f}) "
                                    L"margin=({},{}) rect=({},{},{}x{}) {}",
                                    generation, finalSize.first, finalSize.second, Global::MarginLeft,

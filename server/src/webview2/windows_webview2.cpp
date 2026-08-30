@@ -1599,6 +1599,116 @@ static std::wstring EscapeForJsTemplateLiteral(const std::wstring &text)
     return escaped;
 }
 
+namespace
+{
+constexpr UINT_PTR kCandidateHoverArmTimerId = 21;
+constexpr int kCandidateHoverArmDistancePx = 10;
+constexpr ULONGLONG kCandidateHoverArmGraceMs = 200;
+
+POINT g_candidate_hover_cursor{};
+bool g_candidate_hover_armed = false;
+ULONGLONG g_candidate_hover_disarm_tick = 0;
+
+// CSS :hover is applied by Chromium when the HWND sits under a still
+// cursor. That does not go through mousemove JS. Kill those paints until
+// GetCursorPos actually moves after the card is up.
+constexpr wchar_t kInstallCandidateHoverLockScript[] = LR"(
+(function () {
+  if (!document.getElementById('msime-hover-lock-style')) {
+    const style = document.createElement('style');
+    style.id = 'msime-hover-lock-style';
+    style.textContent = `
+html:not(.msime-hover-armed) #realContainer .cand:not(.first):hover,
+html:not(.msime-hover-armed) #realContainer.hover-active .cand:not(.first):hover {
+  background-color: transparent !important;
+  background-image: none !important;
+}`;
+    document.documentElement.appendChild(style);
+  }
+  document.documentElement.classList.remove('msime-hover-armed');
+  const container = document.getElementById('realContainer');
+  if (container) {
+    container.classList.remove('hover-active');
+  }
+  if (!window.__msimeBlockSynthHover) {
+    window.__msimeBlockSynthHover = true;
+    document.addEventListener('mousemove', function (event) {
+      if (!document.documentElement.classList.contains('msime-hover-armed')) {
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  }
+})();
+)";
+
+VOID CALLBACK CandidateHoverArmTimerProc(HWND, UINT, UINT_PTR, DWORD)
+{
+    MaybeArmCandidatePointerHover();
+}
+} // namespace
+
+void DisarmCandidatePointerHover()
+{
+    g_candidate_hover_armed = false;
+    g_candidate_hover_disarm_tick = GetTickCount64();
+    GetCursorPos(&g_candidate_hover_cursor);
+    if (!::global_hwnd)
+    {
+        return;
+    }
+    if (::is_global_wnd_cand_shown)
+    {
+        SetTimer(::global_hwnd, kCandidateHoverArmTimerId, 32, CandidateHoverArmTimerProc);
+    }
+    else
+    {
+        KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+    }
+}
+
+void MaybeArmCandidatePointerHover()
+{
+    if (g_candidate_hover_armed || !::is_global_wnd_cand_shown || !webviewCandWnd)
+    {
+        if (!::is_global_wnd_cand_shown && ::global_hwnd)
+        {
+            KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+        }
+        return;
+    }
+    if (GetTickCount64() - g_candidate_hover_disarm_tick < kCandidateHoverArmGraceMs)
+    {
+        return;
+    }
+    POINT now{};
+    GetCursorPos(&now);
+    const int dx = now.x - g_candidate_hover_cursor.x;
+    const int dy = now.y - g_candidate_hover_cursor.y;
+    if (dx * dx + dy * dy < kCandidateHoverArmDistancePx * kCandidateHoverArmDistancePx)
+    {
+        return;
+    }
+    g_candidate_hover_armed = true;
+    if (::global_hwnd)
+    {
+        KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+    }
+    webviewCandWnd->ExecuteScript(
+        LR"(document.documentElement.classList.add('msime-hover-armed');
+const c = document.getElementById('realContainer');
+if (c) { c.classList.add('hover-active'); })",
+        nullptr);
+}
+
+void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
+{
+    DisarmCandidatePointerHover();
+    if (webview != nullptr)
+    {
+        webview->ExecuteScript(kInstallCandidateHoverLockScript, nullptr);
+    }
+}
+
 void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
 {
     UpdateHtmlContentWithJavaScript(webview, newContent, nullptr);
@@ -1619,12 +1729,14 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     const std::wstring escaped = EscapeForJsTemplateLiteral(newContent);
 
     std::wstring script;
-    script.reserve(escaped.length() + 512);
+    script.reserve(escaped.length() + 1400);
 
     script.append(L"document.getElementById('realContainer').innerHTML = `");
     script.append(escaped);
     script.append(L"`;\n");
     script.append(L"window.ClearState();\n");
+    script.append(kInstallCandidateHoverLockScript);
+    DisarmCandidatePointerHover();
     script.append(L"var el = document.getElementById('realContainerParent');\n");
     script.append(L"if (el) {\n");
     script.append(L"  el.style.marginTop = \"");
@@ -2054,18 +2166,6 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
     UpdateMeasureContentWithJavaScript(webview, newContent, nullptr);
 }
 
-void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
-{
-    if (webview != nullptr)
-    {
-        std::wstring script = LR"(
-const realContainer = document.getElementById('realContainer');
-realContainer.classList.remove('hover-active');
-        )";
-        webview->ExecuteScript(script.c_str(), nullptr);
-    }
-}
-
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview)
 {
     if (webview != nullptr)
@@ -2424,6 +2524,8 @@ HRESULT OnControllerCreatedCandWnd(     //
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
                     ApplyConfiguredCandidateAppearance();
                     InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
+                    webviewCandWnd->ExecuteScript(kInstallCandidateHoverLockScript, nullptr);
+                    DisarmCandidatePointerHover();
                 }
                 else
                 {
