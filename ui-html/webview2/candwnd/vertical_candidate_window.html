@@ -8,7 +8,7 @@
     <!-- Candidate layout and behavior are shared. The native host injects the selected built-in skin CSS here. -->
 
   <script>
-    let a = false;
+    let lastPointerScreenPosition = null;
     let currentRightClickedCand = null;
     let contextMenuTopExpansion = 0;
     let contextMenuLeftExpansion = 0;
@@ -96,12 +96,8 @@
         }
       });
 
-      document.addEventListener('mousemove', function () {
-        if (a === true) {
-          const container = document.getElementById('realContainer');
-          container.classList.add('hover-active');
-        }
-        a = true;
+      document.addEventListener('mousemove', function (event) {
+        lastPointerScreenPosition = { x: event.screenX, y: event.screenY };
       });
     });
 
@@ -231,7 +227,7 @@
     }
 
     window.ClearState = function () {
-      a = false;
+      lastPointerScreenPosition = null;
       const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
       hideContextMenu();
