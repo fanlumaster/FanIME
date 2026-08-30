@@ -3423,6 +3423,25 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "custom_translation.enabled")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCustomTranslationBool("enabled", value))
+                                {
+                                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path.rfind("custom_translation.", 0) == 0)
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCustomTranslationString(
+                                        path.substr(std::string("custom_translation.").size()), value))
+                                {
+                                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.cn_en_mixed_input_min_chars")
                             {
                                 const int value = static_cast<int>(data.at("value").as_int64());
@@ -3747,6 +3766,7 @@ void PostSettingsConfig()
 
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
+    const CustomTranslationConfig &custom_translation = GetConfiguredCustomTranslation();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -3794,6 +3814,10 @@ void PostSettingsConfig()
           {"tencent_tmt",
            {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
             {"region", tencent_tmt.region}, {"target_language", tencent_tmt.target_language}}},
+          {"custom_translation",
+           {{"enabled", custom_translation.enabled},
+            {"endpoint", custom_translation.endpoint},
+            {"api_key", custom_translation.api_key}}},
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},

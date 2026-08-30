@@ -61,6 +61,15 @@ region = "ap-guangzhou"
 # 候选词翻译/背单词目标语种：en / fr / ja / es / ru
 target_language = "en"
 
+#
+# 自定义 DeepLX 兼容翻译服务。endpoint 必须填写完整的 POST 接口地址。
+# api_key 留空时不发送 Authorization 请求头。
+#
+[custom_translation]
+enabled = false
+endpoint = ""
+api_key = ""
+
 [frequency_adjustment]
 # disabled / pin / halve / linear / promote
 mode = "promote"

@@ -103,6 +103,15 @@ struct TencentTmtConfig
     std::string target_language = "en";
 };
 
+struct CustomTranslationConfig
+{
+    bool enabled = false;
+    // Full URL of a DeepLX-compatible POST endpoint.
+    std::string endpoint;
+    // Optional bearer token used by private or protected deployments.
+    std::string api_key;
+};
+
 struct FrequencyAdjustmentConfig
 {
     std::string mode = "promote"; // disabled | pin | halve | linear | promote
@@ -292,6 +301,9 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
 const AiAssistantConfig &GetConfiguredAiAssistant();
 const TencentTmtConfig &GetConfiguredTencentTmt();
 bool SetConfiguredTencentTmtString(const std::string &key, const std::string &value);
+const CustomTranslationConfig &GetConfiguredCustomTranslation();
+bool SetConfiguredCustomTranslationBool(const std::string &key, bool value);
+bool SetConfiguredCustomTranslationString(const std::string &key, const std::string &value);
 const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment();
 bool SetConfiguredFrequencyAdjustmentString(const std::string &key, const std::string &value);
 bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value);

@@ -115,6 +115,7 @@ bool g_persist_asr_token_slot = false;
 bool g_persist_polish_token_slot = false;
 AiAssistantConfig g_ai_assistant;
 TencentTmtConfig g_tencent_tmt;
+CustomTranslationConfig g_custom_translation;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
@@ -956,6 +957,9 @@ bool LoadImeConfig()
             g_tencent_tmt.target_language != "ja" && g_tencent_tmt.target_language != "es" &&
             g_tencent_tmt.target_language != "ru")
             g_tencent_tmt.target_language = "en";
+        g_custom_translation.enabled = tbl["custom_translation"]["enabled"].value_or(false);
+        g_custom_translation.endpoint = tbl["custom_translation"]["endpoint"].value_or(std::string());
+        g_custom_translation.api_key = tbl["custom_translation"]["api_key"].value_or(std::string());
         RememberConfigWriteTime();
         return true;
     }
@@ -2786,6 +2790,32 @@ bool SetConfiguredTencentTmtString(const std::string &key, const std::string &va
              (value == "en" || value == "fr" || value == "ja" || value == "es" || value == "ru"))
         target = &g_tencent_tmt.target_language;
     if (!target || !WriteConfiguredValue("tencent_tmt", key, EscapeTomlBasicString(value)))
+        return false;
+    *target = value;
+    return true;
+}
+
+const CustomTranslationConfig &GetConfiguredCustomTranslation()
+{
+    return g_custom_translation;
+}
+
+bool SetConfiguredCustomTranslationBool(const std::string &key, bool value)
+{
+    if (key != "enabled" || !WriteConfiguredValue("custom_translation", key, value ? "true" : "false"))
+        return false;
+    g_custom_translation.enabled = value;
+    return true;
+}
+
+bool SetConfiguredCustomTranslationString(const std::string &key, const std::string &value)
+{
+    std::string *target = nullptr;
+    if (key == "endpoint")
+        target = &g_custom_translation.endpoint;
+    else if (key == "api_key")
+        target = &g_custom_translation.api_key;
+    if (!target || !WriteConfiguredValue("custom_translation", key, EscapeTomlBasicString(value)))
         return false;
     *target = value;
     return true;

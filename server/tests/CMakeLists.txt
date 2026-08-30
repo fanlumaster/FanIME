@@ -21,6 +21,8 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_english_dictionary.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_translation_gloss.cpp"
     "${CMAKE_SOURCE_DIR}/src/cloud/translation_gloss.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_custom_translation.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cloud/custom_translation.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_active_client_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_outbound_session_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_pipe_write_policy.cpp"
@@ -103,6 +105,7 @@ target_link_libraries(${TEST_EXECUTABLE_NAME}
     spdlog::spdlog
     Boost::locale
     Boost::json
+    CURL::libcurl
     unofficial::sqlite3::sqlite3
     dwrite
     shell32

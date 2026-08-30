@@ -93,6 +93,8 @@ set(SRC_FILES
     "./src/cloud/cloud_ime.h"
     "./src/cloud/cloud_translation.cpp"
     "./src/cloud/cloud_translation.h"
+    "./src/cloud/custom_translation.cpp"
+    "./src/cloud/custom_translation.h"
     "./src/cloud/tencent_tmt.cpp"
     "./src/cloud/tencent_tmt.h"
     "./src/cloud/translation_gloss.cpp"
