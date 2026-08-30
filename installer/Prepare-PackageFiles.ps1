@@ -43,7 +43,6 @@ $dictionaryDb = Join-Path $RepoRoot 'MetasequoiaImeDict\out\msime.db'
 $japaneseModel = Join-Path $RepoRoot 'MetasequoiaImeDict\out\dict_japanese.dat'
 $japaneseModelLicense = Join-Path $RepoRoot 'MetasequoiaImeDict\source\mozc_dictionary_oss\README.txt'
 $englishDb = Join-Path $RepoRoot 'MetasequoiaImeDict\out\english.db'
-$customTranslations = Join-Path $RepoRoot 'MetasequoiaImeDict\MetasequoiaImeCustomDict\translations.txt'
 $othersDb = Join-Path $RepoRoot 'MetasequoiaImeDict\out\others.db'
 
 Assert-PathExists -LiteralPath $RepoRoot -Description '源码仓库根目录'
@@ -60,7 +59,6 @@ Assert-PathExists -LiteralPath $dictionaryDb -Description '词库数据库 msime
 Assert-PathExists -LiteralPath $japaneseModel -Description '日语整句模型 dict_japanese.dat'
 Assert-PathExists -LiteralPath $japaneseModelLicense -Description 'Mozc 日语词典授权声明'
 Assert-PathExists -LiteralPath $englishDb -Description '英文词库数据库 english.db'
-Assert-PathExists -LiteralPath $customTranslations -Description '自定义翻译词库 translations.txt'
 python -c @"
 import sqlite3, sys
 cols = list(sqlite3.connect(sys.argv[1]).execute('PRAGMA table_info(english_words)'))
@@ -91,7 +89,6 @@ Copy-Item -LiteralPath $dictionaryDb -Destination (Join-Path $targetAppData 'msi
 Copy-Item -LiteralPath $japaneseModel -Destination (Join-Path $targetAppData 'dict_japanese.dat') -Force
 Copy-Item -LiteralPath $japaneseModelLicense -Destination (Join-Path $targetAppData 'MOZC_DICTIONARY_LICENSE.txt') -Force
 Copy-Item -LiteralPath $englishDb -Destination (Join-Path $targetAppData 'english.db') -Force
-Copy-Item -LiteralPath $customTranslations -Destination (Join-Path $targetAppData 'custom_translations.txt') -Force
 Copy-Item -LiteralPath $othersDb -Destination (Join-Path $targetAppData 'others.db') -Force
 
 $defaultConfigPath = Join-Path $targetAppData 'config.default.toml'
