@@ -58,6 +58,10 @@
   pointer-events: none;
 }
 
+.translation-api-field-wide {
+  grid-column: 1 / -1;
+}
+
 .translation-language-row {
   padding: 14px 0;
   gap: 16px;

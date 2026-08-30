@@ -6,6 +6,7 @@ type InputScheme = 'quanpin' | 'shuangpin' | 'wubi';
 type InputMode = 'chinese' | 'japanese';
 
 let applyingInputConfig = false;
+let usingCustomTranslation = false;
 
 function updateInputConfig(path: string, value: string): void {
   window.chrome?.webview?.postMessage(JSON.stringify({
@@ -88,11 +89,28 @@ function syncCandidateTranslationOptions(enabled: boolean): void {
 }
 
 function syncCandidateTranslationWarning(): void {
+  const warning = document.getElementById('candidateTranslationApiWarning');
+  if (!warning) return;
+  if (usingCustomTranslation) {
+    const endpoint = (document.getElementById('customTranslationEndpoint') as HTMLInputElement | null)?.value.trim();
+    const valid = /^https?:\/\/\S+$/i.test(endpoint ?? '');
+    warning.textContent = '请填写以 http:// 或 https:// 开头的完整接口地址';
+    warning.classList.toggle('is-hidden', valid);
+    return;
+  }
   const secretId = (document.getElementById('tencentTmtSecretId') as HTMLInputElement | null)?.value.trim();
   const secretKey = (document.getElementById('tencentTmtSecretKey') as HTMLInputElement | null)?.value.trim();
-  document.getElementById('candidateTranslationApiWarning')?.classList.toggle(
-    'is-hidden', Boolean(secretId && secretKey)
-  );
+  warning.textContent = '请填写 SecretId 和 SecretKey 后使用云端翻译';
+  warning.classList.toggle('is-hidden', Boolean(secretId && secretKey));
+}
+
+function syncTranslationProviderView(useCustom: boolean): void {
+  usingCustomTranslation = useCustom;
+  const tencentFields = document.getElementById('tencentTranslationFields');
+  const customFields = document.getElementById('customTranslationFields');
+  if (tencentFields) tencentFields.hidden = useCustom;
+  if (customFields) customFields.hidden = !useCustom;
+  syncCandidateTranslationWarning();
 }
 
 export function applyTencentTmtConfig(config: Record<string, unknown> | undefined): void {
@@ -106,6 +124,30 @@ export function applyTencentTmtConfig(config: Record<string, unknown> | undefine
     typeof config?.target_language === 'string' ? config.target_language : 'en'
   );
   syncCandidateTranslationWarning();
+}
+
+export function applyCustomTranslationConfig(config: Record<string, unknown> | undefined): void {
+  const useCustom = config?.enabled === true;
+  applyDropdownValue('translationProviderBtn', 'translationProviderMenu', useCustom ? 'custom' : 'tencent');
+  const endpoint = document.getElementById('customTranslationEndpoint') as HTMLInputElement | null;
+  const apiKey = document.getElementById('customTranslationApiKey') as HTMLInputElement | null;
+  if (endpoint && typeof config?.endpoint === 'string') endpoint.value = config.endpoint;
+  if (apiKey && typeof config?.api_key === 'string') apiKey.value = config.api_key;
+  syncTranslationProviderView(useCustom);
+}
+
+function setupSecretVisibility(inputId: string, buttonId: string, name: string): void {
+  const input = document.getElementById(inputId) as HTMLInputElement | null;
+  const button = document.getElementById(buttonId) as HTMLButtonElement | null;
+  button?.addEventListener('click', () => {
+    if (!input) return;
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(show));
+    const label = `${show ? '隐藏' : '显示'} ${name}`;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+  });
 }
 
 export function setupInput(): void {
@@ -180,9 +222,19 @@ export function setupInput(): void {
     true,
     'tencent_tmt.target_language'
   );
+  setupDropdownMenu('translationProviderBtn', 'translationProviderMenu', '', true);
+  document.getElementById('translationProviderMenu')?.addEventListener('click', (event: Event) => {
+    const item = (event.target as HTMLElement | null)?.closest<HTMLElement>('.dropdown-item');
+    if (!item) return;
+    const useCustom = item.dataset.value === 'custom';
+    syncTranslationProviderView(useCustom);
+    updateConfig('custom_translation.enabled', useCustom);
+  });
   const translationFields: Record<string, string> = {
     tencentTmtSecretId: 'tencent_tmt.secret_id',
-    tencentTmtSecretKey: 'tencent_tmt.secret_key'
+    tencentTmtSecretKey: 'tencent_tmt.secret_key',
+    customTranslationEndpoint: 'custom_translation.endpoint',
+    customTranslationApiKey: 'custom_translation.api_key'
   };
   Object.entries(translationFields).forEach(([id, path]) => {
     const input = document.getElementById(id) as HTMLInputElement | null;
@@ -192,17 +244,8 @@ export function setupInput(): void {
       syncCandidateTranslationWarning();
     });
   });
-  const secretKey = document.getElementById('tencentTmtSecretKey') as HTMLInputElement | null;
-  const visibility = document.getElementById('tencentTmtSecretKeyVisibility') as HTMLButtonElement | null;
-  visibility?.addEventListener('click', () => {
-    if (!secretKey) return;
-    const show = secretKey.type === 'password';
-    secretKey.type = show ? 'text' : 'password';
-    visibility.setAttribute('aria-pressed', String(show));
-    const label = show ? '隐藏 SecretKey' : '显示 SecretKey';
-    visibility.setAttribute('aria-label', label);
-    visibility.title = label;
-  });
+  setupSecretVisibility('tencentTmtSecretKey', 'tencentTmtSecretKeyVisibility', 'SecretKey');
+  setupSecretVisibility('customTranslationApiKey', 'customTranslationApiKeyVisibility', 'API Key');
   setupDropdownMenu(
     'zhEnTriggerLengthBtn',
     'zhEnTriggerLengthMenu',

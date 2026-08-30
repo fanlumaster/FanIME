@@ -228,6 +228,7 @@ function applyConfigData(data: Record<string, any>): void {
         data?.general?.cn_en_mixed_input_min_chars
       );
       module.applyTencentTmtConfig(data?.tencent_tmt);
+      module.applyCustomTranslationConfig(data?.custom_translation);
     });
   }
   if (readyModules.has('voice') && data?.voice_input && typeof data.voice_input === 'object') {
