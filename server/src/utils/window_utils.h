@@ -34,7 +34,8 @@ int AdjustCandidateWindowPosition(       //
     const POINT *point,                  //
     const std::pair<double, double> &,   //
     std::shared_ptr<std::pair<int, int>>, //
-    FLOAT layoutScale = 0.0f             //
+    FLOAT layoutScale = 0.0f,            //
+    double minWidthDip = 0.0             //
 );
 
 int AdjustWndPosition( //

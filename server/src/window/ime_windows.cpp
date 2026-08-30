@@ -393,13 +393,15 @@ void KeepCandidateCardInsideHostAndMonitor( //
     double contentWidthDip,                 //
     double contentHeightDip,                //
     FLOAT layoutScale,                      //
-    const MonitorCoordinates &coordinates   //
+    const MonitorCoordinates &coordinates,  //
+    double minContentWidthDip = 0.0         //
 )
 {
     if (layoutScale <= 0.0f)
     {
         layoutScale = 1.0f;
     }
+    const double clampWidthDip = (std::max)(contentWidthDip, minContentWidthDip);
     const double hostWidthDip = static_cast<double>(hostWidthPx) / static_cast<double>(layoutScale);
     const double hostHeightDip = static_cast<double>(hostHeightPx) / static_cast<double>(layoutScale);
 
@@ -434,7 +436,7 @@ void KeepCandidateCardInsideHostAndMonitor( //
     const int edgePadPx = static_cast<int>(std::lround(2.0 * static_cast<double>(layoutScale)));
     const int cardLeft = hostX + static_cast<int>(std::lround(Global::MarginLeft * static_cast<double>(layoutScale)));
     const int cardTop = hostY + static_cast<int>(std::lround(Global::MarginTop * static_cast<double>(layoutScale)));
-    const int cardRight = cardLeft + static_cast<int>(std::ceil(contentWidthDip * static_cast<double>(layoutScale)));
+    const int cardRight = cardLeft + static_cast<int>(std::ceil(clampWidthDip * static_cast<double>(layoutScale)));
     const int cardBottom = cardTop + static_cast<int>(std::ceil(contentHeightDip * static_cast<double>(layoutScale)));
 
     if (cardRight > coordinates.right - edgePadPx)
@@ -2679,7 +2681,10 @@ int FineTuneWindow(HWND hwnd)
             // properPos is the desired top-left of the opaque card (content), not
             // necessarily the host HWND — host stays at a stable quarter-screen size
             // while the card slides via MarginLeft/MarginTop.
-            AdjustCandidateWindowPosition(&pt, containerSize, properPos, halfLimits.scale);
+            // First-pass measure is often short (layout not settled). Flip as if
+            // the card were half a monitor wide so it cannot start at the caret
+            // and hang off the right edge.
+            AdjustCandidateWindowPosition(&pt, containerSize, properPos, halfLimits.scale, halfLimits.maxWidthDip);
             WEBVIEW_DIAG_LOGF(L"ui-layout generation={} pass=measure measured_dip=({:.2f},{:.2f}) "
                       L"capped_dip=({:.2f},{:.2f}) cap=({:.2f},{:.2f}) scale={:.3f} "
                       L"monitor=({},{})-({},{}) proper_pos=({},{}) packing_margin_top={}",
@@ -2748,7 +2753,8 @@ int FineTuneWindow(HWND hwnd)
             applyCardMargins(layoutScale);
             const std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(containerSize);
             KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, decoratedSize.first,
-                                                  decoratedSize.second, layoutScale, coordinates);
+                                                  decoratedSize.second, layoutScale, coordinates,
+                                                  halfLimits.maxWidthDip);
 
             int newWidth = hostWidthPx;
             int newHeight = hostHeightPx;
@@ -2810,7 +2816,7 @@ int FineTuneWindow(HWND hwnd)
                 hostWidthPx = hostPx.first;
                 hostHeightPx = hostPx.second;
 
-                AdjustCandidateWindowPosition(&pt, containerSize, properPos, layoutScale);
+                AdjustCandidateWindowPosition(&pt, containerSize, properPos, layoutScale, halfLimits.maxWidthDip);
                 const int resyncPackingMarginTop = (std::max)(0, Global::MarginTop);
                 hostX = properPos->first;
                 desiredOuterTopPx =
@@ -2840,7 +2846,8 @@ int FineTuneWindow(HWND hwnd)
                 Global::MarginLeft = (std::max)(0, offsetXDip);
                 Global::MarginTop = GetCandidateOuterMarginDip(desiredOuterTopPx, hostY, layoutScale);
                 KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, decoratedSize.first,
-                                                      decoratedSize.second, layoutScale, coordinates);
+                                                      decoratedSize.second, layoutScale, coordinates,
+                                                      halfLimits.maxWidthDip);
 
                 if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
                 {
@@ -2938,14 +2945,6 @@ int FineTuneWindow(HWND hwnd)
                                   paintedSize.second, containerSize.first, containerSize.second,
                                   pass2Limits.maxWidthDip, pass2Limits.maxHeightDip,
                                   static_cast<double>(pass2Limits.scale));
-
-                        const bool sizeChanged = std::fabs(paintedSize.first - containerSize.first) > 0.75 ||
-                                                 std::fabs(paintedSize.second - containerSize.second) > 0.75;
-                        if (!sizeChanged)
-                        {
-                            finalizeClip(paintedSize);
-                            return;
-                        }
 
                         POINT pt = {caretX, caretY};
                         FLOAT pass2Scale = layoutScale;

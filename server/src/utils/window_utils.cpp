@@ -225,7 +225,8 @@ int AdjustCandidateWindowPosition(                  //
     const POINT *point,                             //
     const std::pair<double, double> &containerSize, //
     std::shared_ptr<std::pair<int, int>> properPos, //
-    FLOAT layoutScale                              //
+    FLOAT layoutScale,                              //
+    double minWidthDip                              //
 )
 {
     Global::MarginTop = 0;
@@ -256,7 +257,11 @@ int AdjustCandidateWindowPosition(                  //
     // Clamp to the card itself so a right-edge push leaves the opaque card flush
     // with the monitor (shadow may clip). Reserving SHADOW here opened a large
     // visible gap at high DPI.
-    int width = static_cast<int>(std::ceil(containerSize.first * scale));
+    // minWidthDip: first-pass DOM measure can be far too narrow near a screen
+    // edge. Flip using at least that floor so the card is not parked at the
+    // caret with its real right half hanging off the monitor.
+    const double widthDip = (std::max)(containerSize.first, minWidthDip);
+    int width = static_cast<int>(std::ceil(widthDip * scale));
     const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
     const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));
     if (properPos->first + width > coordinates.right)
