@@ -13,6 +13,8 @@
 ;   4. Sign-Installer-Local.ps1         用同一张本机测试证书给安装包签名
 ;
 ; 也可以直接运行 .\test.ps1 走完整测试流程。
+; 只改 TSF / Server / HTML 时用 .\test-light.ps1：ISCC /DLightPackage=1，
+; 打出不含词库的轻量包，安装时也不会删本机已有词库。
 ; 本仓库不包含任何预置代码签名证书。
 
 #define MyAppName      "Metasequoia IME"
@@ -25,6 +27,11 @@
 #define MyReplayName   "MetasequoiaImeDictionaryReplay.exe"
 #define MyVersionDirBase "msime_v" + MyAppVersion
 #define MySourceRoot   "."
+#ifdef LightPackage
+#define MyOutputSuffix "_light"
+#else
+#define MyOutputSuffix ""
+#endif
 
 [Setup]
 AppId={{A7C3E91F-4B2D-4E8A-9F1C-6D5E8B0A2C4D}
@@ -36,7 +43,7 @@ DefaultGroupName={#MyAppName}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 OutputDir=Output
-OutputBaseFilename=MetasequoiaIME_Setup_v{#MyAppVersion}
+OutputBaseFilename=MetasequoiaIME_Setup_v{#MyAppVersion}{#MyOutputSuffix}
 SetupIconFile={#MySourceRoot}\MetasequoiaIME.ico
 Compression=lzma2
 SolidCompression=yes
@@ -82,6 +89,12 @@ Source: "{#MySourceRoot}\server_exe\*"; \
     DestDir: "{commonpf64}\metasequoiaime\server"; \
     Flags: ignoreversion recursesubdirs createallsubdirs
 
+#ifdef LightPackage
+; 轻量包只覆盖前端 HTML，不带词库/辅助码/出厂配置。
+Source: "{#MySourceRoot}\app_data\html\*"; \
+    DestDir: "{localappdata}\metasequoiaime\html"; \
+    Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
+#else
 ; 包内故意不带 config.toml。通配复制再排除一次，防止以后又把用户配置打进包内。
 Source: "{#MySourceRoot}\app_data\*"; DestDir: "{localappdata}\metasequoiaime"; \
     Excludes: "\config.toml,\config.base.toml,\config.default.toml"; \
@@ -95,6 +108,7 @@ Source: "{#MySourceRoot}\app_data\config.default.toml"; \
 Source: "{#MySourceRoot}\app_data\config.default.toml"; \
     DestDir: "{localappdata}\metasequoiaime"; DestName: "config.default.toml"; \
     Flags: ignoreversion uninsneveruninstall
+#endif
 
 [Icons]
 Name: "{group}\{#MyAppName}"; \
@@ -438,13 +452,19 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+#ifndef LightPackage
 var
   FailedPath: String;
+#endif
 begin
   { 先锁定本次目录名，再清理能够释放的旧版本 DLL。}
   VersionDirName := GetVersionDir('');
   StopProcess('{#MyWatchdogName}');
   StopProcess('{#MyAppExeName}');
+#ifdef LightPackage
+  { 轻量包不替换词库：只清 HTML 和 Server/TSF，保留本机 msime.db 等。}
+  TryDeleteTree(ExpandConstant('{localappdata}\metasequoiaime\html'));
+#else
   { 不能让旧 WAL/SHM 与即将复制的新主数据库混用。}
   if not RemoveOldTargetDatabaseFiles(FailedPath) then
   begin
@@ -457,6 +477,7 @@ begin
     用户配置和外部皮肤目录在这里保留；webview2 目录故意重建，
     由 Server 冷启动路径保证 FTB/候选窗仍能稳定揭罩。}
   CleanAppDataExceptUserFiles;
+#endif
   TryDeleteTree(ExpandConstant('{commonappdata}\metasequoiaime\webview2'));
   TryDeleteTree(ExpandConstant('{commonappdata}\metasequoiaime\webview2-settings'));
   TryDeleteTree(ExpandConstant(
@@ -473,7 +494,9 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+#ifndef LightPackage
     ReplayUserDictionary;
+#endif
     CreateWatchdogLogonTask;
     EnsureSharedWebView2DataDir;
     { Keep the old autostart intact until its scheduled-task replacement has

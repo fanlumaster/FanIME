@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$IsccPath,
-    [string]$IssPath = (Join-Path $PSScriptRoot 'msime_setup.iss')
+    [string]$IssPath = (Join-Path $PSScriptRoot 'msime_setup.iss'),
+    [switch]$Light
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,9 +80,16 @@ $resolvedIsccPath = Resolve-IsccPath -ExplicitPath $IsccPath
 Write-Host "Inno Setup 编译器：$resolvedIsccPath"
 Write-Host "安装脚本：$resolvedIssPath"
 
+$isccArgs = @()
+if ($Light) {
+    $isccArgs += '/DLightPackage=1'
+    Write-Host '轻量模式：安装包不含词库，输出文件名带 _light。'
+}
+$isccArgs += $resolvedIssPath
+
 Push-Location $PSScriptRoot
 try {
-    & $resolvedIsccPath $resolvedIssPath
+    & $resolvedIsccPath @isccArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Inno Setup 编译失败，退出码：$LASTEXITCODE"
     }

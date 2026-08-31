@@ -1,8 +1,9 @@
-# 本地测试安装流程：编译相邻源码仓库（若存在）→ 收集安装文件 →
-# 本机自签名 → Inno Setup 打包 → 签安装包 → 启动安装程序。
+# 轻量本地测试：只编译 TSF / Server / 设置页，收集这三块产物，打不含词库的安装包。
 #
-# 不使用任何预置证书。签名脚本会在本机生成并复用自签名测试证书。
-# 只改 TSF / Server / HTML、且本机已有词库时，用 .\test-light.ps1。
+# 适用：只改了 TSF、Server 或 HTML，本机已有完整安装（词库已在
+# %LOCALAPPDATA%\metasequoiaime）。不要用这个脚本做首次安装。
+#
+# 完整流程（含词库）仍用 .\test.ps1。
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -37,8 +38,8 @@ else {
     Write-Host '跳过设置页构建：未找到相邻的 MetasequoiaImeUiHtml 仓库。'
 }
 
-& (Join-Path $PSScriptRoot 'Prepare-PackageFiles.ps1')
+& (Join-Path $PSScriptRoot 'Prepare-PackageFiles.ps1') -Light
 & (Join-Path $PSScriptRoot 'Sign-PackageBinaries-Local.ps1')
-& (Join-Path $PSScriptRoot 'Compile-Installer.ps1')
-& (Join-Path $PSScriptRoot 'Sign-Installer-Local.ps1')
-& (Join-Path $PSScriptRoot 'Install.ps1')
+& (Join-Path $PSScriptRoot 'Compile-Installer.ps1') -Light
+& (Join-Path $PSScriptRoot 'Sign-Installer-Local.ps1') -Light
+& (Join-Path $PSScriptRoot 'Install.ps1') -Light
