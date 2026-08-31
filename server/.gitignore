@@ -8,3 +8,4 @@ log.*
 # /tests/CMakePresets.json
 /.vs
 build-release/
+*.pyc
