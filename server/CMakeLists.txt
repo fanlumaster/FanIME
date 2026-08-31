@@ -8,7 +8,13 @@ project(${PROJECT_NAME} VERSION 1.0)
 include(CTest)
 
 # Boost
-set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
+# The author's machine default keeps working untouched; local setups can
+# override via the BOOST_ROOT environment variable.
+if(DEFINED ENV{BOOST_ROOT})
+    set(Boost_ROOT "$ENV{BOOST_ROOT}")
+else()
+    set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
+endif()
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -52,13 +58,17 @@ add_definitions(
     /DFANY_DEBUG=1
 )
 
+# HandwritingPanel still uses the legacy <experimental/coroutine>; on newer
+# MSVC STL the deprecation is a hard error, so silence it explicitly.
+add_definitions(/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # add_definitions(
 #     /DFANY_DEBUG=1
 #     /DFANY_IPC_DEBUG=1
 # )
 
 # For utf8cpp, make it use C++11 and later
-add_compile_options(/Zc:__cplusplus /FS)
+add_compile_options(/Zc:__cplusplus /FS /utf-8)
 
 include_directories("./")
 include_directories("./src/")
