@@ -269,6 +269,8 @@ bool GetConfiguredPairedPunctuationEnabled();
 bool SetConfiguredPairedPunctuationEnabled(bool enabled);
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
+bool GetConfiguredCandidateWindowFollowCursor();
+bool SetConfiguredCandidateWindowFollowCursor(bool enabled);
 // "fluent" | "wechat" | "graphite" | "willow_green" — candidate-window and floating-toolbar skin.
 const std::string &GetConfiguredCandidateSkin();
 bool SetConfiguredCandidateSkin(const std::string &skin);

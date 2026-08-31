@@ -38,6 +38,14 @@
 // overwhelm the input-latency trace. Keep these call sites compiled out.
 #undef DIAG_LOGF
 #define DIAG_LOGF(...) ((void)0)
+#define CAND_WEBVIEW_TRACE_LOGF(...)                                                                                   \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (::DiagnosticLog::IsEnabled())                                                                              \
+        {                                                                                                              \
+            ::DiagnosticLog::Write(fmt::format(__VA_ARGS__));                                                          \
+        }                                                                                                              \
+    } while (0)
 
 #pragma comment(lib, "dcomp.lib")
 
@@ -1602,8 +1610,7 @@ static std::wstring EscapeForJsTemplateLiteral(const std::wstring &text)
 namespace
 {
 constexpr UINT_PTR kCandidateHoverArmTimerId = 21;
-constexpr int kCandidateHoverArmDistancePx = 10;
-constexpr ULONGLONG kCandidateHoverArmGraceMs = 200;
+constexpr int kCandidateHoverArmDistancePx = 2;
 
 POINT g_candidate_hover_cursor{};
 bool g_candidate_hover_armed = false;
@@ -1611,7 +1618,7 @@ ULONGLONG g_candidate_hover_disarm_tick = 0;
 
 // CSS :hover is applied by Chromium when the HWND sits under a still
 // cursor. That does not go through mousemove JS. Kill those paints until
-// GetCursorPos actually moves after the card is up.
+// the physical screen cursor actually moves after the card is up.
 constexpr wchar_t kInstallCandidateHoverLockScript[] = LR"(
 (function () {
   if (!document.getElementById('msime-hover-lock-style')) {
@@ -1622,7 +1629,10 @@ html:not(.msime-hover-armed) #realContainer .cand:not(.first):hover,
 html:not(.msime-hover-armed) #realContainer.hover-active .cand:not(.first):hover {
   background-color: transparent !important;
   background-image: none !important;
-}`;
+  box-shadow: none !important;
+  outline: none !important;
+}
+`;
     document.documentElement.appendChild(style);
   }
   document.documentElement.classList.remove('msime-hover-armed');
@@ -1634,6 +1644,16 @@ html:not(.msime-hover-armed) #realContainer.hover-active .cand:not(.first):hover
     window.__msimeBlockSynthHover = true;
     document.addEventListener('mousemove', function (event) {
       if (!document.documentElement.classList.contains('msime-hover-armed')) {
+        if (event.movementX !== 0 || event.movementY !== 0) {
+          document.documentElement.classList.add('msime-hover-armed');
+          const liveContainer = document.getElementById('realContainer');
+          if (liveContainer) {
+            liveContainer.classList.add('hover-active');
+          }
+          window.chrome.webview.postMessage(JSON.stringify({type:'candidatePointerArmed'}));
+          return;
+        }
+        window.chrome.webview.postMessage(JSON.stringify({type:'candidatePointerMotion'}));
         event.stopImmediatePropagation();
       }
     }, true);
@@ -1651,7 +1671,13 @@ void DisarmCandidatePointerHover()
 {
     g_candidate_hover_armed = false;
     g_candidate_hover_disarm_tick = GetTickCount64();
-    GetCursorPos(&g_candidate_hover_cursor);
+    if (!GetPhysicalCursorPos(&g_candidate_hover_cursor))
+    {
+        GetCursorPos(&g_candidate_hover_cursor);
+    }
+    CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover disarm tick={} native_cursor=({},{}) shown={}",
+                            g_candidate_hover_disarm_tick, g_candidate_hover_cursor.x, g_candidate_hover_cursor.y,
+                            ::is_global_wnd_cand_shown);
     if (!::global_hwnd)
     {
         return;
@@ -1676,12 +1702,11 @@ void MaybeArmCandidatePointerHover()
         }
         return;
     }
-    if (GetTickCount64() - g_candidate_hover_disarm_tick < kCandidateHoverArmGraceMs)
-    {
-        return;
-    }
     POINT now{};
-    GetCursorPos(&now);
+    if (!GetPhysicalCursorPos(&now))
+    {
+        GetCursorPos(&now);
+    }
     const int dx = now.x - g_candidate_hover_cursor.x;
     const int dy = now.y - g_candidate_hover_cursor.y;
     if (dx * dx + dy * dy < kCandidateHoverArmDistancePx * kCandidateHoverArmDistancePx)
@@ -1689,6 +1714,9 @@ void MaybeArmCandidatePointerHover()
         return;
     }
     g_candidate_hover_armed = true;
+    CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm tick={} baseline=({},{}) native_cursor=({},{}) delta=({},{})",
+                            GetTickCount64(), g_candidate_hover_cursor.x, g_candidate_hover_cursor.y, now.x, now.y,
+                            dx, dy);
     if (::global_hwnd)
     {
         KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
@@ -1729,8 +1757,11 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     const std::wstring escaped = EscapeForJsTemplateLiteral(newContent);
 
     std::wstring script;
-    script.reserve(escaped.length() + 1400);
+    script.reserve(escaped.length() + 2200);
 
+    const bool diagnosticsEnabled = GetConfiguredDiagnosticLogEnabled();
+    script.append(L"window.msimeCandidateDiagnostics = ");
+    script.append(diagnosticsEnabled ? L"true;\n" : L"false;\n");
     script.append(L"document.getElementById('realContainer').innerHTML = `");
     script.append(escaped);
     script.append(L"`;\n");
@@ -1754,18 +1785,53 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     script.append(L"); }\n");
     script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
     script.append(L"if (window.CheckContentTruncation) { window.CheckContentTruncation(); }\n");
+    if (diagnosticsEnabled)
+    {
+        script.append(LR"(
+(function () {
+  window.__msimeCandidateDomRevision = (window.__msimeCandidateDomRevision || 0) + 1;
+  const revision = window.__msimeCandidateDomRevision;
+  requestAnimationFrame(() => {
+    window.chrome.webview.postMessage(JSON.stringify({type:'candidateFrameProbe',data:{
+      revision:revision,stage:1,performanceMs:performance.now()
+    }}));
+    requestAnimationFrame(() => {
+      window.chrome.webview.postMessage(JSON.stringify({type:'candidateFrameProbe',data:{
+        revision:revision,stage:2,performanceMs:performance.now()
+      }}));
+    });
+  });
+})();
+)");
+    }
 
     if (!onComplete)
     {
-        webview->ExecuteScript(script.c_str(), nullptr);
+        const HRESULT submitHr = webview->ExecuteScript(script.c_str(), nullptr);
+        if (FAILED(submitHr))
+        {
+            CAND_WEBVIEW_TRACE_LOGF(L"candidate-script submit-failed hr={:#x} callback=false",
+                                    static_cast<unsigned>(submitHr));
+        }
         return;
     }
 
-    webview->ExecuteScript(
-        script.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
-                            onComplete();
-                            return S_OK;
-                        }).Get());
+    const HRESULT submitHr = webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT errorCode, LPCWSTR) -> HRESULT {
+            if (FAILED(errorCode))
+            {
+                CAND_WEBVIEW_TRACE_LOGF(L"candidate-script execute-failed hr={:#x} callback=true",
+                                        static_cast<unsigned>(errorCode));
+            }
+            onComplete();
+            return S_OK;
+        }).Get());
+    if (FAILED(submitHr))
+    {
+        CAND_WEBVIEW_TRACE_LOGF(L"candidate-script submit-failed hr={:#x} callback=true",
+                                static_cast<unsigned>(submitHr));
+    }
 }
 
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
@@ -2391,7 +2457,59 @@ HRESULT OnControllerCreatedCandWnd(     //
                     {
                         json::value val = json::parse(wstring_to_string(msg));
                         std::string type = json::value_to<std::string>(val.at("type"));
-                        if (type == "delete")
+                        if (type == "candidateFrameProbe")
+                        {
+                            const auto &data = val.at("data");
+                            const int revision = json::value_to<int>(data.at("revision"));
+                            const int stage = json::value_to<int>(data.at("stage"));
+                            const double performanceMs = json::value_to<double>(data.at("performanceMs"));
+                            RECT rect{};
+                            GetWindowRect(hwnd, &rect);
+                            CAND_WEBVIEW_TRACE_LOGF(
+                                L"candidate-browser-frame revision={} stage={} performance_ms={:.3f} native_tick={} "
+                                L"hwnd_rect=({},{},{}x{}) shown={} window_visible={}",
+                                revision, stage, performanceMs, GetTickCount64(), rect.left, rect.top,
+                                rect.right - rect.left, rect.bottom - rect.top, ::is_global_wnd_cand_shown,
+                                IsWindowVisible(hwnd) != FALSE);
+                        }
+                        else if (type == "candidatePointerArmed")
+                        {
+                            g_candidate_hover_armed = true;
+                            if (::global_hwnd)
+                            {
+                                KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+                            }
+                            CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm source=dom-motion tick={}",
+                                                    GetTickCount64());
+                        }
+                        else if (type == "candidatePointerMotion")
+                        {
+                            // A WebView mousemove can be synthesized when the
+                            // candidate HWND moves under a stationary cursor.
+                            // The native screen-coordinate comparison arms only
+                            // when the physical pointer itself really moved.
+                            MaybeArmCandidatePointerHover();
+                        }
+                        else if (type == "candidatePointerProbe")
+                        {
+                            const auto &data = val.at("data");
+                            POINT cursor{};
+                            GetCursorPos(&cursor);
+                            RECT rect{};
+                            GetWindowRect(hwnd, &rect);
+                            CAND_WEBVIEW_TRACE_LOGF(
+                                L"candidate-pointer probe={} event_screen=({},{}) event_client=({},{}) "
+                                L"movement=({},{}) js_armed={} native_cursor=({},{}) baseline=({},{}) "
+                                L"native_armed={} hwnd=({},{},{}x{}) tick={}",
+                                json::value_to<int>(data.at("probe")), json::value_to<int>(data.at("screenX")),
+                                json::value_to<int>(data.at("screenY")), json::value_to<int>(data.at("clientX")),
+                                json::value_to<int>(data.at("clientY")), json::value_to<int>(data.at("movementX")),
+                                json::value_to<int>(data.at("movementY")), json::value_to<bool>(data.at("armed")),
+                                cursor.x, cursor.y, g_candidate_hover_cursor.x, g_candidate_hover_cursor.y,
+                                g_candidate_hover_armed, rect.left, rect.top, rect.right - rect.left,
+                                rect.bottom - rect.top, GetTickCount64());
+                        }
+                        else if (type == "delete")
                         {
                             int idx = json::value_to<int>(val.at("data"));
                             if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx))
@@ -3233,6 +3351,16 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.candidate_window_follow_cursor")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCandidateWindowFollowCursor(value))
+                                {
+                                    CAND_WEBVIEW_TRACE_LOGF(L"candidate-position config-update follow_cursor={}",
+                                                            value);
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.candidate_skin")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -3931,6 +4059,7 @@ void PostSettingsConfig()
             {"r_mode", GetConfiguredRModeEnabled()}}},
           {"appearance",
            {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_window_follow_cursor", GetConfiguredCandidateWindowFollowCursor()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},

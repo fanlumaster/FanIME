@@ -40,6 +40,8 @@ constexpr UINT_PTR TIMER_ID_SETTINGS_ACTIVATION_RETRY = 8;
 constexpr UINT_PTR TIMER_ID_FTB_VISIBILITY_RECONCILE = 9;
 // Remeasure FTB after live DPI / display-mode changes (mirrors menu's INIT timer).
 constexpr UINT_PTR TIMER_ID_FTB_DPI_REMEASURE = 10;
+constexpr UINT_PTR TIMER_ID_CANDIDATE_MOVE_SETTLE = 11;
+constexpr UINT kCandidateMoveSettleMs = 50;
 // Long enough fallback when the page never posts ready (old HTML / failed JS).
 // Page-ready normally ends the grace earlier; until then the toolbar stays shown.
 constexpr UINT kFloatingToolbarPaintGraceMs = 6000;
@@ -63,6 +65,8 @@ std::atomic<bool> g_candidate_force_layout{false};
 std::atomic<uint64_t> g_candidate_content_generation{0};
 int g_last_placed_caret_x = Global::INVALID_Y;
 int g_last_placed_caret_y = Global::INVALID_Y;
+bool g_candidate_session_anchor_valid = false;
+POINT g_candidate_session_anchor{};
 bool g_has_last_candidate_clip = false;
 std::pair<double, double> g_last_candidate_clip_size{};
 FLOAT g_last_candidate_clip_scale = 1.0f;
@@ -71,6 +75,22 @@ FLOAT g_last_candidate_clip_scale = 1.0f;
 // the suggested rect or re-entering FineTune from that handler races the hide
 // park and can recurse until the UI thread stalls — seen when switching apps.
 int g_candidate_dpi_change_suppress_count = 0;
+
+POINT GetCandidateLayoutCaret()
+{
+    POINT caret{Global::Point[0], Global::Point[1]};
+    if (GetConfiguredCandidateWindowFollowCursor() || caret.y == Global::INVALID_Y)
+    {
+        return caret;
+    }
+    if (!g_candidate_session_anchor_valid)
+    {
+        g_candidate_session_anchor = caret;
+        g_candidate_session_anchor_valid = true;
+        CAND_DIAG_LOGF(L"candidate-position anchor-captured caret=({},{})", caret.x, caret.y);
+    }
+    return g_candidate_session_anchor;
+}
 
 struct SuppressCandidateDpiChange
 {
@@ -117,6 +137,7 @@ int GetCandidateOuterTopPx(int cardAnchorY, int packingTopDip, FLOAT scale)
 }
 
 void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale);
+void ClearCandidateWindowRegion(HWND hwnd);
 int GetCandidateOuterMarginDip(int desiredOuterTopPx, int hostY, FLOAT scale);
 void KeepCandidateCardInsideHostAndMonitor(int hostX, int hostY, int hostWidthPx, int hostHeightPx,
                                            double contentWidthDip, double contentHeightDip, FLOAT layoutScale,
@@ -142,6 +163,16 @@ void RememberCandidateClip(const std::pair<double, double> &decoratedSize, FLOAT
     }
     g_last_placed_caret_x = caretX;
     g_last_placed_caret_y = caretY;
+}
+
+void RememberCandidateClipSize(const std::pair<double, double> &decoratedSize, FLOAT scale)
+{
+    g_has_last_candidate_clip = decoratedSize.first > 1.0 && decoratedSize.second > 1.0;
+    if (g_has_last_candidate_clip)
+    {
+        g_last_candidate_clip_size = decoratedSize;
+        g_last_candidate_clip_scale = scale > 0.0f ? scale : 1.0f;
+    }
 }
 
 void RefreshCandidateClipAfterPaint(HWND hwnd, uint64_t contentGeneration, ULONGLONG updateStartedTick)
@@ -182,8 +213,35 @@ void RefreshCandidateClipAfterPaint(HWND hwnd, uint64_t contentGeneration, ULONG
             {
                 scale = clipLimits.scale > 0.0f ? clipLimits.scale : 1.0f;
             }
+            const bool heightChanged =
+                g_has_last_candidate_clip && std::fabs(decoratedSize.second - g_last_candidate_clip_size.second) >= 1.0;
+            RECT hostRect{};
+            const POINT layoutCaret = GetCandidateLayoutCaret();
+            const bool hasHostRect = GetWindowRect(hwnd, &hostRect) != FALSE;
+            const int previousOuterBottom =
+                hasHostRect
+                    ? hostRect.top + static_cast<int>(std::lround(
+                                         (static_cast<double>(Global::MarginTop) + g_last_candidate_clip_size.second) *
+                                         static_cast<double>(scale)))
+                    : layoutCaret.y + 1;
+            const bool placedAboveCaret = hasHostRect && previousOuterBottom <= layoutCaret.y;
+            if (heightChanged && placedAboveCaret && !g_candidate_layout_inflight.load())
+            {
+                CAND_DIAG_LOGF(L"candidate-position reanchor-above content_gen={} old_height_dip={:.1f} "
+                               L"new_height_dip={:.1f} old_bottom={} caret_y={}",
+                               contentGeneration, g_last_candidate_clip_size.second, decoratedSize.second,
+                               previousOuterBottom, layoutCaret.y);
+                // The content-only fast path normally keeps the existing host
+                // position. Above the caret, however, a shorter list must move
+                // down so its lower edge remains next to the input line.
+                FineTuneWindow(hwnd);
+                return;
+            }
             ClipCandidateWindowToContent(hwnd, decoratedSize, scale);
-            RememberCandidateClip(decoratedSize, scale, Global::Point[0], Global::Point[1]);
+            // A content-only refresh changes the clip, not the anchor. Recording
+            // the latest shared-memory caret here would make a pending move look
+            // already applied even though the HWND/margins still use the old one.
+            RememberCandidateClipSize(decoratedSize, scale);
             CAND_DIAG_LOGF(L"candidate-frame clip-measure-apply content_gen={} size_dip=({:.1f},{:.1f}) "
                            L"measure_ms={} total_ms={} {}",
                            contentGeneration, decoratedSize.first, decoratedSize.second,
@@ -207,6 +265,34 @@ bool IsCandidateHostPaintedVisible(HWND hwnd)
     return !IsHostWindowCloaked(hwnd) && MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL) != nullptr;
 }
 
+bool CandidateCaretNeedsStableFollow(HWND hwnd, POINT caret)
+{
+    if (g_last_placed_caret_x == Global::INVALID_Y || g_last_placed_caret_y == Global::INVALID_Y)
+    {
+        return true;
+    }
+
+    POINT previous{g_last_placed_caret_x, g_last_placed_caret_y};
+    if (MonitorFromPoint(previous, MONITOR_DEFAULTTONEAREST) !=
+        MonitorFromPoint(caret, MONITOR_DEFAULTTONEAREST))
+    {
+        return true;
+    }
+
+    // Following every horizontal glyph advance makes Chromium/Electron hosts
+    // continuously remeasure, move the inner card, and replace its window
+    // region. Keep the card anchored on the current text line; a real line
+    // change or vertical scroll still follows after the settle timer.
+    FLOAT scale = QueryCandidateHalfScreenDipLimitsForPoint(hwnd, caret).scale;
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
+    const int lineChangeThresholdPx =
+        (std::max)(1, static_cast<int>(std::lround(12.0 * static_cast<double>(scale))));
+    return std::abs(caret.y - previous.y) >= lineChangeThresholdPx;
+}
+
 void PlaceCandidateHostNearCaret(HWND hwnd)
 {
     if (!hwnd || Global::Point[1] == Global::INVALID_Y)
@@ -214,7 +300,7 @@ void PlaceCandidateHostNearCaret(HWND hwnd)
         return;
     }
 
-    POINT caretPt{Global::Point[0], Global::Point[1]};
+    POINT caretPt = GetCandidateLayoutCaret();
     const HalfScreenDipLimits halfLimits = QueryCandidateHalfScreenDipLimitsForPoint(hwnd, caretPt);
     FLOAT layoutScale = halfLimits.scale > 0.0f ? halfLimits.scale : 1.0f;
     const int hostWidthPx = (std::max)(1, (halfLimits.monitor.right - halfLimits.monitor.left) / 2);
@@ -296,8 +382,8 @@ void PlaceCandidateHostNearCaret(HWND hwnd)
     {
         webviewControllerCandWnd->NotifyParentWindowPositionChanged();
     }
-    g_last_placed_caret_x = Global::Point[0];
-    g_last_placed_caret_y = Global::Point[1];
+    g_last_placed_caret_x = caretPt.x;
+    g_last_placed_caret_y = caretPt.y;
 }
 
 int GetCandidateOuterMarginDip(int desiredOuterTopPx, int hostY, FLOAT scale)
@@ -1387,6 +1473,9 @@ int CreateCandidateWindow(HINSTANCE hInstance)
         SetLayeredWindowAttributes(hwnd_cand, 0, 255, LWA_ALPHA);
         MARGINS mar = {-1};
         DwmExtendFrameIntoClientArea(hwnd_cand, &mar);
+        BOOL disableTransitions = TRUE;
+        DwmSetWindowAttribute(hwnd_cand, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions,
+                              sizeof(disableTransitions));
     }
 
     ::global_hwnd = hwnd_cand;
@@ -1618,9 +1707,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         (void)0;
         LogSmallWindowReadyGate(L"show-candidate");
         CAND_DIAG_LOGF(L"candidate-frame show content_gen={} tick={} preedit_units={} payload_units={} "
-                       L"caret=({},{}) {}",
+                       L"caret=({},{}) follow_cursor={} anchor_valid={} {}",
                        contentGeneration, updateStartedTick, preedit.size(), Global::CandidateString.size(),
-                       Global::Point[0], Global::Point[1], DescribeCandidateHostState());
+                       Global::Point[0], Global::Point[1], GetConfiguredCandidateWindowFollowCursor(),
+                       g_candidate_session_anchor_valid, DescribeCandidateHostState());
         if (!EnsureSmallWindowsTopmost(L"show-candidate"))
         {
             (void)0;
@@ -1628,9 +1718,17 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         // Mark shown before measure/FineTune so in-flight work is not treated as
         // a post-hide resurrection; the measure callback still re-checks the flag.
         ::is_global_wnd_cand_shown = true;
-        const bool sameCaret = g_last_placed_caret_x == Global::Point[0] && g_last_placed_caret_y == Global::Point[1];
+        const POINT layoutCaret = GetCandidateLayoutCaret();
+        const bool sameCaret =
+            g_last_placed_caret_x == layoutCaret.x && g_last_placed_caret_y == layoutCaret.y;
         const bool alreadyVisible = IsCandidateHostPaintedVisible(hwnd);
         const bool layoutInflight = g_candidate_layout_inflight.load();
+        CAND_DIAG_LOGF(L"candidate-layout-decision content_gen={} last_caret=({},{}) caret=({},{}) "
+                       L"delta=({},{}) same={} visible={} inflight={}",
+                       contentGeneration, g_last_placed_caret_x, g_last_placed_caret_y, layoutCaret.x,
+                       layoutCaret.y, static_cast<long long>(layoutCaret.x) - g_last_placed_caret_x,
+                       static_cast<long long>(layoutCaret.y) - g_last_placed_caret_y, sameCaret, alreadyVisible,
+                       layoutInflight);
         // Only pre-place while still cloaked / parked. Doing this on an already
         // visible host jumps the card to last-frame geometry, then FineTune
         // corrects it — the "flash at the wrong place" on every key.
@@ -1638,7 +1736,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         {
             PlaceCandidateHostNearCaret(hwnd);
         }
-        if (alreadyVisible && sameCaret)
+        if (alreadyVisible)
         {
             CAND_DIAG_LOGF(L"candidate-frame path=content-only content_gen={} inflight={}", contentGeneration,
                            layoutInflight);
@@ -1653,25 +1751,30 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 }
                 RefreshCandidateClipAfterPaint(hwnd, contentGeneration, updateStartedTick);
             });
+            if (!sameCaret)
+            {
+                if (CandidateCaretNeedsStableFollow(hwnd, layoutCaret))
+                {
+                    KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
+                    SetTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE, kCandidateMoveSettleMs, nullptr);
+                }
+                else
+                {
+                    CAND_DIAG_LOGF(L"candidate-position same-line-follow-suppressed anchor=({},{}) reported=({},{})",
+                                   g_last_placed_caret_x, g_last_placed_caret_y, layoutCaret.x, layoutCaret.y);
+                }
+            }
             return 0;
         }
-        if (layoutInflight && sameCaret)
+        if (layoutInflight)
         {
-            // A FineTune for this caret is already measuring. Let it pick up the
-            // latest CandidateString at InflateCandWnd time instead of killing it.
             CAND_DIAG_LOGF(L"show folded into in-flight fine-tune caret=({},{})", Global::Point[0], Global::Point[1]);
             CAND_DIAG_LOGF(L"candidate-frame path=folded-inflight content_gen={}", contentGeneration);
-            InflateCandWnd(str, [hwnd, contentGeneration, updateStartedTick]() {
-                const ULONGLONG callbackTick = GetTickCount64();
-                CAND_DIAG_LOGF(L"candidate-frame dom-callback content_gen={} current_gen={} elapsed_ms={}",
-                               contentGeneration, g_candidate_content_generation.load(),
-                               callbackTick - updateStartedTick);
-                if (!::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load())
-                {
-                    return;
-                }
-                RefreshCandidateClipAfterPaint(hwnd, contentGeneration, updateStartedTick);
-            });
+            // Do not start another measurement while the first cloaked layout is
+            // completing. Repeatedly superseding it can keep the window hidden.
+            InflateCandWnd(str);
+            KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
+            SetTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE, kCandidateMoveSettleMs, nullptr);
             return 0;
         }
         CAND_DIAG_LOGF(L"candidate-frame path=full-layout content_gen={}", contentGeneration);
@@ -1689,9 +1792,9 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     if (message == WM_HIDE_MAIN_WINDOW)
     {
         CAND_DIAG_LOGF(L"hide message begin {}", DescribeCandidateHostState());
-        (void)0;
-        // Clear first so any FineTuneWindow callback already queued bails out.
         ::is_global_wnd_cand_shown = false;
+        KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
+        g_candidate_session_anchor_valid = false;
         ++g_candidate_content_generation;
         g_candidate_layout_inflight.store(false);
         ++g_candidate_finetune_generation;
@@ -1704,8 +1807,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             scale = 1.5;
         }
         {
-            // Park off-screen. Suppress WM_DPICHANGED so Windows' suggested
-            // on-monitor rect cannot undo INVALID_Y or re-enter SetWindowPos.
             SuppressCandidateDpiChange suppressDpi;
             SetWindowPos(                                                                    //
                 hwnd,                                                                        //
@@ -1720,10 +1821,6 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         SetHostWindowCloaked(hwnd, true);
         UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         CAND_DIAG_LOGF(L"hide message end {}", DescribeCandidateHostState());
-        /* 候选词部分使用全角空格来占位 */
-        // std::wstring str = L" ,　,　,　,　,　,　,　,　";
-        // InflateCandWnd(str);
-
         return 0;
     }
 
@@ -1732,8 +1829,26 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         g_candidate_move_msg_pending.store(false);
         CAND_DIAG_LOGF(L"move message caret=({},{}) {}", Global::Point[0], Global::Point[1],
                        DescribeCandidateHostState());
+        if (!::is_global_wnd_cand_shown)
+        {
+            return 0;
+        }
         const bool forceLayout = g_candidate_force_layout.exchange(false);
-        const bool sameCaret = g_last_placed_caret_x == Global::Point[0] && g_last_placed_caret_y == Global::Point[1];
+        const POINT layoutCaret = GetCandidateLayoutCaret();
+        const bool sameCaret =
+            g_last_placed_caret_x == layoutCaret.x && g_last_placed_caret_y == layoutCaret.y;
+        if (!forceLayout && !GetConfiguredCandidateWindowFollowCursor())
+        {
+            CAND_DIAG_LOGF(L"candidate-position move-ignored locked_anchor=({},{}) reported=({},{})",
+                           layoutCaret.x, layoutCaret.y, Global::Point[0], Global::Point[1]);
+            return 0;
+        }
+        if (!forceLayout && !sameCaret && !CandidateCaretNeedsStableFollow(hwnd, layoutCaret))
+        {
+            CAND_DIAG_LOGF(L"candidate-position same-line-follow-suppressed anchor=({},{}) reported=({},{})",
+                           g_last_placed_caret_x, g_last_placed_caret_y, layoutCaret.x, layoutCaret.y);
+            return 0;
+        }
         if (!forceLayout && sameCaret &&
             (g_candidate_layout_inflight.load() || IsCandidateHostPaintedVisible(hwnd)))
         {
@@ -1741,11 +1856,16 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                            IsCandidateHostPaintedVisible(hwnd));
             return 0;
         }
-        if (!::is_global_wnd_cand_shown)
+        if (forceLayout)
         {
+            KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
+            FineTuneWindow(hwnd);
             return 0;
         }
-        FineTuneWindow(hwnd);
+        // Some hosts animate the composition rectangle and report a new caret
+        // every few milliseconds. Lay out only the latest settled anchor.
+        KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
+        SetTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE, kCandidateMoveSettleMs, nullptr);
         return 0;
     }
 
@@ -1840,6 +1960,29 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     switch (message)
     {
     case WM_TIMER: {
+        if (wParam == TIMER_ID_CANDIDATE_MOVE_SETTLE)
+        {
+            KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
+            if (!::is_global_wnd_cand_shown)
+            {
+                break;
+            }
+            if (g_candidate_layout_inflight.load())
+            {
+                SetTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE, kCandidateMoveSettleMs, nullptr);
+                break;
+            }
+            const POINT layoutCaret = GetCandidateLayoutCaret();
+            const bool sameCaret =
+                g_last_placed_caret_x == layoutCaret.x && g_last_placed_caret_y == layoutCaret.y;
+            if (!sameCaret && CandidateCaretNeedsStableFollow(hwnd, layoutCaret))
+            {
+                CAND_DIAG_LOGF(L"candidate-layout settled-move last=({},{}) caret=({},{})", g_last_placed_caret_x,
+                               g_last_placed_caret_y, layoutCaret.x, layoutCaret.y);
+                FineTuneWindow(hwnd);
+            }
+            break;
+        }
         if (wParam == TIMER_ID_CONFIG_SYNC)
         {
             const SchemeType previous_input_scheme = GetConfiguredActiveInputScheme();
@@ -2883,8 +3026,9 @@ int FineTuneWindow(HWND hwnd)
 {
     UINT flag = SWP_NOZORDER | SWP_SHOWWINDOW;
 
-    int caretX = Global::Point[0];
-    int caretY = Global::Point[1];
+    const POINT layoutCaret = GetCandidateLayoutCaret();
+    int caretX = layoutCaret.x;
+    int caretY = layoutCaret.y;
     POINT caretPt{caretX, caretY};
     // Size/clamp against the composition anchor's monitor DPI — not the
     // foreground HWND — so mixed-DPI extended screens stay consistent.
@@ -3075,6 +3219,11 @@ int FineTuneWindow(HWND hwnd)
                     newFlag |= SWP_NOMOVE;
                 }
             }
+            CAND_DIAG_LOGF(L"candidate-layout host-pass layout_gen={} caret=({},{}) current=({},{},{}x{}) "
+                           L"desired=({},{},{}x{}) defer_move={} flags={:#x} margin=({},{})",
+                           generation, caretX, caretY, currentRect.left, currentRect.top,
+                           currentRect.right - currentRect.left, currentRect.bottom - currentRect.top, hostX, hostY,
+                           newWidth, newHeight, deferHostMove, newFlag, Global::MarginLeft, Global::MarginTop);
 
             if (!::is_global_wnd_cand_shown || generation != g_candidate_finetune_generation.load())
             {
@@ -3331,7 +3480,16 @@ int FineTuneWindow(HWND hwnd)
                             {
                                 pass2Flag |= SWP_NOSIZE;
                             }
-                            SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, pass2Flag);
+                            const BOOL pass2Result =
+                                SetWindowPos(hwnd, nullptr, hostX, hostY, hostWidthPx, hostHeightPx, pass2Flag);
+                            CAND_DIAG_LOGF(L"candidate-layout painted-pass layout_gen={} caret=({},{}) "
+                                           L"current=({},{},{}x{}) desired=({},{},{}x{}) flags={:#x} "
+                                           L"result={} gle={} margin=({},{}) size_dip=({:.1f},{:.1f})",
+                                           generation, caretX, caretY, cur.left, cur.top, cur.right - cur.left,
+                                           cur.bottom - cur.top, hostX, hostY, hostWidthPx, hostHeightPx, pass2Flag,
+                                           pass2Result != FALSE, pass2Result ? ERROR_SUCCESS : GetLastError(),
+                                           Global::MarginLeft, Global::MarginTop, paintedSize.first,
+                                           paintedSize.second);
                         }
                         SyncCandidateWebViewBoundsToHost(hwnd);
                         InjectSurfaceViewportLimits(::webviewCandWnd.Get(), hwnd);

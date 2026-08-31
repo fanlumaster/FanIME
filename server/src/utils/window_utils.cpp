@@ -35,6 +35,30 @@ MonitorCoordinates MonitorCoordinatesFromHandle(HMONITOR hMonitor)
     return coordinates;
 }
 
+MonitorCoordinates MonitorWorkAreaCoordinatesFromHandle(HMONITOR hMonitor)
+{
+    MonitorCoordinates coordinates{};
+    if (!hMonitor)
+    {
+        return coordinates;
+    }
+
+    MONITORINFO monitorInfo = {sizeof(monitorInfo)};
+    if (!GetMonitorInfo(hMonitor, &monitorInfo))
+    {
+        return coordinates;
+    }
+
+    // Candidate windows must avoid the taskbar and other app bars. Using the
+    // full monitor rectangle makes a candidate near the bottom look as though
+    // it still fits, so it remains below the caret and overlaps the taskbar.
+    coordinates.left = monitorInfo.rcWork.left;
+    coordinates.top = monitorInfo.rcWork.top;
+    coordinates.right = monitorInfo.rcWork.right;
+    coordinates.bottom = monitorInfo.rcWork.bottom;
+    return coordinates;
+}
+
 FLOAT ScaleFromMonitor(HMONITOR hMonitor)
 {
     if (!hMonitor)
@@ -148,7 +172,7 @@ double ClampHeightDipToHalfScreen(double heightDip, const HalfScreenDipLimits &l
 
 MonitorCoordinates GetMonitorCoordinatesFromPoint(POINT pt)
 {
-    return MonitorCoordinatesFromHandle(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+    return MonitorWorkAreaCoordinatesFromHandle(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
 }
 
 //+---------------------------------------------------------------------------
@@ -231,11 +255,11 @@ int AdjustCandidateWindowPosition(                  //
 {
     Global::MarginTop = 0;
 
-    const bool is_vertical = GetConfiguredCandidateWindowLayout() == "vertical";
-    static double max_vertical_container_height = ::DEFAULT_WINDOW_HEIGHT;
-    if (is_vertical && containerSize.second > max_vertical_container_height)
+    const bool isVertical = GetConfiguredCandidateWindowLayout() == "vertical";
+    static double maxVerticalContainerHeightDip = ::DEFAULT_WINDOW_HEIGHT_DIP;
+    if (isVertical && containerSize.second > maxVerticalContainerHeightDip)
     {
-        max_vertical_container_height = containerSize.second;
+        maxVerticalContainerHeightDip = containerSize.second;
     }
 
     // Clamp against the caret's monitor, not GetForegroundWindow()'s. Word/Excel
@@ -262,8 +286,14 @@ int AdjustCandidateWindowPosition(                  //
     // caret with its real right half hanging off the monitor.
     const double widthDip = (std::max)(containerSize.first, minWidthDip);
     int width = static_cast<int>(std::ceil(widthDip * scale));
-    const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
-    const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));
+    // Decide whether to flip using the tallest vertical list seen so far. This
+    // keeps a short list above the caret when a full list would not fit below,
+    // avoiding a later below-to-above jump as more candidates appear. Position
+    // the flipped window using its *current* height, however, so its lower edge
+    // stays next to the current input line instead of preserving empty packing.
+    const double decisionHeightDip = isVertical ? maxVerticalContainerHeightDip : containerSize.second;
+    const int decisionHeightPx = static_cast<int>(std::ceil(decisionHeightDip * scale));
+    const int currentHeightPx = static_cast<int>(std::ceil(containerSize.second * scale));
     if (properPos->first + width > coordinates.right)
     {
         properPos->first = coordinates.right - width - edgePadPx;
@@ -277,13 +307,9 @@ int AdjustCandidateWindowPosition(                  //
         properPos->second = coordinates.top + edgePadPx;
     }
 
-    if (properPos->second + boundary_height > coordinates.bottom)
+    if (properPos->second + decisionHeightPx > coordinates.bottom)
     {
-        properPos->second = properPos->second - boundary_height - flipGapPx - edgePadPx;
-        if (is_vertical && containerSize.second < max_vertical_container_height)
-        {
-            Global::MarginTop = static_cast<int>(std::ceil(max_vertical_container_height - containerSize.second));
-        }
+        properPos->second = properPos->second - currentHeightPx - flipGapPx - edgePadPx;
         if (properPos->second < coordinates.top)
         {
             properPos->second = coordinates.top + edgePadPx;

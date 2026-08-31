@@ -99,6 +99,7 @@ bool g_smart_punctuation_enabled = true;
 bool g_smart_punctuation_repeat_to_chinese_enabled = true;
 bool g_paired_punctuation_enabled = true;
 std::string g_candidate_window_layout = "vertical";
+bool g_candidate_window_follow_cursor = true;
 std::string g_candidate_skin = "fluent";
 std::string g_candidate_window_preedit_style = "pinyin";
 std::string g_theme_mode = "system";
@@ -773,6 +774,7 @@ bool LoadImeConfig()
         }
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
+        g_candidate_window_follow_cursor = tbl["appearance"]["candidate_window_follow_cursor"].value_or(true);
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
         g_candidate_skin = IsValidCandidateSkinId(skin) ? skin : "fluent";
         {
@@ -2247,6 +2249,21 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout)
         return false;
     }
     g_candidate_window_layout = layout;
+    return true;
+}
+
+bool GetConfiguredCandidateWindowFollowCursor()
+{
+    return g_candidate_window_follow_cursor;
+}
+
+bool SetConfiguredCandidateWindowFollowCursor(bool enabled)
+{
+    if (!WriteConfiguredValue("appearance", "candidate_window_follow_cursor", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_candidate_window_follow_cursor = enabled;
     return true;
 }
 
