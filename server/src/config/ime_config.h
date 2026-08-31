@@ -191,6 +191,8 @@ const std::string &GetConfiguredShuangpinHelpcodeSchema();
 bool SetConfiguredShuangpinHelpcodeSchema(const std::string &schema);
 bool GetConfiguredQuanpinHelpcodeEnabled();
 bool SetConfiguredQuanpinHelpcodeEnabled(bool enabled);
+bool GetConfiguredQuanpinAutocorrectEnabled();
+bool SetConfiguredQuanpinAutocorrectEnabled(bool enabled);
 const std::string &GetConfiguredQuanpinHelpcodeSchema();
 bool SetConfiguredQuanpinHelpcodeSchema(const std::string &schema);
 bool GetConfiguredShowShuangpinHelpcodeInCandidateWindow();
