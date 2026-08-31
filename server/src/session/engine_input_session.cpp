@@ -185,6 +185,7 @@ EngineInputSession::EngineInputSession(SchemeType scheme_type, const ShuangpinPr
     SelectConfiguredHelpcodeSchema(scheme_type);
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
+    session_.set_quanpin_autocorrect_enabled(GetConfiguredQuanpinAutocorrectEnabled());
 }
 
 void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
@@ -192,6 +193,7 @@ void EngineInputSession::handle_key(UINT vk, UINT modifiers_down, WCHAR wch)
     SelectConfiguredHelpcodeSchema(current_scheme_type());
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
+    session_.set_quanpin_autocorrect_enabled(GetConfiguredQuanpinAutocorrectEnabled());
     session_.handle_key(vk, modifiers_down, wch);
 }
 
@@ -200,6 +202,7 @@ void EngineInputSession::recompute_candidates()
     SelectConfiguredHelpcodeSchema(current_scheme_type());
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
+    session_.set_quanpin_autocorrect_enabled(GetConfiguredQuanpinAutocorrectEnabled());
     if (has_pending_pinyin_sequence_ || has_pending_pinyin_sequence_with_cases_)
     {
         apply_pending_sequence();

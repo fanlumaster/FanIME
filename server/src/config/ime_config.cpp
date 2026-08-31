@@ -70,6 +70,7 @@ std::string g_shuangpin_helpcode_schema = "lantian";
 std::string g_quanpin_helpcode_schema = "lantian";
 bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
+bool g_quanpin_autocorrect_enabled = true;
 bool g_floating_toolbar_enabled = true;
 FloatingToolbarItemsConfig g_floating_toolbar_items;
 double g_floating_toolbar_scale = 1.0;
@@ -665,6 +666,7 @@ bool LoadImeConfig()
             tbl["helpcode"]["show_sp_helpcode_in_candidate_window"].value_or(true);
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
+        g_quanpin_autocorrect_enabled = tbl["quanpin"]["autocorrect"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         // Read the old candidate-only key as a migration fallback. New writes
         // use the unified key.
@@ -1823,6 +1825,21 @@ bool SetConfiguredQuanpinHelpcodeEnabled(bool enabled)
         return false;
     }
     g_quanpin_helpcode_enabled = enabled;
+    return true;
+}
+
+bool GetConfiguredQuanpinAutocorrectEnabled()
+{
+    return g_quanpin_autocorrect_enabled;
+}
+
+bool SetConfiguredQuanpinAutocorrectEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("quanpin", "autocorrect", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_quanpin_autocorrect_enabled = enabled;
     return true;
 }
 
