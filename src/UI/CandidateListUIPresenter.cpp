@@ -1124,6 +1124,21 @@ VOID CCandidateListUIPresenter::_LayoutDestroyNotification()
         return;
     }
 
+    // Telegram transiently destroys and recreates its TSF context view while
+    // the same composition is still active. Treating that as candidate-session
+    // teardown sends HideCandidate between ordinary keystrokes, so Server clears
+    // the live composition and the HWND visibly disappears/reappears. Keep the
+    // sink/session alive; real commit, cancel, focus loss, and presenter cleanup
+    // still terminate it through the normal composition paths.
+    if (_wcsicmp(Global::current_process_name.c_str(), L"Telegram.exe") == 0)
+    {
+        if (Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
+        {
+            QueueTsfDiagnosticLog(L"[candidate-layout] ignored transient TF_LC_DESTROY process=Telegram.exe");
+        }
+        return;
+    }
+
 
     EndUIElement();
     EndCandidateUiSession();
