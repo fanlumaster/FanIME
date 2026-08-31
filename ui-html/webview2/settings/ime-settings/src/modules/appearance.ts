@@ -1,13 +1,15 @@
 import {
   applyDropdownValue,
+  applyToggleState,
   populateDropdownMenu,
   registerDropdownPreparer,
-  setupDropdownMenu
+  setupDropdownMenu,
+  setupToggleButton
 } from './shared';
 import { loadHTML } from '../utils/common-utils';
 import { applyThemeConfig, setCandidateSurfaceThemeListener, type ResolvedTheme, type ThemeConfig } from './theme';
 
-function postConfigUpdate(path: string, value: string | number): void {
+function postConfigUpdate(path: string, value: string | number | boolean): void {
   window.chrome?.webview?.postMessage(
     JSON.stringify({
       type: 'configUpdate',
@@ -27,6 +29,7 @@ export type CandidateAppearanceConfig = {
   candidate_window_preedit_font_size?: number;
   cand_text_color?: string;
   page_size?: number;
+  candidate_window_follow_cursor?: boolean;
   system_fonts?: string[];
 };
 
@@ -376,6 +379,9 @@ export function applyAppearanceConfig(
     previewPageSize = candidateAppearance.page_size;
     applyDropdownValue('candPageSizeBtn', 'candPageSizeMenu', String(candidateAppearance.page_size));
   }
+  if (typeof candidateAppearance?.candidate_window_follow_cursor === 'boolean') {
+    applyToggleState('candidateFollowCursorToggleBtn', candidateAppearance.candidate_window_follow_cursor);
+  }
   populateFontMenus(candidateAppearance?.system_fonts);
   syncColorControls(candidateAppearance?.cand_text_color);
   applyCandidatePreviewStyle();
@@ -423,6 +429,9 @@ export async function setupAppearance() {
 
   // 候选项排列方式
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');
+  setupToggleButton('candidateFollowCursorToggleBtn', (active) => {
+    postConfigUpdate('appearance.candidate_window_follow_cursor', active);
+  });
 
   // 候选窗样式
   FONT_MENUS.forEach((menu) => {

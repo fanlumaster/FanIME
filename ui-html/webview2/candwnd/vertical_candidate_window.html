@@ -9,6 +9,7 @@
 
   <script>
     let lastPointerScreenPosition = null;
+    let pointerProbeCount = 0;
     let currentRightClickedCand = null;
     let contextMenuTopExpansion = 0;
     let contextMenuLeftExpansion = 0;
@@ -98,6 +99,15 @@
 
       document.addEventListener('mousemove', function (event) {
         lastPointerScreenPosition = { x: event.screenX, y: event.screenY };
+        if (window.msimeCandidateDiagnostics === true && pointerProbeCount < 6) {
+          pointerProbeCount += 1;
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'candidatePointerProbe', data: {
+            probe: pointerProbeCount, screenX: event.screenX, screenY: event.screenY,
+            clientX: event.clientX, clientY: event.clientY,
+            movementX: event.movementX, movementY: event.movementY,
+            armed: document.documentElement.classList.contains('msime-hover-armed')
+          }}));
+        }
       });
     });
 
@@ -228,6 +238,7 @@
 
     window.ClearState = function () {
       lastPointerScreenPosition = null;
+      pointerProbeCount = 0;
       const container = document.getElementById('realContainer');
       container.classList.remove('hover-active');
       hideContextMenu();
