@@ -182,8 +182,7 @@ class ConfigFileLock
 
 SchemeType ParseScheme(const std::string &value);
 
-template <typename Node>
-bool TomlFlexibleBool(const Node &node, bool fallback)
+template <typename Node> bool TomlFlexibleBool(const Node &node, bool fallback)
 {
     if (const auto value = node.template value<bool>())
         return *value;
@@ -670,10 +669,9 @@ bool LoadImeConfig()
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         // Read the old candidate-only key as a migration fallback. New writes
         // use the unified key.
-        g_diagnostic_log_enabled.store(
-            tbl["general"]["diagnostic_log"].value_or(
-                tbl["general"]["candidate_window_diagnostic_log"].value_or(false)),
-            std::memory_order_relaxed);
+        g_diagnostic_log_enabled.store(tbl["general"]["diagnostic_log"].value_or(
+                                           tbl["general"]["candidate_window_diagnostic_log"].value_or(false)),
+                                       std::memory_order_relaxed);
         g_tsf_diagnostic_log_enabled.store(tbl["general"]["tsf_diagnostic_log"].value_or(false),
                                            std::memory_order_relaxed);
         g_floating_toolbar_items.fullwidth = tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
@@ -822,8 +820,8 @@ bool LoadImeConfig()
         for (const auto provider : VoiceInput::AsrProviders())
         {
             const std::string id(provider);
-            g_voice_input.asr_tokens[id] = VoiceInput::UsableToken(
-                tbl["voice_input"][VoiceInput::AsrTokenSlotKey(id)].value_or(std::string()));
+            g_voice_input.asr_tokens[id] =
+                VoiceInput::UsableToken(tbl["voice_input"][VoiceInput::AsrTokenSlotKey(id)].value_or(std::string()));
         }
         {
             const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
@@ -849,8 +847,7 @@ bool LoadImeConfig()
         g_voice_input.doubao_enable_itn = tbl["voice_input"]["doubao_enable_itn"].value_or(true);
         g_voice_input.doubao_enable_punc = tbl["voice_input"]["doubao_enable_punc"].value_or(true);
         g_voice_input.doubao_enable_ddc = tbl["voice_input"]["doubao_enable_ddc"].value_or(false);
-        g_voice_input.doubao_boosting_table_id =
-            tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
+        g_voice_input.doubao_boosting_table_id = tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
         g_voice_input.asr_model = tbl["voice_input"]["asr_model"].value_or(std::string());
         g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
         g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
@@ -858,8 +855,8 @@ bool LoadImeConfig()
         for (const auto provider : VoiceInput::PolishProviders())
         {
             const std::string id(provider);
-            g_voice_input.polish_tokens[id] = VoiceInput::UsableToken(
-                tbl["voice_input"][VoiceInput::PolishTokenSlotKey(id)].value_or(std::string()));
+            g_voice_input.polish_tokens[id] =
+                VoiceInput::UsableToken(tbl["voice_input"][VoiceInput::PolishTokenSlotKey(id)].value_or(std::string()));
         }
         {
             const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
@@ -885,14 +882,11 @@ bool LoadImeConfig()
         {
             g_voice_input.polish_prompt_id = "cleanup";
         }
-        g_voice_input.polish_prompt_custom_1 =
-            tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_1 = tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
         if (g_voice_input.polish_prompt_custom_1.empty())
             g_voice_input.polish_prompt_custom_1 = g_voice_input.polish_prompt;
-        g_voice_input.polish_prompt_custom_2 =
-            tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
-        g_voice_input.polish_prompt_custom_3 =
-            tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_2 = tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_3 = tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         // notification_sound is retained as a fallback for configs written by older versions.
         const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
@@ -908,8 +902,8 @@ bool LoadImeConfig()
             g_voice_input.commit_mode = "tsf";
         }
         g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
-        g_ai_assistant.provider = VoiceInput::NormalizeProviderId(
-            tbl["ai_assistant"]["provider"].value_or(std::string("deepseek")));
+        g_ai_assistant.provider =
+            VoiceInput::NormalizeProviderId(tbl["ai_assistant"]["provider"].value_or(std::string("deepseek")));
         if (AiAssistantTokenSlotKey(g_ai_assistant.provider).empty())
             g_ai_assistant.provider = "deepseek";
         g_ai_assistant.token = tbl["ai_assistant"]["token"].value_or(std::string());
@@ -917,8 +911,8 @@ bool LoadImeConfig()
         for (const auto provider : AiAssistantProviders())
         {
             const std::string id(provider);
-            g_ai_assistant.tokens[id] = VoiceInput::UsableToken(
-                tbl["ai_assistant"][AiAssistantTokenSlotKey(id)].value_or(std::string()));
+            g_ai_assistant.tokens[id] =
+                VoiceInput::UsableToken(tbl["ai_assistant"][AiAssistantTokenSlotKey(id)].value_or(std::string()));
         }
         {
             std::string &stored = g_ai_assistant.tokens[g_ai_assistant.provider];
@@ -936,25 +930,21 @@ bool LoadImeConfig()
         if (g_ai_assistant.prompt_id != "custom_1" && g_ai_assistant.prompt_id != "custom_2" &&
             g_ai_assistant.prompt_id != "custom_3")
             g_ai_assistant.prompt_id = "custom_1";
-        g_ai_assistant.prompt_custom_1 =
-            tbl["ai_assistant"]["prompt_custom_1"].value_or(std::string());
+        g_ai_assistant.prompt_custom_1 = tbl["ai_assistant"]["prompt_custom_1"].value_or(std::string());
         if (g_ai_assistant.prompt_custom_1.empty())
             g_ai_assistant.prompt_custom_1 = legacy_ai_prompt;
-        g_ai_assistant.prompt_custom_2 =
-            tbl["ai_assistant"]["prompt_custom_2"].value_or(std::string());
-        g_ai_assistant.prompt_custom_3 =
-            tbl["ai_assistant"]["prompt_custom_3"].value_or(std::string());
-        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
-                              : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
-                                                                        : g_ai_assistant.prompt_custom_1;
+        g_ai_assistant.prompt_custom_2 = tbl["ai_assistant"]["prompt_custom_2"].value_or(std::string());
+        g_ai_assistant.prompt_custom_3 = tbl["ai_assistant"]["prompt_custom_3"].value_or(std::string());
+        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2"   ? g_ai_assistant.prompt_custom_2
+                                : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
+                                                                         : g_ai_assistant.prompt_custom_1;
         g_tencent_tmt.enabled = tbl["tencent_tmt"]["enabled"].value_or(true);
         g_tencent_tmt.secret_id = tbl["tencent_tmt"]["secret_id"].value_or(std::string());
         g_tencent_tmt.secret_key = tbl["tencent_tmt"]["secret_key"].value_or(std::string());
         g_tencent_tmt.region = tbl["tencent_tmt"]["region"].value_or(std::string("ap-guangzhou"));
         if (g_tencent_tmt.region.empty())
             g_tencent_tmt.region = "ap-guangzhou";
-        g_tencent_tmt.target_language =
-            tbl["tencent_tmt"]["target_language"].value_or(std::string("en"));
+        g_tencent_tmt.target_language = tbl["tencent_tmt"]["target_language"].value_or(std::string("en"));
         if (g_tencent_tmt.target_language != "en" && g_tencent_tmt.target_language != "fr" &&
             g_tencent_tmt.target_language != "ja" && g_tencent_tmt.target_language != "es" &&
             g_tencent_tmt.target_language != "ru")
@@ -2922,9 +2912,9 @@ bool SetConfiguredAiAssistantString(const std::string &key, const std::string &v
         g_ai_assistant.prompt_custom_1 = value;
     if (key == "prompt" || key == "prompt_id" || key.rfind("prompt_custom_", 0) == 0)
     {
-        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
-                              : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
-                                                                        : g_ai_assistant.prompt_custom_1;
+        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2"   ? g_ai_assistant.prompt_custom_2
+                                : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
+                                                                         : g_ai_assistant.prompt_custom_1;
     }
     if (key == "provider")
     {
