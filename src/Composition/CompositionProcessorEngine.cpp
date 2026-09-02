@@ -2081,9 +2081,10 @@ BOOL CCompositionProcessorEngine::IsVirtualKeyNeed( //
     // these keys through it while candidates are active; its response decides
     // whether the key navigates or commits the highlighted candidate with punctuation.
     const bool isCommaPeriodPagingKey = uCode == VK_OEM_COMMA || uCode == VK_OEM_PERIOD;
+    const bool isBracketPagingKey = uCode == VK_OEM_4 || uCode == VK_OEM_6;
     if (candidateMode != CANDIDATE_NONE &&
-        (uCode == VK_OEM_MINUS || uCode == VK_OEM_PLUS || isCommaPeriodPagingKey || uCode == VK_TAB ||
-         uCode == VK_PRIOR || uCode == VK_NEXT || uCode == VK_UP || uCode == VK_DOWN))
+        (uCode == VK_OEM_MINUS || uCode == VK_OEM_PLUS || isCommaPeriodPagingKey || isBracketPagingKey ||
+         uCode == VK_TAB || uCode == VK_PRIOR || uCode == VK_NEXT || uCode == VK_UP || uCode == VK_DOWN))
     {
         if (IsUnicodeModeComposition() && _keystrokeBuffer.GetLength() == 1 && uCode == VK_OEM_PLUS && pwch &&
             *pwch == L'+')

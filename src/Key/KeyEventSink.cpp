@@ -1311,6 +1311,8 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
         case VK_OEM_PLUS:
         case VK_OEM_COMMA:
         case VK_OEM_PERIOD:
+        case VK_OEM_4:
+        case VK_OEM_6:
         case VK_TAB:
         case VK_PRIOR:
         case VK_NEXT:
