@@ -41,6 +41,8 @@ constexpr float kShadowPadLeft = 18.0f;
 constexpr float kShadowPadTop = 16.0f;
 constexpr float kShadowPadRight = 18.0f;
 constexpr float kShadowPadBottom = 20.0f;
+constexpr float kToolbarGlyphFontSizeFactor = 0.82f;
+constexpr float kToolbarUnderlinedTextFontSizeFactor = 0.58f;
 constexpr wchar_t kFluentIconsFont[] = L"Segoe Fluent Icons";
 
 constexpr wchar_t kGlyphJa = 0xE7DE;
@@ -153,11 +155,11 @@ class ToolbarIconButton : public msimeui::Visual
 
         const bool useGlyph = glyph_ != 0;
         const std::wstring family = useGlyph ? std::wstring(kFluentIconsFont) : std::wstring(msimeui::UiFontFamily());
-        const float fontSize = useGlyph ? size_ * 0.86f : size_ * (underline_ ? 0.62f : 0.86f);
+        const float fontSize =
+            size_ * (underline_ ? kToolbarUnderlinedTextFontSizeFactor : kToolbarGlyphFontSizeFactor);
         IDWriteTextFormat *format =
-            deviceResources.GetTextFormat(family, fontSize, underline_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
-                                          DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                          DWRITE_WORD_WRAPPING_NO_WRAP);
+            deviceResources.GetTextFormat(family, fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER,
+                                          DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
         if (!format)
         {
             return;
@@ -405,7 +407,7 @@ void FloatingToolbarPresenter::RebuildScene()
     const float s = ToolbarUserScale();
     const float barHeight = 35.0f * s;
     const float iconSize = 26.0f * s;
-    const float gap = 6.0f * s;
+    const float gap = 5.0f * s;
     const float padLeft = 8.0f * s;
     const float padRight = 4.0f * s;
     const float radius = 8.0f * s;
