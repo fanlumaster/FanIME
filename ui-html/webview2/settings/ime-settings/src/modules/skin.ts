@@ -4,10 +4,15 @@ import ftbHTML from '../../../../ftb/default.html?raw';
 export type SkinPreviewTheme = 'dark' | 'light';
 export type CandidateSkin = string;
 
+type CandidateColors = {
+  accent?: string; selected?: string; hover?: string; surface?: string;
+  border?: string; text?: string; number?: string; showSelectedBar?: boolean;
+};
 type ExternalSkin = {
   id: string; name: string; version: string; author?: string; description?: string;
-  base: string; stylesheet?: string; toolbarStylesheet?: string; preview?: string; layouts: string[]; themes: string[];
+  base: string; toolbarStylesheet?: string; preview?: string; layouts: string[]; themes: string[];
   minWidthDip?: number; decorationTopDip?: number; decorationWidthDip?: number; compatible: boolean;
+  candidate?: { dark?: CandidateColors; light?: CandidateColors };
 };
 type SkinScanIssue = { folder: string; reason: string };
 
@@ -101,6 +106,37 @@ function clearDecorationVars(host: HTMLElement): void {
   host.style.removeProperty('--msime-skin-decoration-width');
 }
 
+function candidatePreviewCss(skin: ExternalSkin): string {
+  const dark = skin.candidate?.dark || {};
+  const light = skin.candidate?.light || {};
+  const preview = skin.preview ? `url("${resourceUrl(skin.id, skin.preview)}")` : 'none';
+  const themeRules = (scope: string, colors: CandidateColors) => {
+    const prefix = scope ? `${scope} ` : '';
+    let css = '';
+    if (colors.accent) css += `${prefix}.cursor, ${prefix}.first::before { background: ${colors.accent}; }\n`;
+    if (colors.selected) css += `${prefix}.first, ${prefix}.cand.first { background-color: ${colors.selected}; }\n`;
+    if (colors.hover) css += `${prefix}.cand:not(.first):hover { background-color: ${colors.hover} !important; }\n`;
+    if (colors.surface) css += `${prefix}.container { background: ${colors.surface}; }\n`;
+    if (colors.border) css += `${prefix}.container { border-color: ${colors.border}; }\n`;
+    if (colors.text) css += `${prefix}.container { color: ${colors.text}; }\n`;
+    if (colors.showSelectedBar === false) css += `${prefix}.first::before { display: none; }\n`;
+    return css;
+  };
+  let css = '';
+  if ((skin.decorationTopDip || 0) > 0) {
+    css += `.containerParent { padding-top: var(--msime-skin-decoration-top, 0px); position: relative; box-sizing: border-box; }
+.containerParent:not(:empty)::before {
+  content: ""; position: absolute; z-index: 0; top: 0; right: 0;
+  width: var(--msime-skin-decoration-width, 0px); height: 118px;
+  background: ${preview} center / contain no-repeat; pointer-events: none;
+}
+.container { position: relative; z-index: 1; min-width: max(7em, var(--msime-skin-min-width, 0px)); }\n`;
+  }
+  css += themeRules('', dark);
+  css += themeRules('.theme-light', light);
+  return css;
+}
+
 async function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined, styleId: string, force = false): Promise<void> {
   if (!stylesheet) return;
   if (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId)) return;
@@ -123,11 +159,26 @@ async function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | unde
   }
 }
 
+function injectGeneratedCandidateCss(skin: ExternalSkin, force = false): void {
+  const styleId = `external-skin-style-${skin.id}`;
+  if (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId)) return;
+  const css = candidatePreviewCss(skin);
+  if (!css.trim()) return;
+  const scoped = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
+  let style = document.getElementById(styleId) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = styleId;
+    style.dataset.externalSkinStyle = skin.id;
+    document.head.appendChild(style);
+  }
+  style.textContent = scoped;
+  loadedExternalStyleIds.add(styleId);
+}
+
 async function ensureExternalSkinStyle(skin: ExternalSkin, force = false): Promise<void> {
-  await Promise.all([
-    injectScopedSkinCss(skin, skin.stylesheet, `external-skin-style-${skin.id}`, force),
-    injectScopedSkinCss(skin, skin.toolbarStylesheet, `external-toolbar-style-${skin.id}`, force)
-  ]);
+  injectGeneratedCandidateCss(skin, force);
+  await injectScopedSkinCss(skin, skin.toolbarStylesheet, `external-toolbar-style-${skin.id}`, force);
 }
 
 function resetExternalSkinStyles(): void {

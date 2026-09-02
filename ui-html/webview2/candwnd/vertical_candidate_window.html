@@ -317,6 +317,53 @@
       preedit.append(caret);
       preedit.append(document.createTextNode(cleanText.slice(caretIndex)));
     }
+
+    window.ApplyCandidateFrame = function (payload) {
+      const container = document.getElementById('realContainer');
+      const parent = document.getElementById('realContainerParent');
+      if (!container) return;
+      if (window.ClearState) window.ClearState();
+      if (parent) {
+        if (payload.marginTop != null) parent.style.marginTop = payload.marginTop + 'px';
+        if (payload.marginLeft != null) parent.style.marginLeft = payload.marginLeft + 'px';
+      }
+      if (window.SetCandidatePreeditVisible) {
+        window.SetCandidatePreeditVisible(payload.preeditVisible !== false);
+      }
+      const preeditEl = container.querySelector('.pinyin .text');
+      if (preeditEl) {
+        preeditEl.textContent = payload.preedit || '';
+        if (window.SetPreeditCaret) window.SetPreeditCaret();
+      }
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      container.querySelectorAll('.row-wrapper').forEach(function (wrapper, index) {
+        const html = index < items.length ? String(items[index] || '') : '';
+        wrapper.style.display = html ? '' : 'none';
+        const cand = wrapper.querySelector('.cand');
+        if (!cand) return;
+        let slot = cand.querySelector('.cand-content');
+        if (!slot) {
+          const text = cand.querySelector('.text') || cand;
+          slot = document.createElement('span');
+          slot.className = 'cand-content';
+          const num = text.querySelector('.num, .cand-no');
+          if (num) {
+            while (num.nextSibling) text.removeChild(num.nextSibling);
+          }
+          text.appendChild(slot);
+        }
+        slot.innerHTML = html;
+      });
+      if (window.SetCandidateSelection) {
+        window.SetCandidateSelection(payload.selected || 0);
+      }
+      void container.offsetWidth;
+      const rect = container.getBoundingClientRect();
+      return {
+        width: Math.max(rect.width, container.offsetWidth || 0) + 1,
+        height: Math.max(rect.height, container.offsetHeight || 0) + 1
+      };
+    }
   </script>
 </head>
 
