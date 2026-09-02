@@ -299,7 +299,9 @@ void CandidatePresenter::RebuildScene()
     brush.radiusX = 6.0f;
     brush.radiusY = 6.0f;
     impl_->card = std::make_shared<msimeui::Card>(brush, 5.0f);
+    impl_->card->SetHorizontalAlignment(msimeui::HorizontalAlignment::Leading);
     impl_->card->AddChild(impl_->body);
+    impl_->root->SetHorizontalContentAlignment(msimeui::HorizontalAlignment::Leading);
     impl_->frame = std::make_shared<msimeui::Container>();
     impl_->frame->SetPadding({kShadowPadLeft, kShadowPadTop, kShadowPadRight, kShadowPadBottom});
     impl_->frame->SetChild(impl_->card);
@@ -792,6 +794,8 @@ void CandidatePresenter::PlaceAndShow(POINT caret, float widthDip, float heightD
     }
     widthDip = static_cast<float>(ClampWidthDipToHalfScreen(widthDip, limits));
     heightDip = static_cast<float>(ClampHeightDipToHalfScreen(heightDip, limits));
+    lastLayoutWidthDip_ = widthDip;
+    lastLayoutHeightDip_ = heightDip;
     cardLeftDip = (std::max)(0.0f, cardLeftDip);
     cardTopDip = (std::max)(0.0f, (std::min)(cardTopDip, heightDip));
     float cardWidthDip = (std::max)(widthDip - cardLeftDip - kShadowPadRight, 1.0f);
@@ -929,6 +933,8 @@ void CandidatePresenter::Hide()
         impl_->list->SetHoverEnabled(false);
     }
     SetCandidateHostCloaked(true);
+    lastHostWidthPx_ = 0;
+    lastHostHeightPx_ = 0;
     SetWindowPos(hwnd_, nullptr, 0, Global::INVALID_Y, 0, 0,
                  SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
@@ -958,8 +964,17 @@ void CandidatePresenter::Present()
     if (msimeui::Scene *scene = impl_->window->GetScene())
     {
         const float dpi = impl_->window->GetDpi();
-        scene->EnsureLayout({msimeui::PixelsToDips(static_cast<float>(width), dpi),
-                             msimeui::PixelsToDips(static_cast<float>(height), dpi)});
+        float layoutW = msimeui::PixelsToDips(static_cast<float>(width), dpi);
+        float layoutH = msimeui::PixelsToDips(static_cast<float>(height), dpi);
+        // Host HWND is larger than the card (shadow padding, 64px buckets, and a
+        // grow-only size while typing). Stretching the scene to that HWND fills
+        // the rounded card with empty space. Keep layout at the measured DIP size.
+        if (!impl_->hostExpandedForMenu && lastLayoutWidthDip_ > 0.0f && lastLayoutHeightDip_ > 0.0f)
+        {
+            layoutW = lastLayoutWidthDip_;
+            layoutH = lastLayoutHeightDip_;
+        }
+        scene->EnsureLayout({layoutW, layoutH});
         scene->Render(impl_->resources);
     }
     const HRESULT hr = target->EndDraw();

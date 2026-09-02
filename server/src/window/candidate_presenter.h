@@ -48,4 +48,6 @@ class CandidatePresenter
     std::string lastSkinFingerprint_;
     int lastHostWidthPx_ = 0;
     int lastHostHeightPx_ = 0;
+    float lastLayoutWidthDip_ = 0.0f;
+    float lastLayoutHeightDip_ = 0.0f;
 };
