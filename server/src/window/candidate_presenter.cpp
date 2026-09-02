@@ -57,6 +57,16 @@ std::string TrimCopy(std::string text)
     return text;
 }
 
+int AlignHostPixels(int value)
+{
+    constexpr int kBucket = 64;
+    if (value < 1)
+    {
+        value = 1;
+    }
+    return ((value + kBucket - 1) / kBucket) * kBucket;
+}
+
 D2D1_COLOR_F ParseCssColor(const std::string &text, D2D1_COLOR_F fallback)
 {
     std::string value = TrimCopy(text);
@@ -266,6 +276,7 @@ void CandidatePresenter::RebuildScene()
     {
         return;
     }
+    lastSkinFingerprint_.clear();
     impl_->root = std::make_shared<msimeui::StackPanel>(0.0f);
     impl_->decoration = std::make_shared<msimeui::Image>(L"");
     impl_->decoration->SetHorizontalAlignment(msimeui::HorizontalAlignment::Trailing);
@@ -305,8 +316,19 @@ void CandidatePresenter::ApplySkin()
     {
         return;
     }
-    const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
     const std::string skinId = GetConfiguredCandidateSkin();
+    std::ostringstream fingerprint;
+    fingerprint << skinId << '|' << GetConfiguredThemeCand() << '|' << GetConfiguredCandidateFont() << '|'
+                << GetConfiguredCandidateFontSize() << '|' << GetConfiguredCandidateWindowPreeditFontSize() << '|'
+                << GetConfiguredCandidateWindowLayout() << '|' << GetConfiguredCandidateTextColor();
+    const std::string skinKey = fingerprint.str();
+    if (skinKey == lastSkinFingerprint_ && impl_->card)
+    {
+        return;
+    }
+    lastSkinFingerprint_ = skinKey;
+
+    const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
     CandSkinTokens tokens;
     if (candLight)
     {
@@ -461,18 +483,12 @@ void CandidatePresenter::ApplySkin()
     brush.strokeWidth = tokens.borderWidth;
     brush.radiusX = tokens.radius;
     brush.radiusY = tokens.radius;
-    impl_->card = std::make_shared<msimeui::Card>(brush, tokens.containerPad);
-    impl_->card->SetMinWidth(kCandidateMinWidthDip);
-    impl_->card->AddChild(impl_->body);
-    impl_->frame = std::make_shared<msimeui::Container>();
-    impl_->frame->SetPadding({kShadowPadLeft, kShadowPadTop, kShadowPadRight, kShadowPadBottom});
-    impl_->frame->SetChild(impl_->card);
-    impl_->root = std::make_shared<msimeui::StackPanel>(0.0f);
-    impl_->root->AddChild(impl_->decoration);
-    impl_->root->AddChild(impl_->frame);
-    auto scene = std::make_unique<msimeui::Scene>();
-    scene->SetRoot(impl_->root);
-    impl_->window->SetScene(std::move(scene));
+    if (impl_->card)
+    {
+        impl_->card->SetBrush(brush);
+        impl_->card->SetPadding(tokens.containerPad);
+        impl_->card->SetMinWidth(kCandidateMinWidthDip);
+    }
 }
 
 void CandidatePresenter::FillItemsFromUi()
@@ -795,8 +811,12 @@ void CandidatePresenter::PlaceAndShow(POINT caret, float widthDip, float heightD
     auto properPos = std::make_shared<std::pair<int, int>>();
     // Position the opaque card, not the decoration or drop shadow around it.
     AdjustCandidateWindowPosition(&caret, {cardWidthDip, cardHeightDip}, properPos, scale, cardWidthDip);
-    const int widthPx = (std::max)(1, static_cast<int>(std::ceil(widthDip * scale)));
-    const int heightPx = (std::max)(1, static_cast<int>(std::ceil(heightDip * scale)));
+    int widthPx = AlignHostPixels((std::max)(1, static_cast<int>(std::ceil(widthDip * scale))));
+    int heightPx = AlignHostPixels((std::max)(1, static_cast<int>(std::ceil(heightDip * scale))));
+    widthPx = (std::max)(widthPx, lastHostWidthPx_);
+    heightPx = (std::max)(heightPx, lastHostHeightPx_);
+    lastHostWidthPx_ = widthPx;
+    lastHostHeightPx_ = heightPx;
     const int cardLeftPx = static_cast<int>(std::lround(cardLeftDip * scale));
     const int cardTopPx = static_cast<int>(std::lround(cardTopDip * scale));
     const int cardHeightPx = static_cast<int>(std::lround(cardHeightDip * scale));

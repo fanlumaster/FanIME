@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <windows.h>
 
 class CandidatePresenter
@@ -44,4 +45,7 @@ class CandidatePresenter
     POINT hoverBaseline_{};
     float decorationTopDip_ = 0.0f;
     float decorationWidthDip_ = 0.0f;
+    std::string lastSkinFingerprint_;
+    int lastHostWidthPx_ = 0;
+    int lastHostHeightPx_ = 0;
 };
