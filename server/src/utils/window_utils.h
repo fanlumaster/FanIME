@@ -39,6 +39,10 @@ int AdjustCandidateWindowPosition(       //
     double minWidthDip = 0.0             //
 );
 
+// Drop the "tallest list so far" flip memory. A bogus oversized measure would
+// otherwise keep parking later cards at the top/left of the monitor.
+void ResetCandidatePlacementMemory();
+
 int AdjustWndPosition( //
     HWND hwnd,         //
     int crateX,        //

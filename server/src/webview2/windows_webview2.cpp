@@ -4,6 +4,8 @@
 #include "defines/globals.h"
 #include "utils/common_utils.h"
 #include "utils/ime_utils.h"
+#include "utils/webview_utils.h"
+#include "window/candidate_presenter.h"
 #include "window/floating_toolbar_visibility_policy.h"
 #include <debugapi.h>
 #include <boost/json.hpp>
@@ -31,6 +33,7 @@
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -518,15 +521,14 @@ void RequestNextSmallWindowController()
         HRESULT (*request)(HWND, HRESULT, ICoreWebView2Environment *);
     };
     const Host hosts[] = {
-        {L"cand", smallWindowCandHwnd, webviewControllerCandWnd != nullptr, &OnEnvironmentCreated},
         {L"menu", smallWindowMenuHwnd, webviewControllerMenuWnd != nullptr, &OnMenuWindowEnvironmentCreated},
         {L"ftb", smallWindowFtbHwnd, webviewControllerFtbWnd != nullptr, &OnFtbWindowEnvironmentCreated},
     };
 
     int chosen = -1;
-    for (int step = 1; step <= 3; ++step)
+    for (int step = 1; step <= 2; ++step)
     {
-        const int i = (lastFailedSmallWindowHostIndex + step) % 3;
+        const int i = (lastFailedSmallWindowHostIndex + step) % 2;
         if (!hosts[i].hasController && hosts[i].hwnd)
         {
             chosen = i;
@@ -582,7 +584,7 @@ void OnSmallWindowControllerSettled(HRESULT hr)
 
 void BeginSmallWindowWebviewEnvironmentCreate()
 {
-    if (!smallWindowCandHwnd || !smallWindowMenuHwnd || !smallWindowFtbHwnd)
+    if (!smallWindowMenuHwnd || !smallWindowFtbHwnd)
     {
         return;
     }
@@ -656,10 +658,8 @@ FloatingToolbarState floatingToolbarState;
 
 bool AreSmallWindowWebviewsReadyUnlocked()
 {
-    return candidateNavigationReady && menuNavigationReady && floatingToolbarNavigationReady &&
-           webviewCandWnd != nullptr && webviewMenuWnd != nullptr && webviewFtbWnd != nullptr &&
-           webviewControllerCandWnd != nullptr && webviewControllerMenuWnd != nullptr &&
-           webviewControllerFtbWnd != nullptr;
+    return menuNavigationReady && floatingToolbarNavigationReady && webviewMenuWnd != nullptr &&
+           webviewFtbWnd != nullptr && webviewControllerMenuWnd != nullptr && webviewControllerFtbWnd != nullptr;
 }
 
 void CancelStaggeredTopmost()
@@ -748,9 +748,9 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
     {
     case SmallWindowTopmostStep::Candidate:
         PinHostTopmost(::global_hwnd);
-        if (::is_global_wnd_cand_shown && ::global_hwnd)
+        if (::is_global_wnd_cand_shown && ::global_hwnd && CandidatePresenter::Instance().IsBound())
         {
-            FineTuneWindow(::global_hwnd);
+            CandidatePresenter::Instance().Present();
         }
         break;
 
@@ -1088,7 +1088,7 @@ bool AreSmallWindowWebviewsReady()
 
 bool IsCandidateWebviewReady()
 {
-    return candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr;
+    return CandidatePresenter::Instance().IsBound();
 }
 
 bool IsFloatingToolbarWebviewReady()
@@ -1549,7 +1549,7 @@ bool InjectExternalCandidateSkin(
         return false;
     }
     html.insert(headEnd, vars);
-    return InjectExternalSkinCssFile(html, skin, skinsRoot, skin.stylesheet, L"external-candidate-skin");
+    return true;
 }
 
 void InjectCandidateDocumentSkin(
@@ -1735,6 +1735,200 @@ void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
     {
         webview->ExecuteScript(kInstallCandidateHoverLockScript, nullptr);
     }
+}
+
+constexpr wchar_t kEnsureApplyCandidateFrameScript[] = LR"(
+window.ApplyCandidateFrame = function (payload) {
+    const container = document.getElementById('realContainer');
+    const parent = document.getElementById('realContainerParent');
+    if (!container) return {width: 0, height: 0};
+    if (payload.resetHover && window.ClearState) window.ClearState();
+    if (parent && payload.applyMargins) {
+      if (payload.marginTop != null) parent.style.marginTop = payload.marginTop + 'px';
+      if (payload.marginLeft != null) parent.style.marginLeft = payload.marginLeft + 'px';
+    }
+    if (window.SetCandidatePreeditVisible) {
+      window.SetCandidatePreeditVisible(payload.preeditVisible !== false);
+    }
+    const preedit = container.querySelector('.pinyin .text');
+    if (preedit) {
+      preedit.textContent = payload.preedit || '';
+      if (window.SetPreeditCaret) window.SetPreeditCaret();
+    }
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const wrappers = container.querySelectorAll('.row-wrapper');
+    wrappers.forEach(function (wrapper, index) {
+      const html = index < items.length ? String(items[index] || '') : '';
+      wrapper.style.display = html ? '' : 'none';
+      const cand = wrapper.querySelector('.cand');
+      if (!cand) return;
+      let slot = cand.querySelector('.cand-content');
+      if (!slot) {
+        const text = cand.querySelector('.text') || cand;
+        slot = document.createElement('span');
+        slot.className = 'cand-content';
+        const num = text.querySelector('.num, .cand-no');
+        if (num) {
+          while (num.nextSibling) text.removeChild(num.nextSibling);
+          text.appendChild(slot);
+        } else {
+          text.appendChild(slot);
+        }
+      }
+      slot.innerHTML = html;
+    });
+    if (window.SetCandidateSelection) {
+      window.SetCandidateSelection(payload.selected || 0);
+    }
+    void container.offsetWidth;
+    const rect = container.getBoundingClientRect();
+    return {
+      width: Math.max(rect.width, container.offsetWidth || 0) + 1,
+      height: Math.max(rect.height, container.offsetHeight || 0) + 1
+    };
+};
+if (!document.getElementById('msime-fast-layout')) {
+  const style = document.createElement('style');
+  style.id = 'msime-fast-layout';
+  style.textContent = '.container,.container .text,.row-wrapper,.cand .text{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;}';
+  document.documentElement.appendChild(style);
+}
+)";
+
+std::pair<double, double> g_last_candidate_slot_measured_size{};
+bool g_candidate_slot_api_installed = false;
+
+namespace
+{
+bool g_candidate_slot_update_inflight = false;
+std::wstring g_candidate_slot_update_pending;
+std::function<void()> g_candidate_slot_update_pending_complete;
+bool g_candidate_slot_update_pending_content_only = false;
+
+void SubmitCandidateSlotScript(ComPtr<ICoreWebView2> webview, const std::wstring &payload,
+                               std::function<void()> onComplete, bool contentOnly);
+
+void FlushPendingCandidateSlotUpdate(ComPtr<ICoreWebView2> webview)
+{
+    if (g_candidate_slot_update_pending.empty())
+    {
+        return;
+    }
+    std::wstring pending = std::move(g_candidate_slot_update_pending);
+    std::function<void()> complete = std::move(g_candidate_slot_update_pending_complete);
+    const bool pendingContentOnly = g_candidate_slot_update_pending_content_only;
+    g_candidate_slot_update_pending.clear();
+    g_candidate_slot_update_pending_complete = nullptr;
+    g_candidate_slot_update_pending_content_only = false;
+    SubmitCandidateSlotScript(webview, pending, std::move(complete), pendingContentOnly);
+}
+
+void SubmitCandidateSlotScript(ComPtr<ICoreWebView2> webview, const std::wstring &payload,
+                               std::function<void()> onComplete, bool contentOnly)
+{
+    g_candidate_slot_update_inflight = true;
+    if (!contentOnly)
+    {
+        DisarmCandidatePointerHover();
+    }
+    std::wstring script;
+    script.reserve(payload.size() + 2048);
+    if (!g_candidate_slot_api_installed)
+    {
+        script.append(kEnsureApplyCandidateFrameScript);
+        g_candidate_slot_api_installed = true;
+    }
+    script.append(L"window.msimeCandidateDiagnostics = ");
+    script.append(GetConfiguredDiagnosticLogEnabled() ? L"true;\n" : L"false;\n");
+    script.append(L"window.ApplyCandidateFrame(");
+    script.append(payload);
+    script.append(L");");
+
+    const HRESULT submitHr = webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([webview, onComplete](HRESULT errorCode,
+                                                                                   LPCWSTR result) -> HRESULT {
+            if (FAILED(errorCode))
+            {
+                CAND_WEBVIEW_TRACE_LOGF(L"candidate-slot execute-failed hr={:#x}", static_cast<unsigned>(errorCode));
+            }
+            else if (result)
+            {
+                g_last_candidate_slot_measured_size = ParseDivSize(result);
+            }
+            g_candidate_slot_update_inflight = false;
+            if (!g_candidate_slot_update_pending.empty())
+            {
+                FlushPendingCandidateSlotUpdate(webview);
+                return S_OK;
+            }
+            if (onComplete)
+            {
+                onComplete();
+            }
+            return S_OK;
+        }).Get());
+    if (FAILED(submitHr))
+    {
+        g_candidate_slot_update_inflight = false;
+        CAND_WEBVIEW_TRACE_LOGF(L"candidate-slot submit-failed hr={:#x}", static_cast<unsigned>(submitHr));
+        if (onComplete)
+        {
+            onComplete();
+        }
+    }
+}
+
+void UpdateCandidateSlotsWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &payload,
+                                        std::function<void()> onComplete, bool contentOnly)
+{
+    if (!webview)
+    {
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return;
+    }
+    if (g_candidate_slot_update_inflight)
+    {
+        g_candidate_slot_update_pending = payload;
+        g_candidate_slot_update_pending_complete = std::move(onComplete);
+        g_candidate_slot_update_pending_content_only = contentOnly;
+        return;
+    }
+    SubmitCandidateSlotScript(webview, payload, std::move(onComplete), contentOnly);
+}
+
+std::wstring BuildCandidateSlotPayloadJson(const std::wstring &commaSeparated, bool contentOnly)
+{
+    std::vector<std::wstring> words = SplitCandidateTemplatePayload(commaSeparated);
+    nlohmann::json payload;
+    payload["preedit"] = words.empty() ? std::string{} : wstring_to_string(words[0]);
+    payload["items"] = nlohmann::json::array();
+    for (size_t i = 1; i < words.size(); ++i)
+    {
+        if (!words[i].empty())
+        {
+            payload["items"].push_back(wstring_to_string(words[i]));
+        }
+    }
+    payload["selected"] = Global::candidate_ui.selected_index_in_page;
+    payload["preeditVisible"] = GetConfiguredCandidateWindowPreeditStyle() != "empty";
+    payload["applyMargins"] = !contentOnly;
+    payload["resetHover"] = !contentOnly;
+    if (!contentOnly)
+    {
+        payload["marginTop"] = Global::MarginTop;
+        payload["marginLeft"] = Global::MarginLeft;
+    }
+    return string_to_wstring(payload.dump());
+}
+} // namespace
+
+std::pair<double, double> LastCandidateSlotMeasuredSize()
+{
+    return g_last_candidate_slot_measured_size;
 }
 
 void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
@@ -2038,9 +2232,11 @@ int PrepareHtmlForWnds()
 
 bool ApplyConfiguredCandidateWindowLayout()
 {
-    // PrepareHtmlForWnds also refreshes the other small-window templates. They are
-    // cheap local reads and keeping this in one place prevents the paths drifting.
     PrepareHtmlForWnds();
+    if (CandidatePresenter::Instance().IsBound() && !webviewCandWnd)
+    {
+        return true;
+    }
     if (!webviewCandWnd || HTMLStringCandWnd.empty())
     {
         return false;
@@ -2101,7 +2297,8 @@ bool ForceReloadConfiguredCandidateSkin()
     ++candidateSkinReloadRevision;
     loadedCandidateSkin.clear();
     loadedFloatingToolbarSkin.clear();
-    const bool cloakCandidate = ::is_global_wnd_cand_shown && ::global_hwnd && IsWindow(::global_hwnd);
+    const bool cloakCandidate = ::is_global_wnd_cand_shown && ::global_hwnd && IsWindow(::global_hwnd) &&
+                                !CandidatePresenter::Instance().IsBound();
     if (cloakCandidate)
         SetCandidateHostCloaked(true);
     const bool ok = ApplyConfiguredUiThemes();
@@ -2112,6 +2309,10 @@ bool ForceReloadConfiguredCandidateSkin()
 
 bool ApplyConfiguredCandidateAppearance()
 {
+    if (CandidatePresenter::Instance().IsBound() && !webviewCandWnd)
+    {
+        return true;
+    }
     if (!webviewCandWnd)
     {
         return false;
@@ -2139,6 +2340,10 @@ bool ApplyConfiguredCandidateAppearance()
         L"root.style.removeProperty('--cand-text');"
         L"root.style.removeProperty('--cand-num');"
         L"}"
+        L"if(!document.getElementById('msime-fast-layout')){"
+        L"const s=document.createElement('style');s.id='msime-fast-layout';"
+        L"s.textContent='.container,.container .text,.row-wrapper,.cand .text{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;}';"
+        L"root.appendChild(s);}"
         L"})(" +
         string_to_wstring(cfg.dump()) + L");";
     return SUCCEEDED(webviewCandWnd->ExecuteScript(script.c_str(), nullptr));
@@ -2254,14 +2459,18 @@ window.mouseBlockTimeout = setTimeout(() => {
 
 void InflateCandWnd(std::wstring &str)
 {
-    InflateCandWnd(str, nullptr);
+    InflateCandWnd(str, nullptr, false);
 }
 
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete)
 {
-    std::wstring result = InflateCandidateTemplate(BodyStringCandWnd, str);
+    InflateCandWnd(str, std::move(onComplete), false);
+}
 
-    UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
+void InflateCandWnd(std::wstring &str, std::function<void()> onComplete, bool contentOnly)
+{
+    UpdateCandidateSlotsWithJavaScript(webviewCandWnd, BuildCandidateSlotPayloadJson(str, contentOnly),
+                                       std::move(onComplete), contentOnly);
 }
 
 void InflateMeasureDivCandWnd(std::wstring &str)
@@ -2639,6 +2848,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                                static_cast<int>(errorStatus), ::is_global_wnd_cand_shown);
                 if (success)
                 {
+                    g_candidate_slot_api_installed = false;
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
                     ApplyConfiguredCandidateAppearance();
                     InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
@@ -4463,8 +4673,8 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 }
 
 /**
- * @brief Initialize the candidate, tray menu, and floating toolbar WebViews in
- *        one environment so they share a browser process and user data folder.
+ * @brief Initialize the tray menu and floating toolbar WebViews in one
+ *        environment. The candidate window is Direct2D and does not use WebView2.
  */
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 {

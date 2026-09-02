@@ -2,6 +2,7 @@
 #include "config/ime_config.h"
 #include "ipc/ipc.h"
 #include "ime_windows.h"
+#include "window/candidate_presenter.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
 #include <debugapi.h>
@@ -10,6 +11,7 @@
 #include <cmath>
 #include <minwindef.h>
 #include <string>
+#include <utility>
 #include <windef.h>
 #include <winuser.h>
 #include <fmt/xchar.h>
@@ -70,6 +72,13 @@ POINT g_candidate_session_anchor{};
 bool g_has_last_candidate_clip = false;
 std::pair<double, double> g_last_candidate_clip_size{};
 FLOAT g_last_candidate_clip_scale = 1.0f;
+bool g_candidate_placed_above_caret = false;
+std::pair<double, double> g_last_candidate_card_size{};
+bool g_has_candidate_clip_envelope = false;
+double g_clip_envelope_top_dip = 0.0;
+double g_clip_envelope_bottom_dip = 0.0;
+double g_clip_envelope_left_dip = 0.0;
+double g_clip_envelope_right_dip = 0.0;
 // SetWindowPos on the candidate host can synchronously deliver WM_DPICHANGED on
 // the same call stack (hide-to-offscreen, FineTune cross-monitor moves). Applying
 // the suggested rect or re-entering FineTune from that handler races the hide
@@ -136,7 +145,8 @@ int GetCandidateOuterTopPx(int cardAnchorY, int packingTopDip, FLOAT scale)
     return cardAnchorY + static_cast<int>(std::lround(outerOffsetDip * static_cast<double>(scale)));
 }
 
-void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale);
+void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale,
+                                  double extraTopDip = 0.0);
 void ClearCandidateWindowRegion(HWND hwnd);
 int GetCandidateOuterMarginDip(int desiredOuterTopPx, int hostY, FLOAT scale);
 void KeepCandidateCardInsideHostAndMonitor(int hostX, int hostY, int hostWidthPx, int hostHeightPx,
@@ -173,6 +183,63 @@ void RememberCandidateClipSize(const std::pair<double, double> &decoratedSize, F
         g_last_candidate_clip_size = decoratedSize;
         g_last_candidate_clip_scale = scale > 0.0f ? scale : 1.0f;
     }
+}
+
+void RememberCandidateFlip(int cardTopPx, int caretY)
+{
+    g_candidate_placed_above_caret = cardTopPx + 8 < caretY;
+}
+
+void RememberCandidateClipEnvelope(double extraTopDip, const std::pair<double, double> &decoratedSize)
+{
+    extraTopDip = (std::max)(0.0, extraTopDip);
+    g_has_candidate_clip_envelope = decoratedSize.first > 1.0 && decoratedSize.second > 1.0;
+    if (!g_has_candidate_clip_envelope)
+    {
+        return;
+    }
+    g_clip_envelope_left_dip = static_cast<double>(Global::MarginLeft);
+    g_clip_envelope_right_dip = g_clip_envelope_left_dip + decoratedSize.first;
+    g_clip_envelope_top_dip = static_cast<double>(Global::MarginTop) - extraTopDip;
+    g_clip_envelope_bottom_dip = static_cast<double>(Global::MarginTop) + decoratedSize.second;
+}
+
+bool CandidateCardFitsClipEnvelope(const std::pair<double, double> &decoratedSize)
+{
+    if (!g_has_candidate_clip_envelope || decoratedSize.first <= 1.0 || decoratedSize.second <= 1.0)
+    {
+        return false;
+    }
+    const double left = static_cast<double>(Global::MarginLeft);
+    const double top = static_cast<double>(Global::MarginTop);
+    const double right = left + decoratedSize.first;
+    const double bottom = top + decoratedSize.second;
+    constexpr double kSlop = 1.5;
+    return left + kSlop >= g_clip_envelope_left_dip && top + kSlop >= g_clip_envelope_top_dip &&
+           right <= g_clip_envelope_right_dip + kSlop && bottom <= g_clip_envelope_bottom_dip + kSlop;
+}
+
+double EstimateVerticalPageHeightDip(double currentHeightDip)
+{
+    const int pageSize = (std::max)(1, GetConfiguredCandidatePageSize());
+    int visible = Global::candidate_ui.current_page_count();
+    if (visible < 1)
+    {
+        visible = Global::candidate_ui.cur_page_item_cnt;
+    }
+    if (visible < 1)
+    {
+        visible = 1;
+    }
+    return currentHeightDip * (static_cast<double>(pageSize) / static_cast<double>(visible));
+}
+
+void ClearCandidateClipState()
+{
+    g_has_last_candidate_clip = false;
+    g_has_candidate_clip_envelope = false;
+    g_candidate_placed_above_caret = false;
+    g_last_candidate_card_size = {};
 }
 
 void RefreshCandidateClipAfterPaint(HWND hwnd, uint64_t contentGeneration, ULONGLONG updateStartedTick)
@@ -213,30 +280,8 @@ void RefreshCandidateClipAfterPaint(HWND hwnd, uint64_t contentGeneration, ULONG
             {
                 scale = clipLimits.scale > 0.0f ? clipLimits.scale : 1.0f;
             }
-            const bool heightChanged =
-                g_has_last_candidate_clip && std::fabs(decoratedSize.second - g_last_candidate_clip_size.second) >= 1.0;
-            RECT hostRect{};
-            const POINT layoutCaret = GetCandidateLayoutCaret();
-            const bool hasHostRect = GetWindowRect(hwnd, &hostRect) != FALSE;
-            const int previousOuterBottom =
-                hasHostRect
-                    ? hostRect.top + static_cast<int>(std::lround(
-                                         (static_cast<double>(Global::MarginTop) + g_last_candidate_clip_size.second) *
-                                         static_cast<double>(scale)))
-                    : layoutCaret.y + 1;
-            const bool placedAboveCaret = hasHostRect && previousOuterBottom <= layoutCaret.y;
-            if (heightChanged && placedAboveCaret && !g_candidate_layout_inflight.load())
-            {
-                CAND_DIAG_LOGF(L"candidate-position reanchor-above content_gen={} old_height_dip={:.1f} "
-                               L"new_height_dip={:.1f} old_bottom={} caret_y={}",
-                               contentGeneration, g_last_candidate_clip_size.second, decoratedSize.second,
-                               previousOuterBottom, layoutCaret.y);
-                // The content-only fast path normally keeps the existing host
-                // position. Above the caret, however, a shorter list must move
-                // down so its lower edge remains next to the input line.
-                FineTuneWindow(hwnd);
-                return;
-            }
+            // Shrink clip to the painted card. Do not FineTune/move the host:
+            // that was the visible position jump after the first show.
             ClipCandidateWindowToContent(hwnd, decoratedSize, scale);
             // A content-only refresh changes the clip, not the anchor. Recording
             // the latest shared-memory caret here would make a pending move look
@@ -290,10 +335,14 @@ bool CandidateCaretNeedsStableFollow(HWND hwnd, POINT caret)
     }
     const int lineChangeThresholdPx =
         (std::max)(1, static_cast<int>(std::lround(12.0 * static_cast<double>(scale))));
-    return std::abs(caret.y - previous.y) >= lineChangeThresholdPx;
+    const int visibleLineThresholdPx =
+        (std::max)(lineChangeThresholdPx, static_cast<int>(std::lround(48.0 * static_cast<double>(scale))));
+    const int thresholdPx =
+        IsCandidateHostPaintedVisible(hwnd) ? visibleLineThresholdPx : lineChangeThresholdPx;
+    return std::abs(caret.y - previous.y) >= thresholdPx;
 }
 
-void PlaceCandidateHostNearCaret(HWND hwnd)
+void PlaceCandidateHostNearCaret(HWND hwnd, std::pair<double, double> requestedCardSize = {})
 {
     if (!hwnd || Global::Point[1] == Global::INVALID_Y)
     {
@@ -310,7 +359,16 @@ void PlaceCandidateHostNearCaret(HWND hwnd)
         static_cast<double>(::CANDIDATE_WINDOW_WIDTH),
         static_cast<double>(::CANDIDATE_WINDOW_HEIGHT),
     };
-    if (g_has_last_candidate_clip)
+    const bool lastClipPlausible =
+        g_has_last_candidate_clip && g_last_candidate_clip_size.first > 1.0 &&
+        g_last_candidate_clip_size.second > 1.0 &&
+        (halfLimits.maxWidthDip <= 1.0 || g_last_candidate_clip_size.first < halfLimits.maxWidthDip * 0.8) &&
+        (halfLimits.maxHeightDip <= 1.0 || g_last_candidate_clip_size.second < halfLimits.maxHeightDip * 0.8);
+    if (requestedCardSize.first > 1.0 && requestedCardSize.second > 1.0)
+    {
+        cardSize = requestedCardSize;
+    }
+    else if (lastClipPlausible)
     {
         cardSize = g_last_candidate_clip_size;
         if (g_last_candidate_clip_scale > 0.0f)
@@ -322,7 +380,11 @@ void PlaceCandidateHostNearCaret(HWND hwnd)
     cardSize.second = ClampHeightDipToHalfScreen(cardSize.second, halfLimits);
 
     auto properPos = std::make_shared<std::pair<int, int>>();
-    AdjustCandidateWindowPosition(&caretPt, cardSize, properPos, layoutScale, halfLimits.maxWidthDip);
+    // Flip against the actual card, not half the monitor. Passing maxWidthDip as
+    // minWidthDip parks the card on the left edge whenever the caret is on the
+    // right half of the screen (HTML then sits at margin 0 inside the host).
+    AdjustCandidateWindowPosition(&caretPt, cardSize, properPos, layoutScale, cardSize.first);
+    RememberCandidateFlip(properPos->second, caretPt.y);
 
     MonitorCoordinates coordinates = GetMonitorCoordinatesFromPoint(caretPt);
     int hostX = properPos->first;
@@ -353,7 +415,7 @@ void PlaceCandidateHostNearCaret(HWND hwnd)
     Global::MarginTop = GetCandidateOuterMarginDip(desiredOuterTopPx, hostY, layoutScale);
     const std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(cardSize);
     KeepCandidateCardInsideHostAndMonitor(hostX, hostY, hostWidthPx, hostHeightPx, decoratedSize.first,
-                                          decoratedSize.second, layoutScale, coordinates, halfLimits.maxWidthDip);
+                                          decoratedSize.second, layoutScale, coordinates, cardSize.first);
 
     UINT flag = SWP_NOZORDER | SWP_SHOWWINDOW;
     RECT currentRect{};
@@ -384,6 +446,143 @@ void PlaceCandidateHostNearCaret(HWND hwnd)
     }
     g_last_placed_caret_x = caretPt.x;
     g_last_placed_caret_y = caretPt.y;
+    CAND_DIAG_LOGF(L"candidate-place host=({},{} {}x{}) card_dip=({:.1f},{:.1f}) margin=({},{}) "
+                   L"caret=({},{}) proper=({},{})",
+                   hostX, hostY, hostWidthPx, hostHeightPx, cardSize.first, cardSize.second, Global::MarginLeft,
+                   Global::MarginTop, caretPt.x, caretPt.y, properPos->first, properPos->second);
+}
+
+void MaybeExpandCandidateClipFromSlotMeasure(HWND hwnd)
+{
+    if (!hwnd || !IsCandidateHostPaintedVisible(hwnd) || !g_has_last_candidate_clip)
+    {
+        return;
+    }
+    std::pair<double, double> paintedSize = LastCandidateSlotMeasuredSize();
+    if (paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
+    {
+        return;
+    }
+    const HalfScreenDipLimits clipLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
+    paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, clipLimits);
+    paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, clipLimits);
+    if (clipLimits.maxWidthDip > 1.0 && paintedSize.first > clipLimits.maxWidthDip * 0.6)
+    {
+        return;
+    }
+
+    if (g_candidate_placed_above_caret && g_last_candidate_card_size.second > 1.0)
+    {
+        const int deltaDip = static_cast<int>(
+            std::lround(paintedSize.second - g_last_candidate_card_size.second));
+        if (deltaDip != 0)
+        {
+            Global::MarginTop = (std::max)(0, Global::MarginTop - deltaDip);
+            MoveContainerBottom(webviewCandWnd, Global::MarginTop);
+        }
+    }
+    g_last_candidate_card_size = paintedSize;
+
+    std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(paintedSize);
+    if (CandidateCardFitsClipEnvelope(decoratedSize))
+    {
+        return;
+    }
+    decoratedSize.first = (std::max)(decoratedSize.first, g_last_candidate_clip_size.first);
+    decoratedSize.second = (std::max)(decoratedSize.second, g_last_candidate_clip_size.second);
+    if (std::fabs(decoratedSize.first - g_last_candidate_clip_size.first) < 2.0 &&
+        std::fabs(decoratedSize.second - g_last_candidate_clip_size.second) < 2.0 &&
+        CandidateCardFitsClipEnvelope(decoratedSize))
+    {
+        return;
+    }
+    FLOAT scale = GetWebViewRasterizationScale(hwnd);
+    if (scale <= 0.0f)
+    {
+        scale = clipLimits.scale > 0.0f ? clipLimits.scale : 1.0f;
+    }
+    double extraTopDip = 0.0;
+    if (g_candidate_placed_above_caret)
+    {
+        extraTopDip = (std::max)(0.0, static_cast<double>(Global::MarginTop) - g_clip_envelope_top_dip);
+        extraTopDip = (std::max)(extraTopDip,
+                                 EstimateVerticalPageHeightDip(paintedSize.second) - paintedSize.second);
+    }
+    ClipCandidateWindowToContent(hwnd, decoratedSize, scale, extraTopDip);
+    RememberCandidateClipSize(decoratedSize, scale);
+}
+
+void FinishCandidateShowAfterSlots(HWND hwnd, uint64_t contentGeneration)
+{
+    if (!hwnd || !::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load() ||
+        !webviewCandWnd)
+    {
+        return;
+    }
+
+    if (IsCandidateHostPaintedVisible(hwnd))
+    {
+        return;
+    }
+
+    const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
+    const double wrapMaxDip =
+        limits.maxWidthDip > 1.0 ? limits.maxWidthDip : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+    const double wrapMaxHeightDip =
+        limits.maxHeightDip > 1.0 ? limits.maxHeightDip : static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
+
+    auto applyPaintedSize = [hwnd, contentGeneration](std::pair<double, double> paintedSize) {
+        if (!::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load())
+        {
+            return;
+        }
+        if (IsCandidateHostPaintedVisible(hwnd))
+        {
+            MaybeExpandCandidateClipFromSlotMeasure(hwnd);
+            return;
+        }
+        if (paintedSize.first <= 1.0 || paintedSize.second <= 1.0)
+        {
+            SetHostWindowCloaked(hwnd, false);
+            UpdateSmallWindowWebviewVisibility(hwnd, true);
+            return;
+        }
+        const HalfScreenDipLimits clipLimits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
+        paintedSize.first = ClampWidthDipToHalfScreen(paintedSize.first, clipLimits);
+        paintedSize.second = ClampHeightDipToHalfScreen(paintedSize.second, clipLimits);
+        std::pair<double, double> decoratedSize = AddCandidateDecorationToSize(paintedSize);
+        decoratedSize.first += 8.0;
+        decoratedSize.second += 6.0;
+        decoratedSize.first = ClampWidthDipToHalfScreen(decoratedSize.first, clipLimits);
+        decoratedSize.second = ClampHeightDipToHalfScreen(decoratedSize.second, clipLimits);
+        FLOAT scale = GetWebViewRasterizationScale(hwnd);
+        if (scale <= 0.0f)
+        {
+            scale = clipLimits.scale > 0.0f ? clipLimits.scale : 1.0f;
+        }
+        PlaceCandidateHostNearCaret(hwnd, paintedSize);
+        const double extraTopDip =
+            g_candidate_placed_above_caret
+                ? (std::max)(0.0, EstimateVerticalPageHeightDip(paintedSize.second) - paintedSize.second)
+                : (GetCandidateDecorationTopDip() > 0.0 ? 8.0 : 0.0);
+        MoveContainerBottom(webviewCandWnd, Global::MarginTop,
+                            [hwnd, decoratedSize, scale, extraTopDip, paintedSize]() {
+            if (!::is_global_wnd_cand_shown || IsCandidateHostPaintedVisible(hwnd))
+            {
+                return;
+            }
+            ClipCandidateWindowToContent(hwnd, decoratedSize, scale, extraTopDip);
+            const POINT placedCaret = GetCandidateLayoutCaret();
+            RememberCandidateClip(decoratedSize, scale, placedCaret.x, placedCaret.y);
+            g_last_candidate_card_size = paintedSize;
+            SetHostWindowCloaked(hwnd, false);
+            UpdateSmallWindowWebviewVisibility(hwnd, true);
+        });
+    };
+
+    // Slot-script getBoundingClientRect can report the stretched WebView
+    // viewport. FineTune's pass-2 measure forces fit-content; use that here.
+    GetRealCandidateCardSize(webviewCandWnd, std::move(applyPaintedSize), wrapMaxDip, wrapMaxHeightDip);
 }
 
 int GetCandidateOuterMarginDip(int desiredOuterTopPx, int hostY, FLOAT scale)
@@ -547,7 +746,8 @@ void ClearCandidateWindowRegion(HWND hwnd)
     }
 }
 
-void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale)
+void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &containerSize, FLOAT scale,
+                                  double extraTopDip)
 {
     if (!hwnd)
     {
@@ -580,21 +780,22 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
     // outside the real candidate card fall through to the editor and preserve
     // its I-beam cursor.
     //
-    // Reserve left/top shadow the same way as the right/bottom edges so a
-    // box-shadow painted slightly outside the measured card is not clipped.
-    // +2 DIP safety: high-DPI fractional glyph bounds otherwise lose the last
-    // character against the region edge.
+    // Use one axis-aligned box from the outer (decoration) top. An L-shaped
+    // region that started at the opaque card top cut skin images that live in
+    // padding-top; aligning the image strip to the clip's right edge also missed
+    // the bitmap when the clip had grown wider than the card.
     constexpr double kRegionSafetyDip = 2.0;
+    extraTopDip = (std::max)(0.0, extraTopDip);
+    if (GetCandidateDecorationTopDip() > 0.0)
+    {
+        extraTopDip = (std::max)(extraTopDip, 8.0);
+    }
     const int left = (std::max)(
         static_cast<int>(client.left),
         static_cast<int>(std::floor((Global::MarginLeft - ::SHADOW_WIDTH) * static_cast<double>(clipScale))));
-    const double decorationTopDip = GetCandidateDecorationTopDip();
-    const int outerTop = (std::max)(
+    const int top = (std::max)(
         static_cast<int>(client.top),
-        static_cast<int>(std::floor((Global::MarginTop - ::SHADOW_HEIGHT) * static_cast<double>(clipScale))));
-    const int cardTop = (std::max)(
-        static_cast<int>(client.top),
-        static_cast<int>(std::floor((Global::MarginTop + decorationTopDip - ::SHADOW_HEIGHT) *
+        static_cast<int>(std::floor((Global::MarginTop - extraTopDip - ::SHADOW_HEIGHT) *
                                     static_cast<double>(clipScale))));
     const int right = (std::min)(
         static_cast<int>(client.right),
@@ -605,49 +806,21 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
         static_cast<int>(std::ceil((Global::MarginTop + containerSize.second + ::SHADOW_HEIGHT + kRegionSafetyDip) *
                                    static_cast<double>(clipScale))));
 
-    if (right <= left || bottom <= cardTop)
+    if (right <= left || bottom <= top)
     {
         WEBVIEW_DIAG_LOGF(L"ui-region invalid client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
                   L"input_scale={:.3f} hwnd_scale={:.3f} computed=({},{})-({},{}) -> cleared",
                   client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
-                  containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, cardTop,
+                  containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, top,
                   right, bottom);
         ClearCandidateWindowRegion(hwnd);
         return;
     }
 
-    HRGN region = CreateRectRgn(left, cardTop, right, bottom);
+    HRGN region = CreateRectRgn(left, top, right, bottom);
     if (!region)
     {
         return;
-    }
-    // Do not make the transparent area above the card mouse-active. Add only
-    // the right-aligned decoration strip to the native region, then union it
-    // with the opaque card rectangle.
-    if (decorationTopDip > 0.0)
-    {
-        const int decorationLeft = (std::max)(
-            static_cast<int>(client.left),
-            static_cast<int>(std::floor((Global::MarginLeft + containerSize.first -
-                                         GetCandidateDecorationWidthDip()) *
-                                        static_cast<double>(clipScale))));
-        const int decorationRight = (std::min)(
-            static_cast<int>(client.right),
-            static_cast<int>(std::ceil((Global::MarginLeft + containerSize.first) *
-                                       static_cast<double>(clipScale))));
-        const int decorationBottom = (std::min)(
-            static_cast<int>(client.bottom),
-            static_cast<int>(std::ceil((Global::MarginTop + decorationTopDip + kRegionSafetyDip) *
-                                       static_cast<double>(clipScale))));
-        if (decorationRight > decorationLeft && decorationBottom > outerTop)
-        {
-            HRGN decorationRegion = CreateRectRgn(decorationLeft, outerTop, decorationRight, decorationBottom);
-            if (decorationRegion)
-            {
-                CombineRgn(region, region, decorationRegion, RGN_OR);
-                DeleteObject(decorationRegion);
-            }
-        }
     }
     HRGN currentRegion = CreateRectRgn(0, 0, 0, 0);
     if (currentRegion)
@@ -657,8 +830,9 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
         {
             DeleteObject(currentRegion);
             DeleteObject(region);
+            RememberCandidateClipEnvelope(extraTopDip, containerSize);
             CAND_DIAG_LOGF(L"candidate-frame region-unchanged rect=({},{})-({},{}) redraw=skipped",
-                           left, outerTop, right, bottom);
+                           left, top, right, bottom);
             return;
         }
         DeleteObject(currentRegion);
@@ -676,12 +850,16 @@ void ClipCandidateWindowToContent(HWND hwnd, const std::pair<double, double> &co
     {
         DeleteObject(region);
     }
+    else
+    {
+        RememberCandidateClipEnvelope(extraTopDip, containerSize);
+    }
     CAND_DIAG_LOGF(L"candidate-frame region-apply rect=({},{})-({},{}) redraw=false result={} gle={}",
-                   left, outerTop, right, bottom, regionResult, regionError);
+                   left, top, right, bottom, regionResult, regionError);
     WEBVIEW_DIAG_LOGF(L"ui-region client=({},{}) margin=({},{}) content_dip=({:.2f},{:.2f}) "
               L"input_scale={:.3f} hwnd_scale={:.3f} region=({},{})-({},{}) result={} gle={}",
               client.right, client.bottom, Global::MarginLeft, Global::MarginTop, containerSize.first,
-              containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, outerTop,
+              containerSize.second, static_cast<double>(scale), static_cast<double>(clipScale), left, top,
               right, bottom, regionResult, regionError);
 }
 
@@ -1439,26 +1617,28 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     // off-screen hosts prevent WebView2 from finishing init; cloaking avoids
     // the old (100,100)/(200,200) startup flash without breaking warmup.
     //
-    DWORD dwExStyle = WS_EX_LAYERED |    //
-                      WS_EX_TOOLWINDOW | //
-                      WS_EX_NOACTIVATE;  //
-                                         //   WS_EX_TOPMOST;     //
+#ifndef WS_EX_NOREDIRECTIONBITMAP
+#define WS_EX_NOREDIRECTIONBITMAP 0x00200000L
+#endif
+    DWORD dwExStyle = WS_EX_NOREDIRECTIONBITMAP | //
+                      WS_EX_TOOLWINDOW |          //
+                      WS_EX_NOACTIVATE;           //
     FLOAT scale = GetForegroundWindowScale();
 
-    HWND hwnd_cand = CreateWindowEx(                                                 //
-        dwExStyle,                                                                   //
-        szWindowClass,                                                               //
-        lpWindowNameCand,                                                            //
-        WS_POPUP,                                                                    //
-        100,                                                                         //
-        100,                                                                         //
-        (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
-        (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-        nullptr,                                                                     //
-        nullptr,                                                                     //
-        hInstance,                                                                   //
-        nullptr                                                                      //
-    );                                                                               //
+    HWND hwnd_cand = CreateWindowEx(                             //
+        dwExStyle,                                               //
+        szWindowClass,                                           //
+        lpWindowNameCand,                                        //
+        WS_POPUP,                                                //
+        100,                                                     //
+        100,                                                     //
+        (std::max)(8, static_cast<int>(32 * scale)),             //
+        (std::max)(8, static_cast<int>(32 * scale)),             //
+        nullptr,                                                 //
+        nullptr,                                                 //
+        hInstance,                                               //
+        nullptr                                                  //
+    );                                                           //
 
     if (!hwnd_cand)
     {
@@ -1469,16 +1649,13 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
     else
     {
-        // Set the window to be fully not transparent
-        SetLayeredWindowAttributes(hwnd_cand, 0, 255, LWA_ALPHA);
-        MARGINS mar = {-1};
-        DwmExtendFrameIntoClientArea(hwnd_cand, &mar);
         BOOL disableTransitions = TRUE;
         DwmSetWindowAttribute(hwnd_cand, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions,
                               sizeof(disableTransitions));
     }
 
     ::global_hwnd = hwnd_cand;
+    CandidatePresenter::Instance().Bind(hwnd_cand);
     CAND_DIAG_LOGF(L"candidate host created {}", DescribeCandidateHostState());
 
     // A client can activate while the pipe server is already listening but this
@@ -1699,93 +1876,25 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         g_candidate_show_msg_pending.store(false);
         const uint64_t contentGeneration = ++g_candidate_content_generation;
         const ULONGLONG updateStartedTick = GetTickCount64();
-        /* Read candidate string */
         ::ReadDataFromSharedMemory(0b1000000);
-        std::wstring preedit =
-            GetConfiguredCandidateWindowPreeditStyle() == "empty" ? std::wstring{} : GetPreeditWithCaretMarker();
-        std::wstring str = preedit + L"," + Global::CandidateString;
-        (void)0;
         LogSmallWindowReadyGate(L"show-candidate");
         CAND_DIAG_LOGF(L"candidate-frame show content_gen={} tick={} preedit_units={} payload_units={} "
                        L"caret=({},{}) follow_cursor={} anchor_valid={} {}",
-                       contentGeneration, updateStartedTick, preedit.size(), Global::CandidateString.size(),
-                       Global::Point[0], Global::Point[1], GetConfiguredCandidateWindowFollowCursor(),
-                       g_candidate_session_anchor_valid, DescribeCandidateHostState());
+                       contentGeneration, updateStartedTick,
+                       GetConfiguredCandidateWindowPreeditStyle() == "empty" ? 0 : GetPreeditWithCaretMarker().size(),
+                       Global::CandidateString.size(), Global::Point[0], Global::Point[1],
+                       GetConfiguredCandidateWindowFollowCursor(), g_candidate_session_anchor_valid,
+                       DescribeCandidateHostState());
         if (!EnsureSmallWindowsTopmost(L"show-candidate"))
         {
             (void)0;
         }
-        // Mark shown before measure/FineTune so in-flight work is not treated as
-        // a post-hide resurrection; the measure callback still re-checks the flag.
-        ::is_global_wnd_cand_shown = true;
         const POINT layoutCaret = GetCandidateLayoutCaret();
-        const bool sameCaret =
-            g_last_placed_caret_x == layoutCaret.x && g_last_placed_caret_y == layoutCaret.y;
-        const bool alreadyVisible = IsCandidateHostPaintedVisible(hwnd);
-        const bool layoutInflight = g_candidate_layout_inflight.load();
-        CAND_DIAG_LOGF(L"candidate-layout-decision content_gen={} last_caret=({},{}) caret=({},{}) "
-                       L"delta=({},{}) same={} visible={} inflight={}",
-                       contentGeneration, g_last_placed_caret_x, g_last_placed_caret_y, layoutCaret.x,
-                       layoutCaret.y, static_cast<long long>(layoutCaret.x) - g_last_placed_caret_x,
-                       static_cast<long long>(layoutCaret.y) - g_last_placed_caret_y, sameCaret, alreadyVisible,
-                       layoutInflight);
-        // Only pre-place while still cloaked / parked. Doing this on an already
-        // visible host jumps the card to last-frame geometry, then FineTune
-        // corrects it — the "flash at the wrong place" on every key.
-        if (!alreadyVisible)
-        {
-            PlaceCandidateHostNearCaret(hwnd);
-        }
-        if (alreadyVisible)
-        {
-            CAND_DIAG_LOGF(L"candidate-frame path=content-only content_gen={} inflight={}", contentGeneration,
-                           layoutInflight);
-            InflateCandWnd(str, [hwnd, contentGeneration, updateStartedTick]() {
-                const ULONGLONG callbackTick = GetTickCount64();
-                CAND_DIAG_LOGF(L"candidate-frame dom-callback content_gen={} current_gen={} elapsed_ms={}",
-                               contentGeneration, g_candidate_content_generation.load(),
-                               callbackTick - updateStartedTick);
-                if (!::is_global_wnd_cand_shown || contentGeneration != g_candidate_content_generation.load())
-                {
-                    return;
-                }
-                RefreshCandidateClipAfterPaint(hwnd, contentGeneration, updateStartedTick);
-            });
-            if (!sameCaret)
-            {
-                if (CandidateCaretNeedsStableFollow(hwnd, layoutCaret))
-                {
-                    KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
-                    SetTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE, kCandidateMoveSettleMs, nullptr);
-                }
-                else
-                {
-                    CAND_DIAG_LOGF(L"candidate-position same-line-follow-suppressed anchor=({},{}) reported=({},{})",
-                                   g_last_placed_caret_x, g_last_placed_caret_y, layoutCaret.x, layoutCaret.y);
-                }
-            }
-            return 0;
-        }
-        if (layoutInflight)
-        {
-            CAND_DIAG_LOGF(L"show folded into in-flight fine-tune caret=({},{})", Global::Point[0], Global::Point[1]);
-            CAND_DIAG_LOGF(L"candidate-frame path=folded-inflight content_gen={}", contentGeneration);
-            // Do not start another measurement while the first cloaked layout is
-            // completing. Repeatedly superseding it can keep the window hidden.
-            InflateCandWnd(str);
-            KillTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE);
-            SetTimer(hwnd, TIMER_ID_CANDIDATE_MOVE_SETTLE, kCandidateMoveSettleMs, nullptr);
-            return 0;
-        }
-        CAND_DIAG_LOGF(L"candidate-frame path=full-layout content_gen={}", contentGeneration);
-        InflateMeasureDivCandWnd(str, [hwnd]() {
-            if (!::is_global_wnd_cand_shown)
-            {
-                return;
-            }
-            FineTuneWindow(hwnd);
-        });
-
+        CandidatePresenter::Instance().ShowFromGlobalState(layoutCaret);
+        g_last_placed_caret_x = layoutCaret.x;
+        g_last_placed_caret_y = layoutCaret.y;
+        CAND_DIAG_LOGF(L"candidate-frame path=d2d content_gen={} elapsed_ms={}", contentGeneration,
+                       GetTickCount64() - updateStartedTick);
         return 0;
     }
 
@@ -1800,26 +1909,12 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         ++g_candidate_finetune_generation;
         Global::MarginTop = 0;
         Global::MarginLeft = 0;
-        ClearCandidateWindowRegion(hwnd);
-        FLOAT scale = GetForegroundWindowScale();
-        if (scale < 1.5)
-        {
-            scale = 1.5;
-        }
+        g_has_last_candidate_clip = false;
+        ResetCandidatePlacementMemory();
         {
             SuppressCandidateDpiChange suppressDpi;
-            SetWindowPos(                                                                    //
-                hwnd,                                                                        //
-                HWND_TOP,                                                                    //
-                0,                                                                           //
-                Global::INVALID_Y,                                                           //
-                (::CANDIDATE_WINDOW_WIDTH + ::SHADOW_WIDTH + ::POP_UP_WND_WIDTH) * scale,    //
-                (::CANDIDATE_WINDOW_HEIGHT + ::SHADOW_HEIGHT + ::POP_UP_WND_HEIGHT) * scale, //
-                SWP_SHOWWINDOW                                                               //
-            );
+            CandidatePresenter::Instance().Hide();
         }
-        SetHostWindowCloaked(hwnd, true);
-        UpdateHtmlContentWithJavaScript(webviewCandWnd, L"");
         CAND_DIAG_LOGF(L"hide message end {}", DescribeCandidateHostState());
         return 0;
     }
@@ -1942,6 +2037,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         if (wParam != 0)
         {
             ForceReloadConfiguredCandidateSkin();
+            if (::is_global_wnd_cand_shown)
+            {
+                CandidatePresenter::Instance().ShowFromGlobalState(GetCandidateLayoutCaret());
+            }
             return 0;
         }
         InvalidateImeConfigWriteTime();
@@ -1955,6 +2054,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         ReloadImeConfigIfChanged();
         ApplyConfiguredInputScheme();
         return 0;
+    }
+
+    if (CandidatePresenter::Instance().HandleMessage(message, wParam, lParam))
+    {
+        return message == WM_ERASEBKGND ? 1 : 0;
     }
 
     switch (message)
@@ -2042,6 +2146,18 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                          previous_cand_text_color != GetConfiguredCandidateTextColor())
                 {
                     ApplyConfiguredCandidateAppearance();
+                }
+                if (::is_global_wnd_cand_shown &&
+                    (previous_layout != GetConfiguredCandidateWindowLayout() ||
+                     previous_candidate_skin != GetConfiguredCandidateSkin() ||
+                     previous_theme_mode != GetConfiguredThemeMode() ||
+                     previous_theme_cand != GetConfiguredThemeCand() ||
+                     previous_font != GetConfiguredCandidateFont() ||
+                     previous_font_size != GetConfiguredCandidateFontSize() ||
+                     previous_preedit_font_size != GetConfiguredCandidateWindowPreeditFontSize() ||
+                     previous_cand_text_color != GetConfiguredCandidateTextColor()))
+                {
+                    CandidatePresenter::Instance().ShowFromGlobalState(GetCandidateLayoutCaret());
                 }
                 if (previous_floating_toolbar != GetConfiguredFloatingToolbarEnabled())
                 {
@@ -3024,9 +3140,17 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
 int FineTuneWindow(HWND hwnd)
 {
+    const POINT layoutCaret = GetCandidateLayoutCaret();
+    if (CandidatePresenter::Instance().IsBound())
+    {
+        CandidatePresenter::Instance().ShowFromGlobalState(layoutCaret);
+        g_last_placed_caret_x = layoutCaret.x;
+        g_last_placed_caret_y = layoutCaret.y;
+        return 0;
+    }
+
     UINT flag = SWP_NOZORDER | SWP_SHOWWINDOW;
 
-    const POINT layoutCaret = GetCandidateLayoutCaret();
     int caretX = layoutCaret.x;
     int caretY = layoutCaret.y;
     POINT caretPt{caretX, caretY};
@@ -3122,6 +3246,7 @@ int FineTuneWindow(HWND hwnd)
             // the card were half a monitor wide so it cannot start at the caret
             // and hang off the right edge.
             AdjustCandidateWindowPosition(&pt, containerSize, properPos, halfLimits.scale, halfLimits.maxWidthDip);
+            RememberCandidateFlip(properPos->second, caretY);
             WEBVIEW_DIAG_LOGF(L"ui-layout generation={} pass=measure measured_dip=({:.2f},{:.2f}) "
                       L"capped_dip=({:.2f},{:.2f}) cap=({:.2f},{:.2f}) scale={:.3f} "
                       L"monitor=({},{})-({},{}) proper_pos=({},{}) packing_margin_top={}",
@@ -3268,6 +3393,7 @@ int FineTuneWindow(HWND hwnd)
                 hostHeightPx = hostPx.second;
 
                 AdjustCandidateWindowPosition(&pt, containerSize, properPos, layoutScale, halfLimits.maxWidthDip);
+                RememberCandidateFlip(properPos->second, caretY);
                 const int resyncPackingMarginTop = (std::max)(0, Global::MarginTop);
                 hostX = properPos->first;
                 desiredOuterTopPx =
@@ -3423,6 +3549,7 @@ int FineTuneWindow(HWND hwnd)
                         }
                         auto properPos = std::make_shared<std::pair<int, int>>();
                         AdjustCandidateWindowPosition(&pt, paintedSize, properPos, pass2Scale);
+                        RememberCandidateFlip(properPos->second, caretY);
                         const int packingTop = (std::max)(0, Global::MarginTop);
                         const std::pair<double, double> decoratedPaintedSize =
                             AddCandidateDecorationToSize(paintedSize);

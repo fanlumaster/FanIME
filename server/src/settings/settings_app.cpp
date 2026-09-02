@@ -67,6 +67,28 @@ HWND g_settings_hwnd = nullptr;
 std::optional<CandidateSkinCatalog::ScanResult> g_candidate_skin_catalog;
 uint64_t g_candidate_skin_catalog_revision = 0;
 
+nlohmann::json CandidateColorsToJson(const CandidateSkinCatalog::CandidateColors &colors)
+{
+    nlohmann::json json = nlohmann::json::object();
+    if (!colors.accent.empty())
+        json["accent"] = colors.accent;
+    if (!colors.selected.empty())
+        json["selected"] = colors.selected;
+    if (!colors.hover.empty())
+        json["hover"] = colors.hover;
+    if (!colors.surface.empty())
+        json["surface"] = colors.surface;
+    if (!colors.border.empty())
+        json["border"] = colors.border;
+    if (!colors.text.empty())
+        json["text"] = colors.text;
+    if (!colors.number.empty())
+        json["number"] = colors.number;
+    if (colors.showSelectedBar.has_value())
+        json["showSelectedBar"] = *colors.showSelectedBar;
+    return json;
+}
+
 void ShowAboutSection()
 {
     if (!g_webview) return;
@@ -242,7 +264,6 @@ void PostConfig(bool refresh_skin_catalog = false)
                                       {"author", skin.author},
                                       {"description", skin.description},
                                       {"base", skin.base},
-                                      {"stylesheet", skin.stylesheet},
                                       {"toolbarStylesheet", skin.toolbarStylesheet},
                                       {"preview", skin.preview},
                                       {"layouts", skin.layouts},
@@ -250,6 +271,9 @@ void PostConfig(bool refresh_skin_catalog = false)
                                       {"minWidthDip", skin.minWidthDip},
                                       {"decorationTopDip", skin.decorationTopDip},
                                       {"decorationWidthDip", skin.decorationWidthDip},
+                                      {"candidate",
+                                       {{"dark", CandidateColorsToJson(skin.dark)},
+                                        {"light", CandidateColorsToJson(skin.light)}}},
                                       {"compatible", CandidateSkinCatalog::Supports(skin, skin_layout, skin_theme)}});
         }
     }

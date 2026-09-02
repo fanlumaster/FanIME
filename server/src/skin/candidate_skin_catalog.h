@@ -7,6 +7,18 @@
 
 namespace CandidateSkinCatalog
 {
+struct CandidateColors
+{
+    std::string accent;
+    std::string selected;
+    std::string hover;
+    std::string surface;
+    std::string border;
+    std::string text;
+    std::string number;
+    std::optional<bool> showSelectedBar;
+};
+
 struct Package
 {
     std::string id;
@@ -15,7 +27,6 @@ struct Package
     std::string author;
     std::string description;
     std::string base = "fluent";
-    std::string stylesheet;
     std::string toolbarStylesheet;
     std::string preview;
     std::vector<std::string> layouts;
@@ -23,6 +34,8 @@ struct Package
     double minWidthDip = 0.0;
     double decorationTopDip = 0.0;
     double decorationWidthDip = 0.0;
+    CandidateColors dark;
+    CandidateColors light;
 };
 
 struct Issue

@@ -951,12 +951,16 @@ std::string BuildCurrentCandidatePage()
         {
             display_word = "<span style=\"color:#379AD3\">" + display_word + "</span>";
         }
+        std::string gloss_utf8;
         EnglishIme::TranslationQuery translation_query;
         if (BuildTranslationQuery(item, translation_query))
         {
             const auto gloss = g_candidate_translation_glosses.find(TranslationIdentity(translation_query));
             if (gloss != g_candidate_translation_glosses.end() && !gloss->second.empty())
+            {
                 display_word += "<span class=\"cand-translation\">" + EscapeCandidateHtml(gloss->second) + "</span>";
+                gloss_utf8 = gloss->second;
+            }
         }
         // Escape ASCII commas so the comma-joined candidate payload survives
         // InflateCandidateTemplate's split (kaomoji commonly contain commas).
@@ -975,6 +979,7 @@ std::string BuildCurrentCandidatePage()
         candidate_string += display_word;
         maxCount = (std::max)(maxCount, display_length);
         ui.page_words.push_back(string_to_wstring(word));
+        ui.page_glosses.push_back(string_to_wstring(gloss_utf8));
         if (i < loop - 1)
         {
             candidate_string += ",";

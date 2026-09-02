@@ -14,6 +14,8 @@
 
 namespace
 {
+double g_max_vertical_container_height_dip = ::DEFAULT_WINDOW_HEIGHT_DIP;
+
 MonitorCoordinates MonitorCoordinatesFromHandle(HMONITOR hMonitor)
 {
     MonitorCoordinates coordinates{};
@@ -256,10 +258,9 @@ int AdjustCandidateWindowPosition(                  //
     Global::MarginTop = 0;
 
     const bool isVertical = GetConfiguredCandidateWindowLayout() == "vertical";
-    static double maxVerticalContainerHeightDip = ::DEFAULT_WINDOW_HEIGHT_DIP;
-    if (isVertical && containerSize.second > maxVerticalContainerHeightDip)
+    if (isVertical && containerSize.second > g_max_vertical_container_height_dip)
     {
-        maxVerticalContainerHeightDip = containerSize.second;
+        g_max_vertical_container_height_dip = containerSize.second;
     }
 
     // Clamp against the caret's monitor, not GetForegroundWindow()'s. Word/Excel
@@ -274,7 +275,6 @@ int AdjustCandidateWindowPosition(                  //
     // Design offsets are DIPs so gaps stay visually stable under 150%/200% DPI.
     const int caretGapPx = static_cast<int>(std::lround(3.0 * scale));
     const int edgePadPx = static_cast<int>(std::lround(2.0 * scale));
-    const int flipGapPx = static_cast<int>(std::lround(30.0 * scale));
 
     properPos->first = point->x;
     properPos->second = point->y + caretGapPx;
@@ -291,7 +291,7 @@ int AdjustCandidateWindowPosition(                  //
     // avoiding a later below-to-above jump as more candidates appear. Position
     // the flipped window using its *current* height, however, so its lower edge
     // stays next to the current input line instead of preserving empty packing.
-    const double decisionHeightDip = isVertical ? maxVerticalContainerHeightDip : containerSize.second;
+    const double decisionHeightDip = isVertical ? g_max_vertical_container_height_dip : containerSize.second;
     const int decisionHeightPx = static_cast<int>(std::ceil(decisionHeightDip * scale));
     const int currentHeightPx = static_cast<int>(std::ceil(containerSize.second * scale));
     if (properPos->first + width > coordinates.right)
@@ -309,13 +309,21 @@ int AdjustCandidateWindowPosition(                  //
 
     if (properPos->second + decisionHeightPx > coordinates.bottom)
     {
-        properPos->second = properPos->second - currentHeightPx - flipGapPx - edgePadPx;
+        // Point[1] is GetTextExt.bottom (the line's bottom). Sit the opaque card
+        // so its bottom meets the line's top; drop-shadow is not part of this.
+        const int lineHeightPx = static_cast<int>(std::lround(24.0 * scale));
+        properPos->second = point->y - currentHeightPx - lineHeightPx;
         if (properPos->second < coordinates.top)
         {
             properPos->second = coordinates.top + edgePadPx;
         }
     }
     return 0;
+}
+
+void ResetCandidatePlacementMemory()
+{
+    g_max_vertical_container_height_dip = ::DEFAULT_WINDOW_HEIGHT_DIP;
 }
 
 int AdjustWndPosition( //

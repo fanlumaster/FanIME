@@ -96,25 +96,9 @@ void GetCandidateCardSize(
                 box.style.maxHeight = maxH + "px";
                 box.style.width = "fit-content";
                 box.style.boxSizing = "border-box";
-                box.style.whiteSpace = "normal";
-                // Cap height to the host so large fonts scroll inside the card
-                // instead of being clipped by SetWindowRgn / HWND.
+                box.style.whiteSpace = "nowrap";
                 box.style.overflowX = "hidden";
                 box.style.overflowY = "auto";
-                box.querySelectorAll(".row-wrapper").forEach(function (node) {{
-                    node.style.minWidth = "0";
-                    node.style.maxWidth = "100%";
-                    node.style.whiteSpace = "normal";
-                    node.style.overflowWrap = "anywhere";
-                    node.style.wordBreak = "break-word";
-                }});
-                box.querySelectorAll(".cand .text").forEach(function (node) {{
-                    node.style.minWidth = "0";
-                    node.style.maxWidth = "100%";
-                    node.style.whiteSpace = "normal";
-                    node.style.overflowWrap = "anywhere";
-                    node.style.wordBreak = "break-word";
-                }});
             }}
             if (el) {{
                 el.style.maxWidth = maxW + "px";
@@ -240,8 +224,17 @@ void GetContainerSizeMenu(ComPtr<ICoreWebView2> webview, std::function<void(std:
 
 void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
 {
+    MoveContainerBottom(webview, marginTop, nullptr);
+}
+
+void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop, std::function<void()> onComplete)
+{
     if (!webview)
     {
+        if (onComplete)
+        {
+            onComplete();
+        }
         return;
     }
     std::wstring script;
@@ -255,10 +248,17 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop)
     script.append(std::to_wstring(Global::MarginLeft));
     script.append(L"px';");
     script.append(L"}");
-#ifdef FANY_DEBUG
-    (void)0;
-#endif
-    webview->ExecuteScript(script.c_str(), nullptr);
+    if (!onComplete)
+    {
+        webview->ExecuteScript(script.c_str(), nullptr);
+        return;
+    }
+    webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
+            onComplete();
+            return S_OK;
+        }).Get());
 }
 
 void MakeBodyVisible(ComPtr<ICoreWebView2> webview)

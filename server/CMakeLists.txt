@@ -156,6 +156,8 @@ set(SRC_FILES
     "./src/session/session_factory.h"
     "./src/session/shuangpin_input_session.cpp"
     "./src/session/shuangpin_input_session.h"
+    "./src/utils/candidate_size_estimator.cpp"
+    "./src/utils/candidate_size_estimator.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
     "./src/utils/ime_paths.cpp"
@@ -167,6 +169,8 @@ set(SRC_FILES
     "./src/utils/window_utils.h"
     "./src/webview2/windows_webview2.cpp"
     "./src/webview2/windows_webview2.h"
+    "./src/window/candidate_presenter.cpp"
+    "./src/window/candidate_presenter.h"
     "./src/window/ime_windows.cpp"
     "./src/window/ime_windows.h"
     "./src/window/window_hook.cpp"
@@ -299,6 +303,7 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
 )
 add_dependencies(${MY_EXECUTABLE_NAME} ${WATCHDOG_EXECUTABLE_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
+target_link_libraries(${PROJECT_NAME} PRIVATE msimeui d3d11 dxgi dcomp)
 target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui unofficial::sqlite3::sqlite3 shell32 advapi32 ole32)
 target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1

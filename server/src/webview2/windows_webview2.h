@@ -94,6 +94,9 @@ void DisarmCandidatePointerHover();
 void MaybeArmCandidatePointerHover();
 void InflateCandWnd(std::wstring &str);
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete);
+void InflateCandWnd(std::wstring &str, std::function<void()> onComplete, bool contentOnly);
+// DIP size of #realContainer from the last slot-update script, or {0,0}.
+std::pair<double, double> LastCandidateSlotMeasuredSize();
 void InflateMeasureDivCandWnd(std::wstring &str);
 void InflateMeasureDivCandWnd(std::wstring &str, std::function<void()> onComplete);
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
