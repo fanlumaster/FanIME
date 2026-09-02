@@ -2,8 +2,8 @@
 
 #include "msimeui/Fonts.h"
 
-#include <windows.h>
 #include <algorithm>
+#include <windows.h>
 
 namespace msimeui
 {
@@ -451,3 +451,4 @@ ID2D1Bitmap *DeviceResources::GetBitmapFromFile(const std::wstring &filePath, D2
     return bitmapCache_.back().bitmap.Get();
 }
 } // namespace msimeui
+
