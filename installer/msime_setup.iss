@@ -125,20 +125,42 @@ Root: HKLM; Subkey: "Software\Metasequoia\MetasequoiaIME"; \
     ValueData: "{commonpf64}\metasequoiaime\server\{#MyAppExeName}"; \
     Flags: uninsdeletevalue
 
-[Run]
-; uiAccess=true 的程序不能用 CreateProcess 拉起（会报 740），必须用 shellexec（等同双击）。
-; postinstall 默认 runasoriginaluser：不要用安装器的提升令牌启动 WebView2。
-Filename: "{commonpf64}\metasequoiaime\server\{#MyAppExeName}"; \
-    Description: "启动 Metasequoia IME Server"; \
-    Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
-
-Filename: "{commonpf64}\metasequoiaime\server\{#MyWatchdogName}"; \
-    Description: "启动 Metasequoia IME Watchdog"; \
-    Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
-
 [Code]
 var
   VersionDirName: String;
+
+procedure LaunchInstalledComponents;
+var
+  ErrorCode: Integer;
+begin
+  { uiAccess=true 的程序不能用 CreateProcess 拉起（会报 740）。
+    完成页点击 Finish 后，以原用户身份执行 ShellExecute（等同双击）。}
+  ShellExecAsOriginalUser(
+    '',
+    ExpandConstant('{commonpf64}\metasequoiaime\server\{#MyAppExeName}'),
+    '',
+    '',
+    SW_SHOWNORMAL,
+    ewNoWait,
+    ErrorCode
+  );
+  ShellExecAsOriginalUser(
+    '',
+    ExpandConstant('{commonpf64}\metasequoiaime\server\{#MyWatchdogName}'),
+    '',
+    '',
+    SW_SHOWNORMAL,
+    ewNoWait,
+    ErrorCode
+  );
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpFinished) and (not WizardSilent) then
+    LaunchInstalledComponents;
+end;
 
 function GetVersionDir(Param: String): String;
 var
