@@ -97,6 +97,23 @@ bool Window::Create()
     return hwnd_ != nullptr;
 }
 
+bool Window::AdoptExistingHwnd(HWND hwnd)
+{
+    hwnd_ = hwnd;
+    adoptedHwnd_ = hwnd != nullptr;
+    return adoptedHwnd_;
+}
+
+LRESULT Window::DispatchImportedMessage(UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return HandleMessage(message, wParam, lParam);
+}
+
+void Window::SetStealFocusOnClick(bool enabled)
+{
+    stealFocusOnClick_ = enabled;
+}
+
 int Window::Run(int nCmdShow)
 {
     ShowWindow(hwnd_, nCmdShow);
@@ -291,7 +308,10 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
             if (focusTarget && focusTarget->IsFocusable())
             {
                 SetFocusedVisual(focusTarget);
-                SetFocus(hwnd_);
+                if (stealFocusOnClick_)
+                {
+                    SetFocus(hwnd_);
+                }
             }
             capturedVisual_ = dispatchTarget;
             if (dispatchTarget && dispatchTarget->OnMouseDown(point, wParam))
@@ -501,7 +521,7 @@ void Window::OnPaint()
 
     if (deviceResources_.EnsureForWindow(hwnd_))
     {
-        ID2D1HwndRenderTarget *target = deviceResources_.GetRenderTarget();
+        ID2D1RenderTarget *target = deviceResources_.GetRenderTarget();
         target->BeginDraw();
         target->Clear(ThemeManager::GetCurrent().windowBackground);
         if (scene_)

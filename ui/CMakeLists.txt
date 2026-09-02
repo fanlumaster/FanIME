@@ -65,6 +65,10 @@ target_include_directories(msimeui
 
 target_link_libraries(msimeui PUBLIC
     d2d1.lib
+    dxguid.lib
+    d3d11.lib
+    dcomp.lib
+    dxgi.lib
     dwrite.lib
     dwmapi.lib
     imm32.lib

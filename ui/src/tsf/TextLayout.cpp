@@ -253,7 +253,7 @@ BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT 
     return TRUE;
 }
 
-BOOL CTextLayout::Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
+BOOL CTextLayout::Render(ID2D1RenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
                          const COMPOSITIONRENDERINFO *pCompositionRenderInfo, UINT nCompositionRenderInfo)
 {
     if (!pRenderTarget || !_pTextFormat)
@@ -780,7 +780,7 @@ LONG CTextLayout::DipsToPixelsY(FLOAT value) const
     return static_cast<LONG>(std::lround(value * _dpiY / 96.0f));
 }
 
-void CTextLayout::DrawUnderline(ID2D1HwndRenderTarget *pRenderTarget, const TF_DISPLAYATTRIBUTE *pda,
+void CTextLayout::DrawUnderline(ID2D1RenderTarget *pRenderTarget, const TF_DISPLAYATTRIBUTE *pda,
                                 const D2D1_RECT_F &rc, BOOL bClause)
 {
     ID2D1SolidColorBrush *pBrush = NULL;

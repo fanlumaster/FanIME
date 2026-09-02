@@ -6,8 +6,12 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numeric>
+#include <d2d1_1.h>
+#include <d2d1effects.h>
+#include <dwrite_1.h>
 #include <limits>
+#include <numeric>
+#include <windows.h>
 #include <wrl/client.h>
 
 namespace msimeui
@@ -26,6 +30,109 @@ IDWriteFactory *GetSharedDWriteFactory()
     }
 
     return factory.Get();
+}
+
+constexpr float kPreeditCaretBarWidth = 1.25f;
+constexpr float kPreeditCaretSideAir = 0.85f;
+constexpr float kPreeditCaretEndAir = 1.5f;
+constexpr float kPreeditCaretInsertGap = kPreeditCaretBarWidth + kPreeditCaretSideAir * 2.0f;
+constexpr wchar_t kCaretSlotChar = L'\uFFFC';
+
+class CaretGapInlineObject final : public IDWriteInlineObject
+{
+  public:
+    CaretGapInlineObject(float width, float height, float baseline)
+        : width_(width), height_(height), baseline_(baseline)
+    {
+    }
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override
+    {
+        if (ppvObject == nullptr)
+        {
+            return E_POINTER;
+        }
+        if (riid == __uuidof(IUnknown) || riid == __uuidof(IDWriteInlineObject))
+        {
+            *ppvObject = static_cast<IDWriteInlineObject *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppvObject = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() override
+    {
+        return InterlockedIncrement(&refCount_);
+    }
+
+    ULONG STDMETHODCALLTYPE Release() override
+    {
+        const ULONG remaining = InterlockedDecrement(&refCount_);
+        if (remaining == 0)
+        {
+            delete this;
+        }
+        return remaining;
+    }
+
+    HRESULT STDMETHODCALLTYPE Draw(void *, IDWriteTextRenderer *, FLOAT, FLOAT, BOOL, BOOL, IUnknown *) override
+    {
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetMetrics(DWRITE_INLINE_OBJECT_METRICS *metrics) override
+    {
+        if (metrics == nullptr)
+        {
+            return E_POINTER;
+        }
+        metrics->width = width_;
+        metrics->height = height_;
+        metrics->baseline = baseline_;
+        metrics->supportsSideways = FALSE;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetOverhangMetrics(DWRITE_OVERHANG_METRICS *overhangs) override
+    {
+        if (overhangs == nullptr)
+        {
+            return E_POINTER;
+        }
+        *overhangs = {};
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetBreakConditions(DWRITE_BREAK_CONDITION *breakConditionBefore,
+                                                 DWRITE_BREAK_CONDITION *breakConditionAfter) override
+    {
+        if (breakConditionBefore == nullptr || breakConditionAfter == nullptr)
+        {
+            return E_POINTER;
+        }
+        *breakConditionBefore = DWRITE_BREAK_CONDITION_MAY_NOT_BREAK;
+        *breakConditionAfter = DWRITE_BREAK_CONDITION_MAY_NOT_BREAK;
+        return S_OK;
+    }
+
+  private:
+    ULONG refCount_ = 1;
+    float width_ = 0.0f;
+    float height_ = 0.0f;
+    float baseline_ = 0.0f;
+};
+
+bool InsertCaretSlot(IDWriteTextLayout *layout, UINT32 caretIndex, float fontSize)
+{
+    if (layout == nullptr)
+    {
+        return false;
+    }
+    ComPtr<CaretGapInlineObject> slot;
+    slot.Attach(new CaretGapInlineObject(kPreeditCaretInsertGap, fontSize * 1.2f, fontSize * 0.96f));
+    return SUCCEEDED(layout->SetInlineObject(slot.Get(), DWRITE_TEXT_RANGE{caretIndex, 1}));
 }
 
 SizeF DeflateSize(const SizeF &size, const Thickness &thickness)
@@ -94,6 +201,103 @@ bool IsSameSize(const SizeF &lhs, const SizeF &rhs)
 bool IsSameRect(const RectF &lhs, const RectF &rhs)
 {
     return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width && lhs.height == rhs.height;
+}
+
+void DrawLayeredMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
+{
+    for (int i = 1; i <= 20; ++i)
+    {
+        const float t = static_cast<float>(i) / 20.0f;
+        const float spread = 1.15f * static_cast<float>(i);
+        const float offsetY = 0.4f * static_cast<float>(i);
+        const float alpha = 0.14f * (1.0f - t) * (1.0f - t);
+        ComPtr<ID2D1SolidColorBrush> brush;
+        if (FAILED(target->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, alpha), brush.GetAddressOf())))
+        {
+            continue;
+        }
+        const auto rounded = D2D1::RoundedRect(
+            D2D1::RectF(bounds.x - spread, bounds.y - spread + offsetY, bounds.x + bounds.width + spread,
+                        bounds.y + bounds.height + spread + offsetY),
+            radius + spread, radius + spread);
+        target->FillRoundedRectangle(rounded, brush.Get());
+    }
+}
+
+bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
+{
+    ComPtr<ID2D1DeviceContext> dc;
+    if (FAILED(target->QueryInterface(IID_PPV_ARGS(dc.GetAddressOf()))))
+    {
+        return false;
+    }
+
+    auto drawPass = [&](float stdDeviation, float alpha, float offsetY) -> bool {
+        const float pad = stdDeviation * 3.0f + 4.0f;
+        const D2D1_SIZE_F bitmapSize = {bounds.width + pad * 2.0f, bounds.height + pad * 2.0f};
+        if (bitmapSize.width < 2.0f || bitmapSize.height < 2.0f)
+        {
+            return false;
+        }
+
+        ComPtr<ID2D1BitmapRenderTarget> compatible;
+        if (FAILED(target->CreateCompatibleRenderTarget(bitmapSize, compatible.GetAddressOf())))
+        {
+            return false;
+        }
+
+        compatible->BeginDraw();
+        compatible->Clear(D2D1::ColorF(0, 0.0f));
+        ComPtr<ID2D1SolidColorBrush> fill;
+        if (FAILED(compatible->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, alpha), fill.GetAddressOf())))
+        {
+            compatible->EndDraw();
+            return false;
+        }
+        const auto shape = D2D1::RoundedRect(
+            D2D1::RectF(pad, pad, pad + bounds.width, pad + bounds.height), radius, radius);
+        compatible->FillRoundedRectangle(shape, fill.Get());
+        if (FAILED(compatible->EndDraw()))
+        {
+            return false;
+        }
+
+        ComPtr<ID2D1Bitmap> bitmap;
+        if (FAILED(compatible->GetBitmap(bitmap.GetAddressOf())))
+        {
+            return false;
+        }
+
+        ComPtr<ID2D1Effect> blur;
+        if (FAILED(dc->CreateEffect(CLSID_D2D1GaussianBlur, blur.GetAddressOf())))
+        {
+            return false;
+        }
+        blur->SetInput(0, bitmap.Get());
+        blur->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, stdDeviation);
+        blur->SetValue(D2D1_GAUSSIANBLUR_PROP_BORDER_MODE, D2D1_BORDER_MODE_SOFT);
+        blur->SetValue(D2D1_GAUSSIANBLUR_PROP_OPTIMIZATION, D2D1_GAUSSIANBLUR_OPTIMIZATION_QUALITY);
+        dc->DrawImage(blur.Get(), D2D1::Point2F(bounds.x - pad, bounds.y - pad + offsetY));
+        return true;
+    };
+
+    // Win11: wide ambient fog + tighter contact shadow, mostly downward.
+    const bool ambient = drawPass(11.0f, 0.42f, 3.0f);
+    const bool mid = drawPass(6.0f, 0.30f, 4.0f);
+    const bool contact = drawPass(2.8f, 0.48f, 3.0f);
+    return ambient || mid || contact;
+}
+
+void DrawWin11WindowShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
+{
+    if (!target || bounds.width <= 0.0f || bounds.height <= 0.0f)
+    {
+        return;
+    }
+    if (!DrawGaussianMistShadow(target, bounds, radius))
+    {
+        DrawLayeredMistShadow(target, bounds, radius);
+    }
 }
 } // namespace
 
@@ -675,11 +879,12 @@ SizeF StackPanel::Measure(const SizeF &availableSize)
 {
     measuredChildren_.clear();
 
+    const SizeF innerAvailable = DeflateSize(availableSize, padding_);
     float width = 0.0f;
     float height = 0.0f;
     for (const auto &child : children_)
     {
-        const SizeF measured = child->MeasureInLayout(availableSize);
+        const SizeF measured = child->MeasureInLayout(innerAvailable);
         measuredChildren_.push_back(measured);
         width = std::max(width, measured.width);
         height += measured.height;
@@ -691,23 +896,25 @@ SizeF StackPanel::Measure(const SizeF &availableSize)
     }
 
     measuredContent_ = {width, height};
-    return {std::min(width, availableSize.width), std::min(height, availableSize.height)};
+    return {std::min(width + padding_.left + padding_.right, availableSize.width),
+            std::min(height + padding_.top + padding_.bottom, availableSize.height)};
 }
 
 void StackPanel::Arrange(const RectF &finalRect)
 {
     bounds_ = finalRect;
+    const RectF inner = DeflateRect(finalRect, padding_);
 
-    float cursorY = ComputeAlignedStart(finalRect.y, finalRect.height, measuredContent_.height, verticalContentAlignment_);
+    float cursorY = ComputeAlignedStart(inner.y, inner.height, measuredContent_.height, verticalContentAlignment_);
     for (size_t index = 0; index < children_.size(); ++index)
     {
         const SizeF measured = measuredChildren_[index];
-        float slotX = finalRect.x;
-        float slotWidth = finalRect.width;
+        float slotX = inner.x;
+        float slotWidth = inner.width;
         if (horizontalContentAlignment_ != HorizontalAlignment::Stretch)
         {
-            slotWidth = std::min(measured.width, finalRect.width);
-            slotX = ComputeAlignedStart(finalRect.x, finalRect.width, slotWidth, horizontalContentAlignment_);
+            slotWidth = std::min(measured.width, inner.width);
+            slotX = ComputeAlignedStart(inner.x, inner.width, slotWidth, horizontalContentAlignment_);
         }
 
         children_[index]->ArrangeInLayout({slotX, cursorY, slotWidth, measured.height});
@@ -741,11 +948,12 @@ SizeF HorizontalStackPanel::Measure(const SizeF &availableSize)
 {
     measuredChildren_.clear();
 
+    const SizeF innerAvailable = DeflateSize(availableSize, padding_);
     float width = 0.0f;
     float height = 0.0f;
     for (const auto &child : children_)
     {
-        const SizeF measured = child->MeasureInLayout(availableSize);
+        const SizeF measured = child->MeasureInLayout(innerAvailable);
         measuredChildren_.push_back(measured);
         width += measured.width;
         height = std::max(height, measured.height);
@@ -757,23 +965,25 @@ SizeF HorizontalStackPanel::Measure(const SizeF &availableSize)
     }
 
     measuredContent_ = {width, height};
-    return {std::min(width, availableSize.width), std::min(height, availableSize.height)};
+    return {std::min(width + padding_.left + padding_.right, availableSize.width),
+            std::min(height + padding_.top + padding_.bottom, availableSize.height)};
 }
 
 void HorizontalStackPanel::Arrange(const RectF &finalRect)
 {
     bounds_ = finalRect;
+    const RectF inner = DeflateRect(finalRect, padding_);
 
-    float cursorX = ComputeAlignedStart(finalRect.x, finalRect.width, measuredContent_.width, horizontalContentAlignment_);
+    float cursorX = ComputeAlignedStart(inner.x, inner.width, measuredContent_.width, horizontalContentAlignment_);
     for (size_t index = 0; index < children_.size(); ++index)
     {
         const SizeF measured = measuredChildren_[index];
-        float slotY = finalRect.y;
-        float slotHeight = finalRect.height;
+        float slotY = inner.y;
+        float slotHeight = inner.height;
         if (verticalContentAlignment_ != VerticalAlignment::Stretch)
         {
-            slotHeight = std::min(measured.height, finalRect.height);
-            slotY = ComputeAlignedStart(finalRect.y, finalRect.height, slotHeight, verticalContentAlignment_);
+            slotHeight = std::min(measured.height, inner.height);
+            slotY = ComputeAlignedStart(inner.y, inner.height, slotHeight, verticalContentAlignment_);
         }
 
         children_[index]->ArrangeInLayout({cursorX, slotY, measured.width, slotHeight});
@@ -877,7 +1087,7 @@ void ScrollViewer::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1531,7 +1741,7 @@ void Border::Arrange(const RectF &finalRect)
 
 void Border::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1589,7 +1799,7 @@ void Card::Arrange(const RectF &finalRect)
 
 void Card::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1601,6 +1811,8 @@ void Card::Render(DeviceResources &deviceResources)
     {
         return;
     }
+
+    DrawWin11WindowShadow(target, bounds_, brush_.radiusX);
 
     const auto roundedRect =
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
@@ -1615,13 +1827,30 @@ void Card::Render(DeviceResources &deviceResources)
 }
 
 TextBlock::TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool bold)
-    : text_(std::move(text)), fontSize_(fontSize), color_(color), bold_(bold)
+    : text_(std::move(text)), fontSize_(fontSize), color_(color), caretColor_(color), bold_(bold)
 {
 }
 
 void TextBlock::SetText(std::wstring text)
 {
     text_ = std::move(text);
+    InvalidateTextLayoutCache();
+    InvalidateMeasure();
+}
+
+void TextBlock::SetColor(D2D1_COLOR_F color)
+{
+    color_ = color;
+    InvalidateVisual();
+}
+
+void TextBlock::SetFontSize(float fontSize)
+{
+    if (fontSize_ == fontSize)
+    {
+        return;
+    }
+    fontSize_ = fontSize;
     InvalidateTextLayoutCache();
     InvalidateMeasure();
 }
@@ -1664,6 +1893,45 @@ void TextBlock::SetTextLayoutPadding(Thickness padding)
     InvalidateMeasure();
 }
 
+void TextBlock::SetLetterSpacing(float dips)
+{
+    const float spacing = (std::max)(dips, 0.0f);
+    if (letterSpacing_ == spacing)
+    {
+        return;
+    }
+    letterSpacing_ = spacing;
+    InvalidateTextLayoutCache();
+    InvalidateMeasure();
+}
+
+void TextBlock::SetCaretIndex(size_t index)
+{
+    showCaret_ = true;
+    caretIndex_ = index;
+    InvalidateTextLayoutCache();
+    InvalidateMeasure();
+    InvalidateVisual();
+}
+
+void TextBlock::SetCaretColor(D2D1_COLOR_F color)
+{
+    caretColor_ = color;
+    InvalidateVisual();
+}
+
+void TextBlock::ClearCaret()
+{
+    if (!showCaret_)
+    {
+        return;
+    }
+    showCaret_ = false;
+    InvalidateTextLayoutCache();
+    InvalidateMeasure();
+    InvalidateVisual();
+}
+
 SizeF TextBlock::Measure(const SizeF &availableSize)
 {
     const float maxWidth = std::max(availableSize.width, 1.0f);
@@ -1691,11 +1959,35 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
         format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
         format->SetTextAlignment(textAlignment_);
 
-        if (FAILED(dwriteFactory->CreateTextLayout(text_.c_str(), static_cast<UINT32>(text_.size()), format.Get(), maxWidth,
-                                                   std::numeric_limits<float>::max(), cachedTextLayout_.ReleaseAndGetAddressOf())))
+        const UINT32 caretPos = static_cast<UINT32>((std::min)(caretIndex_, text_.size()));
+        const bool insertSlot = showCaret_ && caretPos < text_.size();
+        std::wstring layoutText = text_;
+        if (insertSlot)
+        {
+            layoutText.insert(layoutText.begin() + static_cast<std::ptrdiff_t>(caretPos), kCaretSlotChar);
+        }
+
+        if (FAILED(dwriteFactory->CreateTextLayout(layoutText.c_str(), static_cast<UINT32>(layoutText.size()), format.Get(),
+                                                   maxWidth, std::numeric_limits<float>::max(),
+                                                   cachedTextLayout_.ReleaseAndGetAddressOf())))
         {
             measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
             return measured_;
+        }
+
+        if (letterSpacing_ > 0.0f && !layoutText.empty())
+        {
+            Microsoft::WRL::ComPtr<IDWriteTextLayout1> layout1;
+            if (SUCCEEDED(cachedTextLayout_.As(&layout1)))
+            {
+                layout1->SetCharacterSpacing(0.0f, letterSpacing_, 0.0f,
+                                             DWRITE_TEXT_RANGE{0, static_cast<UINT32>(layoutText.size())});
+            }
+        }
+
+        if (insertSlot)
+        {
+            InsertCaretSlot(cachedTextLayout_.Get(), caretPos, fontSize_);
         }
 
         cachedLayoutWidth_ = maxWidth;
@@ -1714,12 +2006,19 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
 
     const float extraTop = std::max(overhang.top, 0.0f);
     const float extraBottom = std::max(overhang.bottom, 0.0f);
+    const float extraLeft = std::max(overhang.left, 0.0f);
+    const float extraRight = std::max(overhang.right, 0.0f);
     const float paddedHeight =
         metrics.height + extraTop + extraBottom + textLayoutPadding_.top + textLayoutPadding_.bottom;
     const float minimumHeight = fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom;
     const float measuredHeight = std::ceil(std::max(paddedHeight, minimumHeight));
+    const float caretEndReserve =
+        (showCaret_ && caretIndex_ >= text_.size()) ? (kPreeditCaretEndAir + kPreeditCaretBarWidth) : 0.0f;
+    const float contentWidth = metrics.width + extraLeft + extraRight + textLayoutPadding_.left +
+                               textLayoutPadding_.right + caretEndReserve;
+    const float measuredWidth = std::min(std::max(contentWidth, 1.0f), maxWidth);
 
-    measured_ = {maxWidth, measuredHeight};
+    measured_ = {measuredWidth, measuredHeight};
     return measured_;
 }
 
@@ -1730,7 +2029,7 @@ void TextBlock::Arrange(const RectF &finalRect)
 
 void TextBlock::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1749,9 +2048,35 @@ void TextBlock::Render(DeviceResources &deviceResources)
         return;
     }
 
-    target->DrawTextLayout(D2D1::Point2F(bounds_.x + textLayoutPadding_.left, bounds_.y + textLayoutPadding_.top),
-                           cachedTextLayout_.Get(), brush,
-                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    const float originX = bounds_.x + textLayoutPadding_.left;
+    const float originY = bounds_.y + textLayoutPadding_.top;
+    if (showCaret_)
+    {
+        FLOAT caretX = 0.0f;
+        FLOAT caretY = 0.0f;
+        DWRITE_HIT_TEST_METRICS hit = {};
+        const UINT32 caretPos = static_cast<UINT32>((std::min)(caretIndex_, text_.size()));
+        const bool caretAtEnd = caretPos == text_.size();
+        cachedTextLayout_->HitTestTextPosition(caretPos, caretAtEnd && !text_.empty() ? TRUE : FALSE, &caretX, &caretY,
+                                               &hit);
+        const float barWidth = kPreeditCaretBarWidth;
+        const float barHeight = std::max(hit.height > 0.0f ? hit.height : fontSize_ * 1.2f, fontSize_ * 0.8f);
+        float left = originX + caretX + kPreeditCaretEndAir;
+        if (!caretAtEnd)
+        {
+            const float slotWidth = hit.width > 1.0f ? hit.width : kPreeditCaretInsertGap;
+            left = originX + caretX + (slotWidth - barWidth) * 0.5f;
+        }
+        const float top = originY + caretY + barHeight * 0.08f;
+        if (ID2D1SolidColorBrush *caretBrush = deviceResources.GetSolidColorBrush(caretColor_))
+        {
+            target->FillRectangle(D2D1::RectF(left, top, left + barWidth, top + barHeight), caretBrush);
+        }
+    }
+
+    target->DrawTextLayout(D2D1::Point2F(originX, originY), cachedTextLayout_.Get(), brush,
+                           static_cast<D2D1_DRAW_TEXT_OPTIONS>(D2D1_DRAW_TEXT_OPTIONS_CLIP |
+                                                               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT));
 }
 
 Spacer::Spacer(float height) : height_(height)

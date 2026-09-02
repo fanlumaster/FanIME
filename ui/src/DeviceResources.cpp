@@ -1,6 +1,6 @@
 #include "msimeui/DeviceResources.h"
 
-#include <d2d1_1.h>
+#include <windows.h>
 #include <algorithm>
 
 namespace msimeui
@@ -10,15 +10,24 @@ bool DeviceResources::IsSameColor(const D2D1_COLOR_F &lhs, const D2D1_COLOR_F &r
     return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
 }
 
-bool DeviceResources::EnsureForWindow(HWND hwnd)
+FLOAT DeviceResources::DpiForHwnd() const
+{
+    if (!hwnd_)
+    {
+        return 96.0f;
+    }
+    const UINT dpi = GetDpiForWindow(hwnd_);
+    return dpi > 0 ? static_cast<FLOAT>(dpi) : 96.0f;
+}
+
+bool DeviceResources::EnsureFactories()
 {
     if (!d2dFactory_)
     {
-        // Request a 1.1 factory so HWND render targets can QI to ID2D1DeviceContext5
-        // (needed for native SVG). Fall back to the original 1.0 factory if needed.
         Microsoft::WRL::ComPtr<ID2D1Factory1> factory1;
         if (SUCCEEDED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, factory1.GetAddressOf())))
         {
+            d2dFactory1_ = factory1;
             d2dFactory_ = factory1;
         }
         else if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, d2dFactory_.GetAddressOf())))
@@ -44,45 +53,243 @@ bool DeviceResources::EnsureForWindow(HWND hwnd)
             return false;
         }
     }
+    return true;
+}
 
-    if (renderTarget_)
+bool DeviceResources::EnsureForWindow(HWND hwnd)
+{
+    hwnd_ = hwnd;
+    composition_ = false;
+    if (!EnsureFactories())
+    {
+        return false;
+    }
+    if (hwndRenderTarget_)
     {
         return true;
     }
 
+    DiscardTarget();
     RECT rc = {};
     GetClientRect(hwnd, &rc);
-    const auto size = D2D1::SizeU(std::max<LONG>(rc.right, 1L), std::max<LONG>(rc.bottom, 1L));
+    pixelWidth_ = static_cast<UINT>((std::max)(rc.right, 1L));
+    pixelHeight_ = static_cast<UINT>((std::max)(rc.bottom, 1L));
+    const auto size = D2D1::SizeU(pixelWidth_, pixelHeight_);
     if (FAILED(d2dFactory_->CreateHwndRenderTarget(D2D1::RenderTargetProperties(),
                                                    D2D1::HwndRenderTargetProperties(hwnd, size),
-                                                   renderTarget_.GetAddressOf())))
+                                                   hwndRenderTarget_.GetAddressOf())))
     {
         return false;
     }
 
-    const FLOAT dpi = static_cast<FLOAT>(GetDpiForWindow(hwnd));
-    renderTarget_->SetDpi(dpi, dpi);
+    const FLOAT dpi = DpiForHwnd();
+    hwndRenderTarget_->SetDpi(dpi, dpi);
     return true;
+}
+
+bool DeviceResources::BindCompositionSurface()
+{
+    if (!swapChain_ || !deviceContext_)
+    {
+        return false;
+    }
+
+    deviceContext_->SetTarget(nullptr);
+    dxgiBitmap_.Reset();
+
+    Microsoft::WRL::ComPtr<IDXGISurface> surface;
+    if (FAILED(swapChain_->GetBuffer(0, IID_PPV_ARGS(surface.GetAddressOf()))))
+    {
+        return false;
+    }
+
+    const FLOAT dpi = DpiForHwnd();
+    const D2D1_BITMAP_PROPERTIES1 props = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), dpi, dpi);
+    if (FAILED(deviceContext_->CreateBitmapFromDxgiSurface(surface.Get(), &props, dxgiBitmap_.GetAddressOf())))
+    {
+        return false;
+    }
+    deviceContext_->SetTarget(dxgiBitmap_.Get());
+    deviceContext_->SetDpi(dpi, dpi);
+    return true;
+}
+
+bool DeviceResources::EnsureForComposition(HWND hwnd)
+{
+    hwnd_ = hwnd;
+    if (!EnsureFactories() || !d2dFactory1_ || !hwnd)
+    {
+        return false;
+    }
+
+    RECT rc = {};
+    GetClientRect(hwnd, &rc);
+    const UINT width = static_cast<UINT>((std::max)(rc.right, 1L));
+    const UINT height = static_cast<UINT>((std::max)(rc.bottom, 1L));
+
+    if (composition_ && deviceContext_ && swapChain_ && pixelWidth_ == width && pixelHeight_ == height)
+    {
+        return true;
+    }
+
+    if (!composition_ || !d3dDevice_ || !swapChain_)
+    {
+        DiscardTarget();
+        composition_ = true;
+
+        UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+        D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
+        Microsoft::WRL::ComPtr<ID3D11DeviceContext> ignored;
+        if (FAILED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags, nullptr, 0, D3D11_SDK_VERSION,
+                                     d3dDevice_.GetAddressOf(), &featureLevel, ignored.GetAddressOf())))
+        {
+            if (FAILED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, flags, nullptr, 0, D3D11_SDK_VERSION,
+                                         d3dDevice_.GetAddressOf(), &featureLevel, ignored.GetAddressOf())))
+            {
+                composition_ = false;
+                return false;
+            }
+        }
+        if (FAILED(d3dDevice_.As(&dxgiDevice_)))
+        {
+            composition_ = false;
+            return false;
+        }
+        if (FAILED(d2dFactory1_->CreateDevice(dxgiDevice_.Get(), d2dDevice_.GetAddressOf())) ||
+            FAILED(d2dDevice_->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, deviceContext_.GetAddressOf())))
+        {
+            composition_ = false;
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
+        Microsoft::WRL::ComPtr<IDXGIFactory2> factory;
+        if (FAILED(dxgiDevice_->GetAdapter(adapter.GetAddressOf())) ||
+            FAILED(adapter->GetParent(IID_PPV_ARGS(factory.GetAddressOf()))))
+        {
+            composition_ = false;
+            return false;
+        }
+
+        DXGI_SWAP_CHAIN_DESC1 desc = {};
+        desc.Width = width;
+        desc.Height = height;
+        desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        desc.BufferCount = 2;
+        desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+        desc.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
+        desc.Scaling = DXGI_SCALING_STRETCH;
+        if (FAILED(factory->CreateSwapChainForComposition(d3dDevice_.Get(), &desc, nullptr, swapChain_.GetAddressOf())))
+        {
+            composition_ = false;
+            return false;
+        }
+
+        if (FAILED(DCompositionCreateDevice(dxgiDevice_.Get(), IID_PPV_ARGS(dcompDevice_.GetAddressOf()))) ||
+            FAILED(dcompDevice_->CreateTargetForHwnd(hwnd, TRUE, dcompTarget_.GetAddressOf())) ||
+            FAILED(dcompDevice_->CreateVisual(dcompVisual_.GetAddressOf())) ||
+            FAILED(dcompVisual_->SetContent(swapChain_.Get())) || FAILED(dcompTarget_->SetRoot(dcompVisual_.Get())))
+        {
+            composition_ = false;
+            return false;
+        }
+        pixelWidth_ = width;
+        pixelHeight_ = height;
+        if (!BindCompositionSurface())
+        {
+            composition_ = false;
+            return false;
+        }
+        dcompDevice_->Commit();
+        return true;
+    }
+
+    pixelWidth_ = width;
+    pixelHeight_ = height;
+    deviceContext_->SetTarget(nullptr);
+    dxgiBitmap_.Reset();
+    if (FAILED(swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0)))
+    {
+        return false;
+    }
+    return BindCompositionSurface();
 }
 
 void DeviceResources::Resize(UINT width, UINT height)
 {
-    if (renderTarget_)
+    width = (std::max)(width, 1U);
+    height = (std::max)(height, 1U);
+    if (hwndRenderTarget_)
     {
-        renderTarget_->Resize(D2D1::SizeU(std::max(width, 1U), std::max(height, 1U)));
+        hwndRenderTarget_->Resize(D2D1::SizeU(width, height));
+        pixelWidth_ = width;
+        pixelHeight_ = height;
+        return;
+    }
+    if (composition_ && swapChain_ && deviceContext_ && (pixelWidth_ != width || pixelHeight_ != height))
+    {
+        pixelWidth_ = width;
+        pixelHeight_ = height;
+        deviceContext_->SetTarget(nullptr);
+        dxgiBitmap_.Reset();
+        if (SUCCEEDED(swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0)))
+        {
+            BindCompositionSurface();
+        }
     }
 }
 
 void DeviceResources::DiscardTarget()
 {
-    renderTarget_.Reset();
+    if (deviceContext_)
+    {
+        deviceContext_->SetTarget(nullptr);
+    }
+    dxgiBitmap_.Reset();
+    hwndRenderTarget_.Reset();
+    deviceContext_.Reset();
+    d2dDevice_.Reset();
+    swapChain_.Reset();
+    dcompVisual_.Reset();
+    dcompTarget_.Reset();
+    dcompDevice_.Reset();
+    dxgiDevice_.Reset();
+    d3dDevice_.Reset();
     brushCache_.clear();
     bitmapCache_.clear();
+    composition_ = false;
 }
 
-ID2D1HwndRenderTarget *DeviceResources::GetRenderTarget() const
+HRESULT DeviceResources::Present()
 {
-    return renderTarget_.Get();
+    if (!swapChain_)
+    {
+        return S_OK;
+    }
+    const HRESULT hr = swapChain_->Present(0, 0);
+    if (dcompDevice_)
+    {
+        dcompDevice_->Commit();
+    }
+    return hr;
+}
+
+ID2D1RenderTarget *DeviceResources::GetRenderTarget() const
+{
+    if (deviceContext_)
+    {
+        return deviceContext_.Get();
+    }
+    return hwndRenderTarget_.Get();
+}
+
+bool DeviceResources::UsesComposition() const
+{
+    return composition_;
 }
 
 IDWriteFactory *DeviceResources::GetDWriteFactory() const
@@ -92,7 +299,8 @@ IDWriteFactory *DeviceResources::GetDWriteFactory() const
 
 ID2D1SolidColorBrush *DeviceResources::GetSolidColorBrush(const D2D1_COLOR_F &color)
 {
-    if (!renderTarget_)
+    ID2D1RenderTarget *target = GetRenderTarget();
+    if (!target)
     {
         return nullptr;
     }
@@ -107,7 +315,7 @@ ID2D1SolidColorBrush *DeviceResources::GetSolidColorBrush(const D2D1_COLOR_F &co
 
     BrushCacheEntry entry;
     entry.color = color;
-    if (FAILED(renderTarget_->CreateSolidColorBrush(color, entry.brush.GetAddressOf())))
+    if (FAILED(target->CreateSolidColorBrush(color, entry.brush.GetAddressOf())))
     {
         return nullptr;
     }
@@ -158,7 +366,8 @@ IDWriteTextFormat *DeviceResources::GetTextFormat(const std::wstring &fontFamily
 
 ID2D1Bitmap *DeviceResources::GetBitmapFromFile(const std::wstring &filePath, D2D1_SIZE_F *size)
 {
-    if (!renderTarget_ || !wicFactory_ || filePath.empty())
+    ID2D1RenderTarget *target = GetRenderTarget();
+    if (!target || !wicFactory_ || filePath.empty())
     {
         return nullptr;
     }
@@ -198,7 +407,7 @@ ID2D1Bitmap *DeviceResources::GetBitmapFromFile(const std::wstring &filePath, D2
 
     BitmapCacheEntry entry;
     entry.filePath = filePath;
-    if (FAILED(renderTarget_->CreateBitmapFromWicBitmap(converter.Get(), nullptr, entry.bitmap.GetAddressOf())))
+    if (FAILED(target->CreateBitmapFromWicBitmap(converter.Get(), nullptr, entry.bitmap.GetAddressOf())))
     {
         return nullptr;
     }

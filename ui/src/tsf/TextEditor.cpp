@@ -583,7 +583,7 @@ void CTextEditor::SetFont(const LOGFONT *plf)
 //
 //----------------------------------------------------------------
 
-void CTextEditor::Render(ID2D1HwndRenderTarget *pRenderTarget)
+void CTextEditor::Render(ID2D1RenderTarget *pRenderTarget)
 {
     if (!_fHasFont)
     {

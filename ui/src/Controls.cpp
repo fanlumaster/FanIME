@@ -17,6 +17,9 @@ using Microsoft::WRL::ComPtr;
 
 namespace
 {
+constexpr D2D1_DRAW_TEXT_OPTIONS kColorClipTextOptions = static_cast<D2D1_DRAW_TEXT_OPTIONS>(
+    D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+
 SizeF ReadImageSize(const std::wstring &filePath)
 {
     ComPtr<IWICImagingFactory> factory;
@@ -193,7 +196,7 @@ ComPtr<IDWriteTextLayout> CreateCachedTextLayout(IDWriteFactory *factory, const 
 void DrawTextBlock(DeviceResources &deviceResources, const std::wstring &text, float fontSize, bool bold,
                    D2D1_COLOR_F color, const RectF &rect, DWRITE_TEXT_ALIGNMENT textAlignment)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -216,7 +219,7 @@ void DrawTextBlock(DeviceResources &deviceResources, const std::wstring &text, f
 void FillRoundedRect(DeviceResources &deviceResources, const RectF &bounds, float radius, D2D1_COLOR_F fill,
                      D2D1_COLOR_F stroke, float strokeWidth)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -232,12 +235,15 @@ void FillRoundedRect(DeviceResources &deviceResources, const RectF &bounds, floa
     const auto rounded =
         D2D1::RoundedRect(D2D1::RectF(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height), radius, radius);
     target->FillRoundedRectangle(rounded, fillBrush);
-    target->DrawRoundedRectangle(rounded, strokeBrush, strokeWidth);
+    if (strokeWidth > 0.0f)
+    {
+        target->DrawRoundedRectangle(rounded, strokeBrush, strokeWidth);
+    }
 }
 
 void DrawPopupShadow(DeviceResources &deviceResources, const RectF &bounds, float radius)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -278,7 +284,7 @@ void DrawLabel(DeviceResources &deviceResources, const std::wstring &text, float
                const RectF &rect, DWRITE_TEXT_ALIGNMENT alignment, DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment,
                DWRITE_WORD_WRAPPING wrapping = DWRITE_WORD_WRAPPING_NO_WRAP)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -366,7 +372,7 @@ class ComboBoxPopupContent : public Visual
 
     void Render(DeviceResources &deviceResources) override
     {
-        ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+        ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
         if (!target)
         {
             return;
@@ -569,7 +575,17 @@ void Image::LoadNaturalSize()
 SizeF Image::Measure(const SizeF &availableSize)
 {
     LoadNaturalSize();
-    return {std::min(naturalSize_.width, availableSize.width), std::min(naturalSize_.height, availableSize.height)};
+    float width = naturalSize_.width;
+    float height = naturalSize_.height;
+    if (HasExplicitHeight() && !HasExplicitWidth() && naturalSize_.height > 0.0f)
+    {
+        width = naturalSize_.width * (explicitHeight_ / naturalSize_.height);
+    }
+    else if (HasExplicitWidth() && !HasExplicitHeight() && naturalSize_.width > 0.0f)
+    {
+        height = naturalSize_.height * (explicitWidth_ / naturalSize_.width);
+    }
+    return {std::min(width, availableSize.width), std::min(height, availableSize.height)};
 }
 
 void Image::Arrange(const RectF &finalRect)
@@ -581,7 +597,7 @@ void Image::Render(DeviceResources &deviceResources)
 {
     D2D1_SIZE_F sourceSize = {};
     ID2D1Bitmap *bitmap = deviceResources.GetBitmapFromFile(filePath_, &sourceSize);
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!bitmap || !target || sourceSize.width <= 0.0f || sourceSize.height <= 0.0f || bounds_.width <= 0.0f ||
         bounds_.height <= 0.0f)
     {
@@ -714,7 +730,7 @@ void Popup::Arrange(const RectF &finalRect)
 
 void Popup::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -775,6 +791,213 @@ Visual *Popup::FindFirstFocusableDescendant()
 }
 
 bool Popup::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool Popup::KeepsPopupsOpenOnClick() const
+{
+    return true;
+}
+
+MenuFlyoutItem::MenuFlyoutItem(std::wstring text, bool hasSubmenu)
+    : text_(std::move(text)), hasSubmenu_(hasSubmenu)
+{
+    SetHeight(24.0f);
+}
+
+void MenuFlyoutItem::SetOnClick(ClickHandler handler)
+{
+    onClick_ = std::move(handler);
+}
+
+void MenuFlyoutItem::SetOnHover(HoverHandler handler)
+{
+    onHover_ = std::move(handler);
+}
+
+void MenuFlyoutItem::SetColors(const D2D1_COLOR_F &text, const D2D1_COLOR_F &hoverFill)
+{
+    textColor_ = text;
+    hoverFill_ = hoverFill;
+    InvalidateVisual();
+}
+
+void MenuFlyoutItem::SetHasSubmenu(bool hasSubmenu)
+{
+    hasSubmenu_ = hasSubmenu;
+    InvalidateVisual();
+}
+
+SizeF MenuFlyoutItem::Measure(const SizeF &availableSize)
+{
+    const float chevron = hasSubmenu_ ? 16.0f : 0.0f;
+    const float width = (std::min)((std::max)(availableSize.width, 88.0f + chevron), 220.0f);
+    return {width, 24.0f};
+}
+
+void MenuFlyoutItem::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+void MenuFlyoutItem::Render(DeviceResources &deviceResources)
+{
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    if (hovered_ || pressed_)
+    {
+        FillRoundedRect(deviceResources, bounds_, 4.0f, hoverFill_, hoverFill_, 0.0f);
+    }
+
+    const Theme &theme = ThemeManager::GetCurrent();
+    const float chevronReserve = hasSubmenu_ ? 16.0f : 4.0f;
+    const float textWidth = (std::max)(bounds_.width - 8.0f - chevronReserve, 1.0f);
+    if (!textLayout_ || cachedLayoutWidth_ != textWidth || cachedFontFamily_ != theme.uiFontFamily)
+    {
+        textLayout_ = CreateCachedTextLayout(deviceResources.GetDWriteFactory(), theme.uiFontFamily, text_, 14.0f,
+                                             DWRITE_FONT_WEIGHT_NORMAL, textWidth, bounds_.height,
+                                             DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                             DWRITE_WORD_WRAPPING_NO_WRAP);
+        cachedLayoutWidth_ = textWidth;
+        cachedFontFamily_ = theme.uiFontFamily;
+    }
+
+    if (ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(textColor_))
+    {
+        if (textLayout_)
+        {
+            target->DrawTextLayout(D2D1::Point2F(bounds_.x + 4.0f, bounds_.y), textLayout_.Get(), brush,
+                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        if (hasSubmenu_)
+        {
+            const float cx = bounds_.x + bounds_.width - 8.0f;
+            const float cy = bounds_.y + bounds_.height * 0.5f;
+            const float dx = 3.25f;
+            const float dy = 4.0f;
+            target->DrawLine(D2D1::Point2F(cx - dx, cy - dy), D2D1::Point2F(cx + 1.0f, cy), brush, 1.25f);
+            target->DrawLine(D2D1::Point2F(cx + 1.0f, cy), D2D1::Point2F(cx - dx, cy + dy), brush, 1.25f);
+        }
+    }
+}
+
+bool MenuFlyoutItem::HitTest(const PointF &point) const
+{
+    return PointInRect(bounds_, point);
+}
+
+bool MenuFlyoutItem::IsFocusable() const
+{
+    return true;
+}
+
+void MenuFlyoutItem::SetHovered(bool hovered)
+{
+    if (hovered_ == hovered)
+    {
+        return;
+    }
+    hovered_ = hovered;
+    InvalidateVisual();
+    if (onHover_)
+    {
+        onHover_(hovered_);
+    }
+}
+
+bool MenuFlyoutItem::OnMouseDown(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+    pressed_ = HitTest(window_->ClientPixelsToDips(point));
+    InvalidateVisual();
+    return pressed_;
+}
+
+bool MenuFlyoutItem::OnMouseUp(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !pressed_)
+    {
+        return false;
+    }
+    const bool shouldClick = HitTest(window_->ClientPixelsToDips(point));
+    pressed_ = false;
+    InvalidateVisual();
+    if (shouldClick && onClick_ && !hasSubmenu_)
+    {
+        onClick_();
+    }
+    return true;
+}
+
+bool MenuFlyoutItem::OnMouseMove(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_)
+    {
+        return false;
+    }
+    SetHovered(HitTest(window_->ClientPixelsToDips(point)));
+    return hovered_;
+}
+
+void MenuFlyoutItem::OnMouseLeave()
+{
+    pressed_ = false;
+    SetHovered(false);
+}
+
+bool MenuFlyoutItem::KeepsPopupsOpenOnClick() const
+{
+    return true;
+}
+
+HCURSOR MenuFlyoutItem::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_ARROW);
+}
+
+void MenuSeparator::SetColor(const D2D1_COLOR_F &color)
+{
+    color_ = color;
+    InvalidateVisual();
+}
+
+SizeF MenuSeparator::Measure(const SizeF &availableSize)
+{
+    return {(std::min)((std::max)(availableSize.width, 72.0f), 220.0f), 7.0f};
+}
+
+void MenuSeparator::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+void MenuSeparator::Render(DeviceResources &deviceResources)
+{
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target)
+    {
+        return;
+    }
+    if (ID2D1SolidColorBrush *brush = deviceResources.GetSolidColorBrush(color_))
+    {
+        const float y = bounds_.y + bounds_.height * 0.5f;
+        target->DrawLine(D2D1::Point2F(bounds_.x + 5.0f, y), D2D1::Point2F(bounds_.x + bounds_.width - 5.0f, y), brush,
+                         1.0f);
+    }
+}
+
+bool MenuSeparator::HitTest(const PointF &point) const
 {
     return PointInRect(bounds_, point);
 }
@@ -1212,7 +1435,7 @@ void ComboBox::Arrange(const RectF &finalRect)
 
 void ComboBox::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1416,7 +1639,7 @@ void Button::Arrange(const RectF &finalRect)
 
 void Button::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1563,7 +1786,7 @@ void CheckBox::Arrange(const RectF &finalRect)
 
 void CheckBox::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1676,7 +1899,7 @@ void ProgressBar::Arrange(const RectF &finalRect)
 
 void ProgressBar::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1725,7 +1948,7 @@ void Slider::Arrange(const RectF &finalRect)
 
 void Slider::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1860,7 +2083,7 @@ void Separator::Arrange(const RectF &finalRect)
 
 void Separator::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -1949,7 +2172,7 @@ void ListView::Arrange(const RectF &finalRect)
 
 void ListView::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     IDWriteFactory *factory = deviceResources.GetDWriteFactory();
     if (!target || !factory)
     {
@@ -2113,6 +2336,7 @@ size_t ListView::HitTestItem(const PointF &point) const
 
 CandidateList::CandidateList(float itemHeight) : itemHeight_(itemHeight)
 {
+    appearance_.itemHeight = itemHeight;
 }
 
 void CandidateList::InvalidateLayoutCache()
@@ -2124,6 +2348,19 @@ void CandidateList::AddItem(Item item)
 {
     items_.push_back(std::move(item));
     layoutCache_.push_back({});
+    InvalidateMeasure();
+}
+
+void CandidateList::SetItems(std::vector<Item> items)
+{
+    items_ = std::move(items);
+    InvalidateLayoutCache();
+    if (selectedIndex_ >= items_.size())
+    {
+        selectedIndex_ = items_.empty() ? 0 : items_.size() - 1;
+    }
+    pressedIndex_ = static_cast<size_t>(-1);
+    hoveredIndex_ = static_cast<size_t>(-1);
     InvalidateMeasure();
 }
 
@@ -2168,11 +2405,144 @@ void CandidateList::SetOnSelectionChanged(SelectionChangedHandler handler)
     onSelectionChanged_ = std::move(handler);
 }
 
+void CandidateList::SetOnItemActivated(ItemActivatedHandler handler)
+{
+    onItemActivated_ = std::move(handler);
+}
+
+void CandidateList::SetOnContextMenu(ContextMenuHandler handler)
+{
+    onContextMenu_ = std::move(handler);
+}
+
+const CandidateList::Item *CandidateList::GetItem(size_t index) const
+{
+    return index < items_.size() ? &items_[index] : nullptr;
+}
+
+void CandidateList::SetAppearance(Appearance appearance)
+{
+    appearance_ = appearance;
+    itemHeight_ = appearance_.itemHeight;
+    InvalidateLayoutCache();
+    InvalidateMeasure();
+}
+
+void CandidateList::SetOrientation(Orientation orientation)
+{
+    orientation_ = orientation;
+    InvalidateMeasure();
+}
+
+void CandidateList::SetHoverEnabled(bool enabled)
+{
+    hoverEnabled_ = enabled;
+    if (!enabled)
+    {
+        hoveredIndex_ = static_cast<size_t>(-1);
+    }
+    InvalidateVisual();
+}
+
+float CandidateList::EstimateTextWidth(const std::wstring &text, float fontSize) const
+{
+    if (text.empty())
+    {
+        return 0.0f;
+    }
+
+    IDWriteFactory *factory = GetSharedDWriteFactory();
+    const Theme &theme = ThemeManager::GetCurrent();
+    const std::wstring &fontFamily =
+        theme.textInputFontFamily.empty() ? L"Microsoft YaHei UI" : theme.textInputFontFamily;
+    ComPtr<IDWriteTextLayout> layout = CreateCachedTextLayout(
+        factory, fontFamily, text, fontSize, DWRITE_FONT_WEIGHT_NORMAL, 4096.0f, std::max(fontSize * 2.0f, 1.0f),
+        DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+    if (!layout)
+    {
+        float width = 0.0f;
+        for (const wchar_t ch : text)
+        {
+            width += (ch < 128) ? fontSize * 0.72f : fontSize;
+        }
+        return width;
+    }
+
+    DWRITE_TEXT_METRICS metrics = {};
+    layout->GetMetrics(&metrics);
+    DWRITE_OVERHANG_METRICS overhang = {};
+    layout->GetOverhangMetrics(&overhang);
+    return std::ceil(metrics.widthIncludingTrailingWhitespace + std::max(overhang.right, 0.0f) + 1.0f);
+}
+
+RectF CandidateList::ItemRect(size_t index) const
+{
+    if (index >= items_.size())
+    {
+        return {};
+    }
+    const float gap = appearance_.itemGap;
+    if (orientation_ == Orientation::Horizontal)
+    {
+        float x = bounds_.x;
+        for (size_t i = 0; i < index; ++i)
+        {
+            x += (i < itemWidths_.size() ? itemWidths_[i] : 48.0f) + gap;
+        }
+        const float width = index < itemWidths_.size() ? itemWidths_[index] : 48.0f;
+        return {x, bounds_.y, width, itemHeight_};
+    }
+    const float itemY = bounds_.y + (itemHeight_ + gap) * static_cast<float>(index);
+    return {bounds_.x, itemY, bounds_.width, itemHeight_};
+}
+
 SizeF CandidateList::Measure(const SizeF &availableSize)
 {
+    itemWidths_.resize(items_.size());
+    const float gap = appearance_.itemGap;
+    if (orientation_ == Orientation::Horizontal)
+    {
+        float width = 0.0f;
+        for (size_t i = 0; i < items_.size(); ++i)
+        {
+            const float itemWidth =
+                appearance_.contentPadLeft + appearance_.textPadLeft +
+                EstimateTextWidth(items_[i].label, appearance_.labelFontSize) + appearance_.labelGap +
+                EstimateTextWidth(items_[i].text, appearance_.fontSize) + 6.0f +
+                EstimateTextWidth(items_[i].annotation, appearance_.annotationFontSize) +
+                (items_[i].translation.empty()
+                     ? 0.0f
+                     : appearance_.fontSize * 0.65f +
+                           EstimateTextWidth(items_[i].translation, appearance_.fontSize * 0.78f)) +
+                appearance_.contentPadRight;
+            itemWidths_[i] = itemWidth;
+            width += itemWidth;
+            if (i + 1 < items_.size())
+            {
+                width += gap;
+            }
+        }
+        return {(std::min)(width, availableSize.width), (std::min)(itemHeight_, availableSize.height)};
+    }
+
+    float maxWidth = 80.0f;
+    for (const auto &item : items_)
+    {
+        const float rowWidth = appearance_.contentPadLeft + appearance_.textPadLeft +
+                               EstimateTextWidth(item.label, appearance_.labelFontSize) + appearance_.labelGap +
+                               EstimateTextWidth(item.text, appearance_.fontSize) + 6.0f +
+                               EstimateTextWidth(item.annotation, appearance_.annotationFontSize) +
+                               (item.translation.empty()
+                                    ? 0.0f
+                                    : appearance_.fontSize * 0.65f +
+                                          EstimateTextWidth(item.translation, appearance_.fontSize * 0.78f)) +
+                               appearance_.contentPadRight;
+        maxWidth = (std::max)(maxWidth, rowWidth);
+    }
     const float gapCount = items_.empty() ? 0.0f : static_cast<float>(items_.size() - 1);
-    const float height = items_.empty() ? itemHeight_ : itemHeight_ * static_cast<float>(items_.size()) + kCandidateItemGap * gapCount;
-    return {availableSize.width, std::min(height, availableSize.height)};
+    const float height =
+        items_.empty() ? itemHeight_ : itemHeight_ * static_cast<float>(items_.size()) + gap * gapCount;
+    return {(std::min)(maxWidth, availableSize.width), (std::min)(height, availableSize.height)};
 }
 
 void CandidateList::Arrange(const RectF &finalRect)
@@ -2182,7 +2552,7 @@ void CandidateList::Arrange(const RectF &finalRect)
 
 void CandidateList::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     IDWriteFactory *factory = deviceResources.GetDWriteFactory();
     if (!target || !factory)
     {
@@ -2195,98 +2565,118 @@ void CandidateList::Render(DeviceResources &deviceResources)
     }
 
     const Theme &theme = ThemeManager::GetCurrent();
-    const D2D1_COLOR_F rowFillHover = D2D1::ColorF(0x343434);
-    const D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x353535);
-    const D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x404040);
-    const D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x7B79FF);
-    const D2D1_COLOR_F labelColor = D2D1::ColorF(0xACACAC);
-    const D2D1_COLOR_F textColor = D2D1::ColorF(0xF5F5F5);
-    const D2D1_COLOR_F annotationColor = D2D1::ColorF(0xD3D3D3);
 
     for (size_t index = 0; index < items_.size(); ++index)
     {
-        const float itemY = bounds_.y + (itemHeight_ + kCandidateItemGap) * static_cast<float>(index);
-        const RectF itemRect = {bounds_.x, itemY, bounds_.width, itemHeight_};
+        const RectF itemRect = ItemRect(index);
         const bool selected = index == selectedIndex_;
-        const bool hovered = index == hoveredIndex_;
+        const bool hovered = hoverEnabled_ && index == hoveredIndex_;
         const bool pressed = pressed_ && index == pressedIndex_;
 
         if (selected || pressed || (hovered && !selected))
         {
-            const D2D1_COLOR_F fill = pressed ? rowFillPressed : (selected ? rowFillSelected : rowFillHover);
-            const RectF selectedRect = {itemRect.x + 1.5f, itemRect.y + 1.5f, std::max(itemRect.width - 3.0f, 0.0f),
-                                        std::max(itemRect.height - 3.0f, 0.0f)};
-            FillRoundedRect(deviceResources, selectedRect, 3.5f, fill, fill, 0.0f);
-
-            if (selected || pressed)
+            const D2D1_COLOR_F fill =
+                pressed ? appearance_.rowFillPressed : (selected ? appearance_.rowFillSelected : appearance_.rowFillHover);
+            if (fill.a > 0.001f)
             {
-                const float selectedLeft = selectedRect.x;
-                const float barWidth = 3.0f;
-                const float barHeight = std::max(selectedRect.height * 0.5f, 0.0f);
-                const float barY = selectedRect.y + std::max((selectedRect.height - barHeight) * 0.5f, 0.0f);
-                const RectF selectedBar = {selectedLeft - barWidth * 0.5f, barY, barWidth, barHeight};
-                FillRoundedRect(deviceResources, selectedBar, 1.0f, selectedBarColor, selectedBarColor, 0.0f);
+                FillRoundedRect(deviceResources, itemRect, appearance_.cornerRadius, fill, fill, 0.0f);
+            }
+
+            if (appearance_.showSelectedBar && (selected || pressed))
+            {
+                const float barWidth = (std::max)(appearance_.selectedBarWidth, 3.0f);
+                const float barHeight = (std::max)(appearance_.selectedBarHeight, barWidth * 2.0f);
+                const float barY = itemRect.y + std::max((itemRect.height - barHeight) * 0.5f, 0.0f);
+                const RectF selectedBar = {itemRect.x - barWidth * 0.5f, barY, barWidth, barHeight};
+                FillRoundedRect(deviceResources, selectedBar, barWidth * 0.5f, appearance_.selectedBarColor,
+                                appearance_.selectedBarColor, 0.0f);
             }
         }
 
-        const float labelX = itemRect.x + 12.0f;
-        const float textX = itemRect.x + 22.0f;
-        const float annotationX = itemRect.x + 40.5f;
-        const RectF labelRect = {labelX, itemRect.y, 9.0f, itemRect.height};
-        const RectF textRect = {textX, itemRect.y, 16.0f, itemRect.height};
-        const RectF annotationRect = {annotationX, itemRect.y, std::max(itemRect.width - (annotationX - itemRect.x) - 7.0f, 0.0f),
-                                      itemRect.height};
+        const float translationFontSize = appearance_.fontSize * 0.78f;
+        const float translationGap = appearance_.fontSize * 0.65f;
+        const float labelX = itemRect.x + appearance_.contentPadLeft + appearance_.textPadLeft;
+        const float labelW = (std::max)(EstimateTextWidth(items_[index].label, appearance_.labelFontSize), 9.0f);
+        const float textX = labelX + labelW + appearance_.labelGap;
+        const float textW = (std::max)(EstimateTextWidth(items_[index].text, appearance_.fontSize), 8.0f);
+        const float annotationX = textX + textW + (items_[index].annotation.empty() ? 0.0f : 4.0f);
+        const float annotationW = items_[index].annotation.empty()
+                                      ? 0.0f
+                                      : EstimateTextWidth(items_[index].annotation, appearance_.annotationFontSize);
+        const float translationX =
+            annotationX + annotationW + (items_[index].translation.empty() ? 0.0f : translationGap);
+        const float translationW =
+            items_[index].translation.empty() ? 0.0f : EstimateTextWidth(items_[index].translation, translationFontSize);
+        const RectF labelRect = {labelX, itemRect.y, labelW, itemRect.height};
+        const RectF textRect = {textX, itemRect.y, textW, itemRect.height};
+        const RectF annotationRect = {annotationX, itemRect.y, std::max(annotationW, 1.0f), itemRect.height};
+        const RectF translationRect = {translationX, itemRect.y, std::max(translationW, 1.0f), itemRect.height};
 
         auto &cache = layoutCache_[index];
         if (cache.fontFamily != theme.textInputFontFamily || cache.labelWidth != labelRect.width)
         {
-            cache.labelLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].label, 11.0f,
-                                                       DWRITE_FONT_WEIGHT_NORMAL, std::max(labelRect.width, 1.0f),
-                                                       std::max(labelRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
-                                                       DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.labelLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].label,
+                                                       appearance_.labelFontSize, DWRITE_FONT_WEIGHT_NORMAL,
+                                                       std::max(labelRect.width, 1.0f), std::max(labelRect.height, 1.0f),
+                                                       DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                       DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.labelWidth = labelRect.width;
             cache.fontFamily = theme.textInputFontFamily;
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.textWidth != textRect.width)
         {
-            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text, 16.0f,
-                                                      DWRITE_FONT_WEIGHT_NORMAL, std::max(textRect.width, 1.0f),
-                                                      std::max(textRect.height, 1.0f), DWRITE_TEXT_ALIGNMENT_LEADING,
-                                                      DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.textLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].text,
+                                                      appearance_.fontSize, DWRITE_FONT_WEIGHT_NORMAL,
+                                                      std::max(textRect.width, 1.0f), std::max(textRect.height, 1.0f),
+                                                      DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                      DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.textWidth = textRect.width;
             cache.fontFamily = theme.textInputFontFamily;
         }
         if (cache.fontFamily != theme.textInputFontFamily || cache.annotationWidth != annotationRect.width)
         {
-            cache.annotationLayout = CreateCachedTextLayout(factory, theme.textInputFontFamily, items_[index].annotation, 11.0f,
-                                                            DWRITE_FONT_WEIGHT_NORMAL,
-                                                            std::max(annotationRect.width, 1.0f),
-                                                            std::max(annotationRect.height, 1.0f),
-                                                            DWRITE_TEXT_ALIGNMENT_LEADING,
-                                                            DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                                            DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.annotationLayout = CreateCachedTextLayout(
+                factory, theme.textInputFontFamily, items_[index].annotation, appearance_.annotationFontSize,
+                DWRITE_FONT_WEIGHT_NORMAL, std::max(annotationRect.width, 1.0f), std::max(annotationRect.height, 1.0f),
+                DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
             cache.annotationWidth = annotationRect.width;
             cache.fontFamily = theme.textInputFontFamily;
         }
+        if (cache.fontFamily != theme.textInputFontFamily || cache.translationWidth != translationRect.width)
+        {
+            cache.translationLayout = CreateCachedTextLayout(
+                factory, theme.textInputFontFamily, items_[index].translation, translationFontSize,
+                DWRITE_FONT_WEIGHT_NORMAL, std::max(translationRect.width, 1.0f), std::max(translationRect.height, 1.0f),
+                DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
+            cache.translationWidth = translationRect.width;
+            cache.fontFamily = theme.textInputFontFamily;
+        }
 
-        ID2D1SolidColorBrush *labelBrush =
-            deviceResources.GetSolidColorBrush(labelColor);
-        ID2D1SolidColorBrush *textBrush = deviceResources.GetSolidColorBrush(textColor);
-        ID2D1SolidColorBrush *annotationBrush = deviceResources.GetSolidColorBrush(annotationColor);
+        ID2D1SolidColorBrush *labelBrush = deviceResources.GetSolidColorBrush(appearance_.labelColor);
+        ID2D1SolidColorBrush *textBrush = deviceResources.GetSolidColorBrush(appearance_.textColor);
+        ID2D1SolidColorBrush *annotationBrush = deviceResources.GetSolidColorBrush(appearance_.annotationColor);
+        D2D1_COLOR_F translationColor = appearance_.annotationColor;
+        translationColor.a *= 0.62f;
+        ID2D1SolidColorBrush *translationBrush = deviceResources.GetSolidColorBrush(translationColor);
         if (cache.labelLayout && labelBrush)
         {
             target->DrawTextLayout(D2D1::Point2F(labelRect.x, labelRect.y), cache.labelLayout.Get(), labelBrush,
-                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                                   kColorClipTextOptions);
         }
         if (cache.textLayout && textBrush)
         {
             target->DrawTextLayout(D2D1::Point2F(textRect.x, textRect.y), cache.textLayout.Get(), textBrush,
-                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                                   kColorClipTextOptions);
         }
         if (!items_[index].annotation.empty() && cache.annotationLayout && annotationBrush)
         {
             target->DrawTextLayout(D2D1::Point2F(annotationRect.x, annotationRect.y), cache.annotationLayout.Get(),
-                                   annotationBrush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                                   annotationBrush, kColorClipTextOptions);
+        }
+        if (!items_[index].translation.empty() && cache.translationLayout && translationBrush)
+        {
+            target->DrawTextLayout(D2D1::Point2F(translationRect.x, translationRect.y), cache.translationLayout.Get(),
+                                   translationBrush, kColorClipTextOptions);
         }
     }
 }
@@ -2345,16 +2735,44 @@ bool CandidateList::OnMouseUp(const POINT &point, WPARAM keyState)
     if (hit != static_cast<size_t>(-1) && hit == pressedIndex)
     {
         SetSelectedIndex(hit);
+        if (onItemActivated_)
+        {
+            onItemActivated_(hit);
+        }
     }
 
     InvalidateVisual();
     return true;
 }
 
-bool CandidateList::OnMouseMove(const POINT &point, WPARAM keyState)
+bool CandidateList::OnContextMenu(const POINT &point, WPARAM keyState)
 {
     (void)keyState;
     if (!window_)
+    {
+        return false;
+    }
+
+    const PointF dipPoint = window_->ClientPixelsToDips(point);
+    const size_t hit = HitTestItem(dipPoint);
+    if (hit == static_cast<size_t>(-1))
+    {
+        return false;
+    }
+
+    SetSelectedIndex(hit);
+    InvalidateVisual();
+    if (onContextMenu_)
+    {
+        onContextMenu_(hit, point);
+    }
+    return true;
+}
+
+bool CandidateList::OnMouseMove(const POINT &point, WPARAM keyState)
+{
+    (void)keyState;
+    if (!window_ || !hoverEnabled_)
     {
         return false;
     }
@@ -2390,34 +2808,33 @@ bool CandidateList::OnKeyDown(WPARAM key, LPARAM lParam)
         return false;
     }
 
-    size_t nextIndex = selectedIndex_;
+    size_t next = selectedIndex_;
     switch (key)
     {
     case VK_UP:
     case VK_LEFT:
-        nextIndex = selectedIndex_ > 0 ? selectedIndex_ - 1 : 0;
+        next = selectedIndex_ == 0 ? items_.size() - 1 : selectedIndex_ - 1;
         break;
     case VK_DOWN:
     case VK_RIGHT:
-        nextIndex = std::min(selectedIndex_ + 1, items_.size() - 1);
+        next = selectedIndex_ + 1 >= items_.size() ? 0 : selectedIndex_ + 1;
         break;
     case VK_HOME:
-        nextIndex = 0;
+        next = 0;
         break;
     case VK_END:
-        nextIndex = items_.size() - 1;
+        next = items_.size() - 1;
         break;
     case VK_PRIOR:
-        nextIndex = selectedIndex_ > 5 ? selectedIndex_ - 5 : 0;
+        next = selectedIndex_ > 3 ? selectedIndex_ - 3 : 0;
         break;
     case VK_NEXT:
-        nextIndex = std::min(selectedIndex_ + 5, items_.size() - 1);
+        next = (std::min)(selectedIndex_ + 3, items_.size() - 1);
         break;
     default:
         return false;
     }
-
-    SetSelectedIndex(nextIndex);
+    SetSelectedIndex(next);
     return true;
 }
 
@@ -2433,16 +2850,15 @@ size_t CandidateList::HitTestItem(const PointF &point) const
         return static_cast<size_t>(-1);
     }
 
-    const float stride = itemHeight_ + kCandidateItemGap;
-    const float relativeY = point.y - bounds_.y;
-    const size_t index = static_cast<size_t>(relativeY / stride);
-    if (index >= items_.size())
+    for (size_t i = 0; i < items_.size(); ++i)
     {
-        return static_cast<size_t>(-1);
+        const RectF rect = ItemRect(i);
+        if (PointInRect(rect, point))
+        {
+            return i;
+        }
     }
-
-    const float rowTop = stride * static_cast<float>(index);
-    return relativeY <= rowTop + itemHeight_ ? index : static_cast<size_t>(-1);
+    return static_cast<size_t>(-1);
 }
 
 TreeView::TreeView(float itemHeight) : itemHeight_(itemHeight)
@@ -2511,7 +2927,7 @@ void TreeView::Arrange(const RectF &finalRect)
 
 void TreeView::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     IDWriteFactory *factory = deviceResources.GetDWriteFactory();
     if (!target || !factory)
     {
@@ -2860,7 +3276,7 @@ void TabControl::Arrange(const RectF &finalRect)
 
 void TabControl::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;
@@ -3107,7 +3523,7 @@ void Accordion::Arrange(const RectF &finalRect)
 
 void Accordion::Render(DeviceResources &deviceResources)
 {
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;

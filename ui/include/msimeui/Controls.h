@@ -165,6 +165,7 @@ class Popup : public Visual
     Visual *FindFocusableAt(const PointF &point) override;
     Visual *FindFirstFocusableDescendant() override;
     bool HitTest(const PointF &point) const override;
+    bool KeepsPopupsOpenOnClick() const override;
     void LayoutOverlay(const SizeF &viewportSize) override;
 
   private:
@@ -179,6 +180,61 @@ class Popup : public Visual
     D2D1_COLOR_F borderColor_ = D2D1::ColorF(0xD6DCE5);
     float cornerRadius_ = 16.0f;
     bool shadowEnabled_ = false;
+};
+
+class MenuFlyoutItem : public Visual
+{
+  public:
+    using ClickHandler = std::function<void()>;
+    using HoverHandler = std::function<void(bool hovered)>;
+
+    explicit MenuFlyoutItem(std::wstring text, bool hasSubmenu = false);
+
+    void SetOnClick(ClickHandler handler);
+    void SetOnHover(HoverHandler handler);
+    void SetColors(const D2D1_COLOR_F &text, const D2D1_COLOR_F &hoverFill);
+    void SetHasSubmenu(bool hasSubmenu);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    bool HitTest(const PointF &point) const override;
+    bool IsFocusable() const override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    bool OnMouseMove(const POINT &point, WPARAM keyState) override;
+    void OnMouseLeave() override;
+    bool KeepsPopupsOpenOnClick() const override;
+    HCURSOR GetCursor() const override;
+
+  private:
+    void SetHovered(bool hovered);
+
+    std::wstring text_;
+    bool hasSubmenu_ = false;
+    bool hovered_ = false;
+    bool pressed_ = false;
+    D2D1_COLOR_F textColor_ = D2D1::ColorF(0xE9E8E8);
+    D2D1_COLOR_F hoverFill_ = D2D1::ColorF(0x414141);
+    ClickHandler onClick_;
+    HoverHandler onHover_;
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> textLayout_;
+    std::wstring cachedFontFamily_;
+    float cachedLayoutWidth_ = -1.0f;
+};
+
+class MenuSeparator : public Visual
+{
+  public:
+    void SetColor(const D2D1_COLOR_F &color);
+
+    SizeF Measure(const SizeF &availableSize) override;
+    void Arrange(const RectF &finalRect) override;
+    void Render(DeviceResources &deviceResources) override;
+    bool HitTest(const PointF &point) const override;
+
+  private:
+    D2D1_COLOR_F color_ = D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.125f);
 };
 
 class PopupHost : public Visual
@@ -440,17 +496,57 @@ class CandidateList : public Visual
         std::wstring label;
         std::wstring text;
         std::wstring annotation;
+        std::wstring translation;
+    };
+
+    enum class Orientation
+    {
+        Vertical,
+        Horizontal,
+    };
+
+    struct Appearance
+    {
+        float itemHeight = 28.0f;
+        float itemGap = 2.0f;
+        float fontSize = 16.0f;
+        float labelFontSize = 12.8f;
+        float annotationFontSize = 16.0f;
+        float cornerRadius = 4.0f;
+        float contentPadLeft = 5.0f;
+        float contentPadRight = 5.0f;
+        float textPadLeft = 0.0f;
+        float labelGap = 1.5f;
+        float selectedBarWidth = 3.0f;
+        float selectedBarHeight = 12.8f;
+        bool showSelectedBar = true;
+        D2D1_COLOR_F rowFillHover = D2D1::ColorF(0x343434);
+        D2D1_COLOR_F rowFillPressed = D2D1::ColorF(0x353535);
+        D2D1_COLOR_F rowFillSelected = D2D1::ColorF(0x3E3E3E, 0.725f);
+        D2D1_COLOR_F selectedBarColor = D2D1::ColorF(0x6B69D6);
+        D2D1_COLOR_F labelColor = D2D1::ColorF(0xE9E8E8, 0.616f);
+        D2D1_COLOR_F textColor = D2D1::ColorF(0xE9E8E8);
+        D2D1_COLOR_F annotationColor = D2D1::ColorF(0xE9E8E8);
     };
 
     using SelectionChangedHandler = std::function<void(size_t selectedIndex)>;
+    using ItemActivatedHandler = std::function<void(size_t selectedIndex)>;
+    using ContextMenuHandler = std::function<void(size_t selectedIndex, const POINT &clientPoint)>;
 
     explicit CandidateList(float itemHeight = 40.0f);
 
     void AddItem(Item item);
+    void SetItems(std::vector<Item> items);
     void ClearItems();
     void SetSelectedIndex(size_t index);
     size_t GetSelectedIndex() const;
+    const Item *GetItem(size_t index) const;
     void SetOnSelectionChanged(SelectionChangedHandler handler);
+    void SetOnItemActivated(ItemActivatedHandler handler);
+    void SetOnContextMenu(ContextMenuHandler handler);
+    void SetAppearance(Appearance appearance);
+    void SetOrientation(Orientation orientation);
+    void SetHoverEnabled(bool enabled);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -461,6 +557,7 @@ class CandidateList : public Visual
     bool OnMouseDown(const POINT &point, WPARAM keyState) override;
     bool OnMouseUp(const POINT &point, WPARAM keyState) override;
     bool OnMouseMove(const POINT &point, WPARAM keyState) override;
+    bool OnContextMenu(const POINT &point, WPARAM keyState) override;
     void OnMouseLeave() override;
     bool OnKeyDown(WPARAM key, LPARAM lParam) override;
     HCURSOR GetCursor() const override;
@@ -471,24 +568,34 @@ class CandidateList : public Visual
         float labelWidth = -1.0f;
         float textWidth = -1.0f;
         float annotationWidth = -1.0f;
+        float translationWidth = -1.0f;
         std::wstring fontFamily;
         Microsoft::WRL::ComPtr<IDWriteTextLayout> labelLayout;
         Microsoft::WRL::ComPtr<IDWriteTextLayout> textLayout;
         Microsoft::WRL::ComPtr<IDWriteTextLayout> annotationLayout;
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> translationLayout;
     };
 
     void InvalidateLayoutCache();
     size_t HitTestItem(const PointF &point) const;
+    float EstimateTextWidth(const std::wstring &text, float fontSize) const;
+    RectF ItemRect(size_t index) const;
 
     std::vector<Item> items_;
     std::vector<ItemLayoutCache> layoutCache_;
+    std::vector<float> itemWidths_;
+    Appearance appearance_{};
+    Orientation orientation_ = Orientation::Vertical;
     float itemHeight_ = 40.0f;
     bool focused_ = false;
     bool pressed_ = false;
+    bool hoverEnabled_ = true;
     size_t pressedIndex_ = static_cast<size_t>(-1);
     size_t hoveredIndex_ = static_cast<size_t>(-1);
     size_t selectedIndex_ = 0;
     SelectionChangedHandler onSelectionChanged_;
+    ItemActivatedHandler onItemActivated_;
+    ContextMenuHandler onContextMenu_;
 };
 
 class TreeView : public Visual

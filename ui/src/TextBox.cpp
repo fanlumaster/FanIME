@@ -213,7 +213,7 @@ void TextBox::Render(DeviceResources &deviceResources)
         return;
     }
 
-    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    ID2D1RenderTarget *target = deviceResources.GetRenderTarget();
     if (!target)
     {
         return;

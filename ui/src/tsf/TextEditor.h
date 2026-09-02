@@ -77,7 +77,7 @@ class CTextEditor : public CTextContainer
 
     BOOL InitializeRenderResources(IDWriteFactory *pDWriteFactory);
     void SetFont(const LOGFONT *plf);
-    void Render(ID2D1HwndRenderTarget *pRenderTarget);
+    void Render(ID2D1RenderTarget *pRenderTarget);
     void UpdateLayout();
     void NotifyLayoutChange();
     void SetContentPadding(const RECT &rcPadding)

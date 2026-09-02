@@ -95,7 +95,7 @@ class CTextLayout
                 FLOAT dpiX, FLOAT dpiY,
                 FLOAT paddingLeftPixels = 0.0f, FLOAT paddingTopPixels = 0.0f, FLOAT paddingRightPixels = 0.0f,
                 FLOAT paddingBottomPixels = 0.0f, BOOL singleLine = FALSE);
-    BOOL Render(ID2D1HwndRenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
+    BOOL Render(ID2D1RenderTarget *pRenderTarget, const WCHAR *psz, UINT nCnt, UINT nSelStart, UINT nSelEnd,
                 const COMPOSITIONRENDERINFO *pCompositionRenderInfo, UINT nCompositionRenderInfo);
     BOOL RectFromCharPos(UINT nPos, RECT *prc);
     UINT CharPosFromPoint(POINT pt);
@@ -150,7 +150,7 @@ class CTextLayout
     FLOAT PixelsToDipsY(FLOAT value) const;
     LONG DipsToPixelsX(FLOAT value) const;
     LONG DipsToPixelsY(FLOAT value) const;
-    void DrawUnderline(ID2D1HwndRenderTarget *pRenderTarget, const TF_DISPLAYATTRIBUTE *pda, const D2D1_RECT_F &rc,
+    void DrawUnderline(ID2D1RenderTarget *pRenderTarget, const TF_DISPLAYATTRIBUTE *pda, const D2D1_RECT_F &rc,
                        BOOL bClause);
     D2D1_COLOR_F GetAttributeColor(const TF_DA_COLOR *pdac, COLORREF fallbackColor);
     D2D1_COLOR_F ToColorF(COLORREF color);

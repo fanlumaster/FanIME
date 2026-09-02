@@ -353,9 +353,15 @@ class TextBlock : public Visual
   public:
     TextBlock(std::wstring text, float fontSize, D2D1_COLOR_F color, bool bold = false);
     void SetText(std::wstring text);
+    void SetColor(D2D1_COLOR_F color);
+    void SetFontSize(float fontSize);
     void SetTextAlignment(DWRITE_TEXT_ALIGNMENT alignment);
     void SetFontFamily(std::wstring fontFamily);
     void SetTextLayoutPadding(Thickness padding);
+    void SetLetterSpacing(float dips);
+    void SetCaretIndex(size_t index);
+    void SetCaretColor(D2D1_COLOR_F color);
+    void ClearCaret();
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -367,10 +373,14 @@ class TextBlock : public Visual
     std::wstring text_;
     float fontSize_ = 16.0f;
     D2D1_COLOR_F color_ = D2D1::ColorF(0x111111);
+    D2D1_COLOR_F caretColor_ = D2D1::ColorF(0x6B69D6);
     bool bold_ = false;
     DWRITE_TEXT_ALIGNMENT textAlignment_ = DWRITE_TEXT_ALIGNMENT_LEADING;
     std::wstring fontFamilyOverride_;
     Thickness textLayoutPadding_ = {0.0f, 3.0f, 0.0f, 3.0f};
+    float letterSpacing_ = 0.0f;
+    bool showCaret_ = false;
+    size_t caretIndex_ = 0;
     SizeF measured_ = {};
     std::wstring cachedFontFamily_;
     float cachedLayoutWidth_ = -1.0f;

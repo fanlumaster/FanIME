@@ -21,6 +21,9 @@ class Window
     ~Window();
 
     bool Create();
+    bool AdoptExistingHwnd(HWND hwnd);
+    LRESULT DispatchImportedMessage(UINT message, WPARAM wParam, LPARAM lParam);
+    void SetStealFocusOnClick(bool enabled);
     int Run(int nCmdShow);
 
     HWND GetHandle() const;
@@ -73,5 +76,7 @@ class Window
     bool roundedCorners_ = false;
     WindowInitialPlacement initialPlacement_ = WindowInitialPlacement::Center;
     int initialBottomMargin_ = 12;
+    bool stealFocusOnClick_ = true;
+    bool adoptedHwnd_ = false;
 };
 } // namespace msimeui
