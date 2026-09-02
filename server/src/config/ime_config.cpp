@@ -960,7 +960,8 @@ bool LoadImeConfig()
         g_tencent_tmt.target_language = tbl["tencent_tmt"]["target_language"].value_or(std::string("en"));
         if (g_tencent_tmt.target_language != "en" && g_tencent_tmt.target_language != "fr" &&
             g_tencent_tmt.target_language != "ja" && g_tencent_tmt.target_language != "es" &&
-            g_tencent_tmt.target_language != "ru")
+            g_tencent_tmt.target_language != "ru" && g_tencent_tmt.target_language != "de" &&
+            g_tencent_tmt.target_language != "ko")
             g_tencent_tmt.target_language = "en";
         g_custom_translation.enabled = tbl["custom_translation"]["enabled"].value_or(false);
         g_custom_translation.endpoint = tbl["custom_translation"]["endpoint"].value_or(std::string());
@@ -2882,8 +2883,8 @@ bool SetConfiguredTencentTmtString(const std::string &key, const std::string &va
         target = &g_tencent_tmt.secret_key;
     else if (key == "region")
         target = &g_tencent_tmt.region;
-    else if (key == "target_language" &&
-             (value == "en" || value == "fr" || value == "ja" || value == "es" || value == "ru"))
+    else if (key == "target_language" && (value == "en" || value == "fr" || value == "ja" || value == "es" ||
+                                          value == "ru" || value == "de" || value == "ko"))
         target = &g_tencent_tmt.target_language;
     if (!target || !WriteConfiguredValue("tencent_tmt", key, EscapeTomlBasicString(value)))
         return false;

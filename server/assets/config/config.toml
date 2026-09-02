@@ -59,7 +59,7 @@ enabled = true
 secret_id = ""
 secret_key = ""
 region = "ap-guangzhou"
-# 候选词翻译/背单词目标语种：en / fr / ja / es / ru
+# 候选词翻译/背单词目标语种：en / fr / ja / es / ru / de / ko
 target_language = "en"
 
 #
