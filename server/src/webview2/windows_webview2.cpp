@@ -4098,6 +4098,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "general.paging_brackets")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPagingBracketsEnabled(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "general.paging_page_up_down")
                             {
                                 const bool value = json::value_to<bool>(data.at("value"));
@@ -4342,6 +4350,7 @@ void PostSettingsConfig()
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
+            {"paging_brackets", GetConfiguredPagingBracketsEnabled()},
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},

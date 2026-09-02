@@ -92,6 +92,7 @@ bool g_r_mode_enabled = true;
 bool g_clipboard_history_enabled = false;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
+bool g_paging_brackets_enabled = false;
 bool g_paging_tab_enabled = true;
 bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
@@ -728,11 +729,16 @@ bool LoadImeConfig()
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
         g_paging_comma_period_enabled =
             tbl["general"]["paging_comma_period"].value_or(legacy_paging_mode && *legacy_paging_mode == ",/.");
+        g_paging_brackets_enabled = tbl["general"]["paging_brackets"].value_or(false);
         g_paging_tab_enabled =
             tbl["general"]["paging_tab"].value_or(legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         g_word_to_character_enabled = tbl["input"]["word_to_character"].value_or(false);
+        if (g_paging_brackets_enabled && g_word_to_character_enabled)
+        {
+            g_word_to_character_enabled = false;
+        }
         g_smart_punctuation_enabled = tbl["input"]["smart_punctuation"].value_or(true);
         g_smart_punctuation_repeat_to_chinese_enabled =
             tbl["input"]["smart_punctuation_repeat_to_chinese"].value_or(true);
@@ -2148,6 +2154,28 @@ bool SetConfiguredPagingCommaPeriodEnabled(bool enabled)
     return true;
 }
 
+bool GetConfiguredPagingBracketsEnabled()
+{
+    return g_paging_brackets_enabled;
+}
+
+bool SetConfiguredPagingBracketsEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "paging_brackets", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_paging_brackets_enabled = enabled;
+    if (enabled && g_word_to_character_enabled)
+    {
+        if (WriteConfiguredValue("input", "word_to_character", "false"))
+        {
+            g_word_to_character_enabled = false;
+        }
+    }
+    return true;
+}
+
 std::wstring FormatPagingCommaPeriodWorkerPayload()
 {
     // data[0] = paging flag for legacy clients; "|style" is ignored by old TSF.
@@ -2196,6 +2224,13 @@ bool SetConfiguredWordToCharacterEnabled(bool enabled)
         return false;
     }
     g_word_to_character_enabled = enabled;
+    if (enabled && g_paging_brackets_enabled)
+    {
+        if (WriteConfiguredValue("general", "paging_brackets", "false"))
+        {
+            g_paging_brackets_enabled = false;
+        }
+    }
     return true;
 }
 

@@ -328,6 +328,7 @@ void PostConfig(bool refresh_skin_catalog = false)
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
+            {"paging_brackets", GetConfiguredPagingBracketsEnabled()},
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
@@ -567,6 +568,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredPagingTabEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_comma_period")
         return SetConfiguredPagingCommaPeriodEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.paging_brackets")
+        return SetConfiguredPagingBracketsEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_page_up_down")
         return SetConfiguredPagingPageUpDownEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.candidate_arrow_navigation")

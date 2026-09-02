@@ -698,6 +698,10 @@ bool IsCommitWithHighlightedCandidatePunctuationInCandidateMode(UINT keycode, WC
     {
         return false;
     }
+    if ((keycode == VK_OEM_4 || keycode == VK_OEM_6) && GetConfiguredPagingBracketsEnabled() && has_active_composition)
+    {
+        return false;
+    }
 
     static const std::unordered_set<WCHAR> kCommitWithHighlightedCandidatePunctuation = {
         L'`',  //
@@ -769,13 +773,15 @@ bool IsPagingKey(UINT keycode)
 {
     return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB || keycode == VK_PRIOR ||
            keycode == VK_NEXT || keycode == VK_LEFT || keycode == VK_RIGHT || keycode == VK_UP || keycode == VK_DOWN ||
-           ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled());
+           ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled()) ||
+           ((keycode == VK_OEM_4 || keycode == VK_OEM_6) && GetConfiguredPagingBracketsEnabled());
 }
 
 bool IsCandidateNavigationKey(UINT keycode)
 {
     return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD ||
-           keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT || keycode == VK_UP || keycode == VK_DOWN;
+           keycode == VK_OEM_4 || keycode == VK_OEM_6 || keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT ||
+           keycode == VK_UP || keycode == VK_DOWN;
 }
 
 bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
@@ -3660,7 +3666,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             ui.selected_text = FanyImeIpc::HighlightedCandidateText(ui.page_words, ui.selected_index_in_page);
 
             const bool is_word_to_character_key =
-                (Global::Wch == L'[' || Global::Wch == L']') && GetConfiguredWordToCharacterEnabled();
+                (Global::Wch == L'[' || Global::Wch == L']') && GetConfiguredWordToCharacterEnabled() &&
+                !GetConfiguredPagingBracketsEnabled();
             WordItem highlighted_item;
             if (is_word_to_character_key && ResolveCandidateItem(ui.selected_index_in_page + 1, highlighted_item))
             {
@@ -3950,6 +3957,14 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             move_page(-1, Global::DataFromServerMsgType::MovePagePrevious);
         }
         else if (Global::Keycode == VK_OEM_PERIOD && GetConfiguredPagingCommaPeriodEnabled())
+        {
+            move_page(1, Global::DataFromServerMsgType::MovePageNext);
+        }
+        else if (Global::Keycode == VK_OEM_4 && GetConfiguredPagingBracketsEnabled())
+        {
+            move_page(-1, Global::DataFromServerMsgType::MovePagePrevious);
+        }
+        else if (Global::Keycode == VK_OEM_6 && GetConfiguredPagingBracketsEnabled())
         {
             move_page(1, Global::DataFromServerMsgType::MovePageNext);
         }
