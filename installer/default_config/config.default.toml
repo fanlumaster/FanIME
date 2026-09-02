@@ -32,6 +32,7 @@ enable_emoji = true
 # 翻页方式
 paging_minus_equal = true
 paging_comma_period = true
+paging_brackets = false
 paging_tab = true
 paging_page_up_down = true
 candidate_arrow_navigation = true
