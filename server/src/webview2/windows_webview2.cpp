@@ -6,6 +6,7 @@
 #include "utils/ime_utils.h"
 #include "utils/webview_utils.h"
 #include "window/candidate_presenter.h"
+#include "window/floating_toolbar_presenter.h"
 #include "window/tray_menu_presenter.h"
 #include "window/floating_toolbar_visibility_policy.h"
 #include <debugapi.h>
@@ -669,8 +670,9 @@ bool AreSmallWindowWebviewsReadyUnlocked()
 {
     const bool menuReady = TrayMenuPresenter::Instance().IsBound() ||
                            (menuNavigationReady && webviewMenuWnd != nullptr && webviewControllerMenuWnd != nullptr);
-    return menuReady && floatingToolbarNavigationReady && webviewFtbWnd != nullptr &&
-           webviewControllerFtbWnd != nullptr;
+    const bool ftbReady = FloatingToolbarPresenter::Instance().IsBound() ||
+                          (floatingToolbarNavigationReady && webviewFtbWnd != nullptr && webviewControllerFtbWnd != nullptr);
+    return menuReady && ftbReady;
 }
 
 void CancelStaggeredTopmost()
@@ -771,7 +773,14 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
 
     case SmallWindowTopmostStep::FloatingToolbar:
         PinHostTopmost(::global_hwnd_ftb);
-        RenotifyControllerAfterPin(webviewControllerFtbWnd.Get(), ::global_hwnd_ftb);
+        if (FloatingToolbarPresenter::Instance().IsBound())
+        {
+            FloatingToolbarPresenter::Instance().Present();
+        }
+        else
+        {
+            RenotifyControllerAfterPin(webviewControllerFtbWnd.Get(), ::global_hwnd_ftb);
+        }
         // The menu step lands a moment later and would fix the order anyway;
         // raising now keeps an already-open menu from being covered in between.
         if (TrayMenuIsOpenToUser())
@@ -904,6 +913,14 @@ bool UpdateBinaryState(int value, int &state)
 
 void RenderFloatingToolbarState(ICoreWebView2 *webview)
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().SyncUi(
+            floatingToolbarState.cn_en, floatingToolbarState.double_single_byte, floatingToolbarState.punctuation,
+            floatingToolbarState.english_input_mode, floatingToolbarState.caps_lock,
+            floatingToolbarState.japanese_input_mode);
+    }
+
     if (!floatingToolbarNavigationReady || webview == nullptr)
     {
         return;
@@ -1128,7 +1145,8 @@ bool IsCandidateWebviewReady()
 
 bool IsFloatingToolbarWebviewReady()
 {
-    return floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr;
+    return FloatingToolbarPresenter::Instance().IsBound() ||
+           (floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr);
 }
 
 bool IsFloatingToolbarPaintGraceActive()
@@ -2286,6 +2304,10 @@ bool ApplyConfiguredCandidateWindowLayout()
 
 bool ApplyConfiguredUiThemes()
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().ApplyTheme();
+    }
     const std::string candidateSkin = GetConfiguredCandidateSkin();
     PrepareHtmlForWnds();
     bool ok = true;
@@ -2391,6 +2413,15 @@ bool ApplyConfiguredFloatingToolbarAppearance()
 
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete)
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().RelayoutHost();
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return true;
+    }
     if (!webviewFtbWnd)
     {
         if (onComplete)
@@ -4734,6 +4765,11 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
     currentSmallWindowHostIndex = -1;
     lastFailedSmallWindowHostIndex = -1;
     pendingTrayMenuShow = false;
+    if (FloatingToolbarPresenter::Instance().IsBound() && TrayMenuPresenter::Instance().IsBound())
+    {
+        FTB_DIAG_LOGF(L"skip small-window webview init: candidate/menu/ftb are d2d");
+        return;
+    }
     BeginSmallWindowWebviewEnvironmentCreate();
 }
 

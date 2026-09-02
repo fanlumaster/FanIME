@@ -173,6 +173,8 @@ set(SRC_FILES
     "./src/window/candidate_presenter.h"
     "./src/window/tray_menu_presenter.cpp"
     "./src/window/tray_menu_presenter.h"
+    "./src/window/floating_toolbar_presenter.cpp"
+    "./src/window/floating_toolbar_presenter.h"
     "./src/window/ime_windows.cpp"
     "./src/window/ime_windows.h"
     "./src/window/window_hook.cpp"

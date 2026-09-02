@@ -3,6 +3,7 @@
 #include "ipc/ipc.h"
 #include "ime_windows.h"
 #include "window/candidate_presenter.h"
+#include "window/floating_toolbar_presenter.h"
 #include "window/tray_menu_presenter.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
@@ -970,13 +971,15 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
     {
         return;
     }
+    const bool d2d = FloatingToolbarPresenter::Instance().IsBound();
     if (::FTB_CONTENT_WIDTH_DIP > 1.0 && ::FTB_CONTENT_HEIGHT_DIP > 1.0)
     {
         // ceil + 1 DIP pad: fractional CSS sizes rounded down in physical px make
         // the WebView viewport slightly smaller than .status-bar and Chromium
         // adds both scrollbars (seen after live DPI changes).
-        ::FTB_WND_WIDTH = static_cast<int>(std::ceil(::FTB_CONTENT_WIDTH_DIP)) + 1;
-        ::FTB_WND_HEIGHT = static_cast<int>(std::ceil(::FTB_CONTENT_HEIGHT_DIP)) + 1;
+        const int pad = d2d ? 0 : 1;
+        ::FTB_WND_WIDTH = static_cast<int>(std::ceil(::FTB_CONTENT_WIDTH_DIP)) + pad;
+        ::FTB_WND_HEIGHT = static_cast<int>(std::ceil(::FTB_CONTENT_HEIGHT_DIP)) + pad;
     }
     else
     {
@@ -984,8 +987,8 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
         ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
     }
     const FLOAT nativeScale = GetWindowScale(hwnd);
-    const FLOAT rasterScale = GetWebViewRasterizationScale(hwnd);
-    const FLOAT textScale = nativeScale > 0.0f ? rasterScale / nativeScale : 1.0f;
+    const FLOAT rasterScale = d2d ? nativeScale : GetWebViewRasterizationScale(hwnd);
+    const FLOAT textScale = !d2d && nativeScale > 0.0f ? rasterScale / nativeScale : 1.0f;
     FLOAT scale = scaleOverride > 0.0f ? scaleOverride * textScale : rasterScale;
     if (scale <= 0.0f)
     {
@@ -1005,10 +1008,11 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
         static_cast<int>(std::ceil(ClampWidthDipToHalfScreen(static_cast<double>(::FTB_WND_WIDTH), limits)));
     ::FTB_WND_HEIGHT =
         static_cast<int>(std::ceil(ClampHeightDipToHalfScreen(static_cast<double>(::FTB_WND_HEIGHT), limits)));
+    const int shadowWidth = d2d ? 0 : ::FTB_WND_SHADOW_WIDTH;
     const int width =
-        static_cast<int>(std::ceil((::FTB_WND_WIDTH + ::FTB_WND_SHADOW_WIDTH) * static_cast<double>(scale)));
+        static_cast<int>(std::ceil((::FTB_WND_WIDTH + shadowWidth) * static_cast<double>(scale)));
     const int height =
-        static_cast<int>(std::ceil((::FTB_WND_HEIGHT + ::FTB_WND_SHADOW_WIDTH) * static_cast<double>(scale)));
+        static_cast<int>(std::ceil((::FTB_WND_HEIGHT + shadowWidth) * static_cast<double>(scale)));
     const int cornerInset = static_cast<int>(std::lround(10.0 * static_cast<double>(scale)));
     int posX = 0;
     int posY = 0;
@@ -1045,8 +1049,15 @@ void LayoutFloatingToolbar(HWND hwnd, bool reset_to_default_corner, FLOAT scaleO
     // for the toolbar is owned by EnsureSmallWindowsTopmost / lazy pin order.
     SetLastError(0);
     const BOOL ok = SetWindowPos(hwnd, nullptr, posX, posY, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
-    SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
-    InjectSurfaceViewportLimits(::webviewFtbWnd.Get(), hwnd);
+    if (!d2d)
+    {
+        SyncHostWebViewBounds(::webviewControllerFtbWnd.Get(), hwnd);
+        InjectSurfaceViewportLimits(::webviewFtbWnd.Get(), hwnd);
+    }
+    else
+    {
+        FloatingToolbarPresenter::Instance().Present();
+    }
     (void)ok;
 }
 
@@ -1533,6 +1544,11 @@ void HideFloatingToolbarHost()
 
 void ApplyConfiguredFloatingToolbarSize()
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().RelayoutHost();
+        return;
+    }
     ::FTB_WND_WIDTH = ConfiguredFloatingToolbarWidth();
     ::FTB_WND_HEIGHT = ConfiguredFloatingToolbarHeight();
     LayoutFloatingToolbar(::global_hwnd_ftb, false);
@@ -1739,7 +1755,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     PrepareLayeredHostWindow(hwnd_ftb);
     ::global_hwnd_ftb = hwnd_ftb;
     FanyNamedPipe::RegisterStatusSnapshotWindow(hwnd_ftb);
-    (void)0;
+    FloatingToolbarPresenter::Instance().Bind(hwnd_ftb);
 
     // Cloaked show: WebView2 sees a visible on-monitor host; the user does not.
     WarmupHostWindowCloaked(hwnd_cand);
@@ -3070,8 +3086,27 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
 
 LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (message == WM_NCHITTEST && FloatingToolbarPresenter::Instance().IsBound())
+    {
+        POINT client{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        ScreenToClient(hwnd, &client);
+        if (FloatingToolbarPresenter::Instance().HitCaptionDrag(client))
+        {
+            return HTCAPTION;
+        }
+        return HTCLIENT;
+    }
+
+    if (FloatingToolbarPresenter::Instance().HandleMessage(message, wParam, lParam))
+    {
+        return message == WM_ERASEBKGND ? 1 : 0;
+    }
+
     switch (message)
     {
+    case WM_MOUSEACTIVATE:
+        return MA_NOACTIVATE;
+
     case UPDATE_FTB_STATUS: {
         int capsLockState = (wParam >> 3) & 0x1;
         int cnEnState = (wParam >> 2) & 0x1;
@@ -3100,10 +3135,15 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         return 0;
 
     case WM_DPICHANGED: {
+        const FLOAT scale = HIWORD(wParam) / 96.0f;
+        if (FloatingToolbarPresenter::Instance().IsBound())
+        {
+            FloatingToolbarPresenter::Instance().RelayoutHost();
+            return 0;
+        }
         // Same contract as the tray menu: size from DIPs * the DPI in wParam
         // (GetWindowScale can lag), then remeasure once WebView2 settles so a
         // fractional undersize cannot leave Chromium scrollbars over 中/简.
-        const FLOAT scale = HIWORD(wParam) / 96.0f;
         ::FTB_CONTENT_WIDTH_DIP = 0.0;
         ::FTB_CONTENT_HEIGHT_DIP = 0.0;
         LayoutFloatingToolbar(hwnd, false, scale > 0.0f ? scale : 0.0f);
