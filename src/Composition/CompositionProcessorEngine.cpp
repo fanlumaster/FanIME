@@ -1014,6 +1014,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
         CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
         isOpen = isOpen ? FALSE : TRUE;
         ReleaseConfiguredImeModeDefense();
+        FanyUtils::RefreshPunctuationLockFromConfig();
 
         // Closing CN→EN while composing: keep KEYBOARD_OPENCLOSE open until
         // after EndComposition. CUAS/Win32 EDIT double-commits if we close
@@ -1071,7 +1072,7 @@ void CCompositionProcessorEngine::OnPreservedKey( //
         BOOL isPunctuation = FALSE;
         CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
         CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
-        CompartmentPunctuation._SetCompartmentBOOL(isPunctuation ? FALSE : TRUE);
+        SetPunctuationMode(pThreadMgr, tfClientId, isPunctuation ? FALSE : TRUE);
         *pIsEaten = TRUE;
     }
     else
@@ -1094,11 +1095,7 @@ void CCompositionProcessorEngine::ToggleIMEMode(_In_ ITfThreadMgr *pThreadMgr, T
     CompartmentKeyboardOpen._GetCompartmentBOOL(isOpen);
     SetKeyboardOpenCompartment(pThreadMgr, tfClientId, isOpen ? FALSE : TRUE);
 
-    // Also toggle punctuation mode
-    BOOL isPunctuation = FALSE;
-    CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-    CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
-    CompartmentPunctuation._SetCompartmentBOOL(isPunctuation ? FALSE : TRUE);
+    SyncPunctuationWithImeMode(pThreadMgr, tfClientId, isOpen ? FALSE : TRUE);
 }
 
 //+---------------------------------------------------------------------------
@@ -1142,17 +1139,7 @@ void CCompositionProcessorEngine::ReleaseConfiguredImeModeDefense()
 void CCompositionProcessorEngine::SyncPunctuationWithImeMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
                                                              BOOL isOpen)
 {
-    BOOL isPunctuation = FALSE;
-    CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-    CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
-    if (!isOpen && isPunctuation)
-    {
-        CompartmentPunctuation._SetCompartmentBOOL(FALSE);
-    }
-    else if (isOpen && !isPunctuation)
-    {
-        CompartmentPunctuation._SetCompartmentBOOL(TRUE);
-    }
+    SetPunctuationMode(pThreadMgr, tfClientId, isOpen);
 }
 
 void CCompositionProcessorEngine::ApplyPendingImeModeAfterCompositionCommit(_In_ ITfThreadMgr *pThreadMgr,
@@ -1190,6 +1177,9 @@ BOOL CCompositionProcessorEngine::GetIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfCl
 //----------------------------------------------------------------------------
 void CCompositionProcessorEngine::SetPunctuationMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL bOpen)
 {
+    FanyUtils::RefreshPunctuationLockFromConfig();
+    bOpen = Global::ResolvePunctuationOpen(bOpen);
+
     BOOL isOpen = FALSE;
     CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
     CompartmentPunctuation._GetCompartmentBOOL(isOpen);
@@ -1422,8 +1412,7 @@ void CCompositionProcessorEngine::InitializeMetasequoiaIMECompartment(_In_ ITfTh
                                              Global::MetasequoiaIMEGuidCompartmentDoubleSingleByte);
     CompartmentDoubleSingleByte._SetCompartmentBOOL(FALSE);
 
-    CCompartment CompartmentPunctuation(pThreadMgr, tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-    CompartmentPunctuation._SetCompartmentBOOL(openChinese);
+    SetPunctuationMode(pThreadMgr, tfClientId, openChinese);
 
     PrivateCompartmentsUpdated(pThreadMgr);
 }
@@ -1506,17 +1495,15 @@ HRESULT CCompositionProcessorEngine::CompartmentCallback(_In_ void *pv, REFGUID 
         {
             fakeThis->ReleaseConfiguredImeModeDefense();
         }
+        FanyUtils::RefreshPunctuationLockFromConfig();
         BOOL isPunctuation = FALSE;
         CCompartment CompartmentPunctuation(pThreadMgr, fakeThis->_tfClientId,
                                             Global::MetasequoiaIMEGuidCompartmentPunctuation);
         CompartmentPunctuation._GetCompartmentBOOL(isPunctuation);
-        if (isOpen && !isPunctuation)
+        const BOOL desiredPunctuation = Global::ResolvePunctuationOpen(isOpen);
+        if (desiredPunctuation != isPunctuation)
         {
-            CompartmentPunctuation._SetCompartmentBOOL(TRUE);
-        }
-        else if (!isOpen && isPunctuation)
-        {
-            CompartmentPunctuation._SetCompartmentBOOL(FALSE);
+            CompartmentPunctuation._SetCompartmentBOOL(desiredPunctuation);
         }
 
         // SendIMESwitchEventToUIProcessViaNamedPipe(isOpen ? 1 : 0);
@@ -1582,19 +1569,8 @@ void CCompositionProcessorEngine::ConversionModeCompartmentUpdated(_In_ ITfThrea
             CompartmentDoubleSingleByte._SetCompartmentBOOL(FALSE);
         }
     }
-    BOOL isPunctuation = FALSE;
-    CCompartment CompartmentPunctuation(pThreadMgr, _tfClientId, Global::MetasequoiaIMEGuidCompartmentPunctuation);
-    if (SUCCEEDED(CompartmentPunctuation._GetCompartmentBOOL(isPunctuation)))
-    {
-        if (!isPunctuation && (conversionMode & TF_CONVERSIONMODE_SYMBOL))
-        {
-            CompartmentPunctuation._SetCompartmentBOOL(TRUE);
-        }
-        else if (isPunctuation && !(conversionMode & TF_CONVERSIONMODE_SYMBOL))
-        {
-            CompartmentPunctuation._SetCompartmentBOOL(FALSE);
-        }
-    }
+    SetPunctuationMode(pThreadMgr, _tfClientId,
+                       (conversionMode & TF_CONVERSIONMODE_SYMBOL) ? TRUE : FALSE);
 
     BOOL fOpen = FALSE;
     CCompartment CompartmentKeyboardOpen(pThreadMgr, _tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);

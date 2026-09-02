@@ -4,6 +4,7 @@
 #include "Define.h"
 #include "Globals.h"
 #include "FanyUtils.h"
+#include "Ipc.h"
 #include <utf8cpp/utf8.h>
 #include <fmt/xchar.h>
 
@@ -120,6 +121,72 @@ BOOL ReadConfiguredDefaultImeModeChinese()
         return value != "english";
     }
     return TRUE;
+}
+
+int ReadConfiguredPunctuationLock()
+{
+    const std::string configPath = SharedConfigPath();
+    if (configPath.empty())
+    {
+        return Global::PunctuationLock::Follow;
+    }
+
+    std::ifstream input(configPath);
+    if (!input)
+    {
+        return Global::PunctuationLock::Follow;
+    }
+
+    bool inInputSection = false;
+    std::string line;
+    while (std::getline(input, line))
+    {
+        const size_t comment = line.find('#');
+        if (comment != std::string::npos)
+        {
+            line = line.substr(0, comment);
+        }
+        line = TrimAscii(line);
+        if (line.empty())
+        {
+            continue;
+        }
+        if (line.front() == '[' && line.back() == ']')
+        {
+            inInputSection = (line == "[input]");
+            continue;
+        }
+        if (!inInputSection)
+        {
+            continue;
+        }
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos)
+        {
+            continue;
+        }
+        const std::string key = TrimAscii(line.substr(0, eq));
+        if (key != "punctuation_lock")
+        {
+            continue;
+        }
+        const std::string value = to_lower_copy(UnquoteTomlBasicString(TrimAscii(line.substr(eq + 1))));
+        if (value == "chinese")
+        {
+            return Global::PunctuationLock::AlwaysChinese;
+        }
+        if (value == "english")
+        {
+            return Global::PunctuationLock::AlwaysEnglish;
+        }
+        return Global::PunctuationLock::Follow;
+    }
+    return Global::PunctuationLock::Follow;
+}
+
+void RefreshPunctuationLockFromConfig()
+{
+    Global::PunctuationLockMode.store(ReadConfiguredPunctuationLock(), std::memory_order_relaxed);
 }
 
 BOOL ReadConfiguredJapaneseInputMode()

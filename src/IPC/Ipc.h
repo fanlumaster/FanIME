@@ -359,8 +359,37 @@ constexpr UINT InputModeChanged = 18;
 constexpr UINT CapsLockChanged = 19;
 // Enables buffered TSF diagnostics sent to Server. Payload "0"/"1".
 constexpr UINT TsfDiagnosticLogChanged = 20;
-constexpr UINT MaxKnown = TsfDiagnosticLogChanged;
+// Payload "0" follow IME, "1" always Chinese punctuation, "2" always English punctuation.
+constexpr UINT PunctuationLockChanged = 21;
+constexpr UINT MaxKnown = PunctuationLockChanged;
 } // namespace DataToTsfWorkerThreadMsgType
+
+namespace PunctuationLock
+{
+constexpr int Follow = 0;
+constexpr int AlwaysChinese = 1;
+constexpr int AlwaysEnglish = 2;
+} // namespace PunctuationLock
+
+inline std::atomic<int> PunctuationLockMode{PunctuationLock::Follow};
+
+inline BOOL ResolvePunctuationOpen(BOOL followImeOpen)
+{
+    switch (PunctuationLockMode.load(std::memory_order_relaxed))
+    {
+    case PunctuationLock::AlwaysChinese:
+        return TRUE;
+    case PunctuationLock::AlwaysEnglish:
+        return FALSE;
+    default:
+        return followImeOpen;
+    }
+}
+
+inline bool IsPunctuationLocked()
+{
+    return PunctuationLockMode.load(std::memory_order_relaxed) != PunctuationLock::Follow;
+}
 
 inline std::atomic_bool PagingCommaPeriodEnabled{false};
 // Default on: matches rime-ice digit_separators behavior until Server syncs.

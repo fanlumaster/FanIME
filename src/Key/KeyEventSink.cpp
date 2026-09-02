@@ -1010,8 +1010,10 @@ void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(
     switch (_pCompositionProcessorEngine->GetPreservedKeyAction(preservedKey))
     {
     case CCompositionProcessorEngine::PreservedKeyAction::ToggleImeMode:
+        FanyUtils::RefreshPunctuationLockFromConfig();
         _deferredProjectedImeOpen = !_deferredProjectedImeOpen;
-        _deferredProjectedPunctuationOpen = _deferredProjectedImeOpen;
+        _deferredProjectedPunctuationOpen =
+            Global::ResolvePunctuationOpen(_deferredProjectedImeOpen) != FALSE;
         _deferredProjectedInputLength = 0;
         _deferredProjectedRawInput.clear();
         _deferredProjectedCaret = 0;
@@ -1023,8 +1025,9 @@ void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(
             !_deferredProjectedDoubleSingleByteOpen;
         break;
     case CCompositionProcessorEngine::PreservedKeyAction::TogglePunctuationMode:
+        FanyUtils::RefreshPunctuationLockFromConfig();
         _deferredProjectedPunctuationOpen =
-            !_deferredProjectedPunctuationOpen;
+            Global::ResolvePunctuationOpen(!_deferredProjectedPunctuationOpen) != FALSE;
         break;
     default:
         break;

@@ -1798,6 +1798,20 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             }
             validFrame = hasTerminator && (buf.data[0] == L'0' || buf.data[0] == L'1') && buf.data[1] == L'\0';
         }
+        if (validFrame && buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PunctuationLockChanged)
+        {
+            bool hasTerminator = false;
+            for (const wchar_t ch : buf.data)
+            {
+                if (ch == L'\0')
+                {
+                    hasTerminator = true;
+                    break;
+                }
+            }
+            validFrame = hasTerminator &&
+                         (buf.data[0] == L'0' || buf.data[0] == L'1' || buf.data[0] == L'2') && buf.data[1] == L'\0';
+        }
         if (validFrame && (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CommitVoiceComposition))
         {
@@ -1850,6 +1864,7 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged ||
+                buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PunctuationLockChanged ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::FocusSessionReady ||
                 buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
@@ -1952,6 +1967,24 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged)
         {
             Global::TsfDiagnosticLogEnabled.store(buf.data[0] == L'1', std::memory_order_relaxed);
+        }
+        else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PunctuationLockChanged)
+        {
+            int lock = Global::PunctuationLock::Follow;
+            if (buf.data[0] == L'1')
+            {
+                lock = Global::PunctuationLock::AlwaysChinese;
+            }
+            else if (buf.data[0] == L'2')
+            {
+                lock = Global::PunctuationLock::AlwaysEnglish;
+            }
+            Global::PunctuationLockMode.store(lock, std::memory_order_relaxed);
+            const HWND ownerWindow = pIME->_msgWndHandle;
+            if (ownerWindow && IsWindow(ownerWindow))
+            {
+                PostMessage(ownerWindow, WM_ApplyPunctuationLock, 0, 0);
+            }
         }
         else if (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged)
         {
@@ -2694,6 +2727,15 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
             break;
         }
         SetTimer(hWnd, TIMER_REFRESH_LANG_BAR_THEME, REFRESH_LANG_BAR_THEME_DELAY_MS, nullptr);
+        break;
+    }
+    case WM_ApplyPunctuationLock: {
+        CCompositionProcessorEngine *engine = pIME->GetCompositionProcessorEngine();
+        if (engine && Global::IsPunctuationLocked())
+        {
+            engine->SetPunctuationMode(pIME->_GetThreadMgr(), pIME->_GetClientId(), TRUE);
+        }
+        SendCurrentImeStatusSnapshot(pIME);
         break;
     }
     case WM_PairedPunctuationMoveLeft: {
