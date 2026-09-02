@@ -3,6 +3,7 @@
 #include "ipc/ipc.h"
 #include "ime_windows.h"
 #include "window/candidate_presenter.h"
+#include "window/tray_menu_presenter.h"
 #include "defines/defines.h"
 #include "defines/globals.h"
 #include <debugapi.h>
@@ -1696,6 +1697,7 @@ int CreateCandidateWindow(HINSTANCE hInstance)
     }
     PrepareLayeredHostWindow(hwnd_menu);
     ::global_hwnd_menu = hwnd_menu;
+    TrayMenuPresenter::Instance().Bind(hwnd_menu);
 
     //
     // floating toolbar 窗口
@@ -2304,6 +2306,11 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
 LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (TrayMenuPresenter::Instance().HandleMessage(message, wParam, lParam))
+    {
+        return message == WM_ERASEBKGND ? 1 : 0;
+    }
+
     switch (message)
     {
     case WM_MOUSEACTIVATE:
@@ -2322,6 +2329,16 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     }
 
     case WM_LANGBAR_RIGHTCLICK: {
+        if (TrayMenuPresenter::Instance().IsBound())
+        {
+            TrayMenuPresenter::Instance().ShowFromLangBar();
+            SetHostWindowCloaked(::global_hwnd_menu, false);
+            if (!g_mouseHook)
+            {
+                g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
+            }
+            break;
+        }
         // Host HWND alone is an invisible click-blocker. Do not show it until the
         // menu WebView controller exists (watchdog relaunch / early logon can
         // leave init pending; Prepare queues a retry and re-posts this message).
@@ -2410,6 +2427,14 @@ LRESULT CALLBACK WndProcMenuWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
     }
 
     case WM_DPICHANGED: {
+        if (TrayMenuPresenter::Instance().IsBound())
+        {
+            if (TrayMenuPresenter::Instance().IsOpenToUser())
+            {
+                TrayMenuPresenter::Instance().ShowFromLangBar();
+            }
+            return 0;
+        }
         // Prefer dip * newScale over the suggested rect alone: the menu host is
         // content-sized, and a stale/oversized create-time rect would otherwise
         // keep the wrong physical size across display-scale changes.

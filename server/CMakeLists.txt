@@ -171,6 +171,8 @@ set(SRC_FILES
     "./src/webview2/windows_webview2.h"
     "./src/window/candidate_presenter.cpp"
     "./src/window/candidate_presenter.h"
+    "./src/window/tray_menu_presenter.cpp"
+    "./src/window/tray_menu_presenter.h"
     "./src/window/ime_windows.cpp"
     "./src/window/ime_windows.h"
     "./src/window/window_hook.cpp"

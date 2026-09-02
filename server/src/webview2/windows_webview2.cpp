@@ -6,6 +6,7 @@
 #include "utils/ime_utils.h"
 #include "utils/webview_utils.h"
 #include "window/candidate_presenter.h"
+#include "window/tray_menu_presenter.h"
 #include "window/floating_toolbar_visibility_policy.h"
 #include <debugapi.h>
 #include <boost/json.hpp>
@@ -478,6 +479,16 @@ void OnSmallWindowWebviewInitFailed(HRESULT hr)
 
 void MaybeFlushPendingTrayMenuShow()
 {
+    if (!pendingTrayMenuShow || !::global_hwnd_menu)
+    {
+        return;
+    }
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        pendingTrayMenuShow = false;
+        PostMessage(::global_hwnd_menu, WM_LANGBAR_RIGHTCLICK, 0, 0);
+        return;
+    }
     if (!pendingTrayMenuShow || !webviewControllerMenuWnd || !menuNavigationReady || !::global_hwnd_menu)
     {
         return;
@@ -521,14 +532,12 @@ void RequestNextSmallWindowController()
         HRESULT (*request)(HWND, HRESULT, ICoreWebView2Environment *);
     };
     const Host hosts[] = {
-        {L"menu", smallWindowMenuHwnd, webviewControllerMenuWnd != nullptr, &OnMenuWindowEnvironmentCreated},
         {L"ftb", smallWindowFtbHwnd, webviewControllerFtbWnd != nullptr, &OnFtbWindowEnvironmentCreated},
     };
 
     int chosen = -1;
-    for (int step = 1; step <= 2; ++step)
+    for (int i = 0; i < 1; ++i)
     {
-        const int i = (lastFailedSmallWindowHostIndex + step) % 2;
         if (!hosts[i].hasController && hosts[i].hwnd)
         {
             chosen = i;
@@ -658,8 +667,10 @@ FloatingToolbarState floatingToolbarState;
 
 bool AreSmallWindowWebviewsReadyUnlocked()
 {
-    return menuNavigationReady && floatingToolbarNavigationReady && webviewMenuWnd != nullptr &&
-           webviewFtbWnd != nullptr && webviewControllerMenuWnd != nullptr && webviewControllerFtbWnd != nullptr;
+    const bool menuReady = TrayMenuPresenter::Instance().IsBound() ||
+                           (menuNavigationReady && webviewMenuWnd != nullptr && webviewControllerMenuWnd != nullptr);
+    return menuReady && floatingToolbarNavigationReady && webviewFtbWnd != nullptr &&
+           webviewControllerFtbWnd != nullptr;
 }
 
 void CancelStaggeredTopmost()
@@ -726,6 +737,10 @@ void RenotifyControllerAfterPin(ICoreWebView2Controller *controller, HWND hwnd)
 // host into the topmost band mid-initialisation and leaves it permanently blank.
 bool TrayMenuIsOpenToUser()
 {
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        return TrayMenuPresenter::Instance().IsOpenToUser();
+    }
     if (!::global_hwnd_menu || !webviewControllerMenuWnd || !menuNavigationReady)
     {
         return false;
@@ -767,7 +782,17 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
 
     case SmallWindowTopmostStep::TrayMenu:
         PinHostTopmost(::global_hwnd_menu);
-        RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
+        if (TrayMenuPresenter::Instance().IsBound())
+        {
+            if (TrayMenuPresenter::Instance().IsOpenToUser())
+            {
+                TrayMenuPresenter::Instance().Present();
+            }
+        }
+        else
+        {
+            RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
+        }
         break;
     }
 
@@ -1046,6 +1071,16 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
 {
     if (!::global_hwnd_menu)
     {
+        return;
+    }
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
+        SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag);
+        if (TrayMenuPresenter::Instance().IsOpenToUser())
+        {
+            TrayMenuPresenter::Instance().Present();
+        }
         return;
     }
     // Backstop for the callers above: making the host TOPMOST before a
@@ -4161,6 +4196,18 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
  */
 void SyncMenuFloatingToolbarToggle()
 {
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        if (TrayMenuPresenter::Instance().IsOpenToUser())
+        {
+            TrayMenuPresenter::Instance().ShowFromLangBar();
+        }
+        else
+        {
+            TrayMenuPresenter::Instance().ApplyTheme();
+        }
+        return;
+    }
     if (!::webviewMenuWnd)
     {
         return;
@@ -4692,6 +4739,10 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 
 bool PrepareTrayMenuWebviewForShow()
 {
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        return true;
+    }
     if (webviewControllerMenuWnd && menuNavigationReady)
     {
         return true;
