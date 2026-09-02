@@ -338,6 +338,9 @@ class Card : public Panel
   public:
     Card(Brush brush, float padding);
 
+    void SetBrush(Brush brush);
+    void SetPadding(float padding);
+
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
     void Render(DeviceResources &deviceResources) override;

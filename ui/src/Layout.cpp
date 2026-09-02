@@ -204,100 +204,31 @@ bool IsSameRect(const RectF &lhs, const RectF &rhs)
     return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width && lhs.height == rhs.height;
 }
 
-void DrawLayeredMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
-{
-    for (int i = 1; i <= 20; ++i)
-    {
-        const float t = static_cast<float>(i) / 20.0f;
-        const float spread = 1.15f * static_cast<float>(i);
-        const float offsetY = 0.4f * static_cast<float>(i);
-        const float alpha = 0.14f * (1.0f - t) * (1.0f - t);
-        ComPtr<ID2D1SolidColorBrush> brush;
-        if (FAILED(target->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, alpha), brush.GetAddressOf())))
-        {
-            continue;
-        }
-        const auto rounded = D2D1::RoundedRect(
-            D2D1::RectF(bounds.x - spread, bounds.y - spread + offsetY, bounds.x + bounds.width + spread,
-                        bounds.y + bounds.height + spread + offsetY),
-            radius + spread, radius + spread);
-        target->FillRoundedRectangle(rounded, brush.Get());
-    }
-}
-
-bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
-{
-    ComPtr<ID2D1DeviceContext> dc;
-    if (FAILED(target->QueryInterface(IID_PPV_ARGS(dc.GetAddressOf()))))
-    {
-        return false;
-    }
-
-    auto drawPass = [&](float stdDeviation, float alpha, float offsetY) -> bool {
-        const float pad = stdDeviation * 3.0f + 4.0f;
-        const D2D1_SIZE_F bitmapSize = {bounds.width + pad * 2.0f, bounds.height + pad * 2.0f};
-        if (bitmapSize.width < 2.0f || bitmapSize.height < 2.0f)
-        {
-            return false;
-        }
-
-        ComPtr<ID2D1BitmapRenderTarget> compatible;
-        if (FAILED(target->CreateCompatibleRenderTarget(bitmapSize, compatible.GetAddressOf())))
-        {
-            return false;
-        }
-
-        compatible->BeginDraw();
-        compatible->Clear(D2D1::ColorF(0, 0.0f));
-        ComPtr<ID2D1SolidColorBrush> fill;
-        if (FAILED(compatible->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, alpha), fill.GetAddressOf())))
-        {
-            compatible->EndDraw();
-            return false;
-        }
-        const auto shape = D2D1::RoundedRect(
-            D2D1::RectF(pad, pad, pad + bounds.width, pad + bounds.height), radius, radius);
-        compatible->FillRoundedRectangle(shape, fill.Get());
-        if (FAILED(compatible->EndDraw()))
-        {
-            return false;
-        }
-
-        ComPtr<ID2D1Bitmap> bitmap;
-        if (FAILED(compatible->GetBitmap(bitmap.GetAddressOf())))
-        {
-            return false;
-        }
-
-        ComPtr<ID2D1Effect> blur;
-        if (FAILED(dc->CreateEffect(CLSID_D2D1GaussianBlur, blur.GetAddressOf())))
-        {
-            return false;
-        }
-        blur->SetInput(0, bitmap.Get());
-        blur->SetValue(D2D1_GAUSSIANBLUR_PROP_STANDARD_DEVIATION, stdDeviation);
-        blur->SetValue(D2D1_GAUSSIANBLUR_PROP_BORDER_MODE, D2D1_BORDER_MODE_SOFT);
-        blur->SetValue(D2D1_GAUSSIANBLUR_PROP_OPTIMIZATION, D2D1_GAUSSIANBLUR_OPTIMIZATION_QUALITY);
-        dc->DrawImage(blur.Get(), D2D1::Point2F(bounds.x - pad, bounds.y - pad + offsetY));
-        return true;
-    };
-
-    // Win11: wide ambient fog + tighter contact shadow, mostly downward.
-    const bool ambient = drawPass(11.0f, 0.42f, 3.0f);
-    const bool mid = drawPass(6.0f, 0.30f, 4.0f);
-    const bool contact = drawPass(2.8f, 0.48f, 3.0f);
-    return ambient || mid || contact;
-}
-
 void DrawWin11WindowShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
 {
     if (!target || bounds.width <= 0.0f || bounds.height <= 0.0f)
     {
         return;
     }
-    if (!DrawGaussianMistShadow(target, bounds, radius))
+    // Soft layered fills only. GaussianBlur + CreateCompatibleRenderTarget during
+    // BeginDraw retains GPU working-set across keystrokes (swapchain-sized
+    // intermediates are not reliably released by the D2D effect graph).
+    static const float kSpreads[] = {3.0f, 7.0f, 12.0f, 18.0f, 24.0f};
+    static const float kAlphas[] = {0.22f, 0.14f, 0.09f, 0.05f, 0.03f};
+    static const float kOffsetY[] = {1.0f, 2.0f, 3.5f, 5.0f, 7.0f};
+    for (int i = 0; i < 5; ++i)
     {
-        DrawLayeredMistShadow(target, bounds, radius);
+        ComPtr<ID2D1SolidColorBrush> brush;
+        if (FAILED(target->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, kAlphas[i]), brush.GetAddressOf())))
+        {
+            continue;
+        }
+        const float spread = kSpreads[i];
+        const auto rounded = D2D1::RoundedRect(
+            D2D1::RectF(bounds.x - spread, bounds.y - spread + kOffsetY[i], bounds.x + bounds.width + spread,
+                        bounds.y + bounds.height + spread + kOffsetY[i]),
+            radius + spread, radius + spread);
+        target->FillRoundedRectangle(rounded, brush.Get());
     }
 }
 } // namespace
@@ -1766,6 +1697,22 @@ void Border::Render(DeviceResources &deviceResources)
 
 Card::Card(Brush brush, float padding) : brush_(brush), padding_(padding)
 {
+}
+
+void Card::SetBrush(Brush brush)
+{
+    brush_ = brush;
+    InvalidateVisual();
+}
+
+void Card::SetPadding(float padding)
+{
+    if (padding_ == padding)
+    {
+        return;
+    }
+    padding_ = padding;
+    InvalidateMeasure();
 }
 
 SizeF Card::Measure(const SizeF &availableSize)

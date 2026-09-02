@@ -178,20 +178,51 @@ ComPtr<IDWriteTextLayout> CreateCachedTextLayout(IDWriteFactory *factory, const 
     }
 
     ComPtr<IDWriteTextFormat> format;
-    if (FAILED(factory->CreateTextFormat(fontFamily.c_str(), nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL,
-                                         DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", format.GetAddressOf())))
+    struct TextFormatKey
     {
-        if (FAILED(factory->CreateTextFormat(UiFontFallbackFamily(), nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL,
-                                             DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", format.GetAddressOf())))
+        std::wstring family;
+        float size = 0.0f;
+        DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL;
+        DWRITE_TEXT_ALIGNMENT textAlignment = DWRITE_TEXT_ALIGNMENT_LEADING;
+        DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment = DWRITE_PARAGRAPH_ALIGNMENT_NEAR;
+        DWRITE_WORD_WRAPPING wordWrapping = DWRITE_WORD_WRAPPING_NO_WRAP;
+        ComPtr<IDWriteTextFormat> format;
+    };
+    static std::vector<TextFormatKey> formatCache;
+    for (auto &entry : formatCache)
+    {
+        if (entry.family == fontFamily && entry.size == fontSize && entry.weight == fontWeight &&
+            entry.textAlignment == textAlignment && entry.paragraphAlignment == paragraphAlignment &&
+            entry.wordWrapping == wordWrapping && entry.format)
         {
-            return layout;
+            format = entry.format;
+            break;
         }
     }
-
-    format->SetTextAlignment(textAlignment);
-    format->SetParagraphAlignment(paragraphAlignment);
-    format->SetWordWrapping(wordWrapping);
-    ApplyUiFontFallback(factory, format.Get());
+    if (!format)
+    {
+        if (FAILED(factory->CreateTextFormat(fontFamily.c_str(), nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL,
+                                             DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", format.GetAddressOf())))
+        {
+            if (FAILED(factory->CreateTextFormat(UiFontFallbackFamily(), nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL,
+                                                 DWRITE_FONT_STRETCH_NORMAL, fontSize, L"", format.GetAddressOf())))
+            {
+                return layout;
+            }
+        }
+        format->SetTextAlignment(textAlignment);
+        format->SetParagraphAlignment(paragraphAlignment);
+        format->SetWordWrapping(wordWrapping);
+        TextFormatKey entry;
+        entry.family = fontFamily;
+        entry.size = fontSize;
+        entry.weight = fontWeight;
+        entry.textAlignment = textAlignment;
+        entry.paragraphAlignment = paragraphAlignment;
+        entry.wordWrapping = wordWrapping;
+        entry.format = format;
+        formatCache.push_back(std::move(entry));
+    }
 
     if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format.Get(), width, height,
                                          layout.GetAddressOf())))

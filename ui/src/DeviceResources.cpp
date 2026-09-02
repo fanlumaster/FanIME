@@ -7,6 +7,16 @@
 
 namespace msimeui
 {
+namespace
+{
+UINT AlignSwapExtent(UINT value)
+{
+    constexpr UINT kBucket = 64;
+    value = (std::max)(value, 1U);
+    return ((value + kBucket - 1U) / kBucket) * kBucket;
+}
+} // namespace
+
 bool DeviceResources::IsSameColor(const D2D1_COLOR_F &lhs, const D2D1_COLOR_F &rhs)
 {
     return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
@@ -128,10 +138,10 @@ bool DeviceResources::EnsureForComposition(HWND hwnd)
 
     RECT rc = {};
     GetClientRect(hwnd, &rc);
-    const UINT width = static_cast<UINT>((std::max)(rc.right, 1L));
-    const UINT height = static_cast<UINT>((std::max)(rc.bottom, 1L));
+    const UINT width = AlignSwapExtent(static_cast<UINT>((std::max)(rc.right, 1L)));
+    const UINT height = AlignSwapExtent(static_cast<UINT>((std::max)(rc.bottom, 1L)));
 
-    if (composition_ && deviceContext_ && swapChain_ && pixelWidth_ == width && pixelHeight_ == height)
+    if (composition_ && deviceContext_ && swapChain_ && pixelWidth_ >= width && pixelHeight_ >= height)
     {
         return true;
     }
@@ -210,11 +220,13 @@ bool DeviceResources::EnsureForComposition(HWND hwnd)
         return true;
     }
 
-    pixelWidth_ = width;
-    pixelHeight_ = height;
+    const UINT newWidth = (std::max)(pixelWidth_, width);
+    const UINT newHeight = (std::max)(pixelHeight_, height);
+    pixelWidth_ = newWidth;
+    pixelHeight_ = newHeight;
     deviceContext_->SetTarget(nullptr);
     dxgiBitmap_.Reset();
-    if (FAILED(swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0)))
+    if (FAILED(swapChain_->ResizeBuffers(0, newWidth, newHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0)))
     {
         return false;
     }
@@ -232,13 +244,19 @@ void DeviceResources::Resize(UINT width, UINT height)
         pixelHeight_ = height;
         return;
     }
-    if (composition_ && swapChain_ && deviceContext_ && (pixelWidth_ != width || pixelHeight_ != height))
+    if (composition_ && swapChain_ && deviceContext_)
     {
-        pixelWidth_ = width;
-        pixelHeight_ = height;
+        const UINT neededW = AlignSwapExtent(width);
+        const UINT neededH = AlignSwapExtent(height);
+        if (pixelWidth_ >= neededW && pixelHeight_ >= neededH)
+        {
+            return;
+        }
+        pixelWidth_ = (std::max)(pixelWidth_, neededW);
+        pixelHeight_ = (std::max)(pixelHeight_, neededH);
         deviceContext_->SetTarget(nullptr);
         dxgiBitmap_.Reset();
-        if (SUCCEEDED(swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0)))
+        if (SUCCEEDED(swapChain_->ResizeBuffers(0, pixelWidth_, pixelHeight_, DXGI_FORMAT_B8G8R8A8_UNORM, 0)))
         {
             BindCompositionSurface();
         }
