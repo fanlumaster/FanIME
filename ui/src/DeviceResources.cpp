@@ -1,5 +1,7 @@
 #include "msimeui/DeviceResources.h"
 
+#include "msimeui/Fonts.h"
+
 #include <windows.h>
 #include <algorithm>
 
@@ -287,6 +289,11 @@ ID2D1RenderTarget *DeviceResources::GetRenderTarget() const
     return hwndRenderTarget_.Get();
 }
 
+ID2D1DeviceContext *DeviceResources::GetDeviceContext() const
+{
+    return deviceContext_.Get();
+}
+
 bool DeviceResources::UsesComposition() const
 {
     return composition_;
@@ -354,12 +361,18 @@ IDWriteTextFormat *DeviceResources::GetTextFormat(const std::wstring &fontFamily
     if (FAILED(dwriteFactory_->CreateTextFormat(entry.fontFamily.c_str(), nullptr, entry.fontWeight, DWRITE_FONT_STYLE_NORMAL,
                                                 DWRITE_FONT_STRETCH_NORMAL, entry.fontSize, L"", entry.format.GetAddressOf())))
     {
-        return nullptr;
+        if (FAILED(dwriteFactory_->CreateTextFormat(L"Microsoft YaHei", nullptr, entry.fontWeight, DWRITE_FONT_STYLE_NORMAL,
+                                                    DWRITE_FONT_STRETCH_NORMAL, entry.fontSize, L"",
+                                                    entry.format.GetAddressOf())))
+        {
+            return nullptr;
+        }
     }
 
     entry.format->SetTextAlignment(entry.textAlignment);
     entry.format->SetParagraphAlignment(entry.paragraphAlignment);
     entry.format->SetWordWrapping(entry.wordWrapping);
+    ApplyUiFontFallback(dwriteFactory_.Get(), entry.format.Get());
     textFormatCache_.push_back(std::move(entry));
     return textFormatCache_.back().format.Get();
 }

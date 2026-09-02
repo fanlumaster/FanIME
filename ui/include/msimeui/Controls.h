@@ -194,6 +194,10 @@ class MenuFlyoutItem : public Visual
     void SetOnHover(HoverHandler handler);
     void SetColors(const D2D1_COLOR_F &text, const D2D1_COLOR_F &hoverFill);
     void SetHasSubmenu(bool hasSubmenu);
+    void SetLeadingSvg(std::string svgUtf8);
+    void SetTrailingToggle(bool show);
+    void SetToggleOn(bool on);
+    bool IsToggleOn() const;
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -209,8 +213,13 @@ class MenuFlyoutItem : public Visual
 
   private:
     void SetHovered(bool hovered);
+    bool UsesTrayLayout() const;
+    RectF ToggleHitRect() const;
 
     std::wstring text_;
+    std::string leadingSvg_;
+    bool showToggle_ = false;
+    bool toggleOn_ = false;
     bool hasSubmenu_ = false;
     bool hovered_ = false;
     bool pressed_ = false;
@@ -219,8 +228,11 @@ class MenuFlyoutItem : public Visual
     ClickHandler onClick_;
     HoverHandler onHover_;
     Microsoft::WRL::ComPtr<IDWriteTextLayout> textLayout_;
+    Microsoft::WRL::ComPtr<IUnknown> svgDocument_;
     std::wstring cachedFontFamily_;
     float cachedLayoutWidth_ = -1.0f;
+    void *svgContext_ = nullptr;
+    std::string svgTintCache_;
 };
 
 class MenuSeparator : public Visual

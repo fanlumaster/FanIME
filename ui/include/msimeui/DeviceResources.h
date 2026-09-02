@@ -24,6 +24,7 @@ class DeviceResources
     HRESULT Present();
 
     ID2D1RenderTarget *GetRenderTarget() const;
+    ID2D1DeviceContext *GetDeviceContext() const;
     IDWriteFactory *GetDWriteFactory() const;
     ID2D1SolidColorBrush *GetSolidColorBrush(const D2D1_COLOR_F &color);
     IDWriteTextFormat *GetTextFormat(const std::wstring &fontFamily, float fontSize, DWRITE_FONT_WEIGHT fontWeight,

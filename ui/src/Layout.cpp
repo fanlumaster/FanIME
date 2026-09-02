@@ -1,6 +1,7 @@
 #include "msimeui/Layout.h"
 
 #include "msimeui/DeviceResources.h"
+#include "msimeui/Fonts.h"
 #include "msimeui/Theme.h"
 #include "msimeui/Window.h"
 
@@ -1952,12 +1953,18 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
                 fontFamily.c_str(), nullptr, bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
                 DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"", format.GetAddressOf())))
         {
-            measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
-            return measured_;
+            if (FAILED(dwriteFactory->CreateTextFormat(
+                    UiFontFallbackFamily(), nullptr, bold_ ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL,
+                    DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize_, L"", format.GetAddressOf())))
+            {
+                measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
+                return measured_;
+            }
         }
 
         format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
         format->SetTextAlignment(textAlignment_);
+        ApplyUiFontFallback(dwriteFactory, format.Get());
 
         const UINT32 caretPos = static_cast<UINT32>((std::min)(caretIndex_, text_.size()));
         const bool insertSlot = showCaret_ && caretPos < text_.size();

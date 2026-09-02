@@ -7,7 +7,7 @@ namespace msimeui
 {
 struct Theme
 {
-    std::wstring uiFontFamily = L"Segoe UI";
+    std::wstring uiFontFamily = L"Noto Sans SC";
     std::wstring textInputFontFamily = L"Noto Sans SC";
 
     D2D1_COLOR_F windowBackground = D2D1::ColorF(0xF3F5F8);

@@ -23,6 +23,7 @@ add_library(msimeui STATIC
     src/Controls.cpp
     src/DebugLog.cpp
     src/DeviceResources.cpp
+    src/Fonts.cpp
     src/TextBox.cpp
     src/Layout.cpp
     src/Scene.cpp
@@ -41,6 +42,7 @@ add_library(msimeui STATIC
     src/DebugLog.h
     include/msimeui/Controls.h
     include/msimeui/DeviceResources.h
+    include/msimeui/Fonts.h
     include/msimeui/Layout.h
     include/msimeui/Scene.h
     include/msimeui/Theme.h
@@ -76,6 +78,7 @@ target_link_libraries(msimeui PUBLIC
     oleaut32.lib
     uuid.lib
     windowscodecs.lib
+    shlwapi.lib
 )
 
 add_executable(msimeui-demo WIN32
