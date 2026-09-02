@@ -39,6 +39,14 @@
   min-width: 110px;
 }
 
+.punctuation-lock-section .section-header {
+  padding: 4px 0;
+}
+
+.punctuation-lock-section .input-option-divider {
+  margin: 12px 0;
+}
+
 .input-setting-description {
   color: var(--text-muted);
   font-size: 12px;

@@ -100,6 +100,11 @@ function applyConfigData(data: Record<string, any>): void {
   if (typeof data?.input?.paired_punctuation === 'boolean') {
     applyToggleState('pairedPunctuationToggleBtn', data.input.paired_punctuation);
   }
+  if (data?.input?.punctuation_lock === 'chinese' || data?.input?.punctuation_lock === 'english' ||
+      data?.input?.punctuation_lock === 'follow') {
+    applyToggleState('alwaysChinesePunctuationToggleBtn', data.input.punctuation_lock === 'chinese');
+    applyToggleState('alwaysEnglishPunctuationToggleBtn', data.input.punctuation_lock === 'english');
+  }
   if (typeof data?.general?.candidate_translations === 'boolean') {
     applyToggleState('candidateTranslationsToggleBtn', data.general.candidate_translations);
     document.getElementById('candidateTranslationApiOptions')?.classList.toggle(

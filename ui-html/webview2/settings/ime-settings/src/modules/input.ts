@@ -198,6 +198,22 @@ export function setupInput(): void {
   setupToggleButton('wordToCharacterToggleBtn', (active) => {
     updateConfig('input.word_to_character', active);
   });
+  setupToggleButton('alwaysChinesePunctuationToggleBtn', (active) => {
+    if (active) {
+      applyToggleState('alwaysEnglishPunctuationToggleBtn', false);
+      updateConfig('input.punctuation_lock', 'chinese');
+    } else {
+      updateConfig('input.punctuation_lock', 'follow');
+    }
+  });
+  setupToggleButton('alwaysEnglishPunctuationToggleBtn', (active) => {
+    if (active) {
+      applyToggleState('alwaysChinesePunctuationToggleBtn', false);
+      updateConfig('input.punctuation_lock', 'english');
+    } else {
+      updateConfig('input.punctuation_lock', 'follow');
+    }
+  });
   setupToggleButton('smartPunctuationToggleBtn', (active) => {
     updateConfig('input.smart_punctuation', active);
   });
