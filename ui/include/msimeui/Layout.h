@@ -340,6 +340,7 @@ class Card : public Panel
 
     void SetBrush(Brush brush);
     void SetPadding(float padding);
+    void SetShadowScale(float scale);
 
     SizeF Measure(const SizeF &availableSize) override;
     void Arrange(const RectF &finalRect) override;
@@ -348,6 +349,7 @@ class Card : public Panel
   private:
     Brush brush_;
     float padding_ = 0.0f;
+    float shadowScale_ = 1.0f;
     SizeF childSize_ = {};
 };
 

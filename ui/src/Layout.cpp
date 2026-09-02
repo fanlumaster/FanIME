@@ -204,13 +204,14 @@ bool IsSameRect(const RectF &lhs, const RectF &rhs)
     return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width && lhs.height == rhs.height;
 }
 
-void DrawLayeredMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
+void DrawLayeredMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius, float scale)
 {
+    const float s = std::max(scale, 0.15f);
     for (int i = 1; i <= 20; ++i)
     {
         const float t = static_cast<float>(i) / 20.0f;
-        const float spread = 1.15f * static_cast<float>(i);
-        const float offsetY = 0.4f * static_cast<float>(i);
+        const float spread = 1.15f * static_cast<float>(i) * s;
+        const float offsetY = 0.4f * static_cast<float>(i) * s;
         const float alpha = 0.14f * (1.0f - t) * (1.0f - t);
         ComPtr<ID2D1SolidColorBrush> brush;
         if (FAILED(target->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, alpha), brush.GetAddressOf())))
@@ -225,7 +226,7 @@ void DrawLayeredMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float
     }
 }
 
-bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
+bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius, float scale)
 {
     ComPtr<ID2D1DeviceContext> dc;
     if (FAILED(target->QueryInterface(IID_PPV_ARGS(dc.GetAddressOf()))))
@@ -233,6 +234,7 @@ bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, floa
         return false;
     }
 
+    const float s = std::max(scale, 0.15f);
     auto drawPass = [&](float stdDeviation, float alpha, float offsetY) -> bool {
         const float pad = stdDeviation * 3.0f + 4.0f;
         const D2D1_SIZE_F bitmapSize = {bounds.width + pad * 2.0f, bounds.height + pad * 2.0f};
@@ -283,21 +285,21 @@ bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, floa
         return true;
     };
 
-    const bool ambient = drawPass(11.0f, 0.42f, 3.0f);
-    const bool mid = drawPass(6.0f, 0.30f, 4.0f);
-    const bool contact = drawPass(2.8f, 0.48f, 3.0f);
+    const bool ambient = drawPass(11.0f * s, 0.42f, 3.0f * s);
+    const bool mid = drawPass(6.0f * s, 0.30f, 4.0f * s);
+    const bool contact = drawPass(2.8f * s, 0.48f, 3.0f * s);
     return ambient || mid || contact;
 }
 
-void DrawWin11WindowShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius)
+void DrawWin11WindowShadow(ID2D1RenderTarget *target, const RectF &bounds, float radius, float scale)
 {
     if (!target || bounds.width <= 0.0f || bounds.height <= 0.0f)
     {
         return;
     }
-    if (!DrawGaussianMistShadow(target, bounds, radius))
+    if (!DrawGaussianMistShadow(target, bounds, radius, scale))
     {
-        DrawLayeredMistShadow(target, bounds, radius);
+        DrawLayeredMistShadow(target, bounds, radius, scale);
     }
 }
 } // namespace
@@ -1784,6 +1786,17 @@ void Card::SetPadding(float padding)
     InvalidateMeasure();
 }
 
+void Card::SetShadowScale(float scale)
+{
+    const float clamped = std::max(scale, 0.15f);
+    if (shadowScale_ == clamped)
+    {
+        return;
+    }
+    shadowScale_ = clamped;
+    InvalidateVisual();
+}
+
 SizeF Card::Measure(const SizeF &availableSize)
 {
     const SizeF inner = {std::max(availableSize.width - padding_ * 2.0f, 0.0f),
@@ -1829,7 +1842,7 @@ void Card::Render(DeviceResources &deviceResources)
         return;
     }
 
-    DrawWin11WindowShadow(target, bounds_, brush_.radiusX);
+    DrawWin11WindowShadow(target, bounds_, brush_.radiusX, shadowScale_);
 
     const auto roundedRect =
         D2D1::RoundedRect(D2D1::RectF(bounds_.x, bounds_.y, bounds_.x + bounds_.width, bounds_.y + bounds_.height),
