@@ -2007,16 +2007,10 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     if (message == WM_IMESWITCH)
     {
-        if (wParam == 0) // 此时是英文状态
-        {
-            /* 更新 floating toolbar 的中英文状态为英文，同时更新标点的全角和半角状态 */
-            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 0, 0);
-        }
-        else // 此时是中文状态
-        {
-            /* 更新 floating toolbar 的中英文状态为中文，同时更新标点的全角和半角状态 */
-            UpdateFtbCnEnAndPuncState(::webviewFtbWnd, 1, 1);
-        }
+        const int cn = wParam != 0 ? 1 : 0;
+        const std::string &punctuation_lock = GetConfiguredPunctuationLock();
+        const int punc = punctuation_lock == "chinese" ? 1 : punctuation_lock == "english" ? 0 : cn;
+        UpdateFtbCnEnAndPuncState(::webviewFtbWnd, cn, punc);
         return 0;
     }
 
@@ -2122,6 +2116,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
             const bool previous_smart_punctuation_repeat_to_chinese =
                 GetConfiguredSmartPunctuationRepeatToChineseEnabled();
             const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
+            const std::string previous_punctuation_lock = GetConfiguredPunctuationLock();
             const bool previous_tsf_diagnostic_log = GetConfiguredTsfDiagnosticLogEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
@@ -2218,6 +2213,21 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
                         GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_punctuation_lock != GetConfiguredPunctuationLock())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::PunctuationLockChanged,
+                        FormatPunctuationLockWorkerPayload());
+                    const std::string &punctuation_lock = GetConfiguredPunctuationLock();
+                    if (punctuation_lock == "chinese")
+                    {
+                        UpdateFtbPuncState(::webviewFtbWnd, 1);
+                    }
+                    else if (punctuation_lock == "english")
+                    {
+                        UpdateFtbPuncState(::webviewFtbWnd, 0);
+                    }
                 }
                 if (previous_tsf_diagnostic_log != GetConfiguredTsfDiagnosticLogEnabled())
                 {
@@ -2776,6 +2786,7 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
             const bool previous_smart_punctuation_repeat_to_chinese =
                 GetConfiguredSmartPunctuationRepeatToChineseEnabled();
             const bool previous_paired_punctuation = GetConfiguredPairedPunctuationEnabled();
+            const std::string previous_punctuation_lock = GetConfiguredPunctuationLock();
             const bool previous_tsf_diagnostic_log = GetConfiguredTsfDiagnosticLogEnabled();
             const std::string previous_tsf_preedit_style = GetConfiguredTsfPreeditStyle();
             const std::string previous_theme_mode = GetConfiguredThemeMode();
@@ -2867,6 +2878,21 @@ LRESULT CALLBACK WndProcSettingsWindow(HWND hwnd, UINT message, WPARAM wParam, L
                     BroadcastToTsfWorkerThreadViaNamedpipe(
                         Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
                         GetConfiguredPairedPunctuationEnabled() ? L"1" : L"0");
+                }
+                if (previous_punctuation_lock != GetConfiguredPunctuationLock())
+                {
+                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                        Global::DataFromServerMsgTypeToTsfWorkerThread::PunctuationLockChanged,
+                        FormatPunctuationLockWorkerPayload());
+                    const std::string &punctuation_lock = GetConfiguredPunctuationLock();
+                    if (punctuation_lock == "chinese")
+                    {
+                        UpdateFtbPuncState(::webviewFtbWnd, 1);
+                    }
+                    else if (punctuation_lock == "english")
+                    {
+                        UpdateFtbPuncState(::webviewFtbWnd, 0);
+                    }
                 }
                 if (previous_tsf_diagnostic_log != GetConfiguredTsfDiagnosticLogEnabled())
                 {

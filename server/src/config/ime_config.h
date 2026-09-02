@@ -269,6 +269,11 @@ bool GetConfiguredSmartPunctuationRepeatToChineseEnabled();
 bool SetConfiguredSmartPunctuationRepeatToChineseEnabled(bool enabled);
 bool GetConfiguredPairedPunctuationEnabled();
 bool SetConfiguredPairedPunctuationEnabled(bool enabled);
+// "follow" | "chinese" | "english" — punctuation stays put when switching CN/EN.
+const std::string &GetConfiguredPunctuationLock();
+bool SetConfiguredPunctuationLock(const std::string &lock);
+// Worker payload for PunctuationLockChanged: "0" follow / "1" Chinese / "2" English.
+std::wstring FormatPunctuationLockWorkerPayload();
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
 bool GetConfiguredCandidateWindowFollowCursor();

@@ -3862,6 +3862,25 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.punctuation_lock")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredPunctuationLock(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::PunctuationLockChanged,
+                                        FormatPunctuationLockWorkerPayload());
+                                    if (value == "chinese")
+                                    {
+                                        UpdateFtbPuncState(::webviewFtbWnd, 1);
+                                    }
+                                    else if (value == "english")
+                                    {
+                                        UpdateFtbPuncState(::webviewFtbWnd, 0);
+                                    }
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("general.floating_toolbar_", 0) == 0)
                             {
                                 const std::string item = path.substr(std::string("general.floating_toolbar_").size());
@@ -4300,7 +4319,8 @@ void PostSettingsConfig()
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
             {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
-            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
+            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()},
+            {"punctuation_lock", GetConfiguredPunctuationLock()}}},
           {"general",
            {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},

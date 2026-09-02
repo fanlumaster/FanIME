@@ -305,7 +305,8 @@ void PostConfig(bool refresh_skin_catalog = false)
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
             {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
-            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
+            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()},
+            {"punctuation_lock", GetConfiguredPunctuationLock()}}},
           {"general",
            {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
@@ -471,6 +472,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredSmartPunctuationRepeatToChineseEnabled(json::value_to<bool>(data.at("value")));
     if (path == "input.paired_punctuation")
         return SetConfiguredPairedPunctuationEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "input.punctuation_lock")
+        return SetConfiguredPunctuationLock(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.tsf_preedit_style")
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")

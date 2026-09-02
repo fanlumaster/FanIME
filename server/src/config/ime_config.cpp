@@ -99,6 +99,7 @@ bool g_word_to_character_enabled = false;
 bool g_smart_punctuation_enabled = true;
 bool g_smart_punctuation_repeat_to_chinese_enabled = true;
 bool g_paired_punctuation_enabled = true;
+std::string g_punctuation_lock = "follow";
 std::string g_candidate_window_layout = "vertical";
 bool g_candidate_window_follow_cursor = true;
 std::string g_candidate_skin = "fluent";
@@ -736,6 +737,10 @@ bool LoadImeConfig()
         g_smart_punctuation_repeat_to_chinese_enabled =
             tbl["input"]["smart_punctuation_repeat_to_chinese"].value_or(true);
         g_paired_punctuation_enabled = tbl["input"]["paired_punctuation"].value_or(true);
+        {
+            const std::string lock = tbl["input"]["punctuation_lock"].value_or(std::string("follow"));
+            g_punctuation_lock = lock == "chinese" || lock == "english" ? lock : "follow";
+        }
         {
             // Prefer explicit bool keys; fall back to legacy switch_language array.
             const auto legacy = tbl["keybindings"]["switch_language"].as_array();
@@ -2237,6 +2242,38 @@ bool SetConfiguredPairedPunctuationEnabled(bool enabled)
     }
     g_paired_punctuation_enabled = enabled;
     return true;
+}
+
+const std::string &GetConfiguredPunctuationLock()
+{
+    return g_punctuation_lock;
+}
+
+bool SetConfiguredPunctuationLock(const std::string &lock)
+{
+    if (lock != "follow" && lock != "chinese" && lock != "english")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "punctuation_lock", EscapeTomlBasicString(lock)))
+    {
+        return false;
+    }
+    g_punctuation_lock = lock;
+    return true;
+}
+
+std::wstring FormatPunctuationLockWorkerPayload()
+{
+    if (g_punctuation_lock == "chinese")
+    {
+        return L"1";
+    }
+    if (g_punctuation_lock == "english")
+    {
+        return L"2";
+    }
+    return L"0";
 }
 
 const std::string &GetConfiguredCandidateWindowLayout()
