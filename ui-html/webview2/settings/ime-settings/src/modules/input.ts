@@ -196,6 +196,13 @@ export function setupInput(): void {
   setupPageOptions();
   setupFrequencyOptions();
   setupToggleButton('wordToCharacterToggleBtn', (active) => {
+    if (active) {
+      const pagingBrackets = document.getElementById('pagingBracketsCheckbox') as HTMLInputElement | null;
+      if (pagingBrackets?.checked) {
+        pagingBrackets.checked = false;
+        updateConfig('general.paging_brackets', false);
+      }
+    }
     updateConfig('input.word_to_character', active);
   });
   setupToggleButton('alwaysChinesePunctuationToggleBtn', (active) => {
@@ -295,12 +302,17 @@ function setupPageOptions(): void {
       const configPaths: Record<string, string> = {
         minus: 'general.paging_minus_equal',
         comma: 'general.paging_comma_period',
+        brackets: 'general.paging_brackets',
         tab: 'general.paging_tab',
         page: 'general.paging_page_up_down',
         arrow: 'general.candidate_arrow_navigation'
       };
       const path = configPaths[checkbox.value];
       if (path) updateConfig(path, checkbox.checked);
+      if (checkbox.value === 'brackets' && checkbox.checked) {
+        applyToggleState('wordToCharacterToggleBtn', false);
+        updateConfig('input.word_to_character', false);
+      }
     });
   });
 }

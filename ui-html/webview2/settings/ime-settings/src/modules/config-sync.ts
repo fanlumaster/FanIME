@@ -160,6 +160,10 @@ function applyConfigData(data: Record<string, any>): void {
     const checkbox = document.getElementById('pagingCommaPeriodCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_comma_period;
   }
+  if (typeof data?.general?.paging_brackets === 'boolean') {
+    const checkbox = document.getElementById('pagingBracketsCheckbox') as HTMLInputElement | null;
+    if (checkbox) checkbox.checked = data.general.paging_brackets;
+  }
   if (typeof data?.general?.paging_page_up_down === 'boolean') {
     const checkbox = document.getElementById('pagingPageUpDownCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_page_up_down;
