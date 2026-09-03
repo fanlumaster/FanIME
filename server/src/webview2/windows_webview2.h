@@ -105,6 +105,13 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 // Kick (or retry) shared small-window WebView2 init. Returns true when the menu
 // controller already exists and the tray menu may be shown.
 bool PrepareTrayMenuWebviewForShow();
+// Remember a candidate show that arrived before this host's WebView2 was
+// ready, and replay WM_SHOW_MAIN_WINDOW once navigation completes.
+void DeferCandidateShowUntilWebviewReady();
+void MaybeFlushPendingCandidateShow();
+// After the candidate controller exists, pin TOPMOST and renotify WebView2
+// (same uiAccess rule as the tray menu: never pin before CreateCoreWebView2Controller).
+void RaiseCandidateHostForShow(const wchar_t *reason);
 // Expand WebView bounds beyond the host client so horizontal measure/layout
 // is not constrained by a still-narrow HWND.
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd);

@@ -141,6 +141,10 @@ void GetCandidateCardSize(
         }).Get());
     DIAG_LOGF(L"ui-measure submit box={} parent={} max_dip=({:.1f},{:.1f}) hr={:#x}", boxId, parentId,
               maxWidthDip, maxHeightDip, static_cast<unsigned>(submitHr));
+    if (FAILED(submitHr))
+    {
+        callback({0.0, 0.0});
+    }
 }
 } // namespace
 

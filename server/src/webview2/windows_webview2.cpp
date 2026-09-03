@@ -101,6 +101,7 @@ enum class SmallWindowInitState
 SmallWindowInitState smallWindowInitState = SmallWindowInitState::Idle;
 int smallWindowInitAttempts = 0;
 bool pendingTrayMenuShow = false;
+bool pendingCandidateShow = false;
 bool floatingToolbarNavigationReady = false;
 // After NavigationCompleted, keep the host shown briefly so a cold WebView2
 // user-data folder can finish first paint; then reconcile hide/show for real.
@@ -533,12 +534,16 @@ void RequestNextSmallWindowController()
         HRESULT (*request)(HWND, HRESULT, ICoreWebView2Environment *);
     };
     const Host hosts[] = {
+        {L"cand", smallWindowCandHwnd, webviewControllerCandWnd != nullptr, &OnEnvironmentCreated},
+        {L"menu", smallWindowMenuHwnd, webviewControllerMenuWnd != nullptr, &OnMenuWindowEnvironmentCreated},
         {L"ftb", smallWindowFtbHwnd, webviewControllerFtbWnd != nullptr, &OnFtbWindowEnvironmentCreated},
     };
+    constexpr int kHostCount = 3;
 
     int chosen = -1;
-    for (int i = 0; i < 1; ++i)
+    for (int step = 1; step <= kHostCount; ++step)
     {
+        const int i = (lastFailedSmallWindowHostIndex + step) % kHostCount;
         if (!hosts[i].hasController && hosts[i].hwnd)
         {
             chosen = i;
@@ -548,6 +553,7 @@ void RequestNextSmallWindowController()
     if (chosen < 0)
     {
         MaybeFlushPendingTrayMenuShow();
+        MaybeFlushPendingCandidateShow();
         return;
     }
     const Host &host = hosts[chosen];
@@ -594,7 +600,7 @@ void OnSmallWindowControllerSettled(HRESULT hr)
 
 void BeginSmallWindowWebviewEnvironmentCreate()
 {
-    if (!smallWindowMenuHwnd || !smallWindowFtbHwnd)
+    if (!smallWindowCandHwnd || !smallWindowMenuHwnd || !smallWindowFtbHwnd)
     {
         return;
     }
@@ -668,11 +674,14 @@ FloatingToolbarState floatingToolbarState;
 
 bool AreSmallWindowWebviewsReadyUnlocked()
 {
+    const bool candReady =
+        CandidatePresenter::Instance().IsBound() ||
+        (candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr);
     const bool menuReady = TrayMenuPresenter::Instance().IsBound() ||
                            (menuNavigationReady && webviewMenuWnd != nullptr && webviewControllerMenuWnd != nullptr);
     const bool ftbReady = FloatingToolbarPresenter::Instance().IsBound() ||
                           (floatingToolbarNavigationReady && webviewFtbWnd != nullptr && webviewControllerFtbWnd != nullptr);
-    return menuReady && ftbReady;
+    return candReady && menuReady && ftbReady;
 }
 
 void CancelStaggeredTopmost()
@@ -765,9 +774,20 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
     {
     case SmallWindowTopmostStep::Candidate:
         PinHostTopmost(::global_hwnd);
-        if (::is_global_wnd_cand_shown && ::global_hwnd && CandidatePresenter::Instance().IsBound())
+        if (CandidatePresenter::Instance().IsBound())
         {
-            CandidatePresenter::Instance().Present();
+            if (::is_global_wnd_cand_shown && ::global_hwnd)
+            {
+                CandidatePresenter::Instance().Present();
+            }
+        }
+        else
+        {
+            RenotifyControllerAfterPin(webviewControllerCandWnd.Get(), ::global_hwnd);
+            if (::is_global_wnd_cand_shown && ::global_hwnd)
+            {
+                FineTuneWindow(::global_hwnd);
+            }
         }
         break;
 
@@ -897,6 +917,7 @@ void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
     LogSmallWindowReadyGateUnlocked(L"after-nav-ready");
     TryApplyPendingLazyTopmost(L"pending-after-nav-ready");
     MaybeFlushPendingTrayMenuShow();
+    MaybeFlushPendingCandidateShow();
 }
 
 bool UpdateBinaryState(int value, int &state)
@@ -1128,6 +1149,56 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
 }
 
+void DeferCandidateShowUntilWebviewReady()
+{
+    pendingCandidateShow = true;
+    CAND_DIAG_LOGF(L"candidate show deferred until webview ready {}", DescribeCandidateHostState());
+}
+
+void MaybeFlushPendingCandidateShow()
+{
+    if (!pendingCandidateShow || !::global_hwnd || !IsWindow(::global_hwnd))
+    {
+        return;
+    }
+    if (!::is_global_wnd_cand_shown)
+    {
+        pendingCandidateShow = false;
+        return;
+    }
+    if (!IsCandidateWebviewReady())
+    {
+        return;
+    }
+    pendingCandidateShow = false;
+    g_candidate_show_msg_pending.store(false);
+    CAND_DIAG_LOGF(L"candidate replaying show that was deferred until the webview was ready");
+    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+}
+
+void RaiseCandidateHostForShow(const wchar_t *reason)
+{
+    if (!::global_hwnd)
+    {
+        return;
+    }
+    if (CandidatePresenter::Instance().IsBound())
+    {
+        constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
+        SetWindowPos(::global_hwnd, HWND_TOPMOST, 0, 0, 0, 0, flag);
+        return;
+    }
+    if (!webviewControllerCandWnd)
+    {
+        CAND_DIAG_LOGF(L"candidate raise reason={} skipped: no controller yet", reason);
+        return;
+    }
+    CAND_DIAG_LOGF(L"candidate raise reason={} nav_ready={} {}", reason, candidateNavigationReady,
+                   DescribeCandidateHostState());
+    PinHostTopmost(::global_hwnd);
+    RenotifyControllerAfterPin(webviewControllerCandWnd.Get(), ::global_hwnd);
+}
+
 bool AreSmallWindowsTopmostApplied()
 {
     return smallWindowTopmostApplied;
@@ -1140,7 +1211,8 @@ bool AreSmallWindowWebviewsReady()
 
 bool IsCandidateWebviewReady()
 {
-    return CandidatePresenter::Instance().IsBound();
+    return CandidatePresenter::Instance().IsBound() ||
+           (candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr);
 }
 
 bool IsFloatingToolbarWebviewReady()
@@ -1583,6 +1655,58 @@ bool InjectExternalSkinCssFile(
     return true;
 }
 
+void AppendExternalCandidateColorCss(std::wstring &css, const CandidateSkinCatalog::CandidateColors &colors)
+{
+    auto add = [&](const std::string &value, const wchar_t *selector, const wchar_t *property) {
+        if (value.empty())
+        {
+            return;
+        }
+        css.append(selector);
+        css.append(L" { ");
+        css.append(property);
+        css.append(L": ");
+        css.append(string_to_wstring(value));
+        css.append(L"; }\n");
+    };
+    add(colors.accent, L".cursor, .first::before", L"background");
+    add(colors.selected, L".first, .cand.first", L"background-color");
+    add(colors.hover, L".hover-active .cand:not(.first):hover", L"background-color");
+    add(colors.surface, L".container", L"background");
+    add(colors.border, L".container", L"border-color");
+    add(colors.text, L".container", L"color");
+    add(colors.number, L".num, .cand-no", L"color");
+    if (colors.showSelectedBar.has_value() && !*colors.showSelectedBar)
+    {
+        css.append(L".first::before { display: none; }\n");
+    }
+}
+
+std::wstring BuildExternalCandidateSkinCss(const CandidateSkinCatalog::Package &skin, const std::wstring &skinsRoot)
+{
+    std::wstring css;
+    if (skin.decorationTopDip > 0.0)
+    {
+        std::wstring preview = L"none";
+        if (!skin.preview.empty())
+        {
+            preview = EmbedSkinCssUrl(skinsRoot, skin.id, string_to_wstring(skin.preview));
+        }
+        css.append(L".containerParent { padding-top: var(--msime-skin-decoration-top, 0px); "
+                   L"position: relative; box-sizing: border-box; }\n"
+                   L".containerParent:not(:empty)::before { content: \"\"; position: absolute; "
+                   L"z-index: 0; top: 0; right: 0; width: var(--msime-skin-decoration-width, 0px); "
+                   L"height: var(--msime-skin-decoration-top, 0px); background: ");
+        css.append(preview);
+        css.append(L" center / contain no-repeat; pointer-events: none; }\n"
+                   L".container { position: relative; z-index: 1; "
+                   L"min-width: max(7em, var(--msime-skin-min-width, 0px)); }\n");
+    }
+    const bool light = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
+    AppendExternalCandidateColorCss(css, light ? skin.light : skin.dark);
+    return css;
+}
+
 bool InjectExternalCandidateSkin(
     std::wstring &html,
     const CandidateSkinCatalog::Package &skin,
@@ -1596,12 +1720,19 @@ bool InjectExternalCandidateSkin(
         L"<style id=\"external-candidate-skin-vars\">:root{{--msime-skin-min-width:{}px;"
         L"--msime-skin-decoration-top:{}px;--msime-skin-decoration-width:{}px;}}</style>",
         skin.minWidthDip, skin.decorationTopDip, skin.decorationWidthDip);
+    std::wstring css = BuildExternalCandidateSkinCss(skin, skinsRoot);
+    NeutralizeEmbeddedStyleClosers(css);
+    std::wstring generated;
+    if (!css.empty())
+    {
+        generated = L"<style id=\"external-candidate-skin\">" + css + L"</style>";
+    }
     const size_t headEnd = html.find(L"</head>");
     if (headEnd == std::wstring::npos)
     {
         return false;
     }
-    html.insert(headEnd, vars);
+    html.insert(headEnd, vars + generated);
     return true;
 }
 
@@ -1959,12 +2090,21 @@ std::wstring BuildCandidateSlotPayloadJson(const std::wstring &commaSeparated, b
     nlohmann::json payload;
     payload["preedit"] = words.empty() ? std::string{} : wstring_to_string(words[0]);
     payload["items"] = nlohmann::json::array();
+    // Preserve slot indices: do not compress out empty tokens.
+    // The WebView DOM renderer expects wrapper<->slot index alignment.
+    uint16_t nonEmptyMask = 0;
     for (size_t i = 1; i < words.size(); ++i)
     {
-        if (!words[i].empty())
+        if (i <= 9 && !words[i].empty())
         {
-            payload["items"].push_back(wstring_to_string(words[i]));
+            nonEmptyMask |= static_cast<uint16_t>(1u) << static_cast<uint16_t>(i - 1);
         }
+        payload["items"].push_back(wstring_to_string(words[i]));
+    }
+    if (nonEmptyMask == 0 && !words.empty())
+    {
+        CAND_DIAG_LOGF(L"candidate-slot payload all-empty words_sz={} content_only={} preedit_len={}",
+                       words.size(), contentOnly ? 1 : 0, words[0].size());
     }
     payload["selected"] = Global::candidate_ui.selected_index_in_page;
     payload["preeditVisible"] = GetConfiguredCandidateWindowPreeditStyle() != "empty";
@@ -2525,18 +2665,20 @@ window.mouseBlockTimeout = setTimeout(() => {
 
 void InflateCandWnd(std::wstring &str)
 {
-    InflateCandWnd(str, nullptr, false);
+    InflateCandWnd(str, nullptr);
 }
 
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete)
 {
-    InflateCandWnd(str, std::move(onComplete), false);
+    std::wstring result = InflateCandidateTemplate(BodyStringCandWnd, str);
+    UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
 
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete, bool contentOnly)
 {
-    UpdateCandidateSlotsWithJavaScript(webviewCandWnd, BuildCandidateSlotPayloadJson(str, contentOnly),
-                                       std::move(onComplete), contentOnly);
+    (void)contentOnly;
+    std::wstring result = InflateCandidateTemplate(BodyStringCandWnd, str);
+    UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
 
 void InflateMeasureDivCandWnd(std::wstring &str)
@@ -2702,6 +2844,10 @@ HRESULT OnControllerCreatedCandWnd(     //
     (void)0;
 
     // Navigate to HTML
+    if (HTMLStringCandWnd.empty())
+    {
+        PrepareHtmlForWnds();
+    }
     HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
     CAND_DIAG_LOGF(L"webview NavigateToString hr={:#x} html_chars={} skin={}", static_cast<unsigned>(hr),
                    HTMLStringCandWnd.size(), string_to_wstring(preparedCandidateSkin));
@@ -3618,6 +3764,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.ui_backend")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredUiBackend(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.candidate_window_layout")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
@@ -4375,7 +4529,8 @@ void PostSettingsConfig()
             {"y_mode", GetConfiguredYModeEnabled()},
             {"r_mode", GetConfiguredRModeEnabled()}}},
           {"appearance",
-           {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+           {{"ui_backend", GetConfiguredUiBackend()},
+            {"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_window_follow_cursor", GetConfiguredCandidateWindowFollowCursor()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
@@ -4780,8 +4935,8 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 }
 
 /**
- * @brief Initialize the tray menu and floating toolbar WebViews in one
- *        environment. The candidate window is Direct2D and does not use WebView2.
+ * @brief Initialize candidate, tray menu, and floating toolbar WebViews in one
+ *        environment when appearance.ui_backend is webview2.
  */
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 {
@@ -4794,9 +4949,10 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
     currentSmallWindowHostIndex = -1;
     lastFailedSmallWindowHostIndex = -1;
     pendingTrayMenuShow = false;
-    if (FloatingToolbarPresenter::Instance().IsBound() && TrayMenuPresenter::Instance().IsBound())
+    pendingCandidateShow = false;
+    if (UseD2dSmallWindowUi())
     {
-        FTB_DIAG_LOGF(L"skip small-window webview init: candidate/menu/ftb are d2d");
+        FTB_DIAG_LOGF(L"skip small-window webview init: ui_backend=d2d");
         return;
     }
     BeginSmallWindowWebviewEnvironmentCreate();
@@ -4851,6 +5007,7 @@ void ShutdownWebviews()
     // interface on the UI STA before WinMain balances CoInitializeEx.
     ResetSmallWindowTopmostGate();
     pendingTrayMenuShow = false;
+    pendingCandidateShow = false;
     smallWindowInitState = SmallWindowInitState::Idle;
     smallWindowControllerRequestInFlight = false;
     if (smallWindowCandHwnd)

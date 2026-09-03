@@ -280,6 +280,13 @@ const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
 bool GetConfiguredCandidateWindowFollowCursor();
 bool SetConfiguredCandidateWindowFollowCursor(bool enabled);
+// "d2d" | "webview2" — candidate, floating toolbar, and tray menu renderer.
+// Changing this writes config immediately; the process snapshot does not switch
+// until the IME server is restarted.
+const std::string &GetConfiguredUiBackend();
+bool SetConfiguredUiBackend(const std::string &backend);
+// Process-lifetime renderer chosen at InitImeConfig. Independent of later reloads.
+bool UseD2dSmallWindowUi();
 // "fluent" | "wechat" | "graphite" | "willow_green" — candidate-window and floating-toolbar skin.
 const std::string &GetConfiguredCandidateSkin();
 bool SetConfiguredCandidateSkin(const std::string &skin);

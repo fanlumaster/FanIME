@@ -350,7 +350,9 @@ void PostConfig(bool refresh_skin_catalog = false)
             {"r_mode", GetConfiguredRModeEnabled()},
             {"clipboard_history", GetConfiguredClipboardHistoryEnabled()}}},
           {"appearance",
-           {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+           {{"ui_backend", GetConfiguredUiBackend()},
+            {"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_window_follow_cursor", GetConfiguredCandidateWindowFollowCursor()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
@@ -477,8 +479,12 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredPunctuationLock(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.tsf_preedit_style")
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.ui_backend")
+        return SetConfiguredUiBackend(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.candidate_window_follow_cursor")
+        return SetConfiguredCandidateWindowFollowCursor(json::value_to<bool>(data.at("value")));
     if (path == "appearance.candidate_skin")
         return SetConfiguredCandidateSkin(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_preedit_style")

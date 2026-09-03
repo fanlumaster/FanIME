@@ -103,6 +103,8 @@ bool g_paired_punctuation_enabled = true;
 std::string g_punctuation_lock = "follow";
 std::string g_candidate_window_layout = "vertical";
 bool g_candidate_window_follow_cursor = true;
+std::string g_ui_backend = "d2d";
+std::string g_ui_backend_active = "d2d";
 std::string g_candidate_skin = "fluent";
 std::string g_candidate_window_preedit_style = "pinyin";
 std::string g_theme_mode = "system";
@@ -123,6 +125,13 @@ CustomTranslationConfig g_custom_translation;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
+
+std::string NormalizeSmallWindowUiBackend(const std::string &value)
+{
+    if (value == "webview2" || value == "webview" || value == "web")
+        return "webview2";
+    return "d2d";
+}
 
 bool IsValidCandidateSkinId(const std::string &skin)
 {
@@ -786,6 +795,8 @@ bool LoadImeConfig()
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         g_candidate_window_follow_cursor = tbl["appearance"]["candidate_window_follow_cursor"].value_or(true);
+        g_ui_backend = NormalizeSmallWindowUiBackend(
+            tbl["appearance"]["ui_backend"].value_or(std::string("d2d")));
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
         g_candidate_skin = IsValidCandidateSkinId(skin) ? skin : "fluent";
         {
@@ -1239,6 +1250,7 @@ void InitImeConfig()
         (void)0;
 #endif
     }
+    g_ui_backend_active = g_ui_backend;
 }
 
 bool ReloadImeConfigIfChanged()
@@ -2345,6 +2357,27 @@ bool SetConfiguredCandidateWindowFollowCursor(bool enabled)
     }
     g_candidate_window_follow_cursor = enabled;
     return true;
+}
+
+const std::string &GetConfiguredUiBackend()
+{
+    return g_ui_backend;
+}
+
+bool SetConfiguredUiBackend(const std::string &backend)
+{
+    const std::string normalized = NormalizeSmallWindowUiBackend(backend);
+    if (!WriteConfiguredValue("appearance", "ui_backend", EscapeTomlBasicString(normalized)))
+    {
+        return false;
+    }
+    g_ui_backend = normalized;
+    return true;
+}
+
+bool UseD2dSmallWindowUi()
+{
+    return g_ui_backend_active != "webview2";
 }
 
 const std::string &GetConfiguredCandidateSkin()
