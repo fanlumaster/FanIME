@@ -12,6 +12,28 @@
     </div>
   </div>
 
+  <!-- 界面渲染 -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">界面渲染</div>
+        <div class="floating-toolbar-description">用于候选窗、悬浮工具栏和托盘菜单。更改后需重启输入法进程才会生效。</div>
+      </div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="uiBackendBtn">
+          <span>Direct2D</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="uiBackendMenu">
+          <div class="dropdown-item" data-value="d2d">Direct2D（原生）</div>
+          <div class="dropdown-item" data-value="webview2">WebView2</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 候选窗样式 -->
   <div class="section sec-cand-style">
     <div class="section-header">

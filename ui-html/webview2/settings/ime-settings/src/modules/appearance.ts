@@ -30,6 +30,7 @@ export type CandidateAppearanceConfig = {
   cand_text_color?: string;
   page_size?: number;
   candidate_window_follow_cursor?: boolean;
+  ui_backend?: string;
   system_fonts?: string[];
 };
 
@@ -382,6 +383,7 @@ export function applyAppearanceConfig(
   if (typeof candidateAppearance?.candidate_window_follow_cursor === 'boolean') {
     applyToggleState('candidateFollowCursorToggleBtn', candidateAppearance.candidate_window_follow_cursor);
   }
+  applyDropdownValue('uiBackendBtn', 'uiBackendMenu', candidateAppearance?.ui_backend);
   populateFontMenus(candidateAppearance?.system_fonts);
   syncColorControls(candidateAppearance?.cand_text_color);
   applyCandidatePreviewStyle();
@@ -426,6 +428,8 @@ export async function setupAppearance() {
   setupDropdownMenu('screenKeyboardThemeBtn', 'screenKeyboardThemeMenu', 'changeScreenKeyboardTheme', false, 'appearance.theme_screen_keyboard');
   setupDropdownMenu('handwritingThemeBtn', 'handwritingThemeMenu', 'changeHandwritingTheme', false, 'appearance.theme_handwriting');
   setupDropdownMenu('voiceThemeBtn', 'voiceThemeMenu', 'changeVoiceTheme', false, 'appearance.theme_voice');
+
+  setupDropdownMenu('uiBackendBtn', 'uiBackendMenu', '', true, 'appearance.ui_backend');
 
   // 候选项排列方式
   setupDropdownMenu('arrangeBtn', 'arrangeMenu', 'changeCandidateArrange');

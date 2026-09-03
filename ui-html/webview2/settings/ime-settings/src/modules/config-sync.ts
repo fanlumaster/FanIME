@@ -49,6 +49,7 @@ function applyConfigData(data: Record<string, any>): void {
           cand_text_color: data?.appearance?.cand_text_color,
           page_size: data?.appearance?.page_size,
           candidate_window_follow_cursor: data?.appearance?.candidate_window_follow_cursor,
+          ui_backend: data?.appearance?.ui_backend,
           system_fonts: data?.appearance?.system_fonts
         }
       );
