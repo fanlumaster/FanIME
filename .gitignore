@@ -10,3 +10,4 @@ draft/
 *.log
 CMakeSettings.json
 log.txt
+.workbuddy/
