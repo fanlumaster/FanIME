@@ -43,7 +43,7 @@ check('attested syllable count', len(scheme.bases), 659)
 r = seg.segment('jyutping')
 check('jyutping syllables', (r.syllables, r.pending), (['jyut', 'ping'], ''))
 
-r = seg.segment('gwongzau')   # 廣州 gwong2 zau1
+r = seg.segment('gwongzau')   # 广州 gwong2 zau1
 check('gwongzau', (r.syllables, r.pending), (['gwong', 'zau'], ''))
 
 r = seg.segment('hoenggong')   # 香港 hoeng1 gong2
@@ -52,7 +52,7 @@ check('hoenggong', (r.syllables, r.pending), (['hoeng', 'gong'], ''))
 r = seg.segment('ngo')         # 我
 check('ngo', (r.syllables, r.pending), (['ngo'], ''))
 
-r = seg.segment('ng')          # 吳
+r = seg.segment('ng')          # 吴
 check('ng', (r.syllables, r.pending), (['ng'], ''))
 
 r = seg.segment('m')           # 唔
