@@ -3330,7 +3330,8 @@ LRESULT CALLBACK WndProcFtbWindow(HWND hwnd, UINT message, WPARAM wParam, LPARAM
         const FLOAT scale = HIWORD(wParam) / 96.0f;
         if (FloatingToolbarPresenter::Instance().IsBound())
         {
-            FloatingToolbarPresenter::Instance().RelayoutHost();
+            FloatingToolbarPresenter::Instance().RelayoutHost(scale);
+            ScheduleFloatingToolbarDpiRemeasure(hwnd);
             return 0;
         }
         // Same contract as the tray menu: size from DIPs * the DPI in wParam
