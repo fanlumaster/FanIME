@@ -47,7 +47,10 @@ wim_path = normpath(
         "include",
     )
 )
-boost_path = normpath(os.path.join(user_home, "scoop", "apps", "boost", "current"))
+vcpkg_root = normpath(
+    os.environ.get("VCPKG_ROOT")
+    or os.path.join(user_home, "scoop", "apps", "vcpkg", "current")
+).rstrip("/")
 
 #
 # project_root/.clangd
@@ -113,9 +116,9 @@ CMakePresets_file = os.path.join(
 CMakePresets_file_output_file = os.path.join(MetasequoiaImeTsf_root_path, "CMakePresets.json")
 with open(CMakePresets_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
-lines[8] = f'        "VCPKG_ROOT": "{normpath(user_home)}/scoop/apps/vcpkg/current/"\n'
+lines[8] = f'        "VCPKG_ROOT": "{vcpkg_root}/"\n'
 lines[11] = (
-    f'        "CMAKE_TOOLCHAIN_FILE": "{normpath(user_home)}/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake",\n'
+    f'        "CMAKE_TOOLCHAIN_FILE": "{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",\n'
 )
 with open(CMakePresets_file_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
