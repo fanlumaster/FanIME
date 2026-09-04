@@ -4,6 +4,8 @@
 
 class CMetasequoiaIME;
 
+POINT GetPhysicalTextAnchor(_In_ ITfContextView *pContextView, _In_ const RECT &textExtent);
+
 class CTfTextLayoutSink : public ITfTextLayoutSink
 {
   public:
@@ -21,7 +23,7 @@ class CTfTextLayoutSink : public ITfTextLayoutSink
     HRESULT _StartLayout(_In_ ITfContext *pContextDocument, TfEditCookie ec, _In_ ITfRange *pRangeComposition);
     VOID _EndLayout();
 
-    HRESULT _GetTextExt(_Out_ RECT *lpRect);
+    HRESULT _GetTextExt(_Out_ RECT *lpRect, _Out_ POINT *lpAnchor);
     ITfContext *_GetContextDocument()
     {
         return _pContextDocument;
