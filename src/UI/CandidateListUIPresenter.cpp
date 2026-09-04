@@ -197,9 +197,22 @@ HRESULT CMetasequoiaIME::_HandleCandidateFinalizeForVKReturn(TfEditCookie ec, _I
     WCHAR committedLastChar = 0;
 
     CStringRange keyStrokebuffer = _pCompositionProcessorEngine->GetKeystrokeBuffer();
-    DWORD_PTR keystrokeBufLen = keyStrokebuffer.GetLength();
-    DWORD_PTR candidateLen = keystrokeBufLen;
-    CStringRange candidateString(keyStrokebuffer);
+
+    // While a word is being created the preedit is 已选汉字 + 剩余原始输入 (see
+    // _HandleCompositionInputWorker); the keystroke buffer only holds the
+    // remaining raw part. Enter commits what the preedit shows, so the
+    // already selected prefix has to be committed with it. Clearing here
+    // matches the Normal branch of _HandleCandidateFinalize and mirrors the
+    // Server, which drops its own creating_word state when the candidate
+    // presenter teardown below sends HideCandidateWnd.
+    const std::wstring commitText =
+        GlobalIme::word_for_creating_word + keyStrokebuffer.ToWString();
+    GlobalIme::word_for_creating_word.clear();
+    GlobalIme::pending_create_word_preedit.clear();
+
+    DWORD_PTR candidateLen = commitText.length();
+    CStringRange candidateString;
+    candidateString.Set(commitText.c_str(), candidateLen);
 
     if (nullptr == _pCandidateListUIPresenter)
     {
