@@ -54,8 +54,9 @@ STDAPI CGetTextExtentEditSession::DoEditSession(TfEditCookie ec)
             return S_OK;
         }
 
-        Global::Point[0] = rc.left * Global::DpiScale;
-        Global::Point[1] = rc.bottom * Global::DpiScale;
+        const POINT anchor = GetPhysicalTextAnchor(_pContextView, rc);
+        Global::Point[0] = anchor.x;
+        Global::Point[1] = anchor.y;
         if (Global::current_process_name == Global::ZEN_BROWSER)
         {
             Global::firefox_like_cnt++;
