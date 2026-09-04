@@ -265,6 +265,20 @@ bool IsOtherKeyboardKeyDown()
     }
     return false;
 }
+
+void ClearReleasedShiftModifierState()
+{
+    if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0)
+    {
+        return;
+    }
+
+    Global::IsShiftKeyDownOnly = FALSE;
+    Global::PureShiftKeyDown = FALSE;
+    Global::PureShiftKeyUp = FALSE;
+    Global::ModifiersValue &=
+        ~(TF_MOD_SHIFT | TF_MOD_LSHIFT | TF_MOD_RSHIFT);
+}
 } // namespace
 
 void CMetasequoiaIME::_InitMinttyKeyboardHook()
@@ -1405,6 +1419,11 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     PerfTimer onTestKeyDownTimer;
     Global::UpdateModifiers(wParam, lParam);
     _TrackModifierHotkeyArming(wParam, lParam, false);
+    if (IsShiftVk(LOWORD(wParam)))
+    {
+        *pIsEaten = FALSE;
+        return S_OK;
+    }
 
     if (_HasDeferredKeyBarrier())
     {
@@ -2023,6 +2042,11 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
     {
         Global::UpdateModifiers(wParam, lParam);
         _TrackModifierHotkeyArming(wParam, lParam, false);
+        if (IsShiftVk(LOWORD(wParam)))
+        {
+            *pIsEaten = FALSE;
+            return KeyDownDispatchResult::Complete;
+        }
     }
 
     _KEYSTROKE_STATE KeystrokeState = {};
@@ -2437,6 +2461,22 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
 
     Global::UpdateModifiers(wParam, lParam);
 
+    if (IsShiftVk(LOWORD(wParam)))
+    {
+        // TSF does not call OnKeyUp after a FALSE test result. Claim and
+        // queue the bare-Shift toggle here while leaving its release visible.
+        GUID hotkeyGuid = {};
+        BOOL queued = FALSE;
+        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false) &&
+            _QueueInputHotkey(pContext, hotkeyGuid, &queued))
+        {
+            _MarkMinttyShiftHandled();
+        }
+        ClearReleasedShiftModifierState();
+        *pIsEaten = FALSE;
+        return S_OK;
+    }
+
     if (_HasDeferredKeyBarrier())
     {
         // A matching deferred key-down may or may not have fit in the bounded
@@ -2484,39 +2524,23 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
     }
     Global::UpdateModifiers(wParam, lParam);
 
+    if (IsShiftVk(LOWORD(wParam)))
+    {
+        // Defend against hosts that offer KeyUp without a preceding test.
+        GUID hotkeyGuid = {};
+        BOOL queued = FALSE;
+        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false) &&
+            _QueueInputHotkey(pContext, hotkeyGuid, &queued))
+        {
+            _MarkMinttyShiftHandled();
+        }
+        ClearReleasedShiftModifierState();
+        *pIsEaten = FALSE;
+        return S_OK;
+    }
+
     if (_HasDeferredKeyBarrier())
     {
-        const bool isShift = wParam == VK_SHIFT || wParam == VK_LSHIFT ||
-                             wParam == VK_RSHIFT;
-        const uint64_t expectedToken =
-            _expectedWorkerFocusToken.load(std::memory_order_acquire);
-        const bool transportUnavailable =
-            expectedToken == 0 ||
-            !_workerCommitReady.load(std::memory_order_acquire) ||
-            _acknowledgedWorkerFocusToken.load(std::memory_order_acquire) !=
-                expectedToken;
-        if (isShift && Global::PureShiftKeyUp && transportUnavailable &&
-            _pCompositionProcessorEngine && _DeferredKeyQueueHasCapacity() &&
-            FanyUtils::ReadConfiguredSwitchLanguageHotkeys().shift)
-        {
-            // Reconnect barrier owns the keystroke stream; apply the local
-            // compartment toggle here and queue only composition finalization.
-            _serverUnavailableFallbackActive = true;
-            _shiftHotkeyArmed = false;
-            _ctrlHotkeyArmed = false;
-            _pCompositionProcessorEngine->ToggleIMEMode(_GetThreadMgr(),
-                                                         _GetClientId());
-            _MarkMinttyShiftHandled();
-            _KEYSTROKE_STATE toggleState = {};
-            toggleState.Category = CATEGORY_COMPOSING;
-            toggleState.Function = FUNCTION_TOGGLE_IME_MODE;
-            *pIsEaten = _QueueDeferredKeyDown(
-                            pContext, wParam, lParam, L'\0',
-                            CaptureIpcModifiers(), toggleState)
-                            ? TRUE
-                            : FALSE;
-            return S_OK;
-        }
         *pIsEaten = FALSE;
         return S_OK;
     }
