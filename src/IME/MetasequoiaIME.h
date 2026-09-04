@@ -382,8 +382,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     // shortcuts stay on the Server LL hook.
     void _TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam, bool isKeyUp);
     bool _MatchChordInputHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid) const;
-    bool _MatchModifierReleaseHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid,
-                                    bool peekOnly);
+    bool _MatchModifierReleaseHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid);
     bool _QueueInputHotkey(_In_ ITfContext *pContext, REFGUID hotkeyGuid,
                            _Out_ BOOL *pIsEaten);
 
