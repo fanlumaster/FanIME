@@ -711,6 +711,15 @@ BOOL CMetasequoiaIME::_IsKeyEaten(        //
             return TRUE;
         }
 
+        // Other Ctrl/Alt/Windows combinations belong to the application.
+        // IME-owned shortcuts are handled before this normal key classifier.
+        if ((shortcutModifiers & 0b00000110u) != 0 ||
+            (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
+            (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0)
+        {
+            return isTouchKeyboardSpecialKeys;
+        }
+
         const bool isComposing = freshCompositionState ? false : _IsComposing() != FALSE;
         const CANDIDATE_MODE candidateMode =
             freshCompositionState ? CANDIDATE_NONE : _candidateMode;
