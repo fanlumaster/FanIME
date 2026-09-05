@@ -218,7 +218,7 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 # Tomlplusplus, Webview2 and other head-only libraries
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-    "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/include"
     "${CMAKE_SOURCE_DIR}/src/voice-input"
     "${CMAKE_SOURCE_DIR}/src/voice-input/third_party"
 )
@@ -328,7 +328,7 @@ endif()
 add_dependencies(${PROJECT_NAME} ${HANDWRITING_EXECUTABLE_NAME})
 
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
-set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
+set(WEBVIEW2_VCPKG_ROOT "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows")
 set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")
 set(WEBVIEW2_LOADER_DEBUG "${WEBVIEW2_VCPKG_ROOT}/debug/lib/WebView2Loader.dll.lib")
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -362,7 +362,7 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
 )
 target_include_directories(${SETTINGS_EXECUTABLE_NAME}
     PRIVATE
-    "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/include"
 )
 target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
     MetasequoiaIme::Engine
