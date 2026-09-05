@@ -294,7 +294,15 @@ std::wstring NormalizeClipboardText(std::wstring text)
     while (!text.empty() && (text.back() == L'\0' || text.back() == L'\r'))
         text.pop_back();
     if (text.size() > ClipboardHistory::kMaxChars)
-        text.resize(ClipboardHistory::kMaxChars);
+    {
+        size_t cut = ClipboardHistory::kMaxChars;
+        // wchar_t is UTF-16 here, so the cut can land between a surrogate pair and leave a lone high
+        // surrogate, which is not valid UTF-16 and does not survive being written out and read back.
+        // Drop the incomplete character rather than half of it.
+        if (cut > 0 && text[cut - 1] >= 0xD800 && text[cut - 1] <= 0xDBFF)
+            --cut;
+        text.resize(cut);
+    }
     return text;
 }
 
