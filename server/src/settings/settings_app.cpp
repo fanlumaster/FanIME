@@ -1,3 +1,4 @@
+#include "MetasequoiaImeEngine/contracts/webview/validator.h"
 #include "config/ime_config.h"
 #include "global/globals.h"
 #include "resource/resource.h"
@@ -426,6 +427,9 @@ void PostConfig(bool refresh_skin_catalog = false)
             {"show_sp_helpcode_in_candidate_window", GetConfiguredShowShuangpinHelpcodeInCandidateWindow()},
             {"show_qp_helpcode_in_candidate_window", GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
     payload["data"]["voice_input"]["polish_presets"] = std::move(polish_presets);
+    payload["protocolVersion"] = metasequoia::webview::Version;
+    if (!metasequoia::webview::Validate(json::parse(payload.dump()), "server"))
+        return;
     const std::wstring message = string_to_wstring(payload.dump());
     g_webview->PostWebMessageAsJson(message.c_str());
 }
@@ -435,6 +439,9 @@ void PostWindowState(HWND hwnd)
     if (!g_webview)
         return;
     nlohmann::json payload = {{"type", "windowState"}, {"data", {{"isMaximized", IsZoomed(hwnd) != FALSE}}}};
+    payload["protocolVersion"] = metasequoia::webview::Version;
+    if (!metasequoia::webview::Validate(json::parse(payload.dump()), "server"))
+        return;
     const std::wstring message = string_to_wstring(payload.dump());
     g_webview->PostWebMessageAsJson(message.c_str());
 }
@@ -444,6 +451,9 @@ void PostMaximizeButtonEvent(const char *event_name)
     if (!g_webview)
         return;
     nlohmann::json payload = {{"type", "maxButtonEvent"}, {"data", {{"event", event_name}}}};
+    payload["protocolVersion"] = metasequoia::webview::Version;
+    if (!metasequoia::webview::Validate(json::parse(payload.dump()), "server"))
+        return;
     const std::wstring message = string_to_wstring(payload.dump());
     g_webview->PostWebMessageAsJson(message.c_str());
 }
@@ -693,6 +703,8 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
     try
     {
         json::value value = json::parse(wstring_to_string(raw.get()));
+        if (!metasequoia::webview::Validate(value, "client", "settings"))
+            return;
         const std::string type = json::value_to<std::string>(value.at("type"));
         if (type == "dragStart")
         {
@@ -786,6 +798,9 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
             response["type"] = "dictionaryResponse";
             if (const auto *request_id = data.if_contains("requestId"); request_id && request_id->is_string())
                 response["requestId"] = json::value_to<std::string>(*request_id);
+            response["protocolVersion"] = metasequoia::webview::Version;
+            if (!metasequoia::webview::Validate(json::parse(response.dump()), "server"))
+                return;
             const std::wstring message = string_to_wstring(response.dump());
             g_webview->PostWebMessageAsJson(message.c_str());
         }
