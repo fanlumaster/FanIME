@@ -20,6 +20,9 @@ permissions:
   contents: read
 
 jobs:
+  product:
+    uses: ./.github/workflows/product-ci.yml
+
   build:
     name: Windows ${{ matrix.name }}
     runs-on: windows-2025
@@ -50,3 +53,5 @@ jobs:
       - name: Build
         shell: pwsh
         run: cmake --build build --config Release --parallel
+      - name: Test the wire contract on this architecture
+        run: ctest --test-dir build -C Release --output-on-failure
