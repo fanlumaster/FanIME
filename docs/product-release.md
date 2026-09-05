@@ -21,6 +21,8 @@ python scripts/product_lock.py validate
 
 手动 Release 只接受已有 draft tag，读取该提交内的清单。变更词库需要新的源码提交和产品版本，不允许临时覆盖词库 tag。没有清单的历史版本不能用新流水线宣称可复现重建。
 
+发布前 `product_lock.py verify-published` 要求清单里每个提交都能从各自仓库的默认分支到达。这一条只在发布路径上执行，不进 `product-ci.yml`：跨仓改动同时落地时，PR 里锁住分支提交是正常且必要的，在 PR CI 上强制会把它本该保护的那次落地直接锁死。到了发布这一刻判断相反——没进默认分支的输入就是没人合过的输入，锁文件为它背书等于宣称了一次并不存在的评审。
+
 安装包携带 `%LOCALAPPDATA%/metasequoiaime/product-manifest.json`，Release 同时附加同名文件。其中包含 TSF 提交、全部锁定输入和清单文件摘要。签名时间、工具链与 runner 更新仍可能改变二进制字节；此机制保证产品源码与数据组合确定，不承诺安装包逐字节一致。
 
 本地检查：

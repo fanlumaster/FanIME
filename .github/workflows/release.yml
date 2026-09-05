@@ -86,10 +86,16 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.target_sha }}
           persist-credentials: false
+      # verify-published is a release gate and is deliberately absent from product-ci.yml: a pull
+      # request legitimately locks branch commits while a change lands across repositories, and
+      # enforcing reachability there would deadlock the landing it protects.
       - name: Validate and export the product lock
         id: lock
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/product_lock.py verify-contracts .
+          python3 scripts/product_lock.py verify-published
           python3 scripts/product_lock.py outputs --github-output "$GITHUB_OUTPUT"
 
   tsf:

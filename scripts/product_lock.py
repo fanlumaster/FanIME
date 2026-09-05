@@ -106,6 +106,25 @@ def verify_contracts(directory: Path, data: dict) -> None:
         raise ValueError("TSF and Server must consume the same Engine contract commit")
 
 
+def verify_published(data: dict) -> None:
+    """Every locked commit has to be reachable from its own repository's default branch.
+
+    This is a release gate rather than a validate rule, deliberately. A pull request legitimately locks branch commits while one change lands across several repositories at once, and enforcing this in pull request CI would deadlock the very landing it exists to protect. At release time the situation is the opposite: an input that never reached its default branch is an input nobody merged, and shipping it makes the lock attest to a review that did not happen.
+    """
+    for name, entry in data["repositories"].items():
+        repository, commit = entry["repository"], entry["commit"]
+        try:
+            default = api(f"repos/{repository}")["default_branch"]
+            status = api(f"repos/{repository}/compare/{default}...{commit}")["status"]
+        except subprocess.CalledProcessError as error:
+            raise ValueError(f"{name}: cannot resolve {commit} in {repository}") from error
+        # behind and identical both mean the locked commit is an ancestor of the default branch.
+        # ahead and diverged mean it sits on something that was never merged into it.
+        if status not in ("behind", "identical"):
+            raise ValueError(f"{name}: {commit} is not on {repository}'s {default} ({status})")
+        print(f"{name}: {commit[:12]} is on {repository}'s {default}")
+
+
 def github_outputs(data: dict) -> str:
     return "".join(f"{name}_sha={entry['commit']}\n" for name, entry in data["repositories"].items()) + \
         f"dictionary_tag={data['dictionary']['tag']}\n"
@@ -185,6 +204,7 @@ def main() -> None:
     checkout.add_argument("directory", type=Path)
     contracts = commands.add_parser("verify-contracts")
     contracts.add_argument("directory", type=Path)
+    commands.add_parser("verify-published")
     fetch = commands.add_parser("fetch-dictionaries")
     fetch.add_argument("--staging-root", type=Path, required=True)
     verify = commands.add_parser("verify-dictionaries")
@@ -210,6 +230,8 @@ def main() -> None:
         verify_checkout(args.component, args.directory, data)
     elif args.command == "verify-contracts":
         verify_contracts(args.directory, data)
+    elif args.command == "verify-published":
+        verify_published(data)
     elif args.command == "fetch-dictionaries":
         fetch_dictionaries(args.staging_root, data)
     elif args.command == "verify-dictionaries":

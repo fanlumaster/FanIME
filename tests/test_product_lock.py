@@ -118,6 +118,35 @@ class ProductLockTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 lock.verify_contracts(ROOT, self.data)
 
+    def compare_status(self, status):
+        def api(endpoint):
+            return {"status": status} if "/compare/" in endpoint else {"default_branch": "main"}
+        return api
+
+    def test_a_locked_commit_that_never_reached_its_default_branch_is_rejected(self):
+        # An ancestor of the default branch compares as behind, or identical when it is the tip.
+        for status in ("behind", "identical"):
+            with self.subTest(status=status):
+                with mock.patch.object(lock, "api", side_effect=self.compare_status(status)):
+                    lock.verify_published(self.data)
+        # ahead and diverged both mean the commit sits on something nobody merged. This is what
+        # locking a commit that only exists on a pull request branch looks like.
+        for status in ("ahead", "diverged"):
+            with self.subTest(status=status):
+                with mock.patch.object(lock, "api", side_effect=self.compare_status(status)):
+                    with self.assertRaises(ValueError):
+                        lock.verify_published(self.data)
+
+    def test_a_commit_the_component_repository_does_not_have_is_rejected(self):
+        def missing(endpoint):
+            if "/compare/" in endpoint:
+                raise subprocess.CalledProcessError(1, "gh")
+            return {"default_branch": "main"}
+
+        with mock.patch.object(lock, "api", side_effect=missing):
+            with self.assertRaises(ValueError):
+                lock.verify_published(self.data)
+
     def test_manifest_records_exact_source_and_lock_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "manifest.json"
