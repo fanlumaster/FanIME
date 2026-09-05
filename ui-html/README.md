@@ -13,7 +13,6 @@
 | `webview2/menu/` | 托盘菜单 |
 | `webview2/settings/ime-settings/` | 设置页，**唯一需要构建**的部分，Vite + TypeScript |
 | `webview2/default-themes/`、`webview2/other-themes/` | 主题 |
-| `sciter/` | 旧 Sciter 渲染后端的资源，当前默认后端是 WebView2 |
 
 除设置页外都是直接分发的静态资源，改完即生效。
 
