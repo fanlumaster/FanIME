@@ -8,7 +8,7 @@
   },
   "dictionary": {
     "repository": "metasequoiaime/MSIME-Engine",
-    "tag": "dict-2026.09.06",
+    "tag": "dict-v1.0.0",
     "source_commit": "d0dc0c2b594b5540b5de99ad12085c786410626e",
     "assets": {
       "dictionary-manifest.json": "bc992419a3923ea3e75f35539b0c0a61932c13cedee92d3a7323f984db6ca9cd",

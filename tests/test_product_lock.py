@@ -68,7 +68,7 @@ class ProductLockTests(unittest.TestCase):
             lock.validate(self.data)
 
     def test_modern_dictionary_requires_a_compatible_locked_manifest(self):
-        self.data['dictionary']['tag'] = 'dict-2026.09.06'
+        self.data['dictionary']['tag'] = 'dict-v1.0.0'
         self.data['dictionary']['repository'] = lock.DICTIONARY_REPOSITORY
         self.data['dictionary']['assets'].pop(lock.PRODUCT_MANIFEST, None)
         with self.assertRaises(ValueError):

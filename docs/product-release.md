@@ -11,7 +11,7 @@
 显式刷新后评审并提交清单，CI 通过后才能发布：
 
 ```sh
-python scripts/product_lock.py refresh --dictionary-tag dict-2026.09.05
+python scripts/product_lock.py refresh --dictionary-tag dict-v1.0.0
 python scripts/product_lock.py validate
 ```
 
