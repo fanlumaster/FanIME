@@ -1,0 +1,44 @@
+name: Restore vcpkg binaries
+description: Restore ABI-addressed package archives before installing dependencies.
+inputs:
+  scope:
+    description: Component and triplet group; keeps concurrent jobs from overwriting each other.
+    required: true
+outputs:
+  key:
+    description: Base key for the dependency checkpoints.
+    value: ${{ steps.setup.outputs.key }}
+  matched-key:
+    description: Restored checkpoint, if any.
+    value: ${{ steps.restore.outputs.cache-matched-key }}
+  path:
+    description: Directory of compressed vcpkg package archives.
+    value: ${{ steps.setup.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - id: setup
+      shell: pwsh
+      env:
+        CACHE_SCOPE: ${{ inputs.scope }}
+        DEPENDENCY_HASH: ${{ hashFiles('**/vcpkg*.json', 'scripts/ci/install-boost.ps1', '.github/actions/vcpkg-cache/action.yml') }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $revision = git -C $env:VCPKG_INSTALLATION_ROOT rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot identify the runner vcpkg revision' }
+        $path = Join-Path $env:RUNNER_TEMP 'vcpkg-binary-cache'
+        New-Item -ItemType Directory -Force -Path $path | Out-Null
+        # Keep the runner's existing local cache readable; persist new archives separately.
+        "VCPKG_BINARY_SOURCES=clear;default,read;files,$path,readwrite" >> $env:GITHUB_ENV
+        "path=$path" >> $env:GITHUB_OUTPUT
+        "key=vcpkg-v1-$env:RUNNER_OS-$env:RUNNER_ARCH-$env:CACHE_SCOPE-$env:ImageVersion-$revision-$env:DEPENDENCY_HASH" >> $env:GITHUB_OUTPUT
+    - id: restore
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.setup.outputs.path }}
+        key: ${{ steps.setup.outputs.key }}-complete
+        # Recover the Boost checkpoint if configuration failed or the job was cancelled.
+        # Older archives are safe to reuse: vcpkg verifies each package's ABI hash.
+        restore-keys: |
+          ${{ steps.setup.outputs.key }}-
+          vcpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.scope }}-

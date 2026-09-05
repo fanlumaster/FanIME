@@ -63,10 +63,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+      - name: Restore dependency binaries
+        id: vcpkg-cache
+        uses: ./.github/actions/vcpkg-cache
+        with:
+          scope: tip-${{ matrix.triplet }}
       - name: Install dependencies
         shell: pwsh
         working-directory: windows
         run: vcpkg install --triplet ${{ matrix.triplet }}
+      - name: Save dependency binaries before compiling
+        if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.vcpkg-cache.outputs.path }}
+          key: ${{ steps.vcpkg-cache.outputs.key }}-complete
       - name: Configure
         shell: pwsh
         run: >
@@ -102,9 +113,20 @@ jobs:
           ref: ${{ needs.lock.outputs.helpcode_sha }}
           path: helpcodes
           persist-credentials: false
+      - name: Restore dependency binaries
+        id: vcpkg-cache
+        uses: ./.github/actions/vcpkg-cache
+        with:
+          scope: server-x64-windows-and-static-md
       - name: Install Boost
         shell: pwsh
         run: ./scripts/ci/install-boost.ps1
+      - name: Save Boost binaries before configuring
+        if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key) && steps.vcpkg-cache.outputs.matched-key != format('{0}-boost', steps.vcpkg-cache.outputs.key)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.vcpkg-cache.outputs.path }}
+          key: ${{ steps.vcpkg-cache.outputs.key }}-boost
       # 刻意不叫 build：CMakeLists.txt 曾经写死 ${CMAKE_SOURCE_DIR}/build/vcpkg_installed，换任何别的名字都会链接失败。构建到别处才能保证这条不会悄悄退回去。
       - name: Configure
         shell: pwsh
@@ -112,6 +134,12 @@ jobs:
           cmake -S server -B server/build-release -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Save dependency binaries before compiling
+        if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.vcpkg-cache.outputs.path }}
+          key: ${{ steps.vcpkg-cache.outputs.key }}-complete
       - name: Build
         shell: pwsh
         run: cmake --build server/build-release --config Release --parallel
