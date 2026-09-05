@@ -12,8 +12,7 @@ CMakeSettings.json
 log.txt
 .workbuddy/
 
-# Release staging. The helpcodes and the dictionary are the only product inputs that still come
-# from outside this repository, and both the release workflow and a local release rehearsal drop
-# them beside the components under these names.
-/MetasequoiaImeHelpCode/
+# Release staging. The dictionary release is the only product input that still comes from outside
+# this repository, and both the release workflow and a local release rehearsal drop it beside the
+# components under this name.
 /MetasequoiaImeDict/

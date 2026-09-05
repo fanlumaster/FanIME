@@ -9,7 +9,7 @@ param(
     [string]$TsfDirectory = 'MetasequoiaImeTsf',
     [string]$ServerDirectory = 'MetasequoiaImeServer',
     [string]$UiHtmlDirectory = 'MetasequoiaImeUiHtml',
-    [string]$HelpCodeDirectory = 'MetasequoiaImeHelpCode',
+    [string]$HelpCodeDirectory = 'MetasequoiaImeEngine/helpcode',
     [string]$DictionaryDirectory = 'MetasequoiaImeDict',
     # THIRD_PARTY_NOTICES.txt used to sit next to the tip's sources. In the consolidated repository
     # the notice covers the whole product and lives at the root, one level above windows/, so where

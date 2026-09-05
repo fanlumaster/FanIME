@@ -30,6 +30,26 @@ class ProductLockTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             lock.validate(self.data)
 
+    def test_dictionary_provenance_requires_an_immutable_source_commit(self):
+        for commit in ("", "main", "a" * 39, "a" * 40 + "\n"):
+            with self.subTest(commit=commit):
+                changed = copy.deepcopy(self.data)
+                changed["dictionary"]["source_commit"] = commit
+                with self.assertRaises(ValueError):
+                    lock.validate(changed)
+
+    def test_only_the_shipped_tag_may_still_name_the_retired_dictionary_repository(self):
+        self.data["dictionary"]["repository"] = "metasequoiaime/MSIME-Dict"
+        self.data["dictionary"]["tag"] = lock.LEGACY_DICTIONARY_TAG
+        # That tag shipped before the manifest existed, which the asset-set rule already encodes.
+        self.data["dictionary"]["assets"].pop(lock.PRODUCT_MANIFEST, None)
+        lock.validate(self.data)
+        # Any other tag from the retired repository is a source migration, which is a reviewed
+        # change to product_lock.py rather than something a tag rename can do quietly.
+        self.data["dictionary"]["tag"] = "dict-2026.09.07"
+        with self.assertRaises(ValueError):
+            lock.validate(self.data)
+
     def test_data_tag_and_complete_artifact_set_are_required(self):
         for tag in ("latest", "main", "../dict-test", "dict-test\n"):
             changed = copy.deepcopy(self.data)
@@ -49,6 +69,8 @@ class ProductLockTests(unittest.TestCase):
 
     def test_modern_dictionary_requires_a_compatible_locked_manifest(self):
         self.data['dictionary']['tag'] = 'dict-2026.09.06'
+        self.data['dictionary']['repository'] = lock.DICTIONARY_REPOSITORY
+        self.data['dictionary']['assets'].pop(lock.PRODUCT_MANIFEST, None)
         with self.assertRaises(ValueError):
             lock.validate(self.data)
         with tempfile.TemporaryDirectory() as temporary:
@@ -57,6 +79,8 @@ class ProductLockTests(unittest.TestCase):
             for name in lock._product.DESKTOP_FILES:
                 (directory / name).write_bytes(b'MSJPDT1\0fixture' if name == 'dict_japanese.dat' else b'fixture')
             product = {'manifest_version': 1, 'format_version': 1, 'profile': 'desktop',
+                       'source': {'repository': self.data['dictionary']['repository'],
+                                  'commit': self.data['dictionary']['source_commit'], 'dirty': False},
                        'engine_compatibility': {'dictionary_format': 1, 'japanese_model_magic': 'MSJPDT1'},
                        'files': {name: {'sha256': lock.sha256(directory / name), 'size': (directory / name).stat().st_size}
                                  for name in lock._product.DESKTOP_FILES}}
@@ -66,6 +90,22 @@ class ProductLockTests(unittest.TestCase):
                 self.data['dictionary']['assets'][name] = lock.sha256(directory / name)
             lock.validate(self.data)
             lock.verify_assets(directory, self.data)
+            # Data built from a commit other than the reviewed one is rejected even when every
+            # digest matches, because the digests only attest to the bytes, not to their origin.
+            original_commit = product['source']['commit']
+            product['source']['commit'] = 'f' * 40
+            manifest_path.write_text(json.dumps(product))
+            self.data['dictionary']['assets'][lock.PRODUCT_MANIFEST] = lock.sha256(manifest_path)
+            with self.assertRaises(ValueError):
+                lock.verify_assets(directory, self.data)
+            # A release built from an uncommitted tree cannot be rebuilt from anything.
+            product['source'] = {'repository': self.data['dictionary']['repository'],
+                                 'commit': original_commit, 'dirty': True}
+            manifest_path.write_text(json.dumps(product))
+            self.data['dictionary']['assets'][lock.PRODUCT_MANIFEST] = lock.sha256(manifest_path)
+            with self.assertRaises(ValueError):
+                lock.verify_assets(directory, self.data)
+            product['source']['dirty'] = False
             # Even a deliberately updated digest cannot declare an unsupported format compatible.
             product['format_version'] = 2
             manifest_path.write_text(json.dumps(product))
@@ -74,6 +114,9 @@ class ProductLockTests(unittest.TestCase):
                 lock.verify_assets(directory, self.data)
 
     def fixture_assets(self, directory):
+        # Digest enforcement is what these fixtures are for; the manifest carries provenance and is
+        # covered by its own test, so it is dropped rather than faked into something verifiable.
+        self.data["dictionary"]["assets"].pop(lock.PRODUCT_MANIFEST, None)
         for name in lock.ASSETS:
             value = (name + " fixture").encode()
             (directory / name).write_bytes(value)
@@ -108,14 +151,14 @@ class ProductLockTests(unittest.TestCase):
                     lock.fetch_dictionaries(staging, self.data)
             self.assertEqual(before, {path.name: path.read_bytes() for path in target.iterdir()})
 
-    def test_helpcode_checkout_must_match_the_reviewed_commit(self):
-        with mock.patch.object(lock, "git", return_value=self.data["repositories"]["helpcode"]["commit"]):
-            lock.verify_checkout("helpcode", ROOT, self.data)
+    def test_engine_checkout_must_match_the_reviewed_commit(self):
+        with mock.patch.object(lock, "git", return_value=self.data["repositories"]["engine"]["commit"]):
+            lock.verify_checkout("engine", ROOT, self.data)
 
     def test_wrong_checkout_is_rejected(self):
         with mock.patch.object(lock, "git", return_value="0" * 40):
             with self.assertRaises(ValueError):
-                lock.verify_checkout("helpcode", ROOT, self.data)
+                lock.verify_checkout("engine", ROOT, self.data)
 
     def test_a_path_that_is_not_a_submodule_cannot_pass_as_the_engine(self):
         for reply in ("", "100644 blob " + "0" * 40 + "\tvendor/MetasequoiaImeEngine"):

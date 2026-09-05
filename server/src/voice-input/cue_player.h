@@ -1,10 +1,7 @@
 #pragma once
 
-// This file and cue_player.cpp are a byte-for-byte copy of src/cue_player.{h,cpp} in
-// MetasequoiaVoiceInput. There is no submodule or shared target between the two repositories, so a
-// change here has to be applied there by hand, and the other way round. The neighbouring
-// wave_overlay and mvi_utils started from the same source but have since diverged; only cue_player
-// is still identical.
+// Windows cue playback remains in the platform host. Its miniaudio declarations
+// and implementation now come from the pinned Engine VoiceCapture dependency.
 
 #include <string>
 
