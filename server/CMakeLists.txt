@@ -31,7 +31,16 @@ find_package(ZLIB REQUIRED)
 # translation units here, so that adding a file to the engine no longer requires
 # a matching edit in this file. EXCLUDE_FROM_ALL keeps the engine's own test
 # executables out of the default build.
+#
+# Which is also why BUILD_TESTING has to be off across that add_subdirectory: the engine registers
+# eleven add_test() entries behind that flag, and EXCLUDE_FROM_ALL then never builds the
+# executables they point at, so ctest reports eleven "Unable to find executable" failures. The
+# engine's own CI runs those tests on Ubuntu, macOS and Windows; running them from here as well
+# would be redundant even if they did build. Restored immediately afterwards so this repository's
+# own tests/ still register.
+set(BUILD_TESTING OFF)
 add_subdirectory(MetasequoiaImeEngine EXCLUDE_FROM_ALL)
+set(BUILD_TESTING ON)
 
 # Build the OpenCC submodule as a static dependency of the server.
 add_subdirectory(opencc EXCLUDE_FROM_ALL)
