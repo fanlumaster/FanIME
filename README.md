@@ -2,70 +2,44 @@
 
 一款开源的自由 Windows 输入法，面向 Windows 10 / Windows 11，采用纯 TSF 方案。
 
+## 下载与安装
+
+- **安装包**：[Releases](https://github.com/metasequoiaime/MSIME-Windows/releases)，或[官网下载页](https://msime.app/download/)
+- **安装步骤与常见问题**：[docs/installation.md](docs/installation.md)
+
+安装后用 `Win + 空格` 切换到水杉输入法。如果切换不过去、Server 反复退出或设置窗口一闪即关，多半是缺少 Visual C++ 2015–2022 Redistributable（**x64**），处理办法见安装文档的常见问题。
+
+其他平台：[macOS 与 iOS](https://github.com/metasequoiaime/MSIME-Apple) · [Linux](https://github.com/metasequoiaime/MSIME-Linux)
+
 ## 2026.09.02 给水杉输入法的新用户的说明
 
 最近两天，水杉输入法的新增用户远超预期，约有 5000 名新用户加入，内测服务的多项 API 配额也因此暂时耗尽。随着用户增长，我们收到了许多功能建议，也发现了一些内测阶段的问题。目前我正在逐一修复，同时重构 UI，并开发一套专门面向输入法场景的原生 GUI 框架。
 
 如果你在使用过程中遇到问题，还请耐心等待后续版本。也欢迎有能力的朋友提交 PR：无论是完善输入法本身，还是参与其背后的 GUI 框架，都非常欢迎。本项目接受纯 vibe 的 PR；唯一的请求是友善交流——不要骂主包。
 
-项目即将突破 1000 Stars。如果你是在校学生或正在求职，也欢迎通过贡献代码，或整理与学校、专业相关的词库来参与项目(刷个 PR)。输入法是一款能够直接面向大量用户的软件；如果你希望自己参与开发的软件、自己写的代码真正被人使用并获得反馈，这会是一个不错的实践机会。
+如果你是在校学生或正在求职，也欢迎通过贡献代码，或整理与学校、专业相关的词库来参与项目(刷个 PR)。输入法是一款能够直接面向大量用户的软件；如果你希望自己参与开发的软件、自己写的代码真正被人使用并获得反馈，这会是一个不错的实践机会。
 
 本项目现在及未来都会保持 100% 开源。开源的目的之一，是探索 AI 能否参与完善输入法这类容错空间较小、与操作系统耦合较深的软件；同时，也希望为由大型厂商主导的工具软件生态提供一个开放、可控的替代选择。
 
 ### 如何参与贡献
 
-不会写 TSF 或 C++ 也没关系，项目还有很多可以参与的方向：
+不会写 TSF 或 C++ 也没关系。项目可以参与的方向按类别整理在[招募开源开发者](https://github.com/metasequoiaime/.github/blob/main/RECRUITING.md)里，从整理词库、补文档、做本地化、测兼容性，到实现新的输入方案都有。
 
-- 完善安装、配置、升级和卸载文档；
-- 补充语音输入、云服务和本地模型的接入指南；
-- 编写 API 申请与配置教程；
-- 整理各厂商提供的免费额度或试用额度；
-- 编写常见问题、故障排查和使用技巧；
-- 改进全拼、双拼、五笔等现有输入方案；
-- 参与日语、注音、粤语等输入方案的设计与实现；
-- 整理学校、专业、行业、地区或兴趣领域的专用词库；
-- 修复程序问题或实现新的功能；
-- 参与原生 GUI 框架和界面功能的开发；
-- 改进界面设计、图标、动画和交互体验；
-- 参与英文、日文等语言的翻译和本地化；
-- 测试不同 Windows 版本、软件和硬件环境；
-- 提交包含复现步骤、日志和截图的问题报告；
-- 制作截图、演示视频和新手教程；
-- 提出功能建议或参与技术方案讨论。
+Issue 已经逐条核过并按可接手程度打了标签，可以直接筛：
 
-写代码、写文档、整理词库、测试 Bug、制作教程，都是非常有价值的开源贡献。可以纯手写，也可以借助 AI；但请认真检查和测试，并注意不要在 PR、Issue、截图或日志中泄露 API Key 等敏感信息。
+- [good first issue](https://github.com/metasequoiaime/MSIME-Windows/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)——改动小，根因和修法已经写明
+- [no-code](https://github.com/metasequoiaime/MSIME-Windows/issues?q=is%3Aissue+is%3Aopen+label%3Ano-code)——不需要写代码：图标资源、词库条目、文档、调研
+- [help wanted](https://github.com/metasequoiaime/MSIME-Windows/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)——根因明确、改动中等
+- [needs-design](https://github.com/metasequoiaime/MSIME-Windows/issues?q=is%3Aissue+is%3Aopen+label%3Aneeds-design)——方案未定，先在 Issue 里讨论再动手
 
-如果你会写代码，可以参与以下方向：
-
-- 修复 TSF 输入法核心中的 Bug；
-- 改进候选词、组词、联想和排序算法；
-- 优化输入响应速度、内存占用和启动性能；
-- 完善全拼、双拼、五笔等现有输入方案；
-- 实现日语、注音、粤语等新的输入方案；
-- 开发模糊音、辅助码、纠错和智能补全功能；
-- 改进中英文切换、标点转换和快捷键逻辑；
-- 完善用户词库、系统词库和词频学习功能；
-- 开发词库导入、导出、同步和转换工具；
-- 接入语音识别、翻译或其他第三方 API；
-- 为不同厂商的 API 编写统一的适配器；
-- 接入本地模型或其他离线能力；
-- 参与输入法原生 GUI 框架的开发；
-- 开发候选窗口、设置页面和状态栏组件；
-- 改进多显示器、高 DPI、缩放和深色模式支持；
-- 修复不同 Windows 版本及应用程序中的兼容性问题；
-- 改进崩溃恢复、异常处理、日志和诊断功能；
-- 编写单元测试、集成测试和自动化测试；
-- 完善编译脚本、开发环境和持续集成流程；
-- 检查线程安全、资源释放和内存安全问题；
-- 重构重复代码，改善模块边界和接口设计；
-- 补充代码注释、接口文档和开发者文档；
-- 对现有 PR 进行代码审查、测试和性能验证；
-- 制作能够稳定复现问题的最小示例。
+写代码、写文档、整理词库、测试 Bug、制作教程，都是非常有价值的开源贡献。可以纯手写，也可以借助 AI；但请认真检查和测试，并注意不要在 PR、Issue、截图或日志中泄露 API Key 等敏感信息。完整的贡献约定见[贡献指南](https://github.com/metasequoiaime/.github/blob/main/CONTRIBUTING.md)。
 
 ## 项目结构
 
 - [MSIME-Windows](https://github.com/metasequoiaime/MSIME-Windows): 核心 TSF。
-- [MSIME-Server](https://github.com/metasequoiaime/MSIME-Server): Server 端，负责算法和窗口渲染。
+- [MSIME-Server](https://github.com/metasequoiaime/MSIME-Server): Server 端，负责算法调度和窗口渲染。
+- [MSIME-Engine](https://github.com/metasequoiaime/MSIME-Engine): 跨平台输入引擎，各平台前端共用。
+- [MSIME-UI](https://github.com/metasequoiaime/MSIME-UI): 自研原生 GUI 框架，用于替换现有的 WebView2 界面。
 - [MSIME-UiHtml](https://github.com/metasequoiaime/MSIME-UiHtml): UI。
 - [MSIME-Dict](https://github.com/metasequoiaime/MSIME-Dict): 词库。
 - [MSIME-HelpCode](https://github.com/metasequoiaime/MSIME-HelpCode): 辅助码。
