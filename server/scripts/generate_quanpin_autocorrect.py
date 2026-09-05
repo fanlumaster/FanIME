@@ -15,7 +15,7 @@ import pathlib
 import re
 import sys
 
-ENGINE_DIR = pathlib.Path(__file__).resolve().parent.parent / "MetasequoiaImeEngine"
+ENGINE_DIR = pathlib.Path(__file__).resolve().parents[2] / "vendor" / "MetasequoiaImeEngine"
 UTILS_PATH = ENGINE_DIR / "quanpin" / "quanpin_utils.cpp"
 OUT_PATH = ENGINE_DIR / "quanpin" / "autocorrect_table.h"
 

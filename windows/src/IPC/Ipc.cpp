@@ -1,5 +1,5 @@
 #include "Ipc.h"
-#include "../../vendor/MetasequoiaImeEngine/contracts/ipc_negotiation.h"
+#include "../../../vendor/MetasequoiaImeEngine/contracts/ipc_negotiation.h"
 #include <algorithm>
 #include <cstring>
 #include <cwctype>

@@ -7,6 +7,10 @@ project(${PROJECT_NAME} VERSION 1.0)
 
 include(CTest)
 
+# The shared engine and the third-party sources are submodules of the monorepo, not of this
+# component, so they sit one level up in vendor/ next to server/, ui/ and windows/.
+set(MSIME_VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor")
+
 # Boost
 # The author's machine default keeps working untouched; local setups can
 # override via the BOOST_ROOT environment variable.
@@ -40,12 +44,12 @@ find_package(ZLIB REQUIRED)
 # own tests/ still register.
 set(_metasequoia_saved_build_testing "${BUILD_TESTING}")
 set(BUILD_TESTING OFF)
-add_subdirectory(MetasequoiaImeEngine EXCLUDE_FROM_ALL)
+add_subdirectory("${MSIME_VENDOR_DIR}/MetasequoiaImeEngine" "${CMAKE_BINARY_DIR}/MetasequoiaImeEngine" EXCLUDE_FROM_ALL)
 set(BUILD_TESTING "${_metasequoia_saved_build_testing}")
 unset(_metasequoia_saved_build_testing)
 
 # Build the OpenCC submodule as a static dependency of the server.
-add_subdirectory(opencc EXCLUDE_FROM_ALL)
+add_subdirectory("${MSIME_VENDOR_DIR}/opencc" "${CMAKE_BINARY_DIR}/opencc" EXCLUDE_FROM_ALL)
 
 # OpenCC's Windows dictionary helper copies the library into the tools output
 # directory before MSBuild has necessarily created that directory.
@@ -60,7 +64,7 @@ set(_cpp_pinyin_saved_shared_libs "${BUILD_SHARED_LIBS}")
 set(BUILD_SHARED_LIBS OFF)
 set(CPP_PINYIN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(CPP_PINYIN_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(cpp-pinyin EXCLUDE_FROM_ALL)
+add_subdirectory("${MSIME_VENDOR_DIR}/cpp-pinyin" "${CMAKE_BINARY_DIR}/cpp-pinyin" EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS "${_cpp_pinyin_saved_shared_libs}")
 unset(_cpp_pinyin_saved_shared_libs)
 
@@ -89,7 +93,8 @@ add_compile_options(/Zc:__cplusplus /FS /utf-8)
 
 include_directories("./")
 include_directories("./src/")
-include_directories("./MetasequoiaImeEngine/utfcpp/source/")
+include_directories("${MSIME_VENDOR_DIR}")
+include_directories("${MSIME_VENDOR_DIR}/MetasequoiaImeEngine/utfcpp/source/")
 
 set(MY_EXECUTABLE_NAME "MetasequoiaImeServer")
 set(WATCHDOG_EXECUTABLE_NAME "MetasequoiaImeWatchdog")
@@ -232,14 +237,13 @@ target_link_libraries(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE
 target_compile_definitions(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE NOMINMAX=1)
 add_dependencies(${PROJECT_NAME} ${DICTIONARY_REPLAY_EXECUTABLE_NAME})
 
-# Keep msimeui as an independently versioned GUI framework submodule. The
-# product-owned emoji panel lives under src/emoji-panel so it can evolve separately
-# from the framework's example applications.
-# msimeui's standalone layout tests belong to its own CI. Its EXCLUDE_FROM_ALL
+# msimeui stays a separately built GUI framework component at ../ui. The product-owned emoji panel
+# lives under src/emoji-panel so it can evolve separately from the framework's example applications.
+# msimeui's standalone layout tests belong to its own CI job. Its EXCLUDE_FROM_ALL
 # targets are not built here, so registering those tests would break Server CTest.
 set(_metasequoia_saved_build_testing "${BUILD_TESTING}")
 set(BUILD_TESTING OFF)
-add_subdirectory(msimeui EXCLUDE_FROM_ALL)
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_BINARY_DIR}/msimeui" EXCLUDE_FROM_ALL)
 set(BUILD_TESTING "${_metasequoia_saved_build_testing}")
 unset(_metasequoia_saved_build_testing)
 set(EMOJI_EXECUTABLE_NAME "MetasequoiaImeEmojiPanel")
@@ -384,7 +388,7 @@ add_custom_command(TARGET ${SETTINGS_EXECUTABLE_NAME} POST_BUILD
         $<$<CONFIG:Release>:${WEBVIEW2_VCPKG_ROOT}/bin/WebView2Loader.dll>
         $<TARGET_FILE_DIR:${SETTINGS_EXECUTABLE_NAME}>
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/cpp-pinyin/res/dict"
+        "${MSIME_VENDOR_DIR}/cpp-pinyin/res/dict"
         "$<TARGET_FILE_DIR:${SETTINGS_EXECUTABLE_NAME}>/dict"
 )
 
@@ -403,7 +407,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets/opencc
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/opencc/data/config/s2t.json
+        ${MSIME_VENDOR_DIR}/opencc/data/config/s2t.json
         ${CMAKE_BINARY_DIR}/opencc/data/CJK_Compatibility_Ideographs.ocd2
         ${CMAKE_BINARY_DIR}/opencc/data/STCharacters.ocd2
         ${CMAKE_BINARY_DIR}/opencc/data/STPhrases.ocd2

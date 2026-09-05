@@ -10,7 +10,7 @@ project(${PROJECT_NAME} LANGUAGES CXX C)
 include(CTest)
 if(BUILD_TESTING)
     add_executable(test_windows_ipc_contract
-        vendor/MetasequoiaImeEngine/contracts/tests/windows_ipc_contract.cpp)
+        ../vendor/MetasequoiaImeEngine/contracts/tests/windows_ipc_contract.cpp)
     target_compile_features(test_windows_ipc_contract PRIVATE cxx_std_17)
     add_test(NAME windows_ipc_contract COMMAND test_windows_ipc_contract)
 endif()

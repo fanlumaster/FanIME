@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "../../vendor/MetasequoiaImeEngine/contracts/windows_ipc.h"
+#include "../../../vendor/MetasequoiaImeEngine/contracts/windows_ipc.h"
 
 enum class KeyEventSendResult
 {
