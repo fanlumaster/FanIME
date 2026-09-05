@@ -23,11 +23,16 @@ jobs:
         # vcpkg.json, so it cannot come from the manifest. Install it in classic
         # mode from the vcpkg installation root and point BOOST_ROOT at it, which
         # is the override CMakeLists.txt already supports.
+        #
+        # The triplet must be static-md, not static: Boost_USE_STATIC_LIBS ON asks
+        # for static Boost libraries, but the rest of the project builds against
+        # the dynamic CRT. Plain x64-windows-static would also switch Boost to the
+        # static CRT and the link fails with LNK2038 RuntimeLibrary mismatches.
         run: |
           Push-Location $env:VCPKG_INSTALLATION_ROOT
-          ./vcpkg install boost-locale:x64-windows-static boost-json:x64-windows-static
+          ./vcpkg install boost-locale:x64-windows-static-md boost-json:x64-windows-static-md
           Pop-Location
-          "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static" >> $env:GITHUB_ENV
+          "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> $env:GITHUB_ENV
       - name: Configure
         shell: pwsh
         run: >
