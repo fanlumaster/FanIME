@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 import {
   applyDropdownValue,
   applyToggleState,
@@ -11,7 +12,7 @@ import { applyThemeConfig, setCandidateSurfaceThemeListener, type ResolvedTheme,
 
 function postConfigUpdate(path: string, value: string | number | boolean): void {
   window.chrome?.webview?.postMessage(
-    JSON.stringify({
+    serializeHostMessage({
       type: 'configUpdate',
       data: { path, value }
     })

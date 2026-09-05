@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 import type { ResolvedTheme } from './theme';
 
 export function applyScreenKeyboardPreviewTheme(theme: ResolvedTheme): void {
@@ -13,6 +14,6 @@ export function applyScreenKeyboardPreviewTheme(theme: ResolvedTheme): void {
 
 export function setupScreenKeyboardSettings(): void {
   document.getElementById('screenkbOpenButton')?.addEventListener('click', () => {
-    window.chrome?.webview?.postMessage(JSON.stringify({ type: 'openKeyboardPanel' }));
+    window.chrome?.webview?.postMessage(serializeHostMessage({ type: 'openKeyboardPanel' }));
   });
 }

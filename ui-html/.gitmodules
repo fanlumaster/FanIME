@@ -1,0 +1,3 @@
+[submodule "vendor/MetasequoiaImeEngine"]
+	path = vendor/MetasequoiaImeEngine
+	url = https://github.com/metasequoiaime/MSIME-Engine.git

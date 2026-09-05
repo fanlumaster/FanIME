@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 import { applyDropdownValue, applyToggleState, setupDropdownMenu, setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
 import { updateCandidatePreviewHelpcode } from './appearance';
@@ -9,7 +10,7 @@ let applyingInputConfig = false;
 let usingCustomTranslation = false;
 
 function updateInputConfig(path: string, value: string): void {
-  window.chrome?.webview?.postMessage(JSON.stringify({
+  window.chrome?.webview?.postMessage(serializeHostMessage({
     type: 'configUpdate',
     data: { path, value }
   }));

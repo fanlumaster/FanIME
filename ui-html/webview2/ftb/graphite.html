@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="https://msime-contracts/schema.js"></script>
+  <script src="https://msime-contracts/runtime.js"></script>
+  <script>const serializeHostMessage = message => MsimeProtocol.serializeClientMessage(message, "toolbar");</script>
   <meta charset="UTF-8">
   <title>IME(FTB)</title>
   <style>
@@ -299,7 +302,7 @@
   window.addEventListener('mousedown', e => {
     if (e.clientX < dividerX) { // 左部区域
       isDragging = true;
-      window.chrome.webview.postMessage(JSON.stringify({ type: 'dragStart' }));
+      window.chrome.webview.postMessage(serializeHostMessage({ type: 'dragStart' }));
     }
   });
 
@@ -323,30 +326,30 @@
   // document.getElementById('cn').style.display = 'none';
   // 中英切换点击，向 Cpp 端发送消息
   document.getElementById('cn').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeIMEMode', data: 'en' }));
   });
   const jaButton = document.getElementById('ja');
   if (jaButton) {
     jaButton.addEventListener('click', () => {
-      window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
+      window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeIMEMode', data: 'en' }));
     });
   }
   document.getElementById('en').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'cn' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeIMEMode', data: 'cn' }));
   });
   document.getElementById('en-candidate').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'exitEnglishInputMode' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'exitEnglishInputMode' }));
   });
   const capButton = document.getElementById('cap');
   if (capButton) {
     capButton.addEventListener('click', () => {
       const lang = (document.getElementById('cn-en').dataset.lang || 'cn');
       if (lang === 'en') {
-        window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'cn' }));
+        window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeIMEMode', data: 'cn' }));
       } else if (lang === 'en-candidate') {
-        window.chrome.webview.postMessage(JSON.stringify({ type: 'exitEnglishInputMode' }));
+        window.chrome.webview.postMessage(serializeHostMessage({ type: 'exitEnglishInputMode' }));
       } else {
-        window.chrome.webview.postMessage(JSON.stringify({ type: 'changeIMEMode', data: 'en' }));
+        window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeIMEMode', data: 'en' }));
       }
     });
   }
@@ -358,10 +361,10 @@
   document.getElementById('fullwidth').style.display = 'none';
   // document.getElementById('halfwidth').style.display = 'none';
   document.getElementById('halfwidth').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeCharMode', data: 'fullwidth' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeCharMode', data: 'fullwidth' }));
   });
   document.getElementById('fullwidth').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeCharMode', data: 'halfwidth' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeCharMode', data: 'halfwidth' }));
   });
 
   //
@@ -371,39 +374,39 @@
   document.getElementById('puncEn').style.display = 'none';
   // document.getElementById('puncCn').style.display = 'none';
   document.getElementById('puncCn').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changePuncMode', data: 'puncEn' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changePuncMode', data: 'puncEn' }));
   });
   document.getElementById('puncEn').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changePuncMode', data: 'puncCn' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changePuncMode', data: 'puncCn' }));
   });
 
   //
   // 简繁输入切换
   //
   document.getElementById('character-set').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'changeCharacterSet' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'changeCharacterSet' }));
   });
 
   document.getElementById('emoji-panel').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'openEmojiPanel' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'openEmojiPanel' }));
   });
 
   document.getElementById('screen-keyboard').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'openKeyboardPanel' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'openKeyboardPanel' }));
   });
 
   //
   // 设置按钮
   //
   document.getElementById('settings').addEventListener('click', () => {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'openSettings' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'openSettings' }));
   });
 
   // Tell the host the first frame is ready so it can stop the paint-grace show
   // and apply the real visibility decision (IME active / configured / etc.).
   function notifyToolbarReady() {
     if (!window.chrome || !window.chrome.webview) return;
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'ready' }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'ready' }));
   }
   window.addEventListener('load', () => {
     updateDividerX();
@@ -439,7 +442,7 @@
     if (now - lastSent < COOLDOWN_MS) return;
     lastSent = now;
     var r = node.getBoundingClientRect();
-    window.chrome.webview.postMessage(JSON.stringify({
+    window.chrome.webview.postMessage(serializeHostMessage({
       type: 'contentTruncated',
       data: {
         surface: SURFACE,

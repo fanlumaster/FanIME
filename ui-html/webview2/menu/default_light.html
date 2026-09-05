@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="https://msime-contracts/schema.js"></script>
+  <script src="https://msime-contracts/runtime.js"></script>
+  <script>const serializeHostMessage = message => MsimeProtocol.serializeClientMessage(message, "menu");</script>
   <meta charset="UTF-8">
   <title>(IME)TrayMenu</title>
   <style>
@@ -219,7 +222,7 @@
       toggle.classList.toggle('active');
       console.log("floatingToggle: ", toggle.classList.contains('active'));
       // 向 C++ 端发送消息，隐藏/显示悬浮工具栏
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'floatingToggle',
         data: toggle.classList.contains('active')
       }));
@@ -228,7 +231,7 @@
     // 表情和符号共用同一个原生面板。
     const emojiSymbols = document.getElementById('emojiSymbols');
     emojiSymbols.addEventListener('click', () => {
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'emojiSymbols',
       }));
     });
@@ -236,7 +239,7 @@
     // 屏幕键盘：由原生服务启动独立面板。
     const keyboardPanel = document.getElementById('keyboardPanel');
     keyboardPanel.addEventListener('click', () => {
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'keyboardPanel',
       }));
     });
@@ -244,7 +247,7 @@
     // 语音输入：启动独立的 MetasequoiaVoiceInput 应用。
     const voiceInput = document.getElementById('voiceInput');
     voiceInput.addEventListener('click', () => {
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'voiceInput',
       }));
     });
@@ -253,7 +256,7 @@
     const settings = document.getElementById('settings');
     settings.addEventListener('click', () => {
       console.log("settings");
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'settings',
       }));
     });
@@ -261,7 +264,7 @@
     // 关于：打开设置窗口并定位到“关于”分区。
     const about = document.getElementById('about');
     about.addEventListener('click', () => {
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'about',
       }));
     });
@@ -292,7 +295,7 @@
       if (now - lastSent < COOLDOWN_MS) return;
       lastSent = now;
       var r = node.getBoundingClientRect();
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'contentTruncated',
         data: {
           surface: SURFACE,

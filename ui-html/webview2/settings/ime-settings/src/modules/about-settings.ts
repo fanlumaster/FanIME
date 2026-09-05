@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 import { updateConfig } from './config-sync';
 import { setupToggleButton } from './shared';
 
@@ -45,7 +46,7 @@ function compareVersions(left: Version, right: Version): number {
 
 function postExternalUrl(url: string): void {
   if (window.chrome?.webview) {
-    window.chrome.webview.postMessage(JSON.stringify({ type: 'openExternalUrl', data: url }));
+    window.chrome.webview.postMessage(serializeHostMessage({ type: 'openExternalUrl', data: url }));
     return;
   }
 

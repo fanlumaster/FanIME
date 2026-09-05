@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 import { loadHTML } from '../utils/common-utils';
 import ftbHTML from '../../../../ftb/default.html?raw';
 
@@ -281,7 +282,7 @@ function selectSkin(value: unknown, persist: boolean): void {
   syncSkinSwitches();
   syncAppearancePreviews();
   if (persist) {
-    window.chrome?.webview?.postMessage(JSON.stringify({
+    window.chrome?.webview?.postMessage(serializeHostMessage({
       type: 'configUpdate', data: { path: 'appearance.candidate_skin', value: activeSkin }
     }));
   }
@@ -475,9 +476,9 @@ export async function setupSkin(): Promise<void> {
     });
   });
   document.getElementById('refreshExternalSkins')?.addEventListener('click', () => {
-    window.chrome?.webview?.postMessage(JSON.stringify({ type: 'skinCatalogRequest' }));
+    window.chrome?.webview?.postMessage(serializeHostMessage({ type: 'skinCatalogRequest' }));
   });
   document.getElementById('openExternalSkinDirectory')?.addEventListener('click', () => {
-    window.chrome?.webview?.postMessage(JSON.stringify({ type: 'openSkinDirectory' }));
+    window.chrome?.webview?.postMessage(serializeHostMessage({ type: 'openSkinDirectory' }));
   });
 }

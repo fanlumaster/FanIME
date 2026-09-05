@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 import type { ResolvedTheme } from './theme';
 
 export function applyHandwritingPreviewTheme(theme: ResolvedTheme): void {
@@ -13,6 +14,6 @@ export function applyHandwritingPreviewTheme(theme: ResolvedTheme): void {
 
 export function setupHandwritingSettings(): void {
   document.getElementById('handwritingOpenButton')?.addEventListener('click', () => {
-    window.chrome?.webview?.postMessage(JSON.stringify({ type: 'openHandwritingPanel' }));
+    window.chrome?.webview?.postMessage(serializeHostMessage({ type: 'openHandwritingPanel' }));
   });
 }
