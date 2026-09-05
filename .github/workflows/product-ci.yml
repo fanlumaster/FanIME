@@ -1,0 +1,91 @@
+name: Product integration
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    name: Validate product inputs
+    runs-on: ubuntu-24.04
+    outputs:
+      server_sha: ${{ steps.lock.outputs.server_sha }}
+      ui_sha: ${{ steps.lock.outputs.ui_sha }}
+      helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test rejection of changed or mismatched inputs
+        run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
+      - name: Read the reviewed lock
+        id: lock
+        run: |
+          python3 scripts/product_lock.py verify-contracts .
+          python3 scripts/product_lock.py outputs --github-output "$GITHUB_OUTPUT"
+
+  server:
+    name: Locked Server and dictionary integration
+    needs: lock
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out the locked Server
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: metasequoiaime/MSIME-Server
+          ref: ${{ needs.lock.outputs.server_sha }}
+          path: component
+          submodules: recursive
+          persist-credentials: false
+      - name: Check out the locked helpcodes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: metasequoiaime/MSIME-HelpCode
+          ref: ${{ needs.lock.outputs.helpcode_sha }}
+          path: helpcodes
+          persist-credentials: false
+      - name: Install Boost
+        run: ./scripts/ci/install-boost.ps1
+      - name: Configure
+        run: >
+          cmake -S component -B component/build -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build
+        run: cmake --build component/build --config Release --parallel
+      - name: Test with the product's exact data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/ci/test-server.ps1 -ServerRoot component -HelpcodeRoot helpcodes -StagingRoot "$env:RUNNER_TEMP/product-data"
+
+  ui:
+    name: Locked settings page
+    needs: lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: metasequoiaime/MSIME-UiHtml
+          ref: ${{ needs.lock.outputs.ui_sha }}
+          path: component
+          persist-credentials: false
+      - name: Verify the page checkout
+        run: python3 scripts/product_lock.py verify-checkout ui component
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: component/webview2/settings/ime-settings/pnpm-lock.yaml
+      - name: Build the product's page resources
+        working-directory: component/webview2/settings/ime-settings
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          test -f dist/index.html

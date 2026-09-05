@@ -1,0 +1,127 @@
+import copy
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("product_lock", ROOT / "scripts/product_lock.py")
+lock = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lock)
+
+
+class ProductLockTests(unittest.TestCase):
+    def setUp(self):
+        self.data = lock.load(ROOT / "product-lock.json")
+
+    def test_mutable_refs_and_missing_components_are_rejected(self):
+        for component in lock.REPOSITORIES:
+            for ref in ("main", "latest", "v1.0", "abc123", "a" * 40 + "\n"):
+                with self.subTest(component=component, ref=ref):
+                    changed = copy.deepcopy(self.data)
+                    changed["repositories"][component]["commit"] = ref
+                    with self.assertRaises(ValueError):
+                        lock.validate(changed)
+        del self.data["repositories"]["engine"]
+        with self.assertRaises(ValueError):
+            lock.validate(self.data)
+
+    def test_data_tag_and_complete_artifact_set_are_required(self):
+        for tag in ("latest", "main", "../dict-test", "dict-test\n"):
+            changed = copy.deepcopy(self.data)
+            changed["dictionary"]["tag"] = tag
+            with self.assertRaises(ValueError):
+                lock.validate(changed)
+        for name in lock.ASSETS:
+            changed = copy.deepcopy(self.data)
+            del changed["dictionary"]["assets"][name]
+            with self.assertRaises(ValueError):
+                lock.validate(changed)
+
+    def test_assets_cannot_escape_the_output_directory(self):
+        self.data["dictionary"]["assets"]["../notice.txt"] = "a" * 64
+        with self.assertRaises(ValueError):
+            lock.validate(self.data)
+
+    def fixture_assets(self, directory):
+        for name in lock.ASSETS:
+            value = (name + " fixture").encode()
+            (directory / name).write_bytes(value)
+            self.data["dictionary"]["assets"][name] = hashlib.sha256(value).hexdigest()
+
+    def test_mutating_both_database_and_upstream_checksums_still_fails(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.fixture_assets(directory)
+            lock.verify_assets(directory, self.data)
+            (directory / "msime.db").write_bytes(b"replacement database")
+            (directory / "SHA256SUMS.txt").write_text(lock.sha256(directory / "msime.db") + "  msime.db\n")
+            with self.assertRaises(ValueError):
+                lock.verify_assets(directory, self.data)
+
+    def test_failed_download_never_overwrites_previous_usable_data(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            staging = Path(temporary)
+            target = staging / "MetasequoiaImeDict/out"
+            target.mkdir(parents=True)
+            self.fixture_assets(target)
+            before = {path.name: path.read_bytes() for path in target.iterdir()}
+
+            def corrupt_download(command, **kwargs):
+                incoming = Path(command[command.index("--dir") + 1])
+                for name, value in before.items():
+                    (incoming / name).write_bytes(value)
+                (incoming / "others.db").write_bytes(b"truncated")
+
+            with mock.patch.object(lock.subprocess, "run", side_effect=corrupt_download):
+                with self.assertRaises(ValueError):
+                    lock.fetch_dictionaries(staging, self.data)
+            self.assertEqual(before, {path.name: path.read_bytes() for path in target.iterdir()})
+
+    def test_server_gitlinks_must_match_the_reviewed_engine_and_gui(self):
+        repositories = self.data["repositories"]
+
+        def git_result(directory, *args):
+            if args[0] == "rev-parse":
+                return repositories["server"]["commit"]
+            component = next(name for name, path in lock.SERVER_GITLINKS.items() if path == args[-1])
+            return f"160000 commit {repositories[component]['commit']}\t{args[-1]}"
+
+        with mock.patch.object(lock, "git", side_effect=git_result):
+            lock.verify_checkout("server", ROOT, self.data)
+            changed = copy.deepcopy(self.data)
+            changed["repositories"]["engine"]["commit"] = "0" * 40
+            with self.assertRaises(ValueError):
+                lock.verify_checkout("server", ROOT, changed)
+
+    def test_wrong_checkout_is_rejected(self):
+        with mock.patch.object(lock, "git", return_value="0" * 40):
+            with self.assertRaises(ValueError):
+                lock.verify_checkout("server", ROOT, self.data)
+
+    def test_independently_bumped_tsf_contract_is_rejected(self):
+        expected = self.data["repositories"]["engine"]["commit"]
+        with mock.patch.object(lock, "git", return_value=f"160000 commit {expected}\tvendor/MetasequoiaImeEngine"):
+            lock.verify_contracts(ROOT, self.data)
+        with mock.patch.object(lock, "git", return_value="160000 commit " + "0" * 40 + "\tvendor/MetasequoiaImeEngine"):
+            with self.assertRaises(ValueError):
+                lock.verify_contracts(ROOT, self.data)
+
+    def test_manifest_records_exact_source_and_lock_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "manifest.json"
+            commit = "1" * 40
+            subprocess.run(["python3", str(ROOT / "scripts/product_lock.py"), "manifest",
+                            "--windows-commit", commit, "--output", str(output)], check=True)
+            manifest = json.loads(output.read_text())
+            self.assertEqual(manifest["repositories"]["windows"]["commit"], commit)
+            self.assertEqual(manifest["dictionary"], self.data["dictionary"])
+            self.assertEqual(manifest["lock_sha256"], lock.sha256(ROOT / "product-lock.json"))
+
+
+if __name__ == "__main__":
+    unittest.main()

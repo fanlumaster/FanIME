@@ -10,11 +10,6 @@ on:
         description: Existing draft release tag to build and publish, for example v0.0.10
         required: true
         type: string
-      dictionary_tag:
-        description: MSIME-Dict release to take the dictionaries from, or "latest"
-        required: false
-        type: string
-        default: latest
 
 permissions:
   contents: read
@@ -45,7 +40,6 @@ jobs:
       tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || steps.release.outputs.tag_name }}
       version: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.version || steps.release.outputs.version }}
       target_sha: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.target_sha || steps.release.outputs.sha }}
-      dictionary_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.dictionary_tag || 'latest' }}
     steps:
       - name: Check out release automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,9 +69,32 @@ jobs:
           TAG_NAME: ${{ inputs.tag }}
         run: bash scripts/ci/validate-draft-release.sh
 
+  dependencies:
+    name: Load the release product lock
+    needs: prepare
+    if: ${{ needs.prepare.outputs.should_publish == 'true' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      server_sha: ${{ steps.lock.outputs.server_sha }}
+      ui_sha: ${{ steps.lock.outputs.ui_sha }}
+      installer_sha: ${{ steps.lock.outputs.installer_sha }}
+      helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
+      dictionary_tag: ${{ steps.lock.outputs.dictionary_tag }}
+    steps:
+      - name: Read dependencies from the release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.target_sha }}
+          persist-credentials: false
+      - name: Validate and export the product lock
+        id: lock
+        run: |
+          python3 scripts/product_lock.py verify-contracts .
+          python3 scripts/product_lock.py outputs --github-output "$GITHUB_OUTPUT"
+
   tsf:
     name: Build TSF ${{ matrix.name }}
-    needs: prepare
+    needs: [prepare, dependencies]
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: windows-2025
     timeout-minutes: 60
@@ -104,9 +121,12 @@ jobs:
       - name: Check out release automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ needs.prepare.outputs.target_sha }}
           path: automation
-          sparse-checkout: scripts/ci
+          sparse-checkout: |
+            scripts
+            product-lock.json
+          sparse-checkout-cone-mode: false
           persist-credentials: false
 
       - name: Stamp the version resource
@@ -137,6 +157,9 @@ jobs:
         shell: pwsh
         run: ./automation/scripts/ci/check-tsf-dll.ps1 -BuildDir '${{ matrix.build_dir }}'
 
+      - name: Test the wire contract on this architecture
+        run: ctest --test-dir ${{ matrix.build_dir }} -C Release --output-on-failure
+
       - name: Upload the DLL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -146,7 +169,7 @@ jobs:
 
   server:
     name: Build Server
-    needs: prepare
+    needs: [prepare, dependencies]
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: windows-2025
     timeout-minutes: 90
@@ -155,6 +178,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: metasequoiaime/MSIME-Server
+          ref: ${{ needs.dependencies.outputs.server_sha }}
           submodules: recursive
           persist-credentials: false
 
@@ -163,20 +187,30 @@ jobs:
       - name: Check out release automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ needs.prepare.outputs.target_sha }}
           path: automation
-          sparse-checkout: scripts/ci
+          sparse-checkout: |
+            scripts
+            product-lock.json
+          sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      - name: Verify Server and its engine and GUI dependencies
+        run: python automation/scripts/product_lock.py verify-checkout server .
 
       - name: Install Boost
         shell: pwsh
         run: ./automation/scripts/ci/install-boost.ps1
 
-      # The binary directory has to be named build: MSIME-Server's CMakeLists.txt hardcodes
-      # ${CMAKE_SOURCE_DIR}/build/vcpkg_installed for the WebView2 loader and its include paths,
-      # so any other name fails to link MetasequoiaImeSettings. The packaging job downloads this
-      # artifact into build-release/bin/Release, which is where Prepare-PackageFiles.ps1 reads it
-      # from, so the name used here does not matter.
+      - name: Check out locked helpcodes for integration tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: metasequoiaime/MSIME-HelpCode
+          ref: ${{ needs.dependencies.outputs.helpcode_sha }}
+          path: helpcodes
+          persist-credentials: false
+
+      # The package job stages these outputs into the installer's expected directory.
       - name: Configure
         shell: pwsh
         run: >
@@ -192,6 +226,11 @@ jobs:
         shell: pwsh
         run: ./automation/scripts/ci/check-server-binaries.ps1
 
+      - name: Test Server with the release's exact dictionaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./automation/scripts/ci/test-server.ps1 -ServerRoot . -HelpcodeRoot helpcodes -StagingRoot "$env:RUNNER_TEMP/product-data"
+
       - name: Upload the Server build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -201,7 +240,7 @@ jobs:
 
   ui:
     name: Build settings page
-    needs: prepare
+    needs: [prepare, dependencies]
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -210,6 +249,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: metasequoiaime/MSIME-UiHtml
+          ref: ${{ needs.dependencies.outputs.ui_sha }}
           persist-credentials: false
 
       - name: Set up pnpm
@@ -243,12 +283,13 @@ jobs:
 
   package:
     name: Package and publish installer
-    needs: [prepare, tsf, server, ui]
+    needs: [prepare, dependencies, tsf, server, ui]
     runs-on: windows-2025
     timeout-minutes: 60
     permissions:
       contents: write
     env:
+      DICTIONARY_TAG: ${{ needs.dependencies.outputs.dictionary_tag }}
       # jrsoftware/issrc pinned by commit, with the checksum of the file at that commit.
       ISL_URL: https://raw.githubusercontent.com/jrsoftware/issrc/1ae7bf81dc0d2013235dfe4bb0b6f4e4a0b6b25c/Files/Languages/ChineseSimplified.isl
       ISL_SHA256: e0b0b350e2245f3c5e65586dfe43d574f6e7f06f2261149aba284954b3fc9a8d
@@ -263,9 +304,12 @@ jobs:
       - name: Check out release automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ needs.prepare.outputs.target_sha }}
           path: automation
-          sparse-checkout: scripts/ci
+          sparse-checkout: |
+            scripts
+            product-lock.json
+          sparse-checkout-cone-mode: false
           persist-credentials: false
 
       - name: Verify the release commit is on main
@@ -277,6 +321,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: metasequoiaime/MSIME-Installer
+          ref: ${{ needs.dependencies.outputs.installer_sha }}
           path: ${{ env.STAGING_ROOT }}/msime-installer
           persist-credentials: false
 
@@ -284,6 +329,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: metasequoiaime/MSIME-Server
+          ref: ${{ needs.dependencies.outputs.server_sha }}
           path: ${{ env.STAGING_ROOT }}/MetasequoiaImeServer
           persist-credentials: false
 
@@ -291,6 +337,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: metasequoiaime/MSIME-HelpCode
+          ref: ${{ needs.dependencies.outputs.helpcode_sha }}
           path: ${{ env.STAGING_ROOT }}/MetasequoiaImeHelpCode
           persist-credentials: false
 
@@ -322,7 +369,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DICTIONARY_TAG: ${{ needs.prepare.outputs.dictionary_tag }}
         run: bash automation/scripts/ci/download-dictionaries.sh
 
       - name: Decide the signing mode
@@ -339,6 +385,14 @@ jobs:
         env:
           TARGET_VERSION: ${{ needs.prepare.outputs.version }}
         run: pwsh -File ./Prepare-PackageFiles.ps1 -TargetVersion $env:TARGET_VERSION -RepoRoot (Resolve-Path '..').Path
+
+      - name: Embed the exact product dependency manifest
+        env:
+          WINDOWS_COMMIT: ${{ needs.prepare.outputs.target_sha }}
+        run: >
+          python automation/scripts/product_lock.py manifest
+          --windows-commit "$env:WINDOWS_COMMIT"
+          --output src/msime-installer/app_data/product-manifest.json
 
       - name: Sign the packaged binaries
         if: ${{ steps.signing.outputs.signing_enabled == 'true' }}
@@ -383,7 +437,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: installer
-          path: ${{ steps.asset.outputs.asset_path }}
+          path: |
+            ${{ steps.asset.outputs.asset_path }}
+            src/msime-installer/app_data/product-manifest.json
           if-no-files-found: error
 
       - name: Revalidate the draft release target
@@ -405,4 +461,5 @@ jobs:
           ASSET_NAME: ${{ steps.asset.outputs.asset_name }}
           ASSET_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
           SIGNING_ENABLED: ${{ steps.signing.outputs.signing_enabled }}
+          PRODUCT_MANIFEST: src/msime-installer/app_data/product-manifest.json
         run: bash automation/scripts/ci/publish-release.sh

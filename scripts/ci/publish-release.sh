@@ -5,7 +5,7 @@
 # DICTIONARY_TAG.
 set -euo pipefail
 
-gh release upload "$TAG_NAME" "$ASSET_PATH" --repo "$GH_REPO" --clobber
+gh release upload "$TAG_NAME" "$ASSET_PATH" "$PRODUCT_MANIFEST" --repo "$GH_REPO" --clobber
 
 gh release view "$TAG_NAME" --repo "$GH_REPO" --json body --jq .body > notes.md
 {
@@ -14,6 +14,7 @@ gh release view "$TAG_NAME" --repo "$GH_REPO" --json body --jq .body > notes.md
     printf '| Installer | `%s` |\n' "$ASSET_NAME"
     printf '| SHA256 | `%s` |\n' "$ASSET_SHA256"
     printf '| Dictionaries | `%s` |\n' "$DICTIONARY_TAG"
+    printf '| Build inputs | `product-manifest.json` (attached and installed) |\n'
     if [[ "$SIGNING_ENABLED" != true ]]; then
         printf '\nThis build is **unsigned**. Windows warns on launch, and `uiAccess` does not take effect, so the candidate window cannot float over elevated applications.\n'
     fi

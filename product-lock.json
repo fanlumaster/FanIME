@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "repositories": {
+    "server": {
+      "repository": "metasequoiaime/MSIME-Server",
+      "commit": "c1b8fb1396639b2b6f15ddaedf27c2046c86a647"
+    },
+    "ui": {
+      "repository": "metasequoiaime/MSIME-UiHtml",
+      "commit": "fde7b02567a1daf20d79e5232325d0ab9f5748d8"
+    },
+    "installer": {
+      "repository": "metasequoiaime/MSIME-Installer",
+      "commit": "aa0ff3add756e0c242eb8457336ce9b9863cb9ff"
+    },
+    "helpcode": {
+      "repository": "metasequoiaime/MSIME-HelpCode",
+      "commit": "37069955b24c1497f04badbd4c8207fdb9cdd535"
+    },
+    "engine": {
+      "repository": "metasequoiaime/MSIME-Engine",
+      "commit": "127019f252cab9146f7a4e184f77cd6ed13fcf56"
+    },
+    "gui": {
+      "repository": "metasequoiaime/MSIME-UI",
+      "commit": "411db4fe8e9e33c33a95bde63c5765e68530ba47"
+    }
+  },
+  "dictionary": {
+    "repository": "metasequoiaime/MSIME-Dict",
+    "tag": "dict-2026.09.05",
+    "assets": {
+      "dict_japanese.dat": "8baafcfc3881d0280cdda8bda7cf3968d8f8fbc94243fea94847cff2b6e2cd66",
+      "english.db": "5357d024938b36f3bc43f81c6803cc5c629d860cb656e5c80f5bab65a69e9b4c",
+      "mozc_dictionary_oss_README.txt": "6b1de66bc6fa30e0b45dc45b8c8f6c57bd78aff923c261a3efffac8eb86f7bac",
+      "msime.db": "9e68e88be036206fc14d44db7111376b1d92f9173b04d623e601e31edd664c2f",
+      "others.db": "501bdd6619963bdce79374cd6b7c9ccafe1bf539c59a32cc5311b1fd93c5c8fb",
+      "SHA256SUMS.txt": "32a9a5272926573c98ba9c81dd50b81ec24410fa2cc3716e6a832bf547a87f41"
+    }
+  }
+}
