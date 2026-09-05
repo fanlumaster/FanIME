@@ -576,7 +576,7 @@ void FloatingToolbarPresenter::ApplyTheme()
     RelayoutHost();
 }
 
-void FloatingToolbarPresenter::RelayoutHost()
+void FloatingToolbarPresenter::RelayoutHost(FLOAT scaleOverride)
 {
     if (!bound_ || !hwnd_ || !impl_ || !impl_->root)
     {
@@ -591,7 +591,7 @@ void FloatingToolbarPresenter::RelayoutHost()
     ::FTB_WND_WIDTH = static_cast<int>(std::ceil(measured.width));
     ::FTB_WND_HEIGHT = static_cast<int>(std::ceil(measured.height));
 
-    FLOAT scale = GetWindowScale(hwnd_);
+    FLOAT scale = scaleOverride > 0.0f ? scaleOverride : GetWindowScale(hwnd_);
     if (scale <= 0.0f)
     {
         scale = 1.0f;

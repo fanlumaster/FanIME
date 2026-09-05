@@ -12,7 +12,7 @@ class FloatingToolbarPresenter
     bool IsBound() const;
     void Present();
     void ApplyTheme();
-    void RelayoutHost();
+    void RelayoutHost(FLOAT scaleOverride = 0.0f);
     void SyncUi(int cnEn, int doubleSingleByte, int punctuation, int englishInputMode, int capsLock,
                 int japaneseInputMode);
     bool HitCaptionDrag(POINT clientPoint) const;
