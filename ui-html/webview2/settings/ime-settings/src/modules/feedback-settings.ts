@@ -1,5 +1,6 @@
-function postNativeMessage(type: string, data: string): void {
-  window.chrome?.webview?.postMessage(JSON.stringify({ type, data }));
+import { serializeHostMessage } from '../../../../shared/messages';
+function postNativeMessage(type: 'openExternalUrl' | 'copyText', data: string): void {
+  window.chrome?.webview?.postMessage(serializeHostMessage({ type, data }));
 }
 
 function openExternalUrl(url: string): void {

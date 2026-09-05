@@ -1,3 +1,4 @@
+import { serializeHostMessage, isServerMessage } from '../../../../shared/messages';
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
 
 function safeParseJson(value: string): unknown {
@@ -276,17 +277,17 @@ export function setupConfigSync(): void {
 
   window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
-    if (!payload || typeof payload !== 'object' || payload.type !== 'configSnapshot') {
+    if (!isServerMessage(payload) || payload.type !== 'configSnapshot') {
       return;
     }
     applyConfigData(payload.data ?? {});
   });
 
-  window.chrome.webview.postMessage(JSON.stringify({ type: 'configRequest' }));
+  window.chrome.webview.postMessage(serializeHostMessage({ type: 'configRequest' }));
 }
 
 export function updateConfig(path: string, value: string | boolean | number): void {
-  window.chrome?.webview?.postMessage(JSON.stringify({
+  window.chrome?.webview?.postMessage(serializeHostMessage({
     type: 'configUpdate',
     data: { path, value }
   }));

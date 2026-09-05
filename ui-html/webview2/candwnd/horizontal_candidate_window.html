@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="https://msime-contracts/schema.js"></script>
+  <script src="https://msime-contracts/runtime.js"></script>
+  <script>const serializeHostMessage = message => MsimeProtocol.serializeClientMessage(message, "candidate");</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>(IME)horizontalCandidateWindow</title>
@@ -63,7 +66,7 @@
           Array.from((cand.textContent || '').replace(/^\s*\d+\s*/, '').trim()).length === 1 ? 'none' : 'block';
         const menuPosition=positionContextMenu(menu,e.clientX,e.clientY);
         const submenuSize=positionContextSubmenu(menu,menuPosition.y), content=document.getElementById('realContainer');
-        window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuResize',data:{
+        window.chrome.webview.postMessage(serializeHostMessage({type:'contextMenuResize',data:{
           width:Math.ceil(menuPosition.x+menu.offsetWidth+submenuSize.width+4),
           height:Math.ceil(Math.max(content?.offsetHeight||0,menuPosition.y+menu.offsetHeight+4,submenuSize.bottom+4)),
           topExpansion:Math.ceil(Math.max(menuPosition.topExpansion||0,submenuSize.topExpansion||0))
@@ -103,7 +106,7 @@
         }
 
         try {
-          window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: candIndex }));
+          window.chrome.webview.postMessage(serializeHostMessage({ type: 'candidate', data: candIndex }));
         } catch (error) {
           console.error('Failed to send candidate click:', error);
         }
@@ -114,7 +117,7 @@
         lastPointerScreenPosition = { x: event.screenX, y: event.screenY };
         if (window.msimeCandidateDiagnostics === true && pointerProbeCount < 6) {
           pointerProbeCount += 1;
-          window.chrome.webview.postMessage(JSON.stringify({ type: 'candidatePointerProbe', data: {
+          window.chrome.webview.postMessage(serializeHostMessage({ type: 'candidatePointerProbe', data: {
             probe: pointerProbeCount, screenX: event.screenX, screenY: event.screenY,
             clientX: event.clientX, clientY: event.clientY,
             movementX: event.movementX, movementY: event.movementY,
@@ -129,10 +132,10 @@
       menu.style.display = 'none';
       currentRightClickedCand = null;
       window.RestoreContextMenuTopExpansion();
-      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
+      window.chrome.webview.postMessage(serializeHostMessage({type:'contextMenuClosed'}));
     }
     function menuIndex(){ return Array.from(document.querySelectorAll('#realContainer .cand')).indexOf(currentRightClickedCand)+1; }
-    function sendMenu(type,data){ window.chrome.webview.postMessage(JSON.stringify({type,data}));
+    function sendMenu(type,data){ window.chrome.webview.postMessage(serializeHostMessage({type,data}));
       hideContextMenu(); }
     function onPinToTop(e){ if(e.button===0) sendMenu('pin',menuIndex()); }
     function onDelete(e){ if(e.button===0) sendMenu('delete',menuIndex()); }
@@ -424,7 +427,7 @@
     if (now - lastSent < COOLDOWN_MS) return;
     lastSent = now;
     var r = node.getBoundingClientRect();
-    window.chrome.webview.postMessage(JSON.stringify({
+    window.chrome.webview.postMessage(serializeHostMessage({
       type: 'contentTruncated',
       data: {
         surface: SURFACE,

@@ -1,3 +1,6 @@
+import type { SettingsMessage } from '../../../../shared/messages';
+type DictionaryRequest = Extract<SettingsMessage, { type: 'dictionaryRequest' }>['data'];
+import { serializeHostMessage, isServerMessage } from '../../../../shared/messages';
 type DictionaryType = 'quanpin' | 'wubi' | 'english';
 type DictionaryRow = { code?: string; word: string; weight?: number; display?: string };
 
@@ -8,9 +11,9 @@ let lastQuery = '';
 let lastAction = 'query';
 let toastTimer: number | null = null;
 
-function post(action: string, data: Record<string, unknown> = {}): void {
+function post(action: DictionaryRequest['action'], data: Partial<Omit<DictionaryRequest, 'action' | 'requestId'>> = {}): void {
   lastAction = action;
-  window.chrome?.webview?.postMessage(JSON.stringify({
+  window.chrome?.webview?.postMessage(serializeHostMessage({
     type: 'dictionaryRequest',
     data: { requestId: `dict-${++requestCounter}`, dictionary, action, ...data }
   }));
@@ -220,7 +223,7 @@ export function setupDictionary(): void {
   });
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
+    if (!isServerMessage(payload) || payload.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
     const isImport = lastAction === 'import' || lastAction === 'importHans';
     const isExport = lastAction === 'export';
     if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {

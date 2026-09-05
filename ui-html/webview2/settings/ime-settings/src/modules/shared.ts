@@ -1,3 +1,4 @@
+import { serializeHostMessage } from '../../../../shared/messages';
 // 下拉菜单功能
 import { setSurfaceTheme, setThemeMode } from './theme';
 
@@ -64,7 +65,7 @@ export function setupDropdownMenu(
   messageAction: string,
   useStopPropagation: boolean = false,
   configPath?: string,
-  valueTransform: (value: string) => unknown = (value) => value
+  valueTransform: (value: string) => string | number | boolean = (value) => value
 ): void {
   const btn = document.getElementById(btnId);
   const menu = document.getElementById(menuId);
@@ -153,7 +154,7 @@ export function setupDropdownMenu(
       : (item.dataset.value ?? '');
 
     if (window.chrome?.webview && configPath) {
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'configUpdate',
         data: {
           path: configPath,
@@ -161,18 +162,14 @@ export function setupDropdownMenu(
         }
       }));
     } else if (window.chrome?.webview && messageAction === 'changeCandidateArrange') {
-      window.chrome.webview.postMessage(JSON.stringify({
+      window.chrome.webview.postMessage(serializeHostMessage({
         type: 'configUpdate',
         data: {
           path: 'appearance.candidate_window_layout',
-          value: item.dataset.value
+          value: item.dataset.value ?? ''
         }
       }));
-    } else if (window.chrome?.webview) {
-      window.chrome.webview.postMessage(JSON.stringify({
-        type: messageAction,
-        data: item.dataset.value
-      }));
+
     }
 
     menu.classList.remove('open');

@@ -1,3 +1,6 @@
+import type { SettingsMessage } from '../../../../shared/messages';
+type DictionaryRequest = Extract<SettingsMessage, { type: 'dictionaryRequest' }>['data'];
+import { serializeHostMessage, isServerMessage } from '../../../../shared/messages';
 import { setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
 
@@ -8,9 +11,9 @@ let requestCounter = 0;
 let lastAction = 'query';
 let toastTimer: number | null = null;
 
-function post(action: string, data: Record<string, unknown> = {}): void {
+function post(action: DictionaryRequest['action'], data: Partial<Omit<DictionaryRequest, 'action' | 'requestId'>> = {}): void {
   lastAction = action;
-  window.chrome?.webview?.postMessage(JSON.stringify({
+  window.chrome?.webview?.postMessage(serializeHostMessage({
     type: 'dictionaryRequest',
     data: { requestId: `quick-${++requestCounter}`, dictionary: 'quick', action, ...data }
   }));
@@ -154,14 +157,15 @@ export function setupToolsSettings(): void {
   window.addEventListener('resize', syncHeader);
   window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (payload?.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('quick-')) return;
+    if (!isServerMessage(payload) || payload.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('quick-')) return;
     const isImport = lastAction === 'import';
     const isExport = lastAction === 'export';
     if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {
       downloadExport(payload.content, payload.filename);
     }
     showToast(payload.message ?? (payload.ok ? '操作成功' : '操作失败'), Boolean(payload.ok), isImport ? 5600 : 3200);
-    if (Array.isArray(payload.rows)) renderRows(payload.rows);
+    renderRows(payload.rows.filter((row): row is QuickPhraseRow =>
+      typeof row.code === 'string' && typeof row.weight === 'number'));
     if (payload.ok && lastAction !== 'query' && !isExport) { closeDialog(); query(); }
   });
 }

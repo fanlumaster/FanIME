@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="https://msime-contracts/schema.js"></script>
+  <script src="https://msime-contracts/runtime.js"></script>
+  <script>const serializeHostMessage = message => MsimeProtocol.serializeClientMessage(message, "candidate");</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>(IME)verticalCandidateWindow</title>
@@ -88,7 +91,7 @@
           if (candIndex !== null) {
             console.log('Candidate left clicked:', candIndex);
             try {
-              window.chrome.webview.postMessage(JSON.stringify({ type: 'candidate', data: Number(candIndex) }));
+              window.chrome.webview.postMessage(serializeHostMessage({ type: 'candidate', data: Number(candIndex) }));
               // TODO: 考虑一下，这里要不要也去做一下 html 界面的隐藏。
             } catch (e) {
               console.error('Failed to send message:', e);
@@ -101,7 +104,7 @@
         lastPointerScreenPosition = { x: event.screenX, y: event.screenY };
         if (window.msimeCandidateDiagnostics === true && pointerProbeCount < 6) {
           pointerProbeCount += 1;
-          window.chrome.webview.postMessage(JSON.stringify({ type: 'candidatePointerProbe', data: {
+          window.chrome.webview.postMessage(serializeHostMessage({ type: 'candidatePointerProbe', data: {
             probe: pointerProbeCount, screenX: event.screenX, screenY: event.screenY,
             clientX: event.clientX, clientY: event.clientY,
             movementX: event.movementX, movementY: event.movementY,
@@ -162,7 +165,7 @@
       const menuPosition = positionContextMenu(menu, x, y);
       const submenuSize = positionContextSubmenu(menu, menuPosition.y);
       const content = document.getElementById('realContainer');
-      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuResize', data:{
+      window.chrome.webview.postMessage(serializeHostMessage({type:'contextMenuResize', data:{
         width: Math.ceil(menuPosition.x + menu.offsetWidth + submenuSize.width + 4),
         height: Math.ceil(Math.max(content?.offsetHeight || 0, menuPosition.y + menu.offsetHeight + 4, submenuSize.bottom + 4)),
         topExpansion: Math.ceil(Math.max(menuPosition.topExpansion || 0, submenuSize.topExpansion || 0))
@@ -179,7 +182,7 @@
       menu.style.display = 'none';
       currentRightClickedCand = null;
       window.RestoreContextMenuTopExpansion();
-      window.chrome.webview.postMessage(JSON.stringify({type:'contextMenuClosed'}));
+      window.chrome.webview.postMessage(serializeHostMessage({type:'contextMenuClosed'}));
     }
 
     //
@@ -200,7 +203,7 @@
           const candContent = candContentElement ? candContentElement.textContent.trim() : null;
           console.log('Pin to top:', candIndex, candContent);
           // 通知 C++ 端置顶
-          window.chrome.webview.postMessage(JSON.stringify({ type: 'pin', data: Number(candIndex) }));
+          window.chrome.webview.postMessage(serializeHostMessage({ type: 'pin', data: Number(candIndex) }));
         }
       } catch (e) {
         // TODO: 处理异常
@@ -227,7 +230,7 @@
           const candContent = candContentElement ? candContentElement.textContent.trim() : null;
           console.log('Delete:', candIndex, candContent);
           // 通知 C++ 端删除
-          window.chrome.webview.postMessage(JSON.stringify({ type: 'delete', data: Number(candIndex) }));
+          window.chrome.webview.postMessage(serializeHostMessage({ type: 'delete', data: Number(candIndex) }));
         }
       } catch (e) {
         // TODO: 处理异常
@@ -251,7 +254,7 @@
     function onFixPosition(event, position) {
       if (event.button !== 0) return;
       const index = candidateMenuIndex();
-      if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'fixPosition', data:{index,position}}));
+      if (index !== null) window.chrome.webview.postMessage(serializeHostMessage({type:'fixPosition', data:{index,position}}));
       hideContextMenu();
     }
     window.ApplyContextMenuTopExpansion = function (pixels) {
@@ -284,7 +287,7 @@
     function onClearPosition(event) {
       if (event.button !== 0) return;
       const index = candidateMenuIndex();
-      if (index !== null) window.chrome.webview.postMessage(JSON.stringify({type:'clearPosition', data:index}));
+      if (index !== null) window.chrome.webview.postMessage(serializeHostMessage({type:'clearPosition', data:index}));
       hideContextMenu();
     }
 
@@ -544,7 +547,7 @@
     if (now - lastSent < COOLDOWN_MS) return;
     lastSent = now;
     var r = node.getBoundingClientRect();
-    window.chrome.webview.postMessage(JSON.stringify({
+    window.chrome.webview.postMessage(serializeHostMessage({
       type: 'contentTruncated',
       data: {
         surface: SURFACE,

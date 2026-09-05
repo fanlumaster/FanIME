@@ -1,3 +1,4 @@
+import { serializeHostMessage, isServerMessage } from '../../../shared/messages';
 import './styles/critical.css';
 
 import { loadHTML, showOnlyCurrentModule } from './utils/common-utils';
@@ -6,7 +7,6 @@ import { setupConfigSync } from './modules/config-sync';
 
 const RESIZE_BORDER = 4;
 const WINDOW_CONTROLS_RESIZE_BORDER = 2;
-const MAXIMIZE_TOOLTIP_DELAY_MS = 1000;
 
 const titlebarDragState = {
   isDraggingFromTitlebar: false,
@@ -63,7 +63,7 @@ function setupWindowStateSync(): void {
 
   window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
     const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
-    if (!payload || typeof payload !== 'object') {
+    if (!isServerMessage(payload)) {
       return;
     }
 
@@ -103,38 +103,17 @@ function setupTitlebarButtons(): void {
   const closeBtn = document.getElementById('btn-close');
   const windowControls = document.querySelector<HTMLElement>('.window-controls');
   let minimizeMessageTimer: number | null = null;
-  let maximizeHoverTimer: number | null = null;
-  let maximizeSnapRequested = false;
 
   const postWindowMessage = (value: 'minimize' | 'maximize' | 'restore' | 'close') => {
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
-        JSON.stringify({
+        serializeHostMessage({
           type: 'windowControl',
           data: value
         })
       );
     } else {
       console.warn('[windowControl] webview2 not available:', value);
-    }
-  };
-
-  const postSnapLayoutMessage = () => {
-    if (windowState.isMaximized) {
-      return;
-    }
-
-    if (window.chrome?.webview) {
-      window.chrome.webview.postMessage(
-        JSON.stringify({
-          type: 'snapLayout',
-          data: {
-            source: 'maximizeButtonHover'
-          }
-        })
-      );
-    } else {
-      console.warn('[snapLayout] webview2 not available');
     }
   };
 
@@ -160,7 +139,7 @@ function setupTitlebarButtons(): void {
 
     const rect = activeBtn.getBoundingClientRect();
     window.chrome.webview.postMessage(
-      JSON.stringify({
+      serializeHostMessage({
         type: 'maximizeButtonRect',
         data: {
           x: rect.left,
@@ -173,18 +152,6 @@ function setupTitlebarButtons(): void {
     );
   };
 
-  const clearMaximizeHoverTimer = () => {
-    if (maximizeHoverTimer !== null) {
-      window.clearTimeout(maximizeHoverTimer);
-      maximizeHoverTimer = null;
-    }
-  };
-
-  const resetMaximizeHoverState = () => {
-    clearMaximizeHoverTimer();
-    maximizeSnapRequested = false;
-  };
-
   const restoreWindowControlsHoverState = () => {
     windowControls?.classList.remove('window-controls-click-reset');
   };
@@ -192,7 +159,6 @@ function setupTitlebarButtons(): void {
   windowControls?.addEventListener('mouseenter', restoreWindowControlsHoverState);
 
   onWindowStateChanged = () => {
-    resetMaximizeHoverState();
     windowControls?.classList.remove('window-controls-click-reset');
     maximizeBtn?.classList.remove('host-hover', 'host-active');
     restoreBtn?.classList.remove('host-hover', 'host-active');
@@ -205,7 +171,7 @@ function setupTitlebarButtons(): void {
   if (window.chrome?.webview) {
     window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
       const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
-      if (!payload || typeof payload !== 'object') {
+      if (!isServerMessage(payload)) {
         return;
       }
 
@@ -241,8 +207,7 @@ function setupTitlebarButtons(): void {
 
       if (eventType === 'up') {
         activeBtn.classList.remove('host-active');
-        resetMaximizeHoverState();
-        if (windowState.isMaximized) {
+            if (windowState.isMaximized) {
           postWindowMessage('restore');
         } else {
           postWindowMessage('maximize');
@@ -267,31 +232,10 @@ function setupTitlebarButtons(): void {
       minimizeMessageTimer = null;
     }, 100);
   });
-  maximizeBtn?.addEventListener('mouseenter', () => {
-    if (windowState.isMaximized) {
-      return;
-    }
-
-    clearMaximizeHoverTimer();
-
-    if (maximizeSnapRequested) {
-      return;
-    }
-
-    maximizeHoverTimer = window.setTimeout(() => {
-      postSnapLayoutMessage();
-      maximizeSnapRequested = true;
-      maximizeHoverTimer = null;
-    }, MAXIMIZE_TOOLTIP_DELAY_MS);
-  });
-  maximizeBtn?.addEventListener('mouseleave', resetMaximizeHoverState);
-  maximizeBtn?.addEventListener('blur', resetMaximizeHoverState);
   maximizeBtn?.addEventListener('click', () => {
-    resetMaximizeHoverState();
     postWindowMessage('maximize');
   });
   restoreBtn?.addEventListener('click', () => {
-    resetMaximizeHoverState();
     postWindowMessage('restore');
   });
   closeBtn?.addEventListener('click', () => postWindowMessage('close'));
@@ -327,7 +271,7 @@ function setupTitlebarDrag(): void {
   const postWindowMessage = (value: 'maximize' | 'restore') => {
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
-        JSON.stringify({
+        serializeHostMessage({
           type: 'windowControl',
           data: value
         })
@@ -401,7 +345,7 @@ function setupTitlebarDrag(): void {
 
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
-        JSON.stringify({
+        serializeHostMessage({
           type: 'dragStart'
         })
       );
@@ -538,7 +482,7 @@ function setupResizeHitTest(): void {
 
     if (window.chrome?.webview) {
       window.chrome.webview.postMessage(
-        JSON.stringify({
+        serializeHostMessage({
           type: 'resizeStart',
           data: hit
         })
