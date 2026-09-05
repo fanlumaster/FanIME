@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.14](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.13...v0.0.14) (2026-09-05)
+
+
+### Bug Fixes
+
+* **image:** add small icon frames to msime.ico ([facfe60](https://github.com/metasequoiaime/MSIME-Windows/commit/facfe60761c4f3b23e2ab58cbfa66d25385dcee0))
+* **image:** add small icon frames to msime.ico ([f6a4567](https://github.com/metasequoiaime/MSIME-Windows/commit/f6a4567b5e7fcf58454d394a12aed9ba3a20e9ae))
+
 ## [0.0.13](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.12...v0.0.13) (2026-09-05)
 
 
