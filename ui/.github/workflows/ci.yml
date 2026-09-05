@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-2025
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B build -A x64
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
