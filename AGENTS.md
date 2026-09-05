@@ -291,6 +291,43 @@ C++ 组件编译完成且相关前端/词库产物已准备好之后运行。`Si
 .\Compile-Installer.ps1 -IsccPath 'C:\Program Files\Inno Setup 7\ISCC.exe'
 ```
 
+## 正式发布（CI）
+
+上面那套是本地测试打包。对外发布走 `.github/workflows/release.yml`，产出的就是历来挂在本仓 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。
+
+版本号由 release-please 管理，真源是根目录的 `version.txt`。往 `main` 推提交后，release-please 会开一个 release PR；合并它就生成一个 draft release，随后 release workflow 构建安装包、附加产物并发布。也可以手动触发 workflow，对一个已存在的 draft tag 重新构建。
+
+`src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
+
+```powershell
+python .\scripts\apply_version.py           # 从 version.txt 写入版本资源
+python .\scripts\apply_version.py --check   # 只检查是否与 version.txt 一致
+```
+
+release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow 本身只负责编排和传参：
+
+| 脚本 | 用途 |
+|---|---|
+| `validate-draft-release.sh` | 手动触发时校验 tag 是未发布 draft、指向不可变 commit、且与 `version.txt` 一致 |
+| `merge-release-pr.sh` | 合并 release-please 刚开的 PR |
+| `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
+| `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
+| `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
+| `check-tsf-dll.ps1` | 确认 TSF DLL 产出 |
+| `download-dictionaries.sh` | 从 MSIME-Dict 的 `dict-*` release 拉词库并校验 SHA256 |
+| `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
+| `sign-binaries.ps1` | 用仓库 secret 里的真证书签名，包内二进制和安装包共用 |
+| `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定 |
+| `name-installer-asset.ps1` | 定最终产物名、算校验和、写 step summary |
+| `revalidate-draft-release.sh` | 发布前复查 draft 仍指向被构建的那个 commit |
+| `publish-release.sh` | 上传产物、追加说明、发布 |
+
+CI 里的目录布局刻意用了各仓的历史名（`MetasequoiaImeTsf`、`MetasequoiaImeServer`、`MetasequoiaImeUiHtml`、`MetasequoiaImeHelpCode`、`MetasequoiaImeDict`），这样 `msime-installer` 的 `Prepare-PackageFiles.ps1` 不用改一行就能在 CI 跑。改动那些脚本里的产物路径时，要连同本仓的 release workflow 一起核对。
+
+词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；也可以在手动触发时用 `dictionary_tag` 指定某个具体的词库版本。
+
+签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
+
 ## 提交纪律
 
 仓库可能与相邻 Server/UI 仓库同时改动。提交前分别在各仓执行 `git status --short`，只暂存本任务

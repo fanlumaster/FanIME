@@ -832,10 +832,11 @@ HRESULT CCandidateListUIPresenter::_StartCandidateList(TfClientId tfClientId, _I
     _candidateWindowVisible = FALSE;
 
     RECT rcTextExt;
-    if (SUCCEEDED(_GetTextExt(&rcTextExt)))
+    POINT anchor;
+    if (SUCCEEDED(_GetTextExt(&rcTextExt, &anchor)))
     {
-        Global::Point[0] = rcTextExt.left * Global::DpiScale;
-        Global::Point[1] = rcTextExt.bottom * Global::DpiScale;
+        Global::Point[0] = anchor.x;
+        Global::Point[1] = anchor.y;
         _LayoutChangeNotification(&rcTextExt);
     }
 
@@ -1096,14 +1097,15 @@ BOOL CCandidateListUIPresenter::_MovePage(_In_ int offSet)
 void CCandidateListUIPresenter::_MoveWindowToTextExt()
 {
     RECT rc;
+    POINT anchor;
 
-    if (FAILED(_GetTextExt(&rc)))
+    if (FAILED(_GetTextExt(&rc, &anchor)))
     {
         return;
     }
 
-    Global::Point[0] = rc.left * Global::DpiScale;
-    Global::Point[1] = rc.bottom * Global::DpiScale;
+    Global::Point[0] = anchor.x;
+    Global::Point[1] = anchor.y;
 }
 //+---------------------------------------------------------------------------
 //

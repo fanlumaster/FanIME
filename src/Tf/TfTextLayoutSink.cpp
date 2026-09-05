@@ -7,6 +7,22 @@
 #include <fmt/xchar.h>
 #include "../Utils/PerfTimer.h"
 
+POINT GetPhysicalTextAnchor(_In_ ITfContextView *pContextView, _In_ const RECT &textExtent)
+{
+    POINT anchor = {textExtent.left, textExtent.bottom};
+    HWND hostWindow = nullptr;
+    if (SUCCEEDED(pContextView->GetWnd(&hostWindow)) && hostWindow)
+    {
+        hostWindow = GetAncestor(hostWindow, GA_ROOT);
+        POINT physicalAnchor = anchor;
+        if (hostWindow && LogicalToPhysicalPointForPerMonitorDPI(hostWindow, &physicalAnchor))
+        {
+            anchor = physicalAnchor;
+        }
+    }
+    return anchor;
+}
+
 CTfTextLayoutSink::CTfTextLayoutSink(_In_ CMetasequoiaIME *pTextService)
 {
     _pTextService = pTextService;
@@ -223,7 +239,7 @@ HRESULT CTfTextLayoutSink::_UnadviseTextLayoutSink()
  * @param lpRect
  * @return HRESULT
  */
-HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect)
+HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect, _Out_ POINT *lpAnchor)
 {
     PerfTimer timer;
     HRESULT hr = S_OK;
@@ -241,6 +257,7 @@ HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect)
         // Set default value to make sure the window is hidden by moving it out of the screen
         lpRect->left = 0;
         lpRect->bottom = Global::INVALID_Y;
+        *lpAnchor = {0, Global::INVALID_Y};
     }
     else if (isClipped && lpRect && (lpRect->right <= lpRect->left || lpRect->bottom <= lpRect->top))
     {
@@ -248,6 +265,11 @@ HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect)
         // degenerate clipped extents that would anchor the candidate off-screen.
         lpRect->left = 0;
         lpRect->bottom = Global::INVALID_Y;
+        *lpAnchor = {0, Global::INVALID_Y};
+    }
+    else
+    {
+        *lpAnchor = GetPhysicalTextAnchor(pContextView, *lpRect);
     }
     pContextView->Release();
 

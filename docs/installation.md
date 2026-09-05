@@ -1,7 +1,7 @@
 # 安装水杉输入法
 
 > 适用版本：v0.0.9.2（2026 年 8 月 25 日发布，内测版）
-> 若你安装的是更新版本，请以 [Releases](https://github.com/metasequoiaime/MetasequoiaImeTsf/releases) 中的说明为准。
+> 若你安装的是更新版本，请以 [Releases](https://github.com/metasequoiaime/MSIME-Windows/releases) 中的说明为准。
 
 ## 目录
 
@@ -20,11 +20,11 @@
 | 磁盘空间 | 安装包约 61 MB，安装后占用约 250 MB［待确认：实测安装后目录大小］ |
 | 网络 | 云联想、AI 联想、语音输入、候选词翻译等在线功能需要联网；离线状态下本地输入不受影响 |
 | 其他 | 使用手写识别需先在 Windows 中安装「中文手写包」 |
-| Visual C++ 运行库 | 无需单独安装：TSF DLL 采用静态 CRT 构建（Release 为 `/MT`），不依赖宿主的 MSVCP140 / VCRUNTIME140 |
+| Visual C++ 运行库 | **需要 x64 版**。TSF DLL 采用静态 CRT 构建，被加载进宿主进程时不依赖 MSVCP140 / VCRUNTIME140；但 Server 与设置程序是动态 CRT 的 64 位程序，缺少运行库时会表现为服务反复退出、设置窗口一闪即关。详见下文[常见问题](#常见问题) |
 
 ## 下载
 
-1. 打开 [Releases 页面](https://github.com/metasequoiaime/MetasequoiaImeTsf/releases)。
+1. 打开 [Releases 页面](https://github.com/metasequoiaime/MSIME-Windows/releases)。
 2. 下载最新的安装包 `MetasequoiaIME_Setup_v<版本号>.exe`（例如 `MetasequoiaIME_Setup_v0.0.9.2.exe`）。
 
 > 注意：当前发布版本均标记为 **Pre-release（内测版）**，功能与稳定性可能变动，重要环境建议先在虚拟机或非主力机试用。
@@ -44,3 +44,26 @@
 
 ## 常见问题
 
+### 安装后无法切换到水杉，或设置窗口一闪即关
+
+绝大多数情况是缺少 **Visual C++ 2015–2022 Redistributable（x64）**。
+
+TSF DLL 被加载进宿主程序进程，采用静态 CRT 构建，不依赖运行库；但 Server 和设置程序是独立的 64 位程序，采用动态 CRT，缺少运行库时进程会在启动阶段直接退出。典型表现有三种：切换不到水杉输入法、Server 反复退出、设置窗口打开后立即消失。
+
+到[微软官方下载页](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist?view=msvc-170)下载 `vc_redist.x64.exe` 安装，然后重启 Windows。
+
+**注意 x86 与 x64 是两套独立的运行库。** 即使机器上已经装了较新的 x86 版本，也不能替代这里需要的 x64 版本。Windows 事件查看器里如果记录了 `MetasequoiaImeServer.exe` 或 `MetasequoiaImeSettings.exe` 因 `MSVCP140.dll` 或 `VCRUNTIME140.dll` 无法启动，就是这个原因。
+
+### 候选窗始终不出现
+
+先确认已安装 **Microsoft Edge WebView2 Runtime**（在「设置 → 应用 → 已安装的应用」里搜索 WebView2）。当前版本的候选窗由 WebView2 渲染，运行时缺失会导致窗口无法显示。
+
+### 手写识别没有候选结果
+
+需要先在 Windows 中安装「中文手写包」：设置 → 时间和语言 → 语言和区域 → 中文（简体，中国）→ 语言选项 → 手写。
+
+### 其他问题
+
+在 [Issues](https://github.com/metasequoiaime/MSIME-Windows/issues) 中反馈。为便于定位，请附上：输入法版本号、Windows 版本（`Win + R` 输入 `winver`）、出问题的宿主程序、以及最小复现步骤。
+
+与按键、候选窗相关的问题，可以在 `%LOCALAPPDATA%\metasequoiaime\config.toml` 的 `[general]` 段设 `tsf_diagnostic_log = true`，复现一次后附上日志。日志中可能包含你输入的内容，贴出前请先自行检查。

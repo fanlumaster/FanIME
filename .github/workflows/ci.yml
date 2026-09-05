@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # A release-please pull request only rewrites these three files. Skipping it keeps every
+    # release from parking an unapprovable run in the checks list: runs whose triggering actor is
+    # github-actions[bot] land in action_required, because GITHUB_TOKEN is not allowed to start
+    # workflows on its own. Nothing here builds from these files anyway.
+    paths-ignore:
+      - version.txt
+      - CHANGELOG.md
+      - .release-please-manifest.json
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Windows ${{ matrix.name }}
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x64
+            architecture: x64
+            triplet: x64-windows-static
+          - name: Win32
+            architecture: Win32
+            triplet: x86-windows-static
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        shell: pwsh
+        run: vcpkg install --triplet ${{ matrix.triplet }}
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -S . -B build -A ${{ matrix.architecture }}
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
