@@ -16,43 +16,27 @@ Make sure vcpkg and Boost are installed by **Scoop**.
 
 ### Build steps(For Dev)
 
-**First**, build IME dictonary and prepare assets,
-
-```powershell
-cd $env:LOCALAPPDATA
-mkdir metasequoiaime
-cd metasequoiaime
-git clone --recursive https://github.com/metasequoiaime/MSIME-Dict.git MetasequoiaImeDict
-cd .\MetasequoiaImeDict\makecikudb\xnheulpb\makedb\separated_jp_version
-python .\create_db_and_table.py
-python .\insert_data.py
-python .\create_index_for_db.py
-Copy-Item -Path .\out\msime.db -Destination $env:LOCALAPPDATA\metasequoiaime
-```
-
-**Then**, clone the product repository and build the server,
+Clone the product and provision the reviewed dictionary release from its root:
 
 ```powershell
 git clone --recursive https://github.com/metasequoiaime/MSIME-Windows.git
+cd MSIME-Windows
+python scripts/product_lock.py fetch-dictionaries --staging-root .
+if ($LASTEXITCODE -ne 0) { throw 'Dictionary verification failed' }
+$devData = Join-Path $PWD 'build/dev-data'
+New-Item -ItemType Directory -Force $devData | Out-Null
+Copy-Item MetasequoiaImeDict/out/* $devData -Force
+Copy-Item vendor/MetasequoiaImeEngine/helpcode/helpcodes $devData -Recurse -Force
+Copy-Item server/assets/tables/* $devData -Force
+Copy-Item server/assets/config/config.toml $devData -Force
+$env:METASEQUOIA_IME_DATA_DIR = $devData
+cd server
+python scripts/prepare_env.py
 ```
 
-Prepare environment,
-
-```powershell
-cd MSIME-Windows/server
-python .\scripts\prepare_env.py
-Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\metasequoiaime
-New-Item -ItemType SymbolicLink -Path "$env:LOCALAPPDATA\metasequoiaime\config.toml" -Target ".\assets\config\config.toml"
-```
-
-e.g.
-
-```powershell
-cd MetasequoiaImeServer
-python .\scripts\prepare_env.py
-Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\metasequoiaime
-New-Item -ItemType SymbolicLink -Path "C:\Users\sonnycalcr\AppData\Local\metasequoiaime\config.toml" -Target "C:\Users\sonnycalcr\EDisk\CppCodes\IMECodes\MetasequoiaImeServer\assets\config\config.toml"
-```
+This uses the same locked data as CI and a separate development data directory.
+Dictionary source changes belong in Engine's `dictionary/`; use its root `build_profile.py`
+to build data instead of calling internal stages in the archived Dict repository.
 
 Then, build and run,
 

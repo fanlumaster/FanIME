@@ -14,6 +14,8 @@ if (-not (Test-Path -LiteralPath $helpcodes -PathType Container)) {
 }
 python (Join-Path $automationRoot 'scripts/product_lock.py') verify-contracts $automationRoot
 if ($LASTEXITCODE -ne 0) { throw 'The engine submodule does not match the product lock' }
+python (Join-Path $automationRoot 'scripts/product_lock.py') verify-checkout engine (Join-Path $automationRoot 'vendor/MetasequoiaImeEngine')
+if ($LASTEXITCODE -ne 0) { throw 'The Engine checkout does not match the product lock' }
 python (Join-Path $automationRoot 'scripts/product_lock.py') fetch-dictionaries --staging-root $StagingRoot
 if ($LASTEXITCODE -ne 0) { throw 'Could not provision locked dictionaries' }
 $verified = (Resolve-Path (Join-Path $StagingRoot 'MetasequoiaImeDict/out')).Path

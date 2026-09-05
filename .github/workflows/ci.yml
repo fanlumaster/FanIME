@@ -44,7 +44,7 @@ jobs:
           python3 scripts/product_lock.py outputs --github-output "$GITHUB_OUTPUT"
 
   windows:
-    name: Windows tip ${{ matrix.name }}
+    name: Windows ${{ matrix.name }}
     runs-on: windows-2025
     strategy:
       fail-fast: false
