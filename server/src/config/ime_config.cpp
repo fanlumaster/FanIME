@@ -1,3 +1,4 @@
+#include "window/ui_backend_policy.h"
 #include "ime_config.h"
 #include <fmt/xchar.h>
 #include <Windows.h>
@@ -128,7 +129,7 @@ std::optional<std::filesystem::file_time_type> g_config_last_write_time;
 
 std::string NormalizeSmallWindowUiBackend(const std::string &value)
 {
-    if (value == "webview2" || value == "webview" || value == "web")
+    if (UiBackendPolicy::Resolve(UiBackendPolicy::Surface::Candidate, value) == UiBackendPolicy::Backend::WebView2)
         return "webview2";
     return "d2d";
 }
@@ -2366,6 +2367,8 @@ const std::string &GetConfiguredUiBackend()
 
 bool SetConfiguredUiBackend(const std::string &backend)
 {
+    if (!UiBackendPolicy::IsSupported(backend))
+        return false;
     const std::string normalized = NormalizeSmallWindowUiBackend(backend);
     if (!WriteConfiguredValue("appearance", "ui_backend", EscapeTomlBasicString(normalized)))
     {
@@ -2377,7 +2380,8 @@ bool SetConfiguredUiBackend(const std::string &backend)
 
 bool UseD2dSmallWindowUi()
 {
-    return g_ui_backend_active != "webview2";
+    return UiBackendPolicy::Resolve(UiBackendPolicy::Surface::Candidate, g_ui_backend_active) ==
+           UiBackendPolicy::Backend::Native;
 }
 
 const std::string &GetConfiguredCandidateSkin()

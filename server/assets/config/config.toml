@@ -157,7 +157,7 @@ punctuation_lock = "follow"
 #   engine + quanpin   -> 使用新版引擎全拼会话
 #   任意 backend + wubi -> 使用新版引擎五笔会话
 # 会话后端，可选："legacy", "engine"
-# session_backend = "legacy"
+# Historical "legacy" values are accepted as an alias for the shared engine.
 session_backend = "engine"
 # 输入模式，可选："chinese", "japanese"。切换模式时保留各语言上次使用的方案。
 mode = "chinese"

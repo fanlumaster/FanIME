@@ -2,7 +2,6 @@
 
 #include "config/ime_config.h"
 #include "engine_input_session.h"
-#include "shuangpin_input_session.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
 #include <algorithm>
 #include <stdexcept>
@@ -19,24 +18,9 @@ std::string ToLowerAscii(std::string value)
 
 std::string ResolveEffectiveBackend(std::string configured_backend, SchemeType scheme)
 {
-    if (configured_backend.empty() || configured_backend == "legacy")
-    {
-        switch (scheme)
-        {
-        case SchemeType::Shuangpin:
-            return "legacy-shuangpin";
-        case SchemeType::Quanpin:
-            return "engine-quanpin";
-        case SchemeType::Wubi:
-            return "engine-wubi";
-        case SchemeType::JapaneseRomaji:
-            return "engine-japanese-romaji";
-        default:
-            throw std::runtime_error("Unknown input scheme.");
-        }
-    }
-
-    if (configured_backend == "engine")
+    // Old installations may still persist "legacy". It is a configuration alias
+    // for the shared engine now; keeping a second composition owner is unsafe.
+    if (configured_backend.empty() || configured_backend == "legacy" || configured_backend == "engine")
     {
         switch (scheme)
         {
@@ -76,11 +60,6 @@ std::shared_ptr<IInputSession> CreateInputSessionFromConfig()
     if (backend == "engine-japanese-romaji")
     {
         return std::make_shared<EngineInputSession>(SchemeType::JapaneseRomaji);
-    }
-
-    if (backend == "legacy-shuangpin")
-    {
-        return std::make_shared<ShuangpinInputSession>(shuangpin_profile);
     }
 
     throw std::runtime_error("Unsupported effective input session backend: " + backend);

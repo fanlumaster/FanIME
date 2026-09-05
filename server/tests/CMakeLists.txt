@@ -26,6 +26,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_owner.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_action_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_state.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_view_model.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_text_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_window_template.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_size_estimator.cpp"

@@ -159,8 +159,6 @@ set(SRC_FILES
     "./src/session/input_session.h"
     "./src/session/session_factory.cpp"
     "./src/session/session_factory.h"
-    "./src/session/shuangpin_input_session.cpp"
-    "./src/session/shuangpin_input_session.h"
     "./src/utils/candidate_size_estimator.cpp"
     "./src/utils/candidate_size_estimator.h"
     "./src/utils/common_utils.cpp"
@@ -237,7 +235,13 @@ add_dependencies(${PROJECT_NAME} ${DICTIONARY_REPLAY_EXECUTABLE_NAME})
 # Keep msimeui as an independently versioned GUI framework submodule. The
 # product-owned emoji panel lives under src/emoji-panel so it can evolve separately
 # from the framework's example applications.
+# msimeui's standalone layout tests belong to its own CI. Its EXCLUDE_FROM_ALL
+# targets are not built here, so registering those tests would break Server CTest.
+set(_metasequoia_saved_build_testing "${BUILD_TESTING}")
+set(BUILD_TESTING OFF)
 add_subdirectory(msimeui EXCLUDE_FROM_ALL)
+set(BUILD_TESTING "${_metasequoia_saved_build_testing}")
+unset(_metasequoia_saved_build_testing)
 set(EMOJI_EXECUTABLE_NAME "MetasequoiaImeEmojiPanel")
 add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
     "./src/emoji-panel/EmojiPanel.cpp"

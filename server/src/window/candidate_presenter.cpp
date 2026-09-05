@@ -198,18 +198,6 @@ constexpr float kShadowPadBottom = 40.0f;
 constexpr float kCandidateMinWidthDip = 160.0f;
 constexpr float kDecorationCardOverlap = 5.0f;
 
-bool ShouldShowHelpcode()
-{
-    switch (GetConfiguredActiveInputScheme())
-    {
-    case SchemeType::Shuangpin:
-        return GetConfiguredShowShuangpinHelpcodeInCandidateWindow();
-    case SchemeType::Quanpin:
-        return GetConfiguredShowQuanpinHelpcodeInCandidateWindow();
-    default:
-        return false;
-    }
-}
 } // namespace
 
 struct CandidatePresenter::Impl
@@ -497,37 +485,15 @@ void CandidatePresenter::FillItemsFromUi()
 {
     auto &ui = Global::candidate_ui;
     std::vector<msimeui::CandidateList::Item> items;
-    const bool help = ShouldShowHelpcode();
-    const int start = ui.current_page_start();
-    for (size_t i = 0; i < ui.page_words.size(); ++i)
+    for (size_t i = 0; i < ui.page_views.size(); ++i)
     {
+        const auto &view = ui.page_views[i];
         msimeui::CandidateList::Item item;
         item.label = std::to_wstring(i + 1);
-        item.text = ui.page_words[i];
-        const size_t absIndex = static_cast<size_t>(start) + i;
-        if (absIndex < ui.items.size())
-        {
-            switch (ui.items[absIndex].source)
-            {
-            case CandidateSource::CloudSuggestion:
-                item.text += L" ☁️";
-                break;
-            case CandidateSource::AiSuggestion:
-                item.text += L" 🤖";
-                break;
-            default:
-                break;
-            }
-        }
-        if (help && absIndex < ui.items.size())
-        {
-            item.annotation = string_to_wstring(HelpcodeUtils::compute_helpcodes(ui.items[absIndex].word));
-        }
-        if (GetConfiguredCandidateTranslationsEnabled() && GetConfiguredCandidateWindowLayout() == "vertical" &&
-            i < ui.page_glosses.size())
-        {
-            item.translation = ui.page_glosses[i];
-        }
+        item.text = string_to_wstring(view.text + view.badge);
+        item.annotation = string_to_wstring(view.annotation);
+        if (GetConfiguredCandidateTranslationsEnabled() && GetConfiguredCandidateWindowLayout() == "vertical")
+            item.translation = string_to_wstring(view.translation);
         items.push_back(std::move(item));
     }
     ignoreSelectionCallback_ = true;

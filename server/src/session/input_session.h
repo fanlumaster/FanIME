@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MetasequoiaImeEngine/core/scheme_type.h"
+#include "MetasequoiaImeEngine/core/input_session.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
 #include <Windows.h>
 #include <string>
@@ -12,31 +12,9 @@ class IInputSession
   public:
     using WordItem = DictionaryUlPb::WordItem;
 
-    struct SelectionTransition
-    {
-        bool continues_composition = false;
-        std::string full_pure_pinyin;
-        std::string current_segmentation;
-        std::string current_segmentation_with_cases;
-        std::string selected_canonical_pinyin;
-    };
-
-    struct CloudQueryState
-    {
-        bool should_query = false;
-        std::string query_text;
-        std::string cache_key;
-        std::string committed_pinyin;
-    };
-
-    struct CreatingWordProgress
-    {
-        std::string pinyin;
-        std::string word;
-        std::string preedit;
-        bool completed = false;
-        bool can_store = false;
-    };
+    using SelectionTransition = metasequoia::InputSession::SelectionTransition;
+    using CloudQueryState = metasequoia::InputSession::CloudQueryState;
+    using CreatingWordProgress = metasequoia::InputSession::CreatingWordProgress;
 
     virtual ~IInputSession() = default;
 
