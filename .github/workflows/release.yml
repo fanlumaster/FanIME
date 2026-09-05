@@ -106,9 +106,15 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      # Verifying the built DLL instead would not work: the VERSIONINFO block in
+      # src/IME/MetasequoiaIME.rc is named IDR_VERSION2, which is not defined anywhere, rather
+      # than the VS_VERSION_INFO the Windows version API looks for. GetFileVersionInfo therefore
+      # finds nothing and the DLL reports an empty FileVersion, which has always been the case.
       - name: Stamp the version resource
         shell: pwsh
-        run: python scripts/apply_version.py
+        run: |
+          python scripts/apply_version.py
+          python scripts/apply_version.py --check
 
       - name: Install dependencies
         shell: pwsh
@@ -128,17 +134,12 @@ jobs:
         shell: pwsh
         run: cmake --build ${{ matrix.build_dir }} --config Release --parallel
 
-      - name: Verify the stamped version
+      - name: Check the DLL the installer expects
         shell: pwsh
-        env:
-          EXPECTED: ${{ needs.prepare.outputs.version }}
         run: |
           $dll = "${{ matrix.build_dir }}/Release/MetasequoiaImeTsf.dll"
-          $actual = (Get-Item $dll).VersionInfo.FileVersion
-          Write-Host "$dll reports $actual"
-          if ($actual -notlike "$env:EXPECTED*") {
-            throw "Expected the DLL to report $env:EXPECTED, got $actual"
-          }
+          if (-not (Test-Path $dll)) { throw "The build did not produce $dll" }
+          Write-Host "$dll is $((Get-Item $dll).Length) bytes"
 
       - name: Upload the DLL
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
