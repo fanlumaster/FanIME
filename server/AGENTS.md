@@ -20,8 +20,8 @@ CI 现在会真的跑它：根 `.github/workflows/ci.yml` 的 Server job 在 Bui
 
 **关键在于这些测试依赖真实词库，不是 fixture。**引擎从数据根目录读数据，默认 `%LOCALAPPDATA%\metasequoiaime`，可用 `METASEQUOIA_IME_DATA_DIR` 环境变量覆盖。`scripts/ci/test-server.ps1` 往那里放了四样东西，本地跑测试要凑齐同样的：
 
-- `msime.db`、`others.db`、`english.db`——从 MSIME-Dict 的 release 下载，CI 逐个核对 `SHA256SUMS.txt`。词库损坏要立刻失败，而不是拖到测试里表现成「候选为空」这种难查的样子
-- `helpcodes/`——五套辅助码方案，本组件 `assets/tables` 只有其中一套，从同一个 Engine submodule 的 `helpcode/helpcodes` 取全
+- `msime.db`、`others.db`、`english.db`——从 MSIME-Engine 的 release 下载，CI 逐个核对 `SHA256SUMS.txt`。词库损坏要立刻失败，而不是拖到测试里表现成「候选为空」这种难查的样子
+- `helpcodes/`——五套辅助码方案，本仓 `assets/tables` 只有其中一套，得从 `../vendor/MetasequoiaImeEngine/helpcode/` 取全
 - `assets/tables/*` 和 `assets/config/config.toml`
 
 数据不全时的典型症状是候选查询返回空集，断言信息看起来像逻辑错误，实际是缺数据。排查测试失败前先确认数据根目录是齐的。
@@ -85,5 +85,3 @@ Boost 是静态链接但没有写进 `vcpkg.json`，所以只能用 classic 模�
   和相关布局；优先沿用项目已有的 DPI 获取与缩放辅助函数，避免各处自行实现不一致的换算规则。
 - 涉及尺寸或布局的改动，至少检查 100%、125%、150%、200% 缩放，以及不同 DPI 显示器之间移动时
   是否出现裁切、错位、模糊、点击区域偏移或窗口越出工作区。
-
-语音采集使用 Engine 的 `MetasequoiaIme::VoiceCapture`，16 kHz 单声道 float PCM。录音控制线程串行调用 start/stop，stop 返回后才能释放豆包流式客户端或样本缓冲。不要重新内嵌 miniaudio 实现；提示音暂用同一 Engine 固定的 miniaudio 头文件与实现。

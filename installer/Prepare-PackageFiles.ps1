@@ -2,14 +2,12 @@
 param(
     [string]$TargetVersion = '0.0.1',
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
-    # Source checkouts are addressed by directory name under $RepoRoot. The defaults are the
-    # historical names, which is what MSIME-Windows' release workflow stages its checkouts as and
-    # what a local side-by-side clone looks like. They are parameters so that a caller using the
-    # current repository names does not have to rename directories to satisfy this script.
+    # Component paths are relative to RepoRoot. CI and local product scripts pass windows/,
+    # server/ and ui-html/ explicitly; the standalone historical names remain valid overrides.
     [string]$TsfDirectory = 'MetasequoiaImeTsf',
     [string]$ServerDirectory = 'MetasequoiaImeServer',
     [string]$UiHtmlDirectory = 'MetasequoiaImeUiHtml',
-    [string]$HelpCodeDirectory = 'MetasequoiaImeEngine/helpcode',
+    [string]$HelpCodeDirectory = 'vendor/MetasequoiaImeEngine/helpcode',
     [string]$DictionaryDirectory = 'MetasequoiaImeDict',
     # THIRD_PARTY_NOTICES.txt used to sit next to the tip's sources. In the consolidated repository
     # the notice covers the whole product and lives at the root, one level above windows/, so where
