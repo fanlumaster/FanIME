@@ -228,10 +228,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Check out MetasequoiaImeUiHtml
+      - name: Check out MSIME-UiHtml
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          repository: metasequoiaime/MetasequoiaImeUiHtml
+          repository: metasequoiaime/MSIME-UiHtml
           persist-credentials: false
 
       - name: Set up pnpm
