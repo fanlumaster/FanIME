@@ -12,19 +12,23 @@
 
 CI 刻意构建到 `build-release` 而不是 `build`，为的就是让这条不会悄悄退回去——两者在目录名恰好是 `build` 时解析结果相同，所以只有构建到别处才测得出来。
 
-## 测试会随主工程编译，但 CI 从不运行
+## 测试跑在真实词库上，本地要先备好数据
 
-`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:411` 据此 `add_subdirectory(tests)`，而 `tests/CMakeLists.txt:78` 用 `add_test` 注册了一条同名用例。所以这个 target **会被配置、会被编译，ctest 也确实有东西可跑**——测试源码里的编译错误照样会让 CI 变红。
+`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:420` 据此 `add_subdirectory(tests)`，而 `tests/CMakeLists.txt:78` 用 `add_test` 注册了一条同名用例。
 
-缺的只是运行环节：`.github/workflows/ci.yml` 的 Configure 步只传了 `CMAKE_TOOLCHAIN_FILE` 和 `VCPKG_TARGET_TRIPLET`，没有关掉 `BUILD_TESTING`，之后却只有一个 Build 步、没有 ctest 步，所以**编译出来的测试可执行文件从来没有被运行过**。
+CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provision dictionary data 和 Test 两步，后者执行 `ctest --test-dir build -C Release --verbose --timeout 120`。断言失败会让 CI 变红，不再是编译通过就算数。
 
-后果：
+**关键在于这些测试依赖真实词库，不是 fixture。**引擎从数据根目录读数据，默认 `%LOCALAPPDATA%\metasequoiaime`，可用 `METASEQUOIA_IME_DATA_DIR` 环境变量覆盖。CI 的 Provision 步往那里放了四样东西，本地跑测试要凑齐同样的：
 
-- 往 `tests/src/` 加用例，PR 的绿勾只代表用例能编译，不代表断言通过
-- 跨仓 AGENTS.md 要求改 IPC 协议后运行 `tests/src/test_ipc_protocol_constants.cpp`，得自己跑，CI 不会替你跑
-- `src/ipc/ipc.h` 里有 14 条 `static_assert` 守着协议 ABI，那些是编译期的，会随主工程一起检查；测试里的其余断言不会
+- `msime.db`、`others.db`、`english.db`——从 MSIME-Dict 的 release 下载，CI 逐个核对 `SHA256SUMS.txt`。词库损坏要立刻失败，而不是拖到测试里表现成「候选为空」这种难查的样子
+- `helpcodes/`——五套辅助码方案，本仓 `assets/tables` 只有其中一套，得从 MSIME-HelpCode 取全
+- `assets/tables/*` 和 `assets/config/config.toml`
 
-改了协议或候选逻辑，正常构建之后自己跑一次，不要依赖 CI：
+数据不全时的典型症状是候选查询返回空集，断言信息看起来像逻辑错误，实际是缺数据。排查测试失败前先确认数据根目录是齐的。
+
+`src/ipc/ipc.h` 里另有 14 条 `static_assert` 守着协议 ABI。那些是编译期的，随主工程一起检查，不依赖上面这些数据。
+
+改了协议或候选逻辑，正常构建并备好数据之后自己跑一次：
 
 ```powershell
 ctest --test-dir build -C Release --output-on-failure

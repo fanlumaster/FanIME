@@ -38,9 +38,11 @@ find_package(ZLIB REQUIRED)
 # engine's own CI runs those tests on Ubuntu, macOS and Windows; running them from here as well
 # would be redundant even if they did build. Restored immediately afterwards so this repository's
 # own tests/ still register.
+set(_metasequoia_saved_build_testing "${BUILD_TESTING}")
 set(BUILD_TESTING OFF)
 add_subdirectory(MetasequoiaImeEngine EXCLUDE_FROM_ALL)
-set(BUILD_TESTING ON)
+set(BUILD_TESTING "${_metasequoia_saved_build_testing}")
+unset(_metasequoia_saved_build_testing)
 
 # Build the OpenCC submodule as a static dependency of the server.
 add_subdirectory(opencc EXCLUDE_FROM_ALL)
