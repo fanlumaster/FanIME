@@ -1,5 +1,6 @@
 #include <msime/voice/audio_capture.h>
 #include <msime/voice/provider_protocol.h>
+#include <msime/voice/stt_service.h>
 #include <limits>
 
 #include "voice_input_service.h"
