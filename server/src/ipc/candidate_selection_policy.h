@@ -24,6 +24,7 @@ constexpr bool ShouldEnterCreatingWord(CandidateSource source, bool continues_co
 //   cloud:            Chinese, cloud, AI, English, emoji, kaomoji
 //   cloud only:       Chinese, cloud, English, emoji, kaomoji
 //   base:             Chinese, English, emoji, kaomoji
+// Explicit English ranking choices are reapplied after this default ordering.
 inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items, size_t local_prefix_slots = 1)
 {
     std::vector<WordItem> local_candidates;
@@ -98,5 +99,39 @@ inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items, size_t lo
         items.push_back(std::move(candidate));
     for (auto &candidate : kaomoji_candidates)
         items.push_back(std::move(candidate));
+
+    const auto promoted_english = std::max_element(
+        items.begin(), items.end(),
+        [](const WordItem &left, const WordItem &right) { return left.weight < right.weight; });
+    if (promoted_english != items.end() && promoted_english->source == CandidateSource::EnglishDictionary &&
+        promoted_english->fixed_position == 0 &&
+        std::count_if(items.begin(), items.end(), [&](const WordItem &item) {
+            return item.weight == promoted_english->weight;
+        }) == 1)
+    {
+        WordItem candidate = std::move(*promoted_english);
+        items.erase(promoted_english);
+        insert_at(0, std::move(candidate));
+    }
+
+    std::vector<WordItem> fixed_english_candidates;
+    for (auto candidate = items.begin(); candidate != items.end();)
+    {
+        if (candidate->source == CandidateSource::EnglishDictionary && candidate->fixed_position > 0)
+        {
+            fixed_english_candidates.push_back(std::move(*candidate));
+            candidate = items.erase(candidate);
+        }
+        else
+        {
+            ++candidate;
+        }
+    }
+    std::stable_sort(fixed_english_candidates.begin(), fixed_english_candidates.end(),
+                     [](const WordItem &left, const WordItem &right) {
+                         return left.fixed_position < right.fixed_position;
+                     });
+    for (auto &candidate : fixed_english_candidates)
+        insert_at(static_cast<size_t>(candidate.fixed_position - 1), std::move(candidate));
 }
 } // namespace FanyImeIpc

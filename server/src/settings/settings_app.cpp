@@ -4,11 +4,13 @@
 #include "settings/settings_launcher.h"
 #include "settings/settings_splash.h"
 #include "settings/dictionary_manager.h"
+#include "skin/candidate_skin_catalog.h"
 #include "utils/common_utils.h"
 #include "utils/single_instance.h"
 #include "voice-input/voice_providers.h"
 
 #include <WebView2.h>
+#include <WebView2EnvironmentOptions.h>
 #include <WebView2EnvironmentOptions.h>
 #include <boost/json.hpp>
 #include <dcomp.h>
@@ -21,7 +23,9 @@
 #include <wrl.h>
 
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -31,6 +35,7 @@
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
+using Microsoft::WRL::Make;
 namespace json = boost::json;
 
 namespace
@@ -40,6 +45,7 @@ constexpr wchar_t kWindowTitle[] = L"Metasequoia IME Settings";
 constexpr wchar_t kSingleInstanceMutex[] = L"Local\\MetasequoiaImeSettings.SingleInstance";
 constexpr UINT kActivateExistingWindow = WM_APP + 1;
 constexpr UINT kOpenAboutSection = WM_APP + 2;
+constexpr UINT kScanSkinCatalog = WM_APP + 3;
 constexpr UINT_PTR kConfigReloadTimer = 1;
 
 ComPtr<ICoreWebView2Controller> g_controller;
@@ -56,7 +62,32 @@ bool g_maximize_button_hover = false;
 bool g_window_active = true;
 bool g_window_minimized = false;
 bool g_open_about_on_ready = false;
+bool g_webview_content_started = false;
 HWND g_settings_hwnd = nullptr;
+std::optional<CandidateSkinCatalog::ScanResult> g_candidate_skin_catalog;
+uint64_t g_candidate_skin_catalog_revision = 0;
+
+nlohmann::json CandidateColorsToJson(const CandidateSkinCatalog::CandidateColors &colors)
+{
+    nlohmann::json json = nlohmann::json::object();
+    if (!colors.accent.empty())
+        json["accent"] = colors.accent;
+    if (!colors.selected.empty())
+        json["selected"] = colors.selected;
+    if (!colors.hover.empty())
+        json["hover"] = colors.hover;
+    if (!colors.surface.empty())
+        json["surface"] = colors.surface;
+    if (!colors.border.empty())
+        json["border"] = colors.border;
+    if (!colors.text.empty())
+        json["text"] = colors.text;
+    if (!colors.number.empty())
+        json["number"] = colors.number;
+    if (colors.showSelectedBar.has_value())
+        json["showSelectedBar"] = *colors.showSelectedBar;
+    return json;
+}
 
 void ShowAboutSection()
 {
@@ -203,7 +234,7 @@ void ResetTitlebarHoverAfterVisibilityChange()
     })())JS", nullptr);
 }
 
-void PostConfig()
+void PostConfig(bool refresh_skin_catalog = false)
 {
     if (!g_webview)
         return;
@@ -213,6 +244,45 @@ void PostConfig()
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
+    const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
+                                             GlobalIme::AppName / L"skins";
+    if (refresh_skin_catalog)
+    {
+        g_candidate_skin_catalog = CandidateSkinCatalog::Scan(skins_root);
+        ++g_candidate_skin_catalog_revision;
+    }
+    const std::string skin_layout = GetConfiguredCandidateWindowLayout();
+    const std::string skin_theme = ResolveConfiguredTheme(GetConfiguredThemeCand());
+    nlohmann::json external_skins = nlohmann::json::array();
+    if (g_candidate_skin_catalog)
+    {
+        for (const auto &skin : g_candidate_skin_catalog->packages)
+        {
+            external_skins.push_back({{"id", skin.id},
+                                      {"name", skin.name},
+                                      {"version", skin.version},
+                                      {"author", skin.author},
+                                      {"description", skin.description},
+                                      {"base", skin.base},
+                                      {"toolbarStylesheet", skin.toolbarStylesheet},
+                                      {"preview", skin.preview},
+                                      {"layouts", skin.layouts},
+                                      {"themes", skin.themes},
+                                      {"minWidthDip", skin.minWidthDip},
+                                      {"decorationTopDip", skin.decorationTopDip},
+                                      {"decorationWidthDip", skin.decorationWidthDip},
+                                      {"candidate",
+                                       {{"dark", CandidateColorsToJson(skin.dark)},
+                                        {"light", CandidateColorsToJson(skin.light)}}},
+                                      {"compatible", CandidateSkinCatalog::Supports(skin, skin_layout, skin_theme)}});
+        }
+    }
+    nlohmann::json skin_issues = nlohmann::json::array();
+    if (g_candidate_skin_catalog)
+    {
+        for (const auto &issue : g_candidate_skin_catalog->issues)
+            skin_issues.push_back({{"folder", issue.folder}, {"reason", issue.reason}});
+    }
     nlohmann::json polish_presets = nlohmann::json::array();
     for (const auto &preset : VoiceInput::BuiltinPolishPromptPresets())
     {
@@ -235,7 +305,8 @@ void PostConfig()
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
             {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
-            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
+            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()},
+            {"punctuation_lock", GetConfiguredPunctuationLock()}}},
           {"general",
            {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
@@ -257,6 +328,7 @@ void PostConfig()
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
+            {"paging_brackets", GetConfiguredPagingBracketsEnabled()},
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
@@ -278,7 +350,9 @@ void PostConfig()
             {"r_mode", GetConfiguredRModeEnabled()},
             {"clipboard_history", GetConfiguredClipboardHistoryEnabled()}}},
           {"appearance",
-           {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+           {{"ui_backend", GetConfiguredUiBackend()},
+            {"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_window_follow_cursor", GetConfiguredCandidateWindowFollowCursor()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
@@ -301,7 +375,12 @@ void PostConfig()
             {"font_size", GetConfiguredCandidateFontSize()},
             {"candidate_window_preedit_font_size", GetConfiguredCandidateWindowPreeditFontSize()},
             {"cand_text_color", GetConfiguredCandidateTextColor()},
-            {"system_fonts", GetSystemFontFamilies()}}},
+            {"system_fonts", GetSystemFontFamilies()},
+            {"external_candidate_skins", std::move(external_skins)},
+            {"candidate_skin_scan_issues", std::move(skin_issues)},
+            {"candidate_skin_catalog_scanned", g_candidate_skin_catalog.has_value()},
+            {"candidate_skin_catalog_revision", g_candidate_skin_catalog_revision},
+            {"candidate_skin_directory", skins_root.u8string()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
             {"hotkey_ralt", voice.hotkey_ralt}, {"hotkey_ctrl_f9", voice.hotkey_ctrl_f9},
@@ -396,10 +475,16 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredSmartPunctuationRepeatToChineseEnabled(json::value_to<bool>(data.at("value")));
     if (path == "input.paired_punctuation")
         return SetConfiguredPairedPunctuationEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "input.punctuation_lock")
+        return SetConfiguredPunctuationLock(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.tsf_preedit_style")
         return SetConfiguredTsfPreeditStyle(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.ui_backend")
+        return SetConfiguredUiBackend(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_layout")
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
+    if (path == "appearance.candidate_window_follow_cursor")
+        return SetConfiguredCandidateWindowFollowCursor(json::value_to<bool>(data.at("value")));
     if (path == "appearance.candidate_skin")
         return SetConfiguredCandidateSkin(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_preedit_style")
@@ -489,6 +574,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredPagingTabEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_comma_period")
         return SetConfiguredPagingCommaPeriodEnabled(json::value_to<bool>(data.at("value")));
+    if (path == "general.paging_brackets")
+        return SetConfiguredPagingBracketsEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.paging_page_up_down")
         return SetConfiguredPagingPageUpDownEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.candidate_arrow_navigation")
@@ -650,7 +737,21 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "configRequest")
         {
-            PostConfig();
+            PostConfig(false);
+            PostMessageW(hwnd, kScanSkinCatalog, 0, 0);
+        }
+        else if (type == "skinCatalogRequest")
+        {
+            PostConfig(true);
+            NotifyImeServerCandidateSkinRefresh();
+        }
+        else if (type == "openSkinDirectory")
+        {
+            const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
+                                                GlobalIme::AppName / L"skins";
+            std::error_code ec;
+            std::filesystem::create_directories(skins, ec);
+            if (!ec) ShellExecuteW(hwnd, L"open", skins.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
         else if (type == "configUpdate" && ApplyConfigUpdate(value.at("data").as_object()))
         {
@@ -728,14 +829,21 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
         settings->put_IsWebMessageEnabled(TRUE);
         settings->put_AreHostObjectsAllowed(TRUE);
         settings->put_IsZoomControlEnabled(FALSE);
+        settings->put_IsStatusBarEnabled(FALSE);
     }
     g_controller->put_ZoomFactor(1.0);
 
     if (SUCCEEDED(g_webview.As(&g_webview3)))
     {
-        const std::filesystem::path assets = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+        const std::filesystem::path assets = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
                                              GlobalIme::AppName / "html/webview2/settings/ime-settings/dist";
         g_webview3->SetVirtualHostNameToFolderMapping(L"imesettings", assets.c_str(),
+                                                       COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
+                                            GlobalIme::AppName / L"skins";
+        std::error_code ec;
+        std::filesystem::create_directories(skins, ec);
+        g_webview3->SetVirtualHostNameToFolderMapping(L"candidate-skins", skins.c_str(),
                                                        COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
     }
     if (SUCCEEDED(g_controller.As(&g_controller2)))
@@ -754,6 +862,14 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
     g_controller->put_Bounds(bounds);
 
     EventRegistrationToken token{};
+    g_webview->add_ContentLoading(
+        Callback<ICoreWebView2ContentLoadingEventHandler>(
+            [](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
+                g_webview_content_started = true;
+                SettingsSplash::Dismiss();
+                return S_OK;
+            }).Get(),
+        &token);
     g_webview->add_NavigationCompleted(
         Callback<ICoreWebView2NavigationCompletedEventHandler>(
             [hwnd](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
@@ -790,8 +906,16 @@ void InitWebView(HWND hwnd)
     std::filesystem::path user_data = CommonUtils::get_webview2_user_data_path(L"webview2-settings");
     std::error_code ec;
     std::filesystem::create_directories(user_data, ec);
+    auto options = Make<CoreWebView2EnvironmentOptions>();
+    options->put_AdditionalBrowserArguments(
+        L"--disable-features=TranslateUI "
+        L"--disable-background-networking "
+        L"--disable-default-apps "
+        L"--disable-sync "
+        L"--disable-prompt-on-repost "
+        L"--no-first-run");
     CreateCoreWebView2EnvironmentWithOptions(
-        nullptr, user_data.c_str(), nullptr,
+        nullptr, user_data.c_str(), options.Get(),
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [hwnd](HRESULT result, ICoreWebView2Environment *environment) -> HRESULT {
                 if (FAILED(result) || !environment)
@@ -901,6 +1025,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     case kOpenAboutSection:
         ActivateWindow(hwnd);
         ShowAboutSection();
+        return 0;
+    case kScanSkinCatalog:
+        PostConfig(true);
         return 0;
     case WM_NCCALCSIZE:
         if (w_param)
@@ -1105,11 +1232,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
+    SetTimer(hwnd, kConfigReloadTimer, 300, nullptr);
+    InitWebView(hwnd);
     ShowWindow(hwnd, show_command == SW_HIDE ? SW_SHOWNORMAL : show_command);
     UpdateWindow(hwnd);
     SettingsSplash::Show(hwnd);
-    SetTimer(hwnd, kConfigReloadTimer, 300, nullptr);
-    InitWebView(hwnd);
+    if (g_webview_content_started)
+        SettingsSplash::Dismiss();
 
     MSG message{};
     while (GetMessageW(&message, nullptr, 0, 0) > 0)

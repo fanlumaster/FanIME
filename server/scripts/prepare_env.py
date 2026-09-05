@@ -1,17 +1,21 @@
 import os
+import re
 
 
 def normpath(path):
     return path.replace("\\", "/")
 
 
-local_app_data_dir = os.environ.get("LOCALAPPDATA")
-home_dir = os.path.expanduser("~")
-
 cur_file_path = os.path.dirname(os.path.abspath(__file__))
 project_root_path = os.path.dirname(cur_file_path)
 
 user_home = os.path.expanduser("~")
+
+# vcpkg location. Prefer the VCPKG_ROOT environment variable so that installs
+# outside Scoop work as well; fall back to the historical Scoop path.
+vcpkg_root = normpath(
+    os.environ.get("VCPKG_ROOT") or os.path.join(user_home, "scoop", "apps", "vcpkg", "current")
+).rstrip("/")
 
 MetasequoiaImeServer_root_path = normpath(project_root_path)
 MetasequoiaImeServer_src_path = normpath(os.path.join(MetasequoiaImeServer_root_path, "src"))
@@ -24,9 +28,8 @@ vcpkg_include_path = normpath(
         "include",
     )
 )
-utfcpp_path = normpath(
-    os.path.join(MetasequoiaImeServer_root_path, "MetasequoiaImeEngine", "utfcpp", "source")
-)
+engine_path = normpath(os.path.join(MetasequoiaImeServer_root_path, "MetasequoiaImeEngine"))
+utfcpp_path = normpath(os.path.join(engine_path, "utfcpp", "source"))
 webview2_path = normpath(
     os.path.join(
         user_home,
@@ -39,7 +42,7 @@ webview2_path = normpath(
         "include",
     )
 )
-wim_path = normpath(
+wil_path = normpath(
     os.path.join(
         user_home,
         ".nuget",
@@ -49,76 +52,72 @@ wim_path = normpath(
         "include",
     )
 )
-boost_path = normpath(os.path.join(user_home, "scoop", "apps", "boost", "current"))
-sciter_path = normpath(os.path.join(os.path.dirname(project_root_path) , "sciter-js-sdk-main", "include"))
+# Boost location. CMakeLists.txt already honours the BOOST_ROOT environment
+# variable; mirror that here instead of assuming a Scoop install.
+boost_path = normpath(
+    os.environ.get("BOOST_ROOT") or os.path.join(user_home, "scoop", "apps", "boost", "current")
+).rstrip("/")
 
 #
 # project_root/.clangd
-# line 7, 8, 9, 11, 13, 15
 #
+# The template carries @NAME@ placeholders rather than fixed line numbers. The
+# previous version addressed lines by index, and the indices had drifted: the
+# Boost path was written over the WebView2 include and the Sciter path over a
+# comment, which left clangd unable to resolve the WebView2 headers.
+#
+clangd_substitutions = {
+    "@SERVER_ROOT@": MetasequoiaImeServer_root_path,
+    "@SERVER_SRC@": MetasequoiaImeServer_src_path,
+    "@VCPKG_INCLUDE@": vcpkg_include_path,
+    "@ENGINE_ROOT@": engine_path,
+    "@UTFCPP@": utfcpp_path,
+    "@WEBVIEW2@": webview2_path,
+    "@WIL@": wil_path,
+    "@BOOST@": boost_path,
+}
 dot_clangd_file = os.path.join(
     MetasequoiaImeServer_root_path, "scripts", "config_files", ".clangd"
 )
 dot_clangd_output_file = os.path.join(MetasequoiaImeServer_root_path, ".clangd")
 with open(dot_clangd_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-lines[6] = f'      "-I{MetasequoiaImeServer_root_path}",\n'
-lines[7] = f'      "-I{MetasequoiaImeServer_src_path}",\n'
-lines[8] = f'      "-I{vcpkg_include_path}",\n'
-lines[10] = f'      "-I{utfcpp_path}",\n'
-lines[12] = f'      "-I{boost_path}",\n'
-lines[14] = f'      "-I{sciter_path}",\n'
+    content = f.read()
+for placeholder, value in clangd_substitutions.items():
+    content = content.replace(placeholder, value)
+leftover = re.findall(r"@[A-Z0-9_]+@", content)
+if leftover:
+    raise SystemExit(f"unsubstituted placeholders in the .clangd template: {sorted(set(leftover))}")
 with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)
+    f.write(content)
 
 #
-# project_root/CMakeLists.txt
+# project_root/CMakePresets.json
 #
-CMakeLists_file = os.path.join(
-    MetasequoiaImeServer_root_path, "scripts", "config_files", "CMakeLists.txt"
-)
-CMakeLists_output_file = os.path.join(MetasequoiaImeServer_root_path, "CMakeLists.txt")
-with open(CMakeLists_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-lines[8] = f'set(Boost_ROOT "{boost_path}")\n'
-with open(CMakeLists_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)
-
+# Rewritten in place rather than copied from a template. The template that used
+# to be copied here had fallen behind the tracked file and would have dropped
+# the vcpkg-release preset that llaunch-release.ps1 depends on.
 #
-# CMakePresets.json
-#
-CMakePresets_file = os.path.join(
-    MetasequoiaImeServer_root_path, "scripts", "config_files", "CMakePresets.json"
-)
-CMakePresets_file_output_file = os.path.join(
-    MetasequoiaImeServer_root_path, "CMakePresets.json"
-)
+CMakePresets_file = os.path.join(MetasequoiaImeServer_root_path, "CMakePresets.json")
 with open(CMakePresets_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-lines[8] = f'        "VCPKG_ROOT": "{normpath(user_home)}/scoop/apps/vcpkg/current/"\n'
-lines[11] = (
-    f'        "CMAKE_TOOLCHAIN_FILE": "{normpath(user_home)}/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake",\n'
+    content = f.read()
+content = re.sub(
+    r'("VCPKG_ROOT":\s*")[^"]*(")',
+    lambda m: f"{m.group(1)}{vcpkg_root}/{m.group(2)}",
+    content,
 )
-with open(CMakePresets_file_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)
-
-#
-# project_root/tests/CMakeLists.txt
-#
-Tests_CMakeLists_file = os.path.join(
-    MetasequoiaImeServer_root_path, "scripts", "config_files", "tests", "CMakeLists.txt"
+content = re.sub(
+    r'("CMAKE_TOOLCHAIN_FILE":\s*")[^"]*(")',
+    lambda m: f"{m.group(1)}{vcpkg_root}/scripts/buildsystems/vcpkg.cmake{m.group(2)}",
+    content,
 )
-Tests_CMakeLists_output_file = os.path.join(
-    MetasequoiaImeServer_root_path, "tests", "CMakeLists.txt"
-)
-with open(Tests_CMakeLists_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-lines[10] = f'set(Boost_ROOT "{boost_path}")\n'
-with open(Tests_CMakeLists_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)
+with open(CMakePresets_file, "w", encoding="utf-8") as f:
+    f.write(content)
 
 #
 # project_root/tests/CMakePresets.json
+#
+# This one is genuinely generated: the file is not tracked, so the template is
+# the only copy.
 #
 Tests_CMakePresets_file = os.path.join(
     MetasequoiaImeServer_root_path, "scripts", "config_files", "tests", "CMakePresets.json"
@@ -128,9 +127,9 @@ Tests_CMakePresets_output_file = os.path.join(
 )
 with open(Tests_CMakePresets_file, "r", encoding="utf-8") as f:
     lines = f.readlines()
-lines[8] = f'        "VCPKG_ROOT": "{normpath(user_home)}/scoop/apps/vcpkg/current/"\n'
+lines[8] = f'        "VCPKG_ROOT": "{vcpkg_root}/"\n'
 lines[11] = (
-    f'        "CMAKE_TOOLCHAIN_FILE": "{normpath(user_home)}/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake",\n'
+    f'        "CMAKE_TOOLCHAIN_FILE": "{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",\n'
 )
 with open(Tests_CMakePresets_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)

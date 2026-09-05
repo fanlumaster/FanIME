@@ -4,18 +4,18 @@ CompileFlags:
       -D_UNICODE,
       # -DFANY_DEBUG,
       "-std=c++17",
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer",
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/src",
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/build/vcpkg_installed/x64-windows/include",
+      "-I@SERVER_ROOT@",
+      "-I@SERVER_SRC@",
+      "-I@VCPKG_INCLUDE@",
+      # engine includes
+      "-I@ENGINE_ROOT@",
       # utfcpp includes
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/MetasequoiaImeServer/MetasequoiaImeEngine/utfcpp/source",
+      "-I@UTFCPP@",
       # WebView2 includes
-      "-IC:/Users/sonnycalcr/.nuget/packages/microsoft.web.webview2/1.0.3719.77/build/native/include",
-      "-IC:/Users/sonnycalcr/.nuget/packages/microsoft.windows.implementationlibrary/1.0.260126.7/include",
+      "-I@WEBVIEW2@",
+      "-I@WIL@",
       # Boost includes
-      "-IC:/Users/19833/scoop/apps/boost/current",
-      # Sciter includes
-      "-IC:/Users/19833/EDisk/CppCodes/ImeCodes/sciter-js-sdk-main/include",
+      "-I@BOOST@",
       -Wno-microsoft-goto,
       -Wno-nonportable-include-path,
       -Wno-microsoft-extra-qualification,

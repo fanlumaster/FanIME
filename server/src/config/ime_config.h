@@ -99,8 +99,17 @@ struct TencentTmtConfig
     std::string secret_key;
     std::string region = "ap-guangzhou";
     // Language shown beside Chinese candidates. Tencent TMT language codes:
-    // en / fr / ja / es / ru.
+    // en / fr / ja / es / ru / de / ko.
     std::string target_language = "en";
+};
+
+struct CustomTranslationConfig
+{
+    bool enabled = false;
+    // Full URL of a DeepLX-compatible POST endpoint.
+    std::string endpoint;
+    // Optional bearer token used by private or protected deployments.
+    std::string api_key;
 };
 
 struct FrequencyAdjustmentConfig
@@ -113,6 +122,7 @@ struct FrequencyAdjustmentConfig
 void InitImeConfig();
 void InvalidateImeConfigWriteTime();
 void NotifyImeServerConfigChanged();
+void NotifyImeServerCandidateSkinRefresh();
 void NotifyImeServerInputSchemeChanged();
 // 升级用：以新版模板为骨架重建配置。用户改过的值（与 baseline 中的旧默认值不同）保留，
 // 其余跟随新默认值；模板里没有的旧键被丢弃。baseline 为空时一律保留用户值。
@@ -181,6 +191,8 @@ const std::string &GetConfiguredShuangpinHelpcodeSchema();
 bool SetConfiguredShuangpinHelpcodeSchema(const std::string &schema);
 bool GetConfiguredQuanpinHelpcodeEnabled();
 bool SetConfiguredQuanpinHelpcodeEnabled(bool enabled);
+bool GetConfiguredQuanpinAutocorrectEnabled();
+bool SetConfiguredQuanpinAutocorrectEnabled(bool enabled);
 const std::string &GetConfiguredQuanpinHelpcodeSchema();
 bool SetConfiguredQuanpinHelpcodeSchema(const std::string &schema);
 bool GetConfiguredShowShuangpinHelpcodeInCandidateWindow();
@@ -240,6 +252,8 @@ bool GetConfiguredPagingMinusEqualEnabled();
 bool SetConfiguredPagingMinusEqualEnabled(bool enabled);
 bool GetConfiguredPagingCommaPeriodEnabled();
 bool SetConfiguredPagingCommaPeriodEnabled(bool enabled);
+bool GetConfiguredPagingBracketsEnabled();
+bool SetConfiguredPagingBracketsEnabled(bool enabled);
 // Worker payload for PagingCommaPeriodChanged: "0|raw" / "1|pinyin" / "0|empty".
 // Legacy TSF only reads data[0] as the paging flag and ignores the rest.
 std::wstring FormatPagingCommaPeriodWorkerPayload();
@@ -257,8 +271,22 @@ bool GetConfiguredSmartPunctuationRepeatToChineseEnabled();
 bool SetConfiguredSmartPunctuationRepeatToChineseEnabled(bool enabled);
 bool GetConfiguredPairedPunctuationEnabled();
 bool SetConfiguredPairedPunctuationEnabled(bool enabled);
+// "follow" | "chinese" | "english" — punctuation stays put when switching CN/EN.
+const std::string &GetConfiguredPunctuationLock();
+bool SetConfiguredPunctuationLock(const std::string &lock);
+// Worker payload for PunctuationLockChanged: "0" follow / "1" Chinese / "2" English.
+std::wstring FormatPunctuationLockWorkerPayload();
 const std::string &GetConfiguredCandidateWindowLayout();
 bool SetConfiguredCandidateWindowLayout(const std::string &layout);
+bool GetConfiguredCandidateWindowFollowCursor();
+bool SetConfiguredCandidateWindowFollowCursor(bool enabled);
+// "d2d" | "webview2" — candidate, floating toolbar, and tray menu renderer.
+// Changing this writes config immediately; the process snapshot does not switch
+// until the IME server is restarted.
+const std::string &GetConfiguredUiBackend();
+bool SetConfiguredUiBackend(const std::string &backend);
+// Process-lifetime renderer chosen at InitImeConfig. Independent of later reloads.
+bool UseD2dSmallWindowUi();
 // "fluent" | "wechat" | "graphite" | "willow_green" — candidate-window and floating-toolbar skin.
 const std::string &GetConfiguredCandidateSkin();
 bool SetConfiguredCandidateSkin(const std::string &skin);
@@ -291,6 +319,9 @@ bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
 const AiAssistantConfig &GetConfiguredAiAssistant();
 const TencentTmtConfig &GetConfiguredTencentTmt();
 bool SetConfiguredTencentTmtString(const std::string &key, const std::string &value);
+const CustomTranslationConfig &GetConfiguredCustomTranslation();
+bool SetConfiguredCustomTranslationBool(const std::string &key, bool value);
+bool SetConfiguredCustomTranslationString(const std::string &key, const std::string &value);
 const FrequencyAdjustmentConfig &GetConfiguredFrequencyAdjustment();
 bool SetConfiguredFrequencyAdjustmentString(const std::string &key, const std::string &value);
 bool SetConfiguredFrequencyAdjustmentInt(const std::string &key, int value);

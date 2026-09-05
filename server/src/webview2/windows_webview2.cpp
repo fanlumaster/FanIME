@@ -4,6 +4,10 @@
 #include "defines/globals.h"
 #include "utils/common_utils.h"
 #include "utils/ime_utils.h"
+#include "utils/webview_utils.h"
+#include "window/candidate_presenter.h"
+#include "window/floating_toolbar_presenter.h"
+#include "window/tray_menu_presenter.h"
 #include "window/floating_toolbar_visibility_policy.h"
 #include <debugapi.h>
 #include <boost/json.hpp>
@@ -21,16 +25,32 @@
 #include "log/candidate_diag_log.h"
 #include "log/ftb_diag_log.h"
 #include "settings/settings_launcher.h"
+#include "skin/candidate_skin_catalog.h"
 #include "utils/window_utils.h"
 #include "voice-input/voice_input_service.h"
 #include <WebView2EnvironmentOptions.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cwctype>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <optional>
+#include <vector>
 
 // WebView diagnostics were useful while fixing the rendering issues, but they
 // overwhelm the input-latency trace. Keep these call sites compiled out.
 #undef DIAG_LOGF
 #define DIAG_LOGF(...) ((void)0)
+#define CAND_WEBVIEW_TRACE_LOGF(...)                                                                                   \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (::DiagnosticLog::IsEnabled())                                                                              \
+        {                                                                                                              \
+            ::DiagnosticLog::Write(fmt::format(__VA_ARGS__));                                                          \
+        }                                                                                                              \
+    } while (0)
 
 #pragma comment(lib, "dcomp.lib")
 
@@ -44,6 +64,7 @@ void ApplyConfiguredInputScheme();
 void ApplyConfiguredShuangpinSchema();
 bool EnsureSmallWindowsTopmost(const wchar_t *reason);
 void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
+void SetCandidateHostCloaked(bool cloaked);
 void ClearFloatingToolbarNavigationState();
 std::wstring DescribeTrayMenuHostState();
 std::wstring DescribeCandidateHostState();
@@ -59,6 +80,7 @@ std::wstring bodyRes = L"";
 std::string loadedCandidateSkin;
 std::string loadedFloatingToolbarSkin;
 std::string preparedCandidateSkin;
+uint64_t candidateSkinReloadRevision = 0;
 
 namespace
 {
@@ -79,6 +101,7 @@ enum class SmallWindowInitState
 SmallWindowInitState smallWindowInitState = SmallWindowInitState::Idle;
 int smallWindowInitAttempts = 0;
 bool pendingTrayMenuShow = false;
+bool pendingCandidateShow = false;
 bool floatingToolbarNavigationReady = false;
 // After NavigationCompleted, keep the host shown briefly so a cold WebView2
 // user-data folder can finish first paint; then reconcile hide/show for real.
@@ -97,6 +120,8 @@ constexpr ULONGLONG kContentTruncationCooldownMs = 400;
 ULONGLONG g_last_content_truncation_ftb_ms = 0;
 ULONGLONG g_last_content_truncation_menu_ms = 0;
 ULONGLONG g_last_content_truncation_cand_ms = 0;
+
+std::optional<CandidateSkinCatalog::Package> activeExternalCandidateSkin;
 
 bool AllowContentTruncationRemeasure(ULONGLONG &last_ms)
 {
@@ -154,6 +179,16 @@ HalfScreenDipLimits ApplyRasterizationScale(HalfScreenDipLimits limits, FLOAT sc
 }
 
 } // namespace
+
+double GetActiveCandidateSkinDecorationTopDip()
+{
+    return activeExternalCandidateSkin ? activeExternalCandidateSkin->decorationTopDip : 0.0;
+}
+
+double GetActiveCandidateSkinDecorationWidthDip()
+{
+    return activeExternalCandidateSkin ? activeExternalCandidateSkin->decorationWidthDip : 0.0;
+}
 
 FLOAT GetWebViewRasterizationScale(HWND hwnd)
 {
@@ -446,6 +481,16 @@ void OnSmallWindowWebviewInitFailed(HRESULT hr)
 
 void MaybeFlushPendingTrayMenuShow()
 {
+    if (!pendingTrayMenuShow || !::global_hwnd_menu)
+    {
+        return;
+    }
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        pendingTrayMenuShow = false;
+        PostMessage(::global_hwnd_menu, WM_LANGBAR_RIGHTCLICK, 0, 0);
+        return;
+    }
     if (!pendingTrayMenuShow || !webviewControllerMenuWnd || !menuNavigationReady || !::global_hwnd_menu)
     {
         return;
@@ -493,11 +538,12 @@ void RequestNextSmallWindowController()
         {L"menu", smallWindowMenuHwnd, webviewControllerMenuWnd != nullptr, &OnMenuWindowEnvironmentCreated},
         {L"ftb", smallWindowFtbHwnd, webviewControllerFtbWnd != nullptr, &OnFtbWindowEnvironmentCreated},
     };
+    constexpr int kHostCount = 3;
 
     int chosen = -1;
-    for (int step = 1; step <= 3; ++step)
+    for (int step = 1; step <= kHostCount; ++step)
     {
-        const int i = (lastFailedSmallWindowHostIndex + step) % 3;
+        const int i = (lastFailedSmallWindowHostIndex + step) % kHostCount;
         if (!hosts[i].hasController && hosts[i].hwnd)
         {
             chosen = i;
@@ -507,6 +553,7 @@ void RequestNextSmallWindowController()
     if (chosen < 0)
     {
         MaybeFlushPendingTrayMenuShow();
+        MaybeFlushPendingCandidateShow();
         return;
     }
     const Host &host = hosts[chosen];
@@ -627,10 +674,14 @@ FloatingToolbarState floatingToolbarState;
 
 bool AreSmallWindowWebviewsReadyUnlocked()
 {
-    return candidateNavigationReady && menuNavigationReady && floatingToolbarNavigationReady &&
-           webviewCandWnd != nullptr && webviewMenuWnd != nullptr && webviewFtbWnd != nullptr &&
-           webviewControllerCandWnd != nullptr && webviewControllerMenuWnd != nullptr &&
-           webviewControllerFtbWnd != nullptr;
+    const bool candReady =
+        CandidatePresenter::Instance().IsBound() ||
+        (candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr);
+    const bool menuReady = TrayMenuPresenter::Instance().IsBound() ||
+                           (menuNavigationReady && webviewMenuWnd != nullptr && webviewControllerMenuWnd != nullptr);
+    const bool ftbReady = FloatingToolbarPresenter::Instance().IsBound() ||
+                          (floatingToolbarNavigationReady && webviewFtbWnd != nullptr && webviewControllerFtbWnd != nullptr);
+    return candReady && menuReady && ftbReady;
 }
 
 void CancelStaggeredTopmost()
@@ -697,6 +748,10 @@ void RenotifyControllerAfterPin(ICoreWebView2Controller *controller, HWND hwnd)
 // host into the topmost band mid-initialisation and leaves it permanently blank.
 bool TrayMenuIsOpenToUser()
 {
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        return TrayMenuPresenter::Instance().IsOpenToUser();
+    }
     if (!::global_hwnd_menu || !webviewControllerMenuWnd || !menuNavigationReady)
     {
         return false;
@@ -719,15 +774,33 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
     {
     case SmallWindowTopmostStep::Candidate:
         PinHostTopmost(::global_hwnd);
-        if (::is_global_wnd_cand_shown && ::global_hwnd)
+        if (CandidatePresenter::Instance().IsBound())
         {
-            FineTuneWindow(::global_hwnd);
+            if (::is_global_wnd_cand_shown && ::global_hwnd)
+            {
+                CandidatePresenter::Instance().Present();
+            }
+        }
+        else
+        {
+            RenotifyControllerAfterPin(webviewControllerCandWnd.Get(), ::global_hwnd);
+            if (::is_global_wnd_cand_shown && ::global_hwnd)
+            {
+                FineTuneWindow(::global_hwnd);
+            }
         }
         break;
 
     case SmallWindowTopmostStep::FloatingToolbar:
         PinHostTopmost(::global_hwnd_ftb);
-        RenotifyControllerAfterPin(webviewControllerFtbWnd.Get(), ::global_hwnd_ftb);
+        if (FloatingToolbarPresenter::Instance().IsBound())
+        {
+            FloatingToolbarPresenter::Instance().Present();
+        }
+        else
+        {
+            RenotifyControllerAfterPin(webviewControllerFtbWnd.Get(), ::global_hwnd_ftb);
+        }
         // The menu step lands a moment later and would fix the order anyway;
         // raising now keeps an already-open menu from being covered in between.
         if (TrayMenuIsOpenToUser())
@@ -738,7 +811,17 @@ void ApplySmallWindowTopmostStep(SmallWindowTopmostStep step)
 
     case SmallWindowTopmostStep::TrayMenu:
         PinHostTopmost(::global_hwnd_menu);
-        RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
+        if (TrayMenuPresenter::Instance().IsBound())
+        {
+            if (TrayMenuPresenter::Instance().IsOpenToUser())
+            {
+                TrayMenuPresenter::Instance().Present();
+            }
+        }
+        else
+        {
+            RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
+        }
         break;
     }
 
@@ -834,6 +917,7 @@ void NotifySmallWindowNavigationReady(bool &readyFlag, const wchar_t *which)
     LogSmallWindowReadyGateUnlocked(L"after-nav-ready");
     TryApplyPendingLazyTopmost(L"pending-after-nav-ready");
     MaybeFlushPendingTrayMenuShow();
+    MaybeFlushPendingCandidateShow();
 }
 
 bool UpdateBinaryState(int value, int &state)
@@ -850,6 +934,14 @@ bool UpdateBinaryState(int value, int &state)
 
 void RenderFloatingToolbarState(ICoreWebView2 *webview)
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().SyncUi(
+            floatingToolbarState.cn_en, floatingToolbarState.double_single_byte, floatingToolbarState.punctuation,
+            floatingToolbarState.english_input_mode, floatingToolbarState.caps_lock,
+            floatingToolbarState.japanese_input_mode);
+    }
+
     if (!floatingToolbarNavigationReady || webview == nullptr)
     {
         return;
@@ -1019,6 +1111,16 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     {
         return;
     }
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
+        SetWindowPos(::global_hwnd_menu, HWND_TOPMOST, 0, 0, 0, 0, flag);
+        if (TrayMenuPresenter::Instance().IsOpenToUser())
+        {
+            TrayMenuPresenter::Instance().Present();
+        }
+        return;
+    }
     // Backstop for the callers above: making the host TOPMOST before a
     // controller exists is fatal in a uiAccess=true process, because UIPI then
     // blocks WebView2's cross-process SetParent and every
@@ -1047,6 +1149,56 @@ void RaiseTrayMenuAboveSmallWindows(const wchar_t *reason)
     RenotifyControllerAfterPin(webviewControllerMenuWnd.Get(), ::global_hwnd_menu);
 }
 
+void DeferCandidateShowUntilWebviewReady()
+{
+    pendingCandidateShow = true;
+    CAND_DIAG_LOGF(L"candidate show deferred until webview ready {}", DescribeCandidateHostState());
+}
+
+void MaybeFlushPendingCandidateShow()
+{
+    if (!pendingCandidateShow || !::global_hwnd || !IsWindow(::global_hwnd))
+    {
+        return;
+    }
+    if (!::is_global_wnd_cand_shown)
+    {
+        pendingCandidateShow = false;
+        return;
+    }
+    if (!IsCandidateWebviewReady())
+    {
+        return;
+    }
+    pendingCandidateShow = false;
+    g_candidate_show_msg_pending.store(false);
+    CAND_DIAG_LOGF(L"candidate replaying show that was deferred until the webview was ready");
+    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+}
+
+void RaiseCandidateHostForShow(const wchar_t *reason)
+{
+    if (!::global_hwnd)
+    {
+        return;
+    }
+    if (CandidatePresenter::Instance().IsBound())
+    {
+        constexpr UINT flag = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE;
+        SetWindowPos(::global_hwnd, HWND_TOPMOST, 0, 0, 0, 0, flag);
+        return;
+    }
+    if (!webviewControllerCandWnd)
+    {
+        CAND_DIAG_LOGF(L"candidate raise reason={} skipped: no controller yet", reason);
+        return;
+    }
+    CAND_DIAG_LOGF(L"candidate raise reason={} nav_ready={} {}", reason, candidateNavigationReady,
+                   DescribeCandidateHostState());
+    PinHostTopmost(::global_hwnd);
+    RenotifyControllerAfterPin(webviewControllerCandWnd.Get(), ::global_hwnd);
+}
+
 bool AreSmallWindowsTopmostApplied()
 {
     return smallWindowTopmostApplied;
@@ -1059,12 +1211,14 @@ bool AreSmallWindowWebviewsReady()
 
 bool IsCandidateWebviewReady()
 {
-    return candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr;
+    return CandidatePresenter::Instance().IsBound() ||
+           (candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr);
 }
 
 bool IsFloatingToolbarWebviewReady()
 {
-    return floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr;
+    return FloatingToolbarPresenter::Instance().IsBound() ||
+           (floatingToolbarNavigationReady && webviewControllerFtbWnd != nullptr);
 }
 
 bool IsFloatingToolbarPaintGraceActive()
@@ -1232,6 +1386,380 @@ std::wstring ReadHtmlFileWithFallback(const std::wstring &primaryPath, const std
     return content;
 }
 
+namespace
+{
+bool IsRewritableSkinCssUrl(std::wstring url)
+{
+    while (!url.empty() && iswspace(url.front()))
+    {
+        url.erase(url.begin());
+    }
+    while (!url.empty() && iswspace(url.back()))
+    {
+        url.pop_back();
+    }
+    if (url.empty() || url.find(L"..") != std::wstring::npos)
+    {
+        return false;
+    }
+    if (url.find(L"://") != std::wstring::npos)
+    {
+        return false;
+    }
+    if (url.size() >= 5)
+    {
+        std::wstring scheme = url.substr(0, 5);
+        for (wchar_t &ch : scheme)
+        {
+            ch = static_cast<wchar_t>(towlower(ch));
+        }
+        if (scheme == L"data:")
+        {
+            return false;
+        }
+    }
+    return url.front() != L'/' && url.front() != L'\\' && url.front() != L'#';
+}
+
+std::wstring NormalizeSkinCssUrl(std::wstring url)
+{
+    while (!url.empty() && iswspace(url.front()))
+    {
+        url.erase(url.begin());
+    }
+    while (!url.empty() && iswspace(url.back()))
+    {
+        url.pop_back();
+    }
+    while (url.size() >= 2 && url[0] == L'.' && url[1] == L'/')
+    {
+        url.erase(0, 2);
+    }
+    std::replace(url.begin(), url.end(), L'\\', L'/');
+    return url;
+}
+
+std::wstring EncodeBase64(const std::vector<unsigned char> &bytes)
+{
+    static constexpr wchar_t kTable[] =
+        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::wstring out;
+    out.reserve(((bytes.size() + 2) / 3) * 4);
+    size_t i = 0;
+    while (i + 2 < bytes.size())
+    {
+        const unsigned int triple =
+            (static_cast<unsigned int>(bytes[i]) << 16) | (static_cast<unsigned int>(bytes[i + 1]) << 8) |
+            static_cast<unsigned int>(bytes[i + 2]);
+        out.push_back(kTable[(triple >> 18) & 63]);
+        out.push_back(kTable[(triple >> 12) & 63]);
+        out.push_back(kTable[(triple >> 6) & 63]);
+        out.push_back(kTable[triple & 63]);
+        i += 3;
+    }
+    if (i < bytes.size())
+    {
+        unsigned int triple = static_cast<unsigned int>(bytes[i]) << 16;
+        if (i + 1 < bytes.size())
+        {
+            triple |= static_cast<unsigned int>(bytes[i + 1]) << 8;
+        }
+        out.push_back(kTable[(triple >> 18) & 63]);
+        out.push_back(kTable[(triple >> 12) & 63]);
+        out.push_back(i + 1 < bytes.size() ? kTable[(triple >> 6) & 63] : L'=');
+        out.push_back(L'=');
+    }
+    return out;
+}
+
+std::wstring MimeForSkinAsset(const std::wstring &relativePath)
+{
+    std::wstring lower = relativePath;
+    for (wchar_t &ch : lower)
+    {
+        ch = static_cast<wchar_t>(towlower(ch));
+    }
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".png") == 0)
+        return L"image/png";
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".jpg") == 0)
+        return L"image/jpeg";
+    if (lower.size() >= 5 && lower.compare(lower.size() - 5, 5, L".jpeg") == 0)
+        return L"image/jpeg";
+    if (lower.size() >= 5 && lower.compare(lower.size() - 5, 5, L".webp") == 0)
+        return L"image/webp";
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".gif") == 0)
+        return L"image/gif";
+    if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, L".svg") == 0)
+        return L"image/svg+xml";
+    return L"application/octet-stream";
+}
+
+std::wstring EmbedSkinCssUrl(const std::wstring &skinsRoot, const std::string &skinId, const std::wstring &rawUrl)
+{
+    const std::wstring relative = NormalizeSkinCssUrl(rawUrl);
+    const std::filesystem::path filePath = std::filesystem::path(skinsRoot) /
+                                           std::filesystem::u8path(skinId) /
+                                           std::filesystem::u8path(wstring_to_string(relative));
+    std::error_code ec;
+    constexpr std::uintmax_t kMaxEmbedBytes = 1500 * 1024;
+    const auto fileSize = std::filesystem::file_size(filePath, ec);
+    if (!ec && fileSize > 0 && fileSize <= kMaxEmbedBytes)
+    {
+        std::ifstream stream(filePath, std::ios::binary);
+        std::vector<unsigned char> bytes(static_cast<size_t>(fileSize));
+        if (stream && stream.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(fileSize)))
+        {
+            return L"url(\"data:" + MimeForSkinAsset(relative) + L";base64," + EncodeBase64(bytes) + L"\")";
+        }
+    }
+    return L"url(\"https://candidate-skins/" + string_to_wstring(skinId) + L"/" + relative + L"\")";
+}
+
+std::wstring RewriteCandidateSkinCssUrls(const std::wstring &css, const std::wstring &skinsRoot,
+                                         const std::string &skinId)
+{
+    std::wstring result;
+    result.reserve(css.size() + 64);
+    size_t pos = 0;
+    while (pos < css.size())
+    {
+        size_t urlPos = std::wstring::npos;
+        for (size_t i = pos; i + 4 <= css.size(); ++i)
+        {
+            if ((css[i] == L'u' || css[i] == L'U') && (css[i + 1] == L'r' || css[i + 1] == L'R') &&
+                (css[i + 2] == L'l' || css[i + 2] == L'L') && css[i + 3] == L'(')
+            {
+                urlPos = i;
+                break;
+            }
+        }
+        if (urlPos == std::wstring::npos)
+        {
+            result.append(css, pos, std::wstring::npos);
+            break;
+        }
+        result.append(css, pos, urlPos - pos);
+        size_t cursor = urlPos + 4;
+        while (cursor < css.size() && iswspace(css[cursor]))
+        {
+            ++cursor;
+        }
+        wchar_t quote = 0;
+        if (cursor < css.size() && (css[cursor] == L'"' || css[cursor] == L'\''))
+        {
+            quote = css[cursor++];
+        }
+        const size_t valueStart = cursor;
+        while (cursor < css.size())
+        {
+            if (quote != 0)
+            {
+                if (css[cursor] == quote)
+                {
+                    break;
+                }
+            }
+            else if (css[cursor] == L')' || iswspace(css[cursor]))
+            {
+                break;
+            }
+            ++cursor;
+        }
+        const std::wstring rawUrl = css.substr(valueStart, cursor - valueStart);
+        if (IsRewritableSkinCssUrl(rawUrl))
+        {
+            result.append(EmbedSkinCssUrl(skinsRoot, skinId, rawUrl));
+        }
+        else
+        {
+            result.append(L"url(");
+            if (quote != 0)
+            {
+                result.push_back(quote);
+                result.append(rawUrl);
+                result.push_back(quote);
+            }
+            else
+            {
+                result.append(rawUrl);
+            }
+            result.push_back(L')');
+        }
+        if (quote != 0 && cursor < css.size() && css[cursor] == quote)
+        {
+            ++cursor;
+        }
+        while (cursor < css.size() && iswspace(css[cursor]))
+        {
+            ++cursor;
+        }
+        if (cursor < css.size() && css[cursor] == L')')
+        {
+            ++cursor;
+        }
+        pos = cursor;
+    }
+    return result;
+}
+
+void NeutralizeEmbeddedStyleClosers(std::wstring &css)
+{
+    for (size_t i = 0; i + 7 < css.size(); ++i)
+    {
+        if (css[i] != L'<' || css[i + 1] != L'/')
+        {
+            continue;
+        }
+        std::wstring tag = css.substr(i + 2, 5);
+        for (wchar_t &ch : tag)
+        {
+            ch = static_cast<wchar_t>(towlower(ch));
+        }
+        if (tag == L"style")
+        {
+            css.insert(i + 1, 1, L' ');
+            i += 2;
+        }
+    }
+}
+
+bool InjectExternalSkinCssFile(
+    std::wstring &html,
+    const CandidateSkinCatalog::Package &skin,
+    const std::wstring &skinsRoot,
+    const std::string &stylesheet,
+    const wchar_t *styleId)
+{
+    if (html.empty() || skinsRoot.empty() || stylesheet.empty() || !styleId)
+    {
+        return false;
+    }
+    // NavigateToString documents cannot reliably load a cross-origin <link>
+    // stylesheet (virtual-host CORS). Built-in skins are inlined for the same
+    // reason; keep external skins on that path so padding/decoration CSS is
+    // present before SetWindowRgn applies candidateWindow.decoration.
+    const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" +
+                                 string_to_wstring(stylesheet);
+    std::wstring css = RewriteCandidateSkinCssUrls(ReadHtmlFile(cssPath), skinsRoot, skin.id);
+    if (css.empty())
+    {
+        return false;
+    }
+    NeutralizeEmbeddedStyleClosers(css);
+    const size_t headEnd = html.find(L"</head>");
+    if (headEnd == std::wstring::npos)
+    {
+        return false;
+    }
+    html.insert(headEnd, std::wstring(L"<style id=\"") + styleId + L"\">" + css + L"</style>");
+    return true;
+}
+
+void AppendExternalCandidateColorCss(std::wstring &css, const CandidateSkinCatalog::CandidateColors &colors)
+{
+    auto add = [&](const std::string &value, const wchar_t *selector, const wchar_t *property) {
+        if (value.empty())
+        {
+            return;
+        }
+        css.append(selector);
+        css.append(L" { ");
+        css.append(property);
+        css.append(L": ");
+        css.append(string_to_wstring(value));
+        css.append(L"; }\n");
+    };
+    add(colors.accent, L".cursor, .first::before", L"background");
+    add(colors.selected, L".first, .cand.first", L"background-color");
+    add(colors.hover, L".hover-active .cand:not(.first):hover", L"background-color");
+    add(colors.surface, L".container", L"background");
+    add(colors.border, L".container", L"border-color");
+    add(colors.text, L".container", L"color");
+    add(colors.number, L".num, .cand-no", L"color");
+    if (colors.showSelectedBar.has_value() && !*colors.showSelectedBar)
+    {
+        css.append(L".first::before { display: none; }\n");
+    }
+}
+
+std::wstring BuildExternalCandidateSkinCss(const CandidateSkinCatalog::Package &skin, const std::wstring &skinsRoot)
+{
+    std::wstring css;
+    if (skin.decorationTopDip > 0.0)
+    {
+        std::wstring preview = L"none";
+        if (!skin.preview.empty())
+        {
+            preview = EmbedSkinCssUrl(skinsRoot, skin.id, string_to_wstring(skin.preview));
+        }
+        css.append(L".containerParent { padding-top: var(--msime-skin-decoration-top, 0px); "
+                   L"position: relative; box-sizing: border-box; }\n"
+                   L".containerParent:not(:empty)::before { content: \"\"; position: absolute; "
+                   L"z-index: 0; top: 0; right: 0; width: var(--msime-skin-decoration-width, 0px); "
+                   L"height: var(--msime-skin-decoration-top, 0px); background: ");
+        css.append(preview);
+        css.append(L" center / contain no-repeat; pointer-events: none; }\n"
+                   L".container { position: relative; z-index: 1; "
+                   L"min-width: max(7em, var(--msime-skin-min-width, 0px)); }\n");
+    }
+    const bool light = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
+    AppendExternalCandidateColorCss(css, light ? skin.light : skin.dark);
+    return css;
+}
+
+bool InjectExternalCandidateSkin(
+    std::wstring &html,
+    const CandidateSkinCatalog::Package &skin,
+    const std::wstring &skinsRoot)
+{
+    if (html.empty() || skinsRoot.empty())
+    {
+        return false;
+    }
+    const std::wstring vars = fmt::format(
+        L"<style id=\"external-candidate-skin-vars\">:root{{--msime-skin-min-width:{}px;"
+        L"--msime-skin-decoration-top:{}px;--msime-skin-decoration-width:{}px;}}</style>",
+        skin.minWidthDip, skin.decorationTopDip, skin.decorationWidthDip);
+    std::wstring css = BuildExternalCandidateSkinCss(skin, skinsRoot);
+    NeutralizeEmbeddedStyleClosers(css);
+    std::wstring generated;
+    if (!css.empty())
+    {
+        generated = L"<style id=\"external-candidate-skin\">" + css + L"</style>";
+    }
+    const size_t headEnd = html.find(L"</head>");
+    if (headEnd == std::wstring::npos)
+    {
+        return false;
+    }
+    html.insert(headEnd, vars + generated);
+    return true;
+}
+
+void InjectCandidateDocumentSkin(
+    std::wstring &html,
+    const std::wstring &builtInCss,
+    const std::string &skin,
+    const std::string &base,
+    const std::string &layout,
+    const std::string &theme)
+{
+    if (html.empty()) return;
+    const size_t htmlTagEnd = html.find(L'>', html.find(L"<html"));
+    if (htmlTagEnd != std::wstring::npos)
+    {
+        html.insert(htmlTagEnd,
+                    fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                                L"data-candidate-layout=\"{}\" data-candidate-theme=\"{}\"",
+                                string_to_wstring(skin), string_to_wstring(base), string_to_wstring(layout),
+                                string_to_wstring(theme)));
+    }
+    const size_t headEnd = html.find(L"</head>");
+    if (headEnd != std::wstring::npos && !builtInCss.empty())
+        html.insert(headEnd, L"<style id=\"built-in-candidate-skin\">" + builtInCss + L"</style>");
+}
+} // namespace
+
 static std::wstring EscapeForJsTemplateLiteral(const std::wstring &text)
 {
     // Content is injected as an untagged JavaScript template literal. Kaomoji
@@ -1263,6 +1791,339 @@ static std::wstring EscapeForJsTemplateLiteral(const std::wstring &text)
     return escaped;
 }
 
+namespace
+{
+constexpr UINT_PTR kCandidateHoverArmTimerId = 21;
+constexpr int kCandidateHoverArmDistancePx = 2;
+
+POINT g_candidate_hover_cursor{};
+bool g_candidate_hover_armed = false;
+ULONGLONG g_candidate_hover_disarm_tick = 0;
+
+// CSS :hover is applied by Chromium when the HWND sits under a still
+// cursor. That does not go through mousemove JS. Kill those paints until
+// the physical screen cursor actually moves after the card is up.
+constexpr wchar_t kInstallCandidateHoverLockScript[] = LR"(
+(function () {
+  if (!document.getElementById('msime-hover-lock-style')) {
+    const style = document.createElement('style');
+    style.id = 'msime-hover-lock-style';
+    style.textContent = `
+html:not(.msime-hover-armed) #realContainer .cand:not(.first):hover,
+html:not(.msime-hover-armed) #realContainer.hover-active .cand:not(.first):hover {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+`;
+    document.documentElement.appendChild(style);
+  }
+  document.documentElement.classList.remove('msime-hover-armed');
+  const container = document.getElementById('realContainer');
+  if (container) {
+    container.classList.remove('hover-active');
+  }
+  if (!window.__msimeBlockSynthHover) {
+    window.__msimeBlockSynthHover = true;
+    document.addEventListener('mousemove', function (event) {
+      if (!document.documentElement.classList.contains('msime-hover-armed')) {
+        if (event.movementX !== 0 || event.movementY !== 0) {
+          document.documentElement.classList.add('msime-hover-armed');
+          const liveContainer = document.getElementById('realContainer');
+          if (liveContainer) {
+            liveContainer.classList.add('hover-active');
+          }
+          window.chrome.webview.postMessage(JSON.stringify({type:'candidatePointerArmed'}));
+          return;
+        }
+        window.chrome.webview.postMessage(JSON.stringify({type:'candidatePointerMotion'}));
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  }
+})();
+)";
+
+VOID CALLBACK CandidateHoverArmTimerProc(HWND, UINT, UINT_PTR, DWORD)
+{
+    MaybeArmCandidatePointerHover();
+}
+} // namespace
+
+void DisarmCandidatePointerHover()
+{
+    g_candidate_hover_armed = false;
+    g_candidate_hover_disarm_tick = GetTickCount64();
+    if (!GetPhysicalCursorPos(&g_candidate_hover_cursor))
+    {
+        GetCursorPos(&g_candidate_hover_cursor);
+    }
+    CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover disarm tick={} native_cursor=({},{}) shown={}",
+                            g_candidate_hover_disarm_tick, g_candidate_hover_cursor.x, g_candidate_hover_cursor.y,
+                            ::is_global_wnd_cand_shown);
+    if (!::global_hwnd)
+    {
+        return;
+    }
+    if (::is_global_wnd_cand_shown)
+    {
+        SetTimer(::global_hwnd, kCandidateHoverArmTimerId, 32, CandidateHoverArmTimerProc);
+    }
+    else
+    {
+        KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+    }
+}
+
+void MaybeArmCandidatePointerHover()
+{
+    if (g_candidate_hover_armed || !::is_global_wnd_cand_shown || !webviewCandWnd)
+    {
+        if (!::is_global_wnd_cand_shown && ::global_hwnd)
+        {
+            KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+        }
+        return;
+    }
+    POINT now{};
+    if (!GetPhysicalCursorPos(&now))
+    {
+        GetCursorPos(&now);
+    }
+    const int dx = now.x - g_candidate_hover_cursor.x;
+    const int dy = now.y - g_candidate_hover_cursor.y;
+    if (dx * dx + dy * dy < kCandidateHoverArmDistancePx * kCandidateHoverArmDistancePx)
+    {
+        return;
+    }
+    g_candidate_hover_armed = true;
+    CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm tick={} baseline=({},{}) native_cursor=({},{}) delta=({},{})",
+                            GetTickCount64(), g_candidate_hover_cursor.x, g_candidate_hover_cursor.y, now.x, now.y,
+                            dx, dy);
+    if (::global_hwnd)
+    {
+        KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+    }
+    webviewCandWnd->ExecuteScript(
+        LR"(document.documentElement.classList.add('msime-hover-armed');
+const c = document.getElementById('realContainer');
+if (c) { c.classList.add('hover-active'); })",
+        nullptr);
+}
+
+void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
+{
+    DisarmCandidatePointerHover();
+    if (webview != nullptr)
+    {
+        webview->ExecuteScript(kInstallCandidateHoverLockScript, nullptr);
+    }
+}
+
+constexpr wchar_t kEnsureApplyCandidateFrameScript[] = LR"(
+window.ApplyCandidateFrame = function (payload) {
+    const container = document.getElementById('realContainer');
+    const parent = document.getElementById('realContainerParent');
+    if (!container) return {width: 0, height: 0};
+    if (payload.resetHover && window.ClearState) window.ClearState();
+    if (parent && payload.applyMargins) {
+      if (payload.marginTop != null) parent.style.marginTop = payload.marginTop + 'px';
+      if (payload.marginLeft != null) parent.style.marginLeft = payload.marginLeft + 'px';
+    }
+    if (window.SetCandidatePreeditVisible) {
+      window.SetCandidatePreeditVisible(payload.preeditVisible !== false);
+    }
+    const preedit = container.querySelector('.pinyin .text');
+    if (preedit) {
+      preedit.textContent = payload.preedit || '';
+      if (window.SetPreeditCaret) window.SetPreeditCaret();
+    }
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const wrappers = container.querySelectorAll('.row-wrapper');
+    wrappers.forEach(function (wrapper, index) {
+      const html = index < items.length ? String(items[index] || '') : '';
+      wrapper.style.display = html ? '' : 'none';
+      const cand = wrapper.querySelector('.cand');
+      if (!cand) return;
+      let slot = cand.querySelector('.cand-content');
+      if (!slot) {
+        const text = cand.querySelector('.text') || cand;
+        slot = document.createElement('span');
+        slot.className = 'cand-content';
+        const num = text.querySelector('.num, .cand-no');
+        if (num) {
+          while (num.nextSibling) text.removeChild(num.nextSibling);
+          text.appendChild(slot);
+        } else {
+          text.appendChild(slot);
+        }
+      }
+      slot.innerHTML = html;
+    });
+    if (window.SetCandidateSelection) {
+      window.SetCandidateSelection(payload.selected || 0);
+    }
+    void container.offsetWidth;
+    const rect = container.getBoundingClientRect();
+    return {
+      width: Math.max(rect.width, container.offsetWidth || 0) + 1,
+      height: Math.max(rect.height, container.offsetHeight || 0) + 1
+    };
+};
+if (!document.getElementById('msime-fast-layout')) {
+  const style = document.createElement('style');
+  style.id = 'msime-fast-layout';
+  style.textContent = '.container,.container .text,.row-wrapper,.cand .text{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;}';
+  document.documentElement.appendChild(style);
+}
+)";
+
+std::pair<double, double> g_last_candidate_slot_measured_size{};
+bool g_candidate_slot_api_installed = false;
+
+namespace
+{
+bool g_candidate_slot_update_inflight = false;
+std::wstring g_candidate_slot_update_pending;
+std::function<void()> g_candidate_slot_update_pending_complete;
+bool g_candidate_slot_update_pending_content_only = false;
+
+void SubmitCandidateSlotScript(ComPtr<ICoreWebView2> webview, const std::wstring &payload,
+                               std::function<void()> onComplete, bool contentOnly);
+
+void FlushPendingCandidateSlotUpdate(ComPtr<ICoreWebView2> webview)
+{
+    if (g_candidate_slot_update_pending.empty())
+    {
+        return;
+    }
+    std::wstring pending = std::move(g_candidate_slot_update_pending);
+    std::function<void()> complete = std::move(g_candidate_slot_update_pending_complete);
+    const bool pendingContentOnly = g_candidate_slot_update_pending_content_only;
+    g_candidate_slot_update_pending.clear();
+    g_candidate_slot_update_pending_complete = nullptr;
+    g_candidate_slot_update_pending_content_only = false;
+    SubmitCandidateSlotScript(webview, pending, std::move(complete), pendingContentOnly);
+}
+
+void SubmitCandidateSlotScript(ComPtr<ICoreWebView2> webview, const std::wstring &payload,
+                               std::function<void()> onComplete, bool contentOnly)
+{
+    g_candidate_slot_update_inflight = true;
+    if (!contentOnly)
+    {
+        DisarmCandidatePointerHover();
+    }
+    std::wstring script;
+    script.reserve(payload.size() + 2048);
+    if (!g_candidate_slot_api_installed)
+    {
+        script.append(kEnsureApplyCandidateFrameScript);
+        g_candidate_slot_api_installed = true;
+    }
+    script.append(L"window.msimeCandidateDiagnostics = ");
+    script.append(GetConfiguredDiagnosticLogEnabled() ? L"true;\n" : L"false;\n");
+    script.append(L"window.ApplyCandidateFrame(");
+    script.append(payload);
+    script.append(L");");
+
+    const HRESULT submitHr = webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([webview, onComplete](HRESULT errorCode,
+                                                                                   LPCWSTR result) -> HRESULT {
+            if (FAILED(errorCode))
+            {
+                CAND_WEBVIEW_TRACE_LOGF(L"candidate-slot execute-failed hr={:#x}", static_cast<unsigned>(errorCode));
+            }
+            else if (result)
+            {
+                g_last_candidate_slot_measured_size = ParseDivSize(result);
+            }
+            g_candidate_slot_update_inflight = false;
+            if (!g_candidate_slot_update_pending.empty())
+            {
+                FlushPendingCandidateSlotUpdate(webview);
+                return S_OK;
+            }
+            if (onComplete)
+            {
+                onComplete();
+            }
+            return S_OK;
+        }).Get());
+    if (FAILED(submitHr))
+    {
+        g_candidate_slot_update_inflight = false;
+        CAND_WEBVIEW_TRACE_LOGF(L"candidate-slot submit-failed hr={:#x}", static_cast<unsigned>(submitHr));
+        if (onComplete)
+        {
+            onComplete();
+        }
+    }
+}
+
+void UpdateCandidateSlotsWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &payload,
+                                        std::function<void()> onComplete, bool contentOnly)
+{
+    if (!webview)
+    {
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return;
+    }
+    if (g_candidate_slot_update_inflight)
+    {
+        g_candidate_slot_update_pending = payload;
+        g_candidate_slot_update_pending_complete = std::move(onComplete);
+        g_candidate_slot_update_pending_content_only = contentOnly;
+        return;
+    }
+    SubmitCandidateSlotScript(webview, payload, std::move(onComplete), contentOnly);
+}
+
+std::wstring BuildCandidateSlotPayloadJson(const std::wstring &commaSeparated, bool contentOnly)
+{
+    std::vector<std::wstring> words = SplitCandidateTemplatePayload(commaSeparated);
+    nlohmann::json payload;
+    payload["preedit"] = words.empty() ? std::string{} : wstring_to_string(words[0]);
+    payload["items"] = nlohmann::json::array();
+    // Preserve slot indices: do not compress out empty tokens.
+    // The WebView DOM renderer expects wrapper<->slot index alignment.
+    uint16_t nonEmptyMask = 0;
+    for (size_t i = 1; i < words.size(); ++i)
+    {
+        if (i <= 9 && !words[i].empty())
+        {
+            nonEmptyMask |= static_cast<uint16_t>(1u) << static_cast<uint16_t>(i - 1);
+        }
+        payload["items"].push_back(wstring_to_string(words[i]));
+    }
+    if (nonEmptyMask == 0 && !words.empty())
+    {
+        CAND_DIAG_LOGF(L"candidate-slot payload all-empty words_sz={} content_only={} preedit_len={}",
+                       words.size(), contentOnly ? 1 : 0, words[0].size());
+    }
+    payload["selected"] = Global::candidate_ui.selected_index_in_page;
+    payload["preeditVisible"] = GetConfiguredCandidateWindowPreeditStyle() != "empty";
+    payload["applyMargins"] = !contentOnly;
+    payload["resetHover"] = !contentOnly;
+    if (!contentOnly)
+    {
+        payload["marginTop"] = Global::MarginTop;
+        payload["marginLeft"] = Global::MarginLeft;
+    }
+    return string_to_wstring(payload.dump());
+}
+} // namespace
+
+std::pair<double, double> LastCandidateSlotMeasuredSize()
+{
+    return g_last_candidate_slot_measured_size;
+}
+
 void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::wstring &newContent)
 {
     UpdateHtmlContentWithJavaScript(webview, newContent, nullptr);
@@ -1283,12 +2144,17 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     const std::wstring escaped = EscapeForJsTemplateLiteral(newContent);
 
     std::wstring script;
-    script.reserve(escaped.length() + 512);
+    script.reserve(escaped.length() + 2200);
 
+    const bool diagnosticsEnabled = GetConfiguredDiagnosticLogEnabled();
+    script.append(L"window.msimeCandidateDiagnostics = ");
+    script.append(diagnosticsEnabled ? L"true;\n" : L"false;\n");
     script.append(L"document.getElementById('realContainer').innerHTML = `");
     script.append(escaped);
     script.append(L"`;\n");
     script.append(L"window.ClearState();\n");
+    script.append(kInstallCandidateHoverLockScript);
+    DisarmCandidatePointerHover();
     script.append(L"var el = document.getElementById('realContainerParent');\n");
     script.append(L"if (el) {\n");
     script.append(L"  el.style.marginTop = \"");
@@ -1306,18 +2172,53 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
     script.append(L"); }\n");
     script.append(L"if (window.SetPreeditCaret) { window.SetPreeditCaret(); }\n");
     script.append(L"if (window.CheckContentTruncation) { window.CheckContentTruncation(); }\n");
+    if (diagnosticsEnabled)
+    {
+        script.append(LR"(
+(function () {
+  window.__msimeCandidateDomRevision = (window.__msimeCandidateDomRevision || 0) + 1;
+  const revision = window.__msimeCandidateDomRevision;
+  requestAnimationFrame(() => {
+    window.chrome.webview.postMessage(JSON.stringify({type:'candidateFrameProbe',data:{
+      revision:revision,stage:1,performanceMs:performance.now()
+    }}));
+    requestAnimationFrame(() => {
+      window.chrome.webview.postMessage(JSON.stringify({type:'candidateFrameProbe',data:{
+        revision:revision,stage:2,performanceMs:performance.now()
+      }}));
+    });
+  });
+})();
+)");
+    }
 
     if (!onComplete)
     {
-        webview->ExecuteScript(script.c_str(), nullptr);
+        const HRESULT submitHr = webview->ExecuteScript(script.c_str(), nullptr);
+        if (FAILED(submitHr))
+        {
+            CAND_WEBVIEW_TRACE_LOGF(L"candidate-script submit-failed hr={:#x} callback=false",
+                                    static_cast<unsigned>(submitHr));
+        }
         return;
     }
 
-    webview->ExecuteScript(
-        script.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
-                            onComplete();
-                            return S_OK;
-                        }).Get());
+    const HRESULT submitHr = webview->ExecuteScript(
+        script.c_str(),
+        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT errorCode, LPCWSTR) -> HRESULT {
+            if (FAILED(errorCode))
+            {
+                CAND_WEBVIEW_TRACE_LOGF(L"candidate-script execute-failed hr={:#x} callback=true",
+                                        static_cast<unsigned>(errorCode));
+            }
+            onComplete();
+            return S_OK;
+        }).Get());
+    if (FAILED(submitHr))
+    {
+        CAND_WEBVIEW_TRACE_LOGF(L"candidate-script submit-failed hr={:#x} callback=true",
+                                static_cast<unsigned>(submitHr));
+    }
 }
 
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
@@ -1386,36 +2287,65 @@ int PrepareHtmlForWnds()
     const bool isHorizontal = GetConfiguredCandidateWindowLayout() == "horizontal";
     const bool candLight = ResolveConfiguredTheme(GetConfiguredThemeCand()) == "light";
     const std::string candidateSkin = GetConfiguredCandidateSkin();
-    const bool useWechatSkin = candidateSkin == "wechat";
-    const bool useGraphiteSkin = candidateSkin == "graphite";
-    const bool useWillowGreenSkin = candidateSkin == "willow_green";
-    const wchar_t *candThemeSuffix =
-        useWechatSkin         ? (candLight ? L"wechat_light" : L"wechat")
-        : useGraphiteSkin     ? (candLight ? L"graphite_light" : L"graphite")
-        : useWillowGreenSkin  ? (candLight ? L"willow_green_light" : L"willow_green")
-                              : (candLight ? L"light" : L"dark");
+    const std::string candidateLayout = isHorizontal ? "horizontal" : "vertical";
+    const std::string candidateTheme = candLight ? "light" : "dark";
+    activeExternalCandidateSkin.reset();
+    std::string baseCandidateSkin = candidateSkin;
+    if (!CandidateSkinCatalog::IsBuiltIn(candidateSkin))
+    {
+        const std::wstring skinsRoot = assetPath + L"\\skins";
+        activeExternalCandidateSkin = CandidateSkinCatalog::Load(skinsRoot, candidateSkin);
+        if (activeExternalCandidateSkin &&
+            !CandidateSkinCatalog::Supports(*activeExternalCandidateSkin, candidateLayout, candidateTheme))
+            activeExternalCandidateSkin.reset();
+        baseCandidateSkin = activeExternalCandidateSkin ? activeExternalCandidateSkin->base : "fluent";
+    }
     std::wstring htmlCandWnd;
     std::wstring bodyHtmlCandWnd;
     std::wstring measureHtmlCandWnd;
     if (isHorizontal)
     {
-        htmlCandWnd = fmt::format(L"/html/webview2/candwnd/horizontal_candidate_window_{}.html", candThemeSuffix);
+        htmlCandWnd = L"/html/webview2/candwnd/horizontal_candidate_window.html";
         // Body/measure fragments are theme-agnostic markup; keep the existing dark assets.
         bodyHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark.html";
         measureHtmlCandWnd = L"/html/webview2/candwnd/body/horizontal_candidate_window_dark_measure.html";
     }
     else
     {
-        htmlCandWnd = fmt::format(L"/html/webview2/candwnd/vertical_candidate_window_{}.html", candThemeSuffix);
+        htmlCandWnd = L"/html/webview2/candwnd/vertical_candidate_window.html";
         bodyHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark.html";
         measureHtmlCandWnd = L"/html/webview2/candwnd/body/vertical_candidate_window_dark_measure.html";
     }
 
     std::wstring entireHtmlPathCandWnd = assetPath + htmlCandWnd;
-    ::HTMLStringCandWnd = ReadHtmlFileWithFallback(
-        entireHtmlPathCandWnd,
-        assetPath + (isHorizontal ? L"/html/webview2/candwnd/horizontal_candidate_window_dark.html"
-                                  : L"/html/webview2/candwnd/vertical_candidate_window_dark.html"));
+    ::HTMLStringCandWnd = ReadHtmlFile(entireHtmlPathCandWnd);
+    const std::wstring candidateStyleName = fmt::format(
+        L"{}_{}.css", string_to_wstring(candidateLayout), string_to_wstring(candidateTheme));
+    const std::wstring candidateStylePath = fmt::format(
+        L"/html/webview2/candwnd/skins/{}/{}", string_to_wstring(baseCandidateSkin), candidateStyleName);
+    std::wstring builtInCandidateCss = ReadHtmlFile(assetPath + candidateStylePath);
+    if (builtInCandidateCss.empty())
+    {
+        builtInCandidateCss = ReadHtmlFile(
+            assetPath + L"/html/webview2/candwnd/skins/fluent/" + candidateStyleName);
+    }
+    if (builtInCandidateCss.empty() && candLight)
+    {
+        builtInCandidateCss = ReadHtmlFile(
+            assetPath + L"/html/webview2/candwnd/skins/fluent/" +
+            string_to_wstring(candidateLayout) + L"_dark.css");
+    }
+    InjectCandidateDocumentSkin(::HTMLStringCandWnd, builtInCandidateCss, candidateSkin,
+                                baseCandidateSkin, candidateLayout, candidateTheme);
+    if (activeExternalCandidateSkin)
+    {
+        const std::wstring skinsRoot = assetPath + L"\\skins";
+        if (!InjectExternalCandidateSkin(::HTMLStringCandWnd, *activeExternalCandidateSkin, skinsRoot))
+        {
+            // Without the stylesheet, native decoration insets would clip the card.
+            activeExternalCandidateSkin.reset();
+        }
+    }
     std::wstring bodyHtmlPathCandWnd = assetPath + bodyHtmlCandWnd;
     ::BodyStringCandWnd = ReadHtmlFile(bodyHtmlPathCandWnd);
     std::wstring measureHtmlPathCandWnd = assetPath + measureHtmlCandWnd;
@@ -1447,15 +2377,15 @@ int PrepareHtmlForWnds()
     //
     const bool ftbLight = ResolveConfiguredTheme(GetConfiguredThemeFtb()) == "light";
     std::wstring htmlFtbWnd;
-    if (useWechatSkin)
+    if (baseCandidateSkin == "wechat")
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/wechat_light.html" : L"/html/webview2/ftb/wechat.html";
     }
-    else if (useGraphiteSkin)
+    else if (baseCandidateSkin == "graphite")
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/graphite_light.html" : L"/html/webview2/ftb/graphite.html";
     }
-    else if (useWillowGreenSkin)
+    else if (baseCandidateSkin == "willow_green")
     {
         htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/willow_green_light.html"
                               : L"/html/webview2/ftb/willow_green.html";
@@ -1466,6 +2396,28 @@ int PrepareHtmlForWnds()
     }
     std::wstring entireHtmlPathFtbWnd = assetPath + htmlFtbWnd;
     ::HTMLStringFtbWnd = ReadHtmlFileWithFallback(entireHtmlPathFtbWnd, assetPath + L"/html/webview2/ftb/default.html");
+    if (activeExternalCandidateSkin && !::HTMLStringFtbWnd.empty())
+    {
+        const size_t htmlTag = ::HTMLStringFtbWnd.find(L"<html");
+        const size_t htmlTagEnd = htmlTag == std::wstring::npos ? std::wstring::npos
+                                                                : ::HTMLStringFtbWnd.find(L'>', htmlTag);
+        if (htmlTagEnd != std::wstring::npos)
+        {
+            ::HTMLStringFtbWnd.insert(
+                htmlTagEnd,
+                fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                            L"data-candidate-theme=\"{}\"",
+                            string_to_wstring(candidateSkin), string_to_wstring(baseCandidateSkin),
+                            ftbLight ? L"light" : L"dark"));
+        }
+        if (!activeExternalCandidateSkin->toolbarStylesheet.empty())
+        {
+            const std::wstring skinsRoot = assetPath + L"\\skins";
+            InjectExternalSkinCssFile(::HTMLStringFtbWnd, *activeExternalCandidateSkin, skinsRoot,
+                                      activeExternalCandidateSkin->toolbarStylesheet,
+                                      L"external-toolbar-skin");
+        }
+    }
     preparedCandidateSkin = candidateSkin;
 
     return 0;
@@ -1473,9 +2425,11 @@ int PrepareHtmlForWnds()
 
 bool ApplyConfiguredCandidateWindowLayout()
 {
-    // PrepareHtmlForWnds also refreshes the other small-window templates. They are
-    // cheap local reads and keeping this in one place prevents the paths drifting.
     PrepareHtmlForWnds();
+    if (CandidatePresenter::Instance().IsBound() && !webviewCandWnd)
+    {
+        return true;
+    }
     if (!webviewCandWnd || HTMLStringCandWnd.empty())
     {
         return false;
@@ -1490,6 +2444,10 @@ bool ApplyConfiguredCandidateWindowLayout()
 
 bool ApplyConfiguredUiThemes()
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().ApplyTheme();
+    }
     const std::string candidateSkin = GetConfiguredCandidateSkin();
     PrepareHtmlForWnds();
     bool ok = true;
@@ -1531,8 +2489,27 @@ bool ApplyConfiguredCandidateSkinIfChanged()
     return ApplyConfiguredUiThemes();
 }
 
+bool ForceReloadConfiguredCandidateSkin()
+{
+    ++candidateSkinReloadRevision;
+    loadedCandidateSkin.clear();
+    loadedFloatingToolbarSkin.clear();
+    const bool cloakCandidate = ::is_global_wnd_cand_shown && ::global_hwnd && IsWindow(::global_hwnd) &&
+                                !CandidatePresenter::Instance().IsBound();
+    if (cloakCandidate)
+        SetCandidateHostCloaked(true);
+    const bool ok = ApplyConfiguredUiThemes();
+    if (!ok && cloakCandidate)
+        SetCandidateHostCloaked(false);
+    return ok;
+}
+
 bool ApplyConfiguredCandidateAppearance()
 {
+    if (CandidatePresenter::Instance().IsBound() && !webviewCandWnd)
+    {
+        return true;
+    }
     if (!webviewCandWnd)
     {
         return false;
@@ -1560,6 +2537,10 @@ bool ApplyConfiguredCandidateAppearance()
         L"root.style.removeProperty('--cand-text');"
         L"root.style.removeProperty('--cand-num');"
         L"}"
+        L"if(!document.getElementById('msime-fast-layout')){"
+        L"const s=document.createElement('style');s.id='msime-fast-layout';"
+        L"s.textContent='.container,.container .text,.row-wrapper,.cand .text{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;}';"
+        L"root.appendChild(s);}"
         L"})(" +
         string_to_wstring(cfg.dump()) + L");";
     return SUCCEEDED(webviewCandWnd->ExecuteScript(script.c_str(), nullptr));
@@ -1572,6 +2553,15 @@ bool ApplyConfiguredFloatingToolbarAppearance()
 
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete)
 {
+    if (FloatingToolbarPresenter::Instance().IsBound())
+    {
+        FloatingToolbarPresenter::Instance().RelayoutHost();
+        if (onComplete)
+        {
+            onComplete();
+        }
+        return true;
+    }
     if (!webviewFtbWnd)
     {
         if (onComplete)
@@ -1653,18 +2643,6 @@ void UpdateMeasureContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std
     UpdateMeasureContentWithJavaScript(webview, newContent, nullptr);
 }
 
-void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
-{
-    if (webview != nullptr)
-    {
-        std::wstring script = LR"(
-const realContainer = document.getElementById('realContainer');
-realContainer.classList.remove('hover-active');
-        )";
-        webview->ExecuteScript(script.c_str(), nullptr);
-    }
-}
-
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview)
 {
     if (webview != nullptr)
@@ -1693,7 +2671,13 @@ void InflateCandWnd(std::wstring &str)
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete)
 {
     std::wstring result = InflateCandidateTemplate(BodyStringCandWnd, str);
+    UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
+}
 
+void InflateCandWnd(std::wstring &str, std::function<void()> onComplete, bool contentOnly)
+{
+    (void)contentOnly;
+    std::wstring result = InflateCandidateTemplate(BodyStringCandWnd, str);
     UpdateHtmlContentWithJavaScript(webviewCandWnd, result, std::move(onComplete));
 }
 
@@ -1835,6 +2819,14 @@ HRESULT OnControllerCreatedCandWnd(     //
             assetPath.c_str(),                                                        //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS                          //
         );                                                                            //
+        const std::wstring skinsPath = fmt::format(                    //
+            L"{}\\{}\\skins",                                        //
+            string_to_wstring(CommonUtils::get_local_appdata_path()), //
+            GlobalIme::AppName                                        //
+        );
+        const HRESULT skinsMappingHr = webview3CandWnd->SetVirtualHostNameToFolderMapping(
+            L"candidate-skins", skinsPath.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        (void)skinsMappingHr;
         (void)0;
     }
 
@@ -1852,6 +2844,10 @@ HRESULT OnControllerCreatedCandWnd(     //
     (void)0;
 
     // Navigate to HTML
+    if (HTMLStringCandWnd.empty())
+    {
+        PrepareHtmlForWnds();
+    }
     HRESULT hr = webviewCandWnd->NavigateToString(HTMLStringCandWnd.c_str());
     CAND_DIAG_LOGF(L"webview NavigateToString hr={:#x} html_chars={} skin={}", static_cast<unsigned>(hr),
                    HTMLStringCandWnd.size(), string_to_wstring(preparedCandidateSkin));
@@ -1882,7 +2878,59 @@ HRESULT OnControllerCreatedCandWnd(     //
                     {
                         json::value val = json::parse(wstring_to_string(msg));
                         std::string type = json::value_to<std::string>(val.at("type"));
-                        if (type == "delete")
+                        if (type == "candidateFrameProbe")
+                        {
+                            const auto &data = val.at("data");
+                            const int revision = json::value_to<int>(data.at("revision"));
+                            const int stage = json::value_to<int>(data.at("stage"));
+                            const double performanceMs = json::value_to<double>(data.at("performanceMs"));
+                            RECT rect{};
+                            GetWindowRect(hwnd, &rect);
+                            CAND_WEBVIEW_TRACE_LOGF(
+                                L"candidate-browser-frame revision={} stage={} performance_ms={:.3f} native_tick={} "
+                                L"hwnd_rect=({},{},{}x{}) shown={} window_visible={}",
+                                revision, stage, performanceMs, GetTickCount64(), rect.left, rect.top,
+                                rect.right - rect.left, rect.bottom - rect.top, ::is_global_wnd_cand_shown,
+                                IsWindowVisible(hwnd) != FALSE);
+                        }
+                        else if (type == "candidatePointerArmed")
+                        {
+                            g_candidate_hover_armed = true;
+                            if (::global_hwnd)
+                            {
+                                KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
+                            }
+                            CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm source=dom-motion tick={}",
+                                                    GetTickCount64());
+                        }
+                        else if (type == "candidatePointerMotion")
+                        {
+                            // A WebView mousemove can be synthesized when the
+                            // candidate HWND moves under a stationary cursor.
+                            // The native screen-coordinate comparison arms only
+                            // when the physical pointer itself really moved.
+                            MaybeArmCandidatePointerHover();
+                        }
+                        else if (type == "candidatePointerProbe")
+                        {
+                            const auto &data = val.at("data");
+                            POINT cursor{};
+                            GetCursorPos(&cursor);
+                            RECT rect{};
+                            GetWindowRect(hwnd, &rect);
+                            CAND_WEBVIEW_TRACE_LOGF(
+                                L"candidate-pointer probe={} event_screen=({},{}) event_client=({},{}) "
+                                L"movement=({},{}) js_armed={} native_cursor=({},{}) baseline=({},{}) "
+                                L"native_armed={} hwnd=({},{},{}x{}) tick={}",
+                                json::value_to<int>(data.at("probe")), json::value_to<int>(data.at("screenX")),
+                                json::value_to<int>(data.at("screenY")), json::value_to<int>(data.at("clientX")),
+                                json::value_to<int>(data.at("clientY")), json::value_to<int>(data.at("movementX")),
+                                json::value_to<int>(data.at("movementY")), json::value_to<bool>(data.at("armed")),
+                                cursor.x, cursor.y, g_candidate_hover_cursor.x, g_candidate_hover_cursor.y,
+                                g_candidate_hover_armed, rect.left, rect.top, rect.right - rect.left,
+                                rect.bottom - rect.top, GetTickCount64());
+                        }
+                        else if (type == "delete")
                         {
                             int idx = json::value_to<int>(val.at("data"));
                             if (FanyImeIpc::IsValidCandidateUiOneBasedIndex(idx))
@@ -2012,13 +3060,18 @@ HRESULT OnControllerCreatedCandWnd(     //
                                static_cast<int>(errorStatus), ::is_global_wnd_cand_shown);
                 if (success)
                 {
+                    g_candidate_slot_api_installed = false;
                     NotifySmallWindowNavigationReady(candidateNavigationReady, L"candidate");
                     ApplyConfiguredCandidateAppearance();
                     InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
+                    webviewCandWnd->ExecuteScript(kInstallCandidateHoverLockScript, nullptr);
+                    DisarmCandidatePointerHover();
                 }
                 else
                 {
                     (void)0;
+                    if (::is_global_wnd_cand_shown)
+                        SetCandidateHostCloaked(false);
                 }
                 if (success && ::is_global_wnd_cand_shown)
                 {
@@ -2711,12 +3764,30 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "appearance.ui_backend")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredUiBackend(value))
+                                {
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path == "appearance.candidate_window_layout")
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
                                 if (SetConfiguredCandidateWindowLayout(value))
                                 {
                                     ApplyConfiguredCandidateWindowLayout();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "appearance.candidate_window_follow_cursor")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCandidateWindowFollowCursor(value))
+                                {
+                                    CAND_WEBVIEW_TRACE_LOGF(L"candidate-position config-update follow_cursor={}",
+                                                            value);
                                     PostSettingsConfig();
                                 }
                             }
@@ -2945,6 +4016,25 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     PostSettingsConfig();
                                 }
                             }
+                            else if (path == "input.punctuation_lock")
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredPunctuationLock(value))
+                                {
+                                    BroadcastToTsfWorkerThreadViaNamedpipe(
+                                        Global::DataFromServerMsgTypeToTsfWorkerThread::PunctuationLockChanged,
+                                        FormatPunctuationLockWorkerPayload());
+                                    if (value == "chinese")
+                                    {
+                                        UpdateFtbPuncState(::webviewFtbWnd, 1);
+                                    }
+                                    else if (value == "english")
+                                    {
+                                        UpdateFtbPuncState(::webviewFtbWnd, 0);
+                                    }
+                                    PostSettingsConfig();
+                                }
+                            }
                             else if (path.rfind("general.floating_toolbar_", 0) == 0)
                             {
                                 const std::string item = path.substr(std::string("general.floating_toolbar_").size());
@@ -3009,6 +4099,25 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                 {
                                     if (path == "tencent_tmt.target_language")
                                         FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "custom_translation.enabled")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredCustomTranslationBool("enabled", value))
+                                {
+                                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path.rfind("custom_translation.", 0) == 0)
+                            {
+                                const std::string value = json::value_to<std::string>(data.at("value"));
+                                if (SetConfiguredCustomTranslationString(
+                                        path.substr(std::string("custom_translation.").size()), value))
+                                {
+                                    FanyNamedPipe::EnqueueRefreshCandidatePageTask();
                                     PostSettingsConfig();
                                 }
                             }
@@ -3140,6 +4249,14 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                                     BroadcastToTsfWorkerThreadViaNamedpipe(
                                         Global::DataFromServerMsgTypeToTsfWorkerThread::PagingCommaPeriodChanged,
                                         FormatPagingCommaPeriodWorkerPayload());
+                                    PostSettingsConfig();
+                                }
+                            }
+                            else if (path == "general.paging_brackets")
+                            {
+                                const bool value = json::value_to<bool>(data.at("value"));
+                                if (SetConfiguredPagingBracketsEnabled(value))
+                                {
                                     PostSettingsConfig();
                                 }
                             }
@@ -3291,6 +4408,18 @@ HRESULT OnSettingsWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebVi
  */
 void SyncMenuFloatingToolbarToggle()
 {
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        if (TrayMenuPresenter::Instance().IsOpenToUser())
+        {
+            TrayMenuPresenter::Instance().ShowFromLangBar();
+        }
+        else
+        {
+            TrayMenuPresenter::Instance().ApplyTheme();
+        }
+        return;
+    }
     if (!::webviewMenuWnd)
     {
         return;
@@ -3336,6 +4465,7 @@ void PostSettingsConfig()
 
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
+    const CustomTranslationConfig &custom_translation = GetConfiguredCustomTranslation();
     nlohmann::json payload = {
         {"type", "configSnapshot"},
         {"data",
@@ -3351,7 +4481,8 @@ void PostSettingsConfig()
             {"word_to_character", GetConfiguredWordToCharacterEnabled()},
             {"smart_punctuation", GetConfiguredSmartPunctuationEnabled()},
             {"smart_punctuation_repeat_to_chinese", GetConfiguredSmartPunctuationRepeatToChineseEnabled()},
-            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()}}},
+            {"paired_punctuation", GetConfiguredPairedPunctuationEnabled()},
+            {"punctuation_lock", GetConfiguredPunctuationLock()}}},
           {"general",
            {{"diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
             {"candidate_window_diagnostic_log", GetConfiguredDiagnosticLogEnabled()},
@@ -3373,6 +4504,7 @@ void PostSettingsConfig()
             {"cloud_candidates", GetConfiguredCloudCandidatesEnabled()},
             {"paging_minus_equal", GetConfiguredPagingMinusEqualEnabled()},
             {"paging_comma_period", GetConfiguredPagingCommaPeriodEnabled()},
+            {"paging_brackets", GetConfiguredPagingBracketsEnabled()},
             {"paging_tab", GetConfiguredPagingTabEnabled()},
             {"paging_page_up_down", GetConfiguredPagingPageUpDownEnabled()},
             {"candidate_arrow_navigation", GetConfiguredCandidateArrowNavigationEnabled()}}},
@@ -3383,6 +4515,10 @@ void PostSettingsConfig()
           {"tencent_tmt",
            {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
             {"region", tencent_tmt.region}, {"target_language", tencent_tmt.target_language}}},
+          {"custom_translation",
+           {{"enabled", custom_translation.enabled},
+            {"endpoint", custom_translation.endpoint},
+            {"api_key", custom_translation.api_key}}},
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
             {"quick_phrase", GetConfiguredQuickPhraseEnabled()},
@@ -3393,7 +4529,9 @@ void PostSettingsConfig()
             {"y_mode", GetConfiguredYModeEnabled()},
             {"r_mode", GetConfiguredRModeEnabled()}}},
           {"appearance",
-           {{"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+           {{"ui_backend", GetConfiguredUiBackend()},
+            {"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
+            {"candidate_window_follow_cursor", GetConfiguredCandidateWindowFollowCursor()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"tsf_preedit_style", GetConfiguredTsfPreeditStyle()},
@@ -3797,8 +4935,8 @@ HRESULT OnFtbWindowEnvironmentCreated(HWND hwnd, HRESULT result, ICoreWebView2En
 }
 
 /**
- * @brief Initialize the candidate, tray menu, and floating toolbar WebViews in
- *        one environment so they share a browser process and user data folder.
+ * @brief Initialize candidate, tray menu, and floating toolbar WebViews in one
+ *        environment when appearance.ui_backend is webview2.
  */
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
 {
@@ -3811,11 +4949,21 @@ void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd)
     currentSmallWindowHostIndex = -1;
     lastFailedSmallWindowHostIndex = -1;
     pendingTrayMenuShow = false;
+    pendingCandidateShow = false;
+    if (UseD2dSmallWindowUi())
+    {
+        FTB_DIAG_LOGF(L"skip small-window webview init: ui_backend=d2d");
+        return;
+    }
     BeginSmallWindowWebviewEnvironmentCreate();
 }
 
 bool PrepareTrayMenuWebviewForShow()
 {
+    if (TrayMenuPresenter::Instance().IsBound())
+    {
+        return true;
+    }
     if (webviewControllerMenuWnd && menuNavigationReady)
     {
         return true;
@@ -3859,6 +5007,7 @@ void ShutdownWebviews()
     // interface on the UI STA before WinMain balances CoInitializeEx.
     ResetSmallWindowTopmostGate();
     pendingTrayMenuShow = false;
+    pendingCandidateShow = false;
     smallWindowInitState = SmallWindowInitState::Idle;
     smallWindowControllerRequestInFlight = false;
     if (smallWindowCandHwnd)

@@ -220,6 +220,22 @@ TEST_CASE(MicrosoftProfileDecodesZeroInitialSyllables)
     }
 }
 
+TEST_CASE(ShuangpinProfilesDecodeKei)
+{
+    const std::vector<std::pair<const ShuangpinProfile *, std::string>> cases{
+        {&GetXiaoheShuangpinProfile(), "kw"},
+        {&GetZiranmaShuangpinProfile(), "kz"},
+        {&GetShoudaoShuangpinProfile(), "km"},
+        {&GetMicrosoftShuangpinProfile(), "kz"},
+    };
+
+    for (const auto &[profile, input] : cases)
+    {
+        REQUIRE_EQ(shuangpin::normalize_input(input, *profile), std::string("kei"));
+        REQUIRE(shuangpin::is_complete_input(input, *profile));
+    }
+}
+
 TEST_CASE(MicrosoftSchemeAcceptsSemicolonAsIngFinalOnlyInSecondPosition)
 {
     ShuangpinScheme scheme(GetMicrosoftShuangpinProfile());

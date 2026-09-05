@@ -1,6 +1,6 @@
 # Metasequoia IME Server(水杉输入法 Server 端)
 
-This is the server end of [MetasequoiaImeTsf](https://github.com/metasequoiaime/MetasequoiaImeTsf.git).
+This is the server end of [MSIME-Windows](https://github.com/metasequoiaime/MSIME-Windows).
 
 ## How to build
 
@@ -22,7 +22,7 @@ Make sure vcpkg and Boost are installed by **Scoop**.
 cd $env:LOCALAPPDATA
 mkdir metasequoiaime
 cd metasequoiaime
-git clone --recursive https://github.com/metasequoiaime/MetasequoiaImeDict.git
+git clone --recursive https://github.com/metasequoiaime/MSIME-Dict.git MetasequoiaImeDict
 cd .\MetasequoiaImeDict\makecikudb\xnheulpb\makedb\separated_jp_version
 python .\create_db_and_table.py
 python .\insert_data.py
@@ -30,10 +30,10 @@ python .\create_index_for_db.py
 Copy-Item -Path .\out\msime.db -Destination $env:LOCALAPPDATA\metasequoiaime
 ```
 
-**Then**, clone and build MetasequoiaImeServer,
+**Then**, clone and build MSIME-Server,
 
 ```powershell
-git clone --recursive https://github.com/metasequoiaime/MetasequoiaImeServer.git
+git clone --recursive https://github.com/metasequoiaime/MSIME-Server.git MetasequoiaImeServer
 ```
 
 Prepare environment,

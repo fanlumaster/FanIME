@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Windows x64
+    runs-on: windows-2025
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Install Boost
+        shell: pwsh
+        # CMakeLists.txt links Boost statically but does not declare it in
+        # vcpkg.json, so it cannot come from the manifest. Install it in classic
+        # mode from the vcpkg installation root and point BOOST_ROOT at it, which
+        # is the override CMakeLists.txt already supports.
+        #
+        # The triplet must be static-md, not static: Boost_USE_STATIC_LIBS ON asks
+        # for static Boost libraries, but the rest of the project builds against
+        # the dynamic CRT. Plain x64-windows-static would also switch Boost to the
+        # static CRT and the link fails with LNK2038 RuntimeLibrary mismatches.
+        run: |
+          Push-Location $env:VCPKG_INSTALLATION_ROOT
+          ./vcpkg install boost-locale:x64-windows-static-md boost-json:x64-windows-static-md
+          Pop-Location
+          "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> $env:GITHUB_ENV
+      # 刻意不叫 build：CMakeLists.txt 曾经写死 ${CMAKE_SOURCE_DIR}/build/vcpkg_installed，
+      # 换任何别的名字都会链接失败。构建到别处才能保证这条不会悄悄退回去。
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -S . -B build-release -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build
+        shell: pwsh
+        run: cmake --build build-release --config Release --parallel
+      # 测试读的是 %LOCALAPPDATA%\metasequoiaime 下的真实数据。词库不在本仓里，
+      # 但 MSIME-Dict 已经把构建好的数据库作为 release 资产发布，发布流程本身也是
+      # 从那里取词库的（见 MSIME-Windows 的 release.yml），这里沿用同一条路径。
+      # tag 固定，避免上游更新词库时 CI 结果跟着漂移；需要跟进新词库时改这一处。
+      - name: Provision dictionary data
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DICTIONARY_TAG: dict-2026.09.05
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dataRoot = Join-Path $env:LOCALAPPDATA 'metasequoiaime'
+          New-Item -ItemType Directory -Force -Path $dataRoot | Out-Null
+
+          gh release download $env:DICTIONARY_TAG --repo metasequoiaime/MSIME-Dict `
+            --pattern 'msime.db' --pattern 'others.db' --pattern 'english.db' `
+            --pattern 'SHA256SUMS.txt' --dir $dataRoot
+
+          # 逐个核对官方校验和，下载损坏时要立刻失败，而不是留到测试里表现成候选为空
+          $expected = @{}
+          Get-Content (Join-Path $dataRoot 'SHA256SUMS.txt') | ForEach-Object {
+            $parts = $_ -split '\s+', 2
+            if ($parts.Count -eq 2) { $expected[$parts[1].TrimStart('*')] = $parts[0].ToLower() }
+          }
+          foreach ($name in @('msime.db', 'others.db', 'english.db')) {
+            $actual = (Get-FileHash (Join-Path $dataRoot $name) -Algorithm SHA256).Hash.ToLower()
+            if ($expected[$name] -ne $actual) { throw "$name 校验和不匹配" }
+            Write-Host "$name OK"
+          }
+
+          # 五套辅助码方案。引擎从数据根目录下的 helpcodes/ 读取，本仓 assets/tables
+          # 里只有其中一套，因此需要从 MSIME-HelpCode 取全（合计约 450 KB）。
+          git clone --depth 1 https://github.com/metasequoiaime/MSIME-HelpCode.git "$env:RUNNER_TEMP/helpcode"
+          Copy-Item "$env:RUNNER_TEMP/helpcode/helpcodes" -Destination $dataRoot -Recurse -Force
+
+          Copy-Item 'assets/tables/*' -Destination $dataRoot -Force
+          Copy-Item 'assets/config/config.toml' -Destination $dataRoot -Force
+          Get-ChildItem $dataRoot | Select-Object Name, Length | Format-Table
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir build-release -C Release --verbose --timeout 120

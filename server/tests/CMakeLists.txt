@@ -21,6 +21,8 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_english_dictionary.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_translation_gloss.cpp"
     "${CMAKE_SOURCE_DIR}/src/cloud/translation_gloss.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_custom_translation.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cloud/custom_translation.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_active_client_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_outbound_session_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_pipe_write_policy.cpp"
@@ -30,6 +32,8 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_text_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_window_template.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_size_estimator.cpp"
+    "${CMAKE_SOURCE_DIR}/src/utils/candidate_size_estimator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_ipc_protocol_constants.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_voice_composition_pipe.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_voice_providers.cpp"
@@ -40,52 +44,11 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_config_template_merge.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_system_font_family.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_dictionary_validation.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/english/english_dictionary.cpp"
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"
     "${CMAKE_SOURCE_DIR}/src/session/engine_input_session.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/common_utils.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/ime_paths.cpp"
     "${CMAKE_SOURCE_DIR}/src/settings/dictionary_validation.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/common/helpcode_utils.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/core/ime_session.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/common/string_utils.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/provider_registry.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/pinyin_candidate_provider.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/wubi_candidate_provider.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/providers/japanese_candidate_provider.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/japanese/romaji_converter.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/japanese/japanese_sentence_decoder.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/japanese/japanese_matrix_search.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/engine.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_dictionary.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/schemes/shuangpin_scheme.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/schemes/quanpin_scheme.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/schemes/wubi_scheme.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/schemes/japanese_romaji_scheme.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/quanpin/quanpin_query.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/engine.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/dicttrie.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/lpicache.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/matrixsearch.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/mystdlib.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/ngram.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/pinyinime.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/searchutility.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtable.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtrie.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/splparser.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/sync.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/userdict.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16char.cpp"
-    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16reader.cpp"
 )
 
 add_executable(${TEST_EXECUTABLE_NAME} ${TEST_SOURCE_FILES})
@@ -99,10 +62,12 @@ target_include_directories(${TEST_EXECUTABLE_NAME}
 
 target_link_libraries(${TEST_EXECUTABLE_NAME}
     PRIVATE
+    MetasequoiaIme::Engine
     fmt::fmt
     spdlog::spdlog
     Boost::locale
     Boost::json
+    CURL::libcurl
     unofficial::sqlite3::sqlite3
     dwrite
     shell32

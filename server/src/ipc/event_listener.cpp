@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdint>
 #include <iterator>
+#include <utility>
 #include <thread>
 #include <unordered_map>
 #include "Ipc.h"
@@ -213,9 +214,19 @@ void RequestShowCandidateWindow()
         CAND_DIAG_LOGF(L"show request skipped uiless={} hwnd_present={}", IsUiLessMode(), ::global_hwnd != nullptr);
         return;
     }
+    bool expected = false;
+    if (!g_candidate_show_msg_pending.compare_exchange_strong(expected, true))
+    {
+        CAND_DIAG_LOGF(L"show request coalesced raw_units={} candidate_count={}",
+                       GlobalIme::composition.raw_input_with_cases.size(), Global::candidate_ui.items.size());
+        return;
+    }
     CAND_DIAG_LOGF(L"show request posted raw_units={} candidate_count={}",
                    GlobalIme::composition.raw_input_with_cases.size(), Global::candidate_ui.items.size());
-    PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0);
+    if (!PostMessage(::global_hwnd, WM_SHOW_MAIN_WINDOW, 0, 0))
+    {
+        g_candidate_show_msg_pending.store(false);
+    }
 }
 
 bool IsHexChar(unsigned char ch)
@@ -687,6 +698,10 @@ bool IsCommitWithHighlightedCandidatePunctuationInCandidateMode(UINT keycode, WC
     {
         return false;
     }
+    if ((keycode == VK_OEM_4 || keycode == VK_OEM_6) && GetConfiguredPagingBracketsEnabled() && has_active_composition)
+    {
+        return false;
+    }
 
     static const std::unordered_set<WCHAR> kCommitWithHighlightedCandidatePunctuation = {
         L'`',  //
@@ -758,13 +773,15 @@ bool IsPagingKey(UINT keycode)
 {
     return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_TAB || keycode == VK_PRIOR ||
            keycode == VK_NEXT || keycode == VK_LEFT || keycode == VK_RIGHT || keycode == VK_UP || keycode == VK_DOWN ||
-           ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled());
+           ((keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD) && GetConfiguredPagingCommaPeriodEnabled()) ||
+           ((keycode == VK_OEM_4 || keycode == VK_OEM_6) && GetConfiguredPagingBracketsEnabled());
 }
 
 bool IsCandidateNavigationKey(UINT keycode)
 {
     return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD ||
-           keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT || keycode == VK_UP || keycode == VK_DOWN;
+           keycode == VK_OEM_4 || keycode == VK_OEM_6 || keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT ||
+           keycode == VK_UP || keycode == VK_DOWN;
 }
 
 bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
@@ -940,12 +957,16 @@ std::string BuildCurrentCandidatePage()
         {
             display_word = "<span style=\"color:#379AD3\">" + display_word + "</span>";
         }
+        std::string gloss_utf8;
         EnglishIme::TranslationQuery translation_query;
         if (BuildTranslationQuery(item, translation_query))
         {
             const auto gloss = g_candidate_translation_glosses.find(TranslationIdentity(translation_query));
             if (gloss != g_candidate_translation_glosses.end() && !gloss->second.empty())
+            {
                 display_word += "<span class=\"cand-translation\">" + EscapeCandidateHtml(gloss->second) + "</span>";
+                gloss_utf8 = gloss->second;
+            }
         }
         // Escape ASCII commas so the comma-joined candidate payload survives
         // InflateCandidateTemplate's split (kaomoji commonly contain commas).
@@ -964,6 +985,7 @@ std::string BuildCurrentCandidatePage()
         candidate_string += display_word;
         maxCount = (std::max)(maxCount, display_length);
         ui.page_words.push_back(string_to_wstring(word));
+        ui.page_glosses.push_back(string_to_wstring(gloss_utf8));
         if (i < loop - 1)
         {
             candidate_string += ",";
@@ -1415,6 +1437,23 @@ std::string CandidateDatabaseKey(const WordItem &item, const std::string &contex
     return quanpin::join_segments(segments);
 }
 
+bool IsWubiRankingScheme()
+{
+    return g_inputSession && g_inputSession->current_scheme_type() == SchemeType::Wubi;
+}
+
+std::pair<std::string, std::string> RankingKeysForCandidate(const WordItem &item)
+{
+    if (IsWubiRankingScheme())
+    {
+        const std::string key = item.pinyin.empty() && g_inputSession ? g_inputSession->get_pinyin_sequence()
+                                                                      : item.pinyin;
+        return {key, item.pinyin};
+    }
+    const std::string context_key = CurrentRankingContextKey();
+    return {context_key, CandidateDatabaseKey(item, context_key)};
+}
+
 std::queue<Task> taskQueue;
 std::mutex queueMutex;
 
@@ -1520,7 +1559,16 @@ void WorkerThread()
             ::ReadDataFromNamedPipe(0b001000);
             CAND_DIAG_LOGF(L"task MoveCandidate client={} epoch={} caret=({},{})", task.client_id,
                            task.activation_epoch, Global::Point[0], Global::Point[1]);
-            PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0);
+            bool expected = false;
+            if (!g_candidate_move_msg_pending.compare_exchange_strong(expected, true))
+            {
+                CAND_DIAG_LOGF(L"move request coalesced caret=({},{})", Global::Point[0], Global::Point[1]);
+                break;
+            }
+            if (!PostMessage(::global_hwnd, WM_MOVE_CANDIDATE_WINDOW, 0, 0))
+            {
+                g_candidate_move_msg_pending.store(false);
+            }
             break;
         }
 
@@ -1806,8 +1854,9 @@ void WorkerThread()
             }
 
             const bool english_candidate = item.source == CandidateSource::EnglishDictionary;
-            const std::string context_key = english_candidate ? EnglishRankingContextKey() : CurrentRankingContextKey();
-            const std::string entry_key = english_candidate ? item.pinyin : CandidateDatabaseKey(item, context_key);
+            const auto ranking_keys = RankingKeysForCandidate(item);
+            const std::string context_key = english_candidate ? EnglishRankingContextKey() : ranking_keys.first;
+            const std::string entry_key = english_candidate ? item.pinyin : ranking_keys.second;
 
             if (task.type == TaskType::UiPinCandidate)
             {
@@ -1818,7 +1867,9 @@ void WorkerThread()
                 else
                     (void)user_dictionary::adjust_candidate_ranking(
                         CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
-                        context_key, Global::candidate_ui.items, entry_key, item.word, "pin", 1, 1, true);
+                        context_key, Global::candidate_ui.items, entry_key, item.word, "pin", 1, 1, true, nullptr,
+                        IsWubiRankingScheme() ? user_dictionary::DictionaryKind::Wubi
+                                              : user_dictionary::DictionaryKind::Pinyin);
             }
             else if (task.type == TaskType::UiDeleteCandidate)
             {
@@ -2795,6 +2846,9 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged,
                 GetConfiguredTsfDiagnosticLogEnabled() ? L"1" : L"0");
+            SendToTsfWorkerThreadClientViaNamedpipe(
+                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::PunctuationLockChanged,
+                FormatPunctuationLockWorkerPayload());
         }
     }
 
@@ -2908,14 +2962,16 @@ void AuxPipeEventListenerLoopThread()
                     // gating and never activates a suspended TIP for a menu click.
                     EnqueueTask(TaskType::LangbarRightClick, pipeData, 0);
                 }
-                else if (message == L"ConfigChanged" || message == L"InputSchemeChanged")
+                else if (message == L"ConfigChanged" || message == L"InputSchemeChanged" ||
+                         message == L"CandidateSkinRefresh")
                 {
                     const UINT configMessage =
                         message == L"InputSchemeChanged" ? WM_APPLY_IME_INPUT_SCHEME : WM_APPLY_IME_CONFIG;
+                    const WPARAM configWParam = message == L"CandidateSkinRefresh" ? 1 : 0;
                     const HWND candidateWindow = ::global_hwnd;
                     if (candidateWindow && IsWindow(candidateWindow))
                     {
-                        PostMessageW(candidateWindow, configMessage, 0, 0);
+                        PostMessageW(candidateWindow, configMessage, configWParam, 0);
                     }
                     else
                     {
@@ -3343,6 +3399,8 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
 
     if (!unique_candidates.empty())
     {
+        user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), EnglishRankingContextKey(),
+                                               unique_candidates, false);
         const size_t insert_index = std::min<size_t>(1, items.size());
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
@@ -3610,7 +3668,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             ui.selected_text = FanyImeIpc::HighlightedCandidateText(ui.page_words, ui.selected_index_in_page);
 
             const bool is_word_to_character_key =
-                (Global::Wch == L'[' || Global::Wch == L']') && GetConfiguredWordToCharacterEnabled();
+                (Global::Wch == L'[' || Global::Wch == L']') && GetConfiguredWordToCharacterEnabled() &&
+                !GetConfiguredPagingBracketsEnabled();
             WordItem highlighted_item;
             if (is_word_to_character_key && ResolveCandidateItem(ui.selected_index_in_page + 1, highlighted_item))
             {
@@ -3903,6 +3962,14 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         {
             move_page(1, Global::DataFromServerMsgType::MovePageNext);
         }
+        else if (Global::Keycode == VK_OEM_4 && GetConfiguredPagingBracketsEnabled())
+        {
+            move_page(-1, Global::DataFromServerMsgType::MovePagePrevious);
+        }
+        else if (Global::Keycode == VK_OEM_6 && GetConfiguredPagingBracketsEnabled())
+        {
+            move_page(1, Global::DataFromServerMsgType::MovePageNext);
+        }
         else if (Global::Keycode == VK_TAB && GetConfiguredPagingTabEnabled())
         {
             move_page(shift_down ? -1 : 1, shift_down ? Global::DataFromServerMsgType::MovePagePrevious
@@ -4050,9 +4117,13 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         // input sequence. CandidateDatabaseKey() consults get_pinyin_sequence(),
         // and for single-code lists (e.g. "n") it must keep item.pinyin ("na"/"nv")
         // rather than falling back to the one-letter context key.
-        const std::string ranking_context_key = CurrentRankingContextKey();
-        const std::string ranking_entry_key = CandidateDatabaseKey(curWordItem, ranking_context_key);
-        isNeedUpdateWeight = is_digit_selection;
+        const auto ranking_keys = RankingKeysForCandidate(curWordItem);
+        const std::string ranking_context_key = ranking_keys.first;
+        const std::string ranking_entry_key = ranking_keys.second;
+        // First-page first slot is already the default commit; space/mouse/digit
+        // should only learn when the user picked something else.
+        const bool is_first_page_first = Global::candidate_ui.page_index == 0 && index == 0;
+        isNeedUpdateWeight = !is_first_page_first;
         Global::candidate_ui.selected_text = Global::candidate_ui.page_words[index];
         std::string curWord = curWordItem.word;
         std::string curWordPinyin = curWordItem.pinyin;
@@ -4061,10 +4132,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             curWordItem.source == CandidateSource::Kaomoji ||
             curWordItem.source == CandidateSource::Generated)
         {
-            if (curWordItem.source == CandidateSource::EnglishDictionary &&
-                (g_english_input_mode ||
-                 IsYModeInput(g_inputSession->get_pinyin_sequence_with_cases())) &&
-                isNeedUpdateWeight)
+            if (curWordItem.source == CandidateSource::EnglishDictionary && isNeedUpdateWeight)
             {
                 const auto &frequency = GetConfiguredFrequencyAdjustment();
                 (void)user_dictionary::adjust_english_candidate_ranking(
@@ -4212,7 +4280,9 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             (void)user_dictionary::adjust_candidate_ranking(
                 CommonUtils::get_ime_data_path() + "\\msime.db", user_dictionary::default_user_db_path(),
                 ranking_context_key, Global::candidate_ui.items, ranking_entry_key, curWord, frequency.mode,
-                frequency.linear_step, frequency.trigger_count, false, &ranking_changed);
+                frequency.linear_step, frequency.trigger_count, false, &ranking_changed,
+                IsWubiRankingScheme() ? user_dictionary::DictionaryKind::Wubi
+                                      : user_dictionary::DictionaryKind::Pinyin);
             if (ranking_changed)
             {
                 g_inputSession->reset_cache();

@@ -8,7 +8,13 @@ project(${PROJECT_NAME} VERSION 1.0)
 include(CTest)
 
 # Boost
-set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
+# The author's machine default keeps working untouched; local setups can
+# override via the BOOST_ROOT environment variable.
+if(DEFINED ENV{BOOST_ROOT})
+    set(Boost_ROOT "$ENV{BOOST_ROOT}")
+else()
+    set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
+endif()
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -20,6 +26,23 @@ find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(CURL CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
+
+# The engine ships its own CMake target. Consume that instead of listing its
+# translation units here, so that adding a file to the engine no longer requires
+# a matching edit in this file. EXCLUDE_FROM_ALL keeps the engine's own test
+# executables out of the default build.
+#
+# Which is also why BUILD_TESTING has to be off across that add_subdirectory: the engine registers
+# eleven add_test() entries behind that flag, and EXCLUDE_FROM_ALL then never builds the
+# executables they point at, so ctest reports eleven "Unable to find executable" failures. The
+# engine's own CI runs those tests on Ubuntu, macOS and Windows; running them from here as well
+# would be redundant even if they did build. Restored immediately afterwards so this repository's
+# own tests/ still register.
+set(_metasequoia_saved_build_testing "${BUILD_TESTING}")
+set(BUILD_TESTING OFF)
+add_subdirectory(MetasequoiaImeEngine EXCLUDE_FROM_ALL)
+set(BUILD_TESTING "${_metasequoia_saved_build_testing}")
+unset(_metasequoia_saved_build_testing)
 
 # Build the OpenCC submodule as a static dependency of the server.
 add_subdirectory(opencc EXCLUDE_FROM_ALL)
@@ -52,13 +75,17 @@ add_definitions(
     /DFANY_DEBUG=1
 )
 
+# HandwritingPanel still uses the legacy <experimental/coroutine>; on newer
+# MSVC STL the deprecation is a hard error, so silence it explicitly.
+add_definitions(/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # add_definitions(
 #     /DFANY_DEBUG=1
 #     /DFANY_IPC_DEBUG=1
 # )
 
 # For utf8cpp, make it use C++11 and later
-add_compile_options(/Zc:__cplusplus /FS)
+add_compile_options(/Zc:__cplusplus /FS /utf-8)
 
 include_directories("./")
 include_directories("./src/")
@@ -93,6 +120,8 @@ set(SRC_FILES
     "./src/cloud/cloud_ime.h"
     "./src/cloud/cloud_translation.cpp"
     "./src/cloud/cloud_translation.h"
+    "./src/cloud/custom_translation.cpp"
+    "./src/cloud/custom_translation.h"
     "./src/cloud/tencent_tmt.cpp"
     "./src/cloud/tencent_tmt.h"
     "./src/cloud/translation_gloss.cpp"
@@ -135,6 +164,8 @@ set(SRC_FILES
     "./src/resource/resource.rc"
     "./src/settings/settings_launcher.cpp"
     "./src/settings/settings_launcher.h"
+    "./src/skin/candidate_skin_catalog.cpp"
+    "./src/skin/candidate_skin_catalog.h"
     "./src/session/engine_input_session.cpp"
     "./src/session/engine_input_session.h"
     "./src/session/input_session.h"
@@ -142,6 +173,8 @@ set(SRC_FILES
     "./src/session/session_factory.h"
     "./src/session/shuangpin_input_session.cpp"
     "./src/session/shuangpin_input_session.h"
+    "./src/utils/candidate_size_estimator.cpp"
+    "./src/utils/candidate_size_estimator.h"
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
     "./src/utils/ime_paths.cpp"
@@ -153,6 +186,12 @@ set(SRC_FILES
     "./src/utils/window_utils.h"
     "./src/webview2/windows_webview2.cpp"
     "./src/webview2/windows_webview2.h"
+    "./src/window/candidate_presenter.cpp"
+    "./src/window/candidate_presenter.h"
+    "./src/window/tray_menu_presenter.cpp"
+    "./src/window/tray_menu_presenter.h"
+    "./src/window/floating_toolbar_presenter.cpp"
+    "./src/window/floating_toolbar_presenter.h"
     "./src/window/ime_windows.cpp"
     "./src/window/ime_windows.h"
     "./src/window/window_hook.cpp"
@@ -174,69 +213,19 @@ set(SRC_FILES
     "./src/main.cpp"
 )
 
-set(SRC_FILES_IME_ENGINE
-    "./MetasequoiaImeEngine/common/helpcode_utils.cpp"
-    "./MetasequoiaImeEngine/common/string_utils.cpp"
-    "./MetasequoiaImeEngine/core/ime_session.cpp"
-    "./MetasequoiaImeEngine/english/english_dictionary.cpp"
-    "./MetasequoiaImeEngine/english/english_dictionary.h"
-    "./MetasequoiaImeEngine/providers/provider_registry.cpp"
-    "./MetasequoiaImeEngine/providers/pinyin_candidate_provider.cpp"
-    "./MetasequoiaImeEngine/providers/wubi_candidate_provider.cpp"
-    "./MetasequoiaImeEngine/providers/japanese_candidate_provider.cpp"
-    "./MetasequoiaImeEngine/japanese/romaji_converter.cpp"
-    "./MetasequoiaImeEngine/japanese/japanese_sentence_decoder.cpp"
-    "./MetasequoiaImeEngine/japanese/japanese_matrix_search.cpp"
-    "./MetasequoiaImeEngine/quanpin/engine.cpp"
-    "./MetasequoiaImeEngine/quanpin/quanpin_dictionary.cpp"
-    "./MetasequoiaImeEngine/quanpin/quanpin_query.cpp"
-    "./MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
-    "./MetasequoiaImeEngine/schemes/quanpin_scheme.cpp"
-    "./MetasequoiaImeEngine/schemes/shuangpin_scheme.cpp"
-    "./MetasequoiaImeEngine/schemes/wubi_scheme.cpp"
-    "./MetasequoiaImeEngine/schemes/japanese_romaji_scheme.cpp"
-    "./MetasequoiaImeEngine/shuangpin/engine.cpp"
-    "./MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.cpp"
-    "./MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
-    "./MetasequoiaImeEngine/shuangpin/shuangpin_query.cpp"
-    "./MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
-    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
-    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
-)
-
-set(SRC_FILES_GOOGLEIME
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictbuilder.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/dictlist.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/dicttrie.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/lpicache.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/matrixsearch.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/mystdlib.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/ngram.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/pinyinime.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/searchutility.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtable.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/spellingtrie.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/splparser.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/sync.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/userdict.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16char.cpp"
-    "./MetasequoiaImeEngine/googlepinyinime-rev/src/share/utf16reader.cpp"
-)
-
 add_executable(${MY_EXECUTABLE_NAME} WIN32
     ${SRC_FILES}
-    ${SRC_FILES_IME_ENGINE}
-    ${SRC_FILES_GOOGLEIME}
 )
 
 # Tomlplusplus, Webview2 and other head-only libraries
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-    "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/include"
     "${CMAKE_SOURCE_DIR}/src/voice-input"
     "${CMAKE_SOURCE_DIR}/src/voice-input/third_party"
 )
 
+target_link_libraries(${PROJECT_NAME} PRIVATE MetasequoiaIme::Engine)
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json nlohmann_json::nlohmann_json)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenCC::OpenCC)
 add_dependencies(${PROJECT_NAME} Dictionaries)
@@ -247,14 +236,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore 
 
 add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
     "./src/user-dictionary-replay/main.cpp"
-    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
-    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
-    "./MetasequoiaImeEngine/english/english_dictionary.cpp"
-    "./MetasequoiaImeEngine/english/english_dictionary.h"
     "./src/resource/resource.h"
     "./src/resource/resource.rc"
 )
 target_link_libraries(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE
+    MetasequoiaIme::Engine
     unofficial::sqlite3::sqlite3
 )
 target_compile_definitions(${DICTIONARY_REPLAY_EXECUTABLE_NAME} PRIVATE NOMINMAX=1)
@@ -285,6 +271,7 @@ add_executable(${EMOJI_EXECUTABLE_NAME} WIN32
 )
 add_dependencies(${MY_EXECUTABLE_NAME} ${WATCHDOG_EXECUTABLE_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX=1)
+target_link_libraries(${PROJECT_NAME} PRIVATE msimeui d3d11 dxgi dcomp)
 target_link_libraries(${EMOJI_EXECUTABLE_NAME} PRIVATE msimeui unofficial::sqlite3::sqlite3 shell32 advapi32 ole32)
 target_compile_definitions(${EMOJI_EXECUTABLE_NAME} PRIVATE
     NOMINMAX=1
@@ -343,7 +330,7 @@ endif()
 add_dependencies(${PROJECT_NAME} ${HANDWRITING_EXECUTABLE_NAME})
 
 # WebView2 loader (required for CreateCoreWebView2EnvironmentWithOptions)
-set(WEBVIEW2_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows")
+set(WEBVIEW2_VCPKG_ROOT "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows")
 set(WEBVIEW2_LOADER_RELEASE "${WEBVIEW2_VCPKG_ROOT}/lib/WebView2Loader.dll.lib")
 set(WEBVIEW2_LOADER_DEBUG "${WEBVIEW2_VCPKG_ROOT}/debug/lib/WebView2Loader.dll.lib")
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -358,14 +345,12 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/settings/settings_splash.h"
     "./src/settings/settings_launcher.cpp"
     "./src/settings/settings_launcher.h"
+    "./src/skin/candidate_skin_catalog.cpp"
+    "./src/skin/candidate_skin_catalog.h"
     "./src/settings/dictionary_manager.cpp"
     "./src/settings/dictionary_manager.h"
     "./src/settings/dictionary_validation.cpp"
     "./src/settings/dictionary_validation.h"
-    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.cpp"
-    "./MetasequoiaImeEngine/user_dictionary/user_dictionary_journal.h"
-    "./MetasequoiaImeEngine/english/english_dictionary.cpp"
-    "./MetasequoiaImeEngine/english/english_dictionary.h"
     "./src/config/ime_config.cpp"
     "./src/config/ime_config.h"
     "./src/voice-input/voice_providers.cpp"
@@ -375,18 +360,14 @@ add_executable(${SETTINGS_EXECUTABLE_NAME} WIN32
     "./src/utils/common_utils.cpp"
     "./src/utils/common_utils.h"
     "./src/utils/ime_paths.cpp"
-    "./MetasequoiaImeEngine/common/helpcode_utils.cpp"
-    "./MetasequoiaImeEngine/quanpin/quanpin_utils.cpp"
-    "./MetasequoiaImeEngine/quanpin/quanpin_query.cpp"
-    "./MetasequoiaImeEngine/shuangpin/shuangpin_profile.cpp"
-    "./MetasequoiaImeEngine/shuangpin/shuangpin_utils.cpp"
     "./src/resource/resource.rc"
 )
 target_include_directories(${SETTINGS_EXECUTABLE_NAME}
     PRIVATE
-    "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/include"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/include"
 )
 target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
+    MetasequoiaIme::Engine
     fmt::fmt
     Boost::locale
     Boost::json

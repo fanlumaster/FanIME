@@ -32,6 +32,7 @@ enable_emoji = true
 # 翻页方式
 paging_minus_equal = true
 paging_comma_period = true
+paging_brackets = false
 paging_tab = true
 paging_page_up_down = true
 candidate_arrow_navigation = true
@@ -58,14 +59,23 @@ enabled = true
 secret_id = ""
 secret_key = ""
 region = "ap-guangzhou"
-# 候选词翻译/背单词目标语种：en / fr / ja / es / ru
+# 候选词翻译/背单词目标语种：en / fr / ja / es / ru / de / ko
 target_language = "en"
+
+#
+# 自定义 DeepLX 兼容翻译服务。endpoint 必须填写完整的 POST 接口地址。
+# api_key 留空时不发送 Authorization 请求头。
+#
+[custom_translation]
+enabled = false
+endpoint = ""
+api_key = ""
 
 [frequency_adjustment]
 # disabled / pin / halve / linear / promote
 mode = "promote"
 # 每选中几次执行一次调频，范围 1~10
-trigger_count = 2
+trigger_count = 1
 # 线性调频每次前移数量，范围 1~10
 linear_step = 1
 
@@ -76,6 +86,9 @@ linear_step = 1
 [appearance]
 # 主题模式，可选："dark", "light", "system"
 theme_mode = "system"
+# 候选窗 / 悬浮工具栏 / 托盘菜单渲染，可选："d2d", "webview2"
+# 更改后需重启输入法进程生效
+ui_backend = "d2d"
 # 分表面主题，可选："follow", "dark", "light"（follow = 跟随 theme_mode）
 theme_settings = "follow"
 theme_cand = "follow"
@@ -135,6 +148,8 @@ smart_punctuation = true
 smart_punctuation_repeat_to_chinese = true
 # 成对标点补全：输入左侧符号时自动补全右侧符号，并将光标置于中间
 paired_punctuation = true
+# 标点锁定，可选："follow"（随中英文切换）, "chinese"（始终中文标点）, "english"（始终英文标点）
+punctuation_lock = "follow"
 # 组合说明：
 #   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
 #   legacy + quanpin   -> 自动切换为新版引擎全拼会话
@@ -179,6 +194,15 @@ quanpin_helpcode = true
 quanpin_helpcode_schema = "ziranma"
 # 是否在候选窗口中显示全拼辅助码
 show_qp_helpcode_in_candidate_window = true
+
+#
+# Quanpin
+# 全拼
+#
+[quanpin]
+# 全拼自动纠错：遇到按键窜乱（相邻字母交换，如 sahng）或邻键误按（如 shabg）时，
+# 自动按最接近的正确拼音查询候选。仅当输入串不是合法拼音组合时触发，不影响正常输入。
+autocorrect = true
 
 #
 # Keybindings

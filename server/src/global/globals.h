@@ -100,6 +100,7 @@ struct CandidateUiState
 {
     std::vector<CandidateWordItem> items;
     std::vector<std::wstring> page_words;
+    std::vector<std::wstring> page_glosses;
     std::wstring selected_text = L"";
     int page_size = 8;
     int page_index = 0;
@@ -121,6 +122,7 @@ struct CandidateUiState
     void clear_page()
     {
         page_words.clear();
+        page_glosses.clear();
         selected_text.clear();
         cur_page_item_cnt = 0;
         cur_page_max_word_len = 2;

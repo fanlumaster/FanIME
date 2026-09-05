@@ -1,6 +1,7 @@
 #include "ime_config.h"
 #include <fmt/xchar.h>
 #include <Windows.h>
+#include <algorithm>
 #include <atomic>
 #include <dwrite.h>
 #include <wrl/client.h>
@@ -69,6 +70,7 @@ std::string g_shuangpin_helpcode_schema = "lantian";
 std::string g_quanpin_helpcode_schema = "lantian";
 bool g_show_shuangpin_helpcode_in_candidate_window = true;
 bool g_show_quanpin_helpcode_in_candidate_window = true;
+bool g_quanpin_autocorrect_enabled = true;
 bool g_floating_toolbar_enabled = true;
 FloatingToolbarItemsConfig g_floating_toolbar_items;
 double g_floating_toolbar_scale = 1.0;
@@ -90,6 +92,7 @@ bool g_r_mode_enabled = true;
 bool g_clipboard_history_enabled = false;
 bool g_paging_minus_equal_enabled = true;
 bool g_paging_comma_period_enabled = false;
+bool g_paging_brackets_enabled = false;
 bool g_paging_tab_enabled = true;
 bool g_paging_page_up_down_enabled = true;
 bool g_candidate_arrow_navigation_enabled = true;
@@ -97,7 +100,11 @@ bool g_word_to_character_enabled = false;
 bool g_smart_punctuation_enabled = true;
 bool g_smart_punctuation_repeat_to_chinese_enabled = true;
 bool g_paired_punctuation_enabled = true;
+std::string g_punctuation_lock = "follow";
 std::string g_candidate_window_layout = "vertical";
+bool g_candidate_window_follow_cursor = true;
+std::string g_ui_backend = "d2d";
+std::string g_ui_backend_active = "d2d";
 std::string g_candidate_skin = "fluent";
 std::string g_candidate_window_preedit_style = "pinyin";
 std::string g_theme_mode = "system";
@@ -114,9 +121,28 @@ bool g_persist_asr_token_slot = false;
 bool g_persist_polish_token_slot = false;
 AiAssistantConfig g_ai_assistant;
 TencentTmtConfig g_tencent_tmt;
+CustomTranslationConfig g_custom_translation;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
+
+std::string NormalizeSmallWindowUiBackend(const std::string &value)
+{
+    if (value == "webview2" || value == "webview" || value == "web")
+        return "webview2";
+    return "d2d";
+}
+
+bool IsValidCandidateSkinId(const std::string &skin)
+{
+    if (skin.empty() || skin.size() > 64 || !std::isalnum(static_cast<unsigned char>(skin.front())))
+    {
+        return false;
+    }
+    return std::all_of(skin.begin(), skin.end(), [](unsigned char ch) {
+        return std::islower(ch) || std::isdigit(ch) || ch == '.' || ch == '_' || ch == '-';
+    });
+}
 
 const std::vector<std::string_view> &AiAssistantProviders()
 {
@@ -168,8 +194,7 @@ class ConfigFileLock
 
 SchemeType ParseScheme(const std::string &value);
 
-template <typename Node>
-bool TomlFlexibleBool(const Node &node, bool fallback)
+template <typename Node> bool TomlFlexibleBool(const Node &node, bool fallback)
 {
     if (const auto value = node.template value<bool>())
         return *value;
@@ -652,13 +677,13 @@ bool LoadImeConfig()
             tbl["helpcode"]["show_sp_helpcode_in_candidate_window"].value_or(true);
         g_show_quanpin_helpcode_in_candidate_window =
             tbl["helpcode"]["show_qp_helpcode_in_candidate_window"].value_or(true);
+        g_quanpin_autocorrect_enabled = tbl["quanpin"]["autocorrect"].value_or(true);
         g_floating_toolbar_enabled = tbl["general"]["floating_toolbar"].value_or(true);
         // Read the old candidate-only key as a migration fallback. New writes
         // use the unified key.
-        g_diagnostic_log_enabled.store(
-            tbl["general"]["diagnostic_log"].value_or(
-                tbl["general"]["candidate_window_diagnostic_log"].value_or(false)),
-            std::memory_order_relaxed);
+        g_diagnostic_log_enabled.store(tbl["general"]["diagnostic_log"].value_or(
+                                           tbl["general"]["candidate_window_diagnostic_log"].value_or(false)),
+                                       std::memory_order_relaxed);
         g_tsf_diagnostic_log_enabled.store(tbl["general"]["tsf_diagnostic_log"].value_or(false),
                                            std::memory_order_relaxed);
         g_floating_toolbar_items.fullwidth = tbl["general"]["floating_toolbar_fullwidth"].value_or(true);
@@ -713,15 +738,24 @@ bool LoadImeConfig()
             tbl["general"]["paging_minus_equal"].value_or(!legacy_paging_mode || *legacy_paging_mode == "-/=");
         g_paging_comma_period_enabled =
             tbl["general"]["paging_comma_period"].value_or(legacy_paging_mode && *legacy_paging_mode == ",/.");
+        g_paging_brackets_enabled = tbl["general"]["paging_brackets"].value_or(false);
         g_paging_tab_enabled =
             tbl["general"]["paging_tab"].value_or(legacy_paging_mode && *legacy_paging_mode == "Shift+Tab/Tab");
         g_paging_page_up_down_enabled = tbl["general"]["paging_page_up_down"].value_or(true);
         g_candidate_arrow_navigation_enabled = tbl["general"]["candidate_arrow_navigation"].value_or(true);
         g_word_to_character_enabled = tbl["input"]["word_to_character"].value_or(false);
+        if (g_paging_brackets_enabled && g_word_to_character_enabled)
+        {
+            g_word_to_character_enabled = false;
+        }
         g_smart_punctuation_enabled = tbl["input"]["smart_punctuation"].value_or(true);
         g_smart_punctuation_repeat_to_chinese_enabled =
             tbl["input"]["smart_punctuation_repeat_to_chinese"].value_or(true);
         g_paired_punctuation_enabled = tbl["input"]["paired_punctuation"].value_or(true);
+        {
+            const std::string lock = tbl["input"]["punctuation_lock"].value_or(std::string("follow"));
+            g_punctuation_lock = lock == "chinese" || lock == "english" ? lock : "follow";
+        }
         {
             // Prefer explicit bool keys; fall back to legacy switch_language array.
             const auto legacy = tbl["keybindings"]["switch_language"].as_array();
@@ -760,8 +794,11 @@ bool LoadImeConfig()
         }
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
+        g_candidate_window_follow_cursor = tbl["appearance"]["candidate_window_follow_cursor"].value_or(true);
+        g_ui_backend = NormalizeSmallWindowUiBackend(
+            tbl["appearance"]["ui_backend"].value_or(std::string("d2d")));
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
-        g_candidate_skin = skin == "wechat" || skin == "graphite" || skin == "willow_green" ? skin : "fluent";
+        g_candidate_skin = IsValidCandidateSkinId(skin) ? skin : "fluent";
         {
             const std::string preedit_style =
                 tbl["appearance"]["candidate_window_preedit_style"].value_or(std::string("pinyin"));
@@ -807,8 +844,8 @@ bool LoadImeConfig()
         for (const auto provider : VoiceInput::AsrProviders())
         {
             const std::string id(provider);
-            g_voice_input.asr_tokens[id] = VoiceInput::UsableToken(
-                tbl["voice_input"][VoiceInput::AsrTokenSlotKey(id)].value_or(std::string()));
+            g_voice_input.asr_tokens[id] =
+                VoiceInput::UsableToken(tbl["voice_input"][VoiceInput::AsrTokenSlotKey(id)].value_or(std::string()));
         }
         {
             const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
@@ -834,8 +871,7 @@ bool LoadImeConfig()
         g_voice_input.doubao_enable_itn = tbl["voice_input"]["doubao_enable_itn"].value_or(true);
         g_voice_input.doubao_enable_punc = tbl["voice_input"]["doubao_enable_punc"].value_or(true);
         g_voice_input.doubao_enable_ddc = tbl["voice_input"]["doubao_enable_ddc"].value_or(false);
-        g_voice_input.doubao_boosting_table_id =
-            tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
+        g_voice_input.doubao_boosting_table_id = tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
         g_voice_input.asr_model = tbl["voice_input"]["asr_model"].value_or(std::string());
         g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
         g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
@@ -843,8 +879,8 @@ bool LoadImeConfig()
         for (const auto provider : VoiceInput::PolishProviders())
         {
             const std::string id(provider);
-            g_voice_input.polish_tokens[id] = VoiceInput::UsableToken(
-                tbl["voice_input"][VoiceInput::PolishTokenSlotKey(id)].value_or(std::string()));
+            g_voice_input.polish_tokens[id] =
+                VoiceInput::UsableToken(tbl["voice_input"][VoiceInput::PolishTokenSlotKey(id)].value_or(std::string()));
         }
         {
             const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
@@ -870,14 +906,11 @@ bool LoadImeConfig()
         {
             g_voice_input.polish_prompt_id = "cleanup";
         }
-        g_voice_input.polish_prompt_custom_1 =
-            tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_1 = tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
         if (g_voice_input.polish_prompt_custom_1.empty())
             g_voice_input.polish_prompt_custom_1 = g_voice_input.polish_prompt;
-        g_voice_input.polish_prompt_custom_2 =
-            tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
-        g_voice_input.polish_prompt_custom_3 =
-            tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_2 = tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
+        g_voice_input.polish_prompt_custom_3 = tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
         g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         // notification_sound is retained as a fallback for configs written by older versions.
         const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
@@ -893,8 +926,8 @@ bool LoadImeConfig()
             g_voice_input.commit_mode = "tsf";
         }
         g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
-        g_ai_assistant.provider = VoiceInput::NormalizeProviderId(
-            tbl["ai_assistant"]["provider"].value_or(std::string("deepseek")));
+        g_ai_assistant.provider =
+            VoiceInput::NormalizeProviderId(tbl["ai_assistant"]["provider"].value_or(std::string("deepseek")));
         if (AiAssistantTokenSlotKey(g_ai_assistant.provider).empty())
             g_ai_assistant.provider = "deepseek";
         g_ai_assistant.token = tbl["ai_assistant"]["token"].value_or(std::string());
@@ -902,8 +935,8 @@ bool LoadImeConfig()
         for (const auto provider : AiAssistantProviders())
         {
             const std::string id(provider);
-            g_ai_assistant.tokens[id] = VoiceInput::UsableToken(
-                tbl["ai_assistant"][AiAssistantTokenSlotKey(id)].value_or(std::string()));
+            g_ai_assistant.tokens[id] =
+                VoiceInput::UsableToken(tbl["ai_assistant"][AiAssistantTokenSlotKey(id)].value_or(std::string()));
         }
         {
             std::string &stored = g_ai_assistant.tokens[g_ai_assistant.provider];
@@ -921,29 +954,29 @@ bool LoadImeConfig()
         if (g_ai_assistant.prompt_id != "custom_1" && g_ai_assistant.prompt_id != "custom_2" &&
             g_ai_assistant.prompt_id != "custom_3")
             g_ai_assistant.prompt_id = "custom_1";
-        g_ai_assistant.prompt_custom_1 =
-            tbl["ai_assistant"]["prompt_custom_1"].value_or(std::string());
+        g_ai_assistant.prompt_custom_1 = tbl["ai_assistant"]["prompt_custom_1"].value_or(std::string());
         if (g_ai_assistant.prompt_custom_1.empty())
             g_ai_assistant.prompt_custom_1 = legacy_ai_prompt;
-        g_ai_assistant.prompt_custom_2 =
-            tbl["ai_assistant"]["prompt_custom_2"].value_or(std::string());
-        g_ai_assistant.prompt_custom_3 =
-            tbl["ai_assistant"]["prompt_custom_3"].value_or(std::string());
-        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
-                              : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
-                                                                        : g_ai_assistant.prompt_custom_1;
+        g_ai_assistant.prompt_custom_2 = tbl["ai_assistant"]["prompt_custom_2"].value_or(std::string());
+        g_ai_assistant.prompt_custom_3 = tbl["ai_assistant"]["prompt_custom_3"].value_or(std::string());
+        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2"   ? g_ai_assistant.prompt_custom_2
+                                : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
+                                                                         : g_ai_assistant.prompt_custom_1;
         g_tencent_tmt.enabled = tbl["tencent_tmt"]["enabled"].value_or(true);
         g_tencent_tmt.secret_id = tbl["tencent_tmt"]["secret_id"].value_or(std::string());
         g_tencent_tmt.secret_key = tbl["tencent_tmt"]["secret_key"].value_or(std::string());
         g_tencent_tmt.region = tbl["tencent_tmt"]["region"].value_or(std::string("ap-guangzhou"));
         if (g_tencent_tmt.region.empty())
             g_tencent_tmt.region = "ap-guangzhou";
-        g_tencent_tmt.target_language =
-            tbl["tencent_tmt"]["target_language"].value_or(std::string("en"));
+        g_tencent_tmt.target_language = tbl["tencent_tmt"]["target_language"].value_or(std::string("en"));
         if (g_tencent_tmt.target_language != "en" && g_tencent_tmt.target_language != "fr" &&
             g_tencent_tmt.target_language != "ja" && g_tencent_tmt.target_language != "es" &&
-            g_tencent_tmt.target_language != "ru")
+            g_tencent_tmt.target_language != "ru" && g_tencent_tmt.target_language != "de" &&
+            g_tencent_tmt.target_language != "ko")
             g_tencent_tmt.target_language = "en";
+        g_custom_translation.enabled = tbl["custom_translation"]["enabled"].value_or(false);
+        g_custom_translation.endpoint = tbl["custom_translation"]["endpoint"].value_or(std::string());
+        g_custom_translation.api_key = tbl["custom_translation"]["api_key"].value_or(std::string());
         RememberConfigWriteTime();
         return true;
     }
@@ -1121,7 +1154,7 @@ bool SendAuxConfigNotification(const wchar_t *message)
     return sent;
 }
 
-void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
+void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage, WPARAM wParam = 0)
 {
     const HWND hwnd = FindImeServerCandidateWindow();
     DWORD serverProcessId = 0;
@@ -1132,7 +1165,7 @@ void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
 
     if (serverProcessId == GetCurrentProcessId())
     {
-        PostMessageW(hwnd, windowMessage, 0, 0);
+        PostMessageW(hwnd, windowMessage, wParam, 0);
         return;
     }
 
@@ -1145,7 +1178,7 @@ void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
         // Retain the old route as a best-effort fallback. The Server's periodic
         // file watcher remains the final recovery path if both transports are
         // temporarily unavailable during startup.
-        PostMessageW(hwnd, windowMessage, 0, 0);
+        PostMessageW(hwnd, windowMessage, wParam, 0);
     }
 }
 } // namespace
@@ -1153,6 +1186,11 @@ void NotifyImeServer(UINT windowMessage, const wchar_t *auxMessage)
 void NotifyImeServerConfigChanged()
 {
     NotifyImeServer(WM_APPLY_IME_CONFIG, L"ConfigChanged");
+}
+
+void NotifyImeServerCandidateSkinRefresh()
+{
+    NotifyImeServer(WM_APPLY_IME_CONFIG, L"CandidateSkinRefresh", 1);
 }
 
 void NotifyImeServerInputSchemeChanged()
@@ -1212,6 +1250,7 @@ void InitImeConfig()
         (void)0;
 #endif
     }
+    g_ui_backend_active = g_ui_backend;
 }
 
 bool ReloadImeConfigIfChanged()
@@ -1805,6 +1844,21 @@ bool SetConfiguredQuanpinHelpcodeEnabled(bool enabled)
     return true;
 }
 
+bool GetConfiguredQuanpinAutocorrectEnabled()
+{
+    return g_quanpin_autocorrect_enabled;
+}
+
+bool SetConfiguredQuanpinAutocorrectEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("quanpin", "autocorrect", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_quanpin_autocorrect_enabled = enabled;
+    return true;
+}
+
 const std::string &GetConfiguredQuanpinHelpcodeSchema()
 {
     return g_quanpin_helpcode_schema;
@@ -2113,6 +2167,28 @@ bool SetConfiguredPagingCommaPeriodEnabled(bool enabled)
     return true;
 }
 
+bool GetConfiguredPagingBracketsEnabled()
+{
+    return g_paging_brackets_enabled;
+}
+
+bool SetConfiguredPagingBracketsEnabled(bool enabled)
+{
+    if (!WriteConfiguredValue("general", "paging_brackets", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_paging_brackets_enabled = enabled;
+    if (enabled && g_word_to_character_enabled)
+    {
+        if (WriteConfiguredValue("input", "word_to_character", "false"))
+        {
+            g_word_to_character_enabled = false;
+        }
+    }
+    return true;
+}
+
 std::wstring FormatPagingCommaPeriodWorkerPayload()
 {
     // data[0] = paging flag for legacy clients; "|style" is ignored by old TSF.
@@ -2161,6 +2237,13 @@ bool SetConfiguredWordToCharacterEnabled(bool enabled)
         return false;
     }
     g_word_to_character_enabled = enabled;
+    if (enabled && g_paging_brackets_enabled)
+    {
+        if (WriteConfiguredValue("general", "paging_brackets", "false"))
+        {
+            g_paging_brackets_enabled = false;
+        }
+    }
     return true;
 }
 
@@ -2209,6 +2292,38 @@ bool SetConfiguredPairedPunctuationEnabled(bool enabled)
     return true;
 }
 
+const std::string &GetConfiguredPunctuationLock()
+{
+    return g_punctuation_lock;
+}
+
+bool SetConfiguredPunctuationLock(const std::string &lock)
+{
+    if (lock != "follow" && lock != "chinese" && lock != "english")
+    {
+        return false;
+    }
+    if (!WriteConfiguredValue("input", "punctuation_lock", EscapeTomlBasicString(lock)))
+    {
+        return false;
+    }
+    g_punctuation_lock = lock;
+    return true;
+}
+
+std::wstring FormatPunctuationLockWorkerPayload()
+{
+    if (g_punctuation_lock == "chinese")
+    {
+        return L"1";
+    }
+    if (g_punctuation_lock == "english")
+    {
+        return L"2";
+    }
+    return L"0";
+}
+
 const std::string &GetConfiguredCandidateWindowLayout()
 {
     return g_candidate_window_layout;
@@ -2229,6 +2344,42 @@ bool SetConfiguredCandidateWindowLayout(const std::string &layout)
     return true;
 }
 
+bool GetConfiguredCandidateWindowFollowCursor()
+{
+    return g_candidate_window_follow_cursor;
+}
+
+bool SetConfiguredCandidateWindowFollowCursor(bool enabled)
+{
+    if (!WriteConfiguredValue("appearance", "candidate_window_follow_cursor", enabled ? "true" : "false"))
+    {
+        return false;
+    }
+    g_candidate_window_follow_cursor = enabled;
+    return true;
+}
+
+const std::string &GetConfiguredUiBackend()
+{
+    return g_ui_backend;
+}
+
+bool SetConfiguredUiBackend(const std::string &backend)
+{
+    const std::string normalized = NormalizeSmallWindowUiBackend(backend);
+    if (!WriteConfiguredValue("appearance", "ui_backend", EscapeTomlBasicString(normalized)))
+    {
+        return false;
+    }
+    g_ui_backend = normalized;
+    return true;
+}
+
+bool UseD2dSmallWindowUi()
+{
+    return g_ui_backend_active != "webview2";
+}
+
 const std::string &GetConfiguredCandidateSkin()
 {
     return g_candidate_skin;
@@ -2236,7 +2387,7 @@ const std::string &GetConfiguredCandidateSkin()
 
 bool SetConfiguredCandidateSkin(const std::string &skin)
 {
-    if (skin != "fluent" && skin != "wechat" && skin != "graphite" && skin != "willow_green")
+    if (!IsValidCandidateSkinId(skin))
     {
         return false;
     }
@@ -2765,10 +2916,36 @@ bool SetConfiguredTencentTmtString(const std::string &key, const std::string &va
         target = &g_tencent_tmt.secret_key;
     else if (key == "region")
         target = &g_tencent_tmt.region;
-    else if (key == "target_language" &&
-             (value == "en" || value == "fr" || value == "ja" || value == "es" || value == "ru"))
+    else if (key == "target_language" && (value == "en" || value == "fr" || value == "ja" || value == "es" ||
+                                          value == "ru" || value == "de" || value == "ko"))
         target = &g_tencent_tmt.target_language;
     if (!target || !WriteConfiguredValue("tencent_tmt", key, EscapeTomlBasicString(value)))
+        return false;
+    *target = value;
+    return true;
+}
+
+const CustomTranslationConfig &GetConfiguredCustomTranslation()
+{
+    return g_custom_translation;
+}
+
+bool SetConfiguredCustomTranslationBool(const std::string &key, bool value)
+{
+    if (key != "enabled" || !WriteConfiguredValue("custom_translation", key, value ? "true" : "false"))
+        return false;
+    g_custom_translation.enabled = value;
+    return true;
+}
+
+bool SetConfiguredCustomTranslationString(const std::string &key, const std::string &value)
+{
+    std::string *target = nullptr;
+    if (key == "endpoint")
+        target = &g_custom_translation.endpoint;
+    else if (key == "api_key")
+        target = &g_custom_translation.api_key;
+    if (!target || !WriteConfiguredValue("custom_translation", key, EscapeTomlBasicString(value)))
         return false;
     *target = value;
     return true;
@@ -2858,9 +3035,9 @@ bool SetConfiguredAiAssistantString(const std::string &key, const std::string &v
         g_ai_assistant.prompt_custom_1 = value;
     if (key == "prompt" || key == "prompt_id" || key.rfind("prompt_custom_", 0) == 0)
     {
-        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2" ? g_ai_assistant.prompt_custom_2
-                              : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
-                                                                        : g_ai_assistant.prompt_custom_1;
+        g_ai_assistant.prompt = g_ai_assistant.prompt_id == "custom_2"   ? g_ai_assistant.prompt_custom_2
+                                : g_ai_assistant.prompt_id == "custom_3" ? g_ai_assistant.prompt_custom_3
+                                                                         : g_ai_assistant.prompt_custom_1;
     }
     if (key == "provider")
     {

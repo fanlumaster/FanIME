@@ -71,9 +71,13 @@ bool ApplyConfiguredUiThemes();
 // Reconcile the actual WebView skin even when another thread consumed the
 // config file timestamp before the UI timer observed it.
 bool ApplyConfiguredCandidateSkinIfChanged();
+bool ForceReloadConfiguredCandidateSkin();
 bool ApplyConfiguredCandidateAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance();
 bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete);
+// Geometry declared by the active external skin package. Built-in skins return 0.
+double GetActiveCandidateSkinDecorationTopDip();
+double GetActiveCandidateSkinDecorationWidthDip();
 // Push half-monitor CSS max width/height (DIP) into a small-window page.
 void InjectSurfaceViewportLimits(ICoreWebView2 *webview, HWND hwnd);
 // WebView2 rasterization scale includes both monitor DPI and the user's text
@@ -83,8 +87,16 @@ HalfScreenDipLimits QueryWebViewHalfScreenDipLimitsForHwnd(HWND hwnd);
 HalfScreenDipLimits QueryCandidateHalfScreenDipLimitsForPoint(HWND hwnd, POINT pt);
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview);
 void DisableMouseForAWhileWhenShownCandWnd(ComPtr<ICoreWebView2> webview);
+// CSS hover is gated on .hover-active. WebView2 synthesizes mousemove when
+// the HWND is placed under a stationary cursor; arm only after the OS cursor
+// has actually moved (GetCursorPos), not after a Chromium mouse event.
+void DisarmCandidatePointerHover();
+void MaybeArmCandidatePointerHover();
 void InflateCandWnd(std::wstring &str);
 void InflateCandWnd(std::wstring &str, std::function<void()> onComplete);
+void InflateCandWnd(std::wstring &str, std::function<void()> onComplete, bool contentOnly);
+// DIP size of #realContainer from the last slot-update script, or {0,0}.
+std::pair<double, double> LastCandidateSlotMeasuredSize();
 void InflateMeasureDivCandWnd(std::wstring &str);
 void InflateMeasureDivCandWnd(std::wstring &str, std::function<void()> onComplete);
 void InitSmallWindowWebviews(HWND candHwnd, HWND menuHwnd, HWND ftbHwnd);
@@ -93,6 +105,13 @@ void UpdateSmallWindowWebviewVisibility(HWND hwnd, bool visible);
 // Kick (or retry) shared small-window WebView2 init. Returns true when the menu
 // controller already exists and the tray menu may be shown.
 bool PrepareTrayMenuWebviewForShow();
+// Remember a candidate show that arrived before this host's WebView2 was
+// ready, and replay WM_SHOW_MAIN_WINDOW once navigation completes.
+void DeferCandidateShowUntilWebviewReady();
+void MaybeFlushPendingCandidateShow();
+// After the candidate controller exists, pin TOPMOST and renotify WebView2
+// (same uiAccess rule as the tray menu: never pin before CreateCoreWebView2Controller).
+void RaiseCandidateHostForShow(const wchar_t *reason);
 // Expand WebView bounds beyond the host client so horizontal measure/layout
 // is not constrained by a still-narrow HWND.
 void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd);

@@ -13,7 +13,7 @@
 // Candidates are joined with ',' in the payload. Kaomoji (and rarely other
 // text) legitimately contain ASCII commas, so the writer escapes them with
 // \uF000; split here first and restore the comma afterwards.
-inline std::wstring InflateCandidateTemplate(const std::wstring &templ, const std::wstring &text)
+inline std::vector<std::wstring> SplitCandidateTemplatePayload(const std::wstring &text)
 {
     std::wstringstream input(text);
     std::wstring token;
@@ -23,6 +23,12 @@ inline std::wstring InflateCandidateTemplate(const std::wstring &templ, const st
         std::replace(token.begin(), token.end(), L'\uF000', L',');
         words.push_back(std::move(token));
     }
+    return words;
+}
+
+inline std::wstring InflateCandidateTemplate(const std::wstring &templ, const std::wstring &text)
+{
+    std::vector<std::wstring> words = SplitCandidateTemplatePayload(text);
 
     const int size = static_cast<int>(words.size());
     while (words.size() < 10)

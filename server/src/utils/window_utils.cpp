@@ -14,6 +14,8 @@
 
 namespace
 {
+double g_max_vertical_container_height_dip = ::DEFAULT_WINDOW_HEIGHT_DIP;
+
 MonitorCoordinates MonitorCoordinatesFromHandle(HMONITOR hMonitor)
 {
     MonitorCoordinates coordinates{};
@@ -32,6 +34,30 @@ MonitorCoordinates MonitorCoordinatesFromHandle(HMONITOR hMonitor)
     coordinates.top = monitorInfo.rcMonitor.top;
     coordinates.right = monitorInfo.rcMonitor.right;
     coordinates.bottom = monitorInfo.rcMonitor.bottom;
+    return coordinates;
+}
+
+MonitorCoordinates MonitorWorkAreaCoordinatesFromHandle(HMONITOR hMonitor)
+{
+    MonitorCoordinates coordinates{};
+    if (!hMonitor)
+    {
+        return coordinates;
+    }
+
+    MONITORINFO monitorInfo = {sizeof(monitorInfo)};
+    if (!GetMonitorInfo(hMonitor, &monitorInfo))
+    {
+        return coordinates;
+    }
+
+    // Candidate windows must avoid the taskbar and other app bars. Using the
+    // full monitor rectangle makes a candidate near the bottom look as though
+    // it still fits, so it remains below the caret and overlaps the taskbar.
+    coordinates.left = monitorInfo.rcWork.left;
+    coordinates.top = monitorInfo.rcWork.top;
+    coordinates.right = monitorInfo.rcWork.right;
+    coordinates.bottom = monitorInfo.rcWork.bottom;
     return coordinates;
 }
 
@@ -148,7 +174,7 @@ double ClampHeightDipToHalfScreen(double heightDip, const HalfScreenDipLimits &l
 
 MonitorCoordinates GetMonitorCoordinatesFromPoint(POINT pt)
 {
-    return MonitorCoordinatesFromHandle(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+    return MonitorWorkAreaCoordinatesFromHandle(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
 }
 
 //+---------------------------------------------------------------------------
@@ -225,16 +251,16 @@ int AdjustCandidateWindowPosition(                  //
     const POINT *point,                             //
     const std::pair<double, double> &containerSize, //
     std::shared_ptr<std::pair<int, int>> properPos, //
-    FLOAT layoutScale                              //
+    FLOAT layoutScale,                              //
+    double minWidthDip                              //
 )
 {
     Global::MarginTop = 0;
 
-    const bool is_vertical = GetConfiguredCandidateWindowLayout() == "vertical";
-    static double max_vertical_container_height = ::DEFAULT_WINDOW_HEIGHT;
-    if (is_vertical && containerSize.second > max_vertical_container_height)
+    const bool isVertical = GetConfiguredCandidateWindowLayout() == "vertical";
+    if (isVertical && containerSize.second > g_max_vertical_container_height_dip)
     {
-        max_vertical_container_height = containerSize.second;
+        g_max_vertical_container_height_dip = containerSize.second;
     }
 
     // Clamp against the caret's monitor, not GetForegroundWindow()'s. Word/Excel
@@ -249,16 +275,25 @@ int AdjustCandidateWindowPosition(                  //
     // Design offsets are DIPs so gaps stay visually stable under 150%/200% DPI.
     const int caretGapPx = static_cast<int>(std::lround(3.0 * scale));
     const int edgePadPx = static_cast<int>(std::lround(2.0 * scale));
-    const int flipGapPx = static_cast<int>(std::lround(30.0 * scale));
 
     properPos->first = point->x;
     properPos->second = point->y + caretGapPx;
     // Clamp to the card itself so a right-edge push leaves the opaque card flush
     // with the monitor (shadow may clip). Reserving SHADOW here opened a large
     // visible gap at high DPI.
-    int width = static_cast<int>(std::ceil(containerSize.first * scale));
-    const double boundary_height_dip = is_vertical ? max_vertical_container_height : containerSize.second;
-    const int boundary_height = static_cast<int>(std::ceil(boundary_height_dip * scale));
+    // minWidthDip: first-pass DOM measure can be far too narrow near a screen
+    // edge. Flip using at least that floor so the card is not parked at the
+    // caret with its real right half hanging off the monitor.
+    const double widthDip = (std::max)(containerSize.first, minWidthDip);
+    int width = static_cast<int>(std::ceil(widthDip * scale));
+    // Decide whether to flip using the tallest vertical list seen so far. This
+    // keeps a short list above the caret when a full list would not fit below,
+    // avoiding a later below-to-above jump as more candidates appear. Position
+    // the flipped window using its *current* height, however, so its lower edge
+    // stays next to the current input line instead of preserving empty packing.
+    const double decisionHeightDip = isVertical ? g_max_vertical_container_height_dip : containerSize.second;
+    const int decisionHeightPx = static_cast<int>(std::ceil(decisionHeightDip * scale));
+    const int currentHeightPx = static_cast<int>(std::ceil(containerSize.second * scale));
     if (properPos->first + width > coordinates.right)
     {
         properPos->first = coordinates.right - width - edgePadPx;
@@ -272,19 +307,23 @@ int AdjustCandidateWindowPosition(                  //
         properPos->second = coordinates.top + edgePadPx;
     }
 
-    if (properPos->second + boundary_height > coordinates.bottom)
+    if (properPos->second + decisionHeightPx > coordinates.bottom)
     {
-        properPos->second = properPos->second - boundary_height - flipGapPx - edgePadPx;
-        if (is_vertical && containerSize.second < max_vertical_container_height)
-        {
-            Global::MarginTop = static_cast<int>(std::ceil(max_vertical_container_height - containerSize.second));
-        }
+        // Point[1] is GetTextExt.bottom (the line's bottom). Sit the opaque card
+        // so its bottom meets the line's top; drop-shadow is not part of this.
+        const int lineHeightPx = static_cast<int>(std::lround(24.0 * scale));
+        properPos->second = point->y - currentHeightPx - lineHeightPx;
         if (properPos->second < coordinates.top)
         {
             properPos->second = coordinates.top + edgePadPx;
         }
     }
     return 0;
+}
+
+void ResetCandidatePlacementMemory()
+{
+    g_max_vertical_container_height_dip = ::DEFAULT_WINDOW_HEIGHT_DIP;
 }
 
 int AdjustWndPosition( //

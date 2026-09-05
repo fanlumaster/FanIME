@@ -40,7 +40,7 @@ bool EmojiPanelIcons::DrawTabIcon(DeviceResources &resources, Tab tab, const Rec
         return false;
     }
 
-    ID2D1HwndRenderTarget *target = resources.GetRenderTarget();
+    ID2D1RenderTarget *target = resources.GetRenderTarget();
     IDWriteFactory *factory = resources.GetDWriteFactory();
     IDWriteTextFormat *format =
         resources.GetTextFormat(kFluentIconsFont, kIconFontSize, DWRITE_FONT_WEIGHT_NORMAL,

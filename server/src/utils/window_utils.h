@@ -10,6 +10,7 @@ FLOAT GetForegroundWindowScale();
 // Prefer the monitor that contains the caret / composition anchor. Foreground
 // HWND can disagree with the caret on Office extended-display setups.
 FLOAT GetScaleForPoint(POINT pt);
+// Candidate placement uses that monitor's work area to avoid taskbars/app bars.
 MonitorCoordinates GetMonitorCoordinatesFromPoint(POINT pt);
 
 MonitorCoordinates GetMonitorCoordinates();
@@ -34,8 +35,13 @@ int AdjustCandidateWindowPosition(       //
     const POINT *point,                  //
     const std::pair<double, double> &,   //
     std::shared_ptr<std::pair<int, int>>, //
-    FLOAT layoutScale = 0.0f             //
+    FLOAT layoutScale = 0.0f,            //
+    double minWidthDip = 0.0             //
 );
+
+// Drop the "tallest list so far" flip memory. A bogus oversized measure would
+// otherwise keep parking later cards at the top/left of the monitor.
+void ResetCandidatePlacementMemory();
 
 int AdjustWndPosition( //
     HWND hwnd,         //

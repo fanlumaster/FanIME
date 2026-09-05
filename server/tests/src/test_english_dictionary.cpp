@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <sqlite3.h>
 #include <stdexcept>
 #include <string>
@@ -15,7 +16,9 @@ class TemporaryEnglishDatabase
     TemporaryEnglishDatabase()
     {
         const auto suffix = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-        path_ = std::filesystem::temp_directory_path() / ("metasequoia_english_test_" + suffix + ".db");
+        directory_ = std::filesystem::temp_directory_path() / ("metasequoia_english_test_" + suffix);
+        std::filesystem::create_directories(directory_);
+        path_ = directory_ / "english.db";
 
         sqlite3 *db = nullptr;
         if (sqlite3_open(path_.string().c_str(), &db) != SQLITE_OK)
@@ -52,7 +55,7 @@ class TemporaryEnglishDatabase
     ~TemporaryEnglishDatabase()
     {
         std::error_code error;
-        std::filesystem::remove(path_, error);
+        std::filesystem::remove_all(directory_, error);
     }
 
     const std::filesystem::path &path() const
@@ -61,6 +64,7 @@ class TemporaryEnglishDatabase
     }
 
   private:
+    std::filesystem::path directory_;
     std::filesystem::path path_;
 };
 } // namespace
@@ -129,6 +133,34 @@ TEST_CASE(EnglishDictionaryQueriesBothGlossDirections)
     REQUIRE_EQ(dictionary.query_chinese_gloss("implement"), std::string("实现；执行"));
     REQUIRE_EQ(dictionary.query_english_gloss("实现"), std::string("realize; implement"));
     REQUIRE(dictionary.query_chinese_gloss("missing").empty());
+}
+
+TEST_CASE(EnglishDictionaryPrefersSiblingCustomTranslations)
+{
+    TemporaryEnglishDatabase database;
+    sqlite3 *db = nullptr;
+    REQUIRE_EQ(sqlite3_open(database.path().string().c_str(), &db), SQLITE_OK);
+    REQUIRE_EQ(sqlite3_exec(db,
+                           "CREATE TABLE IF NOT EXISTS zh_en_glosses("
+                           "chinese TEXT COLLATE BINARY PRIMARY KEY,english_gloss TEXT NOT NULL) WITHOUT ROWID;"
+                           "INSERT INTO zh_en_glosses VALUES('华科','Huazhong University of');",
+                           nullptr, nullptr, nullptr),
+               SQLITE_OK);
+    sqlite3_close(db);
+
+    const auto sidecar = database.path().parent_path() / "custom_translations.txt";
+    {
+        std::ofstream output(sidecar, std::ios::binary);
+        output << "华科\tHuazhong University of Science and Technology\n";
+        output << "hust\t华中科技大学\n";
+    }
+
+    EnglishDictionary dictionary(database.path().string());
+    REQUIRE_EQ(dictionary.query_english_gloss("华科"),
+               std::string("Huazhong University of Science and Technology"));
+    REQUIRE_EQ(dictionary.query_chinese_gloss("hust"), std::string("华中科技大学"));
+    std::error_code error;
+    std::filesystem::remove(sidecar, error);
 }
 
 TEST_CASE(EnglishDictionaryUpsertsGlossForCloudFallback)
