@@ -40,13 +40,15 @@ std::filesystem::path CreatePinyinCacheDatabase()
         "CREATE TABLE tbl_3_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
         "CREATE TABLE tbl_4_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
         "CREATE TABLE tbl_5_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
+        "CREATE TABLE tbl_6_x(key TEXT,jp TEXT,value TEXT,weight INTEGER);"
         "INSERT INTO tbl_3_a VALUES('ao''shi''ke','ask','奥湿克',1);"
         "INSERT INTO tbl_1_x VALUES('xian','x','__primary_xian_1__',1000);"
         "INSERT INTO tbl_1_x VALUES('xian','x','__primary_xian_2__',900);"
         "INSERT INTO tbl_1_x VALUES('xian','x','__primary_xian_3__',800);"
         "INSERT INTO tbl_2_x VALUES('xi''an','xa','__alternative_xi_an__',1);"
         "INSERT INTO tbl_4_x VALUES('xi''an''xian''xian','xaxx','__three_syllable_alternative__',100);"
-        "INSERT INTO tbl_5_x VALUES('xi''an''xian''xian''xian','xaxxx','__four_syllable_alternative__',100);";
+        "INSERT INTO tbl_5_x VALUES('xi''an''xian''xian''xian','xaxxx','__four_syllable_alternative__',100);"
+        "INSERT INTO tbl_6_x VALUES('xi''an''xian''xian''xian''xian','xaxxxx','__five_syllable_alternative__',100);";
     const int result = sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
     sqlite3_close(db);
     if (result != SQLITE_OK)
@@ -218,7 +220,7 @@ TEST_CASE(QuanpinDictionaryKeepsBestAlternativeSegmentationNearTheFront)
     std::filesystem::remove(db_path);
 }
 
-TEST_CASE(QuanpinDictionaryOnlyTriesMultipleSegmentationsForAtMostThreeSyllables)
+TEST_CASE(QuanpinDictionaryTriesFourSyllablesButBoundsFiveSyllableAmbiguity)
 {
     const auto db_path = CreatePinyinCacheDatabase();
     {
@@ -229,8 +231,12 @@ TEST_CASE(QuanpinDictionaryOnlyTriesMultipleSegmentationsForAtMostThreeSyllables
                             [](const WordItem &item) { return item.word == "__three_syllable_alternative__"; }));
 
         const auto four_syllable_candidates = dictionary.query("xianxianxianxian", "xian'xian'xian'xian");
-        REQUIRE(std::none_of(four_syllable_candidates.begin(), four_syllable_candidates.end(),
-                             [](const WordItem &item) { return item.word == "__four_syllable_alternative__"; }));
+        REQUIRE(std::any_of(four_syllable_candidates.begin(), four_syllable_candidates.end(),
+                            [](const WordItem &item) { return item.word == "__four_syllable_alternative__"; }));
+
+        const auto five_syllable_candidates = dictionary.query("xianxianxianxianxian", "xian'xian'xian'xian'xian");
+        REQUIRE(std::none_of(five_syllable_candidates.begin(), five_syllable_candidates.end(),
+                             [](const WordItem &item) { return item.word == "__five_syllable_alternative__"; }));
     }
     std::filesystem::remove(db_path);
 }

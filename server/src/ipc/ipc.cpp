@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 #include "ipc.h"
+#include "MetasequoiaImeEngine/contracts/ipc_negotiation.h"
 #include "ipc/active_client_state.h"
 #include "ipc/event_listener.h"
 #include "ipc/outbound_session_state.h"
@@ -195,6 +196,7 @@ class PipeControlHandle
 
 struct PipeClientSession
 {
+    FanyImeProtocol::Negotiation protocol;
     HANDLE main_pipe = INVALID_HANDLE_VALUE;
     HANDLE main_control_pipe = INVALID_HANDLE_VALUE;
     uint64_t main_registration_id = 0;
@@ -773,6 +775,28 @@ bool SharedMemoryAvailable()
     return canUseSharedMemory && sharedData != nullptr && pBuf != nullptr && hMapFile != nullptr;
 }
 } // namespace
+
+bool NegotiateMainPipeClient(const FanyImeNamedpipeData &hello, uint64_t registration_id)
+{
+    const auto protocol = FanyImeProtocol::Negotiate(hello);
+    std::lock_guard lock(g_pipe_clients_mutex);
+    auto it = g_pipe_clients.find(hello.client_id);
+    if (it == g_pipe_clients.end() || registration_id == 0 || it->second.main_registration_id != registration_id)
+        return false;
+    auto &session = it->second;
+    session.protocol = protocol;
+    if (protocol.legacy)
+        return protocol.accepted;
+    if (!session.to_tsf_pipe || !session.to_tsf_ready)
+        return false;
+    const auto reply = FanyImeProtocol::Reply(hello, protocol);
+    DWORD written = 0;
+    DWORD error = ERROR_SUCCESS;
+    // Tie the ACK to this main registration while the registry lock excludes
+    // endpoint replacement. No activation or candidate result can precede it.
+    return session.to_tsf_pipe->Write(&reply, sizeof(reply), written, error) && written == sizeof(reply) &&
+           protocol.accepted;
+}
 
 uint64_t RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe)
 {
