@@ -173,30 +173,35 @@ jobs:
           Pop-Location
           "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> $env:GITHUB_ENV
 
+      # The binary directory has to be named build: MSIME-Server's CMakeLists.txt hardcodes
+      # ${CMAKE_SOURCE_DIR}/build/vcpkg_installed for the WebView2 loader and its include
+      # paths, so any other name fails to link MetasequoiaImeSettings. The packaging job
+      # downloads this artifact into build-release/bin/Release, which is where
+      # Prepare-PackageFiles.ps1 reads it from, so the name used here does not matter.
       - name: Configure
         shell: pwsh
         run: >
-          cmake -S . -B build-release -A x64
+          cmake -S . -B build -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows
 
       - name: Build
         shell: pwsh
-        run: cmake --build build-release --config Release --parallel
+        run: cmake --build build --config Release --parallel
 
       - name: Check the binaries the installer requires
         shell: pwsh
         run: |
           $required = @('MetasequoiaImeServer.exe', 'MetasequoiaImeSettings.exe', 'MetasequoiaImeWatchdog.exe', 'MetasequoiaImeDictionaryReplay.exe')
-          $missing = $required | Where-Object { -not (Test-Path "build-release/bin/Release/$_") }
+          $missing = $required | Where-Object { -not (Test-Path "build/bin/Release/$_") }
           if ($missing) { throw "Missing from the Server build: $($missing -join ', ')" }
-          Get-ChildItem build-release/bin/Release -File | Select-Object Name, Length | Format-Table
+          Get-ChildItem build/bin/Release -File | Select-Object Name, Length | Format-Table
 
       - name: Upload the Server build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: server
-          path: build-release/bin/Release
+          path: build/bin/Release
           if-no-files-found: error
 
   ui:
