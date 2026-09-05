@@ -294,7 +294,14 @@ C++ 组件编译完成且相关前端/词库产物已准备好之后运行。`Si
 
 上面那套是本地测试打包。对外发布走 `.github/workflows/release.yml`，产出的就是历来挂在本仓 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。
 
-版本号由 release-please 管理，真源是根目录的 `version.txt`。往 `main` 推提交后，release-please 会开一个 release PR；合并它就生成一个 draft release，随后 release workflow 构建安装包、附加产物并发布。也可以手动触发 workflow，对一个已存在的 draft tag 重新构建。
+版本号由 release-please 管理，真源是根目录的 `version.txt`。**发布是手动的**：签名证书的签名次数有限，一次发布是实打实的开销，不该由「合了个 PR」这种事替你花掉。
+
+往 `main` 推提交后只发生两件事：release-please 更新那个 release PR，`check-release-pr.sh` 给它挂上一次通过的 CI（`GITHUB_TOKEN` 开不出 workflow run，必须用 `workflow_dispatch` 顶上，否则开着 required status check 的 release PR 永远合不了）。想发版时:
+
+1. 合并 release PR —— 这一步只生成 draft release 和 tag，不构建、不签名。
+2. 手动触发 `Release` workflow，`tag` 填那个 draft 的 tag —— 这一步才构建、签名、发布。
+
+同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下：发布之后它就不是 draft 了，不会二次消耗签名次数。
 
 `src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
 
@@ -308,7 +315,7 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 | 脚本 | 用途 |
 |---|---|
 | `validate-draft-release.sh` | 手动触发时校验 tag 是未发布 draft、指向不可变 commit、且与 `version.txt` 一致 |
-| `merge-release-pr.sh` | 合并 release-please 刚开的 PR |
+| `check-release-pr.sh` | 给 release PR 挂上一次通过的 CI，不合并 |
 | `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
 | `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
 | `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
