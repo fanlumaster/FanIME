@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.0...v0.1.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ci:** check out the engine submodule in the product inputs job ([6bb0c1e](https://github.com/metasequoiaime/MSIME-Windows/commit/6bb0c1e10ec9fdf5a59f5793f0392c506641dba9))
+* **ci:** persist vcpkg binaries before application builds ([947aa16](https://github.com/metasequoiaime/MSIME-Windows/commit/947aa16fcbd7f13d171bbd459c0a73e9471c4eeb))
+* **ci:** resolve the pipe probe contracts from the repository, not the server ([b48dc82](https://github.com/metasequoiaime/MSIME-Windows/commit/b48dc826526fdb41e268f92d60bf49530d00291d))
+* **server:** always answer explicit settings snapshot requests ([9a9c6f3](https://github.com/metasequoiaime/MSIME-Windows/commit/9a9c6f328f7e05949bfda35ab7f9e70e479ee6da))
+* **server:** keep settings I/O off UI thread and bound dictionary rendering ([06bba15](https://github.com/metasequoiaime/MSIME-Windows/commit/06bba15d4f2738d3e93c34819c7bad8813a137c5))
+* **server:** point the panel resources at the ui component ([ecc1bf4](https://github.com/metasequoiaime/MSIME-Windows/commit/ecc1bf4f6bae9b7e9e385af67743c153bf12f7f3))
+* **server:** reduce WebView message and first-paint overhead ([b5d07f1](https://github.com/metasequoiaime/MSIME-Windows/commit/b5d07f11eb4fe3e98aec48c84f7e0870f24ea42f))
+
 ## [0.1.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.17...v0.1.0) (2026-09-05)
 
 
