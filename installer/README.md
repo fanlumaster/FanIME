@@ -1,10 +1,26 @@
-# Metasequoia IME Installer（本地测试流程）
+# Metasequoia IME Installer
 
-公开这份仓库的目的，是把 Metasequoia IME 的 **本地测试安装流程** 整理清楚：从相邻源码仓库收集产物、用本机自签名证书签名、用 Inno Setup 打安装包、再跑安装程序。
+本仓的脚本从相邻源码仓库收集产物、签名、用 Inno Setup 打成安装包。它服务两条流程：
 
-测试版本号固定为 **0.0.1**。
+- **正式发布**：由 `MSIME-Windows` 的 release workflow 驱动，用真实证书，产物是挂在 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。见下面「CI 契约」
+- **本地测试**：手工跑，用本机自签名证书，用来在自己机器上验证安装流程。本文其余部分讲的是这条
 
-本仓库 **不包含** 正式代码签名证书、私钥、指纹，也不包含编译好的 EXE/DLL、词库或安装包。签名脚本会在你自己的机器上生成并复用一张自签名测试证书。
+版本号不是固定的，由 `Prepare-PackageFiles.ps1` 的 `-TargetVersion` 决定，默认 `0.0.1`；正式发布时 CI 传入真实版本。
+
+本仓库 **不包含** 正式代码签名证书、私钥、指纹，也不包含编译好的 EXE/DLL、词库或安装包。
+
+签名脚本会在你自己的机器上生成并复用一张自签名测试证书。
+
+## CI 契约
+
+`MSIME-Windows` 的 release workflow **不加修改地调用本仓的 `Prepare-PackageFiles.ps1` 和 `Compile-Installer.ps1`**。它把各个仓库 checkout 到脚本原本就在寻址的那些历史目录名下（`MetasequoiaImeTsf`、`MetasequoiaImeServer`、`MetasequoiaImeUiHtml`、`MetasequoiaImeHelpCode`、`MetasequoiaImeDict`），所以脚本不需要为 CI 做任何适配。
+
+由此产生几条约束：
+
+- **改动 `Prepare-PackageFiles.ps1` 里那些 `Assert-PathExists` 的源路径，会直接弄坏发布流水线。** 它断言的 18 个路径由 workflow 逐一准备，改了要同步改 `MSIME-Windows/.github/workflows/release.yml`
+- **`Sign-PackageBinaries-Local.ps1` 和 `Sign-Installer-Local.ps1` 只用于本地验证，CI 不会调用它们。** 它们创建本机自签名证书并尝试写入受信任存储，正式发布走 workflow 里用仓库 secret 中真实证书的签名步骤
+- 词库不再从相邻的 `MetasequoiaImeDict` 工作目录取，CI 从 `MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256，再放到脚本期望的位置
+- `windows-2025` runner 自带 Inno Setup 6.7.1，`Compile-Installer.ps1` 能自己找到 `ISCC.exe`。但它不带 `ChineseSimplified.isl`，`msime_setup.iss` 的 `[Languages]` 段依赖那个文件，所以 workflow 会在编译前按固定 revision 和校验和把它装进去
 
 ## 依赖
 
@@ -18,7 +34,9 @@
   - `MetasequoiaImeHelpCode`
   - `MetasequoiaImeDict`
 
-## 请先改路径
+## 本地跑之前请先改路径
+
+下面这段只针对本地测试；CI 不需要改路径，因为它就是按这些名字准备目录的。
 
 脚本里写死的默认布局是：本仓库和上面那些项目都在**同一个父目录**下（例如都在 `IMECodes\` 里）。这只是作者本机的相对路径，**换到你自己的机器上通常对不上**。
 
