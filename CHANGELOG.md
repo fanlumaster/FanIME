@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.13](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.12...v0.0.13) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ci:** install the Chinese language file Inno Setup needs ([22a132e](https://github.com/metasequoiaime/MSIME-Windows/commit/22a132e3bd4d48c6185176c0855debdc3a1cfd73))
+* **ci:** supply the Inno Setup language file, and move release shell into scripts/ci ([0761b41](https://github.com/metasequoiaime/MSIME-Windows/commit/0761b410e378ac71ab1c6239b5c2cd7db81dab61))
+
 ## [0.0.12](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.11...v0.0.12) (2026-09-05)
 
 
