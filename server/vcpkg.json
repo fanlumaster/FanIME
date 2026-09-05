@@ -1,0 +1,12 @@
+{
+  "dependencies": [
+    "fmt",
+    "curl",
+    "spdlog",
+    "sqlite3",
+    "tomlplusplus",
+    "webview2",
+    "nlohmann-json",
+    "zlib"
+  ]
+}

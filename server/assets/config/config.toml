@@ -1,0 +1,363 @@
+#
+# Settings page
+# 设置页面
+#
+[settings_page]
+theme = "dark"
+
+#
+# General
+# 通用
+#
+[general]
+# Server 端诊断日志（默认关闭；不记录输入内容或候选文本）
+diagnostic_log = false
+# TSF 端批量诊断日志（默认关闭；不记录输入内容或候选文本）
+tsf_diagnostic_log = false
+# 悬浮工具栏
+floating_toolbar = true
+# 悬浮工具栏组件（中英文切换始终显示）
+floating_toolbar_fullwidth = true
+floating_toolbar_punctuation = true
+floating_toolbar_character_set = true
+floating_toolbar_emoji = true
+floating_toolbar_screen_keyboard = false
+floating_toolbar_settings = true
+# 悬浮工具栏用户缩放（相对系统 DPI），可选：0.75 / 1.0 / 1.25 / 1.5
+floating_toolbar_scale = 1.0
+# 悬浮工具栏图标尺寸（px，再乘 scale），可选：16–28
+floating_toolbar_font_size = 24
+# Emoji
+enable_emoji = true
+# 翻页方式
+paging_minus_equal = true
+paging_comma_period = true
+paging_brackets = false
+paging_tab = true
+paging_page_up_down = true
+candidate_arrow_navigation = true
+# 中文输入状态下显示英文前缀候选
+cn_en_mixed_input = true
+# 中英混输触发所需的最少字母数，范围 1–8
+cn_en_mixed_input_min_chars = 2
+# 在竖排候选窗口中显示中英文互译（每项最多两个简短释义）
+candidate_translations = true
+# 中文输入状态下显示 emoji 前缀候选（第三个候选项，随云候选/AI 联想顺移）
+emoji_mixed_input = false
+# 中文输入状态下显示颜文字前缀候选（排在 emoji 之后）
+kaomoji_mixed_input = false
+# 云候选
+cloud_candidates = true
+# TODO: 极简模式。极简模式下，候选窗口使用 d2d 绘制，界面只作展示候选项，无其他功能。
+clean_mode = false
+
+#
+# 腾讯云机器翻译（竖排候选项本地词库未命中时的补全）
+#
+[tencent_tmt]
+enabled = true
+secret_id = ""
+secret_key = ""
+region = "ap-guangzhou"
+# 候选词翻译/背单词目标语种：en / fr / ja / es / ru / de / ko
+target_language = "en"
+
+#
+# 自定义 DeepLX 兼容翻译服务。endpoint 必须填写完整的 POST 接口地址。
+# api_key 留空时不发送 Authorization 请求头。
+#
+[custom_translation]
+enabled = false
+endpoint = ""
+api_key = ""
+
+[frequency_adjustment]
+# disabled / pin / halve / linear / promote
+mode = "promote"
+# 每选中几次执行一次调频，范围 1~10
+trigger_count = 1
+# 线性调频每次前移数量，范围 1~10
+linear_step = 1
+
+#
+# Appearance
+# 外观
+#
+[appearance]
+# 主题模式，可选："dark", "light", "system"
+theme_mode = "system"
+# 候选窗 / 悬浮工具栏 / 托盘菜单渲染，可选："d2d", "webview2"
+# 更改后需重启输入法进程生效
+ui_backend = "d2d"
+# 分表面主题，可选："follow", "dark", "light"（follow = 跟随 theme_mode）
+theme_settings = "follow"
+theme_cand = "follow"
+theme_ftb = "follow"
+theme_menu = "follow"
+theme_emoji = "follow"
+theme_screen_keyboard = "follow"
+theme_handwriting = "follow"
+theme_voice = "follow"
+# 字体（中文）
+font = "Noto Sans SC"
+# 英文字体（拉丁字母优先使用；汉字仍回落到 font）
+english_font = "Segoe UI"
+# 缺省字体，如果系统中没有找到指定字体，则使用缺省字体
+default_font = "Microsoft YaHei"
+# 字体大小（px），可选：12–32
+font_size = 16
+# 候选窗口顶部预编辑字号（px），可选：12–32
+candidate_window_preedit_font_size = 16
+# 候选文字颜色，"auto" 跟随主题，或 #RRGGBB
+cand_text_color = "auto"
+# 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9
+page_size = 8
+# 候选窗口跟随光标
+candidate_window_follow_cursor = true
+# 候选窗口排列方式，可选："vertical", "horizontal"
+candidate_window_layout = "vertical"
+# 候选窗口与悬浮工具栏皮肤，可选："fluent", "wechat"
+candidate_skin = "fluent"
+# 候选窗口顶部预编辑，可选："pinyin", "empty"
+#   pinyin -> 显示分词预编辑（与候选框当前行为一致）
+#   empty  -> 隐藏顶部预编辑行
+candidate_window_preedit_style = "pinyin"
+# TSF 行内预编辑样式，可选："raw", "pinyin", "empty"
+#   raw    -> 原始按键序列
+#   pinyin -> 分词后的拼音序列（Server 回包 Preedit）
+#   empty  -> 行内不显示预编辑
+tsf_preedit_style = "raw"
+# tsf_preedit_style = "pinyin"
+# tsf_preedit_style = "empty"
+
+#
+# Input
+# 输入
+#
+[input]
+character_set = "simplified" # 候选输出字形，可选："simplified", "traditional"
+# 启动/从其他输入法切换到本输入法时的默认中英文，可选："chinese", "english"
+default_ime_mode = "chinese"
+# 中英文状态范围，可选："app"（按应用分别记忆）, "global"（所有应用保持统一）
+ime_mode_scope = "app"
+# 以词定字：开启后，[ 上屏高亮候选的首个汉字，] 上屏末个汉字
+word_to_character = false
+# 智能标点：中文标点模式下，字母/数字后的 , . : 输出英文标点（类似小狼毫 digit_separators）
+smart_punctuation = true
+# 重复标点转中文：智能标点输出英文标点后，2 秒内再次输入同一标点时替换为中文标点
+smart_punctuation_repeat_to_chinese = true
+# 成对标点补全：输入左侧符号时自动补全右侧符号，并将光标置于中间
+paired_punctuation = true
+# 标点锁定，可选："follow"（随中英文切换）, "chinese"（始终中文标点）, "english"（始终英文标点）
+punctuation_lock = "follow"
+# 组合说明：
+#   legacy + shuangpin -> 使用旧版双拼会话实现（当前最稳定）
+#   legacy + quanpin   -> 自动切换为新版引擎全拼会话
+#   engine + shuangpin -> 使用新版引擎双拼会话
+#   engine + quanpin   -> 使用新版引擎全拼会话
+#   任意 backend + wubi -> 使用新版引擎五笔会话
+# 会话后端，可选："legacy", "engine"
+# Historical "legacy" values are accepted as an alias for the shared engine.
+session_backend = "engine"
+# 输入模式，可选："chinese", "japanese"。切换模式时保留各语言上次使用的方案。
+mode = "chinese"
+# 输入方案，可选："quanpin", "shuangpin", "wubi"
+schema = "shuangpin"
+# schema = "quanpin"
+# schema = "wubi"
+# engine + shuangpin 时的 preedit 显示方式，可选："quanpin", "shuangpin"
+#   quanpin   -> 预编辑显示转换后的全拼分词
+#   shuangpin -> 预编辑显示原始双拼输入串
+shuangpin_preedit_mode = "shuangpin"
+# 双拼方案，可选："xiaohe", "ziranma", "shoudao", "microsoft"
+# shuangpin_schema = "xiaohe"
+shuangpin_schema = "xiaohe"
+# 五笔方案，可选："wubi86", "wubi98"
+wubi_schema = "wubi86"
+# 日语方案，当前支持："romaji"
+japanese_schema = "romaji"
+
+#
+# Helpcode
+# 辅助码
+#
+[helpcode]
+# 双拼辅助码
+shuangpin_helpcode = true
+# 双拼辅助码方案，可选："lantian", "ziranma", "shouyou2_0", "shouyouplus", "xiaohe"
+shuangpin_helpcode_schema = "ziranma"
+# 是否在候选窗口中显示双拼辅助码
+show_sp_helpcode_in_candidate_window = true
+# 全拼辅助码
+quanpin_helpcode = true
+# 全拼辅助码方案，可选："lantian", "ziranma", "shouyou2_0", "shouyouplus", "xiaohe"
+quanpin_helpcode_schema = "ziranma"
+# 是否在候选窗口中显示全拼辅助码
+show_qp_helpcode_in_candidate_window = true
+
+#
+# Quanpin
+# 全拼
+#
+[quanpin]
+# 全拼自动纠错：遇到按键窜乱（相邻字母交换，如 sahng）或邻键误按（如 shabg）时，
+# 自动按最接近的正确拼音查询候选。仅当输入串不是合法拼音组合时触发，不影响正常输入。
+autocorrect = true
+
+#
+# Keybindings
+# 快捷键
+#
+[keybindings]
+# 中英文切换快捷键（Ctrl+Space 由 Windows 系统管理，此处不控制）
+switch_language_shift = true
+switch_language_ctrl = false
+switch_language_ctrl_alt_space = true
+
+#
+# Dictionary
+# 词库
+#
+[dictionary]
+# 词库路径
+dictionary_path = "./assets/dictionaries/msime.db"
+
+#
+# Skin
+# 皮肤
+#
+[skin]
+# 皮肤名称
+skin_name = "default"
+
+#
+# Voice Input
+# 语音输入
+#
+[voice_input]
+# 语音输入
+voice_input = true
+# 全局语音快捷键（可分别启用或关闭）
+hotkey_ralt = true
+hotkey_ctrl_f9 = true
+hotkey_ctrl_win = false
+hotkey_rctrl_ralt = false
+hotkey_hold_space_lock = true
+# ASR 服务: doubao | openai | siliconflow | groq
+# openai / siliconflow / groq 均走 OpenAI 兼容的 /v1/audio/transcriptions。
+asr_provider = "doubao"
+# 豆包旧版控制台鉴权：App ID + Access Token（Secret Key 不使用）
+# 新版控制台使用单 API Key 时，将 asr_app_key 留空并把 API Key 填入 asr_token。
+asr_app_key = "<YOUR_OWN_DOUBAO_APP_ID>"
+asr_token = "<YOUR_OWN_DOUBAO_ACCESS_TOKEN>"
+# 每个 ASR 提供商单独保存 Token，切换提供商只改当前使用哪一份，不会互相覆盖。
+asr_token_doubao = "<YOUR_OWN_DOUBAO_ACCESS_TOKEN>"
+asr_token_openai = ""
+asr_token_siliconflow = ""
+asr_token_groq = ""
+asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
+# 默认使用豆包流式语音识别模型 2.0 小时版
+asr_resource_id = "volc.seedasr.sauc.duration"
+# 豆包识别选项：数字格式化（ITN）、标点预测默认开启，语义顺滑（DDC）默认关闭。
+doubao_enable_itn = true
+doubao_enable_punc = true
+doubao_enable_ddc = false
+# 在豆包语音控制台“自学习平台 -> 热词管理”创建词表后，将热词 ID 填在这里；留空则不使用。
+doubao_boosting_table_id = ""
+# OpenAI 兼容识别模型。豆包流式不使用此项；留空则按提供商填默认值。
+# SiliconFlow 当前默认使用 FunAudioLLM/SenseVoiceSmall，也可在这里填写其他模型名。
+asr_model = ""
+# 文本润色: siliconflow | openai | deepseek | groq
+# 均走 OpenAI 兼容的 /v1/chat/completions。
+polish_provider = "siliconflow"
+polish_token = "<YOUR_OWN_POLISH_TOKEN>"
+polish_token_siliconflow = "<YOUR_OWN_POLISH_TOKEN>"
+polish_token_openai = ""
+polish_token_deepseek = ""
+polish_token_groq = ""
+polish_endpoint = "https://api.siliconflow.cn/v1/chat/completions"
+# 留空则按提供商填默认值，例如 Qwen/Qwen3-8B、gpt-4o-mini。
+polish_model = ""
+# 润色提示词: cleanup | faithful | zh2en | casual | custom_1 | custom_2 | custom_3
+polish_prompt_id = "cleanup"
+# 旧版单槽位提示词，升级时作为“自定义一”的回退值。
+polish_prompt = ""
+polish_prompt_custom_1 = ""
+polish_prompt_custom_2 = ""
+polish_prompt_custom_3 = ""
+language = "zh-cn"
+# 开始和结束录音提示音可分别关闭
+start_sound = true
+end_sound = true
+# 录音时暂时静音其他应用的播放声音，结束后自动恢复
+mute_system_audio = false
+polish_text = false
+# 豆包流式识别时，将已识别文本显示在输入框 inline preedit 中，松开录音键后上屏。
+# 仅在豆包流式识别且 commit_mode = "tsf" 时生效。
+stream_inline_preedit = false
+# 上屏方式: tsf | sendinput | ctrl_v
+commit_mode = "tsf"
+
+#
+# Soft Keyboard
+# 屏幕键盘
+#
+[soft_keyboard]
+theme_mode = "dark"
+background_img = "" # 默认是空，没有背景图片
+
+#
+# Utility
+# 实用功能
+#
+[utility]
+clipboard_history = false # 表情面板剪贴板历史，仅记录文本；关闭后立即清空
+study_english_word = "false" # 背单词功能，开启后可以在候选项旁边显示英文
+quick_phrase = true # Shift+K 进入快捷短语模式
+unicode_mode = true # Shift+U 进入 Unicode 码位输入模式
+date_time_mode = true # Shift+T 进入日期与时间快捷输入模式
+emoji_mode = true # Shift+E 进入 Emoji 快捷输入模式（支持全拼/简拼/双拼/英文）
+kaomoji_mode = true # Shift+M 进入颜文字快捷输入模式（支持全拼/简拼/双拼/英文）
+jianpin_mode = true # Shift+J 进入超级简拼模式（每个字母作为简拼；双拼按方案转换 zh/ch/sh）
+y_mode = true # Shift+Y 进入临时英文模式（中文状态下直接打英文，上屏后回到中文）
+r_mode = true # Shift+R 进入临时日语模式（中文状态下使用罗马字输入日语，上屏后回到中文）
+
+#
+# AI Assistant
+# AI 辅助
+#
+[ai_assistant]
+enabled = true
+provider = "deepseek"
+token = "<YOUR_OWN_DEEPSEEK_TOKEN>"
+token_deepseek = "<YOUR_OWN_DEEPSEEK_TOKEN>"
+token_openai = ""
+token_siliconflow = ""
+token_groq = ""
+endpoint = "https://api.deepseek.com/chat/completions"
+model = "deepseek-v4-flash"
+candidate_limit = 3
+prompt_id = "custom_1"
+prompt = """你是一个中文全拼输入法联想引擎。输入为已经切分好的拼音数组、前文上下文和候选数量。
+
+优先生成与拼音严格对应的中文候选：若有 N 段拼音，首选必须尽量为 N 个汉字，每段拼音对应一个汉字，不得随意增删或改变读音。结合上下文、常用程度、语义完整性和固定搭配排序。
+
+若去掉分词后能明显组成更合理的英文单词、缩写、产品名或技术术语，如 `deep + seek → DeepSeek`、`git + hub → GitHub`，可优先返回英文；不要生造英文或做牵强匹配。
+
+只输出合法 JSON，不要解释或输出 Markdown：
+
+{
+"candidates": [
+{
+"text": "候选内容",
+"type": "chinese或english",
+"confidence": 0.98
+}
+]
+}
+
+候选按推荐程度降序排列，数量不超过指定上限；没有合理结果时返回空数组。"""
+# prompt 是旧版“自定义一”；首次修改后会写入下面的独立槽位。
+prompt_custom_1 = ""
+prompt_custom_2 = ""
+prompt_custom_3 = ""
