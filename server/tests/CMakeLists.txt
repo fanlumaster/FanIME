@@ -3,13 +3,9 @@ set(TEST_EXECUTABLE_NAME "MetasequoiaImeServerTests")
 set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_date_time_query.cpp"
-    "${CMAKE_SOURCE_DIR}/src/date-time/date_time_query.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_emoji_query.cpp"
-    "${CMAKE_SOURCE_DIR}/src/emoji/emoji_query.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_kaomoji_query.cpp"
-    "${CMAKE_SOURCE_DIR}/src/kaomoji/kaomoji_query.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_jianpin_query.cpp"
-    "${CMAKE_SOURCE_DIR}/src/jianpin/jianpin_query.cpp"
     "${CMAKE_SOURCE_DIR}/src/clipboard/clipboard_history.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_kaomoji_sql.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_shuangpin_scheme.cpp"
