@@ -1,6 +1,7 @@
+import { onHostMessage } from '../utils/host-messages';
 import type { SettingsMessage } from '../../../../shared/messages';
 type DictionaryRequest = Extract<SettingsMessage, { type: 'dictionaryRequest' }>['data'];
-import { serializeHostMessage, isServerMessage } from '../../../../shared/messages';
+import { serializeHostMessage } from '../../../../shared/messages';
 import { setupToggleButton } from './shared';
 import { updateConfig } from './config-sync';
 
@@ -155,9 +156,8 @@ export function setupToolsSettings(): void {
     if (event.key === 'Escape' && document.getElementById('quickPhraseModal')?.classList.contains('open')) { event.preventDefault(); closeDialog(); (document.activeElement as HTMLElement | null)?.blur(); }
   });
   window.addEventListener('resize', syncHeader);
-  window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
-    const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (!isServerMessage(payload) || payload.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('quick-')) return;
+  onHostMessage('dictionaryResponse', payload => {
+    if (!payload.requestId.startsWith('quick-')) return;
     const isImport = lastAction === 'import';
     const isExport = lastAction === 'export';
     if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {

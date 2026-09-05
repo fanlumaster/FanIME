@@ -1,4 +1,5 @@
-import { serializeHostMessage, isServerMessage } from '../../../shared/messages';
+import { onHostMessage } from './utils/host-messages';
+import { serializeHostMessage } from '../../../shared/messages';
 import './styles/critical.css';
 
 import { loadHTML, showOnlyCurrentModule } from './utils/common-utils';
@@ -61,39 +62,9 @@ function setupWindowStateSync(): void {
     return;
   }
 
-  window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
-    const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
-    if (!isServerMessage(payload)) {
-      return;
-    }
-
-    if (payload.type !== 'windowState') {
-      return;
-    }
-
-    const nextState = payload.data;
-    if (typeof nextState === 'boolean') {
-      setWindowMaximized(nextState);
-      return;
-    }
-
-    if (typeof nextState === 'string') {
-      setWindowMaximized(nextState === 'maximized');
-      return;
-    }
-
-    if (nextState && typeof nextState.isMaximized === 'boolean') {
-      setWindowMaximized(nextState.isMaximized);
-    }
+  onHostMessage('windowState', payload => {
+    setWindowMaximized(payload.data.isMaximized);
   });
-}
-
-function safeParseJson(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
 }
 
 function setupTitlebarButtons(): void {
@@ -169,16 +140,7 @@ function setupTitlebarButtons(): void {
   };
 
   if (window.chrome?.webview) {
-    window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
-      const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
-      if (!isServerMessage(payload)) {
-        return;
-      }
-
-      if (payload.type !== 'maxButtonEvent') {
-        return;
-      }
-
+    onHostMessage('maxButtonEvent', payload => {
       const eventType = payload.data?.event;
       if (typeof eventType !== 'string') {
         return;
@@ -207,7 +169,7 @@ function setupTitlebarButtons(): void {
 
       if (eventType === 'up') {
         activeBtn.classList.remove('host-active');
-            if (windowState.isMaximized) {
+        if (windowState.isMaximized) {
           postWindowMessage('restore');
         } else {
           postWindowMessage('maximize');

@@ -428,9 +428,10 @@ void PostConfig(bool refresh_skin_catalog = false)
             {"show_qp_helpcode_in_candidate_window", GetConfiguredShowQuanpinHelpcodeInCandidateWindow()}}}}}};
     payload["data"]["voice_input"]["polish_presets"] = std::move(polish_presets);
     payload["protocolVersion"] = metasequoia::webview::Version;
-    if (!metasequoia::webview::Validate(json::parse(payload.dump()), "server"))
+    const std::string serialized = payload.dump();
+    if (!metasequoia::webview::Validate(json::parse(serialized), "server"))
         return;
-    const std::wstring message = string_to_wstring(payload.dump());
+    const std::wstring message = string_to_wstring(serialized);
     g_webview->PostWebMessageAsJson(message.c_str());
 }
 
@@ -440,9 +441,10 @@ void PostWindowState(HWND hwnd)
         return;
     nlohmann::json payload = {{"type", "windowState"}, {"data", {{"isMaximized", IsZoomed(hwnd) != FALSE}}}};
     payload["protocolVersion"] = metasequoia::webview::Version;
-    if (!metasequoia::webview::Validate(json::parse(payload.dump()), "server"))
+    const std::string serialized = payload.dump();
+    if (!metasequoia::webview::Validate(json::parse(serialized), "server"))
         return;
-    const std::wstring message = string_to_wstring(payload.dump());
+    const std::wstring message = string_to_wstring(serialized);
     g_webview->PostWebMessageAsJson(message.c_str());
 }
 
@@ -452,9 +454,10 @@ void PostMaximizeButtonEvent(const char *event_name)
         return;
     nlohmann::json payload = {{"type", "maxButtonEvent"}, {"data", {{"event", event_name}}}};
     payload["protocolVersion"] = metasequoia::webview::Version;
-    if (!metasequoia::webview::Validate(json::parse(payload.dump()), "server"))
+    const std::string serialized = payload.dump();
+    if (!metasequoia::webview::Validate(json::parse(serialized), "server"))
         return;
-    const std::wstring message = string_to_wstring(payload.dump());
+    const std::wstring message = string_to_wstring(serialized);
     g_webview->PostWebMessageAsJson(message.c_str());
 }
 
@@ -794,14 +797,14 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         else if (type == "dictionaryRequest")
         {
             const auto &data = value.at("data").as_object();
-            nlohmann::json response = nlohmann::json::parse(boost::json::serialize(SettingsDictionary::HandleRequest(data)));
-            response["type"] = "dictionaryResponse";
+            json::value response = SettingsDictionary::HandleRequest(data);
+            response.as_object()["type"] = "dictionaryResponse";
             if (const auto *request_id = data.if_contains("requestId"); request_id && request_id->is_string())
-                response["requestId"] = json::value_to<std::string>(*request_id);
-            response["protocolVersion"] = metasequoia::webview::Version;
-            if (!metasequoia::webview::Validate(json::parse(response.dump()), "server"))
+                response.as_object()["requestId"] = json::value_to<std::string>(*request_id);
+            response.as_object()["protocolVersion"] = metasequoia::webview::Version;
+            if (!metasequoia::webview::Validate(response, "server"))
                 return;
-            const std::wstring message = string_to_wstring(response.dump());
+            const std::wstring message = string_to_wstring(json::serialize(response));
             g_webview->PostWebMessageAsJson(message.c_str());
         }
     }

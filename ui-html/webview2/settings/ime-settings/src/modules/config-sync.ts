@@ -1,13 +1,6 @@
-import { serializeHostMessage, isServerMessage } from '../../../../shared/messages';
+import { onHostMessage } from '../utils/host-messages';
+import { serializeHostMessage } from '../../../../shared/messages';
 import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
-
-function safeParseJson(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
 
 let lastSnapshot: Record<string, any> | null = null;
 const readyModules = new Set<string>();
@@ -275,11 +268,7 @@ export function setupConfigSync(): void {
     return;
   }
 
-  window.chrome.webview.addEventListener('message', (event: Event & { data?: any }) => {
-    const payload = typeof event.data === 'string' ? safeParseJson(event.data) : event.data;
-    if (!isServerMessage(payload) || payload.type !== 'configSnapshot') {
-      return;
-    }
+  onHostMessage('configSnapshot', payload => {
     applyConfigData(payload.data ?? {});
   });
 

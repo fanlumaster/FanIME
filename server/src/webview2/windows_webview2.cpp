@@ -1,5 +1,6 @@
 #include "MetasequoiaImeEngine/contracts/webview/validator.h"
 #include "windows_webview2.h"
+#include "webview2/inline_protocol.h"
 #include "webview2/candidate_window_template.h"
 #include "config/ime_config.h"
 #include "defines/globals.h"
@@ -2419,6 +2420,14 @@ int PrepareHtmlForWnds()
                                       L"external-toolbar-skin");
         }
     }
+    // The small windows navigate from strings. Inline the pinned local runtime
+    // before navigation instead of blocking first paint on two virtual-host loads.
+    // Immutable for this process, like the executable's protocol contract.
+    static const std::wstring protocolSchema = ReadHtmlFile(assetPath + L"/html/webview2/shared/schema.js");
+    static const std::wstring protocolRuntime = ReadHtmlFile(assetPath + L"/html/webview2/shared/runtime.js");
+    InlineWebViewProtocolScripts(::HTMLStringCandWnd, protocolSchema, protocolRuntime);
+    InlineWebViewProtocolScripts(::HTMLStringMenuWnd, protocolSchema, protocolRuntime);
+    InlineWebViewProtocolScripts(::HTMLStringFtbWnd, protocolSchema, protocolRuntime);
     preparedCandidateSkin = candidateSkin;
 
     return 0;
@@ -2808,8 +2817,8 @@ HRESULT OnControllerCreatedCandWnd(     //
     // Configure virtual host path
     if (SUCCEEDED(webviewCandWnd->QueryInterface(IID_PPV_ARGS(&webview3CandWnd))))
     {
-        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path()) / GlobalIme::AppName /
-                                   "html" / "webview2" / "shared";
+        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) / GlobalIme::AppName /
+                                   L"html" / L"webview2" / L"shared";
         webview3CandWnd->SetVirtualHostNameToFolderMapping(L"msime-contracts", contractsPath.wstring().c_str(),
                                                            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
 
@@ -3222,8 +3231,8 @@ HRESULT OnControllerCreatedMenuWnd(     //
     // Configure virtual host path
     if (SUCCEEDED(webviewMenuWnd->QueryInterface(IID_PPV_ARGS(&webview3MenuWnd))))
     {
-        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path()) / GlobalIme::AppName /
-                                   "html" / "webview2" / "shared";
+        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) / GlobalIme::AppName /
+                                   L"html" / L"webview2" / L"shared";
         webview3MenuWnd->SetVirtualHostNameToFolderMapping(L"msime-contracts", contractsPath.wstring().c_str(),
                                                            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
 
@@ -4685,8 +4694,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
     // Configure virtual host path
     if (SUCCEEDED(webviewFtbWnd->QueryInterface(IID_PPV_ARGS(&webview3FtbWnd))))
     {
-        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path()) / GlobalIme::AppName /
-                                   "html" / "webview2" / "shared";
+        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) / GlobalIme::AppName /
+                                   L"html" / L"webview2" / L"shared";
         webview3FtbWnd->SetVirtualHostNameToFolderMapping(L"msime-contracts", contractsPath.wstring().c_str(),
                                                           COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
 

@@ -1,6 +1,7 @@
+import { onHostMessage } from '../utils/host-messages';
 import type { SettingsMessage } from '../../../../shared/messages';
 type DictionaryRequest = Extract<SettingsMessage, { type: 'dictionaryRequest' }>['data'];
-import { serializeHostMessage, isServerMessage } from '../../../../shared/messages';
+import { serializeHostMessage } from '../../../../shared/messages';
 type DictionaryType = 'quanpin' | 'wubi' | 'english';
 type DictionaryRow = { code?: string; word: string; weight?: number; display?: string };
 
@@ -221,9 +222,8 @@ export function setupDictionary(): void {
     });
     else post(editing ? 'update' : 'create', { code, word, weight, oldCode: editing?.code, oldWord: editing?.word });
   });
-  window.chrome?.webview?.addEventListener('message', (event: Event & { data?: any }) => {
-    const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (!isServerMessage(payload) || payload.type !== 'dictionaryResponse' || !String(payload.requestId ?? '').startsWith('dict-')) return;
+  onHostMessage('dictionaryResponse', payload => {
+    if (!payload.requestId.startsWith('dict-')) return;
     const isImport = lastAction === 'import' || lastAction === 'importHans';
     const isExport = lastAction === 'export';
     if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {
