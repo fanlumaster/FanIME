@@ -1,5 +1,10 @@
 name: Release
 
+# Building and publishing only ever happens on workflow_dispatch. The code signing certificate
+# has a limited number of signatures, so a release costs something real and is not something a merge
+# to main should spend on its own. The push trigger only keeps release-please's pull request current
+# and green; merging that pull request creates the draft, and dispatching this workflow against the
+# draft's tag is what builds, signs and publishes it.
 on:
   push:
     branches:
@@ -7,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing draft release tag to build and publish, for example v0.0.10
+        description: Draft release tag to build, sign and publish, for example v2026.9.1
         required: true
         type: string
 
@@ -30,13 +35,15 @@ jobs:
     name: Prepare release metadata
     runs-on: ubuntu-24.04
     permissions:
-      # actions: write lets merge-release-pr.sh dispatch ci.yml on the release branch, which is the
+      # actions: write lets check-release-pr.sh dispatch ci.yml on the release branch, which is the
       # only trigger GITHUB_TOKEN is allowed to fire.
       actions: write
       contents: write
       pull-requests: write
     outputs:
-      should_publish: ${{ github.event_name == 'workflow_dispatch' || steps.release.outputs.release_created == 'true' }}
+      # Never true on push: see the comment above the triggers. release-please still creates the
+      # draft release there, it just does not get built until somebody asks for it.
+      should_publish: ${{ github.event_name == 'workflow_dispatch' }}
       tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || steps.release.outputs.tag_name }}
       version: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.version || steps.release.outputs.version }}
       target_sha: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.target_sha || steps.release.outputs.sha }}
@@ -53,12 +60,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and merge the release pull request
+      - name: Test the release pull request
         if: ${{ github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: bash scripts/ci/merge-release-pr.sh
+        run: bash scripts/ci/check-release-pr.sh
 
       - name: Validate requested draft release
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -308,6 +315,10 @@ jobs:
   package:
     name: Package and publish installer
     needs: [prepare, dependencies, tsf, server, ui]
+    # Stated explicitly even though skipped needs would already skip this job. This is the only job
+    # that spends a signature, so the condition that stops it belongs here rather than being a
+    # consequence of four other jobs' conditions that a later edit could quietly undo.
+    if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: windows-2025
     timeout-minutes: 60
     permissions:
