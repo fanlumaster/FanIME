@@ -24,12 +24,12 @@ LINK : fatal error LNK1181: cannot open input file '...\build\vcpkg_installed\x6
 
 ## 测试有 34 个文件，CI 一个都不跑
 
-`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。但**根 `CMakeLists.txt` 完全没有引用 `tests/`**，没有 `add_subdirectory`，`add_test` 数量为 0；`.github/workflows/ci.yml` 也只有 Configure 和 Build，没有 ctest 步骤。
+`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:411` 据此 `add_subdirectory(tests)`，所以这个 target **会被配置、也会被编译**——测试源码里的编译错误照样会让 CI 变红。但 `.github/workflows/ci.yml` 只有 Configure 和 Build 两步，没有 ctest 步骤，所以**编译得到的测试可执行文件从来没有被运行过**。
 
 后果：
 
-- 往 `tests/src/` 加用例，PR 的绿勾只代表 Server 能编译，不代表测试跑过
-- 跨仓 AGENTS.md 要求改 IPC 协议后运行 `tests/src/test_ipc_protocol_constants.cpp`，那要手动构建 `tests/` 这个独立工程
+- 往 `tests/src/` 加用例，PR 的绿勾只代表用例能编译，不代表断言通过
+- 跨仓 AGENTS.md 要求改 IPC 协议后运行 `tests/src/test_ipc_protocol_constants.cpp`，得自己跑，CI 不会替你跑
 - `src/ipc/ipc.h` 里有 14 条 `static_assert` 守着协议 ABI，那些是编译期的，会随主工程一起检查；测试里的其余断言不会
 
 改了协议或候选逻辑，手动跑一次测试工程，不要依赖 CI。
@@ -52,7 +52,11 @@ Boost 是静态链接但没有写进 `vcpkg.json`，所以只能用 classic 模�
 
 ## 生成文件
 
-`scripts/prepare_env.py` 会覆盖根目录的 `.clangd`、`CMakeLists.txt` 和 `CMakePresets.json`。长期改动要同步到 `scripts/config_files/` 下的同名模板，否则下次生成就丢了。该脚本按固定行号替换模板内容，调整模板前要一起检查脚本索引。
+`scripts/prepare_env.py` 只生成两个文件：根目录的 `.clangd`（从 `scripts/config_files/.clangd` 模板展开），以及 `tests/CMakePresets.json`（从 `scripts/config_files/tests/CMakePresets.json` 展开，那个文件不入版本库，模板是唯一的一份）。`CMakePresets.json` 是**原地**改写 `VCPKG_ROOT` 与 `CMAKE_TOOLCHAIN_FILE`，不再从模板覆盖。
+
+`CMakeLists.txt` 和 `tests/CMakeLists.txt` 不再由脚本生成，直接改就行。这两个文件曾经也是从 `scripts/config_files/` 覆盖过来的，但模板早已落后到 147 行对 400 行、以及一个无关的通用 `WinCppTemplate`，跑一次脚本就会毁掉构建，因此模板已删除。
+
+`.clangd` 模板用 `@NAME@` 占位符，不再按固定行号替换——旧的行号索引已经漂移过一次，把 Boost 路径写到了 WebView2 的 include 上。新增 include 时在模板里加占位符、并在脚本的 `clangd_substitutions` 里补上对应项即可；有占位符没被替换脚本会直接报错。
 
 ## 提交
 

@@ -1,9 +1,9 @@
 [submodule "MetasequoiaImeEngine"]
 	path = MetasequoiaImeEngine
-	url = https://github.com/metasequoiaime/MetasequoiaImeEngine.git
+	url = https://github.com/metasequoiaime/MSIME-Engine.git
 [submodule "msimeui"]
 	path = msimeui
-	url = https://github.com/metasequoiaime/msimeui.git
+	url = https://github.com/metasequoiaime/MSIME-UI.git
 [submodule "opencc"]
 	path = opencc
 	url = https://github.com/byvoid/opencc.git
