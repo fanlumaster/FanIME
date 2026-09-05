@@ -53,11 +53,7 @@ wim_path = normpath(
         "include",
     )
 )
-# Boost location. CMakeLists.txt already honours the BOOST_ROOT environment
-# variable; mirror that here instead of assuming a Scoop install.
-boost_path = normpath(
-    os.environ.get("BOOST_ROOT") or os.path.join(user_home, "scoop", "apps", "boost", "current")
-).rstrip("/")
+boost_path = normpath(os.path.join(user_home, "scoop", "apps", "boost", "current"))
 
 #
 # project_root/.clangd
