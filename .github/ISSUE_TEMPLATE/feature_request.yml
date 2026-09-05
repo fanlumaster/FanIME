@@ -18,12 +18,12 @@ body:
       description: 该功能主要涉及哪个部分？Which part does this mainly involve?
       multiple: true
       options:
-        - TSF 前端 / MetasequoiaImeTsf
-        - Server / 引擎服务 / MetasequoiaImeServer
+        - TSF 前端 / MSIME-Windows
+        - Server / 引擎服务 / MSIME-Server
         - 设置界面 / Settings
         - 候选窗 UI / Candidate UI
-        - 词典 / MetasequoiaImeDict
-        - 辅助码 / MetasequoiaImeHelpCode
+        - 词典 / MSIME-Dict
+        - 辅助码 / MSIME-HelpCode
         - 安装器 / Installer
         - 文档 / 官网
         - 不确定 / Not sure
