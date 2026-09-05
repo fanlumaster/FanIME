@@ -3,7 +3,7 @@
   "repositories": {
     "server": {
       "repository": "metasequoiaime/MSIME-Server",
-      "commit": "8680f8580615d9e226f8d79dc4887d06f9e28999"
+      "commit": "f07b9307831ac57a629410a344929b4079d9f836"
     },
     "ui": {
       "repository": "metasequoiaime/MSIME-UiHtml",
