@@ -26,3 +26,4 @@ Copy-Item (Join-Path $server 'assets/config/config.toml') -Destination $data -Fo
 $env:METASEQUOIA_IME_DATA_DIR = $data
 ctest --test-dir (Join-Path $server $BuildDir) -C Release --output-on-failure --timeout 120
 if ($LASTEXITCODE -ne 0) { throw 'Server integration tests failed for the locked product' }
+& (Join-Path $PSScriptRoot 'probe-server.ps1') -ServerRoot $server -BuildDir $BuildDir
