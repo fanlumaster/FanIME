@@ -19,8 +19,18 @@ Registrar::Registrar(const char *name, std::function<void()> fn)
 
 int main()
 {
+    const auto &tests = test::registry();
+
+    // A suite that registers nothing would otherwise exit successfully and look
+    // exactly like a suite that passed, which is worse than having no suite.
+    if (tests.empty())
+    {
+        std::printf("No tests were registered.\n");
+        return 1;
+    }
+
     int failures = 0;
-    for (const auto &test_case : test::registry())
+    for (const auto &test_case : tests)
     {
         try
         {
@@ -34,6 +44,6 @@ int main()
         }
     }
 
-    std::printf("%d test(s) failed\n", failures);
+    std::printf("%zu test(s) run, %d failed\n", tests.size(), failures);
     return failures == 0 ? 0 : 1;
 }

@@ -23,4 +23,4 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test
         shell: pwsh
-        run: ctest --test-dir build -C Release --output-on-failure --timeout 60
+        run: ctest --test-dir build -C Release --verbose --timeout 60
