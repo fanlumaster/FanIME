@@ -325,9 +325,6 @@ jobs:
       contents: write
     env:
       DICTIONARY_TAG: ${{ needs.dependencies.outputs.dictionary_tag }}
-      # jrsoftware/issrc pinned by commit, with the checksum of the file at that commit.
-      ISL_URL: https://raw.githubusercontent.com/jrsoftware/issrc/1ae7bf81dc0d2013235dfe4bb0b6f4e4a0b6b25c/Files/Languages/ChineseSimplified.isl
-      ISL_SHA256: e0b0b350e2245f3c5e65586dfe43d574f6e7f06f2261149aba284954b3fc9a8d
     steps:
       - name: Check out MSIME-Windows at the release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

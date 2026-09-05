@@ -55,3 +55,28 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test the wire contract on this architecture
         run: ctest --test-dir build -C Release --output-on-failure
+
+      # The release job's only Inno Setup input is this language file, and it landed next to the
+      # Chocolatey shim instead of in the Inno Setup installation for eight releases in a row: the
+      # script reported success and packaging failed later with an unrelated-looking include error.
+      # Compiling a script that resolves compiler:Languages\ChineseSimplified.isl is the assertion
+      # that the file is somewhere ISCC actually looks, and it costs seconds on an image that
+      # already has Inno Setup. Architecture-independent, so it runs once.
+      - name: Check the installer language file lands where ISCC looks
+        if: ${{ matrix.name == 'x64' }}
+        shell: pwsh
+        run: |
+          ./scripts/ci/install-inno-language.ps1
+          $probe = Join-Path $env:RUNNER_TEMP 'language-probe.iss'
+          @(
+            '[Setup]'
+            'AppName=Language probe'
+            'AppVersion=1.0'
+            'DefaultDirName={autopf}\LanguageProbe'
+            "OutputDir=$env:RUNNER_TEMP"
+            'OutputBaseFilename=language-probe'
+            '[Languages]'
+            'Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"'
+          ) | Set-Content -Path $probe -Encoding UTF8
+          ISCC.exe $probe
+          if ($LASTEXITCODE -ne 0) { throw "ISCC could not resolve compiler:Languages\ChineseSimplified.isl" }
