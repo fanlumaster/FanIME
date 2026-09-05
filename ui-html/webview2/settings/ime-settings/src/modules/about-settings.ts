@@ -2,7 +2,7 @@ import { updateConfig } from './config-sync';
 import { setupToggleButton } from './shared';
 
 const UPDATE_MANIFEST_URL = 'https://msime.app/update.json';
-const RELEASES_PAGE_URL = 'https://github.com/metasequoiaime/MetasequoiaImeTsf/releases';
+const RELEASES_PAGE_URL = 'https://github.com/metasequoiaime/MSIME-Windows/releases';
 const REQUEST_TIMEOUT_MS = 10000;
 
 type UpdateManifest = {
