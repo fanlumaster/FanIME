@@ -53,7 +53,6 @@ wim_path = normpath(
         "include",
     )
 )
-boost_path = normpath(os.path.join(user_home, "scoop", "apps", "boost", "current"))
 
 #
 # project_root/.clangd
