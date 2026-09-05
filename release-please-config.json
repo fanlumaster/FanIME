@@ -3,7 +3,6 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "versioning": "always-bump-patch",
       "package-name": "MetasequoiaImeWindows",
       "include-component-in-tag": false,
       "include-v-in-tag": true,
