@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.15](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.14...v0.0.15) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ci:** take the release scripts from the default branch, not the built commit ([ca87304](https://github.com/metasequoiaime/MSIME-Windows/commit/ca87304f0df71f0aacde4c0ff4a3ab6db6547669))
+
 ## [0.0.14](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.13...v0.0.14) (2026-09-05)
 
 
