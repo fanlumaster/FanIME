@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.12](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.11...v0.0.12) (2026-09-05)
+
+
+### Bug Fixes
+
+* **scripts:** read the vcpkg root from the environment ([0259f7a](https://github.com/metasequoiaime/MSIME-Windows/commit/0259f7a9c57d29445f91896662c31f616e0ab7b0))
+
 ## [0.0.11](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.10...v0.0.11) (2026-09-05)
 
 
