@@ -521,8 +521,7 @@ bool CMetasequoiaIME::_MatchChordInputHotkey(WPARAM wParam,
 }
 
 bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam,
-                                                   _Out_ GUID *hotkeyGuid,
-                                                   bool peekOnly)
+                                                   _Out_ GUID *hotkeyGuid)
 {
     if (hotkeyGuid == nullptr)
     {
@@ -536,11 +535,8 @@ bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam,
     if (IsShiftVk(code) && _shiftHotkeyArmed && Global::PureShiftKeyUp)
     {
         const bool fire = now < _modifierHotkeyExpire && hotkeys.shift;
-        if (!peekOnly)
-        {
-            _shiftHotkeyArmed = false;
-            _ctrlHotkeyArmed = false;
-        }
+        _shiftHotkeyArmed = false;
+        _ctrlHotkeyArmed = false;
         if (fire)
         {
             *hotkeyGuid = Global::MetasequoiaIMEGuidImeModePreserveKey;
@@ -552,11 +548,8 @@ bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam,
     if (IsControlVk(code) && _ctrlHotkeyArmed && Global::IsControlKeyDownOnly)
     {
         const bool fire = now < _modifierHotkeyExpire && hotkeys.ctrl;
-        if (!peekOnly)
-        {
-            _shiftHotkeyArmed = false;
-            _ctrlHotkeyArmed = false;
-        }
+        _shiftHotkeyArmed = false;
+        _ctrlHotkeyArmed = false;
         if (fire)
         {
             *hotkeyGuid = Global::MetasequoiaIMEGuidImeModePreserveKey03;
@@ -2476,7 +2469,7 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
         // queue the bare-Shift toggle here while leaving its release visible.
         GUID hotkeyGuid = {};
         BOOL queued = FALSE;
-        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false) &&
+        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid) &&
             _QueueInputHotkey(pContext, hotkeyGuid, &queued))
         {
             _MarkMinttyShiftHandled();
@@ -2496,9 +2489,18 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
     }
 
     GUID hotkeyGuid = {};
-    if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, true))
+    if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid))
     {
-        *pIsEaten = TRUE;
+        // A bare Ctrl release that toggles the input mode; Shift returned
+        // above. Same rule as the Shift branch: the toggle does not need to
+        // own the keystroke, and a host that keys off the release loses its
+        // own shortcut when it is eaten (double-Ctrl is Run Anything in
+        // JetBrains IDEs). Report the key as not eaten -- which also means
+        // OnKeyUp will not be called, so queue the toggle here instead of
+        // peeking.
+        BOOL hotkeyQueued = FALSE;
+        (void)_QueueInputHotkey(pContext, hotkeyGuid, &hotkeyQueued);
+        *pIsEaten = FALSE;
         return S_OK;
     }
 
@@ -2538,7 +2540,7 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
         // Defend against hosts that offer KeyUp without a preceding test.
         GUID hotkeyGuid = {};
         BOOL queued = FALSE;
-        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false) &&
+        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid) &&
             _QueueInputHotkey(pContext, hotkeyGuid, &queued))
         {
             _MarkMinttyShiftHandled();
@@ -2555,14 +2557,15 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
     }
 
     GUID hotkeyGuid = {};
-    if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid, false))
+    if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid))
     {
-        if (_QueueInputHotkey(pContext, hotkeyGuid, pIsEaten) &&
-            IsEqualGUID(hotkeyGuid,
-                        Global::MetasequoiaIMEGuidImeModePreserveKey))
-        {
-            _MarkMinttyShiftHandled();
-        }
+        // Ctrl again; OnTestKeyUp normally ran the toggle and disarmed
+        // already, so this only fires for hosts that call KeyUp without
+        // TestKeyUp. Same rule as there: run the toggle, hand the release
+        // back to the host.
+        BOOL hotkeyQueued = FALSE;
+        (void)_QueueInputHotkey(pContext, hotkeyGuid, &hotkeyQueued);
+        *pIsEaten = FALSE;
         return S_OK;
     }
 
