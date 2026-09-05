@@ -1,0 +1,15 @@
+# Build and package outputs (collected locally, not part of this repo)
+Output/
+server_exe/
+tsf_dll/
+app_data/
+MetasequoiaIME.ico
+/THIRD_PARTY_NOTICES.txt
+
+# Local test certificates (generated on each machine)
+*.cer
+*.crt
+*.pfx
+*.p12
+*.pvk
+*.spc
