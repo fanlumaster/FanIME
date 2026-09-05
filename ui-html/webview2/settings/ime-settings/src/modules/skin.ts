@@ -1,3 +1,7 @@
+let skinInitialized = false;
+let catalogKey = '';
+let styleGeneration = 0;
+const styleLoads = new Map<string, Promise<void>>();
 import { serializeHostMessage } from '../../../../shared/messages';
 import { loadHTML } from '../utils/common-utils';
 import ftbHTML from '../../../../ftb/default.html?raw';
@@ -138,26 +142,30 @@ function candidatePreviewCss(skin: ExternalSkin): string {
   return css;
 }
 
-async function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined, styleId: string, force = false): Promise<void> {
-  if (!stylesheet) return;
-  if (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId)) return;
-  try {
-    const response = await fetch(resourceUrl(skin.id, stylesheet), { cache: 'no-store' });
-    if (!response.ok) return;
-    const css = rewriteSkinCssUrls(await response.text(), skin.id).replace(/:root\b/g, ':scope');
-    const scoped = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
-    let style = document.getElementById(styleId) as HTMLStyleElement | null;
-    if (!style) {
-      style = document.createElement('style');
-      style.id = styleId;
-      style.dataset.externalSkinStyle = skin.id;
-      document.head.appendChild(style);
+function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined, styleId: string, force = false): Promise<void> {
+  if (!stylesheet || (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId))) return Promise.resolve();
+  const pending = styleLoads.get(styleId);
+  if (pending) return pending;
+  const generation = styleGeneration;
+  const task = (async () => {
+    try {
+      const response = await fetch(resourceUrl(skin.id, stylesheet), { cache: 'no-store' });
+      if (!response.ok) return;
+      const css = rewriteSkinCssUrls(await response.text(), skin.id).replace(/:root\b/g, ':scope');
+      if (generation !== styleGeneration) return;
+      let style = document.getElementById(styleId) as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement('style'); style.id = styleId;
+        style.dataset.externalSkinStyle = skin.id; document.head.appendChild(style);
+      }
+      style.textContent = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
+      loadedExternalStyleIds.add(styleId);
+    } catch {
+      // Keep the inherited built-in preview if a stylesheet is unavailable.
     }
-    style.textContent = scoped;
-    loadedExternalStyleIds.add(styleId);
-  } catch {
-    // Preview stays on the inherited built-in base if the stylesheet cannot load.
-  }
+  })().finally(() => { if (styleLoads.get(styleId) === task) styleLoads.delete(styleId); });
+  styleLoads.set(styleId, task);
+  return task;
 }
 
 function injectGeneratedCandidateCss(skin: ExternalSkin, force = false): void {
@@ -183,6 +191,8 @@ async function ensureExternalSkinStyle(skin: ExternalSkin, force = false): Promi
 }
 
 function resetExternalSkinStyles(): void {
+  styleGeneration++;
+  styleLoads.clear();
   document.querySelectorAll('style[data-external-skin-style]').forEach((node) => node.remove());
   loadedExternalStyleIds.clear();
 }
@@ -302,6 +312,7 @@ function bindSkinSwitch(element: HTMLElement, skinId: string, enabled: boolean):
 }
 
 function renderExternalSkins(): void {
+  if (!skinInitialized) return;
   const list = document.getElementById('externalSkinList');
   const empty = document.getElementById('externalSkinEmpty');
   const directory = document.getElementById('externalSkinDirectory');
@@ -389,7 +400,7 @@ function renderExternalSkins(): void {
     previews.append(horizontal, vertical, toolbar);
 
     card.append(header, previews);
-    void ensureExternalSkinStyle(skin, true).then(() => applyExternalCardTheme(skin));
+    void ensureExternalSkinStyle(skin).then(() => applyExternalCardTheme(skin));
     return card;
   }));
   empty.textContent = catalogScanned ? '没有发现外部皮肤。' : '尚未扫描。点击“刷新皮肤”读取皮肤目录。';
@@ -416,6 +427,9 @@ function renderExternalSkins(): void {
 export function applyCandidateSkinCatalog(
   skins: unknown, issues: unknown, directory: unknown, scanned: unknown, revision: unknown
 ): void {
+  const key = JSON.stringify([skins, issues, directory, scanned, revision]);
+  if (key === catalogKey) return;
+  catalogKey = key;
   const nextRevision = typeof revision === 'number' && Number.isFinite(revision) ? revision : 0;
   if (nextRevision !== catalogRevision) resetExternalSkinStyles();
   externalSkins = Array.isArray(skins) ? skins.filter((skin): skin is ExternalSkin =>
@@ -449,7 +463,6 @@ export function syncSkinPreviewTheme(theme: SkinPreviewTheme): void {
 }
 
 export async function setupSkin(): Promise<void> {
-  resetExternalSkinStyles();
   previewHorizontalHtml = await loadHTML('/src/partials/candidate/candidate-wnd-h.html');
   previewVerticalHtml = await loadHTML('/src/partials/candidate/candidate-wnd-v.html');
   document.querySelectorAll<HTMLElement>('[data-skin-horizontal]').forEach((host) => {
@@ -459,6 +472,7 @@ export async function setupSkin(): Promise<void> {
     host.innerHTML = previewVerticalHtml; limitCandidatePreview(host);
   });
   document.querySelectorAll<HTMLElement>('[data-skin-toolbar]').forEach(fillToolbar);
+  skinInitialized = true;
   BUILTIN_SKINS.forEach((skin) => applyBuiltinCardTheme(skin, resolvedPreviewTheme(skin)));
   syncSkinSwitches();
   syncAppearancePreviews();

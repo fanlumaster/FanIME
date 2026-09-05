@@ -1,5 +1,4 @@
 #include "settings/settings_splash.h"
-#include "config/ime_config.h"
 
 #include <d2d1.h>
 #include <d2d1helper.h>
@@ -46,11 +45,6 @@ bool g_close_hover = false;
 float g_phase = 0.0f;
 ULONGLONG g_last_tick = 0;
 
-bool IsLightTheme()
-{
-    return ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
-}
-
 void ReleaseDeviceResources()
 {
     g_text_brush.Reset();
@@ -76,7 +70,7 @@ void ApplyNativeChrome(HWND hwnd)
     DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
 
-    const BOOL dark = IsLightTheme() ? FALSE : TRUE;
+    const BOOL dark = g_light ? FALSE : TRUE;
     DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
 
     DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_NONE;
@@ -145,7 +139,6 @@ HRESULT EnsureRenderTarget()
         D2D1::HwndRenderTargetProperties(g_hwnd, D2D1::SizeU(width, height)), &g_rt);
     if (FAILED(hr)) return hr;
 
-    g_light = IsLightTheme();
     const D2D1_COLOR_F text = g_light ? D2D1::ColorF(0x1A1A1A) : D2D1::ColorF(0xF0F0F0);
     const D2D1_COLOR_F muted = g_light ? D2D1::ColorF(0x6B6B6B) : D2D1::ColorF(0xA8A8A8);
     const D2D1_COLOR_F accent = g_light ? D2D1::ColorF(0x7A3E91) : D2D1::ColorF(0xD88BDE);
@@ -342,8 +335,17 @@ ATOM RegisterSplashClass(HINSTANCE instance)
 
 namespace SettingsSplash
 {
-bool Show(HWND owner)
+void SetTheme(bool light)
 {
+    if (g_light == light) return;
+    g_light = light;
+    ReleaseDeviceResources();
+    if (g_hwnd) { ApplyNativeChrome(g_hwnd); InvalidateRect(g_hwnd, nullptr, FALSE); }
+}
+
+bool Show(HWND owner, bool light)
+{
+    g_light = light;
     if (!owner) return false;
     if (g_hwnd && IsWindow(g_hwnd))
     {

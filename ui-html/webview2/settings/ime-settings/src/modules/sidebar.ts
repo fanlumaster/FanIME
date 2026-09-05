@@ -6,7 +6,6 @@ const BACKGROUND_MODULES = [
   'helpcode',
   'shortcut',
   'dict',
-  'skin',
   'voice',
   'screenkb-settings',
   'handwriting-settings',

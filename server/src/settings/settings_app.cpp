@@ -5,6 +5,9 @@
 #include "settings/settings_launcher.h"
 #include "settings/settings_splash.h"
 #include "settings/dictionary_manager.h"
+#include "settings/serial_task_queue.h"
+#include <memory>
+#include <stdexcept>
 #include "skin/candidate_skin_catalog.h"
 #include "utils/common_utils.h"
 #include "utils/single_instance.h"
@@ -47,6 +50,7 @@ constexpr wchar_t kSingleInstanceMutex[] = L"Local\\MetasequoiaImeSettings.Singl
 constexpr UINT kActivateExistingWindow = WM_APP + 1;
 constexpr UINT kOpenAboutSection = WM_APP + 2;
 constexpr UINT kScanSkinCatalog = WM_APP + 3;
+constexpr UINT kWorkerCompleted = WM_APP + 4;
 constexpr UINT_PTR kConfigReloadTimer = 1;
 
 ComPtr<ICoreWebView2Controller> g_controller;
@@ -67,6 +71,14 @@ bool g_webview_content_started = false;
 HWND g_settings_hwnd = nullptr;
 std::optional<CandidateSkinCatalog::ScanResult> g_candidate_skin_catalog;
 uint64_t g_candidate_skin_catalog_revision = 0;
+std::unique_ptr<SerialTaskQueue> g_worker;
+bool g_closing = false;
+bool g_reload_pending = false;
+bool g_settings_light = false;
+std::wstring g_last_config_message;
+bool g_worker_com_initialized = false; // worker-only
+void CloseSettings(HWND hwnd);
+
 
 nlohmann::json CandidateColorsToJson(const CandidateSkinCatalog::CandidateColors &colors)
 {
@@ -173,7 +185,7 @@ void ApplyWindowActivationAppearance()
 void ApplySettingsChromeTheme(HWND hwnd = nullptr)
 {
     const HWND target = hwnd ? hwnd : g_settings_hwnd;
-    const bool light = ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+    const bool light = g_settings_light;
     if (target)
     {
         BOOL dark = light ? FALSE : TRUE;
@@ -235,10 +247,8 @@ void ResetTitlebarHoverAfterVisibilityChange()
     })())JS", nullptr);
 }
 
-void PostConfig(bool refresh_skin_catalog = false)
+std::wstring BuildConfigMessage(bool refresh_skin_catalog)
 {
-    if (!g_webview)
-        return;
 
     const VoiceInputConfig &voice = GetConfiguredVoiceInput();
     const AiAssistantConfig &ai = GetConfiguredAiAssistant();
@@ -430,9 +440,30 @@ void PostConfig(bool refresh_skin_catalog = false)
     payload["protocolVersion"] = metasequoia::webview::Version;
     const std::string serialized = payload.dump();
     if (!metasequoia::webview::Validate(json::parse(serialized), "server"))
-        return;
-    const std::wstring message = string_to_wstring(serialized);
-    g_webview->PostWebMessageAsJson(message.c_str());
+        throw std::runtime_error("Invalid config snapshot");
+    return string_to_wstring(serialized);
+}
+
+SerialTaskQueue::Completion ConfigCompletion(bool refresh_skin_catalog = false)
+{
+    auto message = BuildConfigMessage(refresh_skin_catalog);
+    const bool light = ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+    return [message = std::move(message), light] {
+        g_settings_light = light;
+        ApplySettingsChromeTheme();
+        SettingsSplash::SetTheme(light);
+        if (g_webview && message != g_last_config_message)
+        {
+            if (SUCCEEDED(g_webview->PostWebMessageAsJson(message.c_str())))
+                g_last_config_message = message;
+        }
+    };
+}
+
+void PostConfig(bool refresh_skin_catalog = false)
+{
+    if (!g_worker || g_closing) return;
+    g_worker->Submit([refresh_skin_catalog] { return ConfigCompletion(refresh_skin_catalog); });
 }
 
 void PostWindowState(HWND hwnd)
@@ -699,6 +730,7 @@ bool CopyTextToClipboard(HWND hwnd, const std::wstring &text)
 
 void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
 {
+    if (g_closing || !g_worker) return;
     wil::unique_cotaskmem_string raw;
     if (FAILED(args->TryGetWebMessageAsString(&raw)) || !raw)
         return;
@@ -733,7 +765,7 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
             if (command == "minimize") ShowWindow(hwnd, SW_MINIMIZE);
             else if (command == "maximize") ShowWindow(hwnd, SW_MAXIMIZE);
             else if (command == "restore") ShowWindow(hwnd, SW_RESTORE);
-            else if (command == "close") DestroyWindow(hwnd);
+            else if (command == "close") CloseSettings(hwnd);
         }
         else if (type == "maximizeButtonRect")
         {
@@ -757,8 +789,11 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "skinCatalogRequest")
         {
-            PostConfig(true);
-            NotifyImeServerCandidateSkinRefresh();
+            g_worker->Submit([] {
+                auto completion = ConfigCompletion(true);
+                NotifyImeServerCandidateSkinRefresh();
+                return completion;
+            });
         }
         else if (type == "openSkinDirectory")
         {
@@ -768,13 +803,17 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
             std::filesystem::create_directories(skins, ec);
             if (!ec) ShellExecuteW(hwnd, L"open", skins.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
-        else if (type == "configUpdate" && ApplyConfigUpdate(value.at("data").as_object()))
+        else if (type == "configUpdate")
         {
-            const auto &data = value.at("data").as_object();
-            const std::string path = json::value_to<std::string>(data.at("path"));
-            if (path == "appearance.theme_mode" || path == "appearance.theme_settings")
-                ApplySettingsChromeTheme(hwnd);
-            PostConfig();
+            const auto data = value.at("data").as_object();
+            g_worker->Submit([data] {
+                const bool saved = ApplyConfigUpdate(data);
+                auto completion = ConfigCompletion();
+                return [saved, completion = std::move(completion)] {
+                    completion();
+                    if (!saved) MessageBoxW(g_settings_hwnd, L"设置保存失败，请重试。", L"水杉输入法", MB_OK | MB_ICONWARNING);
+                };
+            });
         }
         else if (type == "openKeyboardPanel")
         {
@@ -796,16 +835,24 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "dictionaryRequest")
         {
-            const auto &data = value.at("data").as_object();
-            json::value response = SettingsDictionary::HandleRequest(data);
-            response.as_object()["type"] = "dictionaryResponse";
-            if (const auto *request_id = data.if_contains("requestId"); request_id && request_id->is_string())
-                response.as_object()["requestId"] = json::value_to<std::string>(*request_id);
-            response.as_object()["protocolVersion"] = metasequoia::webview::Version;
-            if (!metasequoia::webview::Validate(response, "server"))
-                return;
-            const std::wstring message = string_to_wstring(json::serialize(response));
-            g_webview->PostWebMessageAsJson(message.c_str());
+            const auto data = value.at("data").as_object();
+            g_worker->Submit([data]() -> SerialTaskQueue::Completion {
+                json::value response;
+                try { response = SettingsDictionary::HandleRequest(data); }
+                catch (...) { response = json::object{{"ok", false}, {"message", "词库操作失败，请重试"}, {"rows", json::array{}}}; }
+                auto &object = response.as_object();
+                object["type"] = "dictionaryResponse";
+                object["requestId"] = data.at("requestId");
+                object["action"] = data.at("action");
+                object["dictionary"] = data.at("dictionary");
+                object["protocolVersion"] = metasequoia::webview::Version;
+                if (!metasequoia::webview::Validate(response, "server"))
+                    throw std::runtime_error("Invalid dictionary response");
+                auto message = string_to_wstring(json::serialize(response));
+                return [message = std::move(message)] {
+                    if (g_webview) g_webview->PostWebMessageAsJson(message.c_str());
+                };
+            });
         }
     }
     catch (const std::exception &)
@@ -883,6 +930,7 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
     g_webview->add_ContentLoading(
         Callback<ICoreWebView2ContentLoadingEventHandler>(
             [](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
+                g_last_config_message.clear();
                 g_webview_content_started = true;
                 SettingsSplash::Dismiss();
                 return S_OK;
@@ -1027,10 +1075,22 @@ int TopNonClientInset(HWND hwnd)
 
 void ActivateWindow(HWND hwnd)
 {
+    if (g_closing) return;
     if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
     else ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
     SetFocus(hwnd);
+}
+
+void CloseSettings(HWND hwnd)
+{
+    if (g_closing) return;
+    g_closing = true;
+    KillTimer(hwnd, kConfigReloadTimer);
+    SettingsSplash::Dismiss();
+    ShowWindow(hwnd, SW_HIDE);
+    if (g_worker) g_worker->Stop();
+    else DestroyWindow(hwnd);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_param)
@@ -1138,7 +1198,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
     {
         RECT client{};
         GetClientRect(hwnd, &client);
-        const bool light = ResolveConfiguredTheme(GetConfiguredThemeSettings()) == "light";
+        const bool light = g_settings_light;
         HBRUSH brush = CreateSolidBrush(light ? RGB(243, 243, 243) : RGB(32, 32, 32));
         FillRect(reinterpret_cast<HDC>(w_param), &client, brush);
         DeleteObject(brush);
@@ -1168,16 +1228,33 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         break;
     }
     case WM_TIMER:
-        if (w_param == kConfigReloadTimer && ReloadImeConfigIfChanged())
+        if (w_param == kConfigReloadTimer && g_worker && !g_closing && !g_reload_pending)
         {
-            ApplySettingsChromeTheme(hwnd);
-            PostConfig();
+            g_reload_pending = true;
+            g_worker->Submit([] {
+                SerialTaskQueue::Completion completion;
+                try { if (ReloadImeConfigIfChanged()) completion = ConfigCompletion(); }
+                catch (...) { /* Retry on the next timer tick; do not poison the queue. */ }
+                return [completion = std::move(completion)] {
+                    g_reload_pending = false;
+                    if (completion) completion();
+                };
+            });
+        }
+        return 0;
+    case kWorkerCompleted:
+        if (g_worker)
+        {
+            g_worker->Drain(!g_closing);
+            if (g_closing && g_worker->Stopped()) DestroyWindow(hwnd);
         }
         return 0;
     case WM_CLOSE:
-        DestroyWindow(hwnd);
+        CloseSettings(hwnd);
         return 0;
     case WM_DESTROY:
+        g_closing = true;
+        if (g_worker) g_worker->Stop();
         KillTimer(hwnd, kConfigReloadTimer);
         SettingsSplash::Dismiss();
         g_webview.Reset();
@@ -1214,7 +1291,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
         return 0;
     }
 
-    InitImeConfig();
     WNDCLASSEXW window_class{sizeof(window_class)};
     window_class.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
     window_class.lpfnWndProc = WindowProc;
@@ -1235,6 +1311,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
                                 x, y, width, height, nullptr, nullptr, instance, nullptr);
     if (!hwnd) return 1;
     g_settings_hwnd = hwnd;
+    g_worker = std::make_unique<SerialTaskQueue>([hwnd] { PostMessageW(hwnd, kWorkerCompleted, 0, 0); },
+        [] { MessageBoxW(g_settings_hwnd, L"设置操作失败，请重试。", L"水杉输入法", MB_OK | MB_ICONWARNING); },
+        [] { if (g_worker_com_initialized) CoUninitialize(); });
+    g_worker->Submit([] {
+        g_worker_com_initialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
+        InitImeConfig();
+        return ConfigCompletion();
+    });
 
     DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
     DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_NONE;
@@ -1254,7 +1338,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     InitWebView(hwnd);
     ShowWindow(hwnd, show_command == SW_HIDE ? SW_SHOWNORMAL : show_command);
     UpdateWindow(hwnd);
-    SettingsSplash::Show(hwnd);
+    SettingsSplash::Show(hwnd, g_settings_light);
     if (g_webview_content_started)
         SettingsSplash::Dismiss();
 
@@ -1264,6 +1348,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
+    g_worker.reset(); // Drain accepted writes even if the window was destroyed externally.
     CoUninitialize();
     return static_cast<int>(message.wParam);
 }

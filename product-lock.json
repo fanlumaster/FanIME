@@ -7,7 +7,7 @@
     },
     "engine": {
       "repository": "metasequoiaime/MSIME-Engine",
-      "commit": "6bd22549d6e275e401052c55cca6c57fe8408819"
+      "commit": "403b4a4d72b0ab5110155aeb4a1f0c170730fc7b"
     }
   },
   "dictionary": {

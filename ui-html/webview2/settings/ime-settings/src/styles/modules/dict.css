@@ -400,3 +400,6 @@ html[data-theme="dark"] .dict-toast.error .dict-toast-icon {
 .dict-toast-close:focus {
   outline: none;
 }
+
+.dict-pagination { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
+.dict-pagination button:disabled { opacity: .45; cursor: default; }

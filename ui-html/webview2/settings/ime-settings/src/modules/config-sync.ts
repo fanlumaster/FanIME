@@ -1,22 +1,32 @@
 import { onHostMessage } from '../utils/host-messages';
 import { serializeHostMessage } from '../../../../shared/messages';
-import { applyCandidateArrange, applyDropdownValue, applyToggleState } from './shared';
+import { applyCandidateArrange, applyDropdownValue as applyDropdown, applyToggleState as applyToggle } from './shared';
 
 let lastSnapshot: Record<string, any> | null = null;
 const readyModules = new Set<string>();
 
 export function notifySettingsModuleReady(name: string): void {
   readyModules.add(name);
-  if (lastSnapshot) applyConfigData(lastSnapshot);
+  if (lastSnapshot) applyConfigData(lastSnapshot, name);
 }
 
-function applyConfigData(data: Record<string, any>): void {
+function applyConfigData(data: Record<string, any>, target?: string): void {
+  const applies = (name: string) => readyModules.has(name) && (!target || target === name);
+  const findElement = (id: string) => {
+    const element = document.getElementById(id);
+    return !target || (element && document.getElementById(target)?.contains(element)) ? element : null;
+  };
+  const applyToggleState = (id: string, value: boolean) => { if (findElement(id)) applyToggle(id, value); };
+  const applyDropdownValue = (id: string, menu: string, value: string | undefined) => {
+    if (findElement(id)) applyDropdown(id, menu, value);
+  };
   lastSnapshot = data;
 
-  applyCandidateArrange(data?.appearance?.candidate_window_layout);
+  if (!target || target === 'appearance' || target === 'skin') applyCandidateArrange(data?.appearance?.candidate_window_layout);
 
-  if (readyModules.has('appearance')) {
+  if (applies('appearance')) {
     void import('./appearance').then((module) => {
+      if (data !== lastSnapshot) return;
       module.applyAppearanceConfig(
         data?.appearance?.candidate_window_preedit_style,
         data?.appearance?.tsf_preedit_style,
@@ -57,8 +67,9 @@ function applyConfigData(data: Record<string, any>): void {
     });
   }
 
-  if (readyModules.has('skin')) {
+  if (!target || target === 'skin') {
     void import('./skin').then((module) => {
+      if (data !== lastSnapshot) return;
       module.applyCandidateSkinCatalog(
         data?.appearance?.external_candidate_skins,
         data?.appearance?.candidate_skin_scan_issues,
@@ -102,7 +113,7 @@ function applyConfigData(data: Record<string, any>): void {
   }
   if (typeof data?.general?.candidate_translations === 'boolean') {
     applyToggleState('candidateTranslationsToggleBtn', data.general.candidate_translations);
-    document.getElementById('candidateTranslationApiOptions')?.classList.toggle(
+    findElement('candidateTranslationApiOptions')?.classList.toggle(
       'is-disabled',
       !data.general.candidate_translations
     );
@@ -144,27 +155,27 @@ function applyConfigData(data: Record<string, any>): void {
     applyToggleState('clipboardHistoryToggleBtn', data.utility.clipboard_history);
   }
   if (typeof data?.general?.paging_minus_equal === 'boolean') {
-    const checkbox = document.getElementById('pagingMinusEqualCheckbox') as HTMLInputElement | null;
+    const checkbox = findElement('pagingMinusEqualCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_minus_equal;
   }
   if (typeof data?.general?.paging_tab === 'boolean') {
-    const checkbox = document.getElementById('pagingTabCheckbox') as HTMLInputElement | null;
+    const checkbox = findElement('pagingTabCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_tab;
   }
   if (typeof data?.general?.paging_comma_period === 'boolean') {
-    const checkbox = document.getElementById('pagingCommaPeriodCheckbox') as HTMLInputElement | null;
+    const checkbox = findElement('pagingCommaPeriodCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_comma_period;
   }
   if (typeof data?.general?.paging_brackets === 'boolean') {
-    const checkbox = document.getElementById('pagingBracketsCheckbox') as HTMLInputElement | null;
+    const checkbox = findElement('pagingBracketsCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_brackets;
   }
   if (typeof data?.general?.paging_page_up_down === 'boolean') {
-    const checkbox = document.getElementById('pagingPageUpDownCheckbox') as HTMLInputElement | null;
+    const checkbox = findElement('pagingPageUpDownCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.paging_page_up_down;
   }
   if (typeof data?.general?.candidate_arrow_navigation === 'boolean') {
-    const checkbox = document.getElementById('candidateArrowNavigationCheckbox') as HTMLInputElement | null;
+    const checkbox = findElement('candidateArrowNavigationCheckbox') as HTMLInputElement | null;
     if (checkbox) checkbox.checked = data.general.candidate_arrow_navigation;
   }
   if (typeof data?.helpcode?.show_sp_helpcode_in_candidate_window === 'boolean') {
@@ -215,8 +226,9 @@ function applyConfigData(data: Record<string, any>): void {
     }
   }
 
-  if (readyModules.has('input') || readyModules.has('helpcode') || readyModules.has('tools-settings')) {
+  if (applies('input') || applies('helpcode') || applies('tools-settings')) {
     void import('./input').then((module) => {
+      if (data !== lastSnapshot) return;
       module.applyInputConfig(
         data?.input?.mode,
         data?.input?.schema,
@@ -236,14 +248,15 @@ function applyConfigData(data: Record<string, any>): void {
       module.applyCustomTranslationConfig(data?.custom_translation);
     });
   }
-  if (readyModules.has('voice') && data?.voice_input && typeof data.voice_input === 'object') {
-    void import('./voice').then((module) => module.applyVoiceConfig(data.voice_input));
+  if (applies('voice') && data?.voice_input && typeof data.voice_input === 'object') {
+    void import('./voice').then((module) => { if (data === lastSnapshot) module.applyVoiceConfig(data.voice_input); });
   }
-  if (readyModules.has('ai-settings') && data?.ai_assistant && typeof data.ai_assistant === 'object') {
-    void import('./ai-settings').then((module) => module.applyAiConfig(data.ai_assistant));
+  if (applies('ai-settings') && data?.ai_assistant && typeof data.ai_assistant === 'object') {
+    void import('./ai-settings').then((module) => { if (data === lastSnapshot) module.applyAiConfig(data.ai_assistant); });
   }
-  if (readyModules.has('floating-toolbar')) {
+  if (applies('floating-toolbar')) {
     void import('./floating-toolbar').then((module) => {
+      if (data !== lastSnapshot) return;
       module.applyFloatingToolbarItemsConfig({
         fullwidth: data?.general?.floating_toolbar_fullwidth,
         punctuation: data?.general?.floating_toolbar_punctuation,
@@ -258,8 +271,8 @@ function applyConfigData(data: Record<string, any>): void {
       );
     });
   }
-  if (readyModules.has('shortcut')) {
-    void import('./shortcut').then((module) => module.applyShortcutConfig(data?.keybindings));
+  if (applies('shortcut')) {
+    void import('./shortcut').then((module) => { if (data === lastSnapshot) module.applyShortcutConfig(data?.keybindings); });
   }
 }
 

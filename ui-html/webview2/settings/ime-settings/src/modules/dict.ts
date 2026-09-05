@@ -1,3 +1,4 @@
+import { createDictionaryPager, DICTIONARY_PAGE_SIZE } from '../utils/dictionary-pagination';
 import { onHostMessage } from '../utils/host-messages';
 import type { SettingsMessage } from '../../../../shared/messages';
 type DictionaryRequest = Extract<SettingsMessage, { type: 'dictionaryRequest' }>['data'];
@@ -9,14 +10,19 @@ let dictionary: DictionaryType = 'quanpin';
 let editing: DictionaryRow | null = null;
 let requestCounter = 0;
 let lastQuery = '';
-let lastAction = 'query';
+const pendingRequests = new Map<string, { action: DictionaryRequest['action']; dictionary: string }>();
+let latestQueryId = '';
+let pager: ReturnType<typeof createDictionaryPager> | undefined;
 let toastTimer: number | null = null;
 
 function post(action: DictionaryRequest['action'], data: Partial<Omit<DictionaryRequest, 'action' | 'requestId'>> = {}): void {
-  lastAction = action;
+  const requestId = `dict-${++requestCounter}`;
+  const targetDictionary = dictionary;
+  pendingRequests.set(requestId, { action, dictionary: targetDictionary });
+  if (action === 'query') { latestQueryId = requestId; pager?.loading(); }
   window.chrome?.webview?.postMessage(serializeHostMessage({
     type: 'dictionaryRequest',
-    data: { requestId: `dict-${++requestCounter}`, dictionary, action, ...data }
+    data: { requestId, dictionary, action, ...data }
   }));
 }
 
@@ -52,7 +58,7 @@ function renderRows(rows: DictionaryRow[]): void {
     const tr = document.createElement('tr');
     const indexCell = document.createElement('td');
     indexCell.className = 'dict-index-column';
-    indexCell.textContent = String(index + 1);
+    indexCell.textContent = String((pager?.offset ?? 0) + index + 1);
     tr.appendChild(indexCell);
     const values = dictionary === 'english'
       ? [row.word, row.display ?? row.word, String(row.weight ?? 0)]
@@ -90,6 +96,8 @@ function syncTableHeaderWidth(): void {
 }
 
 function updateMode(): void {
+  latestQueryId = '';
+  pager?.reset();
   const english = dictionary === 'english';
   const quanpin = dictionary === 'quanpin';
   const search = document.getElementById('dictSearch') as HTMLInputElement;
@@ -129,10 +137,10 @@ function closeDialog(): void {
   const modal = document.getElementById('dictModal')!; modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); editing = null;
 }
 
-function query(): void {
-  lastQuery = (document.getElementById('dictSearch') as HTMLInputElement).value.trim();
+function query(offset = 0): void {
+  if (offset === 0) lastQuery = (document.getElementById('dictSearch') as HTMLInputElement).value.trim();
   if (!lastQuery) { showToast('请输入查询内容', false); return; }
-  post('query', dictionary === 'english' ? { word: lastQuery } : { code: lastQuery });
+  post('query', { ...(dictionary === 'english' ? { word: lastQuery } : { code: lastQuery }), offset, limit: DICTIONARY_PAGE_SIZE });
 }
 
 function downloadExport(content: string, filename: string): void {
@@ -151,11 +159,13 @@ function downloadExport(content: string, filename: string): void {
 }
 
 export function setupDictionary(): void {
+  const table = document.querySelector<HTMLElement>('.dict-table-wrap');
+  if (table) pager = createDictionaryPager(table, offset => query(offset));
   document.querySelectorAll<HTMLButtonElement>('.dict-tab').forEach((tab) => tab.addEventListener('click', () => {
     document.querySelector('.dict-tab.active')?.classList.remove('active'); tab.classList.add('active');
     dictionary = tab.dataset.dictionary as DictionaryType; updateMode();
   }));
-  document.getElementById('dictSearchButton')?.addEventListener('click', query);
+  document.getElementById('dictSearchButton')?.addEventListener('click', () => query());
   document.getElementById('dictSearch')?.addEventListener('keydown', (event) => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('dictAddButton')?.addEventListener('click', () => openDialog());
   document.getElementById('dictImportButton')?.addEventListener('click', () => {
@@ -224,6 +234,17 @@ export function setupDictionary(): void {
   });
   onHostMessage('dictionaryResponse', payload => {
     if (!payload.requestId.startsWith('dict-')) return;
+    const context = pendingRequests.get(payload.requestId);
+    if (!context) return;
+    pendingRequests.delete(payload.requestId);
+    if (context.action === 'query' && payload.requestId !== latestQueryId) return;
+    if (context.action === 'query' && context.dictionary !== dictionary) return;
+    const lastAction = context.action;
+    if (lastAction === 'query') {
+      if (payload.ok) pager?.update(payload.offset ?? 0, payload.rows.length, payload.hasMore === true);
+      else pager?.failed();
+    }
+
     const isImport = lastAction === 'import' || lastAction === 'importHans';
     const isExport = lastAction === 'export';
     if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {
@@ -234,8 +255,8 @@ export function setupDictionary(): void {
       Boolean(payload.ok),
       isImport ? 5600 : 3200,
     );
-    if (Array.isArray(payload.rows)) renderRows(payload.rows);
-    if (payload.ok && lastAction !== 'query' && !isExport) { closeDialog(); if (lastQuery) query(); }
+    if (lastAction === 'query' && payload.ok) renderRows(payload.rows);
+    if (payload.ok && lastAction !== 'query' && !isExport && context.dictionary === dictionary) { closeDialog(); if (lastQuery) query(pager?.offset ?? 0); }
   });
   updateMode();
 }

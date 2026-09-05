@@ -6,7 +6,8 @@
 // Uses the same DWM rounded-corner chrome so edges match the host window.
 namespace SettingsSplash
 {
-bool Show(HWND owner);
+bool Show(HWND owner, bool light);
+void SetTheme(bool light);
 void Dismiss();
 void SyncToOwner();
 bool IsVisible();

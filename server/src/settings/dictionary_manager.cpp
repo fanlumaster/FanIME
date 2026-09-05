@@ -1,4 +1,6 @@
 #include "settings/dictionary_manager.h"
+#include "settings/dictionary_page.h"
+#include <set>
 
 #include "config/ime_config.h"
 #include "defines/defines.h"
@@ -321,7 +323,21 @@ bool ValidateChineseEntry(const std::string &mode, const std::string &code, cons
     return true;
 }
 
-json::object QueryChinese(const std::string &mode, const std::string &search)
+bool EnsureEnglishSchema()
+{
+    // Installed dictionaries keep their schema for the lifetime of Settings.
+    // Do not open a write transaction for every read-only search.
+    static std::mutex mutex;
+    static std::set<std::string> initialized;
+    std::lock_guard<std::mutex> lock(mutex);
+    const auto path = CommonUtils::get_ime_data_path() + "\\english.db";
+    if (initialized.count(path)) return true;
+    if (!EnglishDictionary::ensure_schema(path)) return false;
+    initialized.insert(path);
+    return true;
+}
+
+json::object QueryChinese(const std::string &mode, const std::string &search, const json::object &request)
 {
     std::string error;
     Db db = OpenDatabase("msime.db", error);
@@ -334,14 +350,9 @@ json::object QueryChinese(const std::string &mode, const std::string &search)
     if (!normalized.empty())
     {
         const std::string table = quanpin::build_table_name(segments);
-        Stmt stmt = Prepare(db.get(), "SELECT key,value,weight FROM \"" + table + "\" WHERE key=?1 ORDER BY weight DESC", error);
+        Stmt stmt = Prepare(db.get(), "SELECT key,value,weight FROM \"" + table + "\" WHERE key=?1 ORDER BY weight DESC,value" + Paging::Sql(request), error);
         if (!stmt || !BindText(stmt.get(), 1, normalized)) return Result(false, "查询失败：" + error);
-        while (sqlite3_step(stmt.get()) == SQLITE_ROW)
-        {
-            rows.push_back({{"code", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 0))},
-                            {"word", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))},
-                            {"weight", sqlite3_column_int(stmt.get(), 2)}});
-        }
+        return Paging::Read(stmt.get(), request);
     }
     json::object result = Result(true, rows.empty() ? "没有找到词条" : "查询成功");
     result["rows"] = std::move(rows);
@@ -665,7 +676,7 @@ json::object ImportEnglish(const json::object &request)
         return Result(false, "文件内容为空");
 
     std::string error;
-    (void)EnglishDictionary::ensure_schema(CommonUtils::get_ime_data_path() + "\\english.db");
+    if (!EnsureEnglishSchema()) return Result(false, "英文词库初始化失败");
     Db db = OpenDatabase("english.db", error);
     if (!db) return Result(false, "打开英文词库失败：" + error);
     Stmt insert = Prepare(db.get(),
@@ -795,22 +806,21 @@ json::object HandleEnglish(const json::object &request)
     const int weight = (std::max)(0, IntValue(request, "weight", 10));
     std::transform(word.begin(), word.end(), word.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     std::string error;
-    (void)EnglishDictionary::ensure_schema(CommonUtils::get_ime_data_path() + "\\english.db");
+    if (!EnsureEnglishSchema()) return Result(false, "英文词库初始化失败");
     Db db = OpenDatabase("english.db", error);
     if (!db) return Result(false, "打开英文词库失败：" + error);
     if (action == "query")
     {
-        Stmt stmt = Prepare(db.get(), "SELECT word,display,weight FROM english_words WHERE word LIKE ?1 "
-                                      "ORDER BY CASE WHEN word=?2 THEN 0 ELSE 1 END,weight DESC,length(word),word,display", error);
-        const std::string pattern = word + "%";
-        if (!stmt || !BindText(stmt.get(), 1, pattern) || !BindText(stmt.get(), 2, word)) return Result(false, "查询失败");
-        json::array rows;
-        while (sqlite3_step(stmt.get()) == SQLITE_ROW)
-            rows.push_back({{"word", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 0))},
-                            {"display", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))},
-                            {"weight", sqlite3_column_int(stmt.get(), 2)}});
-        json::object result = Result(true, rows.empty() ? "没有找到词条" : "查询成功"); result["rows"] = std::move(rows); return result;
+        if (!IsAsciiWord(word)) return Result(false, "请输入英文单词前缀");
+        std::string upper = word;
+        ++upper.back(); // ASCII prefix upper bound, compatible with the BINARY primary key.
+        Stmt stmt = Prepare(db.get(), "SELECT word,display,weight FROM english_words WHERE word>=?1 AND word<?3 "
+                                      "ORDER BY CASE WHEN word=?2 THEN 0 ELSE 1 END,weight DESC,length(word),word,display" + Paging::Sql(request), error);
+        if (!stmt || !BindText(stmt.get(), 1, word) || !BindText(stmt.get(), 2, word) || !BindText(stmt.get(), 3, upper))
+            return Result(false, "查询失败：" + error);
+        return Paging::Read(stmt.get(), request, true);
     }
+
     if (!IsAsciiWord(word) || display.empty()) return Result(false, "英文单词仅支持英文字母、连字符和撇号，显示内容不能为空");
     std::string old_word = StringValue(request, "oldWord");
     const std::string old_display = StringValue(request, "oldDisplay");
@@ -981,14 +991,9 @@ json::object HandleWubi(const json::object &request)
     {
         if (code.empty() || !std::all_of(code.begin(), code.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; }))
             return Result(false, "请输入合法的五笔编码");
-        Stmt stmt = Prepare(db.get(), "SELECT key,value,weight FROM wubi86 WHERE key LIKE ?1 ORDER BY weight DESC", error);
+        Stmt stmt = Prepare(db.get(), "SELECT key,value,weight FROM wubi86 WHERE key LIKE ?1 ORDER BY weight DESC,key,value" + Paging::Sql(request), error);
         if (!stmt || !BindText(stmt.get(), 1, code + "%")) return Result(false, "查询失败：" + error);
-        json::array rows;
-        while (sqlite3_step(stmt.get()) == SQLITE_ROW)
-            rows.push_back({{"code", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 0))},
-                            {"word", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))},
-                            {"weight", sqlite3_column_int(stmt.get(), 2)}});
-        json::object result = Result(true, rows.empty() ? "没有找到词条" : "查询成功"); result["rows"] = std::move(rows); return result;
+        return Paging::Read(stmt.get(), request);
     }
     if (code.empty() || word.empty() || !std::all_of(code.begin(), code.end(), [](unsigned char ch) { return ch >= 'a' && ch <= 'z'; }))
         return Result(false, "五笔编码和词条不能为空，编码只能包含英文字母");
@@ -1192,16 +1197,9 @@ json::object HandleQuickPhrase(const json::object &request)
     {
         if (!code.empty() && !valid_code(code)) return Result(false, "编码只能包含英文字母");
         Stmt stmt = Prepare(db.get(), "SELECT key,value,weight FROM quick_parases WHERE key LIKE ?1 "
-                                      "ORDER BY weight DESC,key,value", error);
+                                      "ORDER BY weight DESC,key,value" + Paging::Sql(request), error);
         if (!stmt || !BindText(stmt.get(), 1, code + "%")) return Result(false, "查询失败：" + error);
-        json::array rows;
-        while (sqlite3_step(stmt.get()) == SQLITE_ROW)
-            rows.push_back({{"code", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 0))},
-                            {"word", reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), 1))},
-                            {"weight", sqlite3_column_int(stmt.get(), 2)}});
-        json::object result = Result(true, rows.empty() ? "没有找到快捷短语" : "查询成功");
-        result["rows"] = std::move(rows);
-        return result;
+        return Paging::Read(stmt.get(), request);
     }
 
     if (!valid_code(code) || phrase.empty()) return Result(false, "编码只能包含英文字母，短语不能为空");
@@ -1266,7 +1264,7 @@ json::object HandleRequest(const json::object &request)
     if (dictionary == "wubi") return HandleWubi(request);
     if (dictionary == "quick") return HandleQuickPhrase(request);
     if (dictionary != "quanpin") return Result(false, "未知词库");
-    if (action == "query") return QueryChinese(dictionary, StringValue(request, "code"));
+    if (action == "query") return QueryChinese(dictionary, StringValue(request, "code"), request);
     if (action == "import") return ImportChinese(request);
     return MutateChinese(request);
 }

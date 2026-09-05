@@ -1,3 +1,4 @@
+import { createDictionaryPager, DICTIONARY_PAGE_SIZE } from '../utils/dictionary-pagination';
 import { onHostMessage } from '../utils/host-messages';
 import type { SettingsMessage } from '../../../../shared/messages';
 type DictionaryRequest = Extract<SettingsMessage, { type: 'dictionaryRequest' }>['data'];
@@ -9,14 +10,20 @@ type QuickPhraseRow = { code: string; word: string; weight: number };
 
 let editing: QuickPhraseRow | null = null;
 let requestCounter = 0;
-let lastAction = 'query';
+const pendingRequests = new Map<string, { action: DictionaryRequest['action']; dictionary: string }>();
+let latestQueryId = '';
+let lastQuery = '';
+let pager: ReturnType<typeof createDictionaryPager> | undefined;
 let toastTimer: number | null = null;
 
 function post(action: DictionaryRequest['action'], data: Partial<Omit<DictionaryRequest, 'action' | 'requestId'>> = {}): void {
-  lastAction = action;
+  const requestId = `quick-${++requestCounter}`;
+  const targetDictionary = 'quick';
+  pendingRequests.set(requestId, { action, dictionary: targetDictionary });
+  if (action === 'query') { latestQueryId = requestId; pager?.loading(); }
   window.chrome?.webview?.postMessage(serializeHostMessage({
     type: 'dictionaryRequest',
-    data: { requestId: `quick-${++requestCounter}`, dictionary: 'quick', action, ...data }
+    data: { requestId, dictionary: 'quick', action, ...data }
   }));
 }
 
@@ -46,7 +53,7 @@ function renderRows(rows: QuickPhraseRow[]): void {
   if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="dict-empty">没有找到快捷短语</td></tr>'; syncHeader(); return; }
   body.replaceChildren(...rows.map((row, index) => {
     const tr = document.createElement('tr');
-    [String(index + 1), row.code, row.word, String(row.weight)].forEach((value, cellIndex) => {
+    [String((pager?.offset ?? 0) + index + 1), row.code, row.word, String(row.weight)].forEach((value, cellIndex) => {
       const td = document.createElement('td'); td.textContent = value;
       if (cellIndex === 0) td.className = 'dict-index-column';
       td.addEventListener('mouseenter', () => td.scrollWidth > td.clientWidth ? td.title = value : td.removeAttribute('title'));
@@ -74,8 +81,9 @@ function closeDialog(): void {
   const modal = document.getElementById('quickPhraseModal')!; modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); editing = null;
 }
 
-function query(): void {
-  post('query', { code: (document.getElementById('quickPhraseSearch') as HTMLInputElement).value.trim() });
+function query(offset = 0): void {
+  if (offset === 0) lastQuery = (document.getElementById('quickPhraseSearch') as HTMLInputElement).value.trim();
+  post('query', { code: lastQuery, offset, limit: DICTIONARY_PAGE_SIZE });
 }
 
 function downloadExport(content: string, filename: string): void {
@@ -94,6 +102,8 @@ function downloadExport(content: string, filename: string): void {
 }
 
 export function setupToolsSettings(): void {
+  const table = document.getElementById('quickPhraseTableWrap');
+  if (table) pager = createDictionaryPager(table, offset => query(offset));
   setupToggleButton('clipboardHistoryToggleBtn', (active) => {
     updateConfig('utility.clipboard_history', active);
   });
@@ -121,7 +131,7 @@ export function setupToolsSettings(): void {
   setupToggleButton('rModeToggleBtn', (active) => {
     updateConfig('utility.r_mode', active);
   });
-  document.getElementById('quickPhraseSearchButton')?.addEventListener('click', query);
+  document.getElementById('quickPhraseSearchButton')?.addEventListener('click', () => query());
   document.getElementById('quickPhraseSearch')?.addEventListener('keydown', event => { if ((event as KeyboardEvent).key === 'Enter') query(); });
   document.getElementById('quickPhraseAddButton')?.addEventListener('click', () => openDialog());
   document.getElementById('quickPhraseImportButton')?.addEventListener('click', () => {
@@ -158,14 +168,24 @@ export function setupToolsSettings(): void {
   window.addEventListener('resize', syncHeader);
   onHostMessage('dictionaryResponse', payload => {
     if (!payload.requestId.startsWith('quick-')) return;
+    const context = pendingRequests.get(payload.requestId);
+    if (!context) return;
+    pendingRequests.delete(payload.requestId);
+    if (context.action === 'query' && payload.requestId !== latestQueryId) return;
+    const lastAction = context.action;
+    if (lastAction === 'query') {
+      if (payload.ok) pager?.update(payload.offset ?? 0, payload.rows.length, payload.hasMore === true);
+      else pager?.failed();
+    }
+
     const isImport = lastAction === 'import';
     const isExport = lastAction === 'export';
     if (isExport && payload.ok && typeof payload.content === 'string' && typeof payload.filename === 'string') {
       downloadExport(payload.content, payload.filename);
     }
     showToast(payload.message ?? (payload.ok ? '操作成功' : '操作失败'), Boolean(payload.ok), isImport ? 5600 : 3200);
-    renderRows(payload.rows.filter((row): row is QuickPhraseRow =>
+    if (lastAction === 'query' && payload.ok) renderRows(payload.rows.filter((row): row is QuickPhraseRow =>
       typeof row.code === 'string' && typeof row.weight === 'number'));
-    if (payload.ok && lastAction !== 'query' && !isExport) { closeDialog(); query(); }
+    if (payload.ok && lastAction !== 'query' && !isExport) { closeDialog(); query(pager?.offset ?? 0); }
   });
 }
