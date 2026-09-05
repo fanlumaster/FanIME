@@ -1,0 +1,59 @@
+# AGENTS.md — MSIME-Server
+
+产品级约定、跨仓契约与共享数据规则以 [MSIME-Windows 的 AGENTS.md](https://github.com/metasequoiaime/MSIME-Windows/blob/main/AGENTS.md) 为准，那一份统领整个水杉输入法项目，本仓的角色、IPC 协议、窗口与 WebView2 边界、DPI 约定都写在那里。本文件只补本仓内部容易踩空的几处。
+
+本仓是常驻后端进程：输入引擎与候选状态、配置、词典、Named Pipe 服务，以及候选窗、悬浮工具栏、托盘菜单、设置窗口的原生宿主与 WebView2 控制器。
+
+## 构建目录必须叫 build
+
+`CMakeLists.txt` 有三处写死了 `${CMAKE_SOURCE_DIR}/build/vcpkg_installed`：
+
+- `:257` 一处 include 路径
+- `:369` `WEBVIEW2_VCPKG_ROOT`，供 WebView2 loader 的导入库和运行时 DLL 拷贝使用
+- `:412` 另一处 include 路径
+
+所以 binary dir 只能是字面的 `build`。用别的名字会在链接 `MetasequoiaImeSettings` 时失败：
+
+```
+LINK : fatal error LNK1181: cannot open input file '...\build\vcpkg_installed\x64-windows\lib\WebView2Loader.dll.lib'
+```
+
+**本仓自带的 `vcpkg-release` preset 就踩在这上面**——它的 `binaryDir` 是 `build-release`，所以 `cmake --preset=vcpkg-release` 目前构建不过。`scripts/lcompile-release.ps1` 走的也是这条。
+
+同一个文件的 `:322` 用的是 `${CMAKE_BINARY_DIR}`，那才是正确写法。改这三处时四处一起改，别只改一处。
+
+## 测试有 34 个文件，CI 一个都不跑
+
+`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。但**根 `CMakeLists.txt` 完全没有引用 `tests/`**，没有 `add_subdirectory`，`add_test` 数量为 0；`.github/workflows/ci.yml` 也只有 Configure 和 Build，没有 ctest 步骤。
+
+后果：
+
+- 往 `tests/src/` 加用例，PR 的绿勾只代表 Server 能编译，不代表测试跑过
+- 跨仓 AGENTS.md 要求改 IPC 协议后运行 `tests/src/test_ipc_protocol_constants.cpp`，那要手动构建 `tests/` 这个独立工程
+- `src/ipc/ipc.h` 里有 14 条 `static_assert` 守着协议 ABI，那些是编译期的，会随主工程一起检查；测试里的其余断言不会
+
+改了协议或候选逻辑，手动跑一次测试工程，不要依赖 CI。
+
+## uiAccess 与 Topmost 时序
+
+`MetasequoiaImeServer.manifest` 用 `requestedExecutionLevel level="asInvoker" uiAccess="true"`，浮层才能盖在高完整性宿主之上。`uiAccess` 真正生效还依赖正确签名和安装在 Windows 认可的位置，清单、签名、安装路径是同一套发布约定。
+
+进程在 `src/main.cpp:90` 设 `DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2`。
+
+**创建 HWND 时不能直接带 `WS_EX_TOPMOST`。** 在 `uiAccess=true` 进程里，Topmost 父窗口会让 WebView2 的跨进程 `SetParent` 返回 `E_INVALIDARG`，或者形成「窗口存在、尺寸正确但永远空白」。现有顺序是：非 Topmost 建窗 → DWM cloak 下预热 → 三个共享 environment 的 controller 依次创建并完成首屏导航 → lazy-topmost gate 打开 → 分阶段提升到 `HWND_TOPMOST`。提升后要用 `RenotifyControllerAfterPin` 重新同步 bounds 和 parent position。不要在布局函数里随手传 `HWND_TOPMOST`，也不要绕过 `EnsureSmallWindowsTopmost` / lazy pin。
+
+隐藏尚未完成首帧的 WebView2 host 会阻断 raster 初始化，预热阶段用 cloak，之后才按配置显示或隐藏。
+
+## Boost
+
+`CMakeLists.txt:13` 的 `Boost_ROOT` 是有守卫的：设了 `BOOST_ROOT` 环境变量就用环境变量，否则回退到作者本机路径。**这是有意的，不要改成只认环境变量**，那会破坏作者的本地环境。CI 就是靠设这个环境变量工作的。
+
+Boost 是静态链接但没有写进 `vcpkg.json`，所以只能用 classic 模式装，且 triplet 必须是 `x64-windows-static-md` 而不是 `x64-windows-static`——`Boost_USE_STATIC_LIBS ON` 要静态 Boost 库，而项目其余部分用动态 CRT，纯 static triplet 会让 Boost 也切到静态 CRT，链接时报 LNK2038。
+
+## 生成文件
+
+`scripts/prepare_env.py` 会覆盖根目录的 `.clangd`、`CMakeLists.txt` 和 `CMakePresets.json`。长期改动要同步到 `scripts/config_files/` 下的同名模板，否则下次生成就丢了。该脚本按固定行号替换模板内容，调整模板前要一起检查脚本索引。
+
+## 提交
+
+提交信息用 `type(scope): 摘要`。不要添加 `Co-Authored-By`、`Generated with` 或其他 AI 生成标记。
