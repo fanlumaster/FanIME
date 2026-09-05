@@ -1,8 +1,8 @@
-# AGENTS.md — MSIME-Windows
+# AGENTS.md — windows
 
-组织级边界与跨仓规则见 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md)。本文件只规定 Windows TSF 前端、COM/焦点/线程、注册和产品构建。
+组织级约定见 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md)，仓库地图、组件边界和发布流程见[仓库根 AGENTS.md](../AGENTS.md)。本文件只规定 TSF 前端本身：COM / 焦点 / 线程、注册和本目录的构建。路径都相对于 `windows/`。
 
-## 本仓地图
+## 本目录地图
 
 | 位置 | 职责 |
 |---|---|
@@ -59,11 +59,11 @@
   `/Zc:threadSafeInit-` 约定，避免和 QQ、浏览器等宿主的 CRT/TLS 冲突；不要随意增加全局构造器、
   进程级 hook 或修改宿主状态。
 
-## IPC 协议——跨仓单一契约
+## IPC 协议——单一契约
 
-协议定义的唯一来源是 `vendor/MetasequoiaImeEngine/contracts/`，Server 通过自己的 Engine 子模块读取同一份定义。TSF 仅引用头文件，不链接引擎运行库；`product-lock.json` 和产品 CI 强制两端引用相同的 Engine 提交。这里保留已发布的固定宽度 Win32 ABI：
+协议定义的唯一来源是 `../vendor/MetasequoiaImeEngine/contracts/`，Server 读的是同一个 submodule 里的同一份定义——合仓之前两边各挂一份 gitlink、靠 `product-lock.json` 强制两者相等，现在只有一份，不可能不一致。TSF 仅引用头文件，不链接引擎运行库。这里保留已发布的固定宽度 Win32 ABI：
 
-- 修改管道名、opcode、字段、容量或对齐时，在共享 contracts 中修改并保留 ABI 检查，再同步更新两端子模块和产品清单。禁止恢复两份手写定义。
+- 修改管道名、opcode、字段、容量或对齐时，在共享 contracts 中修改并保留 ABI 检查，再同步更新 submodule 与 `product-lock.json` 的 `engine.commit`。禁止恢复两份手写定义。
 - 主连接的版本化 ClientHello 必须获得关联 request_id 的 ProtocolReady 后才可发键；协议确认包不能作为候选或上屏文本。新 Server 兼容旧 DLL 的未版本化 hello；新 DLL 对旧或不兼容 Server 使用现有原始输入回退。版本与能力规则见共享 contracts/README.md。
 - `WCHAR` 按 16 位 UTF-16 码元传输；不要用 `wchar_t` 在非 Windows 平台上的大小推断协议布局。
 - 已发布 opcode 只追加、不复用、不重排。未知的较新 Worker opcode 应忽略，不能因此拆除连接。
@@ -101,7 +101,7 @@
 
 ## 生成文件与配置真源
 
-`python .\scripts\prepare_env.py` 会覆盖根目录的 `.clangd`、`CMakeLists.txt` 和
+`python .\scripts\prepare_env.py` 会覆盖本目录的 `.clangd`、`CMakeLists.txt` 和
 `CMakePresets.json`。因此：
 
 - `CMakeLists.txt` 的长期改动要同步到 `scripts/config_files/CMakeLists.txt`；
@@ -151,7 +151,7 @@ Release：
 .\scripts\lcompile-release.ps1 32
 ```
 
-本仓的 `windows_ipc_contract` 在 x64/x86 上验证协议布局、版本握手与语音分帧；产品 CI 还构建锁定的 Server、页面并在锁定词库上运行 Server 测试。这些检查不能替代真实 TSF 宿主行为回归。按改动范围做手工回归：
+本目录的 `windows_ipc_contract` 在 x64/x86 上验证协议布局、版本握手与语音分帧；CI 还构建 Server、GUI 框架和页面，并在锁定词库上运行 Server 测试。这些检查不能替代真实 TSF 宿主行为回归。按改动范围做手工回归：
 
 - 至少验证 x64 宿主；协议、注册、资源或发布改动同时验证 x86 DLL；
 - 输入首键、连续输入、空格/数字键盘选词、翻页、退格、光标移动和标点提交；
@@ -169,19 +169,18 @@ Release：
 
 签名脚本包含本机 Windows SDK 路径和证书占位符；没有对应证书时不要运行或提交真实 thumbprint。
 
-需要生成可安装包做本地测试时，从各组件的共同父目录开始，严格按以下顺序执行。任一步失败都先
+需要生成可安装包做本地测试时，从仓库根目录开始，严格按以下顺序执行。任一步失败都先
 停止并修复，不要继续使用旧产物打包：
 
 ```powershell
-Set-Location .\MetasequoiaImeTsf
+Set-Location .\windows
 .\scripts\lcompile-release-both.ps1
 
-Set-Location ..\MetasequoiaImeServer
+Set-Location ..\server
 .\scripts\lcompile-release.ps1
 
-# 使用 Installer 下最新的 msime_v<版本> 目录；当前示例为 0.0.7。
-Set-Location ..\Installer\msime_v0.0.7
-.\Prepare-PackageFiles.ps1
+Set-Location ..\installer
+.\Prepare-PackageFiles.ps1 -RepoRoot .. -TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .
 .\Sign-PackageBinaries-Local.ps1
 .\Compile-Installer.ps1
 ```
@@ -197,55 +196,11 @@ C++ 组件编译完成且相关前端/词库产物已准备好之后运行。`Si
 .\Compile-Installer.ps1 -IsccPath 'C:\Program Files\Inno Setup 7\ISCC.exe'
 ```
 
-## 正式发布（CI）
-
-上面那套是本地测试打包。对外发布走 `.github/workflows/release.yml`，产出的就是历来挂在本仓 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。
-
-版本号由 release-please 管理，真源是根目录的 `version.txt`。**发布是手动的**：签名证书的签名次数有限，一次发布是实打实的开销，不该由「合了个 PR」这种事替你花掉。
-
-往 `main` 推提交后只发生两件事：release-please 更新那个 release PR，`check-release-pr.sh` 给它挂上一次通过的 CI（`GITHUB_TOKEN` 开不出 workflow run，必须用 `workflow_dispatch` 顶上，否则开着 required status check 的 release PR 永远合不了）。想发版时:
-
-1. 合并 release PR —— 这一步只生成 draft release 和 tag，不构建、不签名。
-2. 手动触发 `Release` workflow，`tag` 填那个 draft 的 tag —— 这一步才构建、签名、发布。
-
-同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下：发布之后它就不是 draft 了，不会二次消耗签名次数。
-
-`src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
-
-```powershell
-python .\scripts\apply_version.py           # 从 version.txt 写入版本资源
-python .\scripts\apply_version.py --check   # 只检查是否与 version.txt 一致
-```
-
-release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow 本身只负责编排和传参：
-
-| 脚本 | 用途 |
-|---|---|
-| `validate-draft-release.sh` | 手动触发时校验 tag 是未发布 draft、指向不可变 commit、且与 `version.txt` 一致 |
-| `check-release-pr.sh` | 给 release PR 挂上一次通过的 CI，不合并 |
-| `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
-| `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
-| `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
-| `check-tsf-dll.ps1` | 确认 TSF DLL 产出 |
-| `download-dictionaries.sh` | 从 MSIME-Dict 的 `dict-*` release 拉词库并校验 SHA256 |
-| `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
-| `sign-binaries.ps1` | 用仓库 secret 里的真证书签名，包内二进制和安装包共用 |
-| `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定。装到真正的 Inno Setup 安装目录，不是 Chocolatey shim 旁边 |
-| `check-inno-language.ps1` | CI 用：编译一个只含 `[Languages]` 的探针脚本，让 ISCC 自己回答语言文件放对没有 |
-| `name-installer-asset.ps1` | 定最终产物名、算校验和、写 step summary |
-| `revalidate-draft-release.sh` | 发布前复查 draft 仍指向被构建的那个 commit |
-| `publish-release.sh` | 上传产物、追加说明、发布 |
-
-CI 里的目录布局刻意用了各仓的历史名（`MetasequoiaImeTsf`、`MetasequoiaImeServer`、`MetasequoiaImeUiHtml`、`MetasequoiaImeHelpCode`、`MetasequoiaImeDict`），这样 `msime-installer` 的 `Prepare-PackageFiles.ps1` 不用改一行就能在 CI 跑。改动那些脚本里的产物路径时，要连同本仓的 release workflow 一起核对。
-
-词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；通过 `scripts/product_lock.py refresh --dictionary-tag <tag>` 更新产品锁并评审摘要变更；发布构建不能临时覆盖词库版本。
-
-签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
-
 ## 提交纪律
 
-仓库可能与相邻 Server/UI 仓库同时改动。提交前分别在各仓执行 `git status --short`，只暂存本任务
-涉及的显式路径，禁止 `git add -A` / `git add .` 把构建产物或其他会话改动卷入提交。
+一次改动经常同时落在 `windows/`、`server/` 和 `ui-html/`，现在它们在同一次提交里。提交前执行
+`git status --short`，只暂存本任务涉及的显式路径，禁止 `git add -A` / `git add .` 把构建产物或其他
+会话改动卷入提交。
 
 提交信息沿用项目现有工程风格，推荐 `type(scope): 摘要`。不要添加 `Co-Authored-By`、
 `Generated with` 或其他 AI 生成标记。

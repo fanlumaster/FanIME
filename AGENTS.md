@@ -1,0 +1,102 @@
+# AGENTS.md — 水杉输入法 Windows 端
+
+组织级边界与跨平台规则见 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md)。本文件规定本仓的目录职责、组件之间的边界，以及产品级的构建与发布约定。
+
+Windows 端的全部一方源码在本仓。**合仓改变的是仓库数量，不是运行时结构**：DLL 与 Server 仍是两个进程、隔着版本化的命名管道；`ui/` 仍是不依赖输入法业务的通用 GUI 库。不要因为它们现在在同一棵树里，就在组件之间直接互相 include 或共享全局状态。
+
+## 仓库地图
+
+| 目录 | 职责 | 本目录的规则 |
+|---|---|---|
+| `windows/` | TSF 文本服务 DLL：按键预判、焦点、edit session、管道客户端 | [windows/AGENTS.md](windows/AGENTS.md) |
+| `server/` | 常驻后端：候选状态、配置、词库、管道服务、窗口与 WebView2 宿主 | [server/AGENTS.md](server/AGENTS.md) |
+| `ui/` | 通用 Win32 / Direct2D / DirectWrite 控件库 `msimeui` | [ui/AGENTS.md](ui/AGENTS.md) |
+| `ui-html/` | 候选窗、工具栏、菜单、设置页的 HTML / CSS / JS | [ui-html/README.md](ui-html/README.md) |
+| `installer/` | 收集产物、自签名、Inno Setup 打包 | [installer/README.md](installer/README.md) |
+| `log/` | 日志采集库 | — |
+| `experiments/tsf-edit-control/` | TSF 编辑控件实验工程，不参与产品构建 | — |
+| `vendor/` | submodule：`MetasequoiaImeEngine`、`opencc`、`cpp-pinyin` | 上游仓库 |
+| `scripts/`、`tests/`、`docs/` | 产品级构建与发布脚本、组合验证、产品文档 | 本文件 |
+
+改一个组件之前先确认它有没有自己的 AGENTS.md，那份比本文件更具体。
+
+## 组件之间的边界
+
+- **协议的唯一来源是 Engine 的 `contracts/`**。IPC 线格式、opcode、语音分帧和 WebView 消息定义都在 `vendor/MetasequoiaImeEngine/contracts/`，`windows/` 和 `server/` 各自引用同一份头文件。不要在任何一侧重新定义或复制一份。
+- **`ui/` 不许反向依赖产品**。它不读 Server 配置、IPC、引擎、词库或全局输入状态；业务通过数据和回调接入。`ui/scripts/check-boundary.py` 在 CI 里检查已知的反向依赖，新增依赖会红。
+- **窗口归 `server/`，页面归 `ui-html/`**。HWND、尺寸、位置、DPI、Z-order 和 WebView2 controller 的生命周期在 `server/src/window/` 与 `server/src/webview2/`；页面结构、样式和浏览器端交互在 `ui-html/webview2/`。改消息 `type`、JSON 字段或页面导出的 JS 函数时两侧要一起改。
+- **候选与输入状态的权威在 Server 和引擎**，页面只负责展示和发出用户动作，不要在网页侧复制状态机。
+- `ui-html/webview2/shared/` 是 Engine web 契约的副本，由 `ui-html/scripts/sync-contracts.py` 生成，CI 用 `--check` 验证它和 submodule 一致。手改这个目录会被 CI 拦下来，改契约要改 Engine。
+
+## 构建
+
+每个组件是独立的 CMake 工程，各自带 `vcpkg.json` 和 preset，从仓库根目录指定 `-S`：
+
+```powershell
+cmake -S windows -B windows/build -A x64 ...      # TSF DLL
+cmake -S server  -B server/build-release -A x64 ... # Server
+cmake -S ui      -B ui/build -A x64                # GUI 框架
+```
+
+没有顶层聚合的 `CMakeLists.txt`，这是有意的：Windows tip 用静态 CRT、Server 用动态 CRT，两者的 vcpkg manifest 和编译选项互不兼容，合成一个 build tree 会互相污染。`server/` 通过 `add_subdirectory(../ui ...)` 把 `msimeui` 拉进自己的构建，这是唯一的跨组件构建引用。
+
+`vendor/` 是 submodule，先 `git submodule update --init --recursive`。
+
+## 产品输入清单
+
+`product-lock.json` 只记录仍来自仓外的东西：Engine（在本仓是 submodule）、辅助码仓的提交、词库 Release 的 tag 和每个产物的 SHA256。**Server、页面、GUI 框架和安装器不在清单里**——它们是本仓的目录，本仓的一个 commit 就已经把它们钉住了。
+
+- 引擎的权威是 `vendor/MetasequoiaImeEngine` 的 gitlink；`product-lock.json` 里的 `engine.commit` 只是把它记下来，供产物清单和发布门禁使用。两者必须一致，`product_lock.py verify-contracts` 会检查。bump submodule 时同一个 PR 里把 `engine.commit` 改过来。
+- `refresh` 是唯一解析浮动引用的命令，只解析辅助码；引擎取自本地 gitlink。
+- 发布门禁 `verify-published` 要求清单里每个提交都能从各自仓库默认分支到达，只在发布路径执行，不进 CI。理由见 [docs/product-release.md](docs/product-release.md)。
+
+## 正式发布（CI）
+
+本地测试打包见 [windows/AGENTS.md](windows/AGENTS.md) 的构建与验证。对外发布走 `.github/workflows/release.yml`，产出的就是历来挂在本仓 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。
+
+版本号由 release-please 管理，真源是根目录的 `version.txt`。**发布是手动的**：签名证书的签名次数有限，一次发布是实打实的开销，不该由「合了个 PR」这种事替你花掉。
+
+往 `main` 推提交后只发生两件事：release-please 更新那个 release PR，`check-release-pr.sh` 给它挂上一次通过的 CI（`GITHUB_TOKEN` 开不出 workflow run，必须用 `workflow_dispatch` 顶上，否则开着 required status check 的 release PR 永远合不了）。想发版时:
+
+1. 合并 release PR —— 这一步只生成 draft release 和 tag，不构建、不签名。
+2. 手动触发 `Release` workflow，`tag` 填那个 draft 的 tag —— 这一步才构建、签名、发布。
+
+同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下：发布之后它就不是 draft 了，不会二次消耗签名次数。
+
+`windows/src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
+
+```powershell
+python .\scripts\apply_version.py           # 从 version.txt 写入版本资源
+python .\scripts\apply_version.py --check   # 只检查是否与 version.txt 一致
+```
+
+（`scripts/apply_version.py` 在仓根，改的是 `windows/` 下的版本资源。）
+
+release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow 本身只负责编排和传参：
+
+| 脚本 | 用途 |
+|---|---|
+| `validate-draft-release.sh` | 手动触发时校验 tag 是未发布 draft、指向不可变 commit、且与 `version.txt` 一致 |
+| `check-release-pr.sh` | 给 release PR 挂上一次通过的 CI，不合并 |
+| `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
+| `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
+| `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
+| `check-tsf-dll.ps1` | 确认 TSF DLL 产出 |
+| `download-dictionaries.sh` | 从 MSIME-Dict 的 `dict-*` release 拉词库并校验 SHA256 |
+| `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
+| `sign-binaries.ps1` | 用仓库 secret 里的真证书签名，包内二进制和安装包共用 |
+| `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定。装到真正的 Inno Setup 安装目录，不是 Chocolatey shim 旁边 |
+| `check-inno-language.ps1` | CI 用：编译一个只含 `[Languages]` 的探针脚本，让 ISCC 自己回答语言文件放对没有 |
+| `name-installer-asset.ps1` | 定最终产物名、算校验和、写 step summary |
+| `revalidate-draft-release.sh` | 发布前复查 draft 仍指向被构建的那个 commit |
+| `publish-release.sh` | 上传产物、追加说明、发布 |
+
+合仓之前 CI 要把五个仓 checkout 到历史目录名下，`Prepare-PackageFiles.ps1` 才能不改一行地跑。现在源目录名由 workflow 显式传参（`-TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .`），只有辅助码和词库还落在仓根的 `MetasequoiaImeHelpCode/`、`MetasequoiaImeDict/`，用的是那两个参数的默认值。改动这些脚本里的产物路径时，要连同 release workflow 一起核对。
+
+词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；通过 `scripts/product_lock.py refresh --dictionary-tag <tag>` 更新产品锁并评审摘要变更；发布构建不能临时覆盖词库版本。
+
+签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
+
+## 提交
+
+提交信息用 `type(scope): 摘要`，scope 用目录名（`windows`、`server`、`ui`、`ui-html`、`installer`）。不要添加 `Co-Authored-By`、`Generated with` 或其他 AI 生成标记。

@@ -2,7 +2,7 @@
 
 | Surface | Long-term backend | Compatibility scope |
 |---|---|---|
-| Candidate, floating toolbar, tray menu | MSIME-UI native Direct2D/DirectWrite | `appearance.ui_backend=webview2` explicitly selects existing WebView skins |
+| Candidate, floating toolbar, tray menu | msimeui native Direct2D/DirectWrite | `appearance.ui_backend=webview2` explicitly selects existing WebView skins |
 | Settings | UiHtml hosted by the separate native settings application | Small-window backend settings never change this host |
 | Keyboard, handwriting, emoji and voice panels | Their existing native application/presenter | Shared actions/configuration stay in Server; panels do not own input sessions |
 
@@ -27,6 +27,6 @@ silently reinterpret a configured WebView skin as a native skin. New business
 behavior belongs in shared actions/session/view models, not either renderer.
 
 Sciter is not an active product backend. The old unreferenced handwritten D2D
-prototype is removed; native small windows use MSIME-UI presenters. The MSIME-UI
+prototype is removed; native small windows use msimeui presenters. The msimeui
 library owns generic controls and rendering, never Server configuration, pipe
 sessions, dictionary access, or global input state.

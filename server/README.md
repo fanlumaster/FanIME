@@ -30,16 +30,16 @@ python .\create_index_for_db.py
 Copy-Item -Path .\out\msime.db -Destination $env:LOCALAPPDATA\metasequoiaime
 ```
 
-**Then**, clone and build MSIME-Server,
+**Then**, clone the product repository and build the server,
 
 ```powershell
-git clone --recursive https://github.com/metasequoiaime/MSIME-Server.git MetasequoiaImeServer
+git clone --recursive https://github.com/metasequoiaime/MSIME-Windows.git
 ```
 
 Prepare environment,
 
 ```powershell
-cd MetasequoiaImeServer
+cd MSIME-Windows/server
 python .\scripts\prepare_env.py
 Copy-Item -Path .\assets\tables\* -Destination $env:LOCALAPPDATA\metasequoiaime
 New-Item -ItemType SymbolicLink -Path "$env:LOCALAPPDATA\metasequoiaime\config.toml" -Target ".\assets\config\config.toml"

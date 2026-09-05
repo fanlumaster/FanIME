@@ -2,7 +2,9 @@
 
 水杉输入法 Windows 端的界面资源。Server 加载这里的页面来渲染候选窗、悬浮工具栏、托盘菜单和设置窗口。
 
-配套仓库：[MSIME-Windows](https://github.com/metasequoiaime/MSIME-Windows)（TSF 前端）、[MSIME-Server](https://github.com/metasequoiaime/MSIME-Server)（后端与窗口宿主）。
+`webview2/shared/` 是 Engine web 契约的副本，由 `scripts/sync-contracts.py` 从 `../vendor/MetasequoiaImeEngine/contracts/webview/` 生成，CI 用 `--check` 验证两者一致。要改契约请改 Engine，不要直接改这个目录。
+
+同仓的相关组件：[`../windows/`](../windows/)（TSF 前端）、[`../server/`](../server/)（后端与窗口宿主）。
 
 ## 目录
 
@@ -45,10 +47,10 @@ New-Item -ItemType SymbolicLink -Path $target -Target (Resolve-Path .).Path
 
 ## 与 C++ 侧的边界
 
-窗口归 Server，页面归本仓。HWND、尺寸、位置、DPI、Z-order 和 WebView2 controller 的生命周期都在 `MSIME-Server/src/window/` 与 `src/webview2/`；页面结构、样式和浏览器端交互在这里。
+窗口归 Server，页面归本目录。HWND、尺寸、位置、DPI、Z-order 和 WebView2 controller 的生命周期都在 `../server/src/window/` 与 `../server/src/webview2/`；页面结构、样式和浏览器端交互在这里。
 
 C++ → 页面主要经 WebView2 导航和脚本执行，页面 → C++ 经 `window.chrome.webview.postMessage(...)`。**改消息 `type`、JSON 字段、页面导出的 JS 函数或 DOM 标识时，必须同步检查 Server 的消息解析与拼接代码**，两边没有编译期约束。
 
 候选内容和输入状态的权威在 Server 和引擎，页面只负责展示与发出用户动作；不要在页面侧复制候选选择、翻页、输入模式或配置持久化的状态机。
 
-完整的跨仓约定见 [MSIME-Windows 的 AGENTS.md](https://github.com/metasequoiaime/MSIME-Windows/blob/main/AGENTS.md)。
+完整的组件边界约定见[仓库根 AGENTS.md](../AGENTS.md)。

@@ -1,8 +1,8 @@
-# AGENTS.md — MSIME-Server
+# AGENTS.md — server
 
-组织级约定和跨仓边界以 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md) 为准。本文件补充本仓的实现、数据和验证规则。
+组织级约定见 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md)，仓库地图和组件之间的边界见[仓库根 AGENTS.md](../AGENTS.md)。本文件补充本组件的实现、数据和验证规则，路径都相对于 `server/`。
 
-本仓是常驻后端进程：输入引擎与候选状态、配置、词典、Named Pipe 服务，以及候选窗、悬浮工具栏、托盘菜单、设置窗口的原生宿主与 WebView2 控制器。
+本组件是常驻后端进程：输入引擎与候选状态、配置、词典、Named Pipe 服务，以及候选窗、悬浮工具栏、托盘菜单、设置窗口的原生宿主与 WebView2 控制器。
 
 ## vcpkg_installed 的解析
 
@@ -16,9 +16,9 @@ CI 刻意构建到 `build-release` 而不是 `build`，为的就是让这条不�
 
 `tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:420` 据此 `add_subdirectory(tests)`，而 `tests/CMakeLists.txt:78` 用 `add_test` 注册了一条同名用例。
 
-CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provision dictionary data 和 Test 两步，后者执行 `ctest --test-dir build-release -C Release --verbose --timeout 120`。断言失败会让 CI 变红，不再是编译通过就算数。
+CI 现在会真的跑它：根 `.github/workflows/ci.yml` 的 Server job 在 Build 之后执行 `scripts/ci/test-server.ps1`，那个脚本按 `product-lock.json` 取词库、备好数据根目录，再跑 `ctest --test-dir server/build-release -C Release --timeout 120`。断言失败会让 CI 变红，不再是编译通过就算数。
 
-**关键在于这些测试依赖真实词库，不是 fixture。**引擎从数据根目录读数据，默认 `%LOCALAPPDATA%\metasequoiaime`，可用 `METASEQUOIA_IME_DATA_DIR` 环境变量覆盖。CI 的 Provision 步往那里放了四样东西，本地跑测试要凑齐同样的：
+**关键在于这些测试依赖真实词库，不是 fixture。**引擎从数据根目录读数据，默认 `%LOCALAPPDATA%\metasequoiaime`，可用 `METASEQUOIA_IME_DATA_DIR` 环境变量覆盖。`scripts/ci/test-server.ps1` 往那里放了四样东西，本地跑测试要凑齐同样的：
 
 - `msime.db`、`others.db`、`english.db`——从 MSIME-Dict 的 release 下载，CI 逐个核对 `SHA256SUMS.txt`。词库损坏要立刻失败，而不是拖到测试里表现成「候选为空」这种难查的样子
 - `helpcodes/`——五套辅助码方案，本仓 `assets/tables` 只有其中一套，得从 MSIME-HelpCode 取全
@@ -26,7 +26,7 @@ CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provis
 
 数据不全时的典型症状是候选查询返回空集，断言信息看起来像逻辑错误，实际是缺数据。排查测试失败前先确认数据根目录是齐的。
 
-IPC 线格式、opcode 和语音分帧的唯一实现位于 Engine 子模块的 `contracts/`；本仓的 `src/ipc/ipc.h` 只保留连接状态和 Server API。不要重新复制协议定义。共享头的 ABI 断言随主工程编译，主连接必须通过 `NegotiateMainPipeClient` 后才能激活；旧 DLL 的未版本化 hello 仍兼容，版本化客户端会收到关联 request_id 的协议确认。
+IPC 线格式、opcode 和语音分帧的唯一实现位于 Engine submodule 的 `../vendor/MetasequoiaImeEngine/contracts/`；本仓的 `src/ipc/ipc.h` 只保留连接状态和 Server API。不要重新复制协议定义。共享头的 ABI 断言随主工程编译，主连接必须通过 `NegotiateMainPipeClient` 后才能激活；旧 DLL 的未版本化 hello 仍兼容，版本化客户端会收到关联 request_id 的协议确认。
 
 改了协议或候选逻辑，正常构建并备好数据之后自己跑一次：
 
@@ -65,14 +65,14 @@ Boost 是静态链接但没有写进 `vcpkg.json`，所以只能用 classic 模�
 ## 窗口与页面的维护边界
 
 - **Server 拥有窗口，UiHtml 拥有页面**：候选窗、悬浮工具栏和托盘菜单的 HWND、尺寸、位置、显示、
-  DPI、Z-order、WebView2 environment/controller 生命周期在 `MetasequoiaImeServer/src/window/` 与
-  `src/webview2/`；页面结构、样式和浏览器端交互在 `MetasequoiaImeUiHtml/webview2/`。
+  DPI、Z-order、WebView2 environment/controller 生命周期在 `server/src/window/` 与
+  `server/src/webview2/`；页面结构、样式和浏览器端交互在 `ui-html/webview2/`。
 - 消息定义以 Engine `contracts/webview/` 为准，双方必须校验。C++ → 页面更新主要经 WebView2 导航/脚本执行，页面 → C++ 动作经
   `window.chrome.webview.postMessage(...)`。修改消息 `type`、JSON 字段、页面导出的 JS 函数或 DOM
   标识时，必须同步检查 Server 的消息解析/脚本拼接与 UiHtml 的发送/接收代码。
 - 候选内容和输入状态的权威仍在 Server/引擎，网页只负责展示与发出用户动作；不要在网页侧复制
   候选选择、翻页、输入模式或配置持久化的核心状态机。
-- 设置页前端位于 `MetasequoiaImeUiHtml/webview2/settings/ime-settings/`，其中包含 Vite/TypeScript
+- 设置页前端位于 `ui-html/webview2/settings/ime-settings/`，其中包含 Vite/TypeScript
   工程；设置窗口的原生创建、激活、WebView2 承载及与配置系统的桥接仍由 Server 负责。
 
 ### 尺寸、坐标与 DPI
