@@ -1,0 +1,19 @@
+CompileFlags:
+  Add: [
+      "-std=c++17",
+      "-DUNICODE",
+      "-D_UNICODE",
+      "-DNOMINMAX",
+      "-DWIN32_LEAN_AND_MEAN",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/MetasequoiaImeServer/msimeui/include",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/MetasequoiaImeServer/msimeui/src",
+      "-IC:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/MetasequoiaImeServer/msimeui/src/tsf",
+      "-Wno-unused-includes",
+      "-Wno-microsoft-goto",
+      "-Wno-nonportable-include-path",
+      "-Wno-microsoft-extra-qualification",
+      "-Wno-invalid-token-paste",
+    ]
+
+Diagnostics:
+  UnusedIncludes: None
