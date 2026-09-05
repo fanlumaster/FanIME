@@ -323,7 +323,8 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 | `download-dictionaries.sh` | 从 MSIME-Dict 的 `dict-*` release 拉词库并校验 SHA256 |
 | `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
 | `sign-binaries.ps1` | 用仓库 secret 里的真证书签名，包内二进制和安装包共用 |
-| `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定 |
+| `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定。装到真正的 Inno Setup 安装目录，不是 Chocolatey shim 旁边 |
+| `check-inno-language.ps1` | CI 用：编译一个只含 `[Languages]` 的探针脚本，让 ISCC 自己回答语言文件放对没有 |
 | `name-installer-asset.ps1` | 定最终产物名、算校验和、写 step summary |
 | `revalidate-draft-release.sh` | 发布前复查 draft 仍指向被构建的那个 commit |
 | `publish-release.sh` | 上传产物、追加说明、发布 |

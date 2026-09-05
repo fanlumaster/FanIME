@@ -55,3 +55,9 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test the wire contract on this architecture
         run: ctest --test-dir build -C Release --output-on-failure
+
+      # Architecture-independent, so it runs once rather than on both matrix legs.
+      - name: Check the installer language file lands where ISCC looks
+        if: ${{ matrix.name == 'x64' }}
+        shell: pwsh
+        run: ./scripts/ci/check-inno-language.ps1
