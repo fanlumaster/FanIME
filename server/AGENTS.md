@@ -16,7 +16,7 @@ CI 刻意构建到 `build-release` 而不是 `build`，为的就是让这条不�
 
 `tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:420` 据此 `add_subdirectory(tests)`，而 `tests/CMakeLists.txt:78` 用 `add_test` 注册了一条同名用例。
 
-CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provision dictionary data 和 Test 两步，后者执行 `ctest --test-dir build -C Release --verbose --timeout 120`。断言失败会让 CI 变红，不再是编译通过就算数。
+CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provision dictionary data 和 Test 两步，后者执行 `ctest --test-dir build-release -C Release --verbose --timeout 120`。断言失败会让 CI 变红，不再是编译通过就算数。
 
 **关键在于这些测试依赖真实词库，不是 fixture。**引擎从数据根目录读数据，默认 `%LOCALAPPDATA%\metasequoiaime`，可用 `METASEQUOIA_IME_DATA_DIR` 环境变量覆盖。CI 的 Provision 步往那里放了四样东西，本地跑测试要凑齐同样的：
 
@@ -31,7 +31,7 @@ CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provis
 改了协议或候选逻辑，正常构建并备好数据之后自己跑一次：
 
 ```powershell
-ctest --test-dir build -C Release --output-on-failure
+ctest --test-dir build-release -C Release --output-on-failure
 ```
 
 ## uiAccess 与 Topmost 时序
