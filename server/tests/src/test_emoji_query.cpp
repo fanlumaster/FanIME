@@ -1,5 +1,7 @@
 #include "tests/includes/test_framework.h"
-#include "emoji/emoji_query.h"
+#include "MetasequoiaImeEngine/local_modes/emoji_query.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
+#include "config/ime_config.h"
 #include "utils/common_utils.h"
 
 #include <filesystem>
@@ -28,7 +30,7 @@ TEST_CASE(emoji_query_prefix_matches_full_pinyin)
 {
     if (!EmojiDatabaseAvailable())
         return;
-    const auto results = EmojiQuery::QueryPrefix("xiaolian", SchemeType::Quanpin, 10);
+    const auto results = metasequoia::local_modes::query_emoji("xiaolian", SchemeType::Quanpin, 10, GetShuangpinProfile(GetConfiguredShuangpinSchema())).candidates;
     REQUIRE(!results.empty());
     REQUIRE_EQ(results[0].word, kSmiley);
     REQUIRE(results[0].source == CandidateSource::Emoji);
@@ -38,7 +40,7 @@ TEST_CASE(emoji_query_prefix_matches_jianpin)
 {
     if (!EmojiDatabaseAvailable())
         return;
-    const auto results = EmojiQuery::QueryPrefix("xl", SchemeType::Quanpin, 200);
+    const auto results = metasequoia::local_modes::query_emoji("xl", SchemeType::Quanpin, 200, GetShuangpinProfile(GetConfiguredShuangpinSchema())).candidates;
     REQUIRE(Contains(results, kSmiley));
 }
 
@@ -46,7 +48,7 @@ TEST_CASE(emoji_query_prefix_matches_english_word)
 {
     if (!EmojiDatabaseAvailable())
         return;
-    const auto results = EmojiQuery::QueryPrefix("laugh", SchemeType::Quanpin, 50);
+    const auto results = metasequoia::local_modes::query_emoji("laugh", SchemeType::Quanpin, 50, GetShuangpinProfile(GetConfiguredShuangpinSchema())).candidates;
     REQUIRE(Contains(results, kSmiley));
 }
 
@@ -55,6 +57,6 @@ TEST_CASE(emoji_query_xiaohe_shuangpin_expands_to_quanpin)
     if (!EmojiDatabaseAvailable())
         return;
     // Xiaohe xnlm -> xiaolian, which must reach the smiley via Chinese pinyin.
-    const auto results = EmojiQuery::QueryPrefix("xnlm", SchemeType::Shuangpin, 10);
+    const auto results = metasequoia::local_modes::query_emoji("xnlm", SchemeType::Shuangpin, 10, GetShuangpinProfile(GetConfiguredShuangpinSchema())).candidates;
     REQUIRE(Contains(results, kSmiley));
 }
