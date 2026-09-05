@@ -108,33 +108,24 @@ class ProductLockTests(unittest.TestCase):
                     lock.fetch_dictionaries(staging, self.data)
             self.assertEqual(before, {path.name: path.read_bytes() for path in target.iterdir()})
 
-    def test_server_gitlinks_must_match_the_reviewed_engine_and_gui(self):
-        repositories = self.data["repositories"]
-
-        def git_result(directory, *args):
-            if args[0] == "rev-parse":
-                return repositories["server"]["commit"]
-            component = next(name for name, path in lock.SERVER_GITLINKS.items() if path == args[-1])
-            return f"160000 commit {repositories[component]['commit']}\t{args[-1]}"
-
-        with mock.patch.object(lock, "git", side_effect=git_result):
-            lock.verify_checkout("server", ROOT, self.data)
-            changed = copy.deepcopy(self.data)
-            changed["repositories"]["engine"]["commit"] = "0" * 40
-            with self.assertRaises(ValueError):
-                lock.verify_checkout("server", ROOT, changed)
-
-    def test_page_contract_mismatch_is_rejected(self):
-        replies = [self.data["repositories"]["ui"]["commit"],
-                   "160000 commit " + "0" * 40 + "\tvendor/MetasequoiaImeEngine"]
-        with mock.patch.object(lock, "git", side_effect=replies):
-            with self.assertRaises(ValueError):
-                lock.verify_checkout("ui", ROOT, self.data)
+    def test_helpcode_checkout_must_match_the_reviewed_commit(self):
+        with mock.patch.object(lock, "git", return_value=self.data["repositories"]["helpcode"]["commit"]):
+            lock.verify_checkout("helpcode", ROOT, self.data)
 
     def test_wrong_checkout_is_rejected(self):
         with mock.patch.object(lock, "git", return_value="0" * 40):
             with self.assertRaises(ValueError):
-                lock.verify_checkout("server", ROOT, self.data)
+                lock.verify_checkout("helpcode", ROOT, self.data)
+
+    def test_a_path_that_is_not_a_submodule_cannot_pass_as_the_engine(self):
+        for reply in ("", "100644 blob " + "0" * 40 + "\tvendor/MetasequoiaImeEngine"):
+            with self.subTest(reply=reply):
+                with mock.patch.object(lock, "git", return_value=reply):
+                    with self.assertRaises(ValueError):
+                        lock.verify_contracts(ROOT, self.data)
+
+    def test_the_lock_records_the_engine_commit_the_submodule_actually_points_at(self):
+        self.assertEqual(lock.engine_gitlink(ROOT), self.data["repositories"]["engine"]["commit"])
 
     def test_independently_bumped_tsf_contract_is_rejected(self):
         expected = self.data["repositories"]["engine"]["commit"]

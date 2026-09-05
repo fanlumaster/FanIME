@@ -1,0 +1,189 @@
+<div class="content" id="voice-settings">
+  <div class="content-header"><span>语音输入</span></div>
+
+  <div class="section voice-section">
+    <div class="section-header"><div><div class="section-title">启用语音输入</div><div class="voice-description">在右键菜单中点击“语音输入”开始或停止录音</div></div><div class="ftb-toggle-btn active" id="voiceEnabled" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+  </div>
+
+  <div class="section voice-section voice-sound-section">
+    <div class="voice-basic-row">
+      <button class="voice-sound-expand" id="voiceSoundExpand" type="button" aria-expanded="false" aria-controls="voiceSoundDetails">
+        <span>录音提示音</span><span class="voice-sound-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="ftb-toggle-btn active" id="voiceSoundEnabled" role="switch" aria-label="录音提示音总开关" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div>
+    </div>
+    <div class="voice-sound-details" id="voiceSoundDetails">
+      <div class="voice-basic-row"><span>开始录音时播放</span><div class="ftb-toggle-btn active" id="voiceStartSound" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <div class="voice-basic-row"><span>结束录音时播放</span><div class="ftb-toggle-btn active" id="voiceEndSound" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+    </div>
+  </div>
+
+  <div class="section voice-section">
+    <div class="section-header"><div><div class="section-title">录音时静音其他声音</div><div class="voice-description">录音期间暂时关闭系统中其他应用的播放声音，结束后自动恢复</div></div><div class="ftb-toggle-btn" id="voiceMuteSystemAudio" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+  </div>
+
+  <div class="section voice-section shortcut-section section-page-option">
+    <div class="shortcut-section-heading"><div><div class="section-title">语音输入快捷键</div><div class="shortcut-section-description">勾选启用对应快捷键；长按快捷键松开后停止录音，录音时按 Space 可锁定</div></div></div>
+    <div class="content-page-option">
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyRAltCheckbox" value="ralt" checked><span>RAlt（长按录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyCtrlWinCheckbox" value="ctrl-win"><span>Ctrl + Win（长按录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyRCtrlRAltCheckbox" value="rctrl-ralt"><span>RCtrl + RAlt（长按录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyHoldSpaceLockCheckbox" value="hold-space-lock" checked><span>长按快捷键 + Space（锁定录音）</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="voice-hotkey" id="voiceHotkeyCtrlF9Checkbox" value="ctrl-f9" checked><span>Ctrl + F9（开始 / 停止录音）</span></label>
+    </div>
+  </div>
+
+  <div class="section voice-section">
+    <div class="section-title voice-heading">ASR API</div>
+    <div class="voice-description">豆包为流式识别；OpenAI、SiliconFlow、Groq 走 OpenAI 兼容的语音转写接口。每个提供商的 Token 分开保存，切换时只换当前使用的那一份。</div>
+    <div class="voice-grid">
+      <div class="voice-field">
+        <span>服务提供商</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="voiceAsrProviderBtn" type="button">
+            <span>豆包</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="voiceAsrProviderMenu">
+            <div class="dropdown-item" data-value="doubao">豆包</div>
+            <div class="dropdown-item" data-value="openai">OpenAI</div>
+            <div class="dropdown-item" data-value="siliconflow">SiliconFlow</div>
+            <div class="dropdown-item" data-value="groq">Groq</div>
+          </div>
+        </div>
+      </div>
+      <label id="voiceAsrAppKeyField"><span>App ID / App Key</span><input id="voiceAsrAppKey" type="text" autocomplete="off"></label>
+      <label id="voiceAsrModelField"><span>模型</span><input id="voiceAsrModel" type="text" autocomplete="off" spellcheck="false" placeholder="whisper-1"></label>
+      <div class="voice-field voice-wide">
+        <label for="voiceAsrToken">Access Token / API Key</label>
+        <span class="voice-secret-input">
+          <input id="voiceAsrToken" type="password" autocomplete="off" spellcheck="false">
+          <button id="voiceAsrTokenVisibility" class="voice-secret-toggle" type="button" aria-label="显示 Access Token / API Key" aria-pressed="false" title="显示 Access Token / API Key">
+            <svg class="voice-secret-icon voice-secret-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+              <circle cx="12" cy="12" r="2.75"></circle>
+            </svg>
+            <svg class="voice-secret-icon voice-secret-icon-hide" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3l18 18"></path>
+              <path d="M10.6 6.1A9.2 9.2 0 0 1 12 6c6 0 9.5 6 9.5 6a16.7 16.7 0 0 1-2.6 3.2M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5"></path>
+              <path d="M9.8 9.8a3 3 0 0 0 4.4 4.4"></path>
+            </svg>
+          </button>
+        </span>
+      </div>
+      <label class="voice-wide"><span>接口地址</span><input id="voiceAsrEndpoint" type="url" autocomplete="off"></label>
+    </div>
+    <div class="voice-doubao-options" id="voiceDoubaoOptions">
+      <div class="section-title voice-doubao-options-title">豆包识别选项</div>
+      <div class="voice-basic-row"><div><span>数字格式化</span><div class="voice-description">将口述数字转换为常用数字格式（ITN）</div></div><div class="ftb-toggle-btn active" id="voiceDoubaoEnableItn" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <div class="voice-basic-row"><div><span>标点预测</span><div class="voice-description">根据语义自动补充标点符号</div></div><div class="ftb-toggle-btn active" id="voiceDoubaoEnablePunc" role="switch" aria-checked="true" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <div class="voice-basic-row"><div><span>语义顺滑</span><div class="voice-description">减少重复、犹豫和口头语；与文本润色同时开启时可能产生二次改写</div></div><div class="ftb-toggle-btn" id="voiceDoubaoEnableDdc" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+      <label class="voice-doubao-hotword"><span>热词表 ID</span><input id="voiceDoubaoBoostingTableId" type="text" autocomplete="off" spellcheck="false" placeholder="在豆包语音自学习平台创建后填写"></label>
+      <div class="voice-description">每次识别使用一张热词表；留空时不使用热词。</div>
+    </div>
+  </div>
+
+  <div class="section voice-section">
+    <div class="section-header voice-heading"><div class="section-title">文本润色 API</div><div class="ftb-toggle-btn" id="voicePolishText" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div></div>
+    <div class="voice-description">SiliconFlow、OpenAI、DeepSeek、Groq 均走 OpenAI 兼容的 Chat Completions 接口。</div>
+    <div class="voice-grid">
+      <div class="voice-field">
+        <span>服务提供商</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="voicePolishProviderBtn" type="button">
+            <span>SiliconFlow</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="voicePolishProviderMenu">
+            <div class="dropdown-item" data-value="siliconflow">SiliconFlow</div>
+            <div class="dropdown-item" data-value="openai">OpenAI</div>
+            <div class="dropdown-item" data-value="deepseek">DeepSeek</div>
+            <div class="dropdown-item" data-value="groq">Groq</div>
+          </div>
+        </div>
+      </div>
+      <label><span>模型</span><input id="voicePolishModel" type="text" autocomplete="off" spellcheck="false" placeholder="Qwen/Qwen3-8B"></label>
+      <div class="voice-field voice-wide">
+        <label for="voicePolishToken">API Token</label>
+        <span class="voice-secret-input">
+          <input id="voicePolishToken" type="password" autocomplete="off" spellcheck="false">
+          <button id="voicePolishTokenVisibility" class="voice-secret-toggle" type="button" aria-label="显示 API Token" aria-pressed="false" title="显示 API Token">
+            <svg class="voice-secret-icon voice-secret-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+              <circle cx="12" cy="12" r="2.75"></circle>
+            </svg>
+            <svg class="voice-secret-icon voice-secret-icon-hide" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3l18 18"></path>
+              <path d="M10.6 6.1A9.2 9.2 0 0 1 12 6c6 0 9.5 6 9.5 6a16.7 16.7 0 0 1-2.6 3.2M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5"></path>
+              <path d="M9.8 9.8a3 3 0 0 0 4.4 4.4"></path>
+            </svg>
+          </button>
+        </span>
+      </div>
+      <label class="voice-wide"><span>接口地址</span><input id="voicePolishEndpoint" type="url" autocomplete="off"></label>
+    </div>
+    <div class="voice-prompt-header">
+      <div class="voice-field">
+        <span>润色提示词</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle" id="voicePolishPromptBtn" type="button">
+            <span>精炼整理</span>
+            <img src="./assets/arrow.svg" alt="">
+          </button>
+          <div class="dropdown-menu" id="voicePolishPromptMenu">
+            <div class="dropdown-item" data-value="cleanup">精炼整理</div>
+            <div class="dropdown-item" data-value="faithful">忠实校对</div>
+            <div class="dropdown-item" data-value="zh2en">中翻英</div>
+            <div class="dropdown-item" data-value="casual">口语整理</div>
+            <div class="dropdown-item" data-value="custom_1">自定义一</div>
+            <div class="dropdown-item" data-value="custom_2">自定义二</div>
+            <div class="dropdown-item" data-value="custom_3">自定义三</div>
+          </div>
+        </div>
+      </div>
+      <button class="voice-prompt-reset" id="voicePolishPromptReset" type="button">恢复默认</button>
+    </div>
+    <textarea id="voicePolishPrompt" class="voice-prompt" autocomplete="off" spellcheck="false" placeholder="选择预设后可直接使用，也可改成自己的提示词。"></textarea>
+  </div>
+
+  <div class="section voice-section">
+    <div class="section-title voice-heading">基础设置</div>
+    <div class="voice-basic-row">
+      <span>识别语言</span>
+      <div class="dropdown">
+        <button class="dropdown-toggle voice-language-toggle" id="voiceLanguageBtn">
+          <span>简体中文</span>
+          <img src="./assets/arrow.svg" alt="">
+        </button>
+        <div class="dropdown-menu voice-language-menu" id="voiceLanguageMenu">
+          <div class="dropdown-item" data-value="zh-cn">简体中文</div>
+          <div class="dropdown-item" data-value="en">English</div>
+          <div class="dropdown-item" data-value="auto">自动</div>
+        </div>
+      </div>
+    </div>
+    <div class="voice-basic-row">
+      <span>识别结果上屏方式</span>
+      <div class="dropdown">
+        <button class="dropdown-toggle voice-commit-toggle" id="voiceCommitModeBtn">
+          <span>TSF 上屏</span>
+          <img src="./assets/arrow.svg" alt="">
+        </button>
+        <div class="dropdown-menu voice-commit-menu" id="voiceCommitModeMenu">
+          <div class="dropdown-item" data-value="tsf">TSF 上屏</div>
+          <div class="dropdown-item" data-value="sendinput">SendInput</div>
+          <div class="dropdown-item" data-value="ctrl_v">Ctrl+V 上屏</div>
+        </div>
+      </div>
+    </div>
+    <div class="voice-basic-row">
+      <span>流式 inline 预编辑</span>
+      <div class="ftb-toggle-btn" id="voiceStreamInlinePreedit" role="switch" aria-checked="false" tabindex="0"><div class="ftb-toggle-knob"></div></div>
+    </div>
+    <div class="voice-description">豆包流式识别时，已识别文字直接显示在输入框中，松开录音键后上屏。仅 TSF 上屏时生效。</div>
+  </div>
+</div>

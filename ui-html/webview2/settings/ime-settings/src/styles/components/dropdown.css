@@ -1,0 +1,191 @@
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-color);
+  font-size: 14px;
+  padding: 4px 12px;
+  padding-right: 6px;
+  transition: all 0.2s ease;
+  text-align: left;
+  min-width: 100px;
+}
+
+.dropdown-toggle:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+}
+
+.dropdown:has(> .dropdown-menu.open) > .dropdown-toggle {
+  background: var(--surface-raised);
+  border-color: var(--accent-soft-border);
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 5px 14px rgba(0, 0, 0, 0.16);
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 2px);
+  background: var(--dropdown-menu-bg);
+  border: 1px solid var(--dropdown-menu-border);
+  border-radius: 10px;
+  min-width: 100px;
+  box-shadow: var(--dropdown-menu-shadow);
+  backdrop-filter: blur(18px) saturate(1.12);
+  z-index: 999;
+  overflow: hidden;
+  animation: dropdownFade 0.14s ease-out;
+}
+
+.dropdown-item {
+  margin: 2px;
+  padding: 4px 8px;
+  color: var(--dropdown-item-color);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.dropdown-item:hover {
+  background: var(--dropdown-item-hover-bg);
+  color: var(--text-color);
+  border-radius: 8px;
+}
+
+.dropdown-menu.open {
+  display: block;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Show exactly 6 rows; scroll for the rest (fonts / long numeric lists). */
+.dropdown-menu.compact-scroll-menu {
+  --compact-item-line: 20px;
+  --compact-item-pad-y: 4px;
+  --compact-item-margin-y: 2px;
+  /* 6 content boxes + 5 collapsed inter-item margins + outer top/bottom margins */
+  --compact-menu-height: calc(
+    6 * (var(--compact-item-line) + 2 * var(--compact-item-pad-y)) +
+      5 * var(--compact-item-margin-y) +
+      2 * var(--compact-item-margin-y)
+  );
+  max-height: var(--compact-menu-height);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.dropdown-menu.compact-scroll-menu .dropdown-item {
+  line-height: var(--compact-item-line);
+  padding-top: var(--compact-item-pad-y);
+  padding-bottom: var(--compact-item-pad-y);
+  margin-top: var(--compact-item-margin-y);
+  margin-bottom: var(--compact-item-margin-y);
+}
+
+.dropdown-menu.font-dropdown-menu {
+  /* Match the toggle button width (.dropdown is sized by the button). */
+  left: 0;
+  right: 0;
+  min-width: 0;
+  max-width: none;
+}
+
+.dropdown:has(> .font-dropdown-menu) .dropdown-toggle {
+  min-width: 168px;
+}
+
+.font-combobox {
+  cursor: text;
+}
+
+.font-search-input {
+  width: 132px;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+}
+
+.font-combobox .arrow,
+.font-combobox .arrow img {
+  cursor: default;
+}
+
+.font-search-input::selection {
+  color: var(--text-color);
+  background: var(--accent-color);
+}
+
+.font-dropdown-empty {
+  padding: 12px 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.dropdown-menu.is-loading {
+  overflow: hidden;
+}
+
+.dropdown-menu.is-loading .dropdown-item {
+  display: none;
+}
+
+.dropdown-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--compact-menu-height, 96px);
+}
+
+.dropdown-loading::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--text-color);
+  border-radius: 50%;
+  /* Transform-only so the compositor keeps it spinning while the main thread builds rows. */
+  animation: dropdownSpin 0.7s linear infinite;
+}
+
+@keyframes dropdownSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.arrow {
+  width: 18px;
+  height: 18px;
+}
+
+.dropdown-toggle img {
+  width: 18px;
+  height: 18px;
+}
+
+html[data-theme="light"] .dropdown-toggle img {
+  filter: invert(1) brightness(0.25);
+}

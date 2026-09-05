@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stamp the version from version.txt into the TSF DLL version resource.
 
-release-please owns version.txt. The VERSIONINFO block in src/IME/MetasequoiaIME.rc carries the
+release-please owns version.txt. The VERSIONINFO block in windows/src/IME/MetasequoiaIME.rc carries the
 same number in two shapes, a comma-separated quad and a dotted string, so it cannot be driven by
 release-please's generic updater. The release workflow runs this before configuring CMake.
 
@@ -20,7 +20,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = REPO_ROOT / "version.txt"
-RESOURCE_FILE = REPO_ROOT / "src" / "IME" / "MetasequoiaIME.rc"
+RESOURCE_FILE = REPO_ROOT / "windows" / "src" / "IME" / "MetasequoiaIME.rc"
 
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 

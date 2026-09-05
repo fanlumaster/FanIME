@@ -36,13 +36,25 @@ Issue 已经逐条核过并按可接手程度打了标签，可以直接筛：
 
 ## 项目结构
 
-- [MSIME-Windows](https://github.com/metasequoiaime/MSIME-Windows): 核心 TSF。
-- [MSIME-Server](https://github.com/metasequoiaime/MSIME-Server): Server 端，负责算法调度和窗口渲染。
-- [MSIME-Engine](https://github.com/metasequoiaime/MSIME-Engine): 跨平台输入引擎，各平台前端共用。
-- [MSIME-UI](https://github.com/metasequoiaime/MSIME-UI): 自研原生 GUI 框架，用于替换现有的 WebView2 界面。
-- [MSIME-UiHtml](https://github.com/metasequoiaime/MSIME-UiHtml): UI。
-- [MSIME-Dict](https://github.com/metasequoiaime/MSIME-Dict): 词库。
-- [MSIME-HelpCode](https://github.com/metasequoiaime/MSIME-HelpCode): 辅助码。
+Windows 端的全部一方源码都在本仓，一次 clone 就能拿到完整产品。DLL 与 Server 仍是两个进程，只是不再是两个仓库。
+
+| 目录 | 职责 |
+|---|---|
+| [`windows/`](windows/) | 核心 TSF 文本服务 DLL：按键预判、焦点、edit session、与 Server 的管道协议 |
+| [`server/`](server/) | Server 端：算法调度、候选窗与工具栏宿主、设置程序、词库管理 |
+| [`ui/`](ui/) | 自研原生 GUI 框架（`msimeui`）：Win32 宿主窗口，Direct2D / DirectWrite 渲染 |
+| [`ui-html/`](ui-html/) | 界面资源（HTML / CSS / JS）：候选窗、悬浮工具栏、托盘菜单、设置页 |
+| [`installer/`](installer/) | 收集各组件产物、自签名、Inno Setup 打包 |
+| [`log/`](log/) | 各模块共用的日志采集库 |
+| [`experiments/tsf-edit-control/`](experiments/tsf-edit-control/) | 基于 Win32 TSF 的编辑控件实验工程，附最小宿主 demo |
+| [`vendor/`](vendor/) | submodule：跨平台输入引擎与两个第三方依赖 |
+| `scripts/`、`tests/`、`docs/`、`product-lock.json` | 产品级构建脚本、组合验证、文档与外部输入清单 |
+
+仍在仓外的部分：
+
+- [MSIME-Engine](https://github.com/metasequoiaime/MSIME-Engine): 跨平台输入引擎，Windows / macOS / Linux 前端共用，在本仓是 `vendor/MetasequoiaImeEngine` submodule。
+- [MSIME-Dict](https://github.com/metasequoiaime/MSIME-Dict): 词库，按固定 tag 和摘要在构建时取用。
+- [MSIME-HelpCode](https://github.com/metasequoiaime/MSIME-HelpCode): 辅助码，按固定提交在构建时取用。
 - [MetasequoiaVoiceInput](https://github.com/metasequoiaime/MetasequoiaVoiceInput): 语音输入模块，也可单独使用。
 
 ## 功能简介

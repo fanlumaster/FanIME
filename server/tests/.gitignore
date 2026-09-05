@@ -1,0 +1,5 @@
+build/
+Testing/
+.vs/
+out/
+*.db

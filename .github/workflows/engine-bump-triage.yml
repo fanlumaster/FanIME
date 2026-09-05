@@ -1,0 +1,110 @@
+name: Engine bump triage
+
+# Dependabot opens the engine submodule bump; this decides whether it can merge itself.
+#
+# The rule is an allowlist, not a blocklist: the bump merges on green CI only when every file the
+# engine changed across the range is provably inert. Anything else waits for a human. A blocklist
+# would have let the utfcpp bump through, because it appears in the range as a bare submodule
+# pointer rather than as a source file.
+
+on:
+  pull_request:
+    paths:
+      - 'vendor/MetasequoiaImeEngine'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  triage:
+    if: github.actor == 'dependabot[bot]'
+    name: Classify the engine range
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUBMODULE: vendor/MetasequoiaImeEngine
+      ENGINE: metasequoiaime/MSIME-Engine
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the engine range
+        id: range
+        run: |
+          set -euo pipefail
+          base=$(git rev-parse "origin/${{ github.base_ref }}:$SUBMODULE")
+          head=$(git rev-parse "HEAD:$SUBMODULE")
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+          echo "引擎 $base -> $head"
+
+      - name: Classify the changed files
+        id: classify
+        run: |
+          set -euo pipefail
+          base='${{ steps.range.outputs.base }}'
+          head='${{ steps.range.outputs.head }}'
+          if [ "$base" = "$head" ]; then
+            echo "verdict=inert" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(gh api --paginate "repos/$ENGINE/compare/$base...$head" --jq '.files[].filename')
+          echo "改动文件:"; echo "$files" | sed 's/^/  /'
+
+          # Provably inert: documentation, CI wiring, dependency manifests, licence text. Everything
+          # else - sources, build files, and bare paths such as a nested submodule pointer - needs a
+          # human. Note the trailing anchors: 'utfcpp' matches none of these patterns and so lands
+          # in review, which is the behaviour we want.
+          suspicious=$(echo "$files" | grep -vE '(^|/)[^/]+\.md$|^\.github/|^vcpkg\.json$|^vcpkg-configuration\.json$|^LICENSE$|^\.gitignore$' || true)
+
+          if [ -z "$suspicious" ]; then
+            echo "verdict=inert" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=review" >> "$GITHUB_OUTPUT"
+            {
+              echo 'reason<<EOF'
+              echo "$suspicious"
+              echo EOF
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      # The product lock records the engine commit for provenance and for the release gate that
+      # refuses a commit nobody merged. A bump that moves the submodule without the lock leaves the
+      # two disagreeing, and verify-contracts fails the whole product-inputs job rather than this
+      # pull request, so say plainly which file has to move.
+      - name: Check the lock followed the submodule
+        id: lock
+        run: |
+          set -euo pipefail
+          if python3 scripts/product_lock.py verify-contracts .; then
+            echo "locked=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "locked=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable auto-merge
+        if: steps.classify.outputs.verdict == 'inert' && steps.lock.outputs.locked == 'yes'
+        run: |
+          set -euo pipefail
+          gh pr merge --auto --squash "$PR_URL"
+          gh pr comment "$PR_URL" --body "引擎 \`${{ steps.range.outputs.base }}\` → \`${{ steps.range.outputs.head }}\` 的改动全部落在文档、CI 配置和依赖清单里，没有源码、构建文件或嵌套 submodule 指针。已开启自动合并，CI 通过后自行合入。"
+
+      - name: Hold for review
+        if: steps.classify.outputs.verdict == 'review'
+        run: |
+          set -euo pipefail
+          gh pr edit "$PR_URL" --add-label "needs-review" || true
+          gh pr comment "$PR_URL" --body "$(printf '引擎 `%s` → `%s` 的改动里有需要人看一眼的部分，未开启自动合并：\n\n```\n%s\n```\n\n源码、`CMakeLists.txt` 或嵌套 submodule 指针的变化都可能改变行为，而前端 CI 未必覆盖得到——`helpcode_enabled()` 与 `handle_character()` 的语义变更就是这样漏过去的。' '${{ steps.range.outputs.base }}' '${{ steps.range.outputs.head }}' '${{ steps.classify.outputs.reason }}')"
+
+      - name: Ask for the lock to follow
+        if: steps.lock.outputs.locked == 'no'
+        run: |
+          set -euo pipefail
+          gh pr comment "$PR_URL" --body "引擎 submodule 动了但 \`product-lock.json\` 里的 \`engine.commit\` 没跟上，产物清单会记录错误的引擎来源，发布门禁也拦不住未合入的引擎提交。跑 \`python3 scripts/product_lock.py refresh --dictionary-tag <当前 tag>\` 或直接改这一个字段，再推上来。"

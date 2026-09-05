@@ -19,12 +19,34 @@ on:
 permissions:
   contents: read
 
-jobs:
-  product:
-    uses: ./.github/workflows/product-ci.yml
+concurrency:
+  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
-  build:
-    name: Windows ${{ matrix.name }}
+jobs:
+  lock:
+    name: Product inputs
+    runs-on: ubuntu-24.04
+    outputs:
+      helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
+    steps:
+      # The dictionary validator is compared against the engine's copy of it, so this job needs the
+      # submodule's contents and not just its gitlink.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+      - name: Check the shared dictionary validator
+        run: python3 scripts/check-dictionary-contract.py
+      - name: Test rejection of changed or mismatched inputs
+        run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
+      - name: Read the reviewed lock
+        id: lock
+        run: |
+          python3 scripts/product_lock.py verify-contracts .
+          python3 scripts/product_lock.py outputs --github-output "$GITHUB_OUTPUT"
+
+  windows:
+    name: Windows tip ${{ matrix.name }}
     runs-on: windows-2025
     strategy:
       fail-fast: false
@@ -41,23 +63,162 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+      - name: Restore dependency binaries
+        id: vcpkg-cache
+        uses: ./.github/actions/vcpkg-cache
+        with:
+          scope: tip-${{ matrix.triplet }}
       - name: Install dependencies
         shell: pwsh
+        working-directory: windows
         run: vcpkg install --triplet ${{ matrix.triplet }}
+      - name: Save dependency binaries before compiling
+        if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.vcpkg-cache.outputs.path }}
+          key: ${{ steps.vcpkg-cache.outputs.key }}-complete
       - name: Configure
         shell: pwsh
         run: >
-          cmake -S . -B build -A ${{ matrix.architecture }}
+          cmake -S windows -B windows/build -A ${{ matrix.architecture }}
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
       - name: Build
         shell: pwsh
-        run: cmake --build build --config Release --parallel
+        run: cmake --build windows/build --config Release --parallel
       - name: Test the wire contract on this architecture
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir windows/build -C Release --output-on-failure
 
       # Architecture-independent, so it runs once rather than on both matrix legs.
       - name: Check the installer language file lands where ISCC looks
         if: ${{ matrix.name == 'x64' }}
         shell: pwsh
         run: ./scripts/ci/check-inno-language.ps1
+
+  server:
+    name: Server
+    needs: lock
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Check out the locked helpcodes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: metasequoiaime/MSIME-HelpCode
+          ref: ${{ needs.lock.outputs.helpcode_sha }}
+          path: helpcodes
+          persist-credentials: false
+      - name: Restore dependency binaries
+        id: vcpkg-cache
+        uses: ./.github/actions/vcpkg-cache
+        with:
+          scope: server-x64-windows-and-static-md
+      - name: Install Boost
+        shell: pwsh
+        run: ./scripts/ci/install-boost.ps1
+      - name: Save Boost binaries before configuring
+        if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key) && steps.vcpkg-cache.outputs.matched-key != format('{0}-boost', steps.vcpkg-cache.outputs.key)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.vcpkg-cache.outputs.path }}
+          key: ${{ steps.vcpkg-cache.outputs.key }}-boost
+      # 刻意不叫 build：CMakeLists.txt 曾经写死 ${CMAKE_SOURCE_DIR}/build/vcpkg_installed，换任何别的名字都会链接失败。构建到别处才能保证这条不会悄悄退回去。
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -S server -B server/build-release -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Save dependency binaries before compiling
+        if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.vcpkg-cache.outputs.path }}
+          key: ${{ steps.vcpkg-cache.outputs.key }}-complete
+      - name: Build
+        shell: pwsh
+        run: cmake --build server/build-release --config Release --parallel
+      - name: Test with the product's exact data
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/ci/test-server.ps1 -ServerRoot server -HelpcodeRoot helpcodes -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
+
+  gui:
+    name: GUI framework
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check library ownership
+        run: python ui/scripts/check-boundary.py
+      - name: Configure
+        shell: pwsh
+        run: cmake -S ui -B ui/build -A x64
+      - name: Build
+        shell: pwsh
+        run: cmake --build ui/build --config Release --parallel
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir ui/build -C Release --verbose --timeout 60
+
+  pages:
+    name: Settings page
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+
+      # The pages ship a copy of the engine's web contract. Before the consolidation the product
+      # lock kept that copy honest by pinning UiHtml and the engine together; inside one repository
+      # the engine submodule is the pin, so the copy is checked against it directly.
+      - name: Check the bundled contract against the engine submodule
+        run: python3 ui-html/scripts/sync-contracts.py --check
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui-html/webview2/settings/ime-settings/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: ui-html/webview2/settings/ime-settings
+        run: pnpm install --frozen-lockfile
+
+      # Same command the release workflow runs. Until it was added here it was only ever exercised
+      # during a release, so a break surfaced while cutting a version.
+      - name: Build
+        working-directory: ui-html/webview2/settings/ime-settings
+        run: pnpm build
+
+      - name: Check the output the installer collects
+        working-directory: ui-html/webview2/settings/ime-settings
+        run: |
+          test -f dist/index.html
+          echo "dist contents:"
+          ls -la dist
+
+  packaging:
+    name: Package contents
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test full and light package contents without registering or installing
+        run: ./installer/tests/package-files.ps1

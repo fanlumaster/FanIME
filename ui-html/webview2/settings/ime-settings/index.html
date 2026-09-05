@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>(IME)Settings</title>
+  <link rel="icon" type="image/x-icon" href="./assets/msime.ico">
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #202020;
+    }
+
+    html[data-theme="light"],
+    html[data-theme="light"] body {
+      background: #f3f3f3;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="titlebar">
+    <div class="titlebar-left">
+      <span class="window-title">Settings</span>
+    </div>
+    <div class="titlebar-right window-controls" aria-label="Window controls">
+      <button id="btn-minimize" class="window-button minimize" aria-label="Minimize window" data-tooltip="Minimize">
+        <img class="window-icon" src="/assets/minimize.svg" alt="" />
+      </button>
+      <button id="btn-maximize" class="window-button maximize" aria-label="Maximize window" data-tooltip="Maximize">
+        <img class="window-icon" src="/assets/maximize.svg" alt="" />
+      </button>
+      <button id="btn-restore" class="window-button restore is-hidden" aria-label="Restore window"
+        data-tooltip="Restore">
+        <img class="window-icon" src="/assets/restore.svg" alt="" />
+      </button>
+      <button id="btn-close" class="window-button close" aria-label="Close window" data-tooltip="Close">
+        <img class="window-icon" src="/assets/close.svg" alt="" />
+      </button>
+    </div>
+  </header>
+  <div class="main">
+    <!-- 侧边栏容器 -->
+    <div id="sidebar-container"><!--INLINE_SIDEBAR--></div>
+
+    <!-- 内容区域容器 -->
+    <div id="content-container" class="content">
+      <div id="floating-toolbar"></div>
+      <div id="appearance"><!--INLINE_APPEARANCE--></div>
+      <div id="input"></div>
+      <div id="helpcode"></div>
+      <div id="dict"></div>
+      <div id="skin"></div>
+      <div id="voice"></div>
+      <div id="screenkb-settings"></div>
+      <div id="handwriting-settings"></div>
+      <div id="tools-settings"></div>
+      <div id="ai-settings"></div>
+      <div id="shortcut"></div>
+      <div id="help-settings"></div>
+      <div id="about-settings"></div>
+      <div id="feedback-settings"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

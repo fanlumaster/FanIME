@@ -1,0 +1,2 @@
+curl -X POST 'https://inputtools.google.com/request?text=duiwolaishuozheshiyicichenzhongdedaji&itc=zh-t-i0-pinyin&num=1&ie=utf-8&oe=utf-8' -H 'content-length:0'
+# ["SUCCESS",[["duiwolaishuozheshiyicichenzhongdedaji",["对我来说这是一次沉重的打击"],[],{"annotation":["dui wo lai shuo zhe shi yi ci chen zhong de da ji"],"candidate_type":[0],"lc":["16 16 16 16 16 16 16 16 16 16 16 16 16"]}]]]

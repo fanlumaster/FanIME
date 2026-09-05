@@ -1,0 +1,181 @@
+:root {
+      --cand-font-family: 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      --cand-font-size: 16px;
+      --preedit-font-size: var(--cand-font-size);
+      --cand-text: #e9e8e8;
+      --cand-num: #e9e8e89d;
+      /* Fallback before C++ injects host-width DIP. Wrap limit = 宿主宽度. */
+      --msime-max-width-dip: 100%;
+      --msime-max-height-dip: 100%;
+    }
+
+    body {
+      font-family: var(--cand-font-family);
+      font-size: var(--cand-font-size);
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .containerParent {
+      width: fit-content;
+      max-width: var(--msime-max-width-dip);
+    }
+
+    .container {
+      margin-top: 0px;
+      margin-left: 0px;
+      background: #202020;
+      /* background: url("https://appassets/background.jpg"); */
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      min-width: 7em;
+      width: min(fit-content, var(--msime-max-width-dip));
+      max-width: var(--msime-max-width-dip);
+      /* Host height in DIP (injected). Do not use min(100%, …): parent height is
+         content-sized so 100% never resolves and tall vertical lists get clipped
+         by the HWND instead of scrolling. */
+      max-height: var(--msime-max-height-dip);
+      box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+      user-select: none;
+      border: 1.5px solid #9b9b9b2e;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 1.2em;
+      background: #6b69d6;
+      transform: translate(1.4px, 10%);
+    }
+
+    .row {
+      justify-content: space-between;
+      padding: 2px;
+      padding-right: 12px;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 2px;
+    }
+
+    .cand {
+      border-radius: 4px;
+      padding-top: 1px;
+      padding-bottom: 1px;
+    }
+
+    .hover-active .cand:hover {
+      background-color: #414141;
+    }
+
+    .row-wrapper {
+      position: relative;
+    }
+
+    .first {
+      background-color: #3e3e3eb9;
+      border-radius: 4px;
+    }
+
+    /* bar */
+    .first::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 0.8em;
+      width: 0.2em;
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+
+    .text {
+      padding-left: calc(0.2em + 3px);
+      color: var(--cand-text);
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .cand .text {
+      line-height: 1.35;
+    }
+
+    .cand-no {
+      font-size: 0.8em;
+      color: var(--cand-num);
+      margin-right: 1.5px;
+    }
+
+    .pinyin {
+      font-size: var(--preedit-font-size);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hidden-pinyin {
+      visibility: hidden;
+    }
+
+    /* Hide candidate-window top preedit when configured as empty */
+    .container.preedit-hidden > .row.pinyin {
+      display: none;
+    }
+
+    /* Hide container when empty */
+    .container:empty {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
+    }
+
+    /* Custom context menu */
+    .context-menu {
+      display: none;
+      position: fixed;
+      background: #2d2d2d;
+      border: 1px solid #9b9b9b2e;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      padding: 1px 0;
+      /* min-width: 80px; */
+      z-index: 1000;
+      /* 默认隐藏 */
+      /* display: none; */
+    }
+
+    .context-menu-item {
+      padding: 1px 4px;
+      margin: 2px 2px;
+      color: #e9e8e8;
+      cursor: default;
+      font-size: 14px;
+      line-height: 20px;
+      white-space: nowrap;
+      border-radius: 4px;
+    }
+
+    .context-menu-item:hover {
+      background-color: #414141;
+    }
+    .context-menu-parent { position: relative; padding-right: 20px; }
+    .context-menu-parent::after { content: "›"; position: absolute; right: 6px; }
+    .context-submenu { display: none; position: absolute; left: 100%; top: -2px; min-width: 0;
+      background: #2d2d2d; border: 1px solid #9b9b9b2e; border-radius: 6px; padding: 1px 0; }
+    .context-menu-parent:hover > .context-submenu { display: block; }
+    .context-menu-separator { height: 1px; margin: 3px 5px; background: #ffffff20; }
+    .cand-translation { margin-left: 0.65em; font-size: 0.78em; opacity: 0.62; }

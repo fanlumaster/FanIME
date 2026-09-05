@@ -1,0 +1,29 @@
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+button:focus,
+button:focus-visible {
+  outline: none !important;
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  background: var(--chrome-bg);
+}
+
+body {
+  font-family: "Noto Sans SC", "Microsoft YaHei", "Segoe UI Variable", "Segoe UI", sans-serif;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+  width: 100%;
+  color: var(--text-color);
+  background: var(--chrome-bg);
+  overflow: hidden;
+}

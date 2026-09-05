@@ -1,0 +1,13 @@
+/* First-screen styles only. Other pages load deferred.css after paint. */
+@import './variables.css';
+@import './base.css';
+@import './layout.css';
+@import './sidebar.css';
+@import './components/titlebar.css';
+@import './components/sections.css';
+@import './components/dropdown.css';
+@import './components/toggle.css';
+@import './components/forms.css';
+@import './modules/appearance.css';
+@import './modules/candidate/style-v.css';
+@import './modules/candidate/style-h.css';

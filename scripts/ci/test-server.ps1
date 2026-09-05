@@ -7,8 +7,6 @@ param(
 $ErrorActionPreference = 'Stop'
 $automationRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $server = (Resolve-Path $ServerRoot).Path
-python (Join-Path $automationRoot 'scripts/product_lock.py') verify-checkout server $server
-if ($LASTEXITCODE -ne 0) { throw 'Server does not match the product lock' }
 python (Join-Path $automationRoot 'scripts/product_lock.py') verify-checkout helpcode $HelpcodeRoot
 if ($LASTEXITCODE -ne 0) { throw 'Helpcodes do not match the product lock' }
 python (Join-Path $automationRoot 'scripts/product_lock.py') fetch-dictionaries --staging-root $StagingRoot

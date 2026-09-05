@@ -1,0 +1,95 @@
+<div class="content" id="floating-toolbar-settings">
+  <div class="content-header"><span>悬浮工具栏</span></div>
+
+  <div class="section floating-toolbar-card">
+    <div class="section-header floating-toolbar-setting-row">
+      <div>
+        <div class="section-title">在桌面显示悬浮工具栏</div>
+        <div class="floating-toolbar-description">快速访问输入法状态与常用功能</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="ftbToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+
+    <div class="floating-toolbar-preview" aria-label="悬浮工具栏预览">
+      <div class="floating-toolbar-preview-label">预览</div>
+      <div class="ftb-preview-host" id="ftbPreviewHost"></div>
+    </div>
+  </div>
+
+  <div class="section floating-toolbar-appearance">
+    <div class="section-header">
+      <div>
+        <div class="section-title">工具栏缩放</div>
+        <div class="floating-toolbar-description">相对系统 DPI 的额外缩放，不改变系统显示缩放</div>
+      </div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="ftbScaleBtn">
+          <span>100%</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="ftbScaleMenu">
+          <div class="dropdown-item" data-value="0.75">75%</div>
+          <div class="dropdown-item" data-value="1">100%</div>
+          <div class="dropdown-item" data-value="1.25">125%</div>
+          <div class="dropdown-item" data-value="1.5">150%</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div>
+        <div class="section-title">图标尺寸</div>
+        <div class="floating-toolbar-description">图标基准大小（像素），再乘以上方缩放</div>
+      </div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="ftbFontSizeBtn">
+          <span>24</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="ftbFontSizeMenu">
+          <div class="dropdown-item" data-value="16">16</div>
+          <div class="dropdown-item" data-value="18">18</div>
+          <div class="dropdown-item" data-value="20">20</div>
+          <div class="dropdown-item" data-value="22">22</div>
+          <div class="dropdown-item" data-value="24">24</div>
+          <div class="dropdown-item" data-value="26">26</div>
+          <div class="dropdown-item" data-value="28">28</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section floating-toolbar-components">
+    <div class="section-header">
+      <div>
+        <div class="section-title">工具栏组件</div>
+        <div class="floating-toolbar-description">勾选要显示在悬浮工具栏中的功能</div>
+      </div>
+    </div>
+    <div class="floating-toolbar-component-list">
+      <label class="check-option floating-toolbar-required-option">
+        <input type="checkbox" checked disabled>
+        <span>中英文切换</span>
+        <span class="floating-toolbar-required-label">始终显示</span>
+      </label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" id="ftbFullwidthCheckbox" data-toolbar-item="fullwidth" checked><span>全角 / 半角</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" id="ftbPunctuationCheckbox" data-toolbar-item="punctuation" checked><span>中英文标点</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" id="ftbCharacterSetCheckbox" data-toolbar-item="character_set" checked><span>简繁切换</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" id="ftbEmojiCheckbox" data-toolbar-item="emoji" checked><span>表情与符号</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" id="ftbScreenKeyboardCheckbox" data-toolbar-item="screen_keyboard"><span>屏幕键盘</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" id="ftbSettingsCheckbox" data-toolbar-item="settings" checked><span>设置</span></label>
+    </div>
+  </div>
+</div>

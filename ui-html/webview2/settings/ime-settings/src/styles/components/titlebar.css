@@ -1,0 +1,153 @@
+.titlebar {
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 12px;
+  /* background: rgba(28, 28, 28, 0.9);
+  border-bottom: 1px solid var(--border-color); */
+  color: var(--text-color);
+  -webkit-app-region: drag;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.window-title {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  opacity: 0.92;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.window-button {
+  width: 42px;
+  height: var(--titlebar-height);
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  color: inherit;
+  position: relative;
+}
+
+html[data-theme="light"] .window-icon {
+  filter: invert(1) brightness(0.2);
+}
+
+html[data-theme="light"] .window-button.close:hover .window-icon,
+html[data-theme="light"] .window-button.close.host-hover .window-icon,
+html[data-theme="light"] .window-button.close:active .window-icon,
+html[data-theme="light"] .window-button.close.host-active .window-icon {
+  filter: none;
+}
+
+.window-button.is-hidden {
+  display: none;
+}
+
+.window-icon {
+  width: 9px;
+  height: 10px;
+  display: block;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+.window-button:hover,
+.window-button.host-hover {
+  background: var(--titlebar-btn-hover);
+}
+
+.window-button.close:hover,
+.window-button.close.host-hover {
+  background: #c42b1c;
+  color: #ffffff;
+}
+
+.window-button:active,
+.window-button.host-active {
+  background: var(--titlebar-btn-active);
+}
+
+.window-button.close:active,
+.window-button.close.host-active {
+  background: #a72216;
+}
+
+.window-button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 2px);
+  transform: translateX(-50%);
+  padding: 2px 4px;
+  border-radius: 2px;
+  background: var(--tooltip-bg);
+  border: 1px solid var(--tooltip-border);
+  color: var(--tooltip-color);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  transform-origin: top center;
+  z-index: 10;
+}
+
+.window-button[data-tooltip]:hover::after,
+.window-button.host-hover[data-tooltip]::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+  transition-delay: 500ms;
+}
+
+.window-controls.window-controls-click-reset .window-button:hover,
+.window-controls.window-controls-click-reset .window-button.close:hover,
+.window-controls.window-controls-click-reset .window-button:active,
+.window-controls.window-controls-click-reset .window-button.close:active {
+  background: transparent;
+  color: inherit;
+}
+
+.window-controls.window-controls-click-reset .window-button[data-tooltip]::after,
+.window-controls.window-controls-click-reset .window-button[data-tooltip]:hover::after {
+  opacity: 0;
+  transform: translateX(-50%);
+  transition-delay: 0s;
+}
+
+.resize-hit-active .window-controls {
+  pointer-events: none;
+}
+
+.resize-hit-active .window-button:hover,
+.resize-hit-active .window-button.close:hover,
+.resize-hit-active .window-button:active,
+.resize-hit-active .window-button.close:active {
+  background: transparent;
+  color: inherit;
+}
+
+.resize-hit-active .window-button[data-tooltip]::after {
+  opacity: 0;
+  transform: translateX(-50%);
+  transition-delay: 0s;
+}

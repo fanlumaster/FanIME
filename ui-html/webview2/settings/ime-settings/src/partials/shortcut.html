@@ -1,0 +1,52 @@
+<div class="content shortcut-settings" id="shortcut-settings">
+  <div class="content-header"><span>快捷键</span></div>
+  <div class="shortcut-intro">输入法快捷键仅在对应输入状态或候选窗口显示时生效。翻页方式可在“输入”中启用或关闭。</div>
+
+  <div class="section shortcut-section section-page-option">
+    <div class="shortcut-section-heading"><div><div class="section-title">中英文切换</div><div class="shortcut-section-description">勾选启用对应快捷键；Ctrl+Space 由 Windows 系统管理，此处不控制</div></div></div>
+    <div class="content-page-option">
+      <label class="check-option"><input type="checkbox" name="switch-language" id="switchLanguageShiftCheckbox" value="shift" checked><span>Shift</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="switch-language" id="switchLanguageCtrlCheckbox" value="ctrl"><span>Ctrl</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="switch-language" id="switchLanguageCtrlAltSpaceCheckbox" value="ctrl-alt-space" checked><span>Ctrl + Alt + Space</span></label>
+    </div>
+    <div class="shortcut-list" style="margin-top: 12px;">
+      <div class="shortcut-system-guide">
+        <div class="shortcut-system-guide-title">修改或关闭 Ctrl+Space（系统）</div>
+        <div class="shortcut-system-guide-copy">请前往 Windows 系统设置修改“输入法 / 非输入法切换”的按键顺序：</div>
+        <ol>
+          <li>打开“设置”，进入“时间和语言” → “输入”。</li>
+          <li>选择“高级键盘设置” → “输入语言热键”。</li>
+          <li>选中“中文（简体）输入法 - 输入法 / 非输入法切换”，点击“更改按键顺序”。</li>
+          <li>关闭该按键顺序，或将 Ctrl+Space 改为其他不常用组合。</li>
+        </ol>
+        <div class="shortcut-system-guide-note">不同 Windows 版本的选项名称可能略有差异；修改后如未立即生效，请重新登录或重启电脑。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section shortcut-section">
+    <div class="shortcut-section-heading"><div><div class="section-title">候选操作</div><div class="shortcut-section-description">输入和选取候选词时使用</div></div></div>
+    <div class="shortcut-list">
+      <div class="shortcut-row"><span>选择候选</span><div class="shortcut-keys"><kbd>Space</kbd><em>或</em><kbd>1</kbd><i>–</i><kbd>9</kbd></div></div>
+      <div class="shortcut-row"><span>向前 / 向后翻页</span><div class="shortcut-keys"><kbd>-</kbd><i>/</i><kbd>=</kbd></div></div>
+      <div class="shortcut-row"><span>向前 / 向后翻页</span><div class="shortcut-keys"><kbd>,</kbd><i>/</i><kbd>.</kbd></div></div>
+      <div class="shortcut-row"><span>向前 / 向后翻页</span><div class="shortcut-keys"><kbd>Shift</kbd><i>+</i><kbd>Tab</kbd><i>/</i><kbd>Tab</kbd></div></div>
+      <div class="shortcut-row"><span>向前 / 向后翻页</span><div class="shortcut-keys"><kbd>Page Up</kbd><i>/</i><kbd>Page Down</kbd></div></div>
+      <div class="shortcut-row"><span>移动候选项</span><div class="shortcut-keys"><kbd>↑</kbd><i>/</i><kbd>↓</kbd></div></div>
+      <div class="shortcut-row"><span>编辑输入串</span><div class="shortcut-keys"><kbd>←</kbd><i>/</i><kbd>→</kbd><em>、</em><kbd>Backspace</kbd></div></div>
+      <div class="shortcut-row"><span>提交原始输入 / 取消输入</span><div class="shortcut-keys"><kbd>Enter</kbd><i>/</i><kbd>Esc</kbd></div></div>
+    </div>
+  </div>
+
+  <div class="section shortcut-section">
+    <div class="shortcut-section-heading"><div><div class="section-title">全局快捷键</div><div class="shortcut-section-description">程序运行时全局生效；重启、退出和清缓存主要用于维护与调试</div></div><span class="shortcut-badge">高级</span></div>
+    <div class="shortcut-list">
+      <div class="shortcut-row"><span>删除当前候选窗口中的第 1–8 项</span><div class="shortcut-keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>1–8</kbd></div></div>
+      <div class="shortcut-row"><span>清除输入法引擎缓存</span><div class="shortcut-keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>C</kbd></div></div>
+      <div class="shortcut-row"><span>重启输入法服务</span><div class="shortcut-keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>R</kbd></div></div>
+      <div class="shortcut-row shortcut-row-danger"><span>立即退出输入法服务</span><div class="shortcut-keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>T</kbd></div></div>
+    </div>
+  </div>
+</div>
