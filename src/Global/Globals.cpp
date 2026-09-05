@@ -247,7 +247,10 @@ extern const WCHAR FullWidthCharTable[] = {
 //---------------------------------------------------------------------
 // defined punctuation characters
 //---------------------------------------------------------------------
-extern const struct _PUNCTUATION PunctuationTable[25] = {
+// '<' and '>' are deliberately absent: they belong to the nest pair set up in
+// SetupPunctuationPair, and GetPunctuation searches this table first. Listing them here
+// would shadow the nest pair, and the nested marks would never be produced.
+extern const struct _PUNCTUATION PunctuationTable[23] = {
     {L'`', L"·"},   // ·
     {L'~', L"~"},   // ~
     {L'!', L"！"},  // ！
@@ -269,9 +272,7 @@ extern const struct _PUNCTUATION PunctuationTable[25] = {
     {L';', L"；"},  // ；
     {L':', L"："},  // ：
     {L',', L"，"},  // ，
-    {L'<', L"《"},  // 《
     {L'.', L"。"},  // 。
-    {L'>', L"》"},  // 》
     {L'?', L"？"},  // ？
 };
 
