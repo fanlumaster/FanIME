@@ -3399,6 +3399,8 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
 
     if (!unique_candidates.empty())
     {
+        user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), EnglishRankingContextKey(),
+                                               unique_candidates, false);
         const size_t insert_index = std::min<size_t>(1, items.size());
         items.insert(items.begin() + static_cast<std::ptrdiff_t>(insert_index), std::move(unique_candidates.front()));
         user_dictionary::apply_fixed_positions(user_dictionary::default_user_db_path(), CurrentRankingContextKey(),
@@ -4130,10 +4132,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
             curWordItem.source == CandidateSource::Kaomoji ||
             curWordItem.source == CandidateSource::Generated)
         {
-            if (curWordItem.source == CandidateSource::EnglishDictionary &&
-                (g_english_input_mode ||
-                 IsYModeInput(g_inputSession->get_pinyin_sequence_with_cases())) &&
-                isNeedUpdateWeight)
+            if (curWordItem.source == CandidateSource::EnglishDictionary && isNeedUpdateWeight)
             {
                 const auto &frequency = GetConfiguredFrequencyAdjustment();
                 (void)user_dictionary::adjust_english_candidate_ranking(
