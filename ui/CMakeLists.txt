@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.25)
 
 project(msimeui VERSION 0.1.0 LANGUAGES CXX)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -132,4 +134,8 @@ if(MSVC)
     target_compile_options(msimeui-emoji-panel PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-keyboard-demo PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-handwriting-demo PRIVATE /W4 /permissive-)
+endif()
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
 endif()
