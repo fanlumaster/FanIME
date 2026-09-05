@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.16](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.15...v0.0.16) (2026-09-05)
+
+
+### Bug Fixes
+
+* **tsf:** commit the create-word prefix when Enter finalizes the composition ([75d8366](https://github.com/metasequoiaime/MSIME-Windows/commit/75d83660cd5b41be32e3089936fd22f5bd3a91b8))
+
 ## [0.0.15](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.14...v0.0.15) (2026-09-05)
 
 
