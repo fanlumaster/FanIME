@@ -2,6 +2,15 @@
 param(
     [string]$TargetVersion = '0.0.1',
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
+    # Source checkouts are addressed by directory name under $RepoRoot. The defaults are the
+    # historical names, which is what MSIME-Windows' release workflow stages its checkouts as and
+    # what a local side-by-side clone looks like. They are parameters so that a caller using the
+    # current repository names does not have to rename directories to satisfy this script.
+    [string]$TsfDirectory = 'MetasequoiaImeTsf',
+    [string]$ServerDirectory = 'MetasequoiaImeServer',
+    [string]$UiHtmlDirectory = 'MetasequoiaImeUiHtml',
+    [string]$HelpCodeDirectory = 'MetasequoiaImeHelpCode',
+    [string]$DictionaryDirectory = 'MetasequoiaImeDict',
     [switch]$Light
 )
 
@@ -30,22 +39,23 @@ function Reset-Directory {
     New-Item -ItemType Directory -Path $LiteralPath -Force | Out-Null
 }
 
-$serverRelease = Join-Path $RepoRoot 'MetasequoiaImeServer\build-release\bin\Release'
+$serverRelease = Join-Path $RepoRoot (Join-Path $ServerDirectory 'build-release\bin\Release')
 $dictionaryReplayRelease = Join-Path $serverRelease 'MetasequoiaImeDictionaryReplay.exe'
-$tsf32Release = Join-Path $RepoRoot 'MetasequoiaImeTsf\build32-release\Release\MetasequoiaImeTsf.dll'
-$tsf64Release = Join-Path $RepoRoot 'MetasequoiaImeTsf\build64-release\Release\MetasequoiaImeTsf.dll'
-$webviewRoot = Join-Path $RepoRoot 'MetasequoiaImeUiHtml\webview2'
-$serverConfig = Join-Path $RepoRoot 'MetasequoiaImeServer\assets\config\config.toml'
+$tsf32Release = Join-Path $RepoRoot (Join-Path $TsfDirectory 'build32-release\Release\MetasequoiaImeTsf.dll')
+$tsf64Release = Join-Path $RepoRoot (Join-Path $TsfDirectory 'build64-release\Release\MetasequoiaImeTsf.dll')
+$webviewRoot = Join-Path $RepoRoot (Join-Path $UiHtmlDirectory 'webview2')
+$serverConfig = Join-Path $RepoRoot (Join-Path $ServerDirectory 'assets\config\config.toml')
 $factoryConfig = Join-Path $PSScriptRoot 'default_config\config.default.toml'
-$pinyinTable = Join-Path $RepoRoot 'MetasequoiaImeServer\assets\tables\pinyin.txt'
-$helpcodeSource = Join-Path $RepoRoot 'MetasequoiaImeHelpCode\helpcodes'
-$appIcon = Join-Path $RepoRoot 'MetasequoiaImeServer\src\resource\MetasequoiaIME.ico'
-$dictionaryDb = Join-Path $RepoRoot 'MetasequoiaImeDict\out\msime.db'
-$dictionaryManifest = Join-Path $RepoRoot 'MetasequoiaImeDict\out\dictionary-manifest.json'
-$japaneseModel = Join-Path $RepoRoot 'MetasequoiaImeDict\out\dict_japanese.dat'
-$japaneseModelLicense = Join-Path $RepoRoot 'MetasequoiaImeDict\source\mozc_dictionary_oss\README.txt'
-$englishDb = Join-Path $RepoRoot 'MetasequoiaImeDict\out\english.db'
-$othersDb = Join-Path $RepoRoot 'MetasequoiaImeDict\out\others.db'
+$pinyinTable = Join-Path $RepoRoot (Join-Path $ServerDirectory 'assets\tables\pinyin.txt')
+$helpcodeSource = Join-Path $RepoRoot (Join-Path $HelpCodeDirectory 'helpcodes')
+$appIcon = Join-Path $RepoRoot (Join-Path $ServerDirectory 'src\resource\MetasequoiaIME.ico')
+$thirdPartyNotices = Join-Path $RepoRoot (Join-Path $TsfDirectory 'THIRD_PARTY_NOTICES.txt')
+$dictionaryDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\msime.db')
+$dictionaryManifest = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dictionary-manifest.json')
+$japaneseModel = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dict_japanese.dat')
+$japaneseModelLicense = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'source\mozc_dictionary_oss\README.txt')
+$englishDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\english.db')
+$othersDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\others.db')
 
 Assert-PathExists -LiteralPath $RepoRoot -Description '源码仓库根目录'
 Assert-PathExists -LiteralPath $serverRelease -Description 'Server Release 输出目录'
@@ -54,6 +64,7 @@ Assert-PathExists -LiteralPath $tsf32Release -Description '32 位 TSF Release DL
 Assert-PathExists -LiteralPath $tsf64Release -Description '64 位 TSF Release DLL'
 Assert-PathExists -LiteralPath $serverConfig -Description 'Server config.toml'
 Assert-PathExists -LiteralPath $appIcon -Description '应用图标'
+Assert-PathExists -LiteralPath $thirdPartyNotices -Description '第三方声明 THIRD_PARTY_NOTICES.txt'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'shared') -Description '共享 WebView 消息契约'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'candwnd') -Description '候选窗 HTML 目录'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'ftb') -Description '悬浮工具栏 HTML 目录'
@@ -158,6 +169,9 @@ New-Item -ItemType Directory -Path $targetTsf32, $targetTsf64 -Force | Out-Null
 Copy-Item -LiteralPath $tsf32Release -Destination $targetTsf32 -Force
 Copy-Item -LiteralPath $tsf64Release -Destination $targetTsf64 -Force
 Copy-Item -LiteralPath $appIcon -Destination (Join-Path $PSScriptRoot 'MetasequoiaIME.ico') -Force
+# rime-ice is GPL-3.0 and requires attribution, and its content forms the bulk of msime.db, so the
+# notice has to reach the user's disk rather than only exist in the source repository.
+Copy-Item -LiteralPath $thirdPartyNotices -Destination (Join-Path $PSScriptRoot 'THIRD_PARTY_NOTICES.txt') -Force
 
 $targetIss = Join-Path $PSScriptRoot 'msime_setup.iss'
 Assert-PathExists -LiteralPath $targetIss -Description '安装脚本'

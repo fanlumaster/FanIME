@@ -18,6 +18,7 @@ try {
         'MetasequoiaImeServer/build-release/bin/Release/MetasequoiaImeServerTests.exe',
         'MetasequoiaImeTsf/build32-release/Release/MetasequoiaImeTsf.dll',
         'MetasequoiaImeTsf/build64-release/Release/MetasequoiaImeTsf.dll',
+        'MetasequoiaImeTsf/THIRD_PARTY_NOTICES.txt',
         'MetasequoiaImeServer/assets/config/config.toml',
         'MetasequoiaImeServer/src/resource/MetasequoiaIME.ico',
         'MetasequoiaImeHelpCode/helpcodes/helpcode.txt',
@@ -38,7 +39,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Failed to create packaging fixture' }
     & (Join-Path $installer 'Prepare-PackageFiles.ps1') -RepoRoot $fixture -TargetVersion '2026.9.1'
     foreach ($file in @('app_data/html/webview2/shared/runtime.js', 'app_data/dictionary-manifest.json',
-                         'tsf_dll/32/MetasequoiaImeTsf.dll', 'tsf_dll/64/MetasequoiaImeTsf.dll')) {
+                         'tsf_dll/32/MetasequoiaImeTsf.dll', 'tsf_dll/64/MetasequoiaImeTsf.dll',
+                         'THIRD_PARTY_NOTICES.txt')) {
         if (-not (Test-Path (Join-Path $installer $file))) { throw "Missing packaged file: $file" }
     }
     if (Test-Path (Join-Path $installer 'server_exe/MetasequoiaImeServerTests.exe')) { throw 'Packaged a test executable' }
