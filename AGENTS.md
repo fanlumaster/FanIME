@@ -44,10 +44,10 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 ## 产品输入清单
 
-`product-lock.json` 只记录仍来自仓外的东西：Engine（在本仓是 submodule）、辅助码仓的提交、词库 Release 的 tag 和每个产物的 SHA256。**Server、页面、GUI 框架和安装器不在清单里**——它们是本仓的目录，本仓的一个 commit 就已经把它们钉住了。
+`product-lock.json` 只记录仍来自仓外的东西：Engine（在本仓是 submodule）、词库 Release 的 tag、source commit 和每个产物的 SHA256。**Server、页面、GUI 框架和安装器不在清单里**——它们是本仓的目录，本仓的一个 commit 就已经把它们钉住了。辅助码也不在——它已经并入 Engine，钉住契约的那个 gitlink 同时钉住了辅助码表。
 
 - 引擎的权威是 `vendor/MetasequoiaImeEngine` 的 gitlink；`product-lock.json` 里的 `engine.commit` 只是把它记下来，供产物清单和发布门禁使用。两者必须一致，`product_lock.py verify-contracts` 会检查。bump submodule 时同一个 PR 里把 `engine.commit` 改过来。
-- `refresh` 是唯一解析浮动引用的命令，只解析辅助码；引擎取自本地 gitlink。
+- `refresh` 不再解析任何浮动源码引用：引擎取自本地 gitlink，词库取自指定 tag。词库清单里记录了构建它的 commit 和当时工作树是否干净，`verify-assets` 一并校验——摘要只能证明字节是评审过的字节，证明不了它来自一个能重建的源。
 - 发布门禁 `verify-published` 要求清单里每个提交都能从各自仓库默认分支到达，只在发布路径执行，不进 CI。理由见 [docs/product-release.md](docs/product-release.md)。
 
 ## 正式发布（CI）
@@ -82,7 +82,7 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 | `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
 | `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
 | `check-tsf-dll.ps1` | 确认 TSF DLL 产出 |
-| `download-dictionaries.sh` | 从 MSIME-Dict 的 `dict-*` release 拉词库并校验 SHA256 |
+| `download-dictionaries.sh` | 从产品锁指定仓库的 `dict-*` release 拉词库并校验 SHA256 |
 | `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
 | `sign-binaries.ps1` | 用仓库 secret 里的真证书签名，包内二进制和安装包共用 |
 | `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定。装到真正的 Inno Setup 安装目录，不是 Chocolatey shim 旁边 |
@@ -91,9 +91,9 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 | `revalidate-draft-release.sh` | 发布前复查 draft 仍指向被构建的那个 commit |
 | `publish-release.sh` | 上传产物、追加说明、发布 |
 
-合仓之前 CI 要把五个仓 checkout 到历史目录名下，`Prepare-PackageFiles.ps1` 才能不改一行地跑。现在源目录名由 workflow 显式传参（`-TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .`），只有辅助码和词库还落在仓根的 `MetasequoiaImeHelpCode/`、`MetasequoiaImeDict/`，用的是那两个参数的默认值。改动这些脚本里的产物路径时，要连同 release workflow 一起核对。
+合仓之前 CI 要把五个仓 checkout 到历史目录名下，`Prepare-PackageFiles.ps1` 才能不改一行地跑。现在源目录名由 workflow 显式传参（`-TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory . -HelpCodeDirectory vendor/MetasequoiaImeEngine/helpcode`），只有词库还落在仓根的 `MetasequoiaImeDict/`，用的是那个参数的默认值。改动这些脚本里的产物路径时，要连同 release workflow 一起核对。
 
-词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；通过 `scripts/product_lock.py refresh --dictionary-tag <tag>` 更新产品锁并评审摘要变更；发布构建不能临时覆盖词库版本。
+词库不在 CI 里现建，从产品锁指定仓库的 `dict-*` release 下载并校验 SHA256。词库源数据与构建入口已并入 MSIME-Engine，现有 MSIME-Dict release 作为不可变旧产物保留；换发布源要在 `product_lock.py` 里明确评审，不是改个 tag 就能悄悄完成的事。词库改了要先在 Engine 跑构建 workflow 并勾选 publish，再发 Windows 版本；通过 `scripts/product_lock.py refresh --dictionary-tag <tag>` 更新产品锁并评审摘要变更；发布构建不能临时覆盖词库版本。
 
 签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
 
