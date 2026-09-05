@@ -244,7 +244,7 @@ void PostConfig(bool refresh_skin_catalog = false)
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
-    const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+    const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
                                              GlobalIme::AppName / L"skins";
     if (refresh_skin_catalog)
     {
@@ -747,7 +747,7 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "openSkinDirectory")
         {
-            const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+            const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
                                                 GlobalIme::AppName / L"skins";
             std::error_code ec;
             std::filesystem::create_directories(skins, ec);
@@ -835,11 +835,11 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
 
     if (SUCCEEDED(g_webview.As(&g_webview3)))
     {
-        const std::filesystem::path assets = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+        const std::filesystem::path assets = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
                                              GlobalIme::AppName / "html/webview2/settings/ime-settings/dist";
         g_webview3->SetVirtualHostNameToFolderMapping(L"imesettings", assets.c_str(),
                                                        COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
-        const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path()) /
+        const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
                                             GlobalIme::AppName / L"skins";
         std::error_code ec;
         std::filesystem::create_directories(skins, ec);
