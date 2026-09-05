@@ -64,11 +64,11 @@
 
 ## 项目结构
 
-- [MetasequoiaImeTsf](https://github.com/metasequoiaime/MetasequoiaImeTsf): 核心 TSF。
-- [MetasequoiaImeServer](https://github.com/metasequoiaime/MetasequoiaImeServer): Server 端，负责算法和窗口渲染。
-- [MetasequoiaImeUiHtml](https://github.com/metasequoiaime/MetasequoiaImeUiHtml): UI。
-- [MetasequoiaImeDict](https://github.com/metasequoiaime/MetasequoiaImeDict): 词库。
-- [MetasequoiaImeHelpCode](https://github.com/metasequoiaime/MetasequoiaImeHelpCode): 辅助码。
+- [MSIME-Windows](https://github.com/metasequoiaime/MSIME-Windows): 核心 TSF。
+- [MSIME-Server](https://github.com/metasequoiaime/MSIME-Server): Server 端，负责算法和窗口渲染。
+- [MSIME-UiHtml](https://github.com/metasequoiaime/MSIME-UiHtml): UI。
+- [MSIME-Dict](https://github.com/metasequoiaime/MSIME-Dict): 词库。
+- [MSIME-HelpCode](https://github.com/metasequoiaime/MSIME-HelpCode): 辅助码。
 - [MetasequoiaVoiceInput](https://github.com/metasequoiaime/MetasequoiaVoiceInput): 语音输入模块，也可单独使用。
 
 ## 功能简介
