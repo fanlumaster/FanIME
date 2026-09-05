@@ -4,14 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
-    # A release-please pull request only rewrites these three files. Skipping it keeps every
-    # release from parking an unapprovable run in the checks list: runs whose triggering actor is
-    # github-actions[bot] land in action_required, because GITHUB_TOKEN is not allowed to start
-    # workflows on its own. Nothing here builds from these files anyway.
+    # A release-please pull request only rewrites these three files, and its pull_request run would
+    # be created in action_required and never execute: GITHUB_TOKEN may not start workflows, so
+    # anything it triggers waits for a human. Skipping it here keeps an unapprovable run out of the
+    # checks list. The release workflow dispatches this workflow on the release branch instead,
+    # which is the one trigger GITHUB_TOKEN is allowed to fire, so the version bump still gets a
+    # full build and the checks land on the same commit.
     paths-ignore:
       - version.txt
       - CHANGELOG.md
       - .release-please-manifest.json
+  workflow_dispatch:
 
 permissions:
   contents: read
