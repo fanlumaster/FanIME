@@ -59,12 +59,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge the release pull request
-        if: ${{ github.event_name == 'push' && steps.release.outputs.prs_created == 'true' }}
+      - name: Build and merge the release pull request
+        if: ${{ github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_PR: ${{ steps.release.outputs.pr }}
         run: bash scripts/ci/merge-release-pr.sh
 
       - name: Validate requested draft release

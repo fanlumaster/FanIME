@@ -11,10 +11,27 @@
 # what lets required_status_checks be turned on for this repository (see MSIME-Windows#121). This
 # mirrors what MSIME-Apple's release automation already does.
 #
-# Requires GH_TOKEN, GH_REPO, RELEASE_PR (the JSON release-please emits).
+# The pull request is found by branch rather than from release-please's payload. It only reports a
+# pull request as created once, but it rewrites that branch on every later push to main, and a
+# release pull request that could not be merged the first time -- main advancing mid-build is the
+# normal way that happens -- would then never be retried.
+#
+# Requires GH_TOKEN and GH_REPO.
 set -euo pipefail
 
-number=$(jq -er .number <<< "$RELEASE_PR")
+branch=$(gh api "repos/$GH_REPO/git/matching-refs/heads/release-please--" \
+    --jq '.[0].ref // empty' | sed 's|^refs/heads/||')
+if [[ -z "$branch" ]]; then
+    echo "No release branch exists; nothing to build or merge."
+    exit 0
+fi
+
+number=$(gh pr list --repo "$GH_REPO" --head "$branch" --state open --limit 1 \
+    --json number --jq '.[0].number // empty')
+if [[ -z "$number" ]]; then
+    echo "Release branch $branch has no open pull request; nothing to merge."
+    exit 0
+fi
 
 pr_json=$(gh pr view "$number" --repo "$GH_REPO" \
     --json state,isDraft,headRefName,headRefOid,baseRefName,baseRefOid)
