@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
+  "packageManager": "pnpm@10.34.5",
   "devDependencies": {
     "@types/chrome": "^0.1.29",
     "@types/node": "^24.10.1",
