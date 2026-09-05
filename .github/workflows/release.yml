@@ -253,6 +253,21 @@ jobs:
           repository: metasequoiaime/MSIME-UiHtml
           ref: ${{ needs.dependencies.outputs.ui_sha }}
           persist-credentials: false
+          submodules: true
+
+      - name: Check out release automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.target_sha }}
+          path: automation
+          sparse-checkout: |
+            scripts
+            product-lock.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Verify the page contract belongs to the product
+        run: python3 automation/scripts/product_lock.py verify-checkout ui .
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -280,6 +295,7 @@ jobs:
             webview2/candwnd
             webview2/ftb
             webview2/menu
+            webview2/shared
             webview2/settings/ime-settings/dist
           if-no-files-found: error
 

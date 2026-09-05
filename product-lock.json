@@ -3,11 +3,11 @@
   "repositories": {
     "server": {
       "repository": "metasequoiaime/MSIME-Server",
-      "commit": "c1b8fb1396639b2b6f15ddaedf27c2046c86a647"
+      "commit": "40d85a43cec47be44b19a2365bfe0c7f89b63b22"
     },
     "ui": {
       "repository": "metasequoiaime/MSIME-UiHtml",
-      "commit": "fde7b02567a1daf20d79e5232325d0ab9f5748d8"
+      "commit": "3ecfea9d529a129e76a7ea31ea7abe5d68e8430b"
     },
     "installer": {
       "repository": "metasequoiaime/MSIME-Installer",
@@ -19,7 +19,7 @@
     },
     "engine": {
       "repository": "metasequoiaime/MSIME-Engine",
-      "commit": "127019f252cab9146f7a4e184f77cd6ed13fcf56"
+      "commit": "9a4b0c62fd89d27698cf27d2b43aa4b22727dc67"
     },
     "gui": {
       "repository": "metasequoiaime/MSIME-UI",

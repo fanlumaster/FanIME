@@ -92,11 +92,12 @@ def verify_checkout(component: str, directory: Path, data: dict) -> None:
     expected = data["repositories"][component]["commit"]
     if git(directory, "rev-parse", "HEAD") != expected:
         raise ValueError(f"{component}: checkout does not match product lock")
-    if component == "server":
-        for name, path in SERVER_GITLINKS.items():
+    gitlinks = SERVER_GITLINKS if component == "server" else ({"engine": "vendor/MetasequoiaImeEngine"} if component == "ui" else {})
+    if gitlinks:
+        for name, path in gitlinks.items():
             fields = git(directory, "ls-tree", "HEAD", path).split()
             if len(fields) != 4 or fields[0] != "160000" or fields[2] != data["repositories"][name]["commit"]:
-                raise ValueError(f"Server's {path} gitlink does not match product lock")
+                raise ValueError(f"{component}: {path} gitlink does not match product lock")
 
 
 def verify_contracts(directory: Path, data: dict) -> None:
@@ -153,6 +154,11 @@ def refresh(tag: str, refs: list[str]) -> dict:
     for name, path in SERVER_GITLINKS.items():
         entry = next(item for item in tree if item["path"] == path and item["type"] == "commit")
         repositories[name] = {"repository": REPOSITORIES[name], "commit": entry["sha"]}
+    ui = repositories["ui"]
+    ui_tree = api(f"repos/{ui['repository']}/git/trees/{ui['commit']}?recursive=1")["tree"]
+    ui_contract = next((item for item in ui_tree if item["path"] == "vendor/MetasequoiaImeEngine"), None)
+    if not ui_contract or ui_contract["type"] != "commit" or ui_contract["sha"] != repositories["engine"]["commit"]:
+        raise ValueError("UiHtml and Server must pin the same Engine contract before refreshing the product")
     release = api(f"repos/metasequoiaime/MSIME-Dict/releases/tags/{tag}")
     if release["draft"]:
         raise ValueError("Cannot lock an unpublished dictionary release")

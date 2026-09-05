@@ -72,6 +72,7 @@ jobs:
           repository: metasequoiaime/MSIME-UiHtml
           ref: ${{ needs.lock.outputs.ui_sha }}
           path: component
+          submodules: true
           persist-credentials: false
       - name: Verify the page checkout
         run: python3 scripts/product_lock.py verify-checkout ui component

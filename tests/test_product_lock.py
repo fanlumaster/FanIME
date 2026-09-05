@@ -98,6 +98,13 @@ class ProductLockTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 lock.verify_checkout("server", ROOT, changed)
 
+    def test_page_contract_mismatch_is_rejected(self):
+        replies = [self.data["repositories"]["ui"]["commit"],
+                   "160000 commit " + "0" * 40 + "\tvendor/MetasequoiaImeEngine"]
+        with mock.patch.object(lock, "git", side_effect=replies):
+            with self.assertRaises(ValueError):
+                lock.verify_checkout("ui", ROOT, self.data)
+
     def test_wrong_checkout_is_rejected(self):
         with mock.patch.object(lock, "git", return_value="0" * 40):
             with self.assertRaises(ValueError):
