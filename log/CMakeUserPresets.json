@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "default",
+      "inherits": "vcpkg",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build"
+    }
+  ]
+}

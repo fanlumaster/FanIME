@@ -1,0 +1,15 @@
+CompileFlags:
+  Add: [
+      -DUNICODE,
+      -D_UNICODE,
+      "-std=c++17", # needed when using MSVC
+      "-IC:/Users/sonnycalcr/EDisk/CppCodes/IMECodes/MetasequoiaImeLog/build/vcpkg_installed/x64-windows/include",
+      -Wno-microsoft-goto,
+      -Wno-nonportable-include-path,
+      -Wno-microsoft-extra-qualification,
+      -Wunused-variable,
+      # -Wno-unused-value,
+    ] # ignore some specific warnings
+  CompilationDatabase: build/ # Search build/ directory for compile_commands.json
+# Diagnostics:
+#   UnusedIncludes: None # ignore unused includes
