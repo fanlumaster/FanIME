@@ -2478,6 +2478,10 @@ void MainPipeClientThread(HANDLE clientPipe, uint64_t handlerId)
             {
                 break;
             }
+            if (!NegotiateMainPipeClient(pipeData, mainRegistrationId))
+            {
+                break;
+            }
             if (!pipe_running || !SetPipeWaitMode(clientPipe, true))
             {
                 break;

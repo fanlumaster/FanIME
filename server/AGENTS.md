@@ -26,7 +26,7 @@ CI 现在会真的跑它：`.github/workflows/ci.yml` 在 Build 之后有 Provis
 
 数据不全时的典型症状是候选查询返回空集，断言信息看起来像逻辑错误，实际是缺数据。排查测试失败前先确认数据根目录是齐的。
 
-`src/ipc/ipc.h` 里另有 14 条 `static_assert` 守着协议 ABI。那些是编译期的，随主工程一起检查，不依赖上面这些数据。
+IPC 线格式、opcode 和语音分帧的唯一实现位于 Engine 子模块的 `contracts/`；本仓的 `src/ipc/ipc.h` 只保留连接状态和 Server API。不要重新复制协议定义。共享头的 ABI 断言随主工程编译，主连接必须通过 `NegotiateMainPipeClient` 后才能激活；旧 DLL 的未版本化 hello 仍兼容，版本化客户端会收到关联 request_id 的协议确认。
 
 改了协议或候选逻辑，正常构建并备好数据之后自己跑一次：
 

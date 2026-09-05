@@ -9,17 +9,8 @@
 #include <string>
 #include <vector>
 
-inline const wchar_t *FANY_IME_SHARED_MEMORY = L"Local\\FanyImeSharedMemory";
-inline const int BUFFER_SIZE = 4096;
+#include "MetasequoiaImeEngine/contracts/windows_ipc.h"
 
-inline const wchar_t *FANY_IME_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeNamedPipe";
-inline const wchar_t *FANY_IME_TO_TSF_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfNamedPipe";
-inline const wchar_t *FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeToTsfWorkerThreadNamedPipe";
-inline const wchar_t *FANY_IME_AUX_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeAuxNamedPipe";
-inline const wchar_t *FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE = L"\\\\.\\pipe\\FanyImeTsfDiagnosticNamedPipe";
-inline constexpr uint32_t FANY_IME_TSF_DIAGNOSTIC_MAGIC = 0x474F4C54; // "TLOG"
-inline constexpr uint32_t FANY_IME_TSF_DIAGNOSTIC_VERSION = 1;
-inline constexpr size_t FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES = 16 * 1024;
 inline constexpr DWORD FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY = 64;
 inline constexpr DWORD FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY = 32;
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
@@ -33,16 +24,6 @@ inline bool toTsfConnected = false;
 inline bool toTsfWorkerThreadConnected = false;
 inline HANDLE toTsfPipeThread = NULL;
 inline HANDLE toTsfWorkerThreadPipeThread = NULL;
-
-//
-// Events from tsf to server
-//
-inline const std::vector<std::wstring> FANY_IME_EVENT_ARRAY = {
-    L"FanyImeKeyEvent",           // Event sent to UI process to notify time to update UI by new pinyin_string
-    L"FanyHideCandidateWndEvent", // Event sent to UI process to notify time to hide candidate window
-    L"FanyShowCandidateWndEvent", // Event sent to UI process to notify time to show candidate window
-    L"FanyMoveCandidateWndEvent", // Event sent to UI process to notify time to move candidate window
-};
 
 //
 // Events from server to tsf
@@ -70,175 +51,8 @@ inline std::vector<HANDLE> hEvents(FANY_IME_EVENT_ARRAY.size());
 inline std::vector<HANDLE> hPipeEvents(FANY_IME_EVENT_PIPE_ARRAY.size());
 inline std::vector<HANDLE> hWorkerPipeEvents(FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size());
 
-struct FanyImeSharedMemoryData
-{
-    UINT keycode;
-    WCHAR wch;
-    UINT modifiers_down = 0;
-    int point[2] = {100, 100};
-    int pinyin_length = 0;
-    wchar_t pinyin_string[128];
-    wchar_t candidate_string[1024];
-    wchar_t selected_candiate_string[128];
-};
-
-//
-// For uwp/metro apps, here we do not need candidate_string and selected_candiate_string,
-// just let server process to handle them
-//
-// event_type
-//   0: FanyImeKeyEvent
-//   1: FanyHideCandidateWndEvent
-//   2: FanyShowCandidateWndEvent
-//   3: FanyMoveCandidateWndEvent
-//   4: FanyLangbarRightClickEvent (legacy Main enum; tip sends via Aux text)
-//   7: IMESwitch
-//   8: PuncSwitch
-//   9: DoubleSingleByteSwitch
-//  10: ClientHello
-//  11: ClientActivated
-//  12: ClientDeactivated (terminal route reset; toolbar hidden)
-//  13: StatusSnapshot (wch: CapsLock 1/0)
-//  14: ClientSuspended (recoverable route reset; toolbar unchanged)
-//  15: FocusRestored (StatusSnapshot payload + thread-focus ownership claim)
-//
-// modifiers_down:
-//     0b00000001: Shift
-//     0b00000010: Control
-//     0b00000100: Alt
-// TODO: Make it able to denote explicit modifiers, e.g. LShift, RShift, we could use left keys
-//
-//
-struct FanyImeNamedpipeData
-{
-    UINT event_type;
-    uint64_t client_id = 0;
-    uint64_t request_id = 0;
-    UINT keycode; // VkCode
-    WCHAR wch;    // Unicode character converted from vkcode
-    UINT modifiers_down = 0;
-    int point[2] = {100, 100};
-    int pinyin_length = 0;
-    wchar_t pinyin_string[128];
-};
-
-//
-// Data sent to tsf end
-//
-// msg_type
-//   0: success
-//   1: candidate index out of range error
-//
-struct FanyImeNamedpipeDataToTsf
-{
-    UINT msg_type;
-    uint64_t request_id = 0;
-    wchar_t candidate_string[FanyImePipeLimits::CandidateTextCapacity];
-};
-
-static_assert(offsetof(FanyImeNamedpipeData, request_id) == 16,
-              "FanyImeNamedpipeData request_id ABI must match the TSF client");
-static_assert(sizeof(WCHAR) == 2, "The IPC ABI requires 16-bit WCHAR");
-static_assert(offsetof(FanyImeNamedpipeData, client_id) == 8,
-              "FanyImeNamedpipeData client_id ABI must match the TSF client");
-static_assert(offsetof(FanyImeNamedpipeData, keycode) == 24,
-              "FanyImeNamedpipeData keycode ABI must match the TSF client");
-static_assert(offsetof(FanyImeNamedpipeData, pinyin_string) == 48,
-              "FanyImeNamedpipeData pinyin ABI must match the TSF client");
-static_assert(sizeof(FanyImeNamedpipeData) == 304, "FanyImeNamedpipeData ABI must match the TSF client");
-static_assert(offsetof(FanyImeNamedpipeDataToTsf, request_id) == 8,
-              "FanyImeNamedpipeDataToTsf request_id ABI must match the TSF client");
-static_assert(offsetof(FanyImeNamedpipeDataToTsf, candidate_string) == 16,
-              "FanyImeNamedpipeDataToTsf candidate ABI must match the TSF client");
-static_assert(sizeof(FanyImeNamedpipeDataToTsf) == 416, "FanyImeNamedpipeDataToTsf ABI must match the TSF client");
 inline FanyImeNamedpipeData namedpipeData;
 
-namespace FanyImePipeEventType
-{
-constexpr UINT KeyEvent = 0;
-constexpr UINT HideCandidateWnd = 1;
-constexpr UINT ShowCandidateWnd = 2;
-constexpr UINT MoveCandidateWnd = 3;
-constexpr UINT LangbarRightClick = 4;
-constexpr UINT ClientHello = 10;
-constexpr UINT ClientActivated = 11;
-constexpr UINT ClientDeactivated = 12;
-constexpr UINT StatusSnapshot = 13;
-// Rotate the active IPC route for an internal TSF focus-session reset. A
-// suspension keeps floating-toolbar visibility; terminal deactivation hides it.
-constexpr UINT ClientSuspended = 14;
-// Same payload as StatusSnapshot, but additionally asserts that this client
-// owns thread focus right now. Sent when document focus returns to a session
-// the Server may have re-routed to another client meanwhile; without the
-// ownership claim the Server would discard it as an inactive-client event.
-constexpr UINT FocusRestored = 15;
-constexpr UINT IMESwitch = 7;
-constexpr UINT PuncSwitch = 8;
-constexpr UINT DoubleSingleByteSwitch = 9;
-
-constexpr bool IsRouteDeactivation(UINT event_type)
-{
-    return event_type == ClientDeactivated || event_type == ClientSuspended;
-}
-
-constexpr bool IsTerminalDeactivation(UINT event_type)
-{
-    return event_type == ClientDeactivated;
-}
-} // namespace FanyImePipeEventType
-
-// OR'd into modifiers_down. Must be stripped before key-modifier policy.
-namespace FanyImePipeFlags
-{
-constexpr UINT UiLess = 0x80000000u;
-} // namespace FanyImePipeFlags
-
-namespace FanyImePipeRole
-{
-constexpr UINT Main = 0;
-constexpr UINT ToTsf = 1;
-constexpr UINT ToTsfWorkerThread = 2;
-} // namespace FanyImePipeRole
-
-struct FanyImePipeHello
-{
-    uint64_t client_id = 0;
-    UINT pipe_role = 0;
-};
-
-//
-// Data sent to tsf worker thread
-//
-// msg_type
-//   0: IME switch to EN
-//   1: IME switch to CN
-//
-// data
-//   Not used now.
-//
-//
-struct FanyImeNamedpipeDataToTsfWorkerThread
-{
-    UINT msg_type;
-    wchar_t data[200];
-};
-
-struct FanyImeTsfDiagnosticBatchHeader
-{
-    uint32_t magic = FANY_IME_TSF_DIAGNOSTIC_MAGIC;
-    uint32_t version = FANY_IME_TSF_DIAGNOSTIC_VERSION;
-    uint32_t header_size = 28;
-    uint32_t payload_bytes = 0;
-    uint32_t record_count = 0;
-    uint32_t dropped_count = 0;
-    uint32_t source_process_id = 0;
-};
-
-static_assert(sizeof(FanyImePipeHello) == 16, "FanyImePipeHello ABI must match the TSF client");
-static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) == 404,
-              "FanyImeNamedpipeDataToTsfWorkerThread ABI must match the TSF client");
-static_assert(sizeof(FanyImeTsfDiagnosticBatchHeader) == 28,
-              "FanyImeTsfDiagnosticBatchHeader ABI must match the TSF client");
 static_assert(sizeof(FanyImeNamedpipeDataToTsf) * FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY >=
                   sizeof(FanyImeNamedpipeDataToTsf) * 64,
               "The TSF reply pipe must buffer at least 64 complete replies");
@@ -247,6 +61,7 @@ static_assert(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) * FANY_IME_TO_TSF_WO
               "The TSF worker pipe must buffer at least 16 complete notifications");
 
 int InitIpc();
+bool NegotiateMainPipeClient(const FanyImeNamedpipeData &hello, uint64_t registration_id);
 int CloseIpc();
 int InitNamedPipe();
 int CloseNamedPipe();
@@ -331,69 +146,10 @@ inline int PinyinLength = 0;
 inline std::wstring PinyinString = L"";
 inline std::wstring CandidateString = L"";
 
-namespace DataFromServerMsgType
-{
-constexpr UINT Normal = 0;
-constexpr UINT OutofRange = 1;
-constexpr UINT NeedToCreateWord = 2;
-constexpr UINT Preedit = 3;
-constexpr UINT NavigationIgnored = 4;
-constexpr UINT MoveSelectionPrevious = 5;
-constexpr UINT MoveSelectionNext = 6;
-constexpr UINT MovePagePrevious = 7;
-constexpr UINT MovePageNext = 8;
-constexpr UINT PipeReady = 9;
-// Commit candidate_string verbatim and finish the active composition.
-constexpr UINT CommitExactText = 10;
-// UILess hosts (games): candidate_string = preedit + L'\t' + cand1,cand2,...
-constexpr UINT UiLessComposition = 11;
-} // namespace DataFromServerMsgType
+namespace DataFromServerMsgType = FanyImeReplyType;
 
 inline UINT MsgTypeToTsf = DataFromServerMsgType::Normal; // 默认为 Normal
 
-namespace DataFromServerMsgTypeToTsfWorkerThread
-{
-constexpr UINT SwitchToEn = 0;
-constexpr UINT SwitchToCn = 1;
-constexpr UINT SwitchToPuncEn = 2;
-constexpr UINT SwitchToPuncCn = 3;
-constexpr UINT SwitchToFullwidth = 4;
-constexpr UINT SwitchToHalfwidth = 5;
-constexpr UINT CommitCandidate = 6;
-constexpr UINT PagingCommaPeriodChanged = 7;
-// Ordered focus-session barrier. The data field echoes the nonzero request_id
-// (focus token) from ClientActivated; implicit-key barriers reuse the nonzero
-// token recorded for the current main registration. No token means no barrier.
-// Because all worker packets share one endpoint/write lock, older notifications
-// are written before this marker or rejected by their stale activation epoch.
-constexpr UINT FocusSessionReady = 8;
-// Worker reverse-pipe registration acknowledgement. This is always the first
-// frame written to a newly accepted worker endpoint.
-constexpr UINT PipeReady = 9;
-// Unsolicited text insert (e.g. voice ASR). Independent of candidate finalize.
-constexpr UINT InsertText = 10;
-// Smart punctuation after ASCII letters/digits (',' '.' ':'). Payload "0"/"1".
-constexpr UINT SmartPunctuationChanged = 11;
-// Auto-complete opening paired punctuation and leave the caret inside. Payload "0"/"1".
-constexpr UINT PairedPunctuationChanged = 12;
-// Payload "1" when the active shuangpin profile uses ';' for the ing final.
-constexpr UINT MicrosoftShuangpinChanged = 13;
-// Replace a repeated smart ASCII punctuation with its Chinese mapping. Payload "0"/"1".
-constexpr UINT SmartPunctuationRepeatToChineseChanged = 14;
-// Streaming ASR: replace the inline composition with this full snapshot.
-constexpr UINT UpdateVoiceComposition = 15;
-// Streaming ASR: abort the voice composition without committing.
-constexpr UINT CancelVoiceComposition = 16;
-// Streaming ASR: replace the inline composition with this snapshot and commit.
-constexpr UINT CommitVoiceComposition = 17;
-// Payload "1" when input.mode is Japanese, otherwise "0".
-constexpr UINT InputModeChanged = 18;
-constexpr UINT CapsLockChanged = 19;
-// Enables buffered TSF diagnostics sent to Server. Payload "0"/"1".
-constexpr UINT TsfDiagnosticLogChanged = 20;
-// Payload "0" follow IME, "1" always Chinese punctuation, "2" always English punctuation.
-constexpr UINT PunctuationLockChanged = 21;
-constexpr UINT MaxKnown = PunctuationLockChanged;
-} // namespace DataFromServerMsgTypeToTsfWorkerThread
+namespace DataFromServerMsgTypeToTsfWorkerThread = FanyImeWorkerReplyType;
 
 } // namespace Global
