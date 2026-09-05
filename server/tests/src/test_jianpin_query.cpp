@@ -1,5 +1,6 @@
 #include "tests/includes/test_framework.h"
-#include "jianpin/jianpin_query.h"
+#include "MetasequoiaImeEngine/local_modes/jianpin_query.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
 #include "utils/common_utils.h"
 
 #include <filesystem>
@@ -30,24 +31,24 @@ size_t Utf8Length(const std::string &text)
 
 TEST_CASE(jianpin_ranking_context_joins_each_letter)
 {
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("nh"), std::string("n'h"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("NH"), std::string("n'h"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("a"), std::string("a"));
-    REQUIRE(JianpinQuery::RankingContextKey("n1").empty());
-    REQUIRE(JianpinQuery::RankingContextKey("").empty());
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nh"), std::string("n'h"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("NH"), std::string("n'h"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("a"), std::string("a"));
+    REQUIRE(metasequoia::local_modes::jianpin_ranking_context("n1").empty());
+    REQUIRE(metasequoia::local_modes::jianpin_ranking_context("").empty());
 }
 
 TEST_CASE(jianpin_query_rejects_empty_and_non_letters)
 {
-    REQUIRE(JianpinQuery::Query("").empty());
-    REQUIRE(JianpinQuery::Query("n'h").empty());
+    REQUIRE(metasequoia::local_modes::query_jianpin("", SchemeType::Quanpin).candidates.empty());
+    REQUIRE(metasequoia::local_modes::query_jianpin("n'h", SchemeType::Quanpin).candidates.empty());
 }
 
 TEST_CASE(jianpin_query_matches_two_letter_word)
 {
     if (!DictionaryAvailable())
         return;
-    const auto results = JianpinQuery::Query("nh", 50);
+    const auto results = metasequoia::local_modes::query_jianpin("nh", SchemeType::Quanpin, 50).candidates;
     REQUIRE(Contains(results, "你好"));
     for (const auto &item : results)
     {
@@ -61,7 +62,7 @@ TEST_CASE(jianpin_query_does_not_treat_letters_as_full_syllable)
 {
     if (!DictionaryAvailable())
         return;
-    const auto results = JianpinQuery::Query("an", 50);
+    const auto results = metasequoia::local_modes::query_jianpin("an", SchemeType::Quanpin, 50).candidates;
     REQUIRE(!results.empty());
     REQUIRE(!Contains(results, "安"));
     for (const auto &item : results)
@@ -98,22 +99,22 @@ std::vector<std::string> SplitKeyForTest(const std::string &key)
 
 TEST_CASE(jianpin_shuangpin_expands_zh_ch_sh_keys_per_scheme)
 {
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("nu", SchemeType::Shuangpin, "xiaohe"), std::string("n'sh"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("ns", SchemeType::Shuangpin, "xiaohe"), std::string("n's"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("vi", SchemeType::Shuangpin, "xiaohe"), std::string("zh'ch"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("ne", SchemeType::Shuangpin, "shoudao"), std::string("n'sh"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("nu", SchemeType::Shuangpin, "shoudao"), std::string("n'u"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("nu", SchemeType::Shuangpin, "ziranma"), std::string("n'sh"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("nu", SchemeType::Shuangpin, "microsoft"), std::string("n'sh"));
-    REQUIRE_EQ(JianpinQuery::RankingContextKey("nu"), std::string("n'u"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")), std::string("n'sh"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("ns", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")), std::string("n's"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("vi", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")), std::string("zh'ch"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("ne", SchemeType::Shuangpin, GetShuangpinProfile("shoudao")), std::string("n'sh"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("shoudao")), std::string("n'u"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("ziranma")), std::string("n'sh"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("microsoft")), std::string("n'sh"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu"), std::string("n'u"));
 }
 
 TEST_CASE(jianpin_shuangpin_nu_matches_n_sh_not_n_s)
 {
     if (!DictionaryAvailable())
         return;
-    const auto nu = JianpinQuery::Query("nu", 50, {}, SchemeType::Shuangpin, "xiaohe");
-    const auto ns = JianpinQuery::Query("ns", 50, {}, SchemeType::Shuangpin, "xiaohe");
+    const auto nu = metasequoia::local_modes::query_jianpin("nu", SchemeType::Shuangpin, 50, GetShuangpinProfile("xiaohe")).candidates;
+    const auto ns = metasequoia::local_modes::query_jianpin("ns", SchemeType::Shuangpin, 50, GetShuangpinProfile("xiaohe")).candidates;
     REQUIRE(!nu.empty());
     REQUIRE(!ns.empty());
     REQUIRE(Contains(nu, "你说"));
@@ -138,8 +139,8 @@ TEST_CASE(jianpin_shoudao_uses_e_for_sh)
 {
     if (!DictionaryAvailable())
         return;
-    const auto ne = JianpinQuery::Query("ne", 50, {}, SchemeType::Shuangpin, "shoudao");
+    const auto ne = metasequoia::local_modes::query_jianpin("ne", SchemeType::Shuangpin, 50, GetShuangpinProfile("shoudao")).candidates;
     REQUIRE(Contains(ne, "你说"));
-    const auto nu = JianpinQuery::Query("nu", 50, {}, SchemeType::Shuangpin, "shoudao");
+    const auto nu = metasequoia::local_modes::query_jianpin("nu", SchemeType::Shuangpin, 50, GetShuangpinProfile("shoudao")).candidates;
     REQUIRE(!Contains(nu, "你说"));
 }

@@ -1,6 +1,9 @@
 #include "kaomoji/kaomoji_ime.h"
 
-#include "kaomoji/kaomoji_query.h"
+#include "MetasequoiaImeEngine/local_modes/kaomoji_query.h"
+#include "MetasequoiaImeEngine/core/data_path.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
+#include "config/ime_config.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -46,7 +49,10 @@ void WorkerLoop()
             continue;
         }
 
-        auto candidates = KaomojiQuery::QueryPrefix(input, scheme, kMixedCandidateLimit, g_db_path);
+        auto candidates = metasequoia::local_modes::query_kaomoji(
+                              input, scheme, metasequoia::path_from_utf8(g_db_path.c_str()),
+                              kMixedCandidateLimit, GetShuangpinProfile(GetConfiguredShuangpinSchema()))
+                              .candidates;
         if (!g_running || g_generation.load() != observed_generation)
         {
             continue;

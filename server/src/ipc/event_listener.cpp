@@ -45,14 +45,15 @@
 #include "window/window_hook.h"
 #include "conversion/chinese_converter.h"
 #include "session/session_factory.h"
-#include "quick-phrases/quick_phrase_query.h"
-#include "unicode/unicode_query.h"
-#include "date-time/date_time_query.h"
-#include "emoji/emoji_query.h"
+#include "MetasequoiaImeEngine/local_modes/quick_phrase_query.h"
+#include "MetasequoiaImeEngine/local_modes/unicode_query.h"
+#include "MetasequoiaImeEngine/local_modes/date_time_query.h"
+#include "MetasequoiaImeEngine/local_modes/emoji_query.h"
+#include "MetasequoiaImeEngine/local_modes/kaomoji_query.h"
+#include "MetasequoiaImeEngine/local_modes/jianpin_query.h"
+#include "MetasequoiaImeEngine/shuangpin/shuangpin_profile.h"
 #include "emoji/emoji_ime.h"
-#include "kaomoji/kaomoji_query.h"
 #include "kaomoji/kaomoji_ime.h"
-#include "jianpin/jianpin_query.h"
 #include "log/candidate_diag_log.h"
 #include "log/ftb_diag_log.h"
 #include "voice-input/voice_input_service.h"
@@ -64,6 +65,15 @@
 
 namespace
 {
+// The engine's local mode queries take a resolved ShuangpinProfile and default it to Xiaohe. The
+// modules this file used to call resolved the *configured* scheme instead, so every call site here
+// has to pass this explicitly: letting the default through would silently decode J mode, emoji and
+// kaomoji as Xiaohe for anyone on Ziranma, Shoudao or Microsoft shuangpin.
+const ShuangpinProfile &ConfiguredShuangpinProfile()
+{
+    return GetShuangpinProfile(GetConfiguredShuangpinSchema());
+}
+
 std::string BuildCurrentCandidatePage();
 void PrepareCandidateTranslationRequest();
 bool g_quick_phrase_triggered = false;
@@ -259,7 +269,7 @@ bool IsDateTimeInput(const std::string &raw)
 {
     if (!IsDateTimeCompositionActive(raw) || raw.size() <= 1)
         return false;
-    return DateTimeQuery::IsKeyword(raw.substr(1));
+    return metasequoia::local_modes::is_date_time_keyword(raw.substr(1));
 }
 
 bool IsEmojiCompositionActive(const std::string &raw)
@@ -1348,7 +1358,8 @@ std::string CurrentRankingContextKey()
     {
         const std::string raw = g_inputSession->get_pinyin_sequence_with_cases();
         if (IsJianpinCompositionActive(raw) && raw.size() > 1)
-            return JianpinQuery::RankingContextKey(raw.substr(1), g_inputSession->current_scheme_type());
+            return metasequoia::local_modes::jianpin_ranking_context(
+                raw.substr(1), g_inputSession->current_scheme_type(), ConfiguredShuangpinProfile());
     }
     std::string converted = g_inputSession->get_quanpin();
     if (converted.empty())
@@ -3081,28 +3092,34 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
     else if (IsUnicodeInput(current_input))
     {
-        items = UnicodeQuery::Query(current_input.substr(1));
+        items = metasequoia::local_modes::query_unicode(current_input.substr(1));
     }
     else if (IsQuickPhraseInput(current_input))
     {
-        items = QuickPhraseQuery::QueryPrefix(current_input.substr(1));
+        items = metasequoia::local_modes::query_quick_phrases(current_input.substr(1)).candidates;
     }
     else if (IsDateTimeInput(current_input))
     {
-        items = DateTimeQuery::Query(current_input.substr(1));
+        items = metasequoia::local_modes::query_date_time(current_input.substr(1));
     }
     else if (IsEmojiInput(current_input))
     {
-        items = EmojiQuery::QueryPrefix(current_input.substr(1), g_inputSession->current_scheme_type());
+        items = metasequoia::local_modes::query_emoji(current_input.substr(1), g_inputSession->current_scheme_type(),
+                                                      10, ConfiguredShuangpinProfile())
+                    .candidates;
     }
     else if (IsKaomojiInput(current_input))
     {
-        items = KaomojiQuery::QueryPrefix(current_input.substr(1), g_inputSession->current_scheme_type());
+        items = metasequoia::local_modes::query_kaomoji(current_input.substr(1), g_inputSession->current_scheme_type(),
+                                                        10, ConfiguredShuangpinProfile())
+                    .candidates;
     }
     else if (IsJianpinInput(current_input))
     {
         const int limit = current_input.size() == 2 ? 24 : 100;
-        items = JianpinQuery::Query(current_input.substr(1), limit, {}, g_inputSession->current_scheme_type());
+        items = metasequoia::local_modes::query_jianpin(current_input.substr(1), g_inputSession->current_scheme_type(),
+                                                        limit, ConfiguredShuangpinProfile())
+                    .candidates;
         const std::string typed = g_inputSession->get_pinyin_sequence();
         for (auto &item : items)
             item.pinyin = typed;
