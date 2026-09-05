@@ -122,6 +122,10 @@ add_executable(msimeui-handwriting-demo WIN32
 
 target_link_libraries(msimeui-handwriting-demo PRIVATE msimeui windowsapp.lib)
 
+# C++/WinRT needs C++20 coroutines. Under C++17 it falls back to
+# <experimental/coroutine>, which recent MSVC STL versions reject outright.
+target_compile_features(msimeui-handwriting-demo PRIVATE cxx_std_20)
+
 if(MSVC)
     target_compile_options(msimeui PRIVATE /W4 /permissive-)
     target_compile_options(msimeui-demo PRIVATE /W4 /permissive-)
