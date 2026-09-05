@@ -304,6 +304,24 @@ python .\scripts\apply_version.py           # 从 version.txt 写入版本资源
 python .\scripts\apply_version.py --check   # 只检查是否与 version.txt 一致
 ```
 
+release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow 本身只负责编排和传参：
+
+| 脚本 | 用途 |
+|---|---|
+| `validate-draft-release.sh` | 手动触发时校验 tag 是未发布 draft、指向不可变 commit、且与 `version.txt` 一致 |
+| `merge-release-pr.sh` | 合并 release-please 刚开的 PR |
+| `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
+| `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
+| `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
+| `check-tsf-dll.ps1` | 确认 TSF DLL 产出 |
+| `download-dictionaries.sh` | 从 MSIME-Dict 的 `dict-*` release 拉词库并校验 SHA256 |
+| `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
+| `sign-binaries.ps1` | 用仓库 secret 里的真证书签名，包内二进制和安装包共用 |
+| `install-inno-language.ps1` | 补 runner 上缺失的 `ChineseSimplified.isl`，按 commit + SHA256 固定 |
+| `name-installer-asset.ps1` | 定最终产物名、算校验和、写 step summary |
+| `revalidate-draft-release.sh` | 发布前复查 draft 仍指向被构建的那个 commit |
+| `publish-release.sh` | 上传产物、追加说明、发布 |
+
 CI 里的目录布局刻意用了各仓的历史名（`MetasequoiaImeTsf`、`MetasequoiaImeServer`、`MetasequoiaImeUiHtml`、`MetasequoiaImeHelpCode`、`MetasequoiaImeDict`），这样 `msime-installer` 的 `Prepare-PackageFiles.ps1` 不用改一行就能在 CI 跑。改动那些脚本里的产物路径时，要连同本仓的 release workflow 一起核对。
 
 词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；也可以在手动触发时用 `dictionary_tag` 指定某个具体的词库版本。
