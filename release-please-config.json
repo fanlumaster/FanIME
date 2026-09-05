@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "MetasequoiaImeWindows",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "version-file": "version.txt",
+      "draft": true,
+      "prerelease": true,
+      "force-tag-creation": true,
+      "pull-request-header": "This PR prepares the next Metasequoia IME for Windows release.",
+      "pull-request-footer": "Merging this PR creates a draft release. The Release workflow then builds the installer, attaches MetasequoiaIME_Setup_v<version>.exe and publishes it."
+    }
+  }
+}
