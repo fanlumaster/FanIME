@@ -49,6 +49,23 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Merging is what carries the release forward: the resulting push runs this workflow again,
+      # release-please turns the release commit into the draft release, and the build jobs take
+      # over. Left open the pull request would stall there, because CI cannot run on it either:
+      # GITHUB_TOKEN is not allowed to start workflows, so anything it triggers waits for a human.
+      # The pull request only rewrites version.txt, CHANGELOG.md and the manifest.
+      - name: Merge the release pull request
+        if: ${{ github.event_name == 'push' && steps.release.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PR: ${{ steps.release.outputs.pr }}
+        run: |
+          set -euo pipefail
+          number=$(jq -er .number <<< "$RELEASE_PR")
+          echo "Merging release pull request #$number"
+          gh pr merge "$number" --repo "$GH_REPO" --merge
+
       - name: Validate requested draft release
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: requested_release
