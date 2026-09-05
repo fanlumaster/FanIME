@@ -1,3 +1,4 @@
+#include "MetasequoiaImeEngine/contracts/webview/validator.h"
 #include "windows_webview2.h"
 #include "webview2/candidate_window_template.h"
 #include "config/ime_config.h"
@@ -2807,6 +2808,11 @@ HRESULT OnControllerCreatedCandWnd(     //
     // Configure virtual host path
     if (SUCCEEDED(webviewCandWnd->QueryInterface(IID_PPV_ARGS(&webview3CandWnd))))
     {
+        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path()) / GlobalIme::AppName /
+                                   "html" / "webview2" / "shared";
+        webview3CandWnd->SetVirtualHostNameToFolderMapping(L"msime-contracts", contractsPath.wstring().c_str(),
+                                                           COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+
         const std::wstring assetPath = fmt::format(                   //
             L"{}\\{}\\html\\webview2\\candwnd",                       //
             string_to_wstring(CommonUtils::get_local_appdata_path()), //
@@ -2877,6 +2883,8 @@ HRESULT OnControllerCreatedCandWnd(     //
                     try
                     {
                         json::value val = json::parse(wstring_to_string(msg));
+                        if (!metasequoia::webview::Validate(val, "client", "candidate"))
+                            return S_OK;
                         std::string type = json::value_to<std::string>(val.at("type"));
                         if (type == "candidateFrameProbe")
                         {
@@ -3214,6 +3222,11 @@ HRESULT OnControllerCreatedMenuWnd(     //
     // Configure virtual host path
     if (SUCCEEDED(webviewMenuWnd->QueryInterface(IID_PPV_ARGS(&webview3MenuWnd))))
     {
+        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path()) / GlobalIme::AppName /
+                                   "html" / "webview2" / "shared";
+        webview3MenuWnd->SetVirtualHostNameToFolderMapping(L"msime-contracts", contractsPath.wstring().c_str(),
+                                                           COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+
         // Assets mapping
         webview3MenuWnd->SetVirtualHostNameToFolderMapping(  //
             L"appassets",                                    //
@@ -3288,6 +3301,8 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     std::wstring msg(message.get());
                     // 解析 msg，执行相应操作
                     json::value val = json::parse(wstring_to_string(msg));
+                    if (!metasequoia::webview::Validate(val, "client", "menu"))
+                        return S_OK;
                     std::string type = json::value_to<std::string>(val.at("type"));
                     if (type == "floatingToggle")
                     {
@@ -3578,6 +3593,8 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                     std::wstring msg(message.get());
                     // 解析 msg，执行相应操作
                     json::value val = json::parse(wstring_to_string(msg));
+                    if (!metasequoia::webview::Validate(val, "client", "settings"))
+                        return S_OK;
                     std::string type = json::value_to<std::string>(val.at("type"));
                     /* 使 settings 窗口可拖动 */
                     if (type == "dragStart")
@@ -4668,6 +4685,11 @@ HRESULT OnControllerCreatedFtbWnd(      //
     // Configure virtual host path
     if (SUCCEEDED(webviewFtbWnd->QueryInterface(IID_PPV_ARGS(&webview3FtbWnd))))
     {
+        const auto contractsPath = std::filesystem::path(CommonUtils::get_local_appdata_path()) / GlobalIme::AppName /
+                                   "html" / "webview2" / "shared";
+        webview3FtbWnd->SetVirtualHostNameToFolderMapping(L"msime-contracts", contractsPath.wstring().c_str(),
+                                                          COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+
         // Assets mapping
         webview3FtbWnd->SetVirtualHostNameToFolderMapping(   //
             L"appassets",                                    //
@@ -4771,6 +4793,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     std::wstring msg(message.get());
                     // 解析 msg，执行相应操作
                     json::value val = json::parse(wstring_to_string(msg));
+                    if (!metasequoia::webview::Validate(val, "client", "toolbar"))
+                        return S_OK;
                     std::string type = json::value_to<std::string>(val.at("type"));
                     /* 使 floating toolbar 窗口可拖动 */
                     if (type == "dragStart")

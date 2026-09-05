@@ -76,3 +76,9 @@ target_link_libraries(${TEST_EXECUTABLE_NAME}
 )
 
 add_test(NAME ${TEST_EXECUTABLE_NAME} COMMAND ${TEST_EXECUTABLE_NAME})
+
+# The identical fixture file also runs in Engine's JavaScript contract CI.
+add_executable(test_webview_contract "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/contracts/webview/test.cpp")
+target_link_libraries(test_webview_contract PRIVATE Boost::json)
+add_test(NAME webview_contract COMMAND test_webview_contract
+    "${CMAKE_SOURCE_DIR}/MetasequoiaImeEngine/contracts/webview/fixtures.json")
