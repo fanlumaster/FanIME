@@ -47,6 +47,32 @@ class ProductLockTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             lock.validate(self.data)
 
+    def test_modern_dictionary_requires_a_compatible_locked_manifest(self):
+        self.data['dictionary']['tag'] = 'dict-2026.09.06'
+        with self.assertRaises(ValueError):
+            lock.validate(self.data)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.fixture_assets(directory)
+            for name in lock._product.DESKTOP_FILES:
+                (directory / name).write_bytes(b'MSJPDT1\0fixture' if name == 'dict_japanese.dat' else b'fixture')
+            product = {'manifest_version': 1, 'format_version': 1, 'profile': 'desktop',
+                       'engine_compatibility': {'dictionary_format': 1, 'japanese_model_magic': 'MSJPDT1'},
+                       'files': {name: {'sha256': lock.sha256(directory / name), 'size': (directory / name).stat().st_size}
+                                 for name in lock._product.DESKTOP_FILES}}
+            manifest_path = directory / lock.PRODUCT_MANIFEST
+            manifest_path.write_text(json.dumps(product))
+            for name in (*lock.ASSETS, lock.PRODUCT_MANIFEST):
+                self.data['dictionary']['assets'][name] = lock.sha256(directory / name)
+            lock.validate(self.data)
+            lock.verify_assets(directory, self.data)
+            # Even a deliberately updated digest cannot declare an unsupported format compatible.
+            product['format_version'] = 2
+            manifest_path.write_text(json.dumps(product))
+            self.data['dictionary']['assets'][lock.PRODUCT_MANIFEST] = lock.sha256(manifest_path)
+            with self.assertRaises(ValueError):
+                lock.verify_assets(directory, self.data)
+
     def fixture_assets(self, directory):
         for name in lock.ASSETS:
             value = (name + " fixture").encode()

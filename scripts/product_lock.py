@@ -8,6 +8,7 @@ the exact dictionary assets, whose bytes must match the committed SHA256 values.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import hashlib
 import json
 from pathlib import Path
@@ -17,6 +18,12 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+_product_spec = importlib.util.spec_from_file_location("dictionary_product", Path(__file__).with_name("dictionary_product.py"))
+_product = importlib.util.module_from_spec(_product_spec)
+_product_spec.loader.exec_module(_product)
+PRODUCT_MANIFEST = _product.MANIFEST_NAME
+LEGACY_DICTIONARY_TAG = "dict-2026.09.05"
+
 REPOSITORIES = {
     "server": "metasequoiaime/MSIME-Server",
     "ui": "metasequoiaime/MSIME-UiHtml",
@@ -52,7 +59,8 @@ def validate(data: dict) -> dict:
     if not TAG.fullmatch(dictionary.get("tag", "")):
         raise ValueError("Dictionary tag must be an explicit dict-* release, never latest")
     assets = dictionary.get("assets", {})
-    if set(assets) != ASSETS:
+    expected_assets = ASSETS if dictionary['tag'] == LEGACY_DICTIONARY_TAG else ASSETS | {PRODUCT_MANIFEST}
+    if set(assets) != expected_assets:
         raise ValueError("Dictionary lock must include all databases, model, notice and checksums")
     for name, digest in assets.items():
         if not DIGEST.fullmatch(digest):
@@ -82,6 +90,9 @@ def verify_assets(directory: Path, data: dict) -> None:
         path = directory / name
         if not path.is_file() or sha256(path) != expected:
             raise ValueError(f"Locked dictionary asset missing or changed: {name}")
+
+    if PRODUCT_MANIFEST in data["dictionary"]["assets"]:
+        _product.verify_product(directory, "desktop", set(data["dictionary"]["assets"]) - {"SHA256SUMS.txt", PRODUCT_MANIFEST})
 
 
 def git(directory: Path, *args: str) -> str:
@@ -138,12 +149,12 @@ def fetch_dictionaries(staging: Path, data: dict) -> None:
         incoming = Path(temporary)
         command = ["gh", "release", "download", data["dictionary"]["tag"],
                    "--repo", data["dictionary"]["repository"], "--dir", str(incoming)]
-        for name in sorted(ASSETS):
+        for name in sorted(data["dictionary"]["assets"]):
             command.extend(["--pattern", name])
         subprocess.run(command, check=True)
         verify_assets(incoming, data)
         target.mkdir(exist_ok=True)
-        for name in sorted(ASSETS):
+        for name in sorted(data["dictionary"]["assets"]):
             shutil.copyfile(incoming / name, target / name)
     notice = staging / "MetasequoiaImeDict" / "source" / "mozc_dictionary_oss" / "README.txt"
     notice.parent.mkdir(parents=True, exist_ok=True)
@@ -183,7 +194,7 @@ def refresh(tag: str, refs: list[str]) -> dict:
         raise ValueError("Cannot lock an unpublished dictionary release")
     assets = {}
     for asset in release["assets"]:
-        if asset["name"] in ASSETS:
+        if asset["name"] in ASSETS | {PRODUCT_MANIFEST}:
             digest = asset.get("digest") or ""
             if not digest.startswith("sha256:"):
                 raise ValueError(f"Release asset has no SHA256 digest: {asset['name']}")
