@@ -14,8 +14,13 @@ jobs:
       server_sha: ${{ steps.lock.outputs.server_sha }}
       ui_sha: ${{ steps.lock.outputs.ui_sha }}
       helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
+      installer_sha: ${{ steps.lock.outputs.installer_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+      - name: Check the shared dictionary validator
+        run: python3 scripts/check-dictionary-contract.py
       - name: Test rejection of changed or mismatched inputs
         run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
       - name: Read the reviewed lock
@@ -90,3 +95,21 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
           test -f dist/index.html
+
+  packaging:
+    name: Locked full and light package contents
+    needs: lock
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: metasequoiaime/MSIME-Installer
+          ref: ${{ needs.lock.outputs.installer_sha }}
+          path: installer
+          persist-credentials: false
+      - name: Verify the locked installer source
+        run: python scripts/product_lock.py verify-checkout installer installer
+      - name: Test package contents without registering or installing
+        run: ./installer/tests/package-files.ps1

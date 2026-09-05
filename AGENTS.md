@@ -1,12 +1,6 @@
-# AGENTS.md — 水杉输入法（Metasequoia IME）协作约定
+# AGENTS.md — MSIME-Windows
 
-> **本文件统领整个水杉输入法项目**，不只限于本仓（`MetasequoiaImeTsf`）。相邻的
-> `MetasequoiaImeServer`、`MetasequoiaImeEngine`、`MetasequoiaImeDict`、`MetasequoiaImeUiHtml`、
-> `Installer` 等组件虽是独立 Git 仓库，但产品级约定、跨仓契约与共享数据规则以本文件为准。
-> 在任一相关仓库改动前，先核对这里的边界与硬约定。
->
-> 本仓自身是水杉输入法的 Windows TSF 前端：一个会被加载进宿主进程的 C++17 COM DLL，经 Named Pipe
-> 与 `MetasequoiaImeServer` 协作。下文「本仓地图」等章节描述 TSF 细节；跨仓规则对所有组件生效。
+组织级边界与跨仓规则见 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md)。本文件只规定 Windows TSF 前端、COM/焦点/线程、注册和产品构建。
 
 ## 本仓地图
 
@@ -25,93 +19,6 @@
 | `src/DllMain.cpp`、`src/Server.cpp` | DLL 入口、class factory、引用计数和注册导出 |
 | `image/`、`src/IME/MetasequoiaIME.rc` | DLL 内嵌图标与资源 |
 | `scripts/` | 环境生成、Debug/Release 双架构构建、注册和签名脚本 |
-
-## 相关仓库地图
-
-各组件是相邻的独立 Git 仓库，但**仍属同一产品**；本 `AGENTS.md` 对它们统一生效。改动前先确认
-职责归属，不要把 Server 或网页前端逻辑塞进 TSF DLL，也不要在旁路仓里另起一套与本文件冲突的约定：
-
-| 位置 | 职责 | 与本仓的关系 |
-|---|---|---|
-| `../MetasequoiaImeServer/` | 常驻后端进程：输入引擎与候选状态、配置、词典、Named Pipe 服务、候选窗/悬浮工具栏/托盘菜单的原生宿主窗口及 WebView2 控制器 | 本仓把按键和 TSF 状态发给它，并接收候选提交、模式切换和焦点会话消息 |
-| `../MetasequoiaImeUiHtml/` | WebView2 前端资源：候选窗 `webview2/candwnd/`、悬浮工具栏 `webview2/ftb/`、托盘菜单 `webview2/menu/`、设置界面 `webview2/settings/` | Server 加载这些 HTML/CSS/JS；开发时可按其 README 将 `%LOCALAPPDATA%\metasequoiaime\html` 链接到该仓 |
-| `../MetasequoiaImeServer/MetasequoiaImeEngine/` | Server 内的输入法引擎模块，负责拼音/双拼/五笔等输入方案和候选生成 | TSF 不直接链接它；候选与导航结果通过 IPC 取得 |
-| `../MetasequoiaImeDict/` | 基础中英文词典及生成数据库的脚本/数据 | 生成的词典资产由 Server 加载，TSF 不解析词库 |
-| `../MetasequoiaImeHelpCode/` | 辅助码数据 | 由 Server 的引擎/候选链路消费 |
-| `../MetasequoiaVoiceInput/` | 语音输入组件 | 经 Server 的 Worker 通道向当前 TSF 会话发送 `InsertText`，TSF 负责最终文档插入 |
-| `../MetasequoiaImeLog/` | 水杉输入法各组件的日志采集工具 | 排查 TSF、Server 与 WebView2 联动问题时使用 |
-| `../Installer/` | 安装与发布打包 | 负责部署/注册 TSF DLL、Server、网页资源和清单；改产物路径或文件名时需同步检查 |
-| `../MetasequoiaIME/` | 产品总览与项目入口文档 | 面向整体产品说明，不承载 TSF 运行时代码 |
-
-### 全拼音库分表命名（跨仓硬约定）
-
-全拼主库 `msime.db` 按**音节数（汉字数）+ 首音节首字母**分表。建库、查询、设置页加词、用户词库
-回放必须使用同一规则；任何一侧自行拼表名都会在升级回放或加词时踩空表。
-
-权威参考：
-
-- 建库：`MetasequoiaImeDict/makecikudb/quanpindb/makedb/multi_table_has_jp/create_db_and_table.py`
-- 查询：`MetasequoiaImeEngine/quanpin/quanpin_query.cpp` 中的 `build_table_name`（`segments.size() >= 8`
-  → `tbl_others_*`）
-- 设置页加词：经 `quanpin::build_table_name`，不要另写一套
-- 用户词库写入/升级回放：`user_dictionary_journal.cpp` 的 `pinyin_table` **必须与上述规则一致**
-
-规则：
-
-| 音节数 | 表名 | 示例 |
-|---|---|---|
-| 1–7 | `tbl_{N}_{首字母}` | `ni'hao` → `tbl_2_n` |
-| ≥ 8 | `tbl_others_{首字母}` | `shui'shan'shu'ru'fa'hai'ke'yi` → `tbl_others_s` |
-
-- 首字母取**第一个音节的第一个字符**（小写拉丁字母）。
-- **禁止**对 ≥ 8 音节拼出 `tbl_8_*`、`tbl_9_*` 等表名：建库脚本不会创建这些表，写入/回放会失败。
-- 安装升级时 `MetasequoiaImeDictionaryReplay` 会把 `msime_user.db` 中的操作回放到新 `msime.db`；
-  表名不一致会导致整批回滚并中止安装。改分表规则时必须同步改建库、查询、设置加词与回放四处，
-  并补回放测试。
-
-### Server、WebView2 与前端的边界
-
-- **Server 拥有窗口，UiHtml 拥有页面**：候选窗、悬浮工具栏和托盘菜单的 HWND、尺寸、位置、显示、
-  DPI、Z-order、WebView2 environment/controller 生命周期在 `MetasequoiaImeServer/src/window/` 与
-  `src/webview2/`；页面结构、样式和浏览器端交互在 `MetasequoiaImeUiHtml/webview2/`。
-- C++ → 页面更新主要经 WebView2 导航/脚本执行，页面 → C++ 动作经
-  `window.chrome.webview.postMessage(...)`。修改消息 `type`、JSON 字段、页面导出的 JS 函数或 DOM
-  标识时，必须同步检查 Server 的消息解析/脚本拼接与 UiHtml 的发送/接收代码。
-- 候选内容和输入状态的权威仍在 Server/引擎，网页只负责展示与发出用户动作；不要在网页侧复制
-  候选选择、翻页、输入模式或配置持久化的核心状态机。
-- 设置页前端位于 `MetasequoiaImeUiHtml/webview2/settings/ime-settings/`，其中包含 Vite/TypeScript
-  工程；设置窗口的原生创建、激活、WebView2 承载及与配置系统的桥接仍由 Server 负责。
-
-### 尺寸、坐标与 DPI
-
-- **所有涉及尺寸或坐标的代码都必须明确考虑 DPI**。新增或修改窗口大小、位置、边距、间距、字体、
-  图标、命中区域、WebView2 bounds、候选布局及屏幕边界计算时，不得默认固定像素在所有显示器上等价。
-- 明确每个数值使用逻辑单位还是物理像素，并在正确的窗口/显示器 DPI 下统一换算；不要混用来自不同
-  DPI 空间的坐标和尺寸，也不要长期缓存可能在窗口跨屏或 DPI 变化后失效的换算结果。
-- 原生窗口需处理运行时 DPI 变化（包括跨显示器移动），同步更新窗口、子窗口、WebView2 controller
-  和相关布局；优先沿用项目已有的 DPI 获取与缩放辅助函数，避免各处自行实现不一致的换算规则。
-- 涉及尺寸或布局的改动，至少检查 100%、125%、150%、200% 缩放，以及不同 DPI 显示器之间移动时
-  是否出现裁切、错位、模糊、点击区域偏移或窗口越出工作区。
-
-### `uiAccess`、Topmost 与 WebView2 时序
-
-Server 的 `MetasequoiaImeServer.manifest` 使用
-`requestedExecutionLevel level="asInvoker" uiAccess="true"`，让输入法浮层可以在高完整性宿主上方
-工作。`uiAccess` 是否真正生效还依赖正确签名以及安装在 Windows 认可的安全位置；清单、签名和安装
-路径要作为同一套发布约定维护。
-
-- 候选窗、悬浮工具栏和托盘菜单需要 Topmost，但**创建 HWND 时不能直接带 `WS_EX_TOPMOST`**。
-  在 `uiAccess=true` 进程中，Topmost 父窗口会使 WebView2 的跨进程 `SetParent` 失败并返回
-  `E_INVALIDARG`，也可能形成“窗口存在、尺寸正确但永远空白”的状态。
-- 保持 Server 现有顺序：以非 Topmost 的屏幕内 HWND 创建窗口 → DWM cloak 下完成预热 → 三个共享
-  environment 的 WebView2 controller 依次创建并完成首屏导航 → lazy-topmost gate 打开 → 候选窗、
-  悬浮工具栏、菜单分阶段提升到 `HWND_TOPMOST`。
-- 提升 Z-order 后要沿用 `RenotifyControllerAfterPin` 对可见 WebView2 controller 重新同步 bounds 和
-  parent position。不要在布局函数里随手传 `HWND_TOPMOST`，也不要绕过
-  `EnsureSmallWindowsTopmost` / lazy pin 流程。
-- 隐藏尚未完成首帧的 WebView2 host 会阻断 raster 初始化；预热阶段用 cloak，之后才按配置
-  `ShowWindow`/隐藏。修改候选窗、toolbar、菜单启动或恢复逻辑时，要回归 Server 冷启动、重启、
-  登录后慢启动以及 uiAccess 实际生效的安装环境。
 
 ## 核心输入链路
 
@@ -331,7 +238,7 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 
 CI 里的目录布局刻意用了各仓的历史名（`MetasequoiaImeTsf`、`MetasequoiaImeServer`、`MetasequoiaImeUiHtml`、`MetasequoiaImeHelpCode`、`MetasequoiaImeDict`），这样 `msime-installer` 的 `Prepare-PackageFiles.ps1` 不用改一行就能在 CI 跑。改动那些脚本里的产物路径时，要连同本仓的 release workflow 一起核对。
 
-词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；也可以在手动触发时用 `dictionary_tag` 指定某个具体的词库版本。
+词库不在 CI 里现建，从 `metasequoiaime/MSIME-Dict` 的 `dict-*` release 下载并校验 SHA256。词库改了要先在那边跑 `Build dictionaries` workflow 并勾选 publish，再发 Windows 版本；通过 `scripts/product_lock.py refresh --dictionary-tag <tag>` 更新产品锁并评审摘要变更；发布构建不能临时覆盖词库版本。
 
 签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
 
