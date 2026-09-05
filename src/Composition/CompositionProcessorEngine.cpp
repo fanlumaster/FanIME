@@ -665,14 +665,18 @@ const WCHAR *CCompositionProcessorEngine::GetPunctuation(WCHAR wch)
         }
         if (pPuncNestPair->_punctuation_end._Code == wch)
         {
+            // An unmatched closing mark must leave the depth at zero. Decrementing past it would make
+            // the next opening mark produce the inner 〈 instead of 《, and the count would never
+            // recover without an equal number of extra openings.
+            if (pPuncNestPair->_nestCount == 0)
+            {
+                return pPuncNestPair->_punctuation_end._Punctuation;
+            }
             if (--pPuncNestPair->_nestCount == 0)
             {
                 return pPuncNestPair->_punctuation_end._Punctuation;
             }
-            else
-            {
-                return pPuncNestPair->_pairPunctuation_end;
-            }
+            return pPuncNestPair->_pairPunctuation_end;
         }
     }
     return 0;
