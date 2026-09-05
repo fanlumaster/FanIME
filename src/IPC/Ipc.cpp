@@ -1,4 +1,5 @@
 #include "Ipc.h"
+#include "../../vendor/MetasequoiaImeEngine/contracts/ipc_negotiation.h"
 #include <algorithm>
 #include <cstring>
 #include <cwctype>
@@ -287,7 +288,7 @@ void RequestNamedpipeReconnect()
 
 bool IsValidServerReply(const FanyImeNamedpipeDataToTsf &reply)
 {
-    if (reply.msg_type > Global::DataFromServerMsgType::UiLessComposition)
+    if (reply.msg_type > Global::DataFromServerMsgType::ProtocolMismatch)
     {
         return false;
     }
@@ -304,7 +305,8 @@ bool IsValidServerReply(const FanyImeNamedpipeDataToTsf &reply)
 
 void CachePendingReply(const FanyImeNamedpipeDataToTsf &reply)
 {
-    if (reply.msg_type == Global::DataFromServerMsgType::PipeReady)
+    if (reply.msg_type == Global::DataFromServerMsgType::PipeReady ||
+        FanyImeProtocol::IsNegotiationReply(reply.msg_type))
     {
         return;
     }
@@ -447,16 +449,37 @@ bool WaitForWorkerPipeReady(HANDLE hPipeHandle)
            reply.msg_type == Global::DataToTsfWorkerThreadMsgType::PipeReady && reply.data[0] == L'\0';
 }
 
+bool WaitForProtocolReady(uint64_t requestId)
+{
+    const ULONGLONG deadline = GetTickCount64() + 250;
+    while (GetTickCount64() < deadline)
+    {
+        FanyImeNamedpipeDataToTsf reply{};
+        DWORD bytesRead = 0;
+        const ULONGLONG now = GetTickCount64();
+        if (now >= deadline)
+            return false;
+        const auto result = ReadOverlappedWithTimeout(hFromServerPipe, &reply, sizeof(reply),
+                                                      static_cast<DWORD>(deadline - now), bytesRead);
+        if (result != OverlappedReadResult::Completed || bytesRead != sizeof(reply) || !IsValidServerReply(reply))
+            return false;
+        if (FanyImeProtocol::IsNegotiationReply(reply.msg_type) && reply.request_id == requestId)
+            return FanyImeProtocol::AcceptReply(reply, requestId);
+        CachePendingReply(reply);
+    }
+    return false;
+}
+
 bool WritePipeHello(HANDLE hPipeHandle, UINT pipeRole)
 {
     DWORD bytesWritten = 0;
     if (pipeRole == FanyImePipeRole::Main)
     {
-        FanyImeNamedpipeData hello = {};
-        hello.event_type = FanyImePipeEventType::ClientHello;
-        hello.client_id = GetPipeClientId();
+        const auto hello = FanyImeProtocol::Hello(GetPipeClientId(), NextProtocolId(nextRequestId));
         BOOL ret = WriteFile(hPipeHandle, &hello, sizeof(hello), &bytesWritten, NULL);
-        return ret && bytesWritten == sizeof(hello);
+        // Never authorize keys from merely writing a hello. An old Server
+        // without negotiation times out into the existing raw-input fallback.
+        return ret && bytesWritten == sizeof(hello) && WaitForProtocolReady(hello.request_id);
     }
 
     FanyImePipeHello hello = {};
@@ -1352,6 +1375,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
         // A delayed reply from a timed-out key must not be consumed as the
         // reply for the next key.
         if (namedpipeDataFromServer.msg_type != Global::DataFromServerMsgType::PipeReady &&
+            !FanyImeProtocol::IsNegotiationReply(namedpipeDataFromServer.msg_type) &&
             namedpipeDataFromServer.request_id == expectedRequestId)
         {
             DebugTsfKeyLatency(L"reply-wait", expectedRequestId, replyWaitTimer.ElapsedMs(), S_OK);

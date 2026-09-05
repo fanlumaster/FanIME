@@ -7,6 +7,14 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(PROJECT_NAME MetasequoiaImeTsf)
 project(${PROJECT_NAME} LANGUAGES CXX C)
 
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(test_windows_ipc_contract
+        vendor/MetasequoiaImeEngine/contracts/tests/windows_ipc_contract.cpp)
+    target_compile_features(test_windows_ipc_contract PRIVATE cxx_std_17)
+    add_test(NAME windows_ipc_contract COMMAND test_windows_ipc_contract)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

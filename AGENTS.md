@@ -154,11 +154,10 @@ Server 的 `MetasequoiaImeServer.manifest` 使用
 
 ## IPC 协议——跨仓单一契约
 
-TSF 端协议定义在 `src/IPC/Ipc.h`，Server 端镜像在
-`../MetasequoiaImeServer/src/ipc/ipc.h`。这里是原始 Win32 结构体 ABI，不是自描述协议：
+协议定义的唯一来源是 `vendor/MetasequoiaImeEngine/contracts/`，Server 通过自己的 Engine 子模块读取同一份定义。TSF 仅引用头文件，不链接引擎运行库；`product-lock.json` 和产品 CI 强制两端引用相同的 Engine 提交。这里保留已发布的固定宽度 Win32 ABI：
 
-- 修改管道名、event/msg type 数值、字段类型/顺序、数组容量、对齐或结构体大小时，**必须同步改
-  两个仓库**，并保留/更新两端的 `static_assert`。
+- 修改管道名、opcode、字段、容量或对齐时，在共享 contracts 中修改并保留 ABI 检查，再同步更新两端子模块和产品清单。禁止恢复两份手写定义。
+- 主连接的版本化 ClientHello 必须获得关联 request_id 的 ProtocolReady 后才可发键；协议确认包不能作为候选或上屏文本。新 Server 兼容旧 DLL 的未版本化 hello；新 DLL 对旧或不兼容 Server 使用现有原始输入回退。版本与能力规则见共享 contracts/README.md。
 - `WCHAR` 按 16 位 UTF-16 码元传输；不要用 `wchar_t` 在非 Windows 平台上的大小推断协议布局。
 - 已发布 opcode 只追加、不复用、不重排。未知的较新 Worker opcode 应忽略，不能因此拆除连接。
 - `request_id == 0` 表示 unsolicited，`UINT64_MAX` 表示本地无请求；不得当成普通请求回复配对。
@@ -245,7 +244,7 @@ Release：
 .\scripts\lcompile-release.ps1 32
 ```
 
-本仓目前没有独立自动化测试目标，构建通过不等于 TSF 行为正确。按改动范围做手工回归：
+本仓的 `windows_ipc_contract` 在 x64/x86 上验证协议布局、版本握手与语音分帧；产品 CI 还构建锁定的 Server、页面并在锁定词库上运行 Server 测试。这些检查不能替代真实 TSF 宿主行为回归。按改动范围做手工回归：
 
 - 至少验证 x64 宿主；协议、注册、资源或发布改动同时验证 x86 DLL；
 - 输入首键、连续输入、空格/数字键盘选词、翻页、退格、光标移动和标点提交；
