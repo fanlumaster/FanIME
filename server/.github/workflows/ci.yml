@@ -33,15 +33,17 @@ jobs:
           ./vcpkg install boost-locale:x64-windows-static-md boost-json:x64-windows-static-md
           Pop-Location
           "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> $env:GITHUB_ENV
+      # 刻意不叫 build：CMakeLists.txt 曾经写死 ${CMAKE_SOURCE_DIR}/build/vcpkg_installed，
+      # 换任何别的名字都会链接失败。构建到别处才能保证这条不会悄悄退回去。
       - name: Configure
         shell: pwsh
         run: >
-          cmake -S . -B build -A x64
+          cmake -S . -B build-release -A x64
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows
       - name: Build
         shell: pwsh
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build-release --config Release --parallel
       # 测试读的是 %LOCALAPPDATA%\metasequoiaime 下的真实数据。词库不在本仓里，
       # 但 MSIME-Dict 已经把构建好的数据库作为 release 资产发布，发布流程本身也是
       # 从那里取词库的（见 MSIME-Windows 的 release.yml），这里沿用同一条路径。
@@ -82,4 +84,4 @@ jobs:
           Get-ChildItem $dataRoot | Select-Object Name, Length | Format-Table
       - name: Test
         shell: pwsh
-        run: ctest --test-dir build -C Release --verbose --timeout 120
+        run: ctest --test-dir build-release -C Release --verbose --timeout 120
