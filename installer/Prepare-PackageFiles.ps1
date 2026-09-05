@@ -11,6 +11,10 @@ param(
     [string]$UiHtmlDirectory = 'MetasequoiaImeUiHtml',
     [string]$HelpCodeDirectory = 'MetasequoiaImeHelpCode',
     [string]$DictionaryDirectory = 'MetasequoiaImeDict',
+    # THIRD_PARTY_NOTICES.txt used to sit next to the tip's sources. In the consolidated repository
+    # the notice covers the whole product and lives at the root, one level above windows/, so where
+    # to read it is no longer answered by where the tip is.
+    [string]$NoticesDirectory = $TsfDirectory,
     [switch]$Light
 )
 
@@ -49,7 +53,7 @@ $factoryConfig = Join-Path $PSScriptRoot 'default_config\config.default.toml'
 $pinyinTable = Join-Path $RepoRoot (Join-Path $ServerDirectory 'assets\tables\pinyin.txt')
 $helpcodeSource = Join-Path $RepoRoot (Join-Path $HelpCodeDirectory 'helpcodes')
 $appIcon = Join-Path $RepoRoot (Join-Path $ServerDirectory 'src\resource\MetasequoiaIME.ico')
-$thirdPartyNotices = Join-Path $RepoRoot (Join-Path $TsfDirectory 'THIRD_PARTY_NOTICES.txt')
+$thirdPartyNotices = Join-Path $RepoRoot (Join-Path $NoticesDirectory 'THIRD_PARTY_NOTICES.txt')
 $dictionaryDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\msime.db')
 $dictionaryManifest = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dictionary-manifest.json')
 $japaneseModel = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dict_japanese.dat')

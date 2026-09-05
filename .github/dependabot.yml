@@ -12,10 +12,27 @@ updates:
       prefix: "chore(deps)"
     open-pull-requests-limit: 5
 
+  # Daily rather than monthly, which is the cadence Server used before the consolidation. The
+  # engine moves far faster than the frontends and engine-bump-triage.yml exists to absorb that
+  # rate: it auto-merges the provably inert bumps and holds the rest for review.
   - package-ecosystem: "gitsubmodule"
     directory: "/"
     schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 5
+
+  # The settings page is the one part of this repository that is built rather than shipped as
+  # source, and it sits on the release path, so its dependencies need watching.
+  - package-ecosystem: "npm"
+    directory: "/ui-html/webview2/settings/ime-settings"
+    schedule:
       interval: "monthly"
+    groups:
+      npm:
+        patterns:
+          - "*"
     commit-message:
       prefix: "chore(deps)"
     open-pull-requests-limit: 5

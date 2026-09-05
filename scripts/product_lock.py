@@ -24,16 +24,16 @@ _product_spec.loader.exec_module(_product)
 PRODUCT_MANIFEST = _product.MANIFEST_NAME
 LEGACY_DICTIONARY_TAG = "dict-2026.09.05"
 
+# The tip, the server, the GUI framework, the pages and the installer are components of this
+# repository now, so a commit of this repository already pins them and there is nothing left to
+# lock. What survives is what the product still consumes from outside: the engine, which is a
+# submodule here, and the helpcodes and dictionary, which are fetched at build time.
 REPOSITORIES = {
-    "server": "metasequoiaime/MSIME-Server",
-    "ui": "metasequoiaime/MSIME-UiHtml",
-    "installer": "metasequoiaime/MSIME-Installer",
     "helpcode": "metasequoiaime/MSIME-HelpCode",
     "engine": "metasequoiaime/MSIME-Engine",
-    "gui": "metasequoiaime/MSIME-UI",
 }
-ROOT_COMPONENTS = ("server", "ui", "installer", "helpcode")
-SERVER_GITLINKS = {"engine": "MetasequoiaImeEngine", "gui": "msimeui"}
+ROOT_COMPONENTS = ("helpcode",)
+ENGINE_GITLINK = "vendor/MetasequoiaImeEngine"
 ASSETS = {
     "msime.db", "english.db", "others.db", "dict_japanese.dat",
     "mozc_dictionary_oss_README.txt", "SHA256SUMS.txt",
@@ -103,18 +103,18 @@ def verify_checkout(component: str, directory: Path, data: dict) -> None:
     expected = data["repositories"][component]["commit"]
     if git(directory, "rev-parse", "HEAD") != expected:
         raise ValueError(f"{component}: checkout does not match product lock")
-    gitlinks = SERVER_GITLINKS if component == "server" else ({"engine": "vendor/MetasequoiaImeEngine"} if component == "ui" else {})
-    if gitlinks:
-        for name, path in gitlinks.items():
-            fields = git(directory, "ls-tree", "HEAD", path).split()
-            if len(fields) != 4 or fields[0] != "160000" or fields[2] != data["repositories"][name]["commit"]:
-                raise ValueError(f"{component}: {path} gitlink does not match product lock")
+
+
+def engine_gitlink(directory: Path) -> str:
+    fields = git(directory, "ls-tree", "HEAD", ENGINE_GITLINK).split()
+    if len(fields) != 4 or fields[0] != "160000":
+        raise ValueError(f"{ENGINE_GITLINK} is not a submodule of this repository")
+    return fields[2]
 
 
 def verify_contracts(directory: Path, data: dict) -> None:
-    fields = git(directory, "ls-tree", "HEAD", "vendor/MetasequoiaImeEngine").split()
-    if len(fields) != 4 or fields[0] != "160000" or fields[2] != data["repositories"]["engine"]["commit"]:
-        raise ValueError("TSF and Server must consume the same Engine contract commit")
+    if engine_gitlink(directory) != data["repositories"]["engine"]["commit"]:
+        raise ValueError("The engine submodule and the product lock name different contract commits")
 
 
 def verify_published(data: dict) -> None:
@@ -172,23 +172,17 @@ def refresh(tag: str, refs: list[str]) -> dict:
     for override in refs:
         component, separator, ref = override.partition("=")
         if not separator or component not in ROOT_COMPONENTS or not ref:
-            raise ValueError("--ref must be server|ui|installer|helpcode=<commit-or-ref>")
+            raise ValueError("--ref must be helpcode=<commit-or-ref>")
         overrides[component] = ref
     repositories = {}
     for name in ROOT_COMPONENTS:
         repository = REPOSITORIES[name]
         commit = api(f"repos/{repository}/commits/{overrides.get(name, 'main')}")["sha"]
         repositories[name] = {"repository": repository, "commit": commit}
-    server = repositories["server"]
-    tree = api(f"repos/{server['repository']}/git/trees/{server['commit']}")["tree"]
-    for name, path in SERVER_GITLINKS.items():
-        entry = next(item for item in tree if item["path"] == path and item["type"] == "commit")
-        repositories[name] = {"repository": REPOSITORIES[name], "commit": entry["sha"]}
-    ui = repositories["ui"]
-    ui_tree = api(f"repos/{ui['repository']}/git/trees/{ui['commit']}?recursive=1")["tree"]
-    ui_contract = next((item for item in ui_tree if item["path"] == "vendor/MetasequoiaImeEngine"), None)
-    if not ui_contract or ui_contract["type"] != "commit" or ui_contract["sha"] != repositories["engine"]["commit"]:
-        raise ValueError("UiHtml and Server must pin the same Engine contract before refreshing the product")
+    # The engine is not refreshed from its default branch here. Bumping the submodule is the review;
+    # the lock only records which commit that review landed on, so that verify-published can still
+    # refuse a release built on an engine commit nobody merged.
+    repositories["engine"] = {"repository": REPOSITORIES["engine"], "commit": engine_gitlink(ROOT)}
     release = api(f"repos/metasequoiaime/MSIME-Dict/releases/tags/{tag}")
     if release["draft"]:
         raise ValueError("Cannot lock an unpublished dictionary release")

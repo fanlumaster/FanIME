@@ -10,7 +10,7 @@ name: Engine bump triage
 on:
   pull_request:
     paths:
-      - 'MetasequoiaImeEngine'
+      - 'vendor/MetasequoiaImeEngine'
 
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      SUBMODULE: MetasequoiaImeEngine
+      SUBMODULE: vendor/MetasequoiaImeEngine
       ENGINE: metasequoiaime/MSIME-Engine
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_URL: ${{ github.event.pull_request.html_url }}
@@ -75,8 +75,22 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
+      # The product lock records the engine commit for provenance and for the release gate that
+      # refuses a commit nobody merged. A bump that moves the submodule without the lock leaves the
+      # two disagreeing, and verify-contracts fails the whole product-inputs job rather than this
+      # pull request, so say plainly which file has to move.
+      - name: Check the lock followed the submodule
+        id: lock
+        run: |
+          set -euo pipefail
+          if python3 scripts/product_lock.py verify-contracts .; then
+            echo "locked=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "locked=no" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Enable auto-merge
-        if: steps.classify.outputs.verdict == 'inert'
+        if: steps.classify.outputs.verdict == 'inert' && steps.lock.outputs.locked == 'yes'
         run: |
           set -euo pipefail
           gh pr merge --auto --squash "$PR_URL"
@@ -88,3 +102,9 @@ jobs:
           set -euo pipefail
           gh pr edit "$PR_URL" --add-label "needs-review" || true
           gh pr comment "$PR_URL" --body "$(printf '引擎 `%s` → `%s` 的改动里有需要人看一眼的部分，未开启自动合并：\n\n```\n%s\n```\n\n源码、`CMakeLists.txt` 或嵌套 submodule 指针的变化都可能改变行为，而前端 CI 未必覆盖得到——`helpcode_enabled()` 与 `handle_character()` 的语义变更就是这样漏过去的。' '${{ steps.range.outputs.base }}' '${{ steps.range.outputs.head }}' '${{ steps.classify.outputs.reason }}')"
+
+      - name: Ask for the lock to follow
+        if: steps.lock.outputs.locked == 'no'
+        run: |
+          set -euo pipefail
+          gh pr comment "$PR_URL" --body "引擎 submodule 动了但 \`product-lock.json\` 里的 \`engine.commit\` 没跟上，产物清单会记录错误的引擎来源，发布门禁也拦不住未合入的引擎提交。跑 \`python3 scripts/product_lock.py refresh --dictionary-tag <当前 tag>\` 或直接改这一个字段，再推上来。"
