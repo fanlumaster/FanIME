@@ -44,6 +44,8 @@ find_package(ZLIB REQUIRED)
 # own tests/ still register.
 set(_metasequoia_saved_build_testing "${BUILD_TESTING}")
 set(BUILD_TESTING OFF)
+set(METASEQUOIA_IME_BUILD_VOICE ON CACHE BOOL "" FORCE)
+set(MSIME_VOICE_CAPTURE ON CACHE BOOL "" FORCE)
 add_subdirectory("${MSIME_VENDOR_DIR}/MetasequoiaImeEngine" "${CMAKE_BINARY_DIR}/MetasequoiaImeEngine" EXCLUDE_FROM_ALL)
 set(BUILD_TESTING "${_metasequoia_saved_build_testing}")
 unset(_metasequoia_saved_build_testing)
@@ -213,10 +215,10 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
     "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/include"
     "${CMAKE_SOURCE_DIR}/src/voice-input"
-    "${CMAKE_SOURCE_DIR}/src/voice-input/third_party"
+    "${MSIME_VENDOR_DIR}/MetasequoiaImeEngine/voice/third_party/miniaudio"
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE MetasequoiaIme::Engine)
+target_link_libraries(${PROJECT_NAME} PRIVATE MetasequoiaIme::Engine MetasequoiaIme::VoiceCapture)
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::sqlite3::sqlite3 fmt::fmt spdlog::spdlog Boost::locale Boost::json nlohmann_json::nlohmann_json)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenCC::OpenCC)
 add_dependencies(${PROJECT_NAME} Dictionaries)

@@ -2,7 +2,7 @@
 
 一个 Windows 版本的完整一方源码就是本仓的一个提交：TSF、Server、GUI 框架、页面和安装器都是目录，不需要再被清单钉住。
 
-`product-lock.json` 只覆盖仍来自仓外的输入：辅助码仓的完整提交、Engine 的提交，以及词库 Release 的每个产物 SHA256。Engine 在本仓是 `vendor/MetasequoiaImeEngine` submodule，gitlink 才是权威；清单里的 `engine.commit` 是它的记录副本，供产物清单和发布门禁使用，`product_lock.py verify-contracts` 保证两者一致。
+`product-lock.json` 只覆盖仍来自仓外的输入：Engine 的提交，以及词库 Release 的 source commit 和每个产物的 SHA256。辅助码已并入 Engine，由同一个 gitlink 钉住，不再单列。Engine 在本仓是 `vendor/MetasequoiaImeEngine` submodule，gitlink 才是权威；清单里的 `engine.commit` 是它的记录副本，供产物清单和发布门禁使用，`product_lock.py verify-contracts` 保证两者一致。
 
 发布任务不解析 `main` 或 `latest`。递归 submodule 沿固定 gitlink 检出，不执行 `git submodule update --remote`。
 
@@ -15,9 +15,9 @@ python scripts/product_lock.py refresh --dictionary-tag dict-2026.09.05
 python scripts/product_lock.py validate
 ```
 
-`refresh` 是唯一会解析浮动源码引用的命令，且只解析辅助码（默认 main，可用 `--ref helpcode=<SHA或分支>` 覆盖）。Engine 不从默认分支解析：bump submodule 本身就是那次评审，`refresh` 只把 gitlink 抄进清单，不会把清单指向一个没被集成的引擎版本。
+`refresh` 不再解析任何浮动源码引用，`--ref` 已无可覆盖的对象。Engine 不从默认分支解析：bump submodule 本身就是那次评审，`refresh` 只把 gitlink 抄进清单，不会把清单指向一个没被集成的引擎版本。
 
-词库 tag 本身可能被上游修改，因此构建验证的是本清单中已提交的摘要，连同模型授权文件和上游校验文件一起验证。只更新上游 SHA256SUMS 无法让被替换的数据通过构建。
+词库 tag 本身可能被上游修改，因此构建验证的是本清单中已提交的摘要，连同模型授权文件和上游校验文件一起验证。只更新上游 SHA256SUMS 无法让被替换的数据通过构建。词库清单另外声明构建它的 commit 和当时工作树是否干净，两者都要与清单相符——摘要证明字节没被换过，证明不了这批数据出自一个能重建的源。
 
 ## 重建与追溯
 

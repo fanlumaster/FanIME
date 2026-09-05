@@ -23,16 +23,16 @@ _product = importlib.util.module_from_spec(_product_spec)
 _product_spec.loader.exec_module(_product)
 PRODUCT_MANIFEST = _product.MANIFEST_NAME
 LEGACY_DICTIONARY_TAG = "dict-2026.09.05"
+DICTIONARY_REPOSITORY = "metasequoiaime/MSIME-Engine"
 
 # The tip, the server, the GUI framework, the pages and the installer are components of this
 # repository now, so a commit of this repository already pins them and there is nothing left to
-# lock. What survives is what the product still consumes from outside: the engine, which is a
-# submodule here, and the helpcodes and dictionary, which are fetched at build time.
+# lock. The helpcodes moved into the engine, so the engine gitlink pins those too. What survives is
+# the engine itself and the dictionary release, which is fetched at build time.
 REPOSITORIES = {
-    "helpcode": "metasequoiaime/MSIME-HelpCode",
     "engine": "metasequoiaime/MSIME-Engine",
 }
-ROOT_COMPONENTS = ("helpcode",)
+ROOT_COMPONENTS = ()
 ENGINE_GITLINK = "vendor/MetasequoiaImeEngine"
 ASSETS = {
     "msime.db", "english.db", "others.db", "dict_japanese.dat",
@@ -54,10 +54,18 @@ def validate(data: dict) -> dict:
         if entry.get("repository") != repository or not SHA.fullmatch(entry.get("commit", "")):
             raise ValueError(f"{name}: expected {repository} and a full immutable commit SHA")
     dictionary = data.get("dictionary", {})
-    if dictionary.get("repository") != "metasequoiaime/MSIME-Dict":
+    # The dictionary source and build entry point moved into the engine. The published MSIME-Dict
+    # releases stay valid as immutable historical artefacts, so the old repository is still accepted
+    # for the tag that shipped from it, and for nothing else: moving the publishing source is a
+    # reviewed change to this file, not something a tag rename can do quietly.
+    if dictionary.get("repository") != DICTIONARY_REPOSITORY and not (
+        dictionary.get("repository") == "metasequoiaime/MSIME-Dict" and dictionary.get("tag") == LEGACY_DICTIONARY_TAG
+    ):
         raise ValueError("Unexpected dictionary repository")
     if not TAG.fullmatch(dictionary.get("tag", "")):
         raise ValueError("Dictionary tag must be an explicit dict-* release, never latest")
+    if not SHA.fullmatch(dictionary.get("source_commit", "")):
+        raise ValueError("Dictionary source_commit must be a full immutable commit SHA")
     assets = dictionary.get("assets", {})
     expected_assets = ASSETS if dictionary['tag'] == LEGACY_DICTIONARY_TAG else ASSETS | {PRODUCT_MANIFEST}
     if set(assets) != expected_assets:
@@ -92,7 +100,14 @@ def verify_assets(directory: Path, data: dict) -> None:
             raise ValueError(f"Locked dictionary asset missing or changed: {name}")
 
     if PRODUCT_MANIFEST in data["dictionary"]["assets"]:
-        _product.verify_product(directory, "desktop", set(data["dictionary"]["assets"]) - {"SHA256SUMS.txt", PRODUCT_MANIFEST})
+        manifest = _product.verify_product(directory, "desktop", set(data["dictionary"]["assets"]) - {"SHA256SUMS.txt", PRODUCT_MANIFEST})
+        # Matching digests only prove the bytes are the reviewed bytes. The manifest additionally
+        # states which commit built them and whether that tree was clean, and a release whose data
+        # came from an uncommitted working tree cannot be rebuilt from anything.
+        source = manifest.get("source", {})
+        if (source.get("repository") != data["dictionary"]["repository"] or
+                source.get("commit") != data["dictionary"]["source_commit"] or source.get("dirty") is not False):
+            raise ValueError("Dictionary manifest provenance does not match the reviewed source commit")
 
 
 def git(directory: Path, *args: str) -> str:
@@ -168,22 +183,14 @@ def api(endpoint: str) -> dict:
 def refresh(tag: str, refs: list[str]) -> dict:
     if not TAG.fullmatch(tag):
         raise ValueError("refresh requires an explicit dict-* release tag")
-    overrides = {}
-    for override in refs:
-        component, separator, ref = override.partition("=")
-        if not separator or component not in ROOT_COMPONENTS or not ref:
-            raise ValueError("--ref must be helpcode=<commit-or-ref>")
-        overrides[component] = ref
-    repositories = {}
-    for name in ROOT_COMPONENTS:
-        repository = REPOSITORIES[name]
-        commit = api(f"repos/{repository}/commits/{overrides.get(name, 'main')}")["sha"]
-        repositories[name] = {"repository": repository, "commit": commit}
-    # The engine is not refreshed from its default branch here. Bumping the submodule is the review;
-    # the lock only records which commit that review landed on, so that verify-published can still
-    # refuse a release built on an engine commit nobody merged.
-    repositories["engine"] = {"repository": REPOSITORIES["engine"], "commit": engine_gitlink(ROOT)}
-    release = api(f"repos/metasequoiaime/MSIME-Dict/releases/tags/{tag}")
+    # Nothing is resolved from a floating ref any more. Every first-party source is either a
+    # directory of this repository or the engine submodule, so --ref has nothing left to override.
+    if refs:
+        raise ValueError("--ref has no effect: the only locked source is the engine submodule")
+    # Bumping the submodule is the review; the lock only records which commit that review landed on,
+    # so that verify-published can still refuse a release built on a commit nobody merged.
+    repositories = {"engine": {"repository": REPOSITORIES["engine"], "commit": engine_gitlink(ROOT)}}
+    release = api(f"repos/{DICTIONARY_REPOSITORY}/releases/tags/{tag}")
     if release["draft"]:
         raise ValueError("Cannot lock an unpublished dictionary release")
     assets = {}
@@ -193,8 +200,10 @@ def refresh(tag: str, refs: list[str]) -> dict:
             if not digest.startswith("sha256:"):
                 raise ValueError(f"Release asset has no SHA256 digest: {asset['name']}")
             assets[asset["name"]] = digest.removeprefix("sha256:")
+    source_commit = api(f"repos/{DICTIONARY_REPOSITORY}/commits/{tag}")["sha"]
     return validate({"schema_version": 1, "repositories": repositories,
-                     "dictionary": {"repository": "metasequoiaime/MSIME-Dict", "tag": tag, "assets": assets}})
+                     "dictionary": {"repository": DICTIONARY_REPOSITORY, "tag": tag,
+                                    "source_commit": source_commit, "assets": assets}})
 
 
 def main() -> None:

@@ -75,7 +75,6 @@ jobs:
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: ubuntu-24.04
     outputs:
-      helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
       dictionary_tag: ${{ steps.lock.outputs.dictionary_tag }}
     steps:
       - name: Read dependencies from the release commit
@@ -178,14 +177,6 @@ jobs:
         shell: pwsh
         run: ./scripts/ci/install-boost.ps1
 
-      - name: Check out locked helpcodes for integration tests
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: metasequoiaime/MSIME-HelpCode
-          ref: ${{ needs.dependencies.outputs.helpcode_sha }}
-          path: MetasequoiaImeHelpCode
-          persist-credentials: false
-
       # The package job stages these outputs into the installer's expected directory.
       - name: Configure
         shell: pwsh
@@ -206,7 +197,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/ci/test-server.ps1 -ServerRoot server -HelpcodeRoot MetasequoiaImeHelpCode -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
+        run: ./scripts/ci/test-server.ps1 -ServerRoot server -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
 
       - name: Upload the Server build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -278,27 +269,22 @@ jobs:
       # download-dictionaries.sh stages MetasequoiaImeDict/out under this root, and
       # Prepare-PackageFiles.ps1 reads its dictionary directory from the same place. Before the
       # consolidation this was a synthetic tree holding five sibling checkouts under their
-      # historical names; now the only sources that still arrive from outside are the helpcodes and
-      # the dictionary, so they land beside the components in the one checkout.
+      # historical names; now the dictionary release is the only source that still arrives from
+      # outside, so it lands beside the components in the one checkout.
       STAGING_ROOT: .
     steps:
+      # The helpcodes are collected out of the engine submodule now, so this job needs its contents
+      # and not just the gitlink.
       - name: Check out the release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.target_sha }}
+          submodules: true
           persist-credentials: false
 
       - name: Verify the release commit is on main
         shell: bash
         run: bash scripts/ci/verify-commit-on-main.sh
-
-      - name: Check out MSIME-HelpCode
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: metasequoiaime/MSIME-HelpCode
-          ref: ${{ needs.dependencies.outputs.helpcode_sha }}
-          path: MetasequoiaImeHelpCode
-          persist-credentials: false
 
       - name: Download the TSF DLLs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -347,6 +333,7 @@ jobs:
           pwsh -File ./Prepare-PackageFiles.ps1 -TargetVersion $env:TARGET_VERSION
           -RepoRoot (Resolve-Path '..').Path
           -TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .
+          -HelpCodeDirectory vendor/MetasequoiaImeEngine/helpcode
 
       - name: Embed the exact product dependency manifest
         env:

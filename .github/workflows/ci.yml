@@ -27,8 +27,6 @@ jobs:
   lock:
     name: Product inputs
     runs-on: ubuntu-24.04
-    outputs:
-      helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
     steps:
       # The dictionary validator is compared against the engine's copy of it, so this job needs the
       # submodule's contents and not just its gitlink.
@@ -106,13 +104,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - name: Check out the locked helpcodes
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: metasequoiaime/MSIME-HelpCode
-          ref: ${{ needs.lock.outputs.helpcode_sha }}
-          path: helpcodes
-          persist-credentials: false
       - name: Restore dependency binaries
         id: vcpkg-cache
         uses: ./.github/actions/vcpkg-cache
@@ -147,7 +138,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/ci/test-server.ps1 -ServerRoot server -HelpcodeRoot helpcodes -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
+        run: ./scripts/ci/test-server.ps1 -ServerRoot server -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
 
   gui:
     name: GUI framework

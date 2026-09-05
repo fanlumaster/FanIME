@@ -1,5 +1,4 @@
-#define MINIAUDIO_IMPLEMENTATION
-#include <miniaudio.h>
+#include <msime/voice/audio_capture.h>
 
 #include "voice_input_service.h"
 #include "config/ime_config.h"
@@ -34,7 +33,7 @@ namespace
 {
 constexpr unsigned kSampleRate = 16000;
 constexpr long kPolishTimeoutMs = 3000L;
-ma_device g_device{};
+metasequoia::voice::AudioCapture g_capture;
 std::mutex g_mutex;
 std::vector<float> g_samples;
 std::unique_ptr<DoubaoAsrClient> g_doubao_asr;
@@ -805,12 +804,11 @@ void CommitRecognizedText(const std::string &utf8, const VoiceInputConfig &confi
     }
 }
 
-void AudioCallback(ma_device *, void *, const void *input, ma_uint32 frames)
+void AudioCallback(const float *samples, std::size_t frames)
 {
-    if (!input || !g_recording) return;
-    const auto *samples = static_cast<const float *>(input);
+    if (!samples || !g_recording) return;
     double sum = 0.0;
-    for (ma_uint32 i = 0; i < frames; ++i) sum += samples[i] * samples[i];
+    for (std::size_t i = 0; i < frames; ++i) sum += samples[i] * samples[i];
     const float rms = frames ? static_cast<float>(std::sqrt(sum / frames)) : 0.0f;
     // Compress the visual dynamic range so quiet speech still produces a clear waveform,
     // while keeping low-level room/microphone noise close to rest.
@@ -907,27 +905,15 @@ bool StartRecording()
         AbortPendingStart("aborted before capture");
         return false;
     }
-    ma_device_config device_config = ma_device_config_init(ma_device_type_capture);
-    device_config.capture.format = ma_format_f32;
-    device_config.capture.channels = 1;
-    device_config.sampleRate = kSampleRate;
-    device_config.dataCallback = AudioCallback;
-    const ma_result device_init = ma_device_init(nullptr, &device_config, &g_device);
-    if (device_init != MA_SUCCESS)
+    if (!g_capture.start(AudioCallback))
     {
-        AbortPendingStart("capture init failed");
+        AbortPendingStart("capture start failed");
         MessageBoxW(nullptr, L"无法启动麦克风。", L"水杉 IME", MB_OK | MB_ICONERROR);
-        return false;
-    }
-    if (g_abort_start.load() || ma_device_start(&g_device) != MA_SUCCESS)
-    {
-        ma_device_uninit(&g_device);
-        AbortPendingStart("aborted during capture start");
         return false;
     }
     if (g_abort_start.exchange(false))
     {
-        ma_device_uninit(&g_device);
+        g_capture.stop();
         AbortPendingStart("aborted after capture start");
         return false;
     }
@@ -944,9 +930,15 @@ bool StartRecording()
 void StopRecording()
 {
     if (!g_recording) return;
+    g_capture.stop();
+    if (g_capture.callback_failed())
+    {
+        CancelRecording();
+        MessageBoxW(nullptr, L"录音中断，请重试。", L"水杉 IME", MB_OK | MB_ICONERROR);
+        return;
+    }
     const VoiceInputConfig config = GetConfiguredVoiceInput();
     g_recording = false;
-    ma_device_uninit(&g_device);
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
@@ -1092,7 +1084,7 @@ void CancelRecording()
         ++g_voice_session;
         CancelInlinePreedit();
     }
-    ma_device_uninit(&g_device);
+    g_capture.stop();
     g_ralt_lock_mode = false;
     g_overlay.set_listening(false);
     g_overlay.set_input_level(0.0f);
