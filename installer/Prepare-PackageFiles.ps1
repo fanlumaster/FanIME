@@ -51,6 +51,7 @@ $helpcodeSource = Join-Path $RepoRoot (Join-Path $HelpCodeDirectory 'helpcodes')
 $appIcon = Join-Path $RepoRoot (Join-Path $ServerDirectory 'src\resource\MetasequoiaIME.ico')
 $thirdPartyNotices = Join-Path $RepoRoot (Join-Path $TsfDirectory 'THIRD_PARTY_NOTICES.txt')
 $dictionaryDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\msime.db')
+$dictionaryManifest = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dictionary-manifest.json')
 $japaneseModel = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dict_japanese.dat')
 $japaneseModelLicense = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'source\mozc_dictionary_oss\README.txt')
 $englishDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\english.db')
@@ -64,6 +65,7 @@ Assert-PathExists -LiteralPath $tsf64Release -Description '64 位 TSF Release DL
 Assert-PathExists -LiteralPath $serverConfig -Description 'Server config.toml'
 Assert-PathExists -LiteralPath $appIcon -Description '应用图标'
 Assert-PathExists -LiteralPath $thirdPartyNotices -Description '第三方声明 THIRD_PARTY_NOTICES.txt'
+Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'shared') -Description '共享 WebView 消息契约'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'candwnd') -Description '候选窗 HTML 目录'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'ftb') -Description '悬浮工具栏 HTML 目录'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'menu') -Description '菜单 HTML 目录'
@@ -106,6 +108,9 @@ else {
     }
     Copy-Item -LiteralPath $pinyinTable -Destination (Join-Path $targetAppData 'pinyin.txt') -Force
     Copy-Item -LiteralPath $dictionaryDb -Destination (Join-Path $targetAppData 'msime.db') -Force
+    if (Test-Path -LiteralPath $dictionaryManifest) {
+        Copy-Item -LiteralPath $dictionaryManifest -Destination (Join-Path $targetAppData 'dictionary-manifest.json') -Force
+    }
     Copy-Item -LiteralPath $japaneseModel -Destination (Join-Path $targetAppData 'dict_japanese.dat') -Force
     Copy-Item -LiteralPath $japaneseModelLicense -Destination (Join-Path $targetAppData 'MOZC_DICTIONARY_LICENSE.txt') -Force
     Copy-Item -LiteralPath $englishDb -Destination (Join-Path $targetAppData 'english.db') -Force
@@ -144,6 +149,7 @@ if (Test-Path -LiteralPath $targetHtml) {
     Remove-Item -LiteralPath $targetHtml -Recurse -Force
 }
 $targetWebview = Join-Path $targetHtml 'webview2'
+Copy-DirectoryContents -Source (Join-Path $webviewRoot 'shared') -Destination (Join-Path $targetWebview 'shared')
 Copy-DirectoryContents -Source (Join-Path $webviewRoot 'candwnd') -Destination (Join-Path $targetWebview 'candwnd')
 Copy-DirectoryContents -Source (Join-Path $webviewRoot 'ftb') -Destination (Join-Path $targetWebview 'ftb')
 Copy-DirectoryContents -Source (Join-Path $webviewRoot 'menu') -Destination (Join-Path $targetWebview 'menu')
