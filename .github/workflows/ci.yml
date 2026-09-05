@@ -30,7 +30,11 @@ jobs:
     outputs:
       helpcode_sha: ${{ steps.lock.outputs.helpcode_sha }}
     steps:
+      # The dictionary validator is compared against the engine's copy of it, so this job needs the
+      # submodule's contents and not just its gitlink.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
       - name: Check the shared dictionary validator
         run: python3 scripts/check-dictionary-contract.py
       - name: Test rejection of changed or mismatched inputs
