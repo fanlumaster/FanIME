@@ -78,6 +78,50 @@ TEST_CASE(MixedAsyncCandidatesKeepReservedSlotsForEveryArrivalOrder)
     REQUIRE_EQ(items[2].source, CandidateSource::EnglishDictionary);
 }
 
+TEST_CASE(PromotedEnglishCandidateCanBecomeTheFirstMixedCandidate)
+{
+    const auto local = [](std::string word) { return WordItem("github", std::move(word), 100); };
+    const auto cloud = [] { return WordItem("github", "云候选", 1, CandidateSource::CloudSuggestion); };
+    const auto ai = [] { return WordItem("github", "AI联想", 1, CandidateSource::AiSuggestion); };
+
+    std::vector<WordItem> items = {
+        local("个"), cloud(), ai(), WordItem("github", "GitHub", 1100, CandidateSource::EnglishDictionary),
+        local("给"),
+    };
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+
+    REQUIRE_EQ(items[0].word, std::string("GitHub"));
+    REQUIRE_EQ(items[1].word, std::string("个"));
+    REQUIRE_EQ(items[2].source, CandidateSource::CloudSuggestion);
+    REQUIRE_EQ(items[3].source, CandidateSource::AiSuggestion);
+}
+
+TEST_CASE(FixedEnglishCandidateKeepsItsMixedCandidatePosition)
+{
+    const auto local = [](std::string word) { return WordItem("github", std::move(word), 100); };
+    const auto cloud = [] { return WordItem("github", "云候选", 1, CandidateSource::CloudSuggestion); };
+    const auto ai = [] { return WordItem("github", "AI联想", 1, CandidateSource::AiSuggestion); };
+    WordItem english("github", "GitHub", 1100, CandidateSource::EnglishDictionary);
+    english.fixed_position = 1;
+
+    std::vector<WordItem> items = {local("个"), english, local("给")};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[0].word, std::string("GitHub"));
+
+    items.push_back(cloud());
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[0].word, std::string("GitHub"));
+
+    items.push_back(ai());
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[0].word, std::string("GitHub"));
+
+    english.fixed_position = 3;
+    items = {local("个"), english, ai(), cloud(), local("给")};
+    FanyImeIpc::NormalizeMixedCandidateOrder(items);
+    REQUIRE_EQ(items[2].word, std::string("GitHub"));
+}
+
 TEST_CASE(EmojiMixedCandidateFollowsEnglishAndShiftsWithCloudAndAi)
 {
     const auto local = [](std::string word) { return WordItem("ni", std::move(word), 100); };
