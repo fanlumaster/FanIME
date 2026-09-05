@@ -409,6 +409,34 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
           Remove-Item $pfx -Force
 
+      # msime_setup.iss declares a chinesesimplified language pointing at
+      # compiler:Languages\ChineseSimplified.isl, and the runner's Inno Setup does not ship that
+      # file, so ISCC aborts on the [Languages] section. Pinned by commit and checksum rather
+      # than tracking a branch, so the installer text cannot change under a rebuild.
+      - name: Install the Chinese language file for Inno Setup
+        shell: pwsh
+        env:
+          ISL_URL: https://raw.githubusercontent.com/jrsoftware/issrc/1ae7bf81dc0d2013235dfe4bb0b6f4e4a0b6b25c/Files/Languages/ChineseSimplified.isl
+          ISL_SHA256: e0b0b350e2245f3c5e65586dfe43d574f6e7f06f2261149aba284954b3fc9a8d
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = Get-Command 'ISCC.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+          $root = if ($iscc) { Split-Path $iscc.Source -Parent } else { 'C:\Program Files (x86)\Inno Setup 6' }
+          $languages = Join-Path $root 'Languages'
+          $target = Join-Path $languages 'ChineseSimplified.isl'
+          if (Test-Path $target) {
+            Write-Host "Already present: $target"
+            exit 0
+          }
+          New-Item -ItemType Directory -Path $languages -Force | Out-Null
+          Invoke-WebRequest -Uri $env:ISL_URL -OutFile $target -MaximumRetryCount 3 -RetryIntervalSec 5
+          $actual = (Get-FileHash $target -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $env:ISL_SHA256) {
+            Remove-Item $target -Force
+            throw "ChineseSimplified.isl checksum mismatch: expected $env:ISL_SHA256, got $actual"
+          }
+          Write-Host "Installed $target ($((Get-Item $target).Length) bytes)"
+
       - name: Compile the installer
         shell: pwsh
         working-directory: ${{ env.STAGING_ROOT }}/msime-installer
