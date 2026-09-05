@@ -1,3 +1,4 @@
+import json
 import os
 
 
@@ -30,7 +31,7 @@ vcpkg_include_path = normpath(
         "include",
     )
 )
-utfcpp_path = normpath(os.path.join(MetasequoiaImeTsf_root_path, "utfcpp", "source"))
+utfcpp_path = normpath(os.path.join(project_root_path, "..", "vendor", "MetasequoiaImeEngine", "utfcpp", "source"))
 webview2_path = normpath(
     os.path.join(
         user_home,
@@ -98,29 +99,18 @@ with open(dot_clangd_output_file, "w", encoding="utf-8") as f:
     f.writelines(lines)
 
 #
-# project_root/tests/CMakeLists.txt
-#
-CMakeLists_file = os.path.join(
-    MetasequoiaImeTsf_root_path, "scripts", "config_files", "CMakeLists.txt"
-)
-CMakeLists_output_file = os.path.join(MetasequoiaImeTsf_root_path, "CMakeLists.txt")
-with open(CMakeLists_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-with open(CMakeLists_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)
-
-#
 # CMakePresets.json
 #
-CMakePresets_file = os.path.join(
-    MetasequoiaImeTsf_root_path, "scripts", "config_files", "CMakePresets.json"
-)
-CMakePresets_file_output_file = os.path.join(MetasequoiaImeTsf_root_path, "CMakePresets.json")
-with open(CMakePresets_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-lines[8] = f'        "VCPKG_ROOT": "{vcpkg_root}/"\n'
-lines[11] = (
-    f'        "CMAKE_TOOLCHAIN_FILE": "{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",\n'
-)
-with open(CMakePresets_file_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)
+# Preserve tracked presets and user-added fields; only resolve the local toolchain.
+
+presets_path = os.path.join(project_root_path, "CMakePresets.json")
+with open(presets_path, encoding="utf-8") as stream:
+    presets = json.load(stream)
+for preset in presets.get("configurePresets", []):
+    if "VCPKG_ROOT" in preset.get("environment", {}):
+        preset["environment"]["VCPKG_ROOT"] = vcpkg_root + "/"
+    if "CMAKE_TOOLCHAIN_FILE" in preset.get("cacheVariables", {}):
+        preset["cacheVariables"]["CMAKE_TOOLCHAIN_FILE"] = vcpkg_root + "/scripts/buildsystems/vcpkg.cmake"
+with open(presets_path, "w", encoding="utf-8") as stream:
+    json.dump(presets, stream, indent=2)
+    stream.write("\n")

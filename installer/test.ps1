@@ -1,4 +1,4 @@
-# 本地测试安装流程：编译相邻源码仓库（若存在）→ 收集安装文件 →
+# 本地测试安装流程：编译本仓组件→ 收集安装文件 →
 # 本机自签名 → Inno Setup 打包 → 签安装包 → 启动安装程序。
 #
 # 不使用任何预置证书。签名脚本会在本机生成并复用自签名测试证书。
@@ -29,7 +29,10 @@ Push-Location (Join-Path $repoRoot 'server')
 try { & $serverCompile } finally { Pop-Location }
 
 Push-Location $settingsDir
-try { pnpm run build } finally { Pop-Location }
+try {
+    pnpm run build
+    if ($LASTEXITCODE -ne 0) { throw "Settings page build failed ($LASTEXITCODE)" }
+} finally { Pop-Location }
 
 & (Join-Path $PSScriptRoot 'Prepare-PackageFiles.ps1') -RepoRoot $repoRoot -TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .
 & (Join-Path $PSScriptRoot 'Sign-PackageBinaries-Local.ps1')

@@ -54,7 +54,7 @@ Windows 端的全部一方源码都在本仓，一次 clone 就能拿到完整�
 
 - [MSIME-Engine](https://github.com/metasequoiaime/MSIME-Engine): 跨平台输入引擎，Windows / macOS / Linux 前端共用，在本仓是 `vendor/MetasequoiaImeEngine` submodule。辅助码和词库源数据也在其中。
 - 词库：按固定 tag 和摘要在构建时从 MSIME-Engine 的 `dict-*` release 取用。已归档的 [MSIME-Dict](https://github.com/metasequoiaime/MSIME-Dict) 只读保留，其已发布的 release 仍可用。
-- 语音输入：共享采集在 MSIME-Engine 的 `voice/`。独立工具 [MetasequoiaVoiceInput](https://github.com/metasequoiaime/MetasequoiaVoiceInput) 已归档，其已发布的 release 仍可下载。
+- 语音输入：公共录音、WAV 编码与识别/润色协议位于 MSIME-Engine 的 `voice/`。独立工具 [MetasequoiaVoiceInput](https://github.com/metasequoiaime/MetasequoiaVoiceInput) 已归档，其已发布的 release 仍可下载。
 
 ## 功能简介
 

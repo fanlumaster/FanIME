@@ -101,17 +101,11 @@
 
 ## 生成文件与配置真源
 
-`python .\scripts\prepare_env.py` 会覆盖本目录的 `.clangd`、`CMakeLists.txt` 和
-`CMakePresets.json`。因此：
+`python .\scripts\prepare_env.py` 生成本机 `.clangd`，并只更新 `CMakePresets.json` 中的 vcpkg 路径。`CMakeLists.txt` 和 preset 结构直接维护；脚本不会用旧模板覆盖它们。`CMakeUserPresets.json` 中的架构配置继续继承这份 preset。
 
-- `CMakeLists.txt` 的长期改动要同步到 `scripts/config_files/CMakeLists.txt`；
-- `CMakePresets.json` 的结构改动要同步到 `scripts/config_files/CMakePresets.json`；
-- `.clangd` 的 include 列表改动要同步到 `scripts/config_files/.clangd` 或修改生成脚本；
-- `CMakeUserPresets.json` 保存 x64/x86 与 Debug/Release 的用户层 preset；不要提交新的个人绝对路径；
-- `build*`、`.venv` 等均为本地产物，不要加入版本控制。
-
-`prepare_env.py` 当前按固定行号替换模板内容。调整模板前要同时检查脚本索引，避免生成出语法正确但
-字段错位的配置。
+- 不提交生成的新个人绝对路径或 `build*` 等产物。
+- 修改 `.clangd` include 列表时，同时检查模板和生成脚本。
+- CI 在临时合仓目录实际运行环境脚本，验证 CMake 源文件、Release preset 和用户字段不会丢失。
 
 ## 代码风格
 

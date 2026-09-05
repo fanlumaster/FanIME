@@ -1,42 +1,16 @@
-#
-# generate, compile and run exe files
-#
-function getExePathFromCMakeLists([string]$buildDir, [string]$config) {
-    $content = Get-Content -Raw -Path "./CMakeLists.txt"
-    $exePath = ""
-    foreach ($line in $content -split "`n") {
-        if ($line -match 'set\(MY_EXECUTABLE_NAME[^\"]*\"([^\"]+)\"') {
-            $exeName = $matches[1]
-            $exePath = Join-Path -Path $buildDir -ChildPath ("bin/{0}/{1}.exe" -f $config, $exeName)
-            break
-        }
-    }
-    return $exePath
-}
-
-$currentDirectory = Get-Location
-$cmakeListsPath = Join-Path -Path $currentDirectory -ChildPath "CMakeLists.txt"
-
-if (-not (Test-Path $cmakeListsPath)) {
-    Write-Host("No CMakeLists.txt in current directory, please check.")
-    return
-}
-
-Write-Host "Start generating and compiling..."
-
-$buildFolderPath = ".\build-release"
-$presetName = "vcpkg-release"
-$buildConfig = "Release"
-
-if (-not (Test-Path $buildFolderPath)) {
-    New-Item -ItemType Directory -Path $buildFolderPath | Out-Null
-    Write-Host "build-release folder created."
-}
-
-# cmake -G "Visual Studio 18 2026" -A x64 -S . -B ./build-release
-cmake --preset=$presetName
-
-if ($LASTEXITCODE -eq 0) {
-    cmake --build $buildFolderPath --config $buildConfig
-    . "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\mt.exe" -manifest .\MetasequoiaImeServer.manifest -outputresource:.\build-release\bin\Release\MetasequoiaImeServer.exe; 1
-}
+# Configure and build the Server; do not reuse old binaries after a failed build.
+$ErrorActionPreference = 'Stop'
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$buildDirectory = Join-Path $projectRoot 'build-release'
+Push-Location $projectRoot
+try {
+    cmake --preset=vcpkg-release
+    if ($LASTEXITCODE -ne 0) { throw "Server configure failed ($LASTEXITCODE)" }
+    cmake --build $buildDirectory --config Release
+    if ($LASTEXITCODE -ne 0) { throw "Server build failed ($LASTEXITCODE)" }
+    # Keep the local SDK selection; the complete resource argument must reach mt.exe as one value.
+    $binary = Join-Path $buildDirectory 'bin/Release/MetasequoiaImeServer.exe'
+    & 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\mt.exe' `
+        -manifest (Join-Path $projectRoot 'MetasequoiaImeServer.manifest') "-outputresource:$binary;1"
+    if ($LASTEXITCODE -ne 0) { throw "Server manifest embedding failed ($LASTEXITCODE)" }
+} finally { Pop-Location }

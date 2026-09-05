@@ -30,7 +30,10 @@ Push-Location (Join-Path $repoRoot 'server')
 try { & $serverCompile } finally { Pop-Location }
 
 Push-Location $settingsDir
-try { pnpm run build } finally { Pop-Location }
+try {
+    pnpm run build
+    if ($LASTEXITCODE -ne 0) { throw "Settings page build failed ($LASTEXITCODE)" }
+} finally { Pop-Location }
 
 & (Join-Path $PSScriptRoot 'Prepare-PackageFiles.ps1') -Light -RepoRoot $repoRoot -TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .
 & (Join-Path $PSScriptRoot 'Sign-PackageBinaries-Local.ps1')
