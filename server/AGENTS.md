@@ -22,9 +22,11 @@ LINK : fatal error LNK1181: cannot open input file '...\build\vcpkg_installed\x6
 
 同一个文件的 `:322` 用的是 `${CMAKE_BINARY_DIR}`，那才是正确写法。改这三处时四处一起改，别只改一处。
 
-## 测试有 34 个文件，CI 一个都不跑
+## 测试会随主工程编译，但 CI 从不运行
 
-`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:411` 据此 `add_subdirectory(tests)`，所以这个 target **会被配置、也会被编译**——测试源码里的编译错误照样会让 CI 变红。但 `.github/workflows/ci.yml` 只有 Configure 和 Build 两步，没有 ctest 步骤，所以**编译得到的测试可执行文件从来没有被运行过**。
+`tests/CMakeLists.txt` 构建 `MetasequoiaImeServerTests`，`tests/src/` 下有 34 个测试源文件。根 `CMakeLists.txt:8` 的 `include(CTest)` 让 `BUILD_TESTING` 默认为 ON，`:411` 据此 `add_subdirectory(tests)`，而 `tests/CMakeLists.txt:78` 用 `add_test` 注册了一条同名用例。所以这个 target **会被配置、会被编译，ctest 也确实有东西可跑**——测试源码里的编译错误照样会让 CI 变红。
+
+缺的只是运行环节：`.github/workflows/ci.yml` 的 Configure 步只传了 `CMAKE_TOOLCHAIN_FILE` 和 `VCPKG_TARGET_TRIPLET`，没有关掉 `BUILD_TESTING`，之后却只有一个 Build 步、没有 ctest 步，所以**编译出来的测试可执行文件从来没有被运行过**。
 
 后果：
 
@@ -32,7 +34,11 @@ LINK : fatal error LNK1181: cannot open input file '...\build\vcpkg_installed\x6
 - 跨仓 AGENTS.md 要求改 IPC 协议后运行 `tests/src/test_ipc_protocol_constants.cpp`，得自己跑，CI 不会替你跑
 - `src/ipc/ipc.h` 里有 14 条 `static_assert` 守着协议 ABI，那些是编译期的，会随主工程一起检查；测试里的其余断言不会
 
-改了协议或候选逻辑，手动跑一次测试工程，不要依赖 CI。
+改了协议或候选逻辑，正常构建之后自己跑一次，不要依赖 CI：
+
+```powershell
+ctest --test-dir build -C Release --output-on-failure
+```
 
 ## uiAccess 与 Topmost 时序
 
