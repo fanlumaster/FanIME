@@ -784,6 +784,8 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "configRequest")
         {
+            // A snapshot sent before the new document installed its listener may be lost.
+            g_last_config_message.clear();
             PostConfig(false);
             PostMessageW(hwnd, kScanSkinCatalog, 0, 0);
         }
