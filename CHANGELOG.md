@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.17](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.16...v0.0.17) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ci:** find the release pull request by branch, not by prs_created ([0b9b272](https://github.com/metasequoiaime/MSIME-Windows/commit/0b9b2728befbfe5afe08668944b31c8e6fd5504b))
+* **ci:** find the release pull request by branch, not by prs_created ([550e0a1](https://github.com/metasequoiaime/MSIME-Windows/commit/550e0a1c70b675184efab104942c1c4bcf1e7ab6))
+
 ## [0.0.16](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.0.15...v0.0.16) (2026-09-05)
 
 
