@@ -35,6 +35,9 @@ jobs:
     name: Prepare release metadata
     runs-on: ubuntu-24.04
     permissions:
+      # actions: write lets merge-release-pr.sh dispatch ci.yml on the release branch, which is the
+      # only trigger GITHUB_TOKEN is allowed to fire.
+      actions: write
       contents: write
       pull-requests: write
     outputs:
