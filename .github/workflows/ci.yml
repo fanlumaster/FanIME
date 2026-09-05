@@ -74,7 +74,7 @@ jobs:
         run: vcpkg install --triplet ${{ matrix.triplet }}
       - name: Save dependency binaries before compiling
         if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key)
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.vcpkg-cache.outputs.path }}
           key: ${{ steps.vcpkg-cache.outputs.key }}-complete
@@ -123,7 +123,7 @@ jobs:
         run: ./scripts/ci/install-boost.ps1
       - name: Save Boost binaries before configuring
         if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key) && steps.vcpkg-cache.outputs.matched-key != format('{0}-boost', steps.vcpkg-cache.outputs.key)
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.vcpkg-cache.outputs.path }}
           key: ${{ steps.vcpkg-cache.outputs.key }}-boost
@@ -136,7 +136,7 @@ jobs:
           -DVCPKG_TARGET_TRIPLET=x64-windows
       - name: Save dependency binaries before compiling
         if: steps.vcpkg-cache.outputs.matched-key != format('{0}-complete', steps.vcpkg-cache.outputs.key)
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.vcpkg-cache.outputs.path }}
           key: ${{ steps.vcpkg-cache.outputs.key }}-complete
