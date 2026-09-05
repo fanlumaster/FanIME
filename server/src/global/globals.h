@@ -7,6 +7,7 @@
 #include <vector>
 #include <windows.h>
 #include "MetasequoiaImeEngine/core/word_item.h"
+#include "window/candidate_view_model.h"
 
 namespace GlobalIme
 {
@@ -99,6 +100,7 @@ using CandidateWordItem = WordItem;
 struct CandidateUiState
 {
     std::vector<CandidateWordItem> items;
+    std::vector<CandidateViewItem> page_views;
     std::vector<std::wstring> page_words;
     std::vector<std::wstring> page_glosses;
     std::wstring selected_text = L"";
@@ -121,6 +123,7 @@ struct CandidateUiState
 
     void clear_page()
     {
+        page_views.clear();
         page_words.clear();
         page_glosses.clear();
         selected_text.clear();

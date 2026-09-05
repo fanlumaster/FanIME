@@ -1,6 +1,6 @@
 # AGENTS.md — MSIME-Server
 
-产品级约定、跨仓契约与共享数据规则以 [MSIME-Windows 的 AGENTS.md](https://github.com/metasequoiaime/MSIME-Windows/blob/main/AGENTS.md) 为准，那一份统领整个水杉输入法项目，本仓的角色、IPC 协议、窗口与 WebView2 边界、DPI 约定都写在那里。本文件只补本仓内部容易踩空的几处。
+组织级约定和跨仓边界以 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md) 为准。本文件补充本仓的实现、数据和验证规则。
 
 本仓是常驻后端进程：输入引擎与候选状态、配置、词典、Named Pipe 服务，以及候选窗、悬浮工具栏、托盘菜单、设置窗口的原生宿主与 WebView2 控制器。
 
@@ -61,3 +61,27 @@ Boost 是静态链接但没有写进 `vcpkg.json`，所以只能用 classic 模�
 ## 提交
 
 提交信息用 `type(scope): 摘要`。不要添加 `Co-Authored-By`、`Generated with` 或其他 AI 生成标记。
+
+## 窗口与页面的维护边界
+
+- **Server 拥有窗口，UiHtml 拥有页面**：候选窗、悬浮工具栏和托盘菜单的 HWND、尺寸、位置、显示、
+  DPI、Z-order、WebView2 environment/controller 生命周期在 `MetasequoiaImeServer/src/window/` 与
+  `src/webview2/`；页面结构、样式和浏览器端交互在 `MetasequoiaImeUiHtml/webview2/`。
+- 消息定义以 Engine `contracts/webview/` 为准，双方必须校验。C++ → 页面更新主要经 WebView2 导航/脚本执行，页面 → C++ 动作经
+  `window.chrome.webview.postMessage(...)`。修改消息 `type`、JSON 字段、页面导出的 JS 函数或 DOM
+  标识时，必须同步检查 Server 的消息解析/脚本拼接与 UiHtml 的发送/接收代码。
+- 候选内容和输入状态的权威仍在 Server/引擎，网页只负责展示与发出用户动作；不要在网页侧复制
+  候选选择、翻页、输入模式或配置持久化的核心状态机。
+- 设置页前端位于 `MetasequoiaImeUiHtml/webview2/settings/ime-settings/`，其中包含 Vite/TypeScript
+  工程；设置窗口的原生创建、激活、WebView2 承载及与配置系统的桥接仍由 Server 负责。
+
+### 尺寸、坐标与 DPI
+
+- **所有涉及尺寸或坐标的代码都必须明确考虑 DPI**。新增或修改窗口大小、位置、边距、间距、字体、
+  图标、命中区域、WebView2 bounds、候选布局及屏幕边界计算时，不得默认固定像素在所有显示器上等价。
+- 明确每个数值使用逻辑单位还是物理像素，并在正确的窗口/显示器 DPI 下统一换算；不要混用来自不同
+  DPI 空间的坐标和尺寸，也不要长期缓存可能在窗口跨屏或 DPI 变化后失效的换算结果。
+- 原生窗口需处理运行时 DPI 变化（包括跨显示器移动），同步更新窗口、子窗口、WebView2 controller
+  和相关布局；优先沿用项目已有的 DPI 获取与缩放辅助函数，避免各处自行实现不一致的换算规则。
+- 涉及尺寸或布局的改动，至少检查 100%、125%、150%、200% 缩放，以及不同 DPI 显示器之间移动时
+  是否出现裁切、错位、模糊、点击区域偏移或窗口越出工作区。

@@ -1,8 +1,7 @@
 #pragma once
 
 #include "input_session.h"
-#include "MetasequoiaImeEngine/core/ime_session.h"
-#include "MetasequoiaImeEngine/quanpin/engine.h"
+#include "MetasequoiaImeEngine/core/input_session.h"
 
 class EngineInputSession : public IInputSession
 {
@@ -20,8 +19,7 @@ class EngineInputSession : public IInputSession
 
     const std::vector<WordItem> &get_candidates() const override;
     bool expand_initial_candidates() override;
-    std::optional<WordItem> find_candidate(const std::string &key,
-                                           const std::string &value) override;
+    std::optional<WordItem> find_candidate(const std::string &key, const std::string &value) override;
 
     const std::string &get_pinyin_sequence() const override;
     const std::string &get_pinyin_sequence_with_cases() const override;
@@ -39,12 +37,10 @@ class EngineInputSession : public IInputSession
     int store_user_phrase_from_canonical_pinyin(std::string pinyin, std::string word) override;
     int pin_candidate(std::string pinyin, std::string word) override;
     int remove_candidate(std::string pinyin, std::string word) override;
-    int cache_dynamic_candidate(const std::string &pinyin, const std::string &word,
-                                CandidateSource source) override;
-    SelectionTransition advance_composition_after_selection(
-        const std::string &selected_pinyin,
-        const std::string &selected_word,
-        const std::string &selected_canonical_pinyin) override;
+    int cache_dynamic_candidate(const std::string &pinyin, const std::string &word, CandidateSource source) override;
+    SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin,
+                                                            const std::string &selected_word,
+                                                            const std::string &selected_canonical_pinyin) override;
     CloudQueryState get_cloud_query_state() const override;
     CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
                                                        const std::string &current_word,
@@ -52,20 +48,6 @@ class EngineInputSession : public IInputSession
                                                        const SelectionTransition &selection_transition) const override;
 
   private:
-    const QueryRequest &request() const;
-    bool is_shuangpin() const;
-    bool is_wubi() const;
-    bool is_japanese() const;
-    void clear_pending_sequence();
-    void apply_pending_sequence();
-
-  private:
-    const ShuangpinProfile &shuangpin_profile_;
-    ImeSession session_;
-    DictionaryUlPb shuangpin_dictionary_;
-    QuanpinEngine quanpin_engine_;
-    std::string pending_pinyin_sequence_;
-    std::string pending_pinyin_sequence_with_cases_;
-    bool has_pending_pinyin_sequence_ = false;
-    bool has_pending_pinyin_sequence_with_cases_ = false;
+    void ApplyConfiguration();
+    metasequoia::InputSession session_;
 };

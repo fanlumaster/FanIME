@@ -171,8 +171,6 @@ set(SRC_FILES
     "./src/session/input_session.h"
     "./src/session/session_factory.cpp"
     "./src/session/session_factory.h"
-    "./src/session/shuangpin_input_session.cpp"
-    "./src/session/shuangpin_input_session.h"
     "./src/utils/candidate_size_estimator.cpp"
     "./src/utils/candidate_size_estimator.h"
     "./src/utils/common_utils.cpp"

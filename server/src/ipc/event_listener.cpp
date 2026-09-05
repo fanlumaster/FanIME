@@ -148,23 +148,6 @@ bool BuildTranslationQuery(const WordItem &item, EnglishIme::TranslationQuery &q
     return false;
 }
 
-std::string EscapeCandidateHtml(std::string text)
-{
-    std::string escaped;
-    escaped.reserve(text.size());
-    for (const char ch : text)
-    {
-        switch (ch)
-        {
-        case '&': escaped += "&amp;"; break;
-        case '<': escaped += "&lt;"; break;
-        case '>': escaped += "&gt;"; break;
-        case '"': escaped += "&quot;"; break;
-        default: escaped += ch; break;
-        }
-    }
-    return escaped;
-}
 
 bool IsUiLessMode()
 {
@@ -925,67 +908,33 @@ std::string BuildCurrentCandidatePage()
         const auto &item = ui.items[start + i];
         const std::string word = CandidateTextForOutput(item.word);
 
-        std::string display_word = word;
+        CandidateViewItem view;
+        view.text = word;
         if (item.source == CandidateSource::Generated && !item.pinyin.empty())
-        {
-            display_word += " ";
-            display_word += item.pinyin;
-        }
+            view.annotation = " " + item.pinyin;
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
             item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Emoji &&
             item.source != CandidateSource::Kaomoji && item.source != CandidateSource::Generated)
-        {
-            // Helpcodes are derived from the dictionary's original simplified
-            // candidate; only the visible/committed word is converted.
-            display_word += HelpcodeUtils::compute_helpcodes(item.word, uppercase_all_helpcodes);
-        }
+            view.annotation = HelpcodeUtils::compute_helpcodes(item.word, uppercase_all_helpcodes);
         if (item.source == CandidateSource::CloudSuggestion)
-        {
-            display_word += " ☁️";
-        }
+            view.badge = " ☁️";
         else if (item.source == CandidateSource::AiSuggestion)
-        {
-            display_word += " 🤖";
-        }
-        const int display_length = static_cast<int>(utf8::distance(display_word.begin(), display_word.end()));
-        // Escape HTML special characters: the candidate payload is injected as
-        // HTML into the WebView2 template, and kaomoji commonly contain < > & "
-        // which would otherwise corrupt the DOM and freeze the window on the
-        // previous page.
-        display_word = EscapeCandidateHtml(std::move(display_word));
-        if (item.fixed_position > 0)
-        {
-            display_word = "<span style=\"color:#379AD3\">" + display_word + "</span>";
-        }
-        std::string gloss_utf8;
+            view.badge = " 🤖";
+        view.fixed_position = item.fixed_position > 0;
         EnglishIme::TranslationQuery translation_query;
         if (BuildTranslationQuery(item, translation_query))
         {
             const auto gloss = g_candidate_translation_glosses.find(TranslationIdentity(translation_query));
-            if (gloss != g_candidate_translation_glosses.end() && !gloss->second.empty())
-            {
-                display_word += "<span class=\"cand-translation\">" + EscapeCandidateHtml(gloss->second) + "</span>";
-                gloss_utf8 = gloss->second;
-            }
+            if (gloss != g_candidate_translation_glosses.end())
+                view.translation = gloss->second;
         }
-        // Escape ASCII commas so the comma-joined candidate payload survives
-        // InflateCandidateTemplate's split (kaomoji commonly contain commas).
-        // U+F000 is encoded as UTF-8 EF 80 80 and restored on the other side.
-        static const char kEscapedComma[] = "\xEF\x80\x80";
-        std::string escaped;
-        escaped.reserve(display_word.size());
-        for (const char ch : display_word)
-        {
-            if (ch == ',')
-                escaped += kEscapedComma;
-            else
-                escaped += ch;
-        }
-        display_word = std::move(escaped);
-        candidate_string += display_word;
+        const std::string visible = view.text + view.annotation + view.badge;
+        const int display_length = static_cast<int>(utf8::distance(visible.begin(), visible.end()));
+        candidate_string += CandidateViewHtml(view);
+        ui.page_glosses.push_back(string_to_wstring(view.translation));
+        ui.page_views.push_back(std::move(view));
         maxCount = (std::max)(maxCount, display_length);
         ui.page_words.push_back(string_to_wstring(word));
-        ui.page_glosses.push_back(string_to_wstring(gloss_utf8));
         if (i < loop - 1)
         {
             candidate_string += ",";
