@@ -45,7 +45,7 @@ jobs:
       dictionary_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.dictionary_tag || 'latest' }}
     steps:
       - name: Check out release automation
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -99,6 +99,14 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Check out release automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: automation
+          sparse-checkout: scripts/ci
+          persist-credentials: false
+
       - name: Stamp the version resource
         shell: pwsh
         run: |
@@ -125,7 +133,7 @@ jobs:
 
       - name: Check the DLL the installer expects
         shell: pwsh
-        run: ./scripts/ci/check-tsf-dll.ps1 -BuildDir '${{ matrix.build_dir }}'
+        run: ./automation/scripts/ci/check-tsf-dll.ps1 -BuildDir '${{ matrix.build_dir }}'
 
       - name: Upload the DLL
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -151,8 +159,9 @@ jobs:
       # After the checkout above, which cleans the workspace root: a checkout into a subdirectory
       # does not touch its parent, so the order matters.
       - name: Check out release automation
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.repository.default_branch }}
           path: automation
           sparse-checkout: scripts/ci
           persist-credentials: false
@@ -249,10 +258,18 @@ jobs:
           path: ${{ env.TSF_ROOT }}
           persist-credentials: false
 
+      - name: Check out release automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: automation
+          sparse-checkout: scripts/ci
+          persist-credentials: false
+
       - name: Verify the release commit is on main
         shell: bash
         working-directory: ${{ env.TSF_ROOT }}
-        run: bash scripts/ci/verify-commit-on-main.sh
+        run: bash ../../automation/scripts/ci/verify-commit-on-main.sh
 
       - name: Check out the installer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -304,7 +321,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DICTIONARY_TAG: ${{ needs.prepare.outputs.dictionary_tag }}
-        run: bash ${{ env.TSF_ROOT }}/scripts/ci/download-dictionaries.sh
+        run: bash automation/scripts/ci/download-dictionaries.sh
 
       - name: Decide the signing mode
         id: signing
@@ -312,7 +329,7 @@ jobs:
         env:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
-        run: ./${{ env.TSF_ROOT }}/scripts/ci/detect-release-signing.ps1
+        run: ./automation/scripts/ci/detect-release-signing.ps1
 
       - name: Collect the installer payload
         shell: pwsh
@@ -329,11 +346,11 @@ jobs:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
-        run: ../../${{ env.TSF_ROOT }}/scripts/ci/sign-binaries.ps1 -Path 'server_exe', 'tsf_dll' -Recurse
+        run: ../../automation/scripts/ci/sign-binaries.ps1 -Path 'server_exe', 'tsf_dll' -Recurse
 
       - name: Install the Chinese language file for Inno Setup
         shell: pwsh
-        run: ./${{ env.TSF_ROOT }}/scripts/ci/install-inno-language.ps1
+        run: ./automation/scripts/ci/install-inno-language.ps1
 
       - name: Compile the installer
         shell: pwsh
@@ -349,7 +366,7 @@ jobs:
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
           TARGET_VERSION: ${{ needs.prepare.outputs.version }}
-        run: ../../${{ env.TSF_ROOT }}/scripts/ci/sign-binaries.ps1 -Path "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION.exe"
+        run: ../../automation/scripts/ci/sign-binaries.ps1 -Path "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION.exe"
 
       - name: Name the asset and record its checksum
         id: asset
@@ -358,7 +375,7 @@ jobs:
         env:
           TARGET_VERSION: ${{ needs.prepare.outputs.version }}
           ASSET_SUFFIX: ${{ steps.signing.outputs.asset_suffix }}
-        run: ../../${{ env.TSF_ROOT }}/scripts/ci/name-installer-asset.ps1
+        run: ../../automation/scripts/ci/name-installer-asset.ps1
 
       - name: Upload the installer as a workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -374,7 +391,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
           TARGET_SHA: ${{ needs.prepare.outputs.target_sha }}
-        run: bash ${{ env.TSF_ROOT }}/scripts/ci/revalidate-draft-release.sh
+        run: bash automation/scripts/ci/revalidate-draft-release.sh
 
       - name: Upload and publish the release
         shell: bash
@@ -386,4 +403,4 @@ jobs:
           ASSET_NAME: ${{ steps.asset.outputs.asset_name }}
           ASSET_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
           SIGNING_ENABLED: ${{ steps.signing.outputs.signing_enabled }}
-        run: bash ${{ env.TSF_ROOT }}/scripts/ci/publish-release.sh
+        run: bash automation/scripts/ci/publish-release.sh
