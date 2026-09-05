@@ -27,6 +27,8 @@ env:
   # The installer scripts address sibling checkouts by their historical directory names.
   # Staging under these names is what lets msime-installer run unmodified in CI.
   STAGING_ROOT: src
+  # Where the packaging job finds this repository's scripts, since it checks out several.
+  TSF_ROOT: src/MetasequoiaImeTsf
 
 jobs:
   prepare:
@@ -42,6 +44,11 @@ jobs:
       target_sha: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.target_sha || steps.release.outputs.sha }}
       dictionary_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.dictionary_tag || 'latest' }}
     steps:
+      - name: Check out release automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
       - name: Prepare release
         if: ${{ github.event_name == 'push' }}
         id: release
@@ -49,22 +56,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Merging is what carries the release forward: the resulting push runs this workflow again,
-      # release-please turns the release commit into the draft release, and the build jobs take
-      # over. Left open the pull request would stall there, because CI cannot run on it either:
-      # GITHUB_TOKEN is not allowed to start workflows, so anything it triggers waits for a human.
-      # The pull request only rewrites version.txt, CHANGELOG.md and the manifest.
       - name: Merge the release pull request
         if: ${{ github.event_name == 'push' && steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RELEASE_PR: ${{ steps.release.outputs.pr }}
-        run: |
-          set -euo pipefail
-          number=$(jq -er .number <<< "$RELEASE_PR")
-          echo "Merging release pull request #$number"
-          gh pr merge "$number" --repo "$GH_REPO" --merge
+        run: bash scripts/ci/merge-release-pr.sh
 
       - name: Validate requested draft release
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -73,29 +71,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ inputs.tag }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Tag must use the vMAJOR.MINOR.PATCH format, got '$TAG_NAME'." >&2
-            exit 1
-          fi
-          release_json=$(gh release view "$TAG_NAME" --json isDraft,targetCommitish)
-          if [[ "$(jq -er .isDraft <<< "$release_json")" != true ]]; then
-            echo "Release $TAG_NAME is not an unpublished draft." >&2
-            exit 1
-          fi
-          target_sha=$(jq -er .targetCommitish <<< "$release_json")
-          if [[ ! "$target_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Draft release target must be an immutable full commit SHA, got '$target_sha'." >&2
-            exit 1
-          fi
-          version=$(gh api "repos/$GH_REPO/contents/version.txt?ref=$target_sha" --jq .content | base64 --decode | tr -d '[:space:]')
-          if [[ "$TAG_NAME" != "v$version" ]]; then
-            echo "Release $TAG_NAME does not match version.txt ($version)." >&2
-            exit 1
-          fi
-          printf 'target_sha=%s\n' "$target_sha" >> "$GITHUB_OUTPUT"
-          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+        run: bash scripts/ci/validate-draft-release.sh
 
   tsf:
     name: Build TSF ${{ matrix.name }}
@@ -123,10 +99,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      # Verifying the built DLL instead would not work: the VERSIONINFO block in
-      # src/IME/MetasequoiaIME.rc is named IDR_VERSION2, which is not defined anywhere, rather
-      # than the VS_VERSION_INFO the Windows version API looks for. GetFileVersionInfo therefore
-      # finds nothing and the DLL reports an empty FileVersion, which has always been the case.
       - name: Stamp the version resource
         shell: pwsh
         run: |
@@ -153,10 +125,7 @@ jobs:
 
       - name: Check the DLL the installer expects
         shell: pwsh
-        run: |
-          $dll = "${{ matrix.build_dir }}/Release/MetasequoiaImeTsf.dll"
-          if (-not (Test-Path $dll)) { throw "The build did not produce $dll" }
-          Write-Host "$dll is $((Get-Item $dll).Length) bytes"
+        run: ./scripts/ci/check-tsf-dll.ps1 -BuildDir '${{ matrix.build_dir }}'
 
       - name: Upload the DLL
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -179,22 +148,24 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      # Kept in step with metasequoiaime/MSIME-Server's own CI: Boost is linked statically but is
-      # not declared in vcpkg.json, and the triplet has to be static-md so Boost does not switch
-      # to the static CRT the rest of the project does not use.
+      # After the checkout above, which cleans the workspace root: a checkout into a subdirectory
+      # does not touch its parent, so the order matters.
+      - name: Check out release automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          sparse-checkout: scripts/ci
+          persist-credentials: false
+
       - name: Install Boost
         shell: pwsh
-        run: |
-          Push-Location $env:VCPKG_INSTALLATION_ROOT
-          ./vcpkg install boost-locale:x64-windows-static-md boost-json:x64-windows-static-md
-          Pop-Location
-          "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> $env:GITHUB_ENV
+        run: ./automation/scripts/ci/install-boost.ps1
 
       # The binary directory has to be named build: MSIME-Server's CMakeLists.txt hardcodes
-      # ${CMAKE_SOURCE_DIR}/build/vcpkg_installed for the WebView2 loader and its include
-      # paths, so any other name fails to link MetasequoiaImeSettings. The packaging job
-      # downloads this artifact into build-release/bin/Release, which is where
-      # Prepare-PackageFiles.ps1 reads it from, so the name used here does not matter.
+      # ${CMAKE_SOURCE_DIR}/build/vcpkg_installed for the WebView2 loader and its include paths,
+      # so any other name fails to link MetasequoiaImeSettings. The packaging job downloads this
+      # artifact into build-release/bin/Release, which is where Prepare-PackageFiles.ps1 reads it
+      # from, so the name used here does not matter.
       - name: Configure
         shell: pwsh
         run: >
@@ -208,11 +179,7 @@ jobs:
 
       - name: Check the binaries the installer requires
         shell: pwsh
-        run: |
-          $required = @('MetasequoiaImeServer.exe', 'MetasequoiaImeSettings.exe', 'MetasequoiaImeWatchdog.exe', 'MetasequoiaImeDictionaryReplay.exe')
-          $missing = $required | Where-Object { -not (Test-Path "build/bin/Release/$_") }
-          if ($missing) { throw "Missing from the Server build: $($missing -join ', ')" }
-          Get-ChildItem build/bin/Release -File | Select-Object Name, Length | Format-Table
+        run: ./automation/scripts/ci/check-server-binaries.ps1
 
       - name: Upload the Server build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -270,23 +237,22 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+    env:
+      # jrsoftware/issrc pinned by commit, with the checksum of the file at that commit.
+      ISL_URL: https://raw.githubusercontent.com/jrsoftware/issrc/1ae7bf81dc0d2013235dfe4bb0b6f4e4a0b6b25c/Files/Languages/ChineseSimplified.isl
+      ISL_SHA256: e0b0b350e2245f3c5e65586dfe43d574f6e7f06f2261149aba284954b3fc9a8d
     steps:
       - name: Check out MSIME-Windows at the release commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ needs.prepare.outputs.target_sha }}
-          path: ${{ env.STAGING_ROOT }}/MetasequoiaImeTsf
+          path: ${{ env.TSF_ROOT }}
           persist-credentials: false
 
       - name: Verify the release commit is on main
         shell: bash
-        working-directory: ${{ env.STAGING_ROOT }}/MetasequoiaImeTsf
-        run: |
-          git fetch --no-tags --depth 50 origin main
-          if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
-            echo "The release commit is not in main's history." >&2
-            exit 1
-          fi
+        working-directory: ${{ env.TSF_ROOT }}
+        run: bash scripts/ci/verify-commit-on-main.sh
 
       - name: Check out the installer
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -313,13 +279,13 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tsf-x64
-          path: ${{ env.STAGING_ROOT }}/MetasequoiaImeTsf/build64-release/Release
+          path: ${{ env.TSF_ROOT }}/build64-release/Release
 
       - name: Download the 32-bit TSF DLL
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tsf-Win32
-          path: ${{ env.STAGING_ROOT }}/MetasequoiaImeTsf/build32-release/Release
+          path: ${{ env.TSF_ROOT }}/build32-release/Release
 
       - name: Download the Server build
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -338,27 +304,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DICTIONARY_TAG: ${{ needs.prepare.outputs.dictionary_tag }}
-        run: |
-          set -euo pipefail
-          target="$STAGING_ROOT/MetasequoiaImeDict/out"
-          mkdir -p "$target"
-          if [[ "$DICTIONARY_TAG" == "latest" ]]; then
-            DICTIONARY_TAG=$(gh release list --repo metasequoiaime/MSIME-Dict --limit 30 --json tagName --jq '[.[] | select(.tagName | startswith("dict-"))] | first | .tagName // ""')
-          fi
-          if [[ -z "$DICTIONARY_TAG" ]]; then
-            echo "No dict-* release found in metasequoiaime/MSIME-Dict. Run its Build dictionaries workflow with publish enabled first." >&2
-            exit 1
-          fi
-          echo "Using dictionary release $DICTIONARY_TAG"
-          gh release download "$DICTIONARY_TAG" --repo metasequoiaime/MSIME-Dict --dir "$target" --clobber
-          (cd "$target" && sha256sum --check SHA256SUMS.txt)
-          # Prepare-PackageFiles.ps1 reads the Mozc notice from the path the local build leaves it
-          # at and copies it into the installer as MOZC_DICTIONARY_LICENSE.txt. The IPAdic / ICOT /
-          # Okinawa attribution has to ship with dict_japanese.dat, so put it where it is expected.
-          notice_dir="$STAGING_ROOT/MetasequoiaImeDict/source/mozc_dictionary_oss"
-          mkdir -p "$notice_dir"
-          cp "$target/mozc_dictionary_oss_README.txt" "$notice_dir/README.txt"
-          echo "DICTIONARY_TAG=$DICTIONARY_TAG" >> "$GITHUB_ENV"
+        run: bash ${{ env.TSF_ROOT }}/scripts/ci/download-dictionaries.sh
 
       - name: Decide the signing mode
         id: signing
@@ -366,18 +312,7 @@ jobs:
         env:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
-        run: |
-          if ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD) {
-            "signing_enabled=true" >> $env:GITHUB_OUTPUT
-            "asset_suffix=" >> $env:GITHUB_OUTPUT
-            Write-Host 'Signing certificate present: the installer and its binaries will be signed.'
-          } else {
-            "signing_enabled=false" >> $env:GITHUB_OUTPUT
-            "asset_suffix=-unsigned" >> $env:GITHUB_OUTPUT
-            # AGENTS.md: uiAccess="true" only takes effect for a correctly signed binary installed
-            # in a location Windows trusts, so an unsigned build cannot float over elevated hosts.
-            Write-Host '::warning::No signing certificate configured. Publishing an unsigned installer; uiAccess will not take effect.'
-          }
+        run: ./${{ env.TSF_ROOT }}/scripts/ci/detect-release-signing.ps1
 
       - name: Collect the installer payload
         shell: pwsh
@@ -394,48 +329,11 @@ jobs:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          # Sign-PackageBinaries-Local.ps1 mints a self-signed certificate for local testing and
-          # must not run here; this uses the real certificate from the repository secrets instead.
-          $pfx = Join-Path $env:RUNNER_TEMP 'metasequoia-signing.pfx'
-          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERTIFICATE_BASE64))
-          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' |
-            Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK.' }
-          $targets = Get-ChildItem -Recurse -File -Include '*.exe', '*.dll' -Path 'server_exe', 'tsf_dll'
-          if (-not $targets) { throw 'Nothing to sign under server_exe/ or tsf_dll/.' }
-          & $signtool.FullName sign /f $pfx /p $env:CERTIFICATE_PASSWORD /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
-          if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
-          Remove-Item $pfx -Force
+        run: ../../${{ env.TSF_ROOT }}/scripts/ci/sign-binaries.ps1 -Path 'server_exe', 'tsf_dll' -Recurse
 
-      # msime_setup.iss declares a chinesesimplified language pointing at
-      # compiler:Languages\ChineseSimplified.isl, and the runner's Inno Setup does not ship that
-      # file, so ISCC aborts on the [Languages] section. Pinned by commit and checksum rather
-      # than tracking a branch, so the installer text cannot change under a rebuild.
       - name: Install the Chinese language file for Inno Setup
         shell: pwsh
-        env:
-          ISL_URL: https://raw.githubusercontent.com/jrsoftware/issrc/1ae7bf81dc0d2013235dfe4bb0b6f4e4a0b6b25c/Files/Languages/ChineseSimplified.isl
-          ISL_SHA256: e0b0b350e2245f3c5e65586dfe43d574f6e7f06f2261149aba284954b3fc9a8d
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $iscc = Get-Command 'ISCC.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-          $root = if ($iscc) { Split-Path $iscc.Source -Parent } else { 'C:\Program Files (x86)\Inno Setup 6' }
-          $languages = Join-Path $root 'Languages'
-          $target = Join-Path $languages 'ChineseSimplified.isl'
-          if (Test-Path $target) {
-            Write-Host "Already present: $target"
-            exit 0
-          }
-          New-Item -ItemType Directory -Path $languages -Force | Out-Null
-          Invoke-WebRequest -Uri $env:ISL_URL -OutFile $target -MaximumRetryCount 3 -RetryIntervalSec 5
-          $actual = (Get-FileHash $target -Algorithm SHA256).Hash.ToLower()
-          if ($actual -ne $env:ISL_SHA256) {
-            Remove-Item $target -Force
-            throw "ChineseSimplified.isl checksum mismatch: expected $env:ISL_SHA256, got $actual"
-          }
-          Write-Host "Installed $target ($((Get-Item $target).Length) bytes)"
+        run: ./${{ env.TSF_ROOT }}/scripts/ci/install-inno-language.ps1
 
       - name: Compile the installer
         shell: pwsh
@@ -451,16 +349,7 @@ jobs:
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
           TARGET_VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $pfx = Join-Path $env:RUNNER_TEMP 'metasequoia-signing.pfx'
-          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERTIFICATE_BASE64))
-          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' |
-            Sort-Object FullName -Descending | Select-Object -First 1
-          $setup = "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION.exe"
-          & $signtool.FullName sign /f $pfx /p $env:CERTIFICATE_PASSWORD /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v $setup
-          if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
-          Remove-Item $pfx -Force
+        run: ../../${{ env.TSF_ROOT }}/scripts/ci/sign-binaries.ps1 -Path "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION.exe"
 
       - name: Name the asset and record its checksum
         id: asset
@@ -469,18 +358,7 @@ jobs:
         env:
           TARGET_VERSION: ${{ needs.prepare.outputs.version }}
           ASSET_SUFFIX: ${{ steps.signing.outputs.asset_suffix }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $built = "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION.exe"
-          if (-not (Test-Path $built)) { throw "Inno Setup did not produce $built" }
-          $final = "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION$env:ASSET_SUFFIX.exe"
-          if ($built -ne $final) { Move-Item $built $final -Force }
-          $hash = (Get-FileHash $final -Algorithm SHA256).Hash.ToLower()
-          $size = [math]::Round((Get-Item $final).Length / 1MB, 1)
-          "asset_path=$((Resolve-Path $final).Path)" >> $env:GITHUB_OUTPUT
-          "asset_name=$(Split-Path $final -Leaf)" >> $env:GITHUB_OUTPUT
-          "asset_sha256=$hash" >> $env:GITHUB_OUTPUT
-          "### Installer`n`n| Field | Value |`n| --- | --- |`n| File | $(Split-Path $final -Leaf) |`n| Size | $size MB |`n| SHA256 | ``$hash`` |`n| Dictionaries | $env:DICTIONARY_TAG |" >> $env:GITHUB_STEP_SUMMARY
+        run: ../../${{ env.TSF_ROOT }}/scripts/ci/name-installer-asset.ps1
 
       - name: Upload the installer as a workflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -496,11 +374,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
           TARGET_SHA: ${{ needs.prepare.outputs.target_sha }}
-        run: |
-          set -euo pipefail
-          release_json=$(gh release view "$TAG_NAME" --repo "$GH_REPO" --json isDraft,targetCommitish)
-          test "$(jq -er .isDraft <<< "$release_json")" = true
-          test "$(jq -er .targetCommitish <<< "$release_json")" = "$TARGET_SHA"
+        run: bash ${{ env.TSF_ROOT }}/scripts/ci/revalidate-draft-release.sh
 
       - name: Upload and publish the release
         shell: bash
@@ -512,18 +386,4 @@ jobs:
           ASSET_NAME: ${{ steps.asset.outputs.asset_name }}
           ASSET_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
           SIGNING_ENABLED: ${{ steps.signing.outputs.signing_enabled }}
-        run: |
-          set -euo pipefail
-          gh release upload "$TAG_NAME" "$ASSET_PATH" --repo "$GH_REPO" --clobber
-          gh release view "$TAG_NAME" --repo "$GH_REPO" --json body --jq .body > notes.md
-          {
-            printf '\n---\n\n'
-            printf '| Field | Value |\n| --- | --- |\n'
-            printf '| Installer | `%s` |\n' "$ASSET_NAME"
-            printf '| SHA256 | `%s` |\n' "$ASSET_SHA256"
-            printf '| Dictionaries | `%s` |\n' "$DICTIONARY_TAG"
-            if [[ "$SIGNING_ENABLED" != true ]]; then
-              printf '\nThis build is **unsigned**. Windows warns on launch, and `uiAccess` does not take effect, so the candidate window cannot float over elevated applications.\n'
-            fi
-          } >> notes.md
-          gh release edit "$TAG_NAME" --repo "$GH_REPO" --draft=false --prerelease --notes-file notes.md
+        run: bash ${{ env.TSF_ROOT }}/scripts/ci/publish-release.sh
