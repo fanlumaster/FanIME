@@ -255,3 +255,7 @@ build/bin/Debug/msimeui-emoji-panel.exe
 - 继续完善 `TextBox` 的输入、样式和布局能力
 - 增加菜单、弹出层、overlay 和更完整的命中/焦点管理
 - 引入资源字典、主题和声明式界面描述
+
+## 许可
+
+GPL-3.0，与水杉输入法其余仓库一致。详见 [LICENSE](LICENSE)。
