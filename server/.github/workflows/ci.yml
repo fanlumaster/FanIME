@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Windows x64
+    runs-on: windows-2025
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+      - name: Install Boost
+        shell: pwsh
+        # CMakeLists.txt links Boost statically but does not declare it in
+        # vcpkg.json, so it cannot come from the manifest. Install it in classic
+        # mode from the vcpkg installation root and point BOOST_ROOT at it, which
+        # is the override CMakeLists.txt already supports.
+        #
+        # The triplet must be static-md, not static: Boost_USE_STATIC_LIBS ON asks
+        # for static Boost libraries, but the rest of the project builds against
+        # the dynamic CRT. Plain x64-windows-static would also switch Boost to the
+        # static CRT and the link fails with LNK2038 RuntimeLibrary mismatches.
+        run: |
+          Push-Location $env:VCPKG_INSTALLATION_ROOT
+          ./vcpkg install boost-locale:x64-windows-static-md boost-json:x64-windows-static-md
+          Pop-Location
+          "BOOST_ROOT=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> $env:GITHUB_ENV
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -S . -B build -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
