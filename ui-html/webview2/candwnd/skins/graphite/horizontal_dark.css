@@ -1,0 +1,192 @@
+:root {
+      --cand-font-family: 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      --cand-font-size: 16px;
+      --preedit-font-size: var(--cand-font-size);
+      --cand-text: #e9e8e8;
+      --cand-num: #e9e8e89d;
+      /* Fallback before C++ injects host-width DIP. Wrap limit = 宿主宽度. */
+      --msime-max-width-dip: 100%;
+      --msime-max-height-dip: 100%;
+    }
+
+    body {
+      font-family: var(--cand-font-family);
+      font-size: var(--cand-font-size);
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .containerParent {
+      width: fit-content;
+      max-width: var(--msime-max-width-dip);
+    }
+
+    .container {
+      margin-top: 0px;
+      margin-left: 0px;
+      background: #202020;
+      /* background: url("https://appassets/background.jpg"); */
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+      min-width: 7em;
+      /* Wrap only when content reaches the host (injected) max width. */
+      width: min(max-content, var(--msime-max-width-dip));
+      max-width: var(--msime-max-width-dip);
+      /* Host height in DIP (injected). Do not use min(100%, …): parent height is
+         content-sized so 100% never resolves and tall vertical lists get clipped
+         by the HWND instead of scrolling. */
+      max-height: var(--msime-max-height-dip);
+      box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+      user-select: none;
+      border: 1.5px solid #9b9b9b2e;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 1.2em;
+      background: #6b69d6;
+      transform: translate(1.3px, 10%);
+    }
+
+    .row {
+      justify-content: space-between;
+      /* padding: 2px; */
+      /* padding-right: 12px; */
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-top: 2px;
+      margin-bottom: 1px;
+    }
+
+    .cand {
+      border-radius: 4px;
+    }
+
+    .hover-active .cand:hover {
+      background-color: #414141;
+    }
+
+    .row-wrapper {
+      position: relative;
+      display: inline-block;
+      vertical-align: top;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .first-row-wrapper {
+      margin-left: 2px;
+    }
+
+    .first {
+      background-color: #3e3e3eb9;
+      border-radius: 4px;
+    }
+
+    /* bar */
+    .first::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 53%;
+      transform: translateY(-50%);
+      height: 0.8em;
+      width: 0.2em;
+      background: #6b69d6;
+      border-radius: 8px;
+    }
+
+    .text {
+      padding-left: calc(0.2em + 3px);
+      padding-right: 5px;
+      color: var(--cand-text);
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .cand .text {
+      padding-left: calc(0.1em + 1px);
+      padding-right: 2.5px;
+      line-height: 1.2;
+    }
+
+    .num {
+      font-size: 0.8em;
+      color: var(--cand-num);
+      margin-right: 0;
+    }
+
+    .pinyin {
+      font-size: var(--preedit-font-size);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0;
+    }
+
+    .hidden-pinyin {
+      visibility: hidden;
+    }
+
+    /* Hide candidate-window top preedit when configured as empty */
+    .container.preedit-hidden > .row.pinyin {
+      display: none;
+    }
+
+    /* Hide container when empty */
+    .container:empty {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
+    }
+    .context-menu { display:none; position:fixed; z-index:1000; background:#2d2d2d; color:#e9e8e8;
+      border:1px solid #9b9b9b2e; border-radius:6px; padding:1px 0; min-width:86px; font-size:14px; line-height:20px; }
+    .context-menu-item { position:relative; padding:1px 20px 1px 4px; margin:2px; border-radius:4px; cursor:default; white-space:nowrap; }
+    .context-menu-item:hover { background:#414141; }
+    .context-menu-parent::after { content:"›"; position:absolute; right:6px; }
+    .context-submenu { display:none; position:absolute; left:100%; top:-2px; min-width:0;
+      background:#2d2d2d; border:1px solid #9b9b9b2e; border-radius:6px; padding:1px 0; }
+    .context-submenu .context-menu-item { padding-right: 8px; }
+    .context-menu-parent:hover>.context-submenu { display:block; }
+    .context-menu-separator { height:1px; margin:3px 5px; background:#ffffff20; }
+
+    /* Graphite: a quiet, flat surface with hierarchy carried by type. */
+    :root { --cand-text: #aeb6c2; --cand-num: #707987; }
+    body { border-radius: 3px; }
+    .container {
+      background: #1c1f23;
+      padding: 3px 5px;
+      border: 1px solid #30353b;
+      border-radius: 3px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .28);
+    }
+    .cand { border-radius: 2px; }
+    .cursor { background: #8993a0; }
+    .hover-active .cand:hover { background-color: rgba(255, 255, 255, .055); }
+    .first { background: transparent; border-radius: 2px; }
+    .first::before { display: none; }
+    .first .text,
+    .first .num { color: #f1f3f5; }
+    .context-menu,
+    .context-submenu { background: #23272c; border-color: #3a4047; color: #c7cdd5; border-radius: 3px; }
+    .context-menu-item { border-radius: 2px; }
+    .context-menu-item:hover { background: #30353b; }

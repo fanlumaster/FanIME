@@ -1,0 +1,472 @@
+<div class="content" id="input-settings">
+  <div class="content-header"><span>输入</span></div>
+
+  <!-- 输入模式 -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">输入模式</div>
+        <div class="input-setting-description">切换中文或日文输入，并保留各模式上次选择的方案</div>
+      </div>
+    </div>
+    <div class="input-option-content input-mode-options">
+      <label class="radio-option">
+        <input type="radio" name="input-mode" value="chinese" checked>
+        <span>中文</span>
+      </label>
+      <div class="input-option-divider"></div>
+      <label class="radio-option">
+        <input type="radio" name="input-mode" value="japanese">
+        <span>日文</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 输入方案 -->
+  <div class="section chinese-scheme-settings">
+    <div class="section-header">
+      <div class="section-title">输入方案</div>
+    </div>
+    <div class="input-option-content">
+      <label class="radio-option">
+        <input type="radio" name="input-method" value="quanpin" checked>
+        <span>全拼</span>
+      </label>
+
+      <div class="input-option-divider"></div>
+
+      <label class="radio-option">
+        <input type="radio" name="input-method" value="shuangpin">
+        <span>双拼</span>
+      </label>
+
+      <div class="input-option-divider"></div>
+
+      <label class="radio-option">
+        <input type="radio" name="input-method" value="wubi">
+        <span>五笔</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 双拼方案 -->
+  <div class="section shuangpin-option-content chinese-scheme-settings">
+    <div class="section-header">
+      <div class="section-title">双拼方案</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle dropdown-toggle-shuangpin-scheme" id="shuangpinSchemeBtn">
+          <span>小鹤双拼</span>
+          <img class="shuangpin-scheme-arrow" src="./assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu shuangpin-scheme-dropdown-menu" id="shuangpinSchemeMenu">
+          <div class="dropdown-item" data-value="xiaohe">小鹤双拼</div>
+          <div class="dropdown-item" data-value="ziranma">自然码双拼</div>
+          <div class="dropdown-item" data-value="shoudao">首道双拼</div>
+          <div class="dropdown-item" data-value="microsoft">微软双拼</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 五笔方案 -->
+  <div class="section wubi-option-content chinese-scheme-settings">
+    <div class="section-header">
+      <div class="section-title">五笔方案</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle dropdown-toggle-wubi-scheme" id="wubiSchemeBtn">
+          <span>86 五笔</span>
+          <img class="wubi-scheme-arrow" src="./assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu wubi-scheme-dropdown-menu" id="wubiSchemeMenu">
+          <div class="dropdown-item" data-value="wubi86">86 五笔</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日语方案 -->
+  <div class="section japanese-scheme-settings" hidden>
+    <div class="section-header">
+      <div class="section-title">日语方案</div>
+    </div>
+    <div class="input-option-content">
+      <label class="radio-option">
+        <input type="radio" name="japanese-input-method" value="romaji" checked>
+        <span>罗马字</span>
+      </label>
+    </div>
+    <div class="input-setting-description japanese-scheme-description">直接输入罗马字，提供平假名、片假名及日语词库候选</div>
+  </div>
+
+  <div class="section section-page-option">
+    <div class="section-header">
+      <div class="section-title">翻页方式</div>
+    </div>
+    <div class="content-page-option">
+      <label class="check-option"><input type="checkbox" name="page-method" id="pagingMinusEqualCheckbox" value="minus"><span>- / =</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="page-method" id="pagingCommaPeriodCheckbox" value="comma"><span>, / .</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="page-method" id="pagingBracketsCheckbox" value="brackets"><span>[ / ]</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="page-method" id="pagingTabCheckbox" value="tab"><span>Shift+Tab / Tab</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="page-method" id="pagingPageUpDownCheckbox" value="page"><span>PageUp / PageDown</span></label>
+      <div class="input-option-divider"></div>
+      <label class="check-option"><input type="checkbox" name="page-method" id="candidateArrowNavigationCheckbox" value="arrow"><span>上 / 下（移动候选项）</span></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">候选词翻译</div>
+        <div class="input-setting-description">仅在竖排候选窗口中显示中文与所选语种的互译，每项最多两个简短释义</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="candidateTranslationsToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+    <div class="translation-api-options" id="candidateTranslationApiOptions">
+      <div class="input-option-divider"></div>
+      <div class="section-header translation-language-row">
+        <div>
+          <div class="section-title">在线翻译服务</div>
+          <div class="input-setting-description">可使用腾讯云，或填写自己部署的 DeepLX 兼容接口</div>
+        </div>
+        <div class="dropdown">
+          <button class="dropdown-toggle translation-language-toggle" id="translationProviderBtn">
+            <span>腾讯云</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu translation-language-menu" id="translationProviderMenu">
+            <div class="dropdown-item" data-value="tencent">腾讯云</div>
+            <div class="dropdown-item" data-value="custom">自定义 DeepLX</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
+      <div class="section-header translation-language-row">
+        <div>
+          <div class="section-title">目标语种</div>
+          <div class="input-setting-description">英语优先使用本地词库；本地未命中时使用所选在线服务</div>
+        </div>
+        <div class="dropdown">
+          <button class="dropdown-toggle translation-language-toggle" id="translationTargetLanguageBtn">
+            <span>英语</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu translation-language-menu" id="translationTargetLanguageMenu">
+            <div class="dropdown-item" data-value="en">英语</div>
+            <div class="dropdown-item" data-value="fr">法语</div>
+            <div class="dropdown-item" data-value="ja">日语</div>
+            <div class="dropdown-item" data-value="es">西班牙语</div>
+            <div class="dropdown-item" data-value="ru">俄语</div>
+            <div class="dropdown-item" data-value="de">德语</div>
+            <div class="dropdown-item" data-value="ko">韩语</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
+      <div id="tencentTranslationFields">
+        <div class="translation-api-heading">
+          <div class="section-title">腾讯云 API 凭据</div>
+          <div class="input-setting-description">用于在线机器翻译，凭据仅保存在本机配置文件中</div>
+        </div>
+        <div class="translation-api-grid">
+          <label class="translation-api-field">
+            <span>SecretId</span>
+            <input id="tencentTmtSecretId" type="text" autocomplete="off" spellcheck="false" placeholder="AKID...">
+          </label>
+          <label class="translation-api-field">
+            <span>SecretKey</span>
+            <span class="translation-secret-input">
+              <input id="tencentTmtSecretKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="SecretKey">
+              <button id="tencentTmtSecretKeyVisibility" class="translation-secret-toggle" type="button"
+                aria-label="显示 SecretKey" aria-pressed="false" title="显示 SecretKey">
+                <svg class="translation-secret-icon translation-secret-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                  <circle cx="12" cy="12" r="2.6"></circle>
+                </svg>
+                <svg class="translation-secret-icon translation-secret-icon-hide" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m3 3 18 18"></path>
+                  <path d="M10.6 6.1A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 3"></path>
+                  <path d="M6.2 6.3C3.8 8.1 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5"></path>
+                </svg>
+              </button>
+            </span>
+          </label>
+        </div>
+      </div>
+      <div id="customTranslationFields" hidden>
+        <div class="translation-api-heading">
+          <div class="section-title">自定义 DeepLX 服务</div>
+          <div class="input-setting-description">填写完整的 POST 接口地址；API Key 可留空</div>
+        </div>
+        <div class="translation-api-grid">
+          <label class="translation-api-field translation-api-field-wide">
+            <span>接口地址</span>
+            <input id="customTranslationEndpoint" type="url" autocomplete="off" spellcheck="false"
+              placeholder="https://example.com/translate">
+          </label>
+          <label class="translation-api-field translation-api-field-wide">
+            <span>API Key（可选，以 Bearer Token 发送）</span>
+            <span class="translation-secret-input">
+              <input id="customTranslationApiKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="留空表示不鉴权">
+              <button id="customTranslationApiKeyVisibility" class="translation-secret-toggle" type="button"
+                aria-label="显示 API Key" aria-pressed="false" title="显示 API Key">
+                <svg class="translation-secret-icon translation-secret-icon-show" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                  <circle cx="12" cy="12" r="2.6"></circle>
+                </svg>
+                <svg class="translation-secret-icon translation-secret-icon-hide" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m3 3 18 18"></path>
+                  <path d="M10.6 6.1A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 3"></path>
+                  <path d="M6.2 6.3C3.8 8.1 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5"></path>
+                </svg>
+              </button>
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="translation-api-warning" id="candidateTranslationApiWarning" role="status">请填写 SecretId 和 SecretKey 后使用云端翻译</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">以词定字</div>
+        <div class="input-setting-description">开启后，按 [ 上屏高亮候选的首个汉字，按 ] 上屏末个汉字；与翻页方式中的 [ / ] 互斥</div>
+      </div>
+      <div class="ftb-toggle-btn" id="wordToCharacterToggleBtn" role="switch" aria-checked="false" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section punctuation-lock-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">始终使用中文标点</div>
+        <div class="input-setting-description">切换中英文时仍使用中文标点，与下方选项互斥</div>
+      </div>
+      <div class="ftb-toggle-btn" id="alwaysChinesePunctuationToggleBtn" role="switch" aria-checked="false" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+    <div class="input-option-divider"></div>
+    <div class="section-header">
+      <div>
+        <div class="section-title">始终使用英文标点</div>
+        <div class="input-setting-description">切换中英文时仍使用英文标点，与上方选项互斥</div>
+      </div>
+      <div class="ftb-toggle-btn" id="alwaysEnglishPunctuationToggleBtn" role="switch" aria-checked="false" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">智能标点</div>
+        <div class="input-setting-description">中文标点模式下，字母或数字后的 , . : 自动使用英文标点</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="smartPunctuationToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">重复标点转中文</div>
+        <div class="input-setting-description">智能标点输出英文标点后，2 秒内再次输入同一标点时替换为中文标点</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="smartPunctuationRepeatToChineseToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">成对标点自动补全</div>
+        <div class="input-setting-description">输入左侧符号时自动补全右侧符号，并将光标置于中间</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="pairedPunctuationToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">中英混输</div>
+        <div class="input-setting-description">中文输入时在候选项中补充英文单词</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="zhEnToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+    <div class="frequency-option-content" id="zhEnMixedInputOptions">
+      <div class="input-option-divider"></div>
+      <div class="section-header frequency-option-row">
+        <div>
+          <div class="section-title">触发字符数</div>
+          <div class="input-setting-description">预编辑字母达到该长度后才出现英文候选项</div>
+        </div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="zhEnTriggerLengthBtn">
+            <span>2</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="zhEnTriggerLengthMenu">
+            <div class="dropdown-item" data-value="1">1</div>
+            <div class="dropdown-item" data-value="2">2</div>
+            <div class="dropdown-item" data-value="3">3</div>
+            <div class="dropdown-item" data-value="4">4</div>
+            <div class="dropdown-item" data-value="5">5</div>
+            <div class="dropdown-item" data-value="6">6</div>
+            <div class="dropdown-item" data-value="7">7</div>
+            <div class="dropdown-item" data-value="8">8</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">emoji 混输</div>
+        <div class="input-setting-description">中文输入时在候选项中加入匹配的 emoji（位于英文候选之后；云候选与 AI 联想会使其相应顺移）</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="emojiMixedInputToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">颜文字混输</div>
+        <div class="input-setting-description">中文输入时在候选项中加入匹配的颜文字（排在 emoji 之后；云候选与 AI 联想会使其相应顺移）</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="kaomojiMixedInputToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 默认中英文 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">默认中英文</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="defaultImeModeBtn">
+          <span>中文</span>
+          <img src="./assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu" id="defaultImeModeMenu">
+          <div class="dropdown-item" data-value="chinese">中文</div>
+          <div class="dropdown-item" data-value="english">英文</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中英文状态范围 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">中英文状态</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="imeModeScopeBtn">
+          <span>按应用记忆</span>
+          <img src="./assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu" id="imeModeScopeMenu">
+          <div class="dropdown-item" data-value="app">按应用记忆</div>
+          <div class="dropdown-item" data-value="global">全局统一</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 简繁输入 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">简繁输入</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="characterSetBtn">
+          <span>简体</span>
+          <img src="./assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu" id="characterSetMenu">
+          <div class="dropdown-item" data-value="simplified">简体</div>
+          <div class="dropdown-item" data-value="traditional">繁体</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">云候选</div>
+      <div class="ftb-toggle-btn active" id="cloudCandidatesToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header"><div class="section-title">拼音方案调频</div></div>
+    <div class="frequency-option-content">
+      <div class="section-header frequency-option-row">
+        <div class="section-title">调频方式</div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="frequencyModeBtn">
+            <span>一次置前</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="frequencyModeMenu">
+            <div class="dropdown-item" data-value="disabled">关闭</div>
+            <div class="dropdown-item" data-value="pin">一次置顶</div>
+            <div class="dropdown-item" data-value="halve">折半调频</div>
+            <div class="dropdown-item" data-value="linear">线性调频</div>
+            <div class="dropdown-item" data-value="promote">一次置前</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
+      <div class="section-header frequency-option-row">
+        <div class="section-title">触发频次(第几次上屏触发)</div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="frequencyTriggerCountBtn">
+            <span>1</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="frequencyTriggerCountMenu">
+            <div class="dropdown-item" data-value="1">1</div><div class="dropdown-item" data-value="2">2</div>
+            <div class="dropdown-item" data-value="3">3</div><div class="dropdown-item" data-value="4">4</div>
+            <div class="dropdown-item" data-value="5">5</div><div class="dropdown-item" data-value="6">6</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-option-divider"></div>
+      <div class="section-header frequency-option-row">
+        <div class="section-title">线性调频步长</div>
+        <div class="dropdown">
+          <button class="dropdown-toggle frequency-dropdown-toggle" id="frequencyLinearStepBtn">
+            <span>1</span><img src="./assets/arrow.svg" alt="▼">
+          </button>
+          <div class="dropdown-menu frequency-dropdown-menu" id="frequencyLinearStepMenu">
+            <div class="dropdown-item" data-value="1">1</div><div class="dropdown-item" data-value="2">2</div>
+            <div class="dropdown-item" data-value="3">3</div><div class="dropdown-item" data-value="4">4</div>
+            <div class="dropdown-item" data-value="5">5</div><div class="dropdown-item" data-value="6">6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

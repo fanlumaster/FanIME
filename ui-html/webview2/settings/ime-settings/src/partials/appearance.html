@@ -1,0 +1,373 @@
+<div class="content" id="appearence-settings">
+  <div class="content-header"><span>外观</span></div>
+
+  <!-- 候选窗口预览 -->
+  <div class="section sec-candidate-preview">
+    <div class="section-header s-h-cand-preview">
+      <div class="section-title">候选窗口预览</div>
+    </div>
+    <div class="cand-preview">
+      <div class="candidate wnd-v" id="candidate-wnd-v"></div>
+      <div class="candidate wnd-h" id="candidate-wnd-h"></div>
+    </div>
+  </div>
+
+  <!-- 界面渲染 -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">界面渲染</div>
+        <div class="floating-toolbar-description">用于候选窗、悬浮工具栏和托盘菜单。更改后需重启输入法进程才会生效。</div>
+      </div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="uiBackendBtn">
+          <span>Direct2D</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="uiBackendMenu">
+          <div class="dropdown-item" data-value="d2d">Direct2D（原生）</div>
+          <div class="dropdown-item" data-value="webview2">WebView2</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 候选窗样式 -->
+  <div class="section sec-cand-style">
+    <div class="section-header">
+      <div>
+        <div class="section-title">候选窗口跟随光标</div>
+        <div class="floating-toolbar-description">关闭后保持首次位置，直到候选窗口消失</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="candidateFollowCursorToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗主字体</div>
+      <div class="dropdown">
+        <div class="dropdown-toggle font-combobox" id="candEnglishFontBtn">
+          <input class="font-search-input" type="text" value="Segoe UI"
+                 autocomplete="off" spellcheck="false" aria-label="搜索候选窗主字体"
+                 aria-controls="candEnglishFontMenu" aria-autocomplete="list">
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </div>
+        <div class="dropdown-menu font-dropdown-menu compact-scroll-menu" id="candEnglishFontMenu"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗中文补充字体</div>
+      <div class="dropdown">
+        <div class="dropdown-toggle font-combobox" id="candFontBtn">
+          <input class="font-search-input" type="text" value="Noto Sans SC"
+                 autocomplete="off" spellcheck="false" aria-label="搜索候选窗中文补充字体"
+                 aria-controls="candFontMenu" aria-autocomplete="list">
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </div>
+        <div class="dropdown-menu font-dropdown-menu compact-scroll-menu" id="candFontMenu"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗字号</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candFontSizeBtn">
+          <span>16</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="candFontSizeMenu">
+          <div class="dropdown-item" data-value="12">12</div>
+          <div class="dropdown-item" data-value="13">13</div>
+          <div class="dropdown-item" data-value="14">14</div>
+          <div class="dropdown-item" data-value="15">15</div>
+          <div class="dropdown-item" data-value="16">16</div>
+          <div class="dropdown-item" data-value="17">17</div>
+          <div class="dropdown-item" data-value="18">18</div>
+          <div class="dropdown-item" data-value="19">19</div>
+          <div class="dropdown-item" data-value="20">20</div>
+          <div class="dropdown-item" data-value="21">21</div>
+          <div class="dropdown-item" data-value="22">22</div>
+          <div class="dropdown-item" data-value="23">23</div>
+          <div class="dropdown-item" data-value="24">24</div>
+          <div class="dropdown-item" data-value="25">25</div>
+          <div class="dropdown-item" data-value="26">26</div>
+          <div class="dropdown-item" data-value="27">27</div>
+          <div class="dropdown-item" data-value="28">28</div>
+          <div class="dropdown-item" data-value="29">29</div>
+          <div class="dropdown-item" data-value="30">30</div>
+          <div class="dropdown-item" data-value="31">31</div>
+          <div class="dropdown-item" data-value="32">32</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗预编辑字号</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candPreeditFontSizeBtn">
+          <span>16</span>
+          <div class="arrow"><img src="./assets/arrow.svg" alt="arrow"></div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="candPreeditFontSizeMenu">
+          <div class="dropdown-item" data-value="12">12</div>
+          <div class="dropdown-item" data-value="13">13</div>
+          <div class="dropdown-item" data-value="14">14</div>
+          <div class="dropdown-item" data-value="15">15</div>
+          <div class="dropdown-item" data-value="16">16</div>
+          <div class="dropdown-item" data-value="17">17</div>
+          <div class="dropdown-item" data-value="18">18</div>
+          <div class="dropdown-item" data-value="19">19</div>
+          <div class="dropdown-item" data-value="20">20</div>
+          <div class="dropdown-item" data-value="21">21</div>
+          <div class="dropdown-item" data-value="22">22</div>
+          <div class="dropdown-item" data-value="23">23</div>
+          <div class="dropdown-item" data-value="24">24</div>
+          <div class="dropdown-item" data-value="25">25</div>
+          <div class="dropdown-item" data-value="26">26</div>
+          <div class="dropdown-item" data-value="27">27</div>
+          <div class="dropdown-item" data-value="28">28</div>
+          <div class="dropdown-item" data-value="29">29</div>
+          <div class="dropdown-item" data-value="30">30</div>
+          <div class="dropdown-item" data-value="31">31</div>
+          <div class="dropdown-item" data-value="32">32</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选文字颜色</div>
+      <div class="cand-color-control">
+        <input type="color" id="candTextColorInput" value="#e9e8e8" title="自定义颜色">
+        <button type="button" class="cand-color-reset" id="candTextColorResetBtn">跟随主题</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">每页候选项数量</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candPageSizeBtn">
+          <span>6</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu compact-scroll-menu" id="candPageSizeMenu">
+          <div class="dropdown-item" data-value="3">3</div>
+          <div class="dropdown-item" data-value="4">4</div>
+          <div class="dropdown-item" data-value="5">5</div>
+          <div class="dropdown-item" data-value="6">6</div>
+          <div class="dropdown-item" data-value="7">7</div>
+          <div class="dropdown-item" data-value="8">8</div>
+          <div class="dropdown-item" data-value="9">9</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主题模式（全局） -->
+  <div class="section sec-theme">
+    <div class="section-header theme-toggle-header">
+      <button class="theme-surface-expand" id="themeSurfaceExpand" type="button" aria-expanded="false" aria-controls="themeSurfaceDetails">
+        <span class="section-title">主题模式</span><span class="theme-surface-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="themeBtn">
+          <span>深色</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="themeMenu">
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+          <div class="dropdown-item" data-value="system">跟随系统</div>
+        </div>
+      </div>
+    </div>
+    <!-- 分表面主题 -->
+    <div class="theme-surface-details" id="themeSurfaceDetails">
+    <div class="section-header">
+      <div class="section-title">设置界面主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="settingsThemeBtn">
+          <span>跟随全局</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="settingsThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">候选窗口主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candThemeBtn">
+          <span>跟随全局</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="candThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">悬浮工具栏主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="ftbThemeBtn">
+          <span>跟随全局</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="ftbThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">菜单主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="menuThemeBtn">
+          <span>跟随全局</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="menuThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">表情面板主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="emojiThemeBtn"><span>跟随全局</span><div class="arrow"><img src="./assets/arrow.svg" alt="arrow"></div></button>
+        <div class="dropdown-menu" id="emojiThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">屏幕键盘主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="screenKeyboardThemeBtn"><span>跟随全局</span><div class="arrow"><img src="./assets/arrow.svg" alt="arrow"></div></button>
+        <div class="dropdown-menu" id="screenKeyboardThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">手写识别板主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="handwritingThemeBtn"><span>跟随全局</span><div class="arrow"><img src="./assets/arrow.svg" alt="arrow"></div></button>
+        <div class="dropdown-menu" id="handwritingThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">
+      <div class="section-title">语音输入弹出条主题</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="voiceThemeBtn"><span>跟随全局</span><div class="arrow"><img src="./assets/arrow.svg" alt="arrow"></div></button>
+        <div class="dropdown-menu" id="voiceThemeMenu">
+          <div class="dropdown-item" data-value="follow">跟随全局</div>
+          <div class="dropdown-item" data-value="dark">深色</div>
+          <div class="dropdown-item" data-value="light">浅色</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- 候选项排列方式 -->
+  <div class="section sec-arrange">
+    <div class="section-header">
+      <div class="section-title">候选项排列方式</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="arrangeBtn">
+          <span>纵向</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="arrangeMenu">
+          <div class="dropdown-item" data-value="horizontal">横向</div>
+          <div class="dropdown-item" data-value="vertical">纵向</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 行内预编辑 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">行内预编辑</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="tsfPreeditStyleBtn">
+          <span>原始按键</span>
+          <img src="./assets/arrow.svg" alt="▼">
+        </button>
+        <div class="dropdown-menu" id="tsfPreeditStyleMenu">
+          <div class="dropdown-item" data-value="raw">原始按键</div>
+          <div class="dropdown-item" data-value="pinyin">拼音分词</div>
+          <div class="dropdown-item" data-value="empty">不显示</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 候选窗预编辑 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">候选窗预编辑</div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" id="candPreeditStyleBtn">
+          <span>拼音分词</span>
+          <div class="arrow">
+            <img src="./assets/arrow.svg" alt="arrow">
+          </div>
+        </button>
+        <div class="dropdown-menu" id="candPreeditStyleMenu">
+          <div class="dropdown-item" data-value="pinyin">拼音分词</div>
+          <div class="dropdown-item" data-value="empty">不显示</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

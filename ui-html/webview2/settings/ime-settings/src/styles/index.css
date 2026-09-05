@@ -1,0 +1,3 @@
+/* Dev entry: load everything. Production first paint uses critical.css + deferred.css. */
+@import './critical.css';
+@import './deferred.css';

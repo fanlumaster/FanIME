@@ -1,0 +1,120 @@
+.wnd-v {
+  .container {
+    margin-top: 0px;
+    margin-left: 0px;
+    background: var(--cand-bg);
+    padding: 2px;
+    border-radius: 6px;
+    box-shadow: var(--cand-shadow);
+    min-width: 7em;
+    width: min(720px, fit-content);
+    max-width: 720px;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    user-select: none;
+    border: 1.5px solid var(--cand-border);
+  }
+
+  .cursor {
+    display: inline-block;
+    margin-left: 1px;
+    width: 1.5px;
+    height: 1.2em;
+    background: var(--accent-strong);
+    transform: translateY(10%);
+  }
+
+  .row {
+    justify-content: space-between;
+    padding: 2px;
+    padding-right: 12px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 2px;
+  }
+
+  .cand {
+    border-radius: 4px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
+
+  .cand:hover {
+    background-color: var(--cand-hover);
+  }
+
+  .row-wrapper {
+    position: relative;
+  }
+
+  .first {
+    background-color: var(--cand-selected);
+    border-radius: 4px;
+  }
+
+  /* bar */
+  .first::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 0.8em;
+    width: 0.2em;
+    background: var(--accent-strong);
+    border-radius: 8px;
+  }
+
+  .text {
+    padding-left: calc(0.2em + 3px);
+    color: var(--cand-text);
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .cand .text {
+    line-height: 1.35;
+  }
+
+  .cand-no {
+    font-size: 0.8em;
+    color: var(--cand-num);
+    margin-right: 1.5px;
+  }
+
+  .pinyin {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hidden-pinyin {
+    visibility: hidden;
+  }
+}
+
+/* Preview can follow cand surface theme independently of settings chrome */
+.candidate.theme-light {
+  --cand-bg: #ffffff;
+  --cand-border: rgba(0, 0, 0, 0.12);
+  --cand-shadow: 4px 4px 12px rgba(0, 0, 0, 0.12);
+  --cand-text: #1a1a1a;
+  --cand-num: rgba(26, 26, 26, 0.55);
+  --cand-hover: #ececec;
+  --cand-selected: #e8e8e8;
+}
+
+.candidate.theme-dark {
+  --cand-bg: #202020;
+  --cand-border: #9b9b9b2e;
+  --cand-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+  --cand-text: #e9e8e8;
+  --cand-num: #e9e8e89d;
+  --cand-hover: #414141;
+  --cand-selected: #3e3e3eb9;
+}

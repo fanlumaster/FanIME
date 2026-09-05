@@ -1,0 +1,150 @@
+<div class="content" id="tools-settings-content">
+  <div class="content-header"><span>实用功能</span></div>
+
+  <div class="section clipboard-history-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">剪贴板管理</div>
+        <div class="quick-phrase-description">开启后，复制过的文本会显示在表情面板的剪贴板分页中。关闭后立即清空已保存的记录，且只记录文本类型。</div>
+      </div>
+      <div class="ftb-toggle-btn" id="clipboardHistoryToggleBtn" role="switch" aria-checked="false" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dict-card quick-phrase-card">
+    <div class="quick-phrase-heading section-header">
+      <div>
+        <div class="section-title">快捷短语(K 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+K，再输入编码即可调用快捷短语</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="quickPhraseToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+    <div class="dict-toolbar">
+      <input id="quickPhraseSearch" class="dict-input" placeholder="输入编码前缀，留空可查看全部" spellcheck="false">
+      <button id="quickPhraseSearchButton" class="dict-button secondary">查询</button>
+      <button id="quickPhraseImportButton" class="dict-button secondary">批量导入</button>
+      <button id="quickPhraseAddButton" class="dict-button primary">新增短语</button>
+      <input id="quickPhraseImportFile" type="file" accept=".txt,text/plain" hidden>
+    </div>
+    <div class="dict-hint">编码只能包含英文字母；触发键 K 不属于编码内容。批量导入格式为：编码&lt;Tab&gt;短语&lt;Tab&gt;权重（兼容无权重的两列文件）</div>
+    <div id="quickPhraseTableHeaderWrap" class="dict-table-header-wrap">
+      <table class="dict-table"><thead><tr><th class="dict-index-column">No.</th><th>编码</th><th>快捷短语</th><th>权重</th><th>操作</th></tr></thead></table>
+    </div>
+    <div id="quickPhraseTableWrap" class="dict-table-wrap">
+      <table class="dict-table"><tbody id="quickPhraseRows"><tr><td colspan="5" class="dict-empty">点击查询后查看快捷短语</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="section dict-export-section quick-phrase-export-section">
+    <div class="dict-export-row">
+      <span>导出快捷短语用户词库</span>
+      <button id="quickPhraseExportButton" class="dict-button primary" type="button">导出</button>
+    </div>
+  </div>
+
+  <div class="section date-time-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">日期与时间快捷输入(T 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+T，再输入 rq / riqi / date 可输入当前日期；输入 sj / shijian / time 可输入当前时间；输入 xq / xingqi / week 可输入当前星期。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="dateTimeModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section unicode-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Unicode 便捷录入(U 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+U，再输入 Unicode 十六进制码位（可带 +，如 4e00 / +1f600）。空格上屏；Shift+数字选词。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="unicodeModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section emoji-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Emoji 快捷输入(E 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+E，再输入全拼 / 简拼 / 双拼 / 英文关键词即可输入 emoji。例如 xiaolian、xl、xnlm（小鹤双拼）、laugh。空格上屏；数字选词。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="emojiModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section kaomoji-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">颜文字快捷输入(M 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+M，再输入全拼 / 简拼 / 双拼 / 英文关键词即可输入颜文字。例如 haixiu、hx、zai xiang、zx、kiss。空格上屏；数字选词。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="kaomojiModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section jianpin-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">超级简拼(J 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+J，之后输入的每个字母都作为简拼检索词库。全拼如 nh → 你好；双拼会按当前方案转换声母，例如小鹤 nu → n'sh（你说），与 ns → n's 不同。空格上屏；数字选词。调频规则与全拼 / 双拼相同。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="jianpinModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section y-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">临时英文(Y 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+Y，之后输入的字母按英文处理，不会当作拼音。空格上屏当前输入；数字可选英文词库中的单词。上屏后自动回到中文输入。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="yModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section r-mode-section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">临时日语(R 模式)</div>
+        <div class="quick-phrase-description">中文模式下按 Shift+R，之后输入的字母按日语罗马字处理。空格上屏首选，数字可选其他日语候选。上屏后自动回到中文输入。</div>
+      </div>
+      <div class="ftb-toggle-btn active" id="rModeToggleBtn" role="switch" aria-checked="true" tabindex="0">
+        <div class="ftb-toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="quickPhraseModal" class="dict-modal" aria-hidden="true">
+    <div class="dict-dialog" role="dialog" aria-modal="true">
+      <div class="dict-dialog-title" id="quickPhraseDialogTitle">新增快捷短语</div>
+      <label>编码<input id="quickPhraseCode" class="dict-input" spellcheck="false"></label>
+      <label>快捷短语<input id="quickPhraseValue" class="dict-input" maxlength="199" spellcheck="false"></label>
+      <label>权重<input id="quickPhraseWeight" class="dict-input" type="number" min="0"></label>
+      <div class="dict-dialog-actions">
+        <button id="quickPhraseCancelButton" class="dict-button secondary">取消</button>
+        <button id="quickPhraseSaveButton" class="dict-button primary">保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="quickPhraseToast" class="dict-toast" role="status" aria-live="polite">
+    <div id="quickPhraseToastIcon" class="dict-toast-icon" aria-hidden="true"></div>
+    <div id="quickPhraseToastMessage" class="dict-toast-message"></div>
+    <button id="quickPhraseToastClose" class="dict-toast-close" type="button" aria-label="关闭通知">×</button>
+  </div>
+</div>

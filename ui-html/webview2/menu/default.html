@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <script src="https://msime-contracts/schema.js"></script>
+  <script src="https://msime-contracts/runtime.js"></script>
+  <script>const serializeHostMessage = message => MsimeProtocol.serializeClientMessage(message, "menu");</script>
+  <meta charset="UTF-8">
+  <title>(IME)TrayMenu</title>
+  <style>
+    :root {
+      --msime-max-width-dip: 50vw;
+      --msime-max-height-dip: 50vh;
+    }
+
+    html,
+    body {
+      background-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .menu {
+      box-sizing: border-box;
+      background-color: #2b2b2b;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 0.2em 0;
+      width: max-content;
+      min-width: 12em;
+      max-width: min(100%, var(--msime-max-width-dip));
+      max-height: min(100vh, var(--msime-max-height-dip));
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      user-select: none;
+    }
+
+    .menu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4em 0.4em;
+      font-size: 14px;
+      color: #e0e0e0;
+      border-radius: 6px;
+      margin: 1px 6px;
+    }
+
+    .menu-item:hover {
+      background-color: #3b3b3b;
+      color: #fff;
+    }
+
+    .menu-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .menu-icon {
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .menu-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .toggle {
+      position: relative;
+      width: 32px;
+      height: 16px;
+      background: #555;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .toggle.active {
+      background: #8E8CD8;
+    }
+
+    .toggle.active::after {
+      transform: translateX(16px);
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="menu" id="menuContainer">
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="6" width="18" height="12" rx="3" stroke="currentColor" stroke-width="1.8" />
+            <circle cx="7.5" cy="12" r="1.4" fill="currentColor" />
+            <path d="M11 12H13M16 12H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+        </span>
+        悬浮工具栏
+      </div>
+      <div class="toggle" id="floatingToggle"></div>
+    </div>
+
+    <div class="menu-item" id="emojiSymbols">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path
+              d="M15.6364 13.625C14.9091 14.8371 13.4546 15.625 12 15.625C10.5455 15.625 9.09092 14.8371 8.36365 13.625"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M9.01 10H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M15.01 10H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        表情/符号面板
+      </div>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 -960 960 960" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M140 0q-24.54 0-42.27-17.54Q80-35.08 80-60q0-24.54 17.73-42.27Q115.46-120 140-120h680q24.54 0 42.27 17.54Q880-84.92 880-60q0 24.54-17.73 42.27Q844.54 0 820 0H140Zm100-303.46h49.46l332-331.39-25.15-25.53-24.92-24.54-331.39 332v49.46Zm-60 23.84v-83.76q0-7.23 2.42-13.77 2.43-6.54 8.04-12.16l437.93-436.92q8.69-8.69 19.73-13.15 11.03-4.46 22.8-4.46 12.16 0 23.12 4.46t20.27 13.77l48.07 48.69q9.31 8.69 13.46 19.84 4.16 11.16 4.16 23.31 0 11.16-4.16 22.19-4.15 11.04-13.46 20.35L325.46-254.31q-5.62 5.62-12.15 8.23-6.54 2.62-13.77 2.62h-83.38q-15.47 0-25.81-10.35Q180-264.15 180-279.62Zm540.38-454.76-49.46-49.46 49.46 49.46Zm-98.92 99.53-25.15-25.53-24.92-24.54 50.07 50.07Z"
+              fill="currentColor" />
+          </svg>
+        </span>
+        手写识别板
+      </div>
+    </div>
+
+    <div class="menu-item" id="keyboardPanel">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M3.25 10.25V9.5H5.625V8H2.15387C1.90129 8 1.6875 7.9125 1.5125 7.7375C1.3375 7.5625 1.25 7.34871 1.25 7.09613V2.65387C1.25 2.40129 1.3375 2.1875 1.5125 2.0125C1.6875 1.8375 1.90129 1.75 2.15387 1.75H9.84613C10.0987 1.75 10.3125 1.8375 10.4875 2.0125C10.6625 2.1875 10.75 2.40129 10.75 2.65387V7.09613C10.75 7.34871 10.6625 7.5625 10.4875 7.7375C10.3125 7.9125 10.0987 8 9.84613 8H6.375V9.5H8.75V10.25H3.25ZM2 7.09613C2 7.13463 2.01604 7.16992 2.04813 7.202C2.08013 7.234 2.11537 7.25 2.15387 7.25H9.84613C9.88463 7.25 9.91988 7.234 9.95188 7.202C9.98396 7.16992 10 7.13463 10 7.09613V2.65387C10 2.61537 9.98396 2.58012 9.95188 2.54812C9.91988 2.51604 9.88463 2.5 9.84613 2.5H2.15387C2.11537 2.5 2.08013 2.51604 2.04813 2.54812C2.01604 2.58012 2 2.61537 2 2.65387V7.09613Z"
+              fill="currentColor" />
+          </svg>
+        </span>
+        屏幕键盘
+      </div>
+    </div>
+
+    <div class="menu-item" id="voiceInput">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M3.687 11.813C3.60083 11.7267 3.55775 11.6224 3.55775 11.5C3.55775 11.3776 3.60083 11.2733 3.687 11.187C3.77325 11.1008 3.87758 11.0578 4 11.0578C4.12242 11.0578 4.22675 11.1008 4.313 11.187C4.39917 11.2733 4.44225 11.3776 4.44225 11.5C4.44225 11.6224 4.39917 11.7267 4.313 11.813C4.22675 11.8992 4.12242 11.9423 4 11.9423C3.87758 11.9423 3.77325 11.8992 3.687 11.813ZM6 11.9423C5.87758 11.9423 5.77325 11.8992 5.687 11.813C5.60083 11.7267 5.55775 11.6224 5.55775 11.5C5.55775 11.3776 5.60083 11.2733 5.687 11.187C5.77325 11.1008 5.87758 11.0578 6 11.0578C6.12242 11.0578 6.22675 11.1008 6.313 11.187C6.39917 11.2733 6.44225 11.3776 6.44225 11.5C6.44225 11.6224 6.39917 11.7267 6.313 11.813C6.22675 11.8992 6.12242 11.9423 6 11.9423ZM7.687 11.813C7.60083 11.7267 7.55775 11.6224 7.55775 11.5C7.55775 11.3776 7.60083 11.2733 7.687 11.187C7.77325 11.1008 7.87758 11.0578 8 11.0578C8.12242 11.0578 8.22675 11.1008 8.313 11.187C8.39917 11.2733 8.44225 11.3776 8.44225 11.5C8.44225 11.6224 8.39917 11.7267 8.313 11.813C8.22675 11.8992 8.12242 11.9423 8 11.9423C7.87758 11.9423 7.77325 11.8992 7.687 11.813ZM5.113 6.387C4.871 6.145 4.75 5.84933 4.75 5.5V2.5C4.75 2.15067 4.871 1.855 5.113 1.613C5.355 1.371 5.65067 1.25 6 1.25C6.34933 1.25 6.645 1.371 6.887 1.613C7.129 1.855 7.25 2.15067 7.25 2.5V5.5C7.25 5.84933 7.129 6.145 6.887 6.387C6.645 6.629 6.34933 6.75 6 6.75C5.65067 6.75 5.355 6.629 5.113 6.387ZM5.625 10.375V8.72888C4.8 8.63138 4.11458 8.27637 3.56875 7.66387C3.02292 7.05137 2.75 6.33008 2.75 5.5H3.5C3.5 6.19167 3.74375 6.78125 4.23125 7.26875C4.71875 7.75625 5.30833 8 6 8C6.69167 8 7.28125 7.75625 7.76875 7.26875C8.25625 6.78125 8.5 6.19167 8.5 5.5H9.25C9.25 6.33008 8.97708 7.05137 8.43125 7.66387C7.88542 8.27637 7.2 8.63138 6.375 8.72888V10.375H5.625ZM6.35625 5.85625C6.45208 5.76042 6.5 5.64167 6.5 5.5V2.5C6.5 2.35833 6.45208 2.23958 6.35625 2.14375C6.26042 2.04792 6.14167 2 6 2C5.85833 2 5.73958 2.04792 5.64375 2.14375C5.54792 2.23958 5.5 2.35833 5.5 2.5V5.5C5.5 5.64167 5.54792 5.76042 5.64375 5.85625C5.73958 5.95208 5.85833 6 6 6C6.14167 6 6.26042 5.95208 6.35625 5.85625Z"
+              fill="currentColor" />
+          </svg>
+        </span>
+        语音输入
+      </div>
+    </div>
+
+    <div class="menu-item" id="settings">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M5.07699 14.3816L3.59497 13.9054C3.24043 13.7915 3 13.4617 3 13.0894V10.9106C3 10.5383 3.24043 10.2085 3.59497 10.0946L5.07699 9.61845C5.52769 9.47366 5.77568 8.99091 5.63089 8.54021C5.60187 8.44991 5.55808 8.36505 5.50127 8.28908L4.86839 7.44272C4.61323 7.10148 4.64746 6.62461 4.94875 6.32332L6.32332 4.94875C6.62461 4.64746 7.10148 4.61323 7.44272 4.86839L8.28908 5.50127C8.6682 5.78476 9.20535 5.70724 9.48884 5.32812C9.54564 5.25216 9.58944 5.1673 9.61845 5.07699L10.0946 3.59497C10.2085 3.24043 10.5383 3 10.9106 3H13.0894C13.4617 3 13.7915 3.24043 13.9054 3.59497L14.3816 5.07699C14.5263 5.52769 15.0091 5.77568 15.4598 5.63089C15.5501 5.60187 15.635 5.55808 15.7109 5.50127L16.5573 4.86839C16.8985 4.61323 17.3754 4.64746 17.6767 4.94875L19.0512 6.32332C19.3525 6.62461 19.3868 7.10148 19.1316 7.44272L18.4987 8.28908C18.2152 8.6682 18.2928 9.20535 18.6719 9.48884C18.7478 9.54564 18.8327 9.58944 18.923 9.61845L20.405 10.0946C20.7596 10.2085 21 10.5383 21 10.9106V13.0894C21 13.4617 20.7596 13.7915 20.405 13.9054L18.923 14.3816C18.4723 14.5263 18.2243 15.0091 18.3691 15.4598C18.3981 15.5501 18.4419 15.635 18.4987 15.7109L19.1316 16.5573C19.3868 16.8985 19.3525 17.3754 19.0512 17.6767L17.6767 19.0512C17.3754 19.3525 16.8985 19.3868 16.5573 19.1316L15.7109 18.4987C15.3318 18.2152 14.7947 18.2928 14.5112 18.6719C14.4544 18.7478 14.4106 18.8327 14.3816 18.923L13.9054 20.405C13.7915 20.7596 13.4617 21 13.0894 21H10.9106C10.5383 21 10.2085 20.7596 10.0946 20.405L9.61845 18.923C9.47366 18.4723 8.99091 18.2243 8.54021 18.3691C8.44991 18.3981 8.36505 18.4419 8.28908 18.4987L7.44272 19.1316C7.10148 19.3868 6.62461 19.3525 6.32332 19.0512L4.94875 17.6767C4.64746 17.3754 4.61323 16.8985 4.86839 16.5573L5.50127 15.7109C5.78476 15.3318 5.70724 14.7947 5.32812 14.5112C5.25216 14.4544 5.1673 14.4106 5.07699 14.3816Z"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M14.1213 9.87868C12.9497 8.70711 11.0503 8.70711 9.87868 9.87868C8.70711 11.0503 8.70711 12.9497 9.87868 14.1213C11.0503 15.2929 12.9497 15.2929 14.1213 14.1213C15.2929 12.9497 15.2929 11.0503 14.1213 9.87868Z"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        设置
+      </div>
+    </div>
+
+    <div class="menu-item" id="about">
+      <div class="menu-item-left">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M5.625 8.375H6.375V5.5H5.625V8.375ZM6.2865 4.52813C6.36475 4.45071 6.40388 4.35479 6.40388 4.24037C6.40388 4.12596 6.36517 4.03004 6.28775 3.95263C6.21033 3.87529 6.11442 3.83662 6 3.83662C5.88558 3.83662 5.78967 3.87529 5.71225 3.95263C5.63483 4.03004 5.59613 4.12596 5.59613 4.24037C5.59613 4.35479 5.63525 4.45071 5.7135 4.52813C5.79167 4.60554 5.88717 4.64425 6 4.64425C6.11283 4.64425 6.20833 4.60554 6.2865 4.52813ZM6.00088 10.75C5.34388 10.75 4.72633 10.6253 4.14825 10.376C3.57017 10.1267 3.06733 9.78829 2.63975 9.36088C2.21217 8.93346 1.87362 8.43083 1.62412 7.853C1.37471 7.27517 1.25 6.65779 1.25 6.00088C1.25 5.34388 1.37467 4.72633 1.624 4.14825C1.87333 3.57017 2.21171 3.06733 2.63913 2.63975C3.06654 2.21217 3.56917 1.87362 4.147 1.62412C4.72483 1.37471 5.34221 1.25 5.99912 1.25C6.65613 1.25 7.27367 1.37467 7.85175 1.624C8.42983 1.87333 8.93267 2.21171 9.36025 2.63913C9.78783 3.06654 10.1264 3.56917 10.3759 4.147C10.6253 4.72483 10.75 5.34221 10.75 5.99912C10.75 6.65613 10.6253 7.27367 10.376 7.85175C10.1267 8.42983 9.78829 8.93267 9.36088 9.36025C8.93346 9.78783 8.43083 10.1264 7.853 10.3759C7.27517 10.6253 6.65779 10.75 6.00088 10.75ZM6 10C7.11667 10 8.0625 9.6125 8.8375 8.8375C9.6125 8.0625 10 7.11667 10 6C10 4.88333 9.6125 3.9375 8.8375 3.1625C8.0625 2.3875 7.11667 2 6 2C4.88333 2 3.9375 2.3875 3.1625 3.1625C2.3875 3.9375 2 4.88333 2 6C2 7.11667 2.3875 8.0625 3.1625 8.8375C3.9375 9.6125 4.88333 10 6 10Z"
+              fill="currentColor" />
+          </svg>
+        </span>
+        关于
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initial state comes from C++ (SyncMenuFloatingToolbarToggle) so this
+    // toggle stays in sync with Settings / general.floating_toolbar.
+    const toggle = document.getElementById('floatingToggle');
+    toggle.addEventListener('click', () => {
+      toggle.classList.toggle('active');
+      console.log("floatingToggle: ", toggle.classList.contains('active'));
+      // 向 C++ 端发送消息，隐藏/显示悬浮工具栏
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'floatingToggle',
+        data: toggle.classList.contains('active')
+      }));
+    });
+
+    // 表情和符号共用同一个原生面板。
+    const emojiSymbols = document.getElementById('emojiSymbols');
+    emojiSymbols.addEventListener('click', () => {
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'emojiSymbols',
+      }));
+    });
+
+    // 屏幕键盘：由原生服务启动独立面板。
+    const keyboardPanel = document.getElementById('keyboardPanel');
+    keyboardPanel.addEventListener('click', () => {
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'keyboardPanel',
+      }));
+    });
+
+    // 语音输入：启动独立的 MetasequoiaVoiceInput 应用。
+    const voiceInput = document.getElementById('voiceInput');
+    voiceInput.addEventListener('click', () => {
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'voiceInput',
+      }));
+    });
+
+    // 设置：向 C++ 端发送消息，打开设置
+    const settings = document.getElementById('settings');
+    settings.addEventListener('click', () => {
+      console.log("settings");
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'settings',
+      }));
+    });
+
+    // 关于：打开设置窗口并定位到“关于”分区。
+    const about = document.getElementById('about');
+    about.addEventListener('click', () => {
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'about',
+      }));
+    });
+  </script>
+  <script>
+  (function () {
+    var SURFACE = 'menu';
+    var SELECTOR = '#menuContainer';
+    var COOLDOWN_MS = 450;
+    var lastSent = 0;
+    var pending = false;
+    function el() { return document.querySelector(SELECTOR); }
+    function truncated(node) {
+      if (!node) return false;
+      var vw = document.documentElement.clientWidth;
+      var vh = document.documentElement.clientHeight;
+      var r = node.getBoundingClientRect();
+      var pad = 1.5;
+      return node.scrollWidth > vw + pad || node.scrollHeight > vh + pad ||
+        r.width > vw + pad || r.height > vh + pad ||
+        r.right > vw + pad || r.bottom > vh + pad;
+    }
+    function report() {
+      var node = el();
+      if (!node || !truncated(node)) return;
+      if (!window.chrome || !window.chrome.webview) return;
+      var now = Date.now();
+      if (now - lastSent < COOLDOWN_MS) return;
+      lastSent = now;
+      var r = node.getBoundingClientRect();
+      window.chrome.webview.postMessage(serializeHostMessage({
+        type: 'contentTruncated',
+        data: {
+          surface: SURFACE,
+          width: Math.ceil(Math.max(r.width, node.scrollWidth || 0)),
+          height: Math.ceil(Math.max(r.height, node.scrollHeight || 0)),
+          viewportWidth: document.documentElement.clientWidth,
+          viewportHeight: document.documentElement.clientHeight
+        }
+      }));
+    }
+    function schedule() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          pending = false;
+          report();
+        });
+      });
+    }
+    window.CheckContentTruncation = schedule;
+    window.addEventListener('resize', schedule);
+    window.addEventListener('load', schedule);
+    if (typeof ResizeObserver !== 'undefined') {
+      var ro = new ResizeObserver(schedule);
+      ro.observe(document.documentElement);
+      var node = el();
+      if (node) ro.observe(node);
+    }
+  })();
+  </script>
+</body>
+
+</html>

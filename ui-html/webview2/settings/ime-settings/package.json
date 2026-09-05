@@ -1,0 +1,19 @@
+{
+  "name": "ime-settings",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "prebuild": "python3 ../../../scripts/sync-contracts.py --check"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "devDependencies": {
+    "@types/chrome": "^0.2.8",
+    "@types/node": "^26.4.1",
+    "typescript": "~7.0.2",
+    "vite": "^8.2.2"
+  }
+}

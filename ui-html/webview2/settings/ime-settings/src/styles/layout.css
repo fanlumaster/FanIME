@@ -1,0 +1,42 @@
+.main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  background: var(--chrome-bg);
+}
+
+#sidebar-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--chrome-bg);
+}
+
+#content-container {
+  flex: 4;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 0;
+  padding-left: 1rem;
+  padding-right: 1.5rem;
+  background: var(--chrome-bg);
+  overflow-y: auto;
+  contain: layout paint;
+}
+
+#content-container>div {
+  width: 100%;
+  max-width: 900px;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 12px;
+  overflow: visible;
+  margin-top: 2px;
+  background: var(--chrome-bg);
+}
