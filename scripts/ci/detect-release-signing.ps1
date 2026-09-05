@@ -1,0 +1,20 @@
+# Decide whether this release can be signed, and say so in the log either way.
+#
+# Signing is optional so the pipeline stays runnable without a certificate, but an unsigned build
+# is degraded in a way users will notice: per AGENTS.md, uiAccess="true" only takes effect for a
+# correctly signed binary installed somewhere Windows trusts, so the candidate window cannot float
+# over elevated hosts. Unsigned artifacts therefore carry a suffix and the release notes say so.
+#
+# Writes signing_enabled and asset_suffix to GITHUB_OUTPUT.
+$ErrorActionPreference = 'Stop'
+
+if ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD) {
+    "signing_enabled=true" >> $env:GITHUB_OUTPUT
+    "asset_suffix=" >> $env:GITHUB_OUTPUT
+    Write-Host 'Signing certificate present: the installer and its binaries will be signed.'
+}
+else {
+    "signing_enabled=false" >> $env:GITHUB_OUTPUT
+    "asset_suffix=-unsigned" >> $env:GITHUB_OUTPUT
+    Write-Host '::warning::No signing certificate configured. Publishing an unsigned installer; uiAccess will not take effect.'
+}
