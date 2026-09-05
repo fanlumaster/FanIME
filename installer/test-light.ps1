@@ -10,35 +10,29 @@ Set-StrictMode -Version Latest
 Set-Location $PSScriptRoot
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$tsfCompile = Join-Path $repoRoot 'MetasequoiaImeTsf\scripts\lcompile-release-both.ps1'
-$serverCompile = Join-Path $repoRoot 'MetasequoiaImeServer\scripts\lcompile-release.ps1'
-$settingsDir = Join-Path $repoRoot 'MetasequoiaImeUiHtml\webview2\settings\ime-settings'
+$tsfCompile = Join-Path $repoRoot 'windows\scripts\lcompile-release-both.ps1'
+$serverCompile = Join-Path $repoRoot 'server\scripts\lcompile-release.ps1'
+$settingsDir = Join-Path $repoRoot 'ui-html\webview2\settings\ime-settings'
 
-if (Test-Path -LiteralPath $tsfCompile -PathType Leaf) {
-    Push-Location (Join-Path $repoRoot 'MetasequoiaImeTsf')
-    try { & $tsfCompile } finally { Pop-Location }
-}
-else {
-    Write-Host '跳过 TSF 编译：未找到相邻的 MetasequoiaImeTsf 仓库。'
-}
-
-if (Test-Path -LiteralPath $serverCompile -PathType Leaf) {
-    Push-Location (Join-Path $repoRoot 'MetasequoiaImeServer')
-    try { & $serverCompile } finally { Pop-Location }
-}
-else {
-    Write-Host '跳过 Server 编译：未找到相邻的 MetasequoiaImeServer 仓库。'
+# All three are directories of this repository now, so a missing one is a broken checkout rather
+# than a neighbour nobody cloned. Skipping the build and packaging whatever binaries happen to be
+# lying around would produce an installer you then run on your own machine.
+foreach ($required in @($tsfCompile, $serverCompile, (Join-Path $settingsDir 'package.json'))) {
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+        throw "缺少组件构建入口：$required"
+    }
 }
 
-if (Test-Path -LiteralPath (Join-Path $settingsDir 'package.json') -PathType Leaf) {
-    Push-Location $settingsDir
-    try { pnpm run build } finally { Pop-Location }
-}
-else {
-    Write-Host '跳过设置页构建：未找到相邻的 MetasequoiaImeUiHtml 仓库。'
-}
+Push-Location (Join-Path $repoRoot 'windows')
+try { & $tsfCompile } finally { Pop-Location }
 
-& (Join-Path $PSScriptRoot 'Prepare-PackageFiles.ps1') -Light
+Push-Location (Join-Path $repoRoot 'server')
+try { & $serverCompile } finally { Pop-Location }
+
+Push-Location $settingsDir
+try { pnpm run build } finally { Pop-Location }
+
+& (Join-Path $PSScriptRoot 'Prepare-PackageFiles.ps1') -Light -RepoRoot $repoRoot -TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory .
 & (Join-Path $PSScriptRoot 'Sign-PackageBinaries-Local.ps1')
 & (Join-Path $PSScriptRoot 'Compile-Installer.ps1') -Light
 & (Join-Path $PSScriptRoot 'Sign-Installer-Local.ps1') -Light
