@@ -1,6 +1,6 @@
 # 水杉输入法
 
-[English README](README.en.md)
+[官网](https://msime.app) · [用户文档](https://msime.app/docs/) · [隐私说明](PRIVACY.md) · [English README](README.en.md)
 
 <!-- badges:start -->
 [![CI](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/ci.yml?branch=main&label=CI)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/ci.yml)
@@ -85,6 +85,10 @@ Windows 端的全部一方源码都在本仓，一次 clone 就能拿到完整�
 - 多种皮肤：Fluent、微信绿、石墨 Graphite、杨柳青 Willow green，均支持深色 / 浅色。
 
 ## 核心功能指南
+
+> 下面这一节与[用户文档的 Windows 指南](https://msime.app/docs/)内容重叠。指南按设置窗口的实际布局组织，更新更及时；这里保留的是按功能组织的说明。两处不一致时以指南为准。
+
+
 
 ### 输入方案
 

@@ -130,10 +130,14 @@ jobs:
           fi
 
       - name: Enable auto-merge
-        if: steps.classify.outputs.verdict == 'inert'
+        # The lock guard belongs here. It used to be appended to the HEAD environment value instead,
+        # where it was not a condition at all: auto-merge ran whether or not the contract lock
+        # verified, and the comment below printed the commit followed by the literal text
+        # "&& steps.lock.outputs.locked == 'yes'".
+        if: steps.classify.outputs.verdict == 'inert' && steps.lock.outputs.locked == 'yes'
         env:
           BASE: ${{ steps.range.outputs.base }}
-          HEAD: ${{ steps.range.outputs.head }} && steps.lock.outputs.locked == 'yes'
+          HEAD: ${{ steps.range.outputs.head }}
         run: |
           set -euo pipefail
           gh pr merge --auto --squash "$PR_URL"

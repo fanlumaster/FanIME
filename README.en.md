@@ -1,6 +1,6 @@
 # Metasequoia IME for Windows
 
-[中文 README](README.md) · [Website](https://msime.app) · [Docs](https://msime.app/docs/)
+[中文 README](README.md) · [Website](https://msime.app) · [Docs](https://msime.app/docs/) · [Privacy](PRIVACY.md)
 
 <!-- badges:start -->
 [![CI](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/ci.yml?branch=main&label=CI)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/ci.yml)

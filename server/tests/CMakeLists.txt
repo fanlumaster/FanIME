@@ -47,6 +47,8 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_config_template_merge.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_system_font_family.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_dictionary_validation.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_skin_css_policy.cpp"
+    "${CMAKE_SOURCE_DIR}/src/webview2/skin_css_policy.cpp"
     "${CMAKE_SOURCE_DIR}/src/config/ime_config.cpp"
     "${CMAKE_SOURCE_DIR}/src/session/engine_input_session.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/common_utils.cpp"

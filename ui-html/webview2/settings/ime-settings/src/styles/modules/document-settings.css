@@ -257,6 +257,39 @@
   font-weight: 600;
 }
 
+/* Empty until the manifest reports something worth showing, so it must not take up space then. */
+.about-update-trust:empty {
+  display: none;
+}
+
+.about-update-dialog-body .about-update-warning {
+  color: var(--danger-text);
+}
+
+.about-update-dialog-body .about-update-verify-label {
+  margin-bottom: 6px;
+}
+
+.about-update-verify-command,
+.about-update-verify-digest {
+  display: block;
+  padding: 6px 8px;
+  color: var(--text-color);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  /* The digest is 64 characters and the reader is comparing it character by character. */
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.about-update-verify-digest {
+  margin-top: 6px;
+}
+
 .about-update-dialog-actions {
   display: flex;
   justify-content: flex-end;

@@ -28,6 +28,13 @@ add_compile_options(/Zc:__cplusplus)
 # Match WeaselTSF: avoid dynamic TLS init guards in in-proc tip DLLs
 add_compile_options(/Zc:threadSafeInit-)
 
+# This DLL is loaded into Chrome, QQ, Office and every other host the user types into, and it parses
+# what those hosts hand it -- yet it was building at the default /W3 while ui/ and server/ already
+# use /W4 on their own targets. /WX is deliberately not set yet: the existing warnings have to be
+# read and cleared on Windows first, and turning them into errors before that would only mean
+# reaching for /wd suppressions. /permissive- is likewise left for a follow-up that can build here.
+add_compile_options(/W4)
+
 # add_definitions(
 #     /DFANY_DEBUG=1
 #     /DFANY_IPC_DEBUG=1

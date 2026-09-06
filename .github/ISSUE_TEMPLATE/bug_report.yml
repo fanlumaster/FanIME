@@ -102,8 +102,8 @@ body:
     attributes:
       label: 日志（可选）
       description: |
-        可粘贴相关日志。
-        Paste relevant logs, or attach screenshots / recordings.
+        可粘贴相关日志或附上截图。**不要粘贴真实输入内容、用户词库、API Key 或任何凭据。**
+        Paste relevant logs. Do not include real typed text, user dictionary contents, API keys or credentials.
       render: shell
     validations:
       required: false
@@ -122,4 +122,6 @@ body:
         - label: 我已搜索过现有 Issue，确认这不是重复反馈。I searched existing issues and this is not a duplicate.
           required: true
         - label: 我已尽量提供可复现信息。I provided enough detail to reproduce the issue.
+          required: true
+        - label: 这不是安全漏洞。安全问题请按 SECURITY.md 私下上报。This is not a security vulnerability; those go through SECURITY.md.
           required: true

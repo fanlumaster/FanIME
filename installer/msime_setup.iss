@@ -143,6 +143,78 @@ Root: HKLM; Subkey: "Software\Metasequoia\MetasequoiaIME"; \
 [Code]
 var
   VersionDirName: String;
+  NetworkPage: TInputOptionWizardPage;
+  CloudCandidatesIndex: Integer;
+  UserConfigExistedBeforeInstall: Boolean;
+
+function UserConfigPath: String;
+begin
+  Result := ExpandConstant('{localappdata}\metasequoiaime\config.toml');
+end;
+
+{ 云候选是唯一一个装完就会联网的功能：输入过程中把当前拼写发给 Google 的 input-tools 服务。
+  出厂默认开启，而安装器此前没有任何一屏提到过它，用户要读文档才会知道。这一页把它摆到安装
+  过程里，选择写进首次生成的 config.toml。
+
+  升级时跳过：那时 config.toml 已经属于用户，安装器不该替他重新决定。}
+procedure InitializeWizard;
+begin
+#ifndef LightPackage
+  UserConfigExistedBeforeInstall := FileExists(UserConfigPath);
+  NetworkPage := CreateInputOptionPage(
+    wpLicense,
+    '联网功能',
+    '选择安装后哪些功能可以联网',
+    '拼音切分、候选排序和词频学习全部在本机完成，不联网。' + #13#10 +
+    '下面这一项是唯一一个装完就会生效的联网功能。AI 联想、候选翻译、语音输入都需要你自己填入 API token 之后才会发出任何请求。' + #13#10#13#10 +
+    '安装后随时可以在「设置 → 输入」里改变这个选择。',
+    False,
+    False
+  );
+  CloudCandidatesIndex := NetworkPage.Add(
+    '启用云候选：输入过程中把当前正在输入的拼写通过 HTTPS 发送给 Google 的 input-tools 服务' +
+    '（inputtools.google.com），换回一条额外候选。已上屏的文本、词库内容和学习到的词频都不会发送。');
+  NetworkPage.Values[CloudCandidatesIndex] := True;
+#endif
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if (NetworkPage <> nil) and (PageID = NetworkPage.ID) then
+    Result := UserConfigExistedBeforeInstall;
+end;
+
+{ 只在本次安装刚生成 config.toml 时写入，且只改 [general] 段里的这一个键。找不到就什么都不做——
+  这一步失败不应该让安装失败。}
+procedure ApplyNetworkChoiceToUserConfig;
+var
+  Lines: TArrayOfString;
+  Index: Integer;
+  Trimmed: String;
+  InGeneral: Boolean;
+begin
+  if UserConfigExistedBeforeInstall or (NetworkPage = nil) then
+    Exit;
+  if NetworkPage.Values[CloudCandidatesIndex] then
+    Exit;
+  if not LoadStringsFromFile(UserConfigPath, Lines) then
+    Exit;
+
+  InGeneral := False;
+  for Index := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Trimmed := Trim(Lines[Index]);
+    if (Length(Trimmed) > 0) and (Trimmed[1] = '[') then
+      InGeneral := (Trimmed = '[general]')
+    else if InGeneral and (Pos('cloud_candidates', Trimmed) = 1) then
+    begin
+      Lines[Index] := 'cloud_candidates = false';
+      SaveStringsToFile(UserConfigPath, Lines, False);
+      Exit;
+    end;
+  end;
+end;
 
 procedure LaunchInstalledComponents;
 var
@@ -533,6 +605,7 @@ begin
   begin
 #ifndef LightPackage
     ReplayUserDictionary;
+    ApplyNetworkChoiceToUserConfig;
 #endif
     CreateWatchdogLogonTask;
     EnsureSharedWebView2DataDir;

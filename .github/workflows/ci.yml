@@ -37,6 +37,10 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_prepare_env.py'
       - name: Test the automatic release CI gate
         run: python3 -m unittest discover -s tests -p 'test_release_pr_ci.py'
+      - name: Test the engine-bump auto-merge guards
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 -m unittest discover -s tests -p 'test_engine_bump_triage.py'
       - name: Read the reviewed lock
         id: lock
         run: |
@@ -94,6 +98,34 @@ jobs:
         if: ${{ matrix.name == 'x64' }}
         shell: pwsh
         run: ./scripts/ci/check-inno-language.ps1
+
+  # MSIME-Linux's ci.yml already reasons about this: "the frontend layer had none -- and that is the
+  # layer that parses untrusted input", after an audit of the Windows frontend turned up a batch of
+  # races and null dereferences that the Debug build did not catch. Linux acted on that; this
+  # repository had no sanitizer coverage at all.
+  #
+  # Sanitizing the whole server would mean a sanitized Boost, curl, sqlite and WebView2 on a Windows
+  # runner. Instead the host-independent parsing and policy code builds as its own tiny target with
+  # no dependencies, which runs under ASan and UBSan on Linux in seconds. It covers less than a full
+  # sanitized build would; it covers it on every pull request.
+  sanitizers:
+    name: Sanitizers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure with AddressSanitizer and UndefinedBehaviorSanitizer
+        run: >
+          cmake -S server/tests/portable -B server/tests/portable/build
+          -DCMAKE_BUILD_TYPE=Debug -DMSIME_PORTABLE_TESTS_SANITIZE=ON
+      - name: Build
+        run: cmake --build server/tests/portable/build --parallel
+      - name: Test
+        working-directory: server/tests/portable/build
+        run: ctest --output-on-failure
 
   server:
     name: Server
@@ -192,6 +224,10 @@ jobs:
       - name: Install
         working-directory: ui-html/webview2/settings/ime-settings
         run: pnpm install --frozen-lockfile
+
+      - name: Test
+        working-directory: ui-html/webview2/settings/ime-settings
+        run: pnpm test
 
       # Same command the release workflow runs. Until it was added here it was only ever exercised
       # during a release, so a break surfaced while cutting a version.

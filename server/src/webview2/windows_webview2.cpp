@@ -2,6 +2,7 @@
 #include "windows_webview2.h"
 #include "webview2/inline_protocol.h"
 #include "webview2/candidate_window_template.h"
+#include "webview2/skin_css_policy.h"
 #include "config/ime_config.h"
 #include "defines/globals.h"
 #include "utils/common_utils.h"
@@ -1390,39 +1391,6 @@ std::wstring ReadHtmlFileWithFallback(const std::wstring &primaryPath, const std
 
 namespace
 {
-bool IsRewritableSkinCssUrl(std::wstring url)
-{
-    while (!url.empty() && iswspace(url.front()))
-    {
-        url.erase(url.begin());
-    }
-    while (!url.empty() && iswspace(url.back()))
-    {
-        url.pop_back();
-    }
-    if (url.empty() || url.find(L"..") != std::wstring::npos)
-    {
-        return false;
-    }
-    if (url.find(L"://") != std::wstring::npos)
-    {
-        return false;
-    }
-    if (url.size() >= 5)
-    {
-        std::wstring scheme = url.substr(0, 5);
-        for (wchar_t &ch : scheme)
-        {
-            ch = static_cast<wchar_t>(towlower(ch));
-        }
-        if (scheme == L"data:")
-        {
-            return false;
-        }
-    }
-    return url.front() != L'/' && url.front() != L'\\' && url.front() != L'#';
-}
-
 std::wstring NormalizeSkinCssUrl(std::wstring url)
 {
     while (!url.empty() && iswspace(url.front()))
@@ -1566,12 +1534,12 @@ std::wstring RewriteCandidateSkinCssUrls(const std::wstring &css, const std::wst
             ++cursor;
         }
         const std::wstring rawUrl = css.substr(valueStart, cursor - valueStart);
-        if (IsRewritableSkinCssUrl(rawUrl))
+        switch (msime::skin_css::ClassifyUrl(rawUrl))
         {
+        case msime::skin_css::UrlAction::Embed:
             result.append(EmbedSkinCssUrl(skinsRoot, skinId, rawUrl));
-        }
-        else
-        {
+            break;
+        case msime::skin_css::UrlAction::Keep:
             result.append(L"url(");
             if (quote != 0)
             {
@@ -1584,6 +1552,13 @@ std::wstring RewriteCandidateSkinCssUrls(const std::wstring &css, const std::wst
                 result.append(rawUrl);
             }
             result.push_back(L')');
+            break;
+        case msime::skin_css::UrlAction::Drop:
+            // Nothing is written. The declaration is left incomplete, so CSS discards it -- which
+            // is what should happen to `background-image: url(https://attacker/beacon.png)` in a
+            // skin someone downloaded. Passing it through, as this branch used to, meant the
+            // candidate window fetched that URL on every render.
+            break;
         }
         if (quote != 0 && cursor < css.size() && css[cursor] == quote)
         {
@@ -1635,7 +1610,8 @@ bool InjectExternalSkinCssFile(std::wstring &html, const CandidateSkinCatalog::P
     // reason; keep external skins on that path so padding/decoration CSS is
     // present before SetWindowRgn applies candidateWindow.decoration.
     const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" + string_to_wstring(stylesheet);
-    std::wstring css = RewriteCandidateSkinCssUrls(ReadHtmlFile(cssPath), skinsRoot, skin.id);
+    std::wstring css =
+        RewriteCandidateSkinCssUrls(msime::skin_css::StripRemoteImports(ReadHtmlFile(cssPath)), skinsRoot, skin.id);
     if (css.empty())
     {
         return false;
@@ -1682,8 +1658,12 @@ std::wstring BuildExternalCandidateSkinCss(const CandidateSkinCatalog::Package &
     std::wstring css;
     if (skin.decorationTopDip > 0.0)
     {
+        // skin.preview comes from the package's own skin.toml, so it gets the same treatment as a
+        // URL written inside the stylesheet rather than being trusted because it arrived through a
+        // manifest field.
         std::wstring preview = L"none";
-        if (!skin.preview.empty())
+        if (!skin.preview.empty() &&
+            msime::skin_css::ClassifyUrl(string_to_wstring(skin.preview)) == msime::skin_css::UrlAction::Embed)
         {
             preview = EmbedSkinCssUrl(skinsRoot, skin.id, string_to_wstring(skin.preview));
         }
