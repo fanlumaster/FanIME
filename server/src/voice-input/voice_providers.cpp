@@ -68,7 +68,17 @@ std::string NormalizeProviderId(std::string_view provider)
 
 bool IsPlaceholderToken(std::string_view token)
 {
-    return token.empty() || token.find("<YOUR_OWN_") == 0;
+    if (token.empty())
+        return true;
+    // The shipped config.default.toml uses three placeholder spellings, and only "<YOUR_OWN_..." used to
+    // be recognised here. The other two therefore read as real credentials: with ai_assistant.enabled and
+    // voice_input.voice_input both defaulting to true, a fresh install would send the composition to
+    // api.deepseek.com and audio to the ASR endpoint carrying a literal "<YOUR_AI_TOKEN_DEEPSEEK>" or
+    // "FAKESECRET_..." bearer. The request fails authentication, but the content has already left the
+    // machine. Match the shape of a placeholder rather than one specific prefix.
+    if (token.front() == '<' && token.back() == '>')
+        return true;
+    return token.find("FAKESECRET_") == 0;
 }
 
 std::string UsableToken(std::string_view token)

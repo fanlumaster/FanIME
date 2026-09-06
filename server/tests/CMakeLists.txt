@@ -16,6 +16,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_engine_shuangpin_session.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_english_dictionary.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_translation_gloss.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_default_config_credentials.cpp"
     "${CMAKE_SOURCE_DIR}/src/cloud/translation_gloss.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_custom_translation.cpp"
     "${CMAKE_SOURCE_DIR}/src/cloud/custom_translation.cpp"
@@ -60,6 +61,13 @@ target_include_directories(${TEST_EXECUTABLE_NAME}
     "${CMAKE_SOURCE_DIR}/src"
     "${MSIME_VENDOR_DIR}"
     "${MSIME_VENDOR_DIR}/MetasequoiaImeEngine/utfcpp/source"
+)
+
+# test_default_config_credentials reads the config the installer actually ships, so the check is
+# against the shipped file rather than a restatement of today's placeholder spellings.
+target_compile_definitions(${TEST_EXECUTABLE_NAME}
+    PRIVATE
+    "MSIME_DEFAULT_CONFIG_PATH=\"${CMAKE_SOURCE_DIR}/../installer/default_config/config.default.toml\""
 )
 
 target_link_libraries(${TEST_EXECUTABLE_NAME}
