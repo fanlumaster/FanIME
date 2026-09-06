@@ -1,5 +1,14 @@
 # 水杉输入法
 
+<!-- badges:start -->
+[![CI](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/ci.yml?branch=main&label=CI)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/codeql.yml?branch=main&label=CodeQL)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/metasequoiaime/MSIME-Windows?include_prereleases&label=release)](https://github.com/metasequoiaime/MSIME-Windows/releases)
+[![Downloads](https://img.shields.io/github/downloads/metasequoiaime/MSIME-Windows/total?label=downloads)](https://github.com/metasequoiaime/MSIME-Windows/releases)
+[![License](https://img.shields.io/github/license/metasequoiaime/MSIME-Windows)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/metasequoiaime/MSIME-Windows?style=flat)](https://github.com/metasequoiaime/MSIME-Windows/stargazers)
+<!-- badges:end -->
+
 一款开源的自由 Windows 输入法，面向 Windows 10 / Windows 11，采用纯 TSF 方案。
 
 ## 下载与安装
@@ -341,3 +350,11 @@ GPL-3.0。
 ### 一些其他输入法相关的资源
 
 - 微软双拼方案来源：<https://www.bilibili.com/opus/550351671882601523>
+
+<!-- star-history:start -->
+## Star History
+
+<a href="https://star-history.com/#metasequoiaime/MSIME-Windows&Date">
+  <img src="https://api.star-history.com/svg?repos=metasequoiaime/MSIME-Windows&type=Date" alt="Star History Chart" width="600">
+</a>
+<!-- star-history:end -->

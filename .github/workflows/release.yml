@@ -4,7 +4,7 @@ name: Release
 #
 # The whole cycle runs inside the one run that the original push started. land-release-pr.sh merges with GITHUB_TOKEN, whose pushes do not start workflow runs, so the merge cannot produce a second Release run queued behind this one on the concurrency group.
 #
-# This costs a code signing signature on every releasable merge to main, which is exactly what the previous manual design existed to avoid. That is a deliberate trade: see docs/product-release.md for what it buys and what it spends.
+# This spends a code signing signature on every releasable merge to main. The certificate allows 3000 signatures a month, so the quota is not what constrains this; what it spends is release hygiene -- see docs/product-release.md.
 #
 # workflow_dispatch stays, and is now a repair path rather than the normal one. It builds an existing draft, which is what a run that failed after creating the draft leaves behind.
 on:
