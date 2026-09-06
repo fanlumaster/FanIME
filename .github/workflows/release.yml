@@ -1,10 +1,12 @@
 name: Release
 
-# Building and publishing only ever happens on workflow_dispatch. The code signing certificate
-# has a limited number of signatures, so a release costs something real and is not something a merge
-# to main should spend on its own. The push trigger only keeps release-please's pull request current
-# and green; merging that pull request creates the draft, and dispatching this workflow against the
-# draft's tag is what builds, signs and publishes it.
+# Releasing is automatic. A push to main that carries a fix or a feat ends with a published installer, without anybody merging or dispatching anything: this workflow refreshes release-please's pull request, tests it, merges it, turns the merge into a draft release, then builds, signs and publishes that draft.
+#
+# The whole cycle runs inside the one run that the original push started. land-release-pr.sh merges with GITHUB_TOKEN, whose pushes do not start workflow runs, so the merge cannot produce a second Release run queued behind this one on the concurrency group.
+#
+# This costs a code signing signature on every releasable merge to main, which is exactly what the previous manual design existed to avoid. That is a deliberate trade: see docs/product-release.md for what it buys and what it spends.
+#
+# workflow_dispatch stays, and is now a repair path rather than the normal one. It builds an existing draft, which is what a run that failed after creating the draft leaves behind.
 on:
   push:
     branches:
@@ -28,37 +30,57 @@ jobs:
     name: Prepare release metadata
     runs-on: ubuntu-24.04
     permissions:
-      # actions: write lets check-release-pr.sh dispatch ci.yml on the release branch, which is the
+      # actions: write lets land-release-pr.sh dispatch ci.yml on the release branch, which is the
       # only trigger GITHUB_TOKEN is allowed to fire.
       actions: write
       contents: write
       pull-requests: write
     outputs:
-      # Never true on push: see the comment above the triggers. release-please still creates the
-      # draft release there, it just does not get built until somebody asks for it.
-      should_publish: ${{ github.event_name == 'workflow_dispatch' }}
-      tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || steps.release.outputs.tag_name }}
-      version: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.version || steps.release.outputs.version }}
-      target_sha: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.target_sha || steps.release.outputs.sha }}
+      should_publish: ${{ github.event_name == 'workflow_dispatch' || steps.target.outputs.release_created == 'true' }}
+      tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || steps.target.outputs.tag_name }}
+      version: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.version || steps.target.outputs.version }}
+      target_sha: ${{ github.event_name == 'workflow_dispatch' && steps.requested_release.outputs.target_sha || steps.target.outputs.target_sha }}
     steps:
       - name: Check out release automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Prepare release
+      # Two invocations, because release-please only creates a release for a release pull request that was already merged when it ran. The first refreshes the pull request against the commits this push brought, so the release about to be cut includes them; the second sees the merge that land-release-pr.sh performed in between and cuts it. Merging before the first invocation instead would release everything except the push that triggered the run.
+      - name: Refresh the release pull request
+        if: ${{ github.event_name == 'push' }}
+        id: release_pr
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test and merge the release pull request
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/ci/land-release-pr.sh
+
+      - name: Create the release for the merged pull request
         if: ${{ github.event_name == 'push' }}
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Test the release pull request
+      - name: Resolve the release this run publishes
         if: ${{ github.event_name == 'push' }}
+        id: target
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: bash scripts/ci/check-release-pr.sh
+          FIRST_CREATED: ${{ steps.release_pr.outputs.release_created }}
+          FIRST_TAG: ${{ steps.release_pr.outputs.tag_name }}
+          FIRST_VERSION: ${{ steps.release_pr.outputs.version }}
+          FIRST_SHA: ${{ steps.release_pr.outputs.sha }}
+          SECOND_CREATED: ${{ steps.release.outputs.release_created }}
+          SECOND_TAG: ${{ steps.release.outputs.tag_name }}
+          SECOND_VERSION: ${{ steps.release.outputs.version }}
+          SECOND_SHA: ${{ steps.release.outputs.sha }}
+        run: bash scripts/ci/resolve-auto-release.sh
 
       - name: Validate requested draft release
         if: ${{ github.event_name == 'workflow_dispatch' }}

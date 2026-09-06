@@ -54,14 +54,20 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 本地测试打包见 [windows/AGENTS.md](windows/AGENTS.md) 的构建与验证。对外发布走 `.github/workflows/release.yml`，产出的就是历来挂在本仓 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。
 
-版本号由 release-please 管理，真源是根目录的 `version.txt`。**发布是手动的**：签名证书的签名次数有限，一次发布是实打实的开销，不该由「合了个 PR」这种事替你花掉。
+版本号由 release-please 管理，真源是根目录的 `version.txt`。**发布是全自动的**：往 `main` 合一个带 `fix:` 或 `feat:` 的 PR，最后就会有一个签好名的安装包挂在 Release 上，中间没有任何一步等人。
 
-往 `main` 推提交后只发生两件事：release-please 更新那个 release PR，`check-release-pr.sh` 给它挂上一次通过的 CI（`GITHUB_TOKEN` 开不出 workflow run，必须用 `workflow_dispatch` 顶上，否则开着 required status check 的 release PR 永远合不了）。想发版时:
+这一整条链跑在那次 push 触发的同一个 run 里：
 
-1. 合并 release PR —— 这一步只生成 draft release 和 tag，不构建、不签名。
-2. 手动触发 `Release` workflow，`tag` 填那个 draft 的 tag —— 这一步才构建、签名、发布。
+1. release-please 把这次 push 的提交刷进 release PR。
+2. `land-release-pr.sh` 给该 PR 派发一次 CI（`GITHUB_TOKEN` 开不出 workflow run，必须用 `workflow_dispatch` 顶上，否则开着 required status check 的 release PR 永远合不了），绿了就合并它。
+3. release-please 再跑一次，把这个合并变成 draft release 和 tag。
+4. 构建、签名、把 exe 挂上去、draft 转正式。
 
-同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下：发布之后它就不是 draft 了，不会二次消耗签名次数。
+合并用的是 `GITHUB_TOKEN`，而用该 token 推的提交不会触发 workflow —— 这是设计依赖的性质，不是要绕开的限制：它保证一次 push 只有一个 Release run，不会再冒出第二个卡在 concurrency 上。手工点 merge 那个 PR 也能得到同样结果，只是提前了一个 run。
+
+**每次可发布的合并都花掉一次签名额度**，这正是之前的手动设计要避免的事。取舍的理由记在 [docs/product-release.md](docs/product-release.md)。
+
+`workflow_dispatch` 保留下来，现在是修复通道而不是常规路径：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会二次消耗签名次数。
 
 `windows/src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
 
@@ -77,7 +83,8 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 | 脚本 | 用途 |
 |---|---|
 | `validate-draft-release.sh` | 手动触发时校验 tag 是未发布 draft、指向不可变 commit、且与 `version.txt` 一致 |
-| `check-release-pr.sh` | 给 release PR 挂上一次通过的 CI，不合并 |
+| `land-release-pr.sh` | 给 release PR 挂上一次通过的 CI，绿了就合并，并等合并提交在 `main` 上可见 |
+| `resolve-auto-release.sh` | 从两次 release-please 调用里选出本次要构建的 release，并做和手动路径同样的不可变性校验 |
 | `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
 | `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
 | `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
