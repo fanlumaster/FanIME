@@ -45,6 +45,7 @@ class PrepareEnvironmentTests(unittest.TestCase):
                 self.assertIn('vendor/MetasequoiaImeEngine/voice/include', clangd)
                 self.assertIn('vendor/MetasequoiaImeEngine/voice/third_party/miniaudio', clangd)
                 self.assertIn('/ui/include', clangd)
+                self.assertFalse((target / 'tests/CMakePresets.json').exists())
 
     def test_tsf_environment_preserves_the_monorepo_build(self):
         self.exercise('windows')

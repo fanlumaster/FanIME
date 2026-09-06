@@ -116,24 +116,3 @@ content = re.sub(
 )
 with open(CMakePresets_file, "w", encoding="utf-8") as f:
     f.write(content)
-
-#
-# project_root/tests/CMakePresets.json
-#
-# This one is genuinely generated: the file is not tracked, so the template is
-# the only copy.
-#
-Tests_CMakePresets_file = os.path.join(
-    MetasequoiaImeServer_root_path, "scripts", "config_files", "tests", "CMakePresets.json"
-)
-Tests_CMakePresets_output_file = os.path.join(
-    MetasequoiaImeServer_root_path, "tests", "CMakePresets.json"
-)
-with open(Tests_CMakePresets_file, "r", encoding="utf-8") as f:
-    lines = f.readlines()
-lines[8] = f'        "VCPKG_ROOT": "{vcpkg_root}/"\n'
-lines[11] = (
-    f'        "CMAKE_TOOLCHAIN_FILE": "{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",\n'
-)
-with open(Tests_CMakePresets_output_file, "w", encoding="utf-8") as f:
-    f.writelines(lines)

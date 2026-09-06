@@ -1,24 +1,16 @@
-# generate compile to exe files
-$currentDirectory = Get-Location
-$cmakeListsPath = Join-Path -Path $currentDirectory -ChildPath "CMakeLists.txt"
-
-if (-not (Test-Path $cmakeListsPath)) {
-    Write-Host("No CMakeLists.txt in current directory, please check.")
-    return
-}
-
-Write-Host "Start generating and compiling..."
-
-$buildFolderPath = ".\build"
-
-if (-not (Test-Path $buildFolderPath)) {
-    New-Item -ItemType Directory -Path $buildFolderPath | Out-Null
-    Write-Host "build folder created."
-}
-
-# cmake -G "Visual Studio 17 2022" -A x64 -S . -B ./build/
-cmake --preset=default
-
-if ($LASTEXITCODE -eq 0) {
-    cmake --build build
+param(
+    [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug'
+)
+$ErrorActionPreference = 'Stop'
+$serverRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$buildDirectory = Join-Path $serverRoot $(if ($Configuration -eq 'Release') { 'build-release' } else { 'build' })
+$preset = if ($Configuration -eq 'Release') { 'default-release' } else { 'default' }
+Push-Location $serverRoot
+try {
+    cmake --preset=$preset -DBUILD_TESTING=ON
+    if ($LASTEXITCODE -ne 0) { throw "Server test configure failed ($LASTEXITCODE)" }
+    cmake --build $buildDirectory --config $Configuration --target MetasequoiaImeServerTests test_webview_contract
+    if ($LASTEXITCODE -ne 0) { throw "Server test build failed ($LASTEXITCODE)" }
+} finally {
+    Pop-Location
 }
