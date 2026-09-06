@@ -26,9 +26,8 @@ bool IsSafeFileName(const std::string &name, const std::string &extension)
     {
         return false;
     }
-    return std::all_of(name.begin(), name.end(), [](unsigned char ch) {
-        return std::isalnum(ch) || ch == '.' || ch == '_' || ch == '-';
-    });
+    return std::all_of(name.begin(), name.end(),
+                       [](unsigned char ch) { return std::isalnum(ch) || ch == '.' || ch == '_' || ch == '-'; });
 }
 
 bool IsSafeRelativeResource(const std::string &name)
@@ -252,9 +251,8 @@ std::optional<Package> Load(const std::filesystem::path &skinsRoot, const std::s
             return std::nullopt;
         }
         const auto *candidate = root["candidate"].as_table();
-        if (candidate &&
-            (!ReadColors((*candidate)["dark"].as_table(), package.dark) ||
-             !ReadColors((*candidate)["light"].as_table(), package.light)))
+        if (candidate && (!ReadColors((*candidate)["dark"].as_table(), package.dark) ||
+                          !ReadColors((*candidate)["light"].as_table(), package.light)))
         {
             SetError(error, "candidate 配色无效");
             return std::nullopt;

@@ -7,8 +7,7 @@
 
 int wmain(int argc, wchar_t **argv)
 {
-    std::filesystem::path data_dir =
-        std::filesystem::path(user_dictionary::default_user_db_path()).parent_path();
+    std::filesystem::path data_dir = std::filesystem::path(user_dictionary::default_user_db_path()).parent_path();
     for (int i = 1; i < argc; ++i)
     {
         if (std::wstring(argv[i]) == L"--data-dir" && i + 1 < argc)
@@ -22,10 +21,8 @@ int wmain(int argc, wchar_t **argv)
         }
     }
 
-    const auto result = user_dictionary::replay(
-        (data_dir / "msime_user.db").string(),
-        (data_dir / "msime.db").string(),
-        (data_dir / "english.db").string());
+    const auto result = user_dictionary::replay((data_dir / "msime_user.db").string(), (data_dir / "msime.db").string(),
+                                                (data_dir / "english.db").string());
     if (!result.error.empty())
     {
         std::cerr << result.error << '\n';

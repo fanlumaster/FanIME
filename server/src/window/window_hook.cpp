@@ -196,9 +196,8 @@ void OnWinEvent(HWND hwnd)
             GetClassNameW(hwnd, foreground_class, ARRAYSIZE(foreground_class));
             RECT foreground_rect{};
             GetWindowRect(hwnd, &foreground_rect);
-            FTB_DIAG_LOGF(L"fullscreen detected: class={} rect=({},{},{}x{}) -> hiding toolbar",
-                          foreground_class, foreground_rect.left, foreground_rect.top,
-                          foreground_rect.right - foreground_rect.left,
+            FTB_DIAG_LOGF(L"fullscreen detected: class={} rect=({},{},{}x{}) -> hiding toolbar", foreground_class,
+                          foreground_rect.left, foreground_rect.top, foreground_rect.right - foreground_rect.left,
                           foreground_rect.bottom - foreground_rect.top);
             HideFloatingToolbarHost();
             g_isHiddenDueToFullscreen = true;

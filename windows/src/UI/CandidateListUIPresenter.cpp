@@ -34,8 +34,7 @@ const int MOVETO_BOTTOM = -1;
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCandidateFinalize(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                  uint64_t requestId,
+HRESULT CMetasequoiaIME::_HandleCandidateFinalize(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId,
                                                   const std::wstring &prefetchedText)
 {
     HRESULT hr = S_OK;
@@ -46,7 +45,6 @@ HRESULT CMetasequoiaIME::_HandleCandidateFinalize(TfEditCookie ec, _In_ ITfConte
     DWORD_PTR candidateLen = keystrokeBufLen;
     CStringRange candidateString(keyStrokebuffer);
     const std::wstring &pendingCommitCandidate = prefetchedText;
-
 
     // _pCandidateListUIPresenter would be null in uwp/metro apps
     if (nullptr == _pCandidateListUIPresenter)
@@ -77,8 +75,7 @@ HRESULT CMetasequoiaIME::_HandleCandidateFinalize(TfEditCookie ec, _In_ ITfConte
 
         UINT serverMsgType = Global::DataFromServerMsgType::OutofRange;
         std::wstring serverCandidateString;
-        const bool hasPrefetchedServerCandidate =
-            _TakePendingServerCandidate(&serverMsgType, &serverCandidateString);
+        const bool hasPrefetchedServerCandidate = _TakePendingServerCandidate(&serverMsgType, &serverCandidateString);
         if (!hasPrefetchedServerCandidate)
         {
             PerfTimer pipeReadTimer;
@@ -164,8 +161,7 @@ HRESULT CMetasequoiaIME::_HandleCandidateFinalize(TfEditCookie ec, _In_ ITfConte
 
                 if (pCompositionProcessorEngine->GetVirtualKeyLength())
                 {
-                    _HandleCompositionInputWorker(pCompositionProcessorEngine, ec, pContext,
-                                                  FANY_IME_NO_REQUEST_ID);
+                    _HandleCompositionInputWorker(pCompositionProcessorEngine, ec, pContext, FANY_IME_NO_REQUEST_ID);
                 }
                 else
                 {
@@ -205,8 +201,7 @@ HRESULT CMetasequoiaIME::_HandleCandidateFinalizeForVKReturn(TfEditCookie ec, _I
     // matches the Normal branch of _HandleCandidateFinalize and mirrors the
     // Server, which drops its own creating_word state when the candidate
     // presenter teardown below sends HideCandidateWnd.
-    const std::wstring commitText =
-        GlobalIme::word_for_creating_word + keyStrokebuffer.ToWString();
+    const std::wstring commitText = GlobalIme::word_for_creating_word + keyStrokebuffer.ToWString();
     GlobalIme::word_for_creating_word.clear();
     GlobalIme::pending_create_word_preedit.clear();
 
@@ -256,8 +251,7 @@ NoPresenter:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCandidateConvert(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                 uint64_t requestId,
+HRESULT CMetasequoiaIME::_HandleCandidateConvert(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId,
                                                  const std::wstring &prefetchedText)
 {
     return _HandleCandidateWorker(ec, pContext, requestId, prefetchedText);
@@ -269,8 +263,7 @@ HRESULT CMetasequoiaIME::_HandleCandidateConvert(TfEditCookie ec, _In_ ITfContex
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                uint64_t requestId,
+HRESULT CMetasequoiaIME::_HandleCandidateWorker(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId,
                                                 const std::wstring &prefetchedText)
 {
     HRESULT hrReturn = E_FAIL;
@@ -319,8 +312,7 @@ HRESULT CMetasequoiaIME::_HandleCandidateArrowKey( //
         return S_OK;
     }
 
-    if (Global::IsUiLessMode() &&
-        _pCandidateListUIPresenter->_ConsumeUiLessCompositionReply(requestId))
+    if (Global::IsUiLessMode() && _pCandidateListUIPresenter->_ConsumeUiLessCompositionReply(requestId))
     {
         return S_OK;
     }
@@ -346,8 +338,7 @@ HRESULT CMetasequoiaIME::_HandleCandidateArrowKey( //
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_HandleCandidateSelectByNumber(TfEditCookie ec, _In_ ITfContext *pContext, _In_ UINT uCode,
-                                                        uint64_t requestId,
-                                                        const std::wstring &prefetchedText)
+                                                        uint64_t requestId, const std::wstring &prefetchedText)
 {
     int iSelectAsNumber = _pCompositionProcessorEngine->GetCandidateListIndexRange()->GetIndex(uCode);
     if (iSelectAsNumber == -1)
@@ -378,9 +369,8 @@ HRESULT CMetasequoiaIME::_HandleCandidateSelectByNumber(TfEditCookie ec, _In_ IT
 //
 //----------------------------------------------------------------------------
 
-CCandidateListUIPresenter::CCandidateListUIPresenter(_In_ CMetasequoiaIME *pTextService,
-                                                     KEYSTROKE_CATEGORY Category, _In_ CCandidateRange *pIndexRange,
-                                                     BOOL hideWindow)
+CCandidateListUIPresenter::CCandidateListUIPresenter(_In_ CMetasequoiaIME *pTextService, KEYSTROKE_CATEGORY Category,
+                                                     _In_ CCandidateRange *pIndexRange, BOOL hideWindow)
     : CTfTextLayoutSink(pTextService), _candidateState(pIndexRange)
 {
     _pIndexRange = pIndexRange;
@@ -878,7 +868,6 @@ void CCandidateListUIPresenter::_EndCandidateList()
     PerfTimer endLayoutTimer;
     _EndLayout();
     double endLayoutElapsedMs = endLayoutTimer.ElapsedMs();
-
 }
 
 void CCandidateListUIPresenter::_PrepareForAsyncCleanup()
@@ -1154,13 +1143,11 @@ VOID CCandidateListUIPresenter::_LayoutDestroyNotification()
         return;
     }
 
-
     EndUIElement();
     EndCandidateUiSession();
     _candidateState.Clear();
     _candidateWindowVisible = FALSE;
     _EndLayout();
-
 }
 
 //+---------------------------------------------------------------------------
@@ -1224,11 +1211,9 @@ HRESULT CCandidateListUIPresenter::_CandidateChangeNotification(_In_ enum CANDWN
         goto Exit;
     }
 
-    CKeyHandlerEditSession *pEditSession =
-        new (std::nothrow) CKeyHandlerEditSession(_pTextService, pContext, 0, 0, KeyState,
-                                                  FANY_IME_NO_REQUEST_ID, {}, {},
-                                                  _pTextService->_CaptureFocusSessionToken(), 0,
-                                                  _pTextService->_CaptureCompositionEpoch());
+    CKeyHandlerEditSession *pEditSession = new (std::nothrow) CKeyHandlerEditSession(
+        _pTextService, pContext, 0, 0, KeyState, FANY_IME_NO_REQUEST_ID, {}, {},
+        _pTextService->_CaptureFocusSessionToken(), 0, _pTextService->_CaptureCompositionEpoch());
     if (nullptr != pEditSession)
     {
         HRESULT hrSession = S_OK;
@@ -1509,8 +1494,7 @@ void CCandidateListUIPresenter::_ApplyUiLessCandidatePage(_In_ const std::wstrin
     _ReplaceCandidateListFromPage(page);
     if (_candidateState.GetCount() != 0)
     {
-        const int clamped =
-            (std::max)(0, (std::min)(selectedIndex, static_cast<int>(_candidateState.GetCount()) - 1));
+        const int clamped = (std::max)(0, (std::min)(selectedIndex, static_cast<int>(_candidateState.GetCount()) - 1));
         _candidateState.SetSelectionSilently(clamped);
     }
 }
@@ -1523,8 +1507,7 @@ bool CCandidateListUIPresenter::_ConsumeUiLessCompositionReply(uint64_t requestI
     }
     struct FanyImeNamedpipeDataToTsf *receivedData =
         TryReadDataFromServerPipeWithTimeout(requestId, /*abortTransportOnTimeout=*/false);
-    if (receivedData == nullptr ||
-        receivedData->msg_type != Global::DataFromServerMsgType::UiLessComposition)
+    if (receivedData == nullptr || receivedData->msg_type != Global::DataFromServerMsgType::UiLessComposition)
     {
         return false;
     }
@@ -1557,8 +1540,8 @@ bool CCandidateListUIPresenter::_ConsumeUiLessCompositionReply(uint64_t requestI
 
 void CCandidateListUIPresenter::_NotifyUiLessHost()
 {
-    _updatedFlags = TF_CLUIE_DOCUMENTMGR | TF_CLUIE_COUNT | TF_CLUIE_SELECTION | TF_CLUIE_STRING |
-                    TF_CLUIE_PAGEINDEX | TF_CLUIE_CURRENTPAGE;
+    _updatedFlags = TF_CLUIE_DOCUMENTMGR | TF_CLUIE_COUNT | TF_CLUIE_SELECTION | TF_CLUIE_STRING | TF_CLUIE_PAGEINDEX |
+                    TF_CLUIE_CURRENTPAGE;
     _UpdateUIElement();
 }
 
@@ -1604,11 +1587,9 @@ void CCandidateListUIPresenter::_RequestCancelComposition()
         return;
     }
 
-    CKeyHandlerEditSession *pEditSession =
-        new (std::nothrow) CKeyHandlerEditSession(_pTextService, pContext, 0, 0, KeyState,
-                                                  FANY_IME_NO_REQUEST_ID, {}, {},
-                                                  _pTextService->_CaptureFocusSessionToken(), 0,
-                                                  _pTextService->_CaptureCompositionEpoch());
+    CKeyHandlerEditSession *pEditSession = new (std::nothrow) CKeyHandlerEditSession(
+        _pTextService, pContext, 0, 0, KeyState, FANY_IME_NO_REQUEST_ID, {}, {},
+        _pTextService->_CaptureFocusSessionToken(), 0, _pTextService->_CaptureCompositionEpoch());
     if (nullptr != pEditSession)
     {
         HRESULT hrSession = S_OK;

@@ -79,7 +79,6 @@ std::wstring g_last_config_message;
 bool g_worker_com_initialized = false; // worker-only
 void CloseSettings(HWND hwnd);
 
-
 nlohmann::json CandidateColorsToJson(const CandidateSkinCatalog::CandidateColors &colors)
 {
     nlohmann::json json = nlohmann::json::object();
@@ -104,7 +103,8 @@ nlohmann::json CandidateColorsToJson(const CandidateSkinCatalog::CandidateColors
 
 void ShowAboutSection()
 {
-    if (!g_webview) return;
+    if (!g_webview)
+        return;
     g_webview->ExecuteScript(LR"JS((() => {
         const selectAbout = () => {
             const item = document.querySelector('.sidebar .item[data-target="about-settings"]');
@@ -121,7 +121,8 @@ void ShowAboutSection()
             if (selectAbout()) clearInterval(retry);
         }, 50);
         setTimeout(() => clearInterval(retry), 10000);
-    })())JS", nullptr);
+    })())JS",
+                             nullptr);
 }
 
 void ApplyWindowActivationAppearance()
@@ -132,8 +133,7 @@ void ApplyWindowActivationAppearance()
     // Keep this effect in the native host so it follows the real top-level
     // activation state rather than DOM focus. Only title-bar foreground
     // elements are muted; the page and title-bar backgrounds remain intact.
-    const wchar_t *script = g_window_active
-        ? LR"JS((() => {
+    const wchar_t *script = g_window_active ? LR"JS((() => {
             document.getElementById('metasequoia-window-inactive-overlay')?.remove();
             const id = 'metasequoia-window-activation-style';
             if (!document.getElementById(id)) {
@@ -156,7 +156,7 @@ void ApplyWindowActivationAppearance()
             }
             document.documentElement.classList.remove('metasequoia-window-inactive');
         })())JS"
-        : LR"JS((() => {
+                                            : LR"JS((() => {
             document.getElementById('metasequoia-window-inactive-overlay')?.remove();
             const id = 'metasequoia-window-activation-style';
             if (!document.getElementById(id)) {
@@ -244,7 +244,8 @@ void ResetTitlebarHoverAfterVisibilityChange()
         window.__metasequoiaReleaseTooltipReset = release;
         window.addEventListener('pointermove', release, {capture: true, once: true});
         window.addEventListener('pointerdown', release, {capture: true, once: true});
-    })())JS", nullptr);
+    })())JS",
+                             nullptr);
 }
 
 std::wstring BuildConfigMessage(bool refresh_skin_catalog)
@@ -255,8 +256,8 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
-    const std::filesystem::path skins_root = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
-                                             GlobalIme::AppName / L"skins";
+    const std::filesystem::path skins_root =
+        std::filesystem::path(CommonUtils::get_local_appdata_path_w()) / GlobalIme::AppName / L"skins";
     if (refresh_skin_catalog)
     {
         g_candidate_skin_catalog = CandidateSkinCatalog::Scan(skins_root);
@@ -269,23 +270,23 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
     {
         for (const auto &skin : g_candidate_skin_catalog->packages)
         {
-            external_skins.push_back({{"id", skin.id},
-                                      {"name", skin.name},
-                                      {"version", skin.version},
-                                      {"author", skin.author},
-                                      {"description", skin.description},
-                                      {"base", skin.base},
-                                      {"toolbarStylesheet", skin.toolbarStylesheet},
-                                      {"preview", skin.preview},
-                                      {"layouts", skin.layouts},
-                                      {"themes", skin.themes},
-                                      {"minWidthDip", skin.minWidthDip},
-                                      {"decorationTopDip", skin.decorationTopDip},
-                                      {"decorationWidthDip", skin.decorationWidthDip},
-                                      {"candidate",
-                                       {{"dark", CandidateColorsToJson(skin.dark)},
-                                        {"light", CandidateColorsToJson(skin.light)}}},
-                                      {"compatible", CandidateSkinCatalog::Supports(skin, skin_layout, skin_theme)}});
+            external_skins.push_back(
+                {{"id", skin.id},
+                 {"name", skin.name},
+                 {"version", skin.version},
+                 {"author", skin.author},
+                 {"description", skin.description},
+                 {"base", skin.base},
+                 {"toolbarStylesheet", skin.toolbarStylesheet},
+                 {"preview", skin.preview},
+                 {"layouts", skin.layouts},
+                 {"themes", skin.themes},
+                 {"minWidthDip", skin.minWidthDip},
+                 {"decorationTopDip", skin.decorationTopDip},
+                 {"decorationWidthDip", skin.decorationWidthDip},
+                 {"candidate",
+                  {{"dark", CandidateColorsToJson(skin.dark)}, {"light", CandidateColorsToJson(skin.light)}}},
+                 {"compatible", CandidateSkinCatalog::Supports(skin, skin_layout, skin_theme)}});
         }
     }
     nlohmann::json skin_issues = nlohmann::json::array();
@@ -348,7 +349,8 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
             {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
             {"switch_language_ctrl_alt_space", GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
           {"frequency_adjustment",
-           {{"mode", frequency.mode}, {"trigger_count", frequency.trigger_count},
+           {{"mode", frequency.mode},
+            {"trigger_count", frequency.trigger_count},
             {"linear_step", frequency.linear_step}}},
           {"utility",
            {{"unicode_mode", GetConfiguredUnicodeModeEnabled()},
@@ -394,26 +396,34 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
             {"candidate_skin_directory", skins_root.u8string()}}},
           {"voice_input",
            {{"enabled", voice.enabled},
-            {"hotkey_ralt", voice.hotkey_ralt}, {"hotkey_ctrl_f9", voice.hotkey_ctrl_f9},
-            {"hotkey_ctrl_win", voice.hotkey_ctrl_win}, {"hotkey_rctrl_ralt", voice.hotkey_rctrl_ralt},
+            {"hotkey_ralt", voice.hotkey_ralt},
+            {"hotkey_ctrl_f9", voice.hotkey_ctrl_f9},
+            {"hotkey_ctrl_win", voice.hotkey_ctrl_win},
+            {"hotkey_rctrl_ralt", voice.hotkey_rctrl_ralt},
             {"hotkey_hold_space_lock", voice.hotkey_hold_space_lock},
-            {"asr_provider", voice.asr_provider}, {"asr_app_key", voice.asr_app_key},
-            {"asr_token", voice.asr_token}, {"asr_tokens", voice.asr_tokens},
-            {"asr_endpoint", voice.asr_endpoint}, {"asr_resource_id", voice.asr_resource_id},
+            {"asr_provider", voice.asr_provider},
+            {"asr_app_key", voice.asr_app_key},
+            {"asr_token", voice.asr_token},
+            {"asr_tokens", voice.asr_tokens},
+            {"asr_endpoint", voice.asr_endpoint},
+            {"asr_resource_id", voice.asr_resource_id},
             {"doubao_enable_itn", voice.doubao_enable_itn},
             {"doubao_enable_punc", voice.doubao_enable_punc},
             {"doubao_enable_ddc", voice.doubao_enable_ddc},
             {"doubao_boosting_table_id", voice.doubao_boosting_table_id},
             {"asr_model", voice.asr_model},
             {"polish_provider", voice.polish_provider},
-            {"polish_token", voice.polish_token}, {"polish_tokens", voice.polish_tokens}, {"polish_endpoint", voice.polish_endpoint},
+            {"polish_token", voice.polish_token},
+            {"polish_tokens", voice.polish_tokens},
+            {"polish_endpoint", voice.polish_endpoint},
             {"polish_model", voice.polish_model},
             {"polish_prompt_id", voice.polish_prompt_id},
             {"polish_prompt", voice.polish_prompt},
             {"polish_prompt_custom_1", voice.polish_prompt_custom_1},
             {"polish_prompt_custom_2", voice.polish_prompt_custom_2},
             {"polish_prompt_custom_3", voice.polish_prompt_custom_3},
-            {"language", voice.language}, {"start_sound", voice.start_sound},
+            {"language", voice.language},
+            {"start_sound", voice.start_sound},
             {"end_sound", voice.end_sound},
             {"mute_system_audio", voice.mute_system_audio},
             {"notification_sound", voice.start_sound && voice.end_sound},
@@ -421,14 +431,23 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
             {"stream_inline_preedit", voice.stream_inline_preedit},
             {"commit_mode", voice.commit_mode}}},
           {"ai_assistant",
-           {{"enabled", ai.enabled}, {"provider", ai.provider}, {"token", ai.token},
-            {"tokens", ai.tokens}, {"endpoint", ai.endpoint}, {"model", ai.model},
-            {"candidate_limit", ai.candidate_limit}, {"prompt", ai.prompt},
-            {"prompt_id", ai.prompt_id}, {"prompt_custom_1", ai.prompt_custom_1},
-            {"prompt_custom_2", ai.prompt_custom_2}, {"prompt_custom_3", ai.prompt_custom_3}}},
+           {{"enabled", ai.enabled},
+            {"provider", ai.provider},
+            {"token", ai.token},
+            {"tokens", ai.tokens},
+            {"endpoint", ai.endpoint},
+            {"model", ai.model},
+            {"candidate_limit", ai.candidate_limit},
+            {"prompt", ai.prompt},
+            {"prompt_id", ai.prompt_id},
+            {"prompt_custom_1", ai.prompt_custom_1},
+            {"prompt_custom_2", ai.prompt_custom_2},
+            {"prompt_custom_3", ai.prompt_custom_3}}},
           {"tencent_tmt",
-           {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
-            {"region", tencent_tmt.region}, {"target_language", tencent_tmt.target_language}}},
+           {{"secret_id", tencent_tmt.secret_id},
+            {"secret_key", tencent_tmt.secret_key},
+            {"region", tencent_tmt.region},
+            {"target_language", tencent_tmt.target_language}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
             {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
@@ -462,7 +481,8 @@ SerialTaskQueue::Completion ConfigCompletion(bool refresh_skin_catalog = false)
 
 void PostConfig(bool refresh_skin_catalog = false)
 {
-    if (!g_worker || g_closing) return;
+    if (!g_worker || g_closing)
+        return;
     g_worker->Submit([refresh_skin_catalog] { return ConfigCompletion(refresh_skin_catalog); });
 }
 
@@ -572,16 +592,15 @@ bool ApplyConfigUpdate(const json::object &data)
     if (path == "general.floating_toolbar_scale")
     {
         const json::value &value = data.at("value");
-        const double scale =
-            value.is_double() ? value.as_double() : static_cast<double>(value.as_int64());
+        const double scale = value.is_double() ? value.as_double() : static_cast<double>(value.as_int64());
         return SetConfiguredFloatingToolbarScale(scale);
     }
     if (path == "general.floating_toolbar_font_size")
         return SetConfiguredFloatingToolbarFontSize(static_cast<int>(data.at("value").as_int64()));
     constexpr std::string_view toolbar_prefix = "general.floating_toolbar_";
     if (path.rfind(toolbar_prefix, 0) == 0)
-        return SetConfiguredFloatingToolbarItemEnabled(
-            path.substr(toolbar_prefix.size()), json::value_to<bool>(data.at("value")));
+        return SetConfiguredFloatingToolbarItemEnabled(path.substr(toolbar_prefix.size()),
+                                                       json::value_to<bool>(data.at("value")));
     if (path == "general.cn_en_mixed_input")
         return SetConfiguredEnglishCandidatesEnabled(json::value_to<bool>(data.at("value")));
     if (path == "general.candidate_translations")
@@ -648,23 +667,27 @@ bool ApplyConfigUpdate(const json::object &data)
         {
             return SetConfiguredVoiceInputBool(key, json::value_to<bool>(value));
         }
-        if (value.is_string()) return SetConfiguredVoiceInputString(key, json::value_to<std::string>(value));
+        if (value.is_string())
+            return SetConfiguredVoiceInputString(key, json::value_to<std::string>(value));
         return false;
     }
     if (path.rfind("ai_assistant.", 0) == 0)
     {
         const std::string key = path.substr(13);
         const json::value &value = data.at("value");
-        if (value.is_bool()) return SetConfiguredAiAssistantBool(key, json::value_to<bool>(value));
-        if (value.is_string()) return SetConfiguredAiAssistantString(key, json::value_to<std::string>(value));
-        if (value.is_int64()) return SetConfiguredAiAssistantInt(key, static_cast<int>(value.as_int64()));
+        if (value.is_bool())
+            return SetConfiguredAiAssistantBool(key, json::value_to<bool>(value));
+        if (value.is_string())
+            return SetConfiguredAiAssistantString(key, json::value_to<std::string>(value));
+        if (value.is_int64())
+            return SetConfiguredAiAssistantInt(key, static_cast<int>(value.as_int64()));
         return false;
     }
     if (path.rfind("tencent_tmt.", 0) == 0)
     {
         const json::value &value = data.at("value");
-        return value.is_string() && SetConfiguredTencentTmtString(
-            path.substr(std::string("tencent_tmt.").size()), json::value_to<std::string>(value));
+        return value.is_string() && SetConfiguredTencentTmtString(path.substr(std::string("tencent_tmt.").size()),
+                                                                  json::value_to<std::string>(value));
     }
     if (path == "helpcode.show_sp_helpcode_in_candidate_window")
         return SetConfiguredShowShuangpinHelpcodeInCandidateWindow(json::value_to<bool>(data.at("value")));
@@ -683,20 +706,29 @@ bool ApplyConfigUpdate(const json::object &data)
 
 int HitTestName(const std::string &name)
 {
-    if (name == "left") return HTLEFT;
-    if (name == "right") return HTRIGHT;
-    if (name == "top") return HTTOP;
-    if (name == "bottom") return HTBOTTOM;
-    if (name == "left-top") return HTTOPLEFT;
-    if (name == "right-top") return HTTOPRIGHT;
-    if (name == "left-bottom") return HTBOTTOMLEFT;
-    if (name == "right-bottom") return HTBOTTOMRIGHT;
+    if (name == "left")
+        return HTLEFT;
+    if (name == "right")
+        return HTRIGHT;
+    if (name == "top")
+        return HTTOP;
+    if (name == "bottom")
+        return HTBOTTOM;
+    if (name == "left-top")
+        return HTTOPLEFT;
+    if (name == "right-top")
+        return HTTOPRIGHT;
+    if (name == "left-bottom")
+        return HTBOTTOMLEFT;
+    if (name == "right-bottom")
+        return HTBOTTOMRIGHT;
     return HTCLIENT;
 }
 
 bool CopyTextToClipboard(HWND hwnd, const std::wstring &text)
 {
-    if (!OpenClipboard(hwnd)) return false;
+    if (!OpenClipboard(hwnd))
+        return false;
     EmptyClipboard();
 
     const SIZE_T bytes = (text.size() + 1) * sizeof(wchar_t);
@@ -730,7 +762,8 @@ bool CopyTextToClipboard(HWND hwnd, const std::wstring &text)
 
 void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
 {
-    if (g_closing || !g_worker) return;
+    if (g_closing || !g_worker)
+        return;
     wil::unique_cotaskmem_string raw;
     if (FAILED(args->TryGetWebMessageAsString(&raw)) || !raw)
         return;
@@ -762,10 +795,14 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         else if (type == "windowControl")
         {
             const std::string command = json::value_to<std::string>(value.at("data"));
-            if (command == "minimize") ShowWindow(hwnd, SW_MINIMIZE);
-            else if (command == "maximize") ShowWindow(hwnd, SW_MAXIMIZE);
-            else if (command == "restore") ShowWindow(hwnd, SW_RESTORE);
-            else if (command == "close") CloseSettings(hwnd);
+            if (command == "minimize")
+                ShowWindow(hwnd, SW_MINIMIZE);
+            else if (command == "maximize")
+                ShowWindow(hwnd, SW_MAXIMIZE);
+            else if (command == "restore")
+                ShowWindow(hwnd, SW_RESTORE);
+            else if (command == "close")
+                CloseSettings(hwnd);
         }
         else if (type == "maximizeButtonRect")
         {
@@ -773,9 +810,11 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
             const double x = data.if_contains("x") ? json::value_to<double>(*data.if_contains("x")) : 0.0;
             const double y = data.if_contains("y") ? json::value_to<double>(*data.if_contains("y")) : 0.0;
             const double width = data.if_contains("width") ? json::value_to<double>(*data.if_contains("width")) : 0.0;
-            const double height = data.if_contains("height") ? json::value_to<double>(*data.if_contains("height")) : 0.0;
+            const double height =
+                data.if_contains("height") ? json::value_to<double>(*data.if_contains("height")) : 0.0;
             double scale = data.if_contains("dpr") ? json::value_to<double>(*data.if_contains("dpr")) : 0.0;
-            if (scale <= 0.0) scale = static_cast<double>(GetDpiForWindow(hwnd)) / 96.0;
+            if (scale <= 0.0)
+                scale = static_cast<double>(GetDpiForWindow(hwnd)) / 96.0;
             g_maximize_button_rect = {static_cast<LONG>(std::lround(x * scale)),
                                       static_cast<LONG>(std::lround(y * scale)),
                                       static_cast<LONG>(std::lround((x + width) * scale)),
@@ -799,11 +838,12 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
         }
         else if (type == "openSkinDirectory")
         {
-            const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
-                                                GlobalIme::AppName / L"skins";
+            const std::filesystem::path skins =
+                std::filesystem::path(CommonUtils::get_local_appdata_path_w()) / GlobalIme::AppName / L"skins";
             std::error_code ec;
             std::filesystem::create_directories(skins, ec);
-            if (!ec) ShellExecuteW(hwnd, L"open", skins.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            if (!ec)
+                ShellExecuteW(hwnd, L"open", skins.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
         else if (type == "configUpdate")
         {
@@ -813,7 +853,8 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
                 auto completion = ConfigCompletion();
                 return [saved, completion = std::move(completion)] {
                     completion();
-                    if (!saved) MessageBoxW(g_settings_hwnd, L"设置保存失败，请重试。", L"水杉输入法", MB_OK | MB_ICONWARNING);
+                    if (!saved)
+                        MessageBoxW(g_settings_hwnd, L"设置保存失败，请重试。", L"水杉输入法", MB_OK | MB_ICONWARNING);
                 };
             });
         }
@@ -840,8 +881,15 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
             const auto data = value.at("data").as_object();
             g_worker->Submit([data]() -> SerialTaskQueue::Completion {
                 json::value response;
-                try { response = SettingsDictionary::HandleRequest(data); }
-                catch (...) { response = json::object{{"ok", false}, {"message", "词库操作失败，请重试"}, {"rows", json::array{}}}; }
+                try
+                {
+                    response = SettingsDictionary::HandleRequest(data);
+                }
+                catch (...)
+                {
+                    response =
+                        json::object{{"ok", false}, {"message", "词库操作失败，请重试"}, {"rows", json::array{}}};
+                }
                 auto &object = response.as_object();
                 object["type"] = "dictionaryResponse";
                 object["requestId"] = data.at("requestId");
@@ -852,7 +900,8 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
                     throw std::runtime_error("Invalid dictionary response");
                 auto message = string_to_wstring(json::serialize(response));
                 return [message = std::move(message)] {
-                    if (g_webview) g_webview->PostWebMessageAsJson(message.c_str());
+                    if (g_webview)
+                        g_webview->PostWebMessageAsJson(message.c_str());
                 };
             });
         }
@@ -866,14 +915,18 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
 HRESULT EnsureCompositionTree(HWND hwnd)
 {
     HRESULT hr = DCompositionCreateDevice(nullptr, __uuidof(IDCompositionDevice),
-                                           reinterpret_cast<void **>(g_dcomp_device.GetAddressOf()));
-    if (FAILED(hr)) return hr;
+                                          reinterpret_cast<void **>(g_dcomp_device.GetAddressOf()));
+    if (FAILED(hr))
+        return hr;
     hr = g_dcomp_device->CreateTargetForHwnd(hwnd, TRUE, &g_dcomp_target);
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+        return hr;
     hr = g_dcomp_device->CreateVisual(&g_dcomp_root);
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+        return hr;
     hr = g_dcomp_target->SetRoot(g_dcomp_root.Get());
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+        return hr;
     return g_dcomp_device->Commit();
 }
 
@@ -885,8 +938,10 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
         return FAILED(result) ? result : E_FAIL;
     }
     g_composition_controller = controller;
-    if (FAILED(g_composition_controller.As(&g_controller))) return E_NOINTERFACE;
-    if (FAILED(g_controller->get_CoreWebView2(&g_webview)) || !g_webview) return E_FAIL;
+    if (FAILED(g_composition_controller.As(&g_controller)))
+        return E_NOINTERFACE;
+    if (FAILED(g_controller->get_CoreWebView2(&g_webview)) || !g_webview)
+        return E_FAIL;
 
     ComPtr<ICoreWebView2Settings> settings;
     if (SUCCEEDED(g_webview->get_Settings(&settings)))
@@ -905,13 +960,13 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
         const std::filesystem::path assets = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
                                              GlobalIme::AppName / "html/webview2/settings/ime-settings/dist";
         g_webview3->SetVirtualHostNameToFolderMapping(L"imesettings", assets.c_str(),
-                                                       COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
-        const std::filesystem::path skins = std::filesystem::path(CommonUtils::get_local_appdata_path_w()) /
-                                            GlobalIme::AppName / L"skins";
+                                                      COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        const std::filesystem::path skins =
+            std::filesystem::path(CommonUtils::get_local_appdata_path_w()) / GlobalIme::AppName / L"skins";
         std::error_code ec;
         std::filesystem::create_directories(skins, ec);
         g_webview3->SetVirtualHostNameToFolderMapping(L"candidate-skins", skins.c_str(),
-                                                       COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+                                                      COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
     }
     if (SUCCEEDED(g_controller.As(&g_controller2)))
     {
@@ -919,9 +974,11 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
     }
 
     HRESULT hr = EnsureCompositionTree(hwnd);
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+        return hr;
     hr = g_composition_controller->put_RootVisualTarget(g_dcomp_root.Get());
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+        return hr;
     g_dcomp_device->Commit();
 
     RECT bounds{};
@@ -930,41 +987,43 @@ HRESULT OnControllerCreated(HWND hwnd, HRESULT result, ICoreWebView2CompositionC
 
     EventRegistrationToken token{};
     g_webview->add_ContentLoading(
-        Callback<ICoreWebView2ContentLoadingEventHandler>(
-            [](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
-                g_last_config_message.clear();
-                g_webview_content_started = true;
-                SettingsSplash::Dismiss();
-                return S_OK;
-            }).Get(),
+        Callback<ICoreWebView2ContentLoadingEventHandler>([](ICoreWebView2 *,
+                                                             ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
+            g_last_config_message.clear();
+            g_webview_content_started = true;
+            SettingsSplash::Dismiss();
+            return S_OK;
+        }).Get(),
         &token);
     g_webview->add_NavigationCompleted(
-        Callback<ICoreWebView2NavigationCompletedEventHandler>(
-            [hwnd](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
-                BOOL success = FALSE;
-                args->get_IsSuccess(&success);
-                SettingsSplash::Dismiss();
-                if (success)
+        Callback<ICoreWebView2NavigationCompletedEventHandler>([hwnd](ICoreWebView2 *,
+                                                                      ICoreWebView2NavigationCompletedEventArgs *args)
+                                                                   -> HRESULT {
+            BOOL success = FALSE;
+            args->get_IsSuccess(&success);
+            SettingsSplash::Dismiss();
+            if (success)
+            {
+                PostWindowState(hwnd);
+                PostConfig();
+                ApplyWindowActivationAppearance();
+                SetFocus(hwnd);
+                if (g_open_about_on_ready)
                 {
-                    PostWindowState(hwnd);
-                    PostConfig();
-                    ApplyWindowActivationAppearance();
-                    SetFocus(hwnd);
-                    if (g_open_about_on_ready)
-                    {
-                        ShowAboutSection();
-                        g_open_about_on_ready = false;
-                    }
+                    ShowAboutSection();
+                    g_open_about_on_ready = false;
                 }
-                return S_OK;
-            }).Get(),
+            }
+            return S_OK;
+        }).Get(),
         &token);
     g_webview->add_WebMessageReceived(
-        Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-            [hwnd](ICoreWebView2 *, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
-                HandleWebMessage(hwnd, args);
-                return S_OK;
-            }).Get(),
+        Callback<ICoreWebView2WebMessageReceivedEventHandler>([hwnd](ICoreWebView2 *,
+                                                                     ICoreWebView2WebMessageReceivedEventArgs *args)
+                                                                  -> HRESULT {
+            HandleWebMessage(hwnd, args);
+            return S_OK;
+        }).Get(),
         &token);
     return g_webview->Navigate(L"https://imesettings/index.html");
 }
@@ -975,13 +1034,12 @@ void InitWebView(HWND hwnd)
     std::error_code ec;
     std::filesystem::create_directories(user_data, ec);
     auto options = Make<CoreWebView2EnvironmentOptions>();
-    options->put_AdditionalBrowserArguments(
-        L"--disable-features=TranslateUI "
-        L"--disable-background-networking "
-        L"--disable-default-apps "
-        L"--disable-sync "
-        L"--disable-prompt-on-repost "
-        L"--no-first-run");
+    options->put_AdditionalBrowserArguments(L"--disable-features=TranslateUI "
+                                            L"--disable-background-networking "
+                                            L"--disable-default-apps "
+                                            L"--disable-sync "
+                                            L"--disable-prompt-on-repost "
+                                            L"--no-first-run");
     CreateCoreWebView2EnvironmentWithOptions(
         nullptr, user_data.c_str(), options.Get(),
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
@@ -1002,63 +1060,114 @@ void InitWebView(HWND hwnd)
                     Callback<ICoreWebView2CreateCoreWebView2CompositionControllerCompletedHandler>(
                         [hwnd](HRESULT controller_result, ICoreWebView2CompositionController *controller) -> HRESULT {
                             return OnControllerCreated(hwnd, controller_result, controller);
-                        }).Get());
-            }).Get());
+                        })
+                        .Get());
+            })
+            .Get());
 }
 
 UINT32 MouseKeys(WPARAM w_param)
 {
     UINT32 keys = COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_NONE;
-    if (w_param & MK_LBUTTON) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_LEFT_BUTTON;
-    if (w_param & MK_RBUTTON) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_RIGHT_BUTTON;
-    if (w_param & MK_MBUTTON) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_MIDDLE_BUTTON;
-    if (w_param & MK_SHIFT) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_SHIFT;
-    if (w_param & MK_CONTROL) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_CONTROL;
-    if (w_param & MK_XBUTTON1) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_X_BUTTON1;
-    if (w_param & MK_XBUTTON2) keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_X_BUTTON2;
+    if (w_param & MK_LBUTTON)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_LEFT_BUTTON;
+    if (w_param & MK_RBUTTON)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_RIGHT_BUTTON;
+    if (w_param & MK_MBUTTON)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_MIDDLE_BUTTON;
+    if (w_param & MK_SHIFT)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_SHIFT;
+    if (w_param & MK_CONTROL)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_CONTROL;
+    if (w_param & MK_XBUTTON1)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_X_BUTTON1;
+    if (w_param & MK_XBUTTON2)
+        keys |= COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS_X_BUTTON2;
     return keys;
 }
 
 bool ForwardMouse(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_param)
 {
-    if (!g_composition_controller) return false;
+    if (!g_composition_controller)
+        return false;
     COREWEBVIEW2_MOUSE_EVENT_KIND kind{};
     UINT32 data = 0;
     switch (message)
     {
-    case WM_MOUSEMOVE: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE; break;
-    case WM_LBUTTONDOWN: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN; SetFocus(hwnd); break;
-    case WM_LBUTTONUP: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP; break;
-    case WM_LBUTTONDBLCLK: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK; break;
-    case WM_RBUTTONDOWN: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOWN; break;
-    case WM_RBUTTONUP: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP; break;
-    case WM_RBUTTONDBLCLK: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOUBLE_CLICK; break;
-    case WM_MBUTTONDOWN: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN; break;
-    case WM_MBUTTONUP: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP; break;
-    case WM_MBUTTONDBLCLK: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOUBLE_CLICK; break;
-    case WM_XBUTTONDOWN: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOWN; data = GET_XBUTTON_WPARAM(w_param); break;
-    case WM_XBUTTONUP: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_UP; data = GET_XBUTTON_WPARAM(w_param); break;
-    case WM_XBUTTONDBLCLK: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOUBLE_CLICK; data = GET_XBUTTON_WPARAM(w_param); break;
-    case WM_MOUSEWHEEL: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_WHEEL; data = GET_WHEEL_DELTA_WPARAM(w_param); break;
-    case WM_MOUSEHWHEEL: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_HORIZONTAL_WHEEL; data = GET_WHEEL_DELTA_WPARAM(w_param); break;
-    case WM_MOUSELEAVE: kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE; break;
-    default: return false;
+    case WM_MOUSEMOVE:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE;
+        break;
+    case WM_LBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN;
+        SetFocus(hwnd);
+        break;
+    case WM_LBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP;
+        break;
+    case WM_LBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK;
+        break;
+    case WM_RBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOWN;
+        break;
+    case WM_RBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP;
+        break;
+    case WM_RBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOUBLE_CLICK;
+        break;
+    case WM_MBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN;
+        break;
+    case WM_MBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP;
+        break;
+    case WM_MBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOUBLE_CLICK;
+        break;
+    case WM_XBUTTONDOWN:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOWN;
+        data = GET_XBUTTON_WPARAM(w_param);
+        break;
+    case WM_XBUTTONUP:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_UP;
+        data = GET_XBUTTON_WPARAM(w_param);
+        break;
+    case WM_XBUTTONDBLCLK:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_X_BUTTON_DOUBLE_CLICK;
+        data = GET_XBUTTON_WPARAM(w_param);
+        break;
+    case WM_MOUSEWHEEL:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_WHEEL;
+        data = GET_WHEEL_DELTA_WPARAM(w_param);
+        break;
+    case WM_MOUSEHWHEEL:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_HORIZONTAL_WHEEL;
+        data = GET_WHEEL_DELTA_WPARAM(w_param);
+        break;
+    case WM_MOUSELEAVE:
+        kind = COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE;
+        break;
+    default:
+        return false;
     }
     POINT point{GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
-    if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL) ScreenToClient(hwnd, &point);
+    if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)
+        ScreenToClient(hwnd, &point);
     if (message == WM_MOUSEMOVE)
     {
         TRACKMOUSEEVENT track{sizeof(track), TME_LEAVE, hwnd, 0};
         TrackMouseEvent(&track);
     }
-    g_composition_controller->SendMouseInput(kind,
-        static_cast<COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS>(MouseKeys(w_param)), data, point);
+    g_composition_controller->SendMouseInput(
+        kind, static_cast<COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS>(MouseKeys(w_param)), data, point);
     return true;
 }
 
 bool IsMaximizeButton(HWND hwnd, POINT screen_point)
 {
-    if (!g_has_maximize_button_rect) return false;
+    if (!g_has_maximize_button_rect)
+        return false;
     ScreenToClient(hwnd, &screen_point);
     return PtInRect(&g_maximize_button_rect, screen_point) != FALSE;
 }
@@ -1077,22 +1186,28 @@ int TopNonClientInset(HWND hwnd)
 
 void ActivateWindow(HWND hwnd)
 {
-    if (g_closing) return;
-    if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
-    else ShowWindow(hwnd, SW_SHOW);
+    if (g_closing)
+        return;
+    if (IsIconic(hwnd))
+        ShowWindow(hwnd, SW_RESTORE);
+    else
+        ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
     SetFocus(hwnd);
 }
 
 void CloseSettings(HWND hwnd)
 {
-    if (g_closing) return;
+    if (g_closing)
+        return;
     g_closing = true;
     KillTimer(hwnd, kConfigReloadTimer);
     SettingsSplash::Dismiss();
     ShowWindow(hwnd, SW_HIDE);
-    if (g_worker) g_worker->Stop();
-    else DestroyWindow(hwnd);
+    if (g_worker)
+        g_worker->Stop();
+    else
+        DestroyWindow(hwnd);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_param)
@@ -1118,22 +1233,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             return result;
         }
         break;
-    case WM_NCHITTEST:
-    {
+    case WM_NCHITTEST: {
         const LRESULT result = DefWindowProcW(hwnd, message, w_param, l_param);
         POINT point{GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
         return result == HTCLIENT && IsMaximizeButton(hwnd, point) ? HTMAXBUTTON : result;
     }
     case WM_MOVE:
     case WM_MOVING:
-        if (g_controller) g_controller->NotifyParentWindowPositionChanged();
-        if (SettingsSplash::IsVisible()) SettingsSplash::SyncToOwner();
+        if (g_controller)
+            g_controller->NotifyParentWindowPositionChanged();
+        if (SettingsSplash::IsVisible())
+            SettingsSplash::SyncToOwner();
         break;
     case WM_SETFOCUS:
-        if (g_controller) g_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        if (g_controller)
+            g_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         break;
-    case WM_ACTIVATE:
-    {
+    case WM_ACTIVATE: {
         const bool active = LOWORD(w_param) != WA_INACTIVE;
         if (g_window_active != active)
         {
@@ -1150,12 +1266,22 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         }
         break;
     }
-    case WM_MOUSEMOVE: case WM_MOUSELEAVE:
-    case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_LBUTTONDBLCLK:
-    case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_RBUTTONDBLCLK:
-    case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MBUTTONDBLCLK:
-    case WM_XBUTTONDOWN: case WM_XBUTTONUP: case WM_XBUTTONDBLCLK:
-    case WM_MOUSEWHEEL: case WM_MOUSEHWHEEL:
+    case WM_MOUSEMOVE:
+    case WM_MOUSELEAVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_LBUTTONDBLCLK:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_RBUTTONDBLCLK:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MBUTTONDBLCLK:
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP:
+    case WM_XBUTTONDBLCLK:
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL:
         if (ForwardMouse(hwnd, message, w_param, l_param))
             return (message == WM_XBUTTONDOWN || message == WM_XBUTTONUP || message == WM_XBUTTONDBLCLK) ? TRUE : 0;
         break;
@@ -1170,12 +1296,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             }
         }
         break;
-    case WM_NCMOUSEMOVE:
-    {
+    case WM_NCMOUSEMOVE: {
         POINT point{GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
         if (IsMaximizeButton(hwnd, point))
         {
-            if (!g_maximize_button_hover) { g_maximize_button_hover = true; PostMaximizeButtonEvent("enter"); }
+            if (!g_maximize_button_hover)
+            {
+                g_maximize_button_hover = true;
+                PostMaximizeButtonEvent("enter");
+            }
             TRACKMOUSEEVENT track{sizeof(track), TME_LEAVE | TME_NONCLIENT, hwnd, 0};
             TrackMouseEvent(&track);
             return 0;
@@ -1183,11 +1312,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         break;
     }
     case WM_NCMOUSELEAVE:
-        if (g_maximize_button_hover) { g_maximize_button_hover = false; PostMaximizeButtonEvent("leave"); }
+        if (g_maximize_button_hover)
+        {
+            g_maximize_button_hover = false;
+            PostMaximizeButtonEvent("leave");
+        }
         break;
     case WM_NCLBUTTONDOWN:
-    case WM_NCLBUTTONUP:
-    {
+    case WM_NCLBUTTONUP: {
         POINT point{GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
         if (IsMaximizeButton(hwnd, point))
         {
@@ -1196,8 +1328,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         }
         break;
     }
-    case WM_ERASEBKGND:
-    {
+    case WM_ERASEBKGND: {
         RECT client{};
         GetClientRect(hwnd, &client);
         const bool light = g_settings_light;
@@ -1206,15 +1337,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         DeleteObject(brush);
         return 1;
     }
-    case WM_GETMINMAXINFO:
-    {
+    case WM_GETMINMAXINFO: {
         auto *info = reinterpret_cast<MINMAXINFO *>(l_param);
         const UINT dpi = GetDpiForWindow(hwnd);
         info->ptMinTrackSize = {MulDiv(600, dpi, 96), MulDiv(400, dpi, 96)};
         return 0;
     }
-    case WM_SIZE:
-    {
+    case WM_SIZE: {
         const bool minimized = w_param == SIZE_MINIMIZED;
         if (minimized || g_window_minimized)
             ResetTitlebarHoverAfterVisibilityChange();
@@ -1226,7 +1355,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             g_controller->put_Bounds(bounds);
             PostWindowState(hwnd);
         }
-        if (SettingsSplash::IsVisible()) SettingsSplash::SyncToOwner();
+        if (SettingsSplash::IsVisible())
+            SettingsSplash::SyncToOwner();
         break;
     }
     case WM_TIMER:
@@ -1235,11 +1365,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
             g_reload_pending = true;
             g_worker->Submit([] {
                 SerialTaskQueue::Completion completion;
-                try { if (ReloadImeConfigIfChanged()) completion = ConfigCompletion(); }
-                catch (...) { /* Retry on the next timer tick; do not poison the queue. */ }
+                try
+                {
+                    if (ReloadImeConfigIfChanged())
+                        completion = ConfigCompletion();
+                }
+                catch (...)
+                { /* Retry on the next timer tick; do not poison the queue. */
+                }
                 return [completion = std::move(completion)] {
                     g_reload_pending = false;
-                    if (completion) completion();
+                    if (completion)
+                        completion();
                 };
             });
         }
@@ -1248,7 +1385,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         if (g_worker)
         {
             g_worker->Drain(!g_closing);
-            if (g_closing && g_worker->Stopped()) DestroyWindow(hwnd);
+            if (g_closing && g_worker->Stopped())
+                DestroyWindow(hwnd);
         }
         return 0;
     case WM_CLOSE:
@@ -1256,7 +1394,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l_pa
         return 0;
     case WM_DESTROY:
         g_closing = true;
-        if (g_worker) g_worker->Stop();
+        if (g_worker)
+            g_worker->Stop();
         KillTimer(hwnd, kConfigReloadTimer);
         SettingsSplash::Dismiss();
         g_webview.Reset();
@@ -1278,10 +1417,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     g_open_about_on_ready = command_line && std::wstring(command_line).find(L"--about") != std::wstring::npos;
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     const HRESULT com_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (FAILED(com_result)) return 1;
+    if (FAILED(com_result))
+        return 1;
 
     CommonUtils::SingleInstanceGuard single_instance(kSingleInstanceMutex);
-    if (!single_instance.is_valid()) return 1;
+    if (!single_instance.is_valid())
+        return 1;
     if (single_instance.already_running())
     {
         HWND existing = FindWindowW(kWindowClass, nullptr);
@@ -1302,20 +1443,26 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     window_class.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     window_class.lpszClassName = kWindowClass;
-    if (!RegisterClassExW(&window_class)) return 1;
+    if (!RegisterClassExW(&window_class))
+        return 1;
 
     const UINT dpi = GetDpiForSystem();
     const int width = MulDiv(900, dpi, 96);
     const int height = MulDiv(710, dpi, 96);
     const int x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     const int y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
-    HWND hwnd = CreateWindowExW(0, kWindowClass, kWindowTitle, WS_OVERLAPPEDWINDOW,
-                                x, y, width, height, nullptr, nullptr, instance, nullptr);
-    if (!hwnd) return 1;
+    HWND hwnd = CreateWindowExW(0, kWindowClass, kWindowTitle, WS_OVERLAPPEDWINDOW, x, y, width, height, nullptr,
+                                nullptr, instance, nullptr);
+    if (!hwnd)
+        return 1;
     g_settings_hwnd = hwnd;
-    g_worker = std::make_unique<SerialTaskQueue>([hwnd] { PostMessageW(hwnd, kWorkerCompleted, 0, 0); },
+    g_worker = std::make_unique<SerialTaskQueue>(
+        [hwnd] { PostMessageW(hwnd, kWorkerCompleted, 0, 0); },
         [] { MessageBoxW(g_settings_hwnd, L"设置操作失败，请重试。", L"水杉输入法", MB_OK | MB_ICONWARNING); },
-        [] { if (g_worker_com_initialized) CoUninitialize(); });
+        [] {
+            if (g_worker_com_initialized)
+                CoUninitialize();
+        });
     g_worker->Submit([] {
         g_worker_com_initialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
         InitImeConfig();
@@ -1333,8 +1480,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show_
     // CreateWindow sends the initial WM_NCCALCSIZE before the DWM/custom-frame
     // attributes above are installed. Force a second frame calculation now;
     // otherwise the native caption remains until the first minimize/restore.
-    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
     SetTimer(hwnd, kConfigReloadTimer, 300, nullptr);
     InitWebView(hwnd);

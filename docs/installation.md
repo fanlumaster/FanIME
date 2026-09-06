@@ -1,7 +1,6 @@
 # 安装水杉输入法
 
-> 适用版本：v0.0.9.2（2026 年 8 月 25 日发布，内测版）
-> 若你安装的是更新版本，请以 [Releases](https://github.com/metasequoiaime/MSIME-Windows/releases) 中的说明为准。
+> 本文描述当前内测版的安装流程。具体版本号、下载链接与该版本的已知问题一律以 [Releases](https://github.com/metasequoiaime/MSIME-Windows/releases) 页面为准——这里不再写死版本号，避免文档落后于实际发布。
 
 ## 目录
 

@@ -6,10 +6,10 @@
       "generator": "Visual Studio 18 2026",
       "binaryDir": "${sourceDir}/build",
       "environment": {
-        "VCPKG_ROOT": "C:/Users/SonnyCalcr/scoop/apps/vcpkg/current"
+        "VCPKG_ROOT": "$penv{VCPKG_ROOT}"
       },
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "C:/Users/SonnyCalcr/scoop/apps/vcpkg/current/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_BUILD_TYPE": "Debug"
       }
     }

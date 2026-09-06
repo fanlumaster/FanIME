@@ -46,8 +46,8 @@ class CEndCompositionEditSession : public CEditSessionBase
     CEndCompositionEditSession(_In_ CMetasequoiaIME *pTextService, _In_ ITfContext *pContext,
                                _In_ ITfComposition *expectedComposition, uint64_t focusToken,
                                bool bypassFocusValidation)
-        : CEditSessionBase(pTextService, pContext), _expectedComposition(expectedComposition),
-          _focusToken(focusToken), _bypassFocusValidation(bypassFocusValidation)
+        : CEditSessionBase(pTextService, pContext), _expectedComposition(expectedComposition), _focusToken(focusToken),
+          _bypassFocusValidation(bypassFocusValidation)
     {
         _expectedComposition->AddRef();
     }
@@ -61,8 +61,7 @@ class CEndCompositionEditSession : public CEditSessionBase
     STDMETHODIMP DoEditSession(TfEditCookie ec)
     {
         if (!_pTextService->_IsCompositionCurrent(_expectedComposition) ||
-            (!_bypassFocusValidation &&
-             !_pTextService->_IsFocusSessionCurrent(_focusToken, _pContext)))
+            (!_bypassFocusValidation && !_pTextService->_IsFocusSessionCurrent(_focusToken, _pContext)))
         {
             return S_FALSE;
         }
@@ -109,8 +108,7 @@ void CMetasequoiaIME::_TerminateComposition(TfEditCookie ec, _In_ ITfContext *pC
 
         // remove the display attribute from the composition range.
         PerfTimer clearDisplayAttrTimer;
-        _ClearCompositionDisplayAttributes(ec, pContext,
-                                           terminatingComposition);
+        _ClearCompositionDisplayAttributes(ec, pContext, terminatingComposition);
         double clearDisplayAttrElapsedMs = clearDisplayAttrTimer.ElapsedMs();
 
         PerfTimer endCompositionTimer;
@@ -128,8 +126,7 @@ void CMetasequoiaIME::_TerminateComposition(TfEditCookie ec, _In_ ITfContext *pC
             _pComposition->Release();
             _pComposition = nullptr;
             _voiceCompositionActive = false;
-            uint64_t nextEpoch =
-                _compositionEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
+            uint64_t nextEpoch = _compositionEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
             if (nextEpoch == 0)
             {
                 _compositionEpoch.fetch_add(1, std::memory_order_acq_rel);
@@ -143,12 +140,10 @@ void CMetasequoiaIME::_TerminateComposition(TfEditCookie ec, _In_ ITfContext *pC
                 PerfTimer releaseContextTimer;
                 _pContext->Release();
                 _pContext = nullptr;
-                double releaseContextElapsedMs =
-                    releaseContextTimer.ElapsedMs();
+                double releaseContextElapsedMs = releaseContextTimer.ElapsedMs();
             }
         }
-        double releaseCompositionElapsedMs =
-            releaseCompositionTimer.ElapsedMs();
+        double releaseCompositionElapsedMs = releaseCompositionTimer.ElapsedMs();
 
         if (ownerContext)
         {
@@ -164,8 +159,7 @@ void CMetasequoiaIME::_TerminateComposition(TfEditCookie ec, _In_ ITfContext *pC
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_EndComposition(_In_opt_ ITfContext *pContext,
-                                         _In_opt_ ITfComposition *expectedComposition,
+HRESULT CMetasequoiaIME::_EndComposition(_In_opt_ ITfContext *pContext, _In_opt_ ITfComposition *expectedComposition,
                                          bool bypassFocusValidation)
 {
     ITfComposition *target = expectedComposition ? expectedComposition : _pComposition;
@@ -173,9 +167,8 @@ HRESULT CMetasequoiaIME::_EndComposition(_In_opt_ ITfContext *pContext,
     {
         return S_FALSE;
     }
-    CEndCompositionEditSession *pEditSession =
-        new (std::nothrow) CEndCompositionEditSession(this, pContext, target,
-                                                      _CaptureFocusSessionToken(), bypassFocusValidation);
+    CEndCompositionEditSession *pEditSession = new (std::nothrow)
+        CEndCompositionEditSession(this, pContext, target, _CaptureFocusSessionToken(), bypassFocusValidation);
     HRESULT hr = S_OK;
     PerfTimer timer;
 
@@ -183,10 +176,8 @@ HRESULT CMetasequoiaIME::_EndComposition(_In_opt_ ITfContext *pContext,
     {
         PerfTimer requestTimer;
         HRESULT editSessionHr = E_FAIL;
-        const HRESULT requestHr =
-            pContext->RequestEditSession(_tfClientId, pEditSession,
-                                         TF_ES_ASYNCDONTCARE | TF_ES_READWRITE,
-                                         &editSessionHr);
+        const HRESULT requestHr = pContext->RequestEditSession(_tfClientId, pEditSession,
+                                                               TF_ES_ASYNCDONTCARE | TF_ES_READWRITE, &editSessionHr);
         hr = FAILED(requestHr) ? requestHr : editSessionHr;
         double requestElapsedMs = requestTimer.ElapsedMs();
         pEditSession->Release();

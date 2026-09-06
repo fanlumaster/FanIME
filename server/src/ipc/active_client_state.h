@@ -84,17 +84,13 @@ class ActiveClientState
     // the inactive epoch only for the client that created it; client id zero
     // alone is insufficient because another client may have activated and
     // suspended in the meantime (an inactive-state ABA).
-    uint64_t terminal_deactivation_epoch(uint64_t client_id,
-                                         uint64_t transition_epoch = 0) const
+    uint64_t terminal_deactivation_epoch(uint64_t client_id, uint64_t transition_epoch = 0) const
     {
         if (transition_epoch != 0)
         {
             return transition_epoch;
         }
-        return client_id != 0 && active_client_id_ == 0 &&
-                       inactive_owner_client_id_ == client_id
-                   ? epoch_
-                   : 0;
+        return client_id != 0 && active_client_id_ == 0 && inactive_owner_client_id_ == client_id ? epoch_ : 0;
     }
 
     ActiveClientTransition snapshot() const

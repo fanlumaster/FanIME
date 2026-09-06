@@ -43,13 +43,11 @@ void PersistStateLocked()
     {
         if (session.identifier.empty())
             continue;
-        const int bytes = WideCharToMultiByte(CP_UTF8, 0, session.identifier.c_str(), -1, nullptr, 0,
-                                              nullptr, nullptr);
+        const int bytes = WideCharToMultiByte(CP_UTF8, 0, session.identifier.c_str(), -1, nullptr, 0, nullptr, nullptr);
         if (bytes <= 1)
             continue;
         std::string utf8(static_cast<size_t>(bytes - 1), '\0');
-        WideCharToMultiByte(CP_UTF8, 0, session.identifier.c_str(), -1, utf8.data(), bytes, nullptr,
-                            nullptr);
+        WideCharToMultiByte(CP_UTF8, 0, session.identifier.c_str(), -1, utf8.data(), bytes, nullptr, nullptr);
         output << (session.was_muted ? '1' : '0') << '\t' << utf8 << '\n';
     }
 }
@@ -62,8 +60,7 @@ void ClearStateFile()
 std::wstring SessionIdentifier(IAudioSessionControl *session)
 {
     IAudioSessionControl2 *control = nullptr;
-    if (FAILED(session->QueryInterface(__uuidof(IAudioSessionControl2),
-                                       reinterpret_cast<void **>(&control))) ||
+    if (FAILED(session->QueryInterface(__uuidof(IAudioSessionControl2), reinterpret_cast<void **>(&control))) ||
         !control)
         return {};
     LPWSTR identifier = nullptr;
@@ -80,8 +77,7 @@ std::wstring SessionIdentifier(IAudioSessionControl *session)
 bool IsCurrentProcessSession(IAudioSessionControl *session)
 {
     IAudioSessionControl2 *control = nullptr;
-    if (FAILED(session->QueryInterface(__uuidof(IAudioSessionControl2),
-                                       reinterpret_cast<void **>(&control))) ||
+    if (FAILED(session->QueryInterface(__uuidof(IAudioSessionControl2), reinterpret_cast<void **>(&control))) ||
         !control)
         return false;
     DWORD process_id = 0;
@@ -108,8 +104,7 @@ void MuteSession(IAudioSessionControl *session)
         return;
 
     ISimpleAudioVolume *volume = nullptr;
-    if (FAILED(session->QueryInterface(__uuidof(ISimpleAudioVolume), reinterpret_cast<void **>(&volume))) ||
-        !volume)
+    if (FAILED(session->QueryInterface(__uuidof(ISimpleAudioVolume), reinterpret_cast<void **>(&volume))) || !volume)
         return;
 
     BOOL muted = FALSE;
@@ -161,23 +156,20 @@ void MuteExistingSessions(IAudioSessionManager2 *manager)
 IAudioSessionManager2 *CreateSessionManager()
 {
     IMMDeviceEnumerator *enumerator = nullptr;
-    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                __uuidof(IMMDeviceEnumerator),
+    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
                                 reinterpret_cast<void **>(&enumerator))) ||
         !enumerator)
         return nullptr;
 
     IMMDevice *device = nullptr;
-    const HRESULT device_result =
-        enumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &device);
+    const HRESULT device_result = enumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &device);
     enumerator->Release();
     if (FAILED(device_result) || !device)
         return nullptr;
 
     IAudioSessionManager2 *manager = nullptr;
     const HRESULT manager_result =
-        device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, nullptr,
-                         reinterpret_cast<void **>(&manager));
+        device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, nullptr, reinterpret_cast<void **>(&manager));
     device->Release();
     if (FAILED(manager_result))
         return nullptr;
@@ -202,8 +194,7 @@ void RestoreSessions(IAudioSessionManager2 *manager, const std::vector<MutedSess
         const std::wstring identifier = SessionIdentifier(session);
         ISimpleAudioVolume *volume = nullptr;
         if (!identifier.empty() &&
-            SUCCEEDED(session->QueryInterface(__uuidof(ISimpleAudioVolume),
-                                              reinterpret_cast<void **>(&volume))) &&
+            SUCCEEDED(session->QueryInterface(__uuidof(ISimpleAudioVolume), reinterpret_cast<void **>(&volume))) &&
             volume)
         {
             for (const MutedSession &muted : sessions)
@@ -240,13 +231,11 @@ void RestoreFromDisk()
             continue;
         MutedSession session;
         session.was_muted = line[0] == '1';
-        const int wide_count =
-            MultiByteToWideChar(CP_UTF8, 0, line.c_str() + tab + 1, -1, nullptr, 0);
+        const int wide_count = MultiByteToWideChar(CP_UTF8, 0, line.c_str() + tab + 1, -1, nullptr, 0);
         if (wide_count <= 1)
             continue;
         session.identifier.assign(static_cast<size_t>(wide_count - 1), L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, line.c_str() + tab + 1, -1, session.identifier.data(),
-                            wide_count);
+        MultiByteToWideChar(CP_UTF8, 0, line.c_str() + tab + 1, -1, session.identifier.data(), wide_count);
         recorded.push_back(std::move(session));
     }
     input.close();
@@ -297,7 +286,10 @@ class SessionNotification final : public IAudioSessionNotification
         return E_NOINTERFACE;
     }
 
-    ULONG STDMETHODCALLTYPE AddRef() override { return ref_count_.fetch_add(1) + 1; }
+    ULONG STDMETHODCALLTYPE AddRef() override
+    {
+        return ref_count_.fetch_add(1) + 1;
+    }
 
     ULONG STDMETHODCALLTYPE Release() override
     {

@@ -31,16 +31,15 @@ class TemporaryEnglishDatabase
             throw std::runtime_error("Unable to create English test database: " + error);
         }
 
-        constexpr const char *sql =
-            "CREATE TABLE english_words ("
-            "word TEXT PRIMARY KEY COLLATE BINARY, display TEXT NOT NULL"
-            ") WITHOUT ROWID;"
-            "INSERT INTO english_words VALUES ('hel', 'hel');"
-            "INSERT INTO english_words VALUES ('held', 'held');"
-            "INSERT INTO english_words VALUES ('hello', 'hello');"
-            "INSERT INTO english_words VALUES ('help', 'help');"
-            "INSERT INTO english_words VALUES ('helpful', 'helpful');"
-            "INSERT INTO english_words VALUES ('hero', 'hero');";
+        constexpr const char *sql = "CREATE TABLE english_words ("
+                                    "word TEXT PRIMARY KEY COLLATE BINARY, display TEXT NOT NULL"
+                                    ") WITHOUT ROWID;"
+                                    "INSERT INTO english_words VALUES ('hel', 'hel');"
+                                    "INSERT INTO english_words VALUES ('held', 'held');"
+                                    "INSERT INTO english_words VALUES ('hello', 'hello');"
+                                    "INSERT INTO english_words VALUES ('help', 'help');"
+                                    "INSERT INTO english_words VALUES ('helpful', 'helpful');"
+                                    "INSERT INTO english_words VALUES ('hero', 'hero');";
         char *error_message = nullptr;
         if (sqlite3_exec(db, sql, nullptr, nullptr, &error_message) != SQLITE_OK)
         {
@@ -103,9 +102,8 @@ TEST_CASE(EnglishDictionaryMigratesLegacySchemaAndSupportsMultipleDisplaysPerKey
 
     sqlite3 *db = nullptr;
     REQUIRE_EQ(sqlite3_open(database.path().string().c_str(), &db), SQLITE_OK);
-    REQUIRE_EQ(sqlite3_exec(db,
-                           "INSERT INTO english_words(word,display,weight) VALUES('hello','Hello',100);",
-                           nullptr, nullptr, nullptr),
+    REQUIRE_EQ(sqlite3_exec(db, "INSERT INTO english_words(word,display,weight) VALUES('hello','Hello',100);", nullptr,
+                            nullptr, nullptr),
                SQLITE_OK);
     sqlite3_close(db);
 
@@ -124,9 +122,9 @@ TEST_CASE(EnglishDictionaryQueriesBothGlossDirections)
     sqlite3 *db = nullptr;
     REQUIRE_EQ(sqlite3_open(database.path().string().c_str(), &db), SQLITE_OK);
     REQUIRE_EQ(sqlite3_exec(db,
-                           "INSERT INTO en_zh_glosses VALUES('implement','实现；执行');"
-                           "INSERT INTO zh_en_glosses VALUES('实现','realize; implement');",
-                           nullptr, nullptr, nullptr),
+                            "INSERT INTO en_zh_glosses VALUES('implement','实现；执行');"
+                            "INSERT INTO zh_en_glosses VALUES('实现','realize; implement');",
+                            nullptr, nullptr, nullptr),
                SQLITE_OK);
     sqlite3_close(db);
 
@@ -141,10 +139,10 @@ TEST_CASE(EnglishDictionaryPrefersSiblingCustomTranslations)
     sqlite3 *db = nullptr;
     REQUIRE_EQ(sqlite3_open(database.path().string().c_str(), &db), SQLITE_OK);
     REQUIRE_EQ(sqlite3_exec(db,
-                           "CREATE TABLE IF NOT EXISTS zh_en_glosses("
-                           "chinese TEXT COLLATE BINARY PRIMARY KEY,english_gloss TEXT NOT NULL) WITHOUT ROWID;"
-                           "INSERT INTO zh_en_glosses VALUES('华科','Huazhong University of');",
-                           nullptr, nullptr, nullptr),
+                            "CREATE TABLE IF NOT EXISTS zh_en_glosses("
+                            "chinese TEXT COLLATE BINARY PRIMARY KEY,english_gloss TEXT NOT NULL) WITHOUT ROWID;"
+                            "INSERT INTO zh_en_glosses VALUES('华科','Huazhong University of');",
+                            nullptr, nullptr, nullptr),
                SQLITE_OK);
     sqlite3_close(db);
 
@@ -156,8 +154,7 @@ TEST_CASE(EnglishDictionaryPrefersSiblingCustomTranslations)
     }
 
     EnglishDictionary dictionary(database.path().string());
-    REQUIRE_EQ(dictionary.query_english_gloss("华科"),
-               std::string("Huazhong University of Science and Technology"));
+    REQUIRE_EQ(dictionary.query_english_gloss("华科"), std::string("Huazhong University of Science and Technology"));
     REQUIRE_EQ(dictionary.query_chinese_gloss("hust"), std::string("华中科技大学"));
     std::error_code error;
     std::filesystem::remove(sidecar, error);

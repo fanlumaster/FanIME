@@ -221,14 +221,18 @@ struct CandidateUiState
 };
 inline CandidateUiState candidate_ui;
 
-// candidate_ui belongs to the IPC worker thread, which rebuilds and destroys its vectors while the UI thread paints; the handoff is an asynchronous PostMessage, so nothing serialises the two. The worker therefore copies each finished page into one of these immutable snapshots and publishes it atomically, and every UI-thread reader (candidate presenter, its mouse callbacks, the WebView2 payload) loads a snapshot once and reads only from that copy.
+// candidate_ui belongs to the IPC worker thread, which rebuilds and destroys its vectors while the UI thread paints;
+// the handoff is an asynchronous PostMessage, so nothing serialises the two. The worker therefore copies each finished
+// page into one of these immutable snapshots and publishes it atomically, and every UI-thread reader (candidate
+// presenter, its mouse callbacks, the WebView2 payload) loads a snapshot once and reads only from that copy.
 struct CandidatePageSnapshot
 {
     std::vector<CandidateViewItem> page_views;
     std::vector<std::wstring> page_words;
     std::wstring candidate_string;
     int selected_index_in_page = 0;
-    // page_count mirrors current_page_count() and page_item_count mirrors cur_page_item_cnt. Both are carried because the height estimate prefers the derived count and only falls back to the rendered one.
+    // page_count mirrors current_page_count() and page_item_count mirrors cur_page_item_cnt. Both are carried because
+    // the height estimate prefers the derived count and only falls back to the rendered one.
     int page_count = 0;
     int page_item_count = 0;
 };
@@ -302,8 +306,7 @@ constexpr std::string_view Cand = "cand";
 
 inline bool isKnownTsfPreeditStyle(std::string_view style)
 {
-    return style == TsfPreeditStyle::Raw || style == TsfPreeditStyle::Pinyin ||
-           style == TsfPreeditStyle::Empty;
+    return style == TsfPreeditStyle::Raw || style == TsfPreeditStyle::Pinyin || style == TsfPreeditStyle::Empty;
 }
 
 inline std::string normalizeTsfPreeditStyle(std::string_view style)

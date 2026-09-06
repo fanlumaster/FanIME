@@ -77,7 +77,7 @@ DWORD_PTR MapRawCaretToPreedit(const CStringRange &raw, DWORD_PTR rawCaret, cons
     }
     return displayPosition;
 }
-}
+} // namespace
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -150,7 +150,6 @@ VOID CMetasequoiaIME::_DeleteCandidateList(BOOL isForce, _In_opt_ ITfContext *pC
         _candidateMode = CANDIDATE_NONE;
         _isCandidateWithWildcard = FALSE;
     }
-
 }
 
 //+---------------------------------------------------------------------------
@@ -187,7 +186,6 @@ HRESULT CMetasequoiaIME::_HandleCompleteCommitFirst(TfEditCookie ec, _In_ ITfCon
     PerfTimer terminateTimer;
     _TerminateComposition(ec, pContext);
     double terminateElapsedMs = terminateTimer.ElapsedMs();
-
 
     return S_OK;
 }
@@ -260,8 +258,7 @@ HRESULT CMetasequoiaIME::_HandleToogleIMEMode(TfEditCookie ec, _In_ ITfContext *
         _HandleComplete(ec, pContext);
     }
 
-    _pCompositionProcessorEngine->ApplyPendingImeModeAfterCompositionCommit(
-        _GetThreadMgr(), _GetClientId());
+    _pCompositionProcessorEngine->ApplyPendingImeModeAfterCompositionCommit(_GetThreadMgr(), _GetClientId());
     return S_OK;
 }
 
@@ -365,7 +362,7 @@ HRESULT CMetasequoiaIME::_HandleCancelVoiceComposition(TfEditCookie ec, _In_ ITf
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContext *pContext, WCHAR wch,
-                                                  uint64_t requestId)
+                                                 uint64_t requestId)
 {
     HRESULT workerResult = S_OK;
     ITfRange *pRangeComposition = nullptr;
@@ -387,11 +384,8 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
         _StartComposition(pContext);
         if (!_IsComposing())
         {
-            DebugTsfIssue47(L"composition-start-missing", requestId, 0, wch,
-                            CATEGORY_COMPOSING, FUNCTION_INPUT, 1, FALSE,
-                            pCompositionProcessorEngine
-                                ? pCompositionProcessorEngine->GetVirtualKeyLength()
-                                : 0,
+            DebugTsfIssue47(L"composition-start-missing", requestId, 0, wch, CATEGORY_COMPOSING, FUNCTION_INPUT, 1,
+                            FALSE, pCompositionProcessorEngine ? pCompositionProcessorEngine->GetVirtualKeyLength() : 0,
                             E_FAIL);
             return E_FAIL;
         }
@@ -400,12 +394,9 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
     // first, test where a keystroke would go in the document if we did an insert
     if (pContext->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tfSelection, &fetched) != S_OK || fetched != 1)
     {
-        DebugTsfIssue47(L"composition-selection-failed", requestId, 0, wch,
-                        CATEGORY_COMPOSING, FUNCTION_INPUT, 1, _IsComposing(),
-                        pCompositionProcessorEngine
-                            ? pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
-                        E_FAIL);
+        DebugTsfIssue47(L"composition-selection-failed", requestId, 0, wch, CATEGORY_COMPOSING, FUNCTION_INPUT, 1,
+                        _IsComposing(),
+                        pCompositionProcessorEngine ? pCompositionProcessorEngine->GetVirtualKeyLength() : 0, E_FAIL);
         return S_FALSE;
     }
 
@@ -418,9 +409,8 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
 
         if (!isCovered)
         {
-            DebugTsfIssue47(L"composition-selection-outside", requestId, 0, wch,
-                            CATEGORY_COMPOSING, FUNCTION_INPUT, 1, _IsComposing(),
-                            pCompositionProcessorEngine->GetVirtualKeyLength(), S_FALSE);
+            DebugTsfIssue47(L"composition-selection-outside", requestId, 0, wch, CATEGORY_COMPOSING, FUNCTION_INPUT, 1,
+                            _IsComposing(), pCompositionProcessorEngine->GetVirtualKeyLength(), S_FALSE);
             goto Exit;
         }
     }
@@ -433,12 +423,10 @@ HRESULT CMetasequoiaIME::_HandleCompositionInput(TfEditCookie ec, _In_ ITfContex
         g_toggleImeFallbackBuffer.push_back(wch);
     }
 
-    workerResult = _HandleCompositionInputWorker(
-        pCompositionProcessorEngine, ec, pContext, requestId);
+    workerResult = _HandleCompositionInputWorker(pCompositionProcessorEngine, ec, pContext, requestId);
 
-    DebugTsfIssue47(L"composition-input-complete", requestId, 0, wch,
-                    CATEGORY_COMPOSING, FUNCTION_INPUT, 1, _IsComposing(),
-                    pCompositionProcessorEngine->GetVirtualKeyLength(), workerResult,
+    DebugTsfIssue47(L"composition-input-complete", requestId, 0, wch, CATEGORY_COMPOSING, FUNCTION_INPUT, 1,
+                    _IsComposing(), pCompositionProcessorEngine->GetVirtualKeyLength(), workerResult,
                     static_cast<uint64_t>(previousLength));
 
 Exit:
@@ -455,8 +443,7 @@ Exit:
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcessorEngine *pCompositionProcessorEngine,
-                                                       TfEditCookie ec, _In_ ITfContext *pContext,
-                                                       uint64_t requestId)
+                                                       TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId)
 {
     HRESULT hr = S_OK;
     PerfTimer timer;
@@ -564,8 +551,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcesso
                 }
                 if (receivedData->msg_type == Global::DataFromServerMsgType::Preedit)
                 {
-                    readingStr.assign(receivedData->candidate_string,
-                                      wcslen(receivedData->candidate_string));
+                    readingStr.assign(receivedData->candidate_string, wcslen(receivedData->candidate_string));
                     gotServerPreedit = true;
                 }
             }
@@ -590,12 +576,10 @@ HRESULT CMetasequoiaIME::_HandleCompositionInputWorker(_In_ CCompositionProcesso
         }
 
         const size_t preeditPrefixLength =
-            preeditStyle == GlobalSettings::TsfPreeditStyle::Empty
-                ? 0
-                : GlobalIme::word_for_creating_word.size();
-        const DWORD_PTR displayCaret = MapRawCaretToPreedit(
-            pCompositionProcessorEngine->GetKeystrokeBuffer(), pCompositionProcessorEngine->GetCaretPosition(),
-            curReadingStr.ToWString(), preeditPrefixLength);
+            preeditStyle == GlobalSettings::TsfPreeditStyle::Empty ? 0 : GlobalIme::word_for_creating_word.size();
+        const DWORD_PTR displayCaret = MapRawCaretToPreedit(pCompositionProcessorEngine->GetKeystrokeBuffer(),
+                                                            pCompositionProcessorEngine->GetCaretPosition(),
+                                                            curReadingStr.ToWString(), preeditPrefixLength);
         pCompositionProcessorEngine->SetRenderedPreedit(curReadingStr.ToWString(), preeditPrefixLength);
 
         PerfTimer addComposingTimer;
@@ -724,9 +708,8 @@ HRESULT CMetasequoiaIME::_CreateAndStartCandidate(_In_ CCompositionProcessorEngi
     if (_pCandidateListUIPresenter == nullptr)
     {
         PerfTimer allocTimer;
-        _pCandidateListUIPresenter = new (std::nothrow)
-            CCandidateListUIPresenter(this, CATEGORY_CANDIDATE, pCompositionProcessorEngine->GetCandidateListIndexRange(),
-                                      FALSE);
+        _pCandidateListUIPresenter = new (std::nothrow) CCandidateListUIPresenter(
+            this, CATEGORY_CANDIDATE, pCompositionProcessorEngine->GetCandidateListIndexRange(), FALSE);
         allocElapsedMs = allocTimer.ElapsedMs();
         if (!_pCandidateListUIPresenter)
         {
@@ -758,7 +741,6 @@ HRESULT CMetasequoiaIME::_CreateAndStartCandidate(_In_ CCompositionProcessorEngi
             pDocumentMgr->Release();
         }
     }
-
 
     return hr;
 }
@@ -806,7 +788,6 @@ HRESULT CMetasequoiaIME::_HandleCompositionFinalize(TfEditCookie ec, _In_ ITfCon
     PerfTimer cancelTimer;
     _HandleCancel(ec, pContext);
     double cancelElapsedMs = cancelTimer.ElapsedMs();
-
 
     return S_OK;
 }
@@ -859,9 +840,8 @@ HRESULT CMetasequoiaIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfCont
         if (_pCandidateListUIPresenter == nullptr)
         {
             PerfTimer allocPresenterTimer;
-            _pCandidateListUIPresenter = new (std::nothrow)
-                CCandidateListUIPresenter(this, CATEGORY_CANDIDATE,
-                                          pCompositionProcessorEngine->GetCandidateListIndexRange(), FALSE);
+            _pCandidateListUIPresenter = new (std::nothrow) CCandidateListUIPresenter(
+                this, CATEGORY_CANDIDATE, pCompositionProcessorEngine->GetCandidateListIndexRange(), FALSE);
             allocPresenterElapsedMs = allocPresenterTimer.ElapsedMs();
             if (!_pCandidateListUIPresenter)
             {
@@ -898,7 +878,6 @@ HRESULT CMetasequoiaIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfCont
         }
     }
 
-
     return hr;
 }
 
@@ -908,8 +887,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionConvert(TfEditCookie ec, _In_ ITfCont
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCompositionBackspace(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                     uint64_t requestId)
+HRESULT CMetasequoiaIME::_HandleCompositionBackspace(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId)
 {
     HRESULT workerResult = S_OK;
     ITfRange *pRangeComposition = nullptr;
@@ -961,8 +939,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionBackspace(TfEditCookie ec, _In_ ITfCo
 
         if (pCompositionProcessorEngine->GetVirtualKeyLength())
         {
-            workerResult = _HandleCompositionInputWorker(
-                pCompositionProcessorEngine, ec, pContext, requestId);
+            workerResult = _HandleCompositionInputWorker(pCompositionProcessorEngine, ec, pContext, requestId);
         }
         else
         {
@@ -981,8 +958,7 @@ Exit:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCompositionDelete(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                  uint64_t requestId)
+HRESULT CMetasequoiaIME::_HandleCompositionDelete(TfEditCookie ec, _In_ ITfContext *pContext, uint64_t requestId)
 {
     HRESULT workerResult = S_OK;
     ITfRange *pRangeComposition = nullptr;
@@ -1021,8 +997,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionDelete(TfEditCookie ec, _In_ ITfConte
         {
             if (pCompositionProcessorEngine->GetVirtualKeyLength())
             {
-                workerResult = _HandleCompositionInputWorker(
-                    pCompositionProcessorEngine, ec, pContext, requestId);
+                workerResult = _HandleCompositionInputWorker(pCompositionProcessorEngine, ec, pContext, requestId);
             }
             else
             {
@@ -1140,9 +1115,8 @@ Exit:
 //
 //----------------------------------------------------------------------------
 
-HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfContext *pContext, UINT code,
-                                                       WCHAR wch, uint64_t requestId,
-                                                       const std::wstring &prefetchedText)
+HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITfContext *pContext, UINT code, WCHAR wch,
+                                                       uint64_t requestId, const std::wstring &prefetchedText)
 {
     HRESULT hr = S_OK;
     PerfTimer timer;
@@ -1186,8 +1160,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
             struct FanyImeNamedpipeDataToTsf *receivedData = TryReadDataFromServerPipeWithTimeout(requestId);
             pipeReadElapsedMs = pipeReadTimer.ElapsedMs();
 
-            if (receivedData->msg_type ==
-                Global::DataFromServerMsgType::TransportUnavailable)
+            if (receivedData->msg_type == Global::DataFromServerMsgType::TransportUnavailable)
             {
                 return HRESULT_FROM_WIN32(ERROR_BROKEN_PIPE);
             }
@@ -1226,8 +1199,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         punctuationStr = _ResolveSmartPunctuation(wch, preceding);
     }
 
-    const bool pairedPunctuationEnabled =
-        Global::PairedPunctuationEnabled.load(std::memory_order_relaxed);
+    const bool pairedPunctuationEnabled = Global::PairedPunctuationEnabled.load(std::memory_order_relaxed);
     if (pairedPunctuationEnabled && !punctuationStr.empty())
     {
         // Quotes share one physical key for both sides. In paired mode every
@@ -1243,8 +1215,7 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         }
     }
 
-    const WCHAR pairedClosing =
-        pairedPunctuationEnabled ? GetPairedPunctuationClosing(punctuationStr) : 0;
+    const WCHAR pairedClosing = pairedPunctuationEnabled ? GetPairedPunctuationClosing(punctuationStr) : 0;
     if (pairedClosing != 0)
     {
         punctuationStr.push_back(pairedClosing);
@@ -1270,7 +1241,6 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         {
             return hr;
         }
-
     }
     else
     {
@@ -1281,7 +1251,6 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         {
             return hr;
         }
-
     }
 
     PerfTimer completeTimer;
@@ -1301,12 +1270,10 @@ HRESULT CMetasequoiaIME::_HandleCompositionPunctuation(TfEditCookie ec, _In_ ITf
         const uint64_t focusToken = _CaptureFocusSessionToken();
         if (_msgWndHandle != nullptr)
         {
-            PostMessage(_msgWndHandle, WM_PairedPunctuationMoveLeft,
-                        static_cast<WPARAM>(focusToken & 0xFFFFFFFFULL),
+            PostMessage(_msgWndHandle, WM_PairedPunctuationMoveLeft, static_cast<WPARAM>(focusToken & 0xFFFFFFFFULL),
                         static_cast<LPARAM>((focusToken >> 32) & 0xFFFFFFFFULL));
         }
     }
-
 
     return S_OK;
 }
@@ -1353,11 +1320,9 @@ HRESULT CMetasequoiaIME::_HandleCompositionDoubleSingleByte(TfEditCookie ec, _In
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_InvokeKeyHandler(_In_ ITfContext *pContext, UINT code, WCHAR wch, DWORD flags,
-                                           _KEYSTROKE_STATE keyState, uint64_t requestId,
-                                           std::wstring prefetchedText, UINT localResetToken,
-                                           uint64_t expectedCompositionEpoch,
-                                           uint64_t expectedFocusToken,
-                                           uint64_t deferredReplayToken)
+                                           _KEYSTROKE_STATE keyState, uint64_t requestId, std::wstring prefetchedText,
+                                           UINT localResetToken, uint64_t expectedCompositionEpoch,
+                                           uint64_t expectedFocusToken, uint64_t deferredReplayToken)
 {
     flags;
 
@@ -1367,15 +1332,10 @@ HRESULT CMetasequoiaIME::_InvokeKeyHandler(_In_ ITfContext *pContext, UINT code,
     // we'll insert a char ourselves in place of this keystroke
     LARGE_INTEGER requestStartQpc;
     QueryPerformanceCounter(&requestStartQpc);
-    pEditSession = new (std::nothrow) CKeyHandlerEditSession(this, pContext, code, wch, keyState, requestId,
-                                                            requestStartQpc, std::move(prefetchedText),
-                                                             localResetToken == 0
-                                                                ? (expectedFocusToken != 0
-                                                                       ? expectedFocusToken
-                                                                       : _CaptureFocusSessionToken())
-                                                                : 0,
-                                                             localResetToken, expectedCompositionEpoch,
-                                                             deferredReplayToken);
+    pEditSession = new (std::nothrow) CKeyHandlerEditSession(
+        this, pContext, code, wch, keyState, requestId, requestStartQpc, std::move(prefetchedText),
+        localResetToken == 0 ? (expectedFocusToken != 0 ? expectedFocusToken : _CaptureFocusSessionToken()) : 0,
+        localResetToken, expectedCompositionEpoch, deferredReplayToken);
     if (pEditSession == nullptr)
     {
         if (deferredReplayToken != 0)
@@ -1391,17 +1351,14 @@ HRESULT CMetasequoiaIME::_InvokeKeyHandler(_In_ ITfContext *pContext, UINT code,
     // Do not specify TF_ES_SYNC so edit session is not invoked on WinWord
     //
     HRESULT editSessionHr = E_FAIL;
-    HRESULT requestHr = pContext->RequestEditSession(_tfClientId, pEditSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE,
-                                                     &editSessionHr);
+    HRESULT requestHr =
+        pContext->RequestEditSession(_tfClientId, pEditSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE, &editSessionHr);
     hr = FAILED(requestHr) ? requestHr : editSessionHr;
-    DebugTsfIssue47(L"edit-session-request", requestId, code, wch,
-                    keyState.Category, keyState.Function, 1, _IsComposing(),
-                    _pCompositionProcessorEngine
-                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                        : 0,
-                    hr, deferredReplayToken);
-    if ((FAILED(requestHr) || FAILED(editSessionHr)) &&
-        deferredReplayToken != 0)
+    DebugTsfIssue47(L"edit-session-request", requestId, code, wch, keyState.Category, keyState.Function, 1,
+                    _IsComposing(),
+                    _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, hr,
+                    deferredReplayToken);
+    if ((FAILED(requestHr) || FAILED(editSessionHr)) && deferredReplayToken != 0)
     {
         _RetryDeferredKeyReplay(deferredReplayToken);
     }

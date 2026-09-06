@@ -9,7 +9,8 @@
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
 {
-    if (!msimeui::Application::Initialize()) return -1;
+    if (!msimeui::Application::Initialize())
+        return -1;
 
     msimeui::Theme theme = msimeui::ThemeManager::GetCurrent();
     theme.windowBackground = D2D1::ColorF(0x202027);

@@ -518,8 +518,8 @@ STDAPI CTextStore::GetScreenExt(TsViewCookie vcView, RECT *prc)
     ClientToScreen(_pEditor->GetWnd(), (POINT *)&prc->right);
 
     std::ostringstream oss;
-    oss << "CTextStore::GetScreenExt editor=" << _pEditor
-        << " screenRect=(" << prc->left << "," << prc->top << "," << prc->right << "," << prc->bottom << ")";
+    oss << "CTextStore::GetScreenExt editor=" << _pEditor << " screenRect=(" << prc->left << "," << prc->top << ","
+        << prc->right << "," << prc->bottom << ")";
     msimeui::DebugLog(oss.str());
 
     return S_OK;

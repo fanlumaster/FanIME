@@ -21,4 +21,4 @@ struct AsyncRequestOrigin
                input == requested_input;
     }
 };
-}
+} // namespace FanyImeIpc

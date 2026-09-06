@@ -77,7 +77,8 @@ const WordDictionary &GetWordDictionary()
         const auto path = FindDictionaryPath();
         if (path.empty())
         {
-            msimeui::DebugLog("Word dictionary not found, Ctrl+Backspace/Delete will fall back to char/token boundaries");
+            msimeui::DebugLog(
+                "Word dictionary not found, Ctrl+Backspace/Delete will fall back to char/token boundaries");
             return;
         }
 
@@ -228,7 +229,8 @@ UINT FindNextWordEnd(std::wstring_view text, UINT caret)
     }
 
     const WordDictionary &dictionary = GetWordDictionary();
-    const UINT latest = std::min<UINT>(static_cast<UINT>(text.size()), cursor + static_cast<UINT>(dictionary.maxWordLength));
+    const UINT latest =
+        std::min<UINT>(static_cast<UINT>(text.size()), cursor + static_cast<UINT>(dictionary.maxWordLength));
     UINT bestEnd = cursor + 1;
     size_t bestLength = 1;
     for (UINT end = cursor + 1; end <= latest; ++end)
@@ -247,7 +249,7 @@ UINT FindNextWordEnd(std::wstring_view text, UINT caret)
     }
     return bestEnd;
 }
-}
+} // namespace
 
 //----------------------------------------------------------------
 //
@@ -611,9 +613,9 @@ void CTextEditor::UpdateLayout()
     const LONG width = max(_rcHost.right - _rcHost.left, 1L);
     const LONG height = max(_rcHost.bottom - _rcHost.top, 1L);
     _layout.Layout(GetTextBuffer(), GetTextLength(), &_lfCurrentFont, static_cast<FLOAT>(width),
-                   static_cast<FLOAT>(height), dpi, dpi,
-                   static_cast<FLOAT>(_rcContentPadding.left), static_cast<FLOAT>(_rcContentPadding.top),
-                   static_cast<FLOAT>(_rcContentPadding.right), static_cast<FLOAT>(_rcContentPadding.bottom), _singleLine);
+                   static_cast<FLOAT>(height), dpi, dpi, static_cast<FLOAT>(_rcContentPadding.left),
+                   static_cast<FLOAT>(_rcContentPadding.top), static_cast<FLOAT>(_rcContentPadding.right),
+                   static_cast<FLOAT>(_rcContentPadding.bottom), _singleLine);
     _layout.EnsureCaretVisible(_nSelEnd);
 }
 
@@ -721,8 +723,8 @@ void CTextEditor::SetFocusDocumentMgr()
         const HRESULT hr = g_pThreadMgr->SetFocus(_pDocumentMgr);
 
         std::ostringstream oss;
-        oss << "CTextEditor::SetFocusDocumentMgr editor=" << this << " docMgr=" << _pDocumentMgr
-            << " hwnd=" << GetWnd() << " hr=0x" << std::hex << static_cast<unsigned long>(hr);
+        oss << "CTextEditor::SetFocusDocumentMgr editor=" << this << " docMgr=" << _pDocumentMgr << " hwnd=" << GetWnd()
+            << " hr=0x" << std::hex << static_cast<unsigned long>(hr);
         msimeui::DebugLog(oss.str());
     }
 }
@@ -737,8 +739,8 @@ void CTextEditor::ClearFocusDocumentMgr()
     const HRESULT hr = g_pThreadMgr->SetFocus(nullptr);
 
     std::ostringstream oss;
-    oss << "CTextEditor::ClearFocusDocumentMgr editor=" << this << " docMgr=" << _pDocumentMgr
-        << " hwnd=" << GetWnd() << " hr=0x" << std::hex << static_cast<unsigned long>(hr);
+    oss << "CTextEditor::ClearFocusDocumentMgr editor=" << this << " docMgr=" << _pDocumentMgr << " hwnd=" << GetWnd()
+        << " hr=0x" << std::hex << static_cast<unsigned long>(hr);
     msimeui::DebugLog(oss.str());
 }
 

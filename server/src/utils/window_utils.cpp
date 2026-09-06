@@ -119,10 +119,8 @@ HalfScreenDipLimits QueryHalfScreenDipLimitsForPoint(POINT pt)
         limits.scale = 1.0f;
     }
     limits.monitor = GetMonitorCoordinatesFromPoint(pt);
-    const double monitorWidthPx =
-        static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
-    const double monitorHeightPx =
-        static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
+    const double monitorWidthPx = static_cast<double>((std::max)(1, limits.monitor.right - limits.monitor.left));
+    const double monitorHeightPx = static_cast<double>((std::max)(1, limits.monitor.bottom - limits.monitor.top));
     limits.maxWidthDip = (monitorWidthPx * 0.5) / static_cast<double>(limits.scale);
     limits.maxHeightDip = (monitorHeightPx * 0.5) / static_cast<double>(limits.scale);
     return limits;
@@ -397,8 +395,7 @@ bool IsActuallyFullscreen(HWND hwnd)
     if (GetClassNameA(hwnd, className, sizeof(className)))
     {
         if (strcmp(className, "Progman") == 0 || strcmp(className, "WorkerW") == 0 ||
-            strcmp(className, "Shell_TrayWnd") == 0 ||
-            strcmp(className, "XamlExplorerHostIslandWindow") == 0 ||
+            strcmp(className, "Shell_TrayWnd") == 0 || strcmp(className, "XamlExplorerHostIslandWindow") == 0 ||
             strcmp(className, "ForegroundStaging") == 0)
         {
             return false;

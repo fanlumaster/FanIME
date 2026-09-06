@@ -33,7 +33,7 @@ void InputSequence(EngineInputSession &session, const std::string &keys)
         session.handle_key(static_cast<UINT>(upper), 0, static_cast<WCHAR>(ch));
     }
 }
-}
+} // namespace
 
 TEST_CASE(EngineSessionRejectsOnlineResponsesFromOtherSessionsAndPriorCompositions)
 {
@@ -108,8 +108,7 @@ TEST_CASE(PromotedEnglishCandidateCanBecomeTheFirstMixedCandidate)
     const auto ai = [] { return WordItem("github", "AI联想", 1, CandidateSource::AiSuggestion); };
 
     std::vector<WordItem> items = {
-        local("个"), cloud(), ai(), WordItem("github", "GitHub", 1100, CandidateSource::EnglishDictionary),
-        local("给"),
+        local("个"), cloud(), ai(), WordItem("github", "GitHub", 1100, CandidateSource::EnglishDictionary), local("给"),
     };
     FanyImeIpc::NormalizeMixedCandidateOrder(items);
 
@@ -388,8 +387,7 @@ TEST_CASE(EngineQuanpinSessionCompletesCreatingWordProgress)
     REQUIRE_EQ(first_progress.word, std::string("西"));
     REQUIRE_EQ(first_progress.preedit, std::string("西te'le"));
 
-    const auto second_transition =
-        session.advance_composition_after_selection("te'le", "特乐", "te'le");
+    const auto second_transition = session.advance_composition_after_selection("te'le", "特乐", "te'le");
     REQUIRE(!second_transition.continues_composition);
     const auto second_progress =
         session.update_creating_word_progress(first_progress.pinyin, first_progress.word, "特乐", second_transition);
@@ -404,23 +402,20 @@ TEST_CASE(EngineQuanpinAbbreviationsContinueAndCreateWithCanonicalPinyin)
     EngineInputSession session(SchemeType::Quanpin);
     InputLetters(session, "zgrm");
 
-    const auto first =
-        session.advance_composition_after_selection("z'g", "中国", "zhong'guo");
+    const auto first = session.advance_composition_after_selection("z'g", "中国", "zhong'guo");
     REQUIRE(first.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("rm"));
     REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("r'm"));
 
-    const auto first_progress =
-        session.update_creating_word_progress("", "", "中国", first);
+    const auto first_progress = session.update_creating_word_progress("", "", "中国", first);
     REQUIRE(!first_progress.completed);
     REQUIRE_EQ(first_progress.pinyin, std::string("zhong'guo"));
     REQUIRE_EQ(first_progress.word, std::string("中国"));
 
-    const auto second =
-        session.advance_composition_after_selection("r'm", "人民", "ren'min");
+    const auto second = session.advance_composition_after_selection("r'm", "人民", "ren'min");
     REQUIRE(!second.continues_composition);
-    const auto completed = session.update_creating_word_progress(
-        first_progress.pinyin, first_progress.word, "人民", second);
+    const auto completed =
+        session.update_creating_word_progress(first_progress.pinyin, first_progress.word, "人民", second);
     REQUIRE(completed.completed);
     REQUIRE(completed.can_store);
     REQUIRE_EQ(completed.pinyin, std::string("zhong'guo'ren'min"));
@@ -447,14 +442,12 @@ TEST_CASE(EngineQuanpinSelectionPreservesManualSeparatorsInRemainingInput)
     EngineInputSession session(SchemeType::Quanpin);
     InputSequence(session, "zgrm'gh");
 
-    const auto first =
-        session.advance_composition_after_selection("z'g", "中国", "zhong'guo");
+    const auto first = session.advance_composition_after_selection("z'g", "中国", "zhong'guo");
     REQUIRE(first.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("rm'gh"));
     REQUIRE_EQ(session.get_pinyin_sequence_with_cases(), std::string("rm'gh"));
 
-    const auto second =
-        session.advance_composition_after_selection("r'm", "人民", "ren'min");
+    const auto second = session.advance_composition_after_selection("r'm", "人民", "ren'min");
     REQUIRE(second.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("gh"));
 }
@@ -464,8 +457,7 @@ TEST_CASE(EngineQuanpinSelectionConsumesOnlyTheLeadingManualBoundary)
     EngineInputSession session(SchemeType::Quanpin);
     InputSequence(session, "zg'rm'gh");
 
-    const auto transition =
-        session.advance_composition_after_selection("z'g", "中国", "zhong'guo");
+    const auto transition = session.advance_composition_after_selection("z'g", "中国", "zhong'guo");
     REQUIRE(transition.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("rm'gh"));
 }
@@ -475,36 +467,31 @@ TEST_CASE(EngineShuangpinIncompleteManualSegmentsContinueCreatingWord)
     EngineInputSession session(SchemeType::Shuangpin);
     InputSequence(session, "v'x'r'm");
 
-    const auto first =
-        session.advance_composition_after_selection("v", "中", "zhong");
+    const auto first = session.advance_composition_after_selection("v", "中", "zhong");
     REQUIRE(first.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("x'r'm"));
 
-    const auto first_progress =
-        session.update_creating_word_progress("", "", "中", first);
+    const auto first_progress = session.update_creating_word_progress("", "", "中", first);
     REQUIRE(!first_progress.completed);
     REQUIRE_EQ(first_progress.pinyin, std::string("zhong"));
     REQUIRE_EQ(first_progress.word, std::string("中"));
 
-    const auto second =
-        session.advance_composition_after_selection("x", "西", "xi");
+    const auto second = session.advance_composition_after_selection("x", "西", "xi");
     REQUIRE(second.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("r'm"));
-    const auto second_progress = session.update_creating_word_progress(
-        first_progress.pinyin, first_progress.word, "西", second);
+    const auto second_progress =
+        session.update_creating_word_progress(first_progress.pinyin, first_progress.word, "西", second);
 
-    const auto third =
-        session.advance_composition_after_selection("r", "人", "ren");
+    const auto third = session.advance_composition_after_selection("r", "人", "ren");
     REQUIRE(third.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("m"));
-    const auto third_progress = session.update_creating_word_progress(
-        second_progress.pinyin, second_progress.word, "人", third);
+    const auto third_progress =
+        session.update_creating_word_progress(second_progress.pinyin, second_progress.word, "人", third);
 
-    const auto fourth =
-        session.advance_composition_after_selection("m", "民", "min");
+    const auto fourth = session.advance_composition_after_selection("m", "民", "min");
     REQUIRE(!fourth.continues_composition);
-    const auto completed = session.update_creating_word_progress(
-        third_progress.pinyin, third_progress.word, "民", fourth);
+    const auto completed =
+        session.update_creating_word_progress(third_progress.pinyin, third_progress.word, "民", fourth);
     REQUIRE(completed.completed);
     REQUIRE(completed.can_store);
     REQUIRE_EQ(completed.pinyin, std::string("zhong'xi'ren'min"));
@@ -516,8 +503,7 @@ TEST_CASE(EngineQuanpinIncompleteUppercaseSuffixIsNotConsumedAsHelpcode)
     EngineInputSession session(SchemeType::Quanpin);
     InputSequence(session, "zgR");
 
-    const auto transition =
-        session.advance_composition_after_selection("z", "中", "zhong");
+    const auto transition = session.advance_composition_after_selection("z", "中", "zhong");
     REQUIRE(transition.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("gr"));
     REQUIRE_EQ(session.get_pinyin_sequence_with_cases(), std::string("gR"));
@@ -528,8 +514,7 @@ TEST_CASE(EngineQuanpinCompleteHelpcodeIsDiscardedButManualRemainderIsPreserved)
     EngineInputSession session(SchemeType::Quanpin);
     InputSequence(session, "ni'shuo'neNV");
 
-    const auto transition =
-        session.advance_composition_after_selection("ni'shuo", "你说", "ni'shuo");
+    const auto transition = session.advance_composition_after_selection("ni'shuo", "你说", "ni'shuo");
     REQUIRE(transition.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("ne"));
     REQUIRE_EQ(session.get_pinyin_sequence_with_cases(), std::string("ne"));
@@ -542,14 +527,12 @@ TEST_CASE(EngineCreatingWordDoesNotStoreWhenAnySelectedPartLacksCanonicalPinyin)
 
     const auto first = session.advance_composition_after_selection("z'g", "中国", "");
     REQUIRE(first.continues_composition);
-    const auto first_progress =
-        session.update_creating_word_progress("", "", "中国", first);
+    const auto first_progress = session.update_creating_word_progress("", "", "中国", first);
     REQUIRE(first_progress.pinyin.empty());
 
-    const auto second =
-        session.advance_composition_after_selection("r'm", "人民", "ren'min");
-    const auto completed = session.update_creating_word_progress(
-        first_progress.pinyin, first_progress.word, "人民", second);
+    const auto second = session.advance_composition_after_selection("r'm", "人民", "ren'min");
+    const auto completed =
+        session.update_creating_word_progress(first_progress.pinyin, first_progress.word, "人民", second);
     REQUIRE(completed.completed);
     REQUIRE(!completed.can_store);
     REQUIRE(completed.pinyin.empty());
@@ -560,8 +543,7 @@ TEST_CASE(EngineQuanpinSessionContinuesCompositionAfterMultiSyllableSelection)
     EngineInputSession session(SchemeType::Quanpin);
     InputLetters(session, "zhengxianghuafen");
 
-    const auto transition =
-        session.advance_composition_after_selection("zheng'xiang", "正向", "zheng'xiang");
+    const auto transition = session.advance_composition_after_selection("zheng'xiang", "正向", "zheng'xiang");
     REQUIRE(transition.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("huafen"));
     REQUIRE_EQ(session.get_pinyin_segmentation_with_cases(), std::string("hua'fen"));
@@ -577,8 +559,7 @@ TEST_CASE(EngineQuanpinSessionContinuesCompositionWithoutRetainingHelpcodes)
     EngineInputSession session(SchemeType::Quanpin);
     InputLetters(session, "nishuoneNV");
 
-    const auto transition =
-        session.advance_composition_after_selection("ni'shuo", "你说", "ni'shuo");
+    const auto transition = session.advance_composition_after_selection("ni'shuo", "你说", "ni'shuo");
     REQUIRE(transition.continues_composition);
     REQUIRE_EQ(session.get_pinyin_sequence(), std::string("ne"));
     REQUIRE_EQ(session.get_pinyin_sequence_with_cases(), std::string("ne"));
@@ -602,9 +583,8 @@ TEST_CASE(EngineShuangpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuer
     InputLetters(session, "a");
 
     const auto &candidates = session.get_candidates();
-    const auto found = std::find_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
-        return item.word == "云词";
-    });
+    const auto found = std::find_if(candidates.begin(), candidates.end(),
+                                    [](const IInputSession::WordItem &item) { return item.word == "云词"; });
     REQUIRE(found != candidates.end());
     REQUIRE(found->source == CandidateSource::CloudSuggestion);
 }
@@ -628,9 +608,10 @@ TEST_CASE(EngineShuangpinSessionDynamicCandidateCacheDedupesRepeatedInserts)
     InputLetters(session, "e");
 
     const auto &candidates = session.get_candidates();
-    const auto cloud_count = std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
-        return item.source == CandidateSource::CloudSuggestion && item.word == "云词";
-    });
+    const auto cloud_count =
+        std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
+            return item.source == CandidateSource::CloudSuggestion && item.word == "云词";
+        });
     const auto ai_count = std::count_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
         return item.source == CandidateSource::AiSuggestion;
     });
@@ -659,9 +640,8 @@ TEST_CASE(EngineQuanpinSessionDynamicCloudCandidateParticipatesInHelpcodesQuery)
     InputLetters(session, "A");
 
     const auto &candidates = session.get_candidates();
-    const auto found = std::find_if(candidates.begin(), candidates.end(), [](const IInputSession::WordItem &item) {
-        return item.word == "云词";
-    });
+    const auto found = std::find_if(candidates.begin(), candidates.end(),
+                                    [](const IInputSession::WordItem &item) { return item.word == "云词"; });
     REQUIRE(found != candidates.end());
     REQUIRE(found->source == CandidateSource::CloudSuggestion);
 }
@@ -734,9 +714,10 @@ TEST_CASE(EngineShuangpinInitialVQueriesZhCandidatesAndExpands)
     REQUIRE(session.expand_initial_candidates());
     const auto &expanded_candidates = session.get_candidates();
     REQUIRE(expanded_candidates.size() > initial_count);
-    REQUIRE(std::all_of(expanded_candidates.begin(), expanded_candidates.end(), [](const IInputSession::WordItem &item) {
-        return item.pinyin == "v" && item.canonical_pinyin.rfind("zh", 0) == 0;
-    }));
+    REQUIRE(
+        std::all_of(expanded_candidates.begin(), expanded_candidates.end(), [](const IInputSession::WordItem &item) {
+            return item.pinyin == "v" && item.canonical_pinyin.rfind("zh", 0) == 0;
+        }));
 }
 
 TEST_CASE(EngineQuanpinInitialCandidatesStartLimitedAndExpand)
@@ -746,9 +727,8 @@ TEST_CASE(EngineQuanpinInitialCandidatesStartLimitedAndExpand)
 
     const auto &initial_candidates = session.get_candidates();
     REQUIRE_EQ(initial_candidates.size(), static_cast<std::size_t>(24));
-    REQUIRE(std::all_of(initial_candidates.begin(), initial_candidates.end(), [](const IInputSession::WordItem &item) {
-        return item.pinyin.rfind("z", 0) == 0;
-    }));
+    REQUIRE(std::all_of(initial_candidates.begin(), initial_candidates.end(),
+                        [](const IInputSession::WordItem &item) { return item.pinyin.rfind("z", 0) == 0; }));
     const auto initial_count = initial_candidates.size();
 
     REQUIRE(session.expand_initial_candidates());

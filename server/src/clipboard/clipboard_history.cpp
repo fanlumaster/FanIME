@@ -41,7 +41,10 @@ class NamedMutex
             CloseHandle(handle_);
     }
 
-    explicit operator bool() const { return locked_; }
+    explicit operator bool() const
+    {
+        return locked_;
+    }
 
   private:
     HANDLE handle_ = nullptr;
@@ -65,8 +68,8 @@ std::string WideToUtf8(const std::wstring &text)
 {
     if (text.empty())
         return {};
-    const int size = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr,
-                                         nullptr);
+    const int size =
+        WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
     if (size <= 0)
         return {};
     std::string result(static_cast<size_t>(size), '\0');
@@ -366,8 +369,7 @@ bool WriteEnabledFlag(bool enabled)
                     const size_t comment = text.find('#', value_begin);
                     if (comment != std::string::npos && comment < value_end)
                         value_end = comment;
-                    while (value_end > value_begin &&
-                           (text[value_end - 1] == ' ' || text[value_end - 1] == '\t'))
+                    while (value_end > value_begin && (text[value_end - 1] == ' ' || text[value_end - 1] == '\t'))
                         --value_end;
                     text.replace(value_begin, value_end - value_begin, replacement);
                     replaced = true;

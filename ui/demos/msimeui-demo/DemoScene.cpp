@@ -31,9 +31,8 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto heroCard = std::make_shared<Card>(surface, 20.0f);
     auto heroStack = std::make_shared<StackPanel>(16.0f);
-    auto statusText =
-        std::make_shared<TextBlock>(L"Framework status: base controls are now interactive and composable.", 15.0f,
-                                    D2D1::ColorF(0x0F172A));
+    auto statusText = std::make_shared<TextBlock>(
+        L"Framework status: base controls are now interactive and composable.", 15.0f, D2D1::ColorF(0x0F172A));
     auto featureWrap = std::make_shared<WrapPanel>(10.0f, 10.0f);
     featureWrap->SetHorizontalAlignment(HorizontalAlignment::Leading);
     auto direct2dChip = std::make_shared<Button>(L"Direct2D");
@@ -71,9 +70,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     actionRow->AddChild(secondaryButton);
 
     heroStack->AddChild(std::make_shared<TextBlock>(L"Component Gallery", 22.0f, D2D1::ColorF(0x1F2937), true));
-    heroStack->AddChild(std::make_shared<TextBlock>(
-        L"Common controls and containers inspired by classic GUI frameworks, but implemented in this project's current style.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    heroStack->AddChild(std::make_shared<TextBlock>(L"Common controls and containers inspired by classic GUI "
+                                                    L"frameworks, but implemented in this project's current style.",
+                                                    14.0f, D2D1::ColorF(0x6B7280)));
     heroStack->AddChild(featureWrap);
     heroStack->AddChild(statusText);
     heroStack->AddChild(actionRow);
@@ -85,9 +84,10 @@ std::unique_ptr<Scene> CreateDemoScene()
     insetBrush.radiusX = 16.0f;
     insetBrush.radiusY = 16.0f;
 
-    auto insetText = std::make_shared<TextBlock>(
-        L"Border is a general-purpose single-child container with fill, stroke and padding. It is lighter-weight than Card for simple callouts.",
-        13.0f, D2D1::ColorF(0x475569));
+    auto insetText =
+        std::make_shared<TextBlock>(L"Border is a general-purpose single-child container with fill, stroke and "
+                                    L"padding. It is lighter-weight than Card for simple callouts.",
+                                    13.0f, D2D1::ColorF(0x475569));
     auto insetBorder = std::make_shared<Border>(insetBrush, insetText);
     insetBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
     heroStack->AddChild(insetBorder);
@@ -103,9 +103,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     imagePreview->SetHorizontalAlignment(HorizontalAlignment::Leading);
     imagePreview->SetStretch(ImageStretch::Uniform);
     imageStack->AddChild(std::make_shared<TextBlock>(L"Image", 20.0f, D2D1::ColorF(0x1F2937), true));
-    imageStack->AddChild(std::make_shared<TextBlock>(
-        L"WIC-backed image decoding supports common Windows image formats and caches Direct2D bitmaps per render target.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    imageStack->AddChild(std::make_shared<TextBlock>(L"WIC-backed image decoding supports common Windows image formats "
+                                                     L"and caches Direct2D bitmaps per render target.",
+                                                     14.0f, D2D1::ColorF(0x6B7280)));
     imageStack->AddChild(imagePreview);
     imageCard->AddChild(imageStack);
     root->AddChild(imageCard);
@@ -113,8 +113,7 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto controlsCard = std::make_shared<Card>(surface, 20.0f);
     auto controlsStack = std::make_shared<StackPanel>(16.0f);
-    auto progressLabel =
-        std::make_shared<TextBlock>(L"Progress: 35%", 14.0f, D2D1::ColorF(0x475569), true);
+    auto progressLabel = std::make_shared<TextBlock>(L"Progress: 35%", 14.0f, D2D1::ColorF(0x475569), true);
     auto progressBar = std::make_shared<ProgressBar>(14.0f);
     progressBar->SetValue(0.35f);
     auto slider = std::make_shared<Slider>(0.0f, 100.0f, 35.0f, 34.0f);
@@ -125,7 +124,8 @@ std::unique_ptr<Scene> CreateDemoScene()
         progressLabel->SetText(stream.str());
     });
 
-    auto optionText = std::make_shared<TextBlock>(L"Selection: compact mode is enabled.", 14.0f, D2D1::ColorF(0x475569));
+    auto optionText =
+        std::make_shared<TextBlock>(L"Selection: compact mode is enabled.", 14.0f, D2D1::ColorF(0x475569));
     optionText->SetMaxWidth(520.0f);
     auto checkboxRow = std::make_shared<HorizontalStackPanel>(18.0f);
     auto compactMode = std::make_shared<CheckBox>(L"Compact layout", true);
@@ -155,8 +155,8 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     controlsStack->AddChild(std::make_shared<TextBlock>(L"Interactive Controls", 20.0f, D2D1::ColorF(0x1F2937), true));
     controlsStack->AddChild(std::make_shared<TextBlock>(
-        L"Slider, progress, buttons and toggles can now be composed into higher-level widgets and panels.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+        L"Slider, progress, buttons and toggles can now be composed into higher-level widgets and panels.", 14.0f,
+        D2D1::ColorF(0x6B7280)));
     controlsStack->AddChild(progressLabel);
     controlsStack->AddChild(progressBar);
     controlsStack->AddChild(slider);
@@ -165,8 +165,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     controlsStack->AddChild(optionText);
 
     auto alignmentNote = std::make_shared<TextBlock>(
-        L"These controls now use shared layout properties like explicit width and per-control margin.",
-        14.0f, D2D1::ColorF(0x64748B));
+        L"These controls now use shared layout properties like explicit width and per-control margin.", 14.0f,
+        D2D1::ColorF(0x64748B));
     alignmentNote->SetMargin({0.0f, 6.0f, 0.0f, 0.0f});
     alignmentNote->SetMaxWidth(560.0f);
     controlsStack->AddChild(alignmentNote);
@@ -208,15 +208,16 @@ std::unique_ptr<Scene> CreateDemoScene()
     trailingColumn->AddChild(smallB);
 
     alignmentStack->AddChild(std::make_shared<TextBlock>(L"Container Alignment", 20.0f, D2D1::ColorF(0x1F2937), true));
-    alignmentStack->AddChild(std::make_shared<TextBlock>(
-        L"Panels can now center or trailing-align whole runs of children, instead of only stretching from the leading edge.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    alignmentStack->AddChild(std::make_shared<TextBlock>(L"Panels can now center or trailing-align whole runs of "
+                                                         L"children, instead of only stretching from the leading edge.",
+                                                         14.0f, D2D1::ColorF(0x6B7280)));
     alignmentStack->AddChild(centeredRow);
     alignmentStack->AddChild(trailingColumn);
 
-    auto paddingNote = std::make_shared<TextBlock>(
-        L"Container and Border also support shared padding, so content spacing no longer needs to be hardcoded into every specialized control.",
-        14.0f, D2D1::ColorF(0x475569));
+    auto paddingNote =
+        std::make_shared<TextBlock>(L"Container and Border also support shared padding, so content spacing no longer "
+                                    L"needs to be hardcoded into every specialized control.",
+                                    14.0f, D2D1::ColorF(0x475569));
     auto paddingContainer = std::make_shared<Container>(paddingNote);
     paddingContainer->SetPadding({18.0f, 14.0f, 18.0f, 14.0f});
     paddingContainer->SetMargin({0.0f, 8.0f, 0.0f, 0.0f});
@@ -250,9 +251,10 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto modeExt = std::make_shared<CheckBox>(L"Extended diagnostics", false);
     modeRow->AddChild(modeCore);
     modeRow->AddChild(modeExt);
-    auto noteBorder = std::make_shared<Border>(insetBrush, std::make_shared<TextBlock>(
-                                                               L"Grid is now suitable for forms, property panes, and two-column settings screens.",
-                                                               14.0f, D2D1::ColorF(0x475569)));
+    auto noteBorder = std::make_shared<Border>(
+        insetBrush,
+        std::make_shared<TextBlock>(L"Grid is now suitable for forms, property panes, and two-column settings screens.",
+                                    14.0f, D2D1::ColorF(0x475569)));
     noteBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
 
     formGrid->AddChild(nameLabel, 0, 0);
@@ -290,9 +292,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     });
 
     listStack->AddChild(std::make_shared<TextBlock>(L"ListView", 20.0f, D2D1::ColorF(0x1F2937), true));
-    listStack->AddChild(std::make_shared<TextBlock>(
-        L"A first-pass selectable list control is now available for navigation panes, settings groups, and data summaries.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    listStack->AddChild(std::make_shared<TextBlock>(L"A first-pass selectable list control is now available for "
+                                                    L"navigation panes, settings groups, and data summaries.",
+                                                    14.0f, D2D1::ColorF(0x6B7280)));
     listStack->AddChild(listStatus);
     listStack->AddChild(listView);
     listCard->AddChild(listStack);
@@ -310,7 +312,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     rootNode.expanded = true;
     rootNode.children = {
         {L"Layout", L"Panels, grid, alignment, and sizing", true, {}},
-        {L"Controls", L"Buttons, inputs, lists, and tree interactions", true,
+        {L"Controls",
+         L"Buttons, inputs, lists, and tree interactions",
+         true,
          {
              {L"TextBox", L"TSF-backed text editor control", true, {}},
              {L"ListView", L"Selectable summary list", true, {}},
@@ -319,14 +323,13 @@ std::unique_ptr<Scene> CreateDemoScene()
         {L"Rendering", L"Direct2D and DirectWrite device resources", true, {}},
     };
     treeView->AddRoot(std::move(rootNode));
-    treeView->SetOnSelectionChanged([treeStatus](const std::wstring &selectedTitle) {
-        treeStatus->SetText(L"Selected node: " + selectedTitle);
-    });
+    treeView->SetOnSelectionChanged(
+        [treeStatus](const std::wstring &selectedTitle) { treeStatus->SetText(L"Selected node: " + selectedTitle); });
 
     treeStack->AddChild(std::make_shared<TextBlock>(L"TreeView", 20.0f, D2D1::ColorF(0x1F2937), true));
-    treeStack->AddChild(std::make_shared<TextBlock>(
-        L"A first-pass hierarchy control is now available for navigation trees, grouped settings, and project/module explorers.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    treeStack->AddChild(std::make_shared<TextBlock>(L"A first-pass hierarchy control is now available for navigation "
+                                                    L"trees, grouped settings, and project/module explorers.",
+                                                    14.0f, D2D1::ColorF(0x6B7280)));
     treeStack->AddChild(treeStatus);
     treeStack->AddChild(treeView);
     treeCard->AddChild(treeStack);
@@ -340,8 +343,7 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto overviewPanel = std::make_shared<StackPanel>(10.0f);
     auto overviewText = std::make_shared<TextBlock>(
-        L"This tab groups the framework highlights into a compact summary page.",
-        14.0f, D2D1::ColorF(0x475569));
+        L"This tab groups the framework highlights into a compact summary page.", 14.0f, D2D1::ColorF(0x475569));
     overviewText->SetMargin({0.0f, 0.0f, 0.0f, 4.0f});
     auto overviewAction = std::make_shared<Button>(L"Overview Action", 40.0f);
     overviewAction->SetWidth(220.0f);
@@ -352,9 +354,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     overviewContent->SetPadding({16.0f, 16.0f, 16.0f, 16.0f});
 
     auto layoutPanel = std::make_shared<StackPanel>(10.0f);
-    layoutPanel->AddChild(std::make_shared<TextBlock>(
-        L"Layout includes stack panels, wrap, scroll, grid, shared sizing, and alignment.",
-        14.0f, D2D1::ColorF(0x475569)));
+    layoutPanel->AddChild(
+        std::make_shared<TextBlock>(L"Layout includes stack panels, wrap, scroll, grid, shared sizing, and alignment.",
+                                    14.0f, D2D1::ColorF(0x475569)));
     auto layoutBadgeRow = std::make_shared<HorizontalStackPanel>(10.0f);
     auto gridBadge = std::make_shared<Button>(L"Grid", 38.0f);
     gridBadge->SetWidth(90.0f);
@@ -368,11 +370,11 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto navigationPanel = std::make_shared<StackPanel>(10.0f);
     navigationPanel->AddChild(std::make_shared<TextBlock>(
-        L"Navigation now includes ListView, TreeView, and this TabControl container.",
-        14.0f, D2D1::ColorF(0x475569)));
-    auto navBorder = std::make_shared<Border>(insetBrush, std::make_shared<TextBlock>(
-                                                              L"Container-style pages can be swapped without rebuilding the visual tree.",
-                                                              13.0f, D2D1::ColorF(0x475569)));
+        L"Navigation now includes ListView, TreeView, and this TabControl container.", 14.0f, D2D1::ColorF(0x475569)));
+    auto navBorder = std::make_shared<Border>(
+        insetBrush,
+        std::make_shared<TextBlock>(L"Container-style pages can be swapped without rebuilding the visual tree.", 13.0f,
+                                    D2D1::ColorF(0x475569)));
     navBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
     navigationPanel->AddChild(navBorder);
     auto navigationContent = std::make_shared<Container>(navigationPanel);
@@ -392,8 +394,8 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     tabsStack->AddChild(std::make_shared<TextBlock>(L"TabControl", 20.0f, D2D1::ColorF(0x1F2937), true));
     tabsStack->AddChild(std::make_shared<TextBlock>(
-        L"A first-pass tab container is now available for settings pages, tool panes, and grouped work areas.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+        L"A first-pass tab container is now available for settings pages, tool panes, and grouped work areas.", 14.0f,
+        D2D1::ColorF(0x6B7280)));
     tabsStack->AddChild(tabStatus);
     tabsStack->AddChild(tabControl);
     tabsCard->AddChild(tabsStack);
@@ -409,9 +411,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto popupContent = std::make_shared<StackPanel>(12.0f);
     popupContent->SetHorizontalContentAlignment(HorizontalAlignment::Leading);
     popupContent->AddChild(std::make_shared<TextBlock>(L"Quick Actions", 16.0f, D2D1::ColorF(0x1F2937), true));
-    auto popupDescription = std::make_shared<TextBlock>(
-        L"This popup is rendered as a scene-level overlay. It sits above the normal visual tree and closes on outside click.",
-        13.0f, D2D1::ColorF(0x64748B));
+    auto popupDescription = std::make_shared<TextBlock>(L"This popup is rendered as a scene-level overlay. It sits "
+                                                        L"above the normal visual tree and closes on outside click.",
+                                                        13.0f, D2D1::ColorF(0x64748B));
     popupDescription->SetMaxWidth(240.0f);
     popupDescription->SetMargin({0.0f, 2.0f, 0.0f, 6.0f});
     popupContent->AddChild(popupDescription);
@@ -436,9 +438,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto popupHost = std::make_shared<PopupHost>(popupTrigger, popup);
 
     popupStack->AddChild(std::make_shared<TextBlock>(L"PopupHost / Popup", 20.0f, D2D1::ColorF(0x1F2937), true));
-    popupStack->AddChild(std::make_shared<TextBlock>(
-        L"A first overlay path is now available for menus, quick actions, tooltips, and future combo-box style interactions.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    popupStack->AddChild(std::make_shared<TextBlock>(L"A first overlay path is now available for menus, quick actions, "
+                                                     L"tooltips, and future combo-box style interactions.",
+                                                     14.0f, D2D1::ColorF(0x6B7280)));
     popupStack->AddChild(popupStatus);
     popupStack->AddChild(popupHost);
     popupCard->AddChild(popupStack);
@@ -447,8 +449,7 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto comboCard = std::make_shared<Card>(surface, 20.0f);
     auto comboStack = std::make_shared<StackPanel>(14.0f);
-    auto comboStatus =
-        std::make_shared<TextBlock>(L"Current mode: Core IME", 14.0f, D2D1::ColorF(0x475569), true);
+    auto comboStatus = std::make_shared<TextBlock>(L"Current mode: Core IME", 14.0f, D2D1::ColorF(0x475569), true);
     auto comboBox = std::make_shared<ComboBox>(46.0f);
     comboBox->SetWidth(260.0f);
     comboBox->AddItem(L"Core IME");
@@ -461,9 +462,10 @@ std::unique_ptr<Scene> CreateDemoScene()
     });
 
     comboStack->AddChild(std::make_shared<TextBlock>(L"ComboBox", 20.0f, D2D1::ColorF(0x1F2937), true));
-    comboStack->AddChild(std::make_shared<TextBlock>(
-        L"The first drop-down selector is now built on top of the overlay popup path, so selection controls can expand outside normal layout bounds.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    comboStack->AddChild(
+        std::make_shared<TextBlock>(L"The first drop-down selector is now built on top of the overlay popup path, so "
+                                    L"selection controls can expand outside normal layout bounds.",
+                                    14.0f, D2D1::ColorF(0x6B7280)));
     comboStack->AddChild(comboStatus);
     comboStack->AddChild(comboBox);
     comboCard->AddChild(comboStack);
@@ -487,8 +489,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     candidatePinyin->SetFontFamily(L"Noto Sans SC");
     candidatePinyin->SetTextLayoutPadding({0.0f, 0.0f, 0.0f, 0.0f});
     candidatePinyin->SetWidth(14.0f);
-    auto candidateCaret = std::make_shared<Border>(
-        Brush{D2D1::ColorF(0x7B79FF), D2D1::ColorF(0x7B79FF), 0.0f, 0.0f, 0.0f});
+    auto candidateCaret =
+        std::make_shared<Border>(Brush{D2D1::ColorF(0x7B79FF), D2D1::ColorF(0x7B79FF), 0.0f, 0.0f, 0.0f});
     candidateCaret->SetWidth(2.0f);
     candidateCaret->SetHeight(18.0f);
     candidateCaret->SetMargin({0.0f, 1.0f, 0.0f, 0.0f});
@@ -508,7 +510,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     candidateList->AddItem({L"8", L"\x502A", L"(rE)"});
     candidateList->SetOnSelectionChanged([candidateStatus](size_t selectedIndex) {
         static const wchar_t *labels[] = {L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8"};
-        static const wchar_t *texts[] = {L"\x4F60", L"\x5C3C", L"\x59AE", L"\x6CE5", L"\x9006", L"\x62DF", L"\x817B", L"\x502A"};
+        static const wchar_t *texts[] = {L"\x4F60", L"\x5C3C", L"\x59AE", L"\x6CE5",
+                                         L"\x9006", L"\x62DF", L"\x817B", L"\x502A"};
         static const wchar_t *annotations[] = {L"(rX)", L"(uV)", L"(nV)", L"(dV)", L"(zQ)", L"(fR)", L"(oD)", L"(rE)"};
         if (selectedIndex < 8)
         {
@@ -531,10 +534,12 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto candidateHost = std::make_shared<PopupHost>(candidateTrigger, candidatePopup);
 
-    candidateStack->AddChild(std::make_shared<TextBlock>(L"Candidate Window Target", 20.0f, D2D1::ColorF(0x1F2937), true));
-    candidateStack->AddChild(std::make_shared<TextBlock>(
-        L"This is the first candidate-window-oriented preview for replacing the WebView2 IME candidate popup with native retained-mode rendering.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    candidateStack->AddChild(
+        std::make_shared<TextBlock>(L"Candidate Window Target", 20.0f, D2D1::ColorF(0x1F2937), true));
+    candidateStack->AddChild(
+        std::make_shared<TextBlock>(L"This is the first candidate-window-oriented preview for replacing the WebView2 "
+                                    L"IME candidate popup with native retained-mode rendering.",
+                                    14.0f, D2D1::ColorF(0x6B7280)));
     candidateStack->AddChild(candidateStatus);
     candidateStack->AddChild(candidateHost);
     candidateCard->AddChild(candidateStack);
@@ -543,18 +548,19 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto contextMenuCard = std::make_shared<Card>(surface, 20.0f);
     auto contextMenuStack = std::make_shared<StackPanel>(14.0f);
-    auto contextMenuStatus =
-        std::make_shared<TextBlock>(L"Last action: none", 14.0f, D2D1::ColorF(0x475569), true);
+    auto contextMenuStatus = std::make_shared<TextBlock>(L"Last action: none", 14.0f, D2D1::ColorF(0x475569), true);
 
-    auto contextMenuPreviewText = std::make_shared<TextBlock>(
-        L"Right-click this surface to open a context menu. This is the first step toward file-tree menus, list item actions, and editor command menus.",
-        14.0f, D2D1::ColorF(0x475569));
+    auto contextMenuPreviewText =
+        std::make_shared<TextBlock>(L"Right-click this surface to open a context menu. This is the first step toward "
+                                    L"file-tree menus, list item actions, and editor command menus.",
+                                    14.0f, D2D1::ColorF(0x475569));
     auto contextMenuPreview = std::make_shared<Border>(insetBrush, contextMenuPreviewText);
     contextMenuPreview->SetPadding({16.0f, 18.0f, 16.0f, 18.0f});
     contextMenuPreview->SetHeight(92.0f);
 
     auto contextMenuPopupStack = std::make_shared<StackPanel>(8.0f);
-    contextMenuPopupStack->AddChild(std::make_shared<TextBlock>(L"Canvas Actions", 15.0f, D2D1::ColorF(0x1F2937), true));
+    contextMenuPopupStack->AddChild(
+        std::make_shared<TextBlock>(L"Canvas Actions", 15.0f, D2D1::ColorF(0x1F2937), true));
     auto contextMenuRefresh = std::make_shared<Button>(L"Refresh Preview", 38.0f);
     auto contextMenuInspect = std::make_shared<Button>(L"Inspect Layout", 38.0f);
     auto contextMenuPin = std::make_shared<Button>(L"Pin as Favorite", 38.0f);
@@ -595,9 +601,10 @@ std::unique_ptr<Scene> CreateDemoScene()
     });
 
     contextMenuStack->AddChild(std::make_shared<TextBlock>(L"ContextMenuHost", 20.0f, D2D1::ColorF(0x1F2937), true));
-    contextMenuStack->AddChild(std::make_shared<TextBlock>(
-        L"Right-click menus can now reuse the same scene overlay layer, so command lists no longer need to stay inside normal layout bounds.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    contextMenuStack->AddChild(
+        std::make_shared<TextBlock>(L"Right-click menus can now reuse the same scene overlay layer, so command lists "
+                                    L"no longer need to stay inside normal layout bounds.",
+                                    14.0f, D2D1::ColorF(0x6B7280)));
     contextMenuStack->AddChild(contextMenuStatus);
     contextMenuStack->AddChild(contextMenuHost);
     contextMenuCard->AddChild(contextMenuStack);
@@ -611,22 +618,23 @@ std::unique_ptr<Scene> CreateDemoScene()
 
     auto basicsPanel = std::make_shared<StackPanel>(10.0f);
     basicsPanel->AddChild(std::make_shared<TextBlock>(
-        L"Basic controls include buttons, checkboxes, sliders, text blocks, and progress indicators.",
-        14.0f, D2D1::ColorF(0x475569)));
+        L"Basic controls include buttons, checkboxes, sliders, text blocks, and progress indicators.", 14.0f,
+        D2D1::ColorF(0x475569)));
     basicsPanel->AddChild(std::make_shared<Button>(L"Basic Action", 38.0f));
 
     auto layoutSectionPanel = std::make_shared<StackPanel>(10.0f);
     layoutSectionPanel->AddChild(std::make_shared<TextBlock>(
-        L"Layout now covers stack, wrap, grid, scrolling, sizing constraints, and container alignment.",
-        14.0f, D2D1::ColorF(0x475569)));
+        L"Layout now covers stack, wrap, grid, scrolling, sizing constraints, and container alignment.", 14.0f,
+        D2D1::ColorF(0x475569)));
 
     auto navSectionPanel = std::make_shared<StackPanel>(10.0f);
     navSectionPanel->AddChild(std::make_shared<TextBlock>(
-        L"Navigation includes ListView, TreeView, and TabControl for higher-level page composition.",
-        14.0f, D2D1::ColorF(0x475569)));
-    auto navSectionBorder = std::make_shared<Border>(insetBrush, std::make_shared<TextBlock>(
-                                                                    L"Accordion is useful when you want one long page with grouped expandable sections instead of switching tabs.",
-                                                                    13.0f, D2D1::ColorF(0x475569)));
+        L"Navigation includes ListView, TreeView, and TabControl for higher-level page composition.", 14.0f,
+        D2D1::ColorF(0x475569)));
+    auto navSectionBorder = std::make_shared<Border>(
+        insetBrush, std::make_shared<TextBlock>(L"Accordion is useful when you want one long page with grouped "
+                                                L"expandable sections instead of switching tabs.",
+                                                13.0f, D2D1::ColorF(0x475569)));
     navSectionBorder->SetPadding({14.0f, 12.0f, 14.0f, 12.0f});
     navSectionPanel->AddChild(navSectionBorder);
 
@@ -635,9 +643,9 @@ std::unique_ptr<Scene> CreateDemoScene()
     accordion->AddSection(L"Navigation & Containers", navSectionPanel, false);
 
     accordionStack->AddChild(std::make_shared<TextBlock>(L"Accordion", 20.0f, D2D1::ColorF(0x1F2937), true));
-    accordionStack->AddChild(std::make_shared<TextBlock>(
-        L"A first-pass accordion container is now available for long settings pages and grouped expandable content areas.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+    accordionStack->AddChild(std::make_shared<TextBlock>(L"A first-pass accordion container is now available for long "
+                                                         L"settings pages and grouped expandable content areas.",
+                                                         14.0f, D2D1::ColorF(0x6B7280)));
     accordionStack->AddChild(accordion);
     accordionCard->AddChild(accordionStack);
     root->AddChild(accordionCard);
@@ -647,8 +655,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto editorStack = std::make_shared<StackPanel>(16.0f);
     editorStack->AddChild(std::make_shared<TextBlock>(L"TSF Editor", 20.0f, D2D1::ColorF(0x1F2937), true));
     editorStack->AddChild(std::make_shared<TextBlock>(
-        L"Multi-line input area with TSF integration. This remains the project's flagship control.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+        L"Multi-line input area with TSF integration. This remains the project's flagship control.", 14.0f,
+        D2D1::ColorF(0x6B7280)));
     editorStack->AddChild(std::make_shared<TextBox>(220.0f, L"Type with any IME here..."));
     editorCard->AddChild(editorStack);
     root->AddChild(editorCard);
@@ -658,8 +666,8 @@ std::unique_ptr<Scene> CreateDemoScene()
     auto searchStack = std::make_shared<StackPanel>(14.0f);
     searchStack->AddChild(std::make_shared<TextBlock>(L"Search Box", 18.0f, D2D1::ColorF(0x1F2937), true));
     searchStack->AddChild(std::make_shared<TextBlock>(
-        L"Single-line input can now sit alongside the broader control set as a first-class widget.",
-        14.0f, D2D1::ColorF(0x6B7280)));
+        L"Single-line input can now sit alongside the broader control set as a first-class widget.", 14.0f,
+        D2D1::ColorF(0x6B7280)));
     searchStack->AddChild(std::make_shared<TextBox>(52.0f, L"Search controls, themes, layout..."));
     searchCard->AddChild(searchStack);
     root->AddChild(searchCard);

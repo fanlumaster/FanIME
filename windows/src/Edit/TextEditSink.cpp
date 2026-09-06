@@ -35,8 +35,7 @@ void CMetasequoiaIME::_DebugCompositionRecovery(_In_z_ const WCHAR *reason, HRES
     }
 
     WCHAR message[512] = {};
-    const WCHAR *processName =
-        Global::current_process_name.empty() ? L"unknown" : Global::current_process_name.c_str();
+    const WCHAR *processName = Global::current_process_name.empty() ? L"unknown" : Global::current_process_name.c_str();
     StringCchPrintfW(message, ARRAYSIZE(message),
                      L"[msime][composition-recovery] reason=%s hr=0x%08lX epoch=%llu focus_token=%llu process=%s\n",
                      reason, static_cast<unsigned long>(hr),
@@ -47,8 +46,8 @@ void CMetasequoiaIME::_DebugCompositionRecovery(_In_z_ const WCHAR *reason, HRES
 
 namespace
 {
-bool HasActiveComposingProperty(_In_ ITfContext *context, TfEditCookie ecReadOnly,
-                                _In_ ITfComposition *composition, _Out_ HRESULT *result)
+bool HasActiveComposingProperty(_In_ ITfContext *context, TfEditCookie ecReadOnly, _In_ ITfComposition *composition,
+                                _Out_ HRESULT *result)
 {
     *result = E_FAIL;
     ITfRange *compositionRange = nullptr;
@@ -100,7 +99,7 @@ bool HasActiveComposingProperty(_In_ ITfContext *context, TfEditCookie ecReadOnl
 //----------------------------------------------------------------------------
 
 STDAPI CMetasequoiaIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCookie ecReadOnly,
-                             __RPC__in_opt ITfEditRecord *pEditRecord)
+                                  __RPC__in_opt ITfEditRecord *pEditRecord)
 {
     if (!IsNamedpipeFocusStateOwner(this) || !Global::g_connected)
     {
@@ -158,12 +157,10 @@ STDAPI CMetasequoiaIME::OnEndEdit(__RPC__in_opt ITfContext *pContext, TfEditCook
                 if (!_IsRangeCovered(ecReadOnly, tfSelection.range, pRangeComposition))
                 {
                     const HRESULT endHr = _EndComposition(pContext);
-                    DebugTsfIssue47(L"selection-moved-outside-composition", FANY_IME_NO_REQUEST_ID,
-                                    0, L'\0', 0, 0, -1, TRUE,
-                                    _pCompositionProcessorEngine
-                                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                        : 0,
-                                    endHr, _CaptureCompositionEpoch());
+                    DebugTsfIssue47(
+                        L"selection-moved-outside-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0', 0, 0, -1, TRUE,
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, endHr,
+                        _CaptureCompositionEpoch());
                     if (FAILED(endHr))
                     {
                         MarkNamedpipeSessionDirtyForOwner(this);
