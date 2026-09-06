@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.3...v0.1.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **server:** 将本地测试入口接回合仓后的主工程 ([0baaf9a](https://github.com/metasequoiaime/MSIME-Windows/commit/0baaf9a1d0e572fd9a7fa63db934fc365df65f46))
+* **server:** 补齐合仓后的本地测试和开发入口 ([2297ef4](https://github.com/metasequoiaime/MSIME-Windows/commit/2297ef421a2205148afc2d1ef4a3b3f8b8dcf351))
+
 ## [0.1.3](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.2...v0.1.3) (2026-09-06)
 
 
