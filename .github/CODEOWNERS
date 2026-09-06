@@ -1,0 +1,26 @@
+# Merging to main publishes a release: release-please turns every fix:/feat: merge into a built,
+# signed and published installer with no human step in between. So the paths that decide *what* gets
+# published need a second pair of eyes even though ordinary code changes do not.
+#
+# See GOVERNANCE.md in the organisation .github repository for the release-authorization section
+# these paths come from. This file only takes effect once the branch ruleset requires code owner
+# review; adding it here is the half that lives in the repository.
+
+# The release pipeline itself, and everything CI trusts.
+/.github/                       @metasequoiaime/maintainers
+
+# What ends up on the user's disk, and how it is installed and registered.
+/installer/                     @metasequoiaime/maintainers
+/scripts/                       @metasequoiaime/maintainers
+
+# Which engine and which dictionary release this product ships.
+/product-lock.json              @metasequoiaime/maintainers
+/version.txt                    @metasequoiaime/maintainers
+/.gitmodules                    @metasequoiaime/maintainers
+/vendor/                        @metasequoiaime/maintainers
+
+# Statements users rely on. Changing what these promise is not a routine edit.
+/PRIVACY.md                     @metasequoiaime/maintainers
+/SECURITY.md                    @metasequoiaime/maintainers
+/LICENSE                        @metasequoiaime/maintainers
+/THIRD_PARTY_NOTICES.txt        @metasequoiaime/maintainers
