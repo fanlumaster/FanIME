@@ -66,6 +66,8 @@ jobs:
         id: release_pr
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
+          # release-please reads and writes the repository's default branch unless told otherwise, and that is now develop. The release branch is main: without this the version pull request, the changelog and the tag all land on develop, and the branch this workflow waits for (release-please--branches--main--*) is never created.
+          target-branch: main
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           skip-github-pull-request: true
 
@@ -74,6 +76,7 @@ jobs:
         id: release_update
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
+          target-branch: main
           # A trusted credential starts normal PR checks without manual workflow approval.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           skip-github-release: true
@@ -90,6 +93,7 @@ jobs:
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
+          target-branch: main
           # Creating a tag at a historical workflow-changing commit needs workflows:write.
           # Only GITHUB_TOKEN merges to main, preventing a second Release run.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
