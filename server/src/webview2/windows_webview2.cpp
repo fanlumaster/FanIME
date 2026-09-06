@@ -1610,8 +1610,8 @@ bool InjectExternalSkinCssFile(std::wstring &html, const CandidateSkinCatalog::P
     // reason; keep external skins on that path so padding/decoration CSS is
     // present before SetWindowRgn applies candidateWindow.decoration.
     const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" + string_to_wstring(stylesheet);
-    std::wstring css = RewriteCandidateSkinCssUrls(
-        msime::skin_css::StripRemoteImports(ReadHtmlFile(cssPath)), skinsRoot, skin.id);
+    std::wstring css =
+        RewriteCandidateSkinCssUrls(msime::skin_css::StripRemoteImports(ReadHtmlFile(cssPath)), skinsRoot, skin.id);
     if (css.empty())
     {
         return false;

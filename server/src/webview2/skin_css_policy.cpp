@@ -24,7 +24,8 @@ bool MatchesFoldedAt(const std::wstring &value, size_t offset, const wchar_t *pr
 {
     for (size_t index = 0; prefix[index] != L'\0'; ++index)
     {
-        if (offset + index >= value.size() || towlower(value[offset + index]) != prefix[index])
+        // towlower returns wint_t, which is unsigned where wchar_t is signed; compare as wchar_t.
+        if (offset + index >= value.size() || static_cast<wchar_t>(towlower(value[offset + index])) != prefix[index])
         {
             return false;
         }
