@@ -37,6 +37,10 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_prepare_env.py'
       - name: Test the automatic release CI gate
         run: python3 -m unittest discover -s tests -p 'test_release_pr_ci.py'
+      - name: Test the engine-bump auto-merge guards
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 -m unittest discover -s tests -p 'test_engine_bump_triage.py'
       - name: Read the reviewed lock
         id: lock
         run: |
