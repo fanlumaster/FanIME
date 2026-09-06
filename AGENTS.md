@@ -65,6 +65,8 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 合并用的是 `GITHUB_TOKEN`，而用该 token 推的提交不会触发 workflow —— 这是设计依赖的性质，不是要绕开的限制：它保证一次 push 只有一个 Release run，不会再冒出第二个卡在 concurrency 上。手工点 merge 那个 PR 也能得到同样结果，只是提前了一个 run。
 
+**唯独 release-please 两次调用用的是 `RELEASE_PLEASE_TOKEN`**（org secret，PAT）。配置里的 `force-tag-creation` 让 release-please 自己建 tag ref —— draft release 不会自动建 tag —— 而这个调用在 Actions app token 下即使有 `contents: write` 也会报 `Resource not accessible by integration`。PAT 不是 integration，不受该限制。工作流其余部分（含合并）仍用 `GITHUB_TOKEN`。
+
 **每次可发布的合并都花掉一次签名额度**，这正是之前的手动设计要避免的事。取舍的理由记在 [docs/product-release.md](docs/product-release.md)。
 
 `workflow_dispatch` 保留下来，现在是修复通道而不是常规路径：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会二次消耗签名次数。

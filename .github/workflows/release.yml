@@ -48,12 +48,14 @@ jobs:
           persist-credentials: false
 
       # Two invocations, because release-please only creates a release for a release pull request that was already merged when it ran. The first refreshes the pull request against the commits this push brought, so the release about to be cut includes them; the second sees the merge that land-release-pr.sh performed in between and cuts it. Merging before the first invocation instead would release everything except the push that triggered the run.
+      #
+      # Both invocations run on RELEASE_PLEASE_TOKEN rather than GITHUB_TOKEN. force-tag-creation in release-please-config.json makes release-please create the tag ref itself, because a draft release does not create one, and that call fails as "Resource not accessible by integration" under the Actions app token even with contents: write. A personal access token is not an integration, so the restriction does not apply to it. Everything else in this workflow, including the merge, stays on GITHUB_TOKEN, whose pushes do not start workflow runs.
       - name: Refresh the release pull request
         if: ${{ github.event_name == 'push' }}
         id: release_pr
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Test and merge the release pull request
         if: ${{ github.event_name == 'push' }}
@@ -67,7 +69,7 @@ jobs:
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Resolve the release this run publishes
         if: ${{ github.event_name == 'push' }}
