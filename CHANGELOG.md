@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.3](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.2...v0.5.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **installer:** fail when configured signing key is unavailable ([f3a34cf](https://github.com/metasequoiaime/MSIME-Windows/commit/f3a34cfb5684e2c5118ec57d997325b2a09af8ed))
+* **installer:** fail when configured signing key is unavailable ([a45a8cb](https://github.com/metasequoiaime/MSIME-Windows/commit/a45a8cbd3442e2703a83d092b23eb70878039be4))
+* **server:** avoid showing raw preedit for sentence candidates ([2098206](https://github.com/metasequoiaime/MSIME-Windows/commit/2098206019c067b9ffa9fb30c1a16290b525aa39))
+* 改进长句候选展示与候选排序，本地联想的长句后面不应跟着 raw preedit ([ec29a5b](https://github.com/metasequoiaime/MSIME-Windows/commit/ec29a5bc6043c3ef44b7191657e0303a245a4381))
+
 ## [0.5.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.1...v0.5.2) (2026-09-06)
 
 
