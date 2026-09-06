@@ -101,6 +101,7 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 | `verify-commit-on-main.sh` | 拒绝构建不在 main 历史里的 commit |
 | `install-boost.ps1` | 装 Server 链接但未声明的 Boost，triplet 必须是 static-md |
 | `check-server-binaries.ps1` | 提前拦住 Server 产物缺文件 |
+| `embed-server-manifest.ps1` | 在上传和签名之前把 `uiAccess=true` manifest 注入 Server PE，并读回验证 |
 | `check-tsf-dll.ps1` | 确认 TSF DLL 产出 |
 | `download-dictionaries.sh` | 从产品锁指定仓库的 `dict-*` release 拉词库并校验 SHA256 |
 | `detect-release-signing.ps1` | 判定签名模式，决定产物后缀 |
@@ -115,7 +116,7 @@ release workflow 里的每一段 shell 都抽在 `scripts/ci/` 下，workflow �
 
 词库不在 CI 里现建，从产品锁指定仓库的 `dict-*` release 下载并校验 SHA256。词库源数据与构建入口已并入 MSIME-Engine，现有 MSIME-Dict release 作为不可变旧产物保留；换发布源要在 `product_lock.py` 里明确评审，不是改个 tag 就能悄悄完成的事。词库改了要先在 Engine 跑构建 workflow 并勾选 publish，再发 Windows 版本；通过 `scripts/product_lock.py refresh --dictionary-tag <tag>` 更新产品锁并评审摘要变更；发布构建不能临时覆盖词库版本。
 
-签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
+签名沿用「有证书就签、没有就发未签名版」的策略：配置了 `WINDOWS_SIGNING_CERTIFICATE_BASE64` 和 `WINDOWS_SIGNING_CERTIFICATE_PASSWORD` 两个 secret 时，用 `signtool` 签包内 EXE/DLL 和安装包；没配置时产物名带 `-unsigned` 后缀，并在 release 说明里写明 `uiAccess` 不会生效。Server 的 `uiAccess=true` manifest 必须在上传和签名之前由 `scripts/ci/embed-server-manifest.ps1` 注入并验证；`Sign-PackageBinaries-Local.ps1` 使用本机自签名证书，只用于本地验证，CI 不会调用它。
 
 ## 提交
 
