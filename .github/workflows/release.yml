@@ -31,9 +31,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
-      # actions: write lets land-release-pr.sh dispatch ci.yml on the release branch, which is the
-      # only trigger GITHUB_TOKEN is allowed to fire.
-      actions: write
+      # Read the PR-triggered run; merging stays scoped to GITHUB_TOKEN.
+      actions: read
       contents: write
       pull-requests: write
     outputs:
@@ -47,7 +46,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Split release creation from PR writes so the metadata credential never updates branches.
+      # Separate release metadata from PR updates to preserve release-please ordering.
       # Recover an already-merged release before calculating the next PR, matching release-please's
       # normal releases-then-pull-requests ordering.
       - name: Require the release metadata credential
@@ -73,8 +72,8 @@ jobs:
         id: release_update
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # Branch writes remain token-scoped and cannot enqueue another Release run.
+          # A trusted credential starts normal PR checks without manual workflow approval.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           skip-github-release: true
 
       - name: Test and merge the release pull request
@@ -90,7 +89,7 @@ jobs:
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
           # Creating a tag at a historical workflow-changing commit needs workflows:write.
-          # This credential may create metadata, but must never write the release branch.
+          # Only GITHUB_TOKEN merges to main, preventing a second Release run.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           skip-github-pull-request: true
 

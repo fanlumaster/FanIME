@@ -5,7 +5,9 @@
 #
 # The merge deliberately uses GITHUB_TOKEN. A push made with that token does not start a workflow run, so merging here does not produce a second Release run racing this one through the concurrency group: the release is created and built inside the same run that merged it. A personal access token would break that property rather than improve it.
 #
-# Getting a check onto the pull request is still awkward. GITHUB_TOKEN may not start workflows, so the pull_request run is created in action_required and never executes; a push to the branch does not produce a run at all. workflow_dispatch is the exception GitHub allows, so dispatch CI on the release branch and wait for it. The checks land on the pull request's head commit, which is what lets required_status_checks stay on for this repository (MSIME-Windows#121) without leaving the release pull request permanently unmergeable.
+# release-please updates the PR with RELEASE_PLEASE_TOKEN so ordinary pull_request CI starts.
+# Wait for that run at the exact head: workflow_dispatch checks can be absent from the PR rollup
+# even when their SHA matches, leaving required checks unsatisfied. Do not bypass those checks.
 #
 # The pull request is found by branch rather than from release-please's payload, which only reports a pull request as created once but rewrites that branch on every later push to main.
 #
@@ -43,15 +45,13 @@ if [[ "$head_branch" != release-please--* ]]; then
     exit 1
 fi
 
-echo "Dispatching CI for release pull request #$number at $head_sha"
-gh workflow run ci.yml --repo "$GH_REPO" --ref "$head_branch"
+echo "Waiting for PR CI for release pull request #$number at $head_sha"
 
-# The run does not appear immediately, and gh has no way to ask for the run a dispatch created, so
-# poll for one on this branch at this exact commit.
+# The pull_request run does not appear immediately; poll for this branch at this exact commit.
 run_id=""
 for _ in $(seq 1 150); do
     run_id=$(gh run list --repo "$GH_REPO" --workflow ci.yml --branch "$head_branch" \
-        --event workflow_dispatch --limit 20 --json databaseId,headSha \
+        --event pull_request --limit 20 --json databaseId,headSha \
         --jq "map(select(.headSha == \"$head_sha\")) | first | .databaseId // empty")
     [[ -n "$run_id" ]] && break
     sleep 2
