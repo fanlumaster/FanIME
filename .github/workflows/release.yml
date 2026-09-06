@@ -47,13 +47,35 @@ jobs:
         with:
           persist-credentials: false
 
-      # Two invocations, because release-please only creates a release for a release pull request that was already merged when it ran. The first refreshes the pull request against the commits this push brought, so the release about to be cut includes them; the second sees the merge that land-release-pr.sh performed in between and cuts it. Merging before the first invocation instead would release everything except the push that triggered the run.
-      - name: Refresh the release pull request
+      # Split release creation from PR writes so the metadata credential never updates branches.
+      # Recover an already-merged release before calculating the next PR, matching release-please's
+      # normal releases-then-pull-requests ordering.
+      - name: Require the release metadata credential
+        if: ${{ github.event_name == 'push' }}
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_TOKEN" ]]; then
+            echo '::error::RELEASE_PLEASE_TOKEN must allow contents and workflows writes to create release tags.'
+            exit 1
+          fi
+
+      - name: Recover releases from previously merged pull requests
         if: ${{ github.event_name == 'push' }}
         id: release_pr
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          skip-github-pull-request: true
+
+      - name: Refresh the release pull request
+        if: ${{ github.event_name == 'push' }}
+        id: release_update
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Branch writes remain token-scoped and cannot enqueue another Release run.
+          skip-github-release: true
 
       - name: Test and merge the release pull request
         if: ${{ github.event_name == 'push' }}
@@ -67,7 +89,10 @@ jobs:
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Creating a tag at a historical workflow-changing commit needs workflows:write.
+          # This credential may create metadata, but must never write the release branch.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          skip-github-pull-request: true
 
       - name: Resolve the release this run publishes
         if: ${{ github.event_name == 'push' }}
