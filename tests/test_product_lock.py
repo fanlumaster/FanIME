@@ -207,6 +207,31 @@ class ProductLockTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 lock.verify_published(self.data)
 
+    def test_a_dictionary_release_cut_from_an_unmerged_branch_is_rejected(self):
+        source = self.data["dictionary"]["source_commit"]
+
+        def api(endpoint):
+            if "/compare/" not in endpoint:
+                return {"default_branch": "main"}
+            # Everything the repositories block pins is merged; only the dictionary source is not.
+            return {"status": "ahead" if endpoint.endswith(source) else "behind"}
+
+        with mock.patch.object(lock, "api", side_effect=api):
+            with self.assertRaises(ValueError):
+                lock.verify_published(self.data)
+
+    def test_a_retired_dictionary_repository_that_no_longer_answers_is_not_a_release_failure(self):
+        self.data["dictionary"]["repository"] = "metasequoiaime/MSIME-Dict"
+        self.data["dictionary"]["tag"] = lock.LEGACY_DICTIONARY_TAG
+
+        def archived(endpoint):
+            if endpoint.startswith("repos/metasequoiaime/MSIME-Dict"):
+                raise subprocess.CalledProcessError(1, "gh")
+            return {"status": "behind"} if "/compare/" in endpoint else {"default_branch": "main"}
+
+        with mock.patch.object(lock, "api", side_effect=archived):
+            lock.verify_published(self.data)
+
     def test_manifest_records_exact_source_and_lock_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "manifest.json"

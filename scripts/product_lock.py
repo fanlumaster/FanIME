@@ -133,16 +133,29 @@ def verify_contracts(directory: Path, data: dict) -> None:
 
 
 def verify_published(data: dict) -> None:
-    """Every locked commit has to be reachable from its own repository's default branch.
+    """Every locked commit has to be reachable from its own repository's default branch, the dictionary source commit included.
 
     This is a release gate rather than a validate rule, deliberately. A pull request legitimately locks branch commits while one change lands across several repositories at once, and enforcing this in pull request CI would deadlock the very landing it exists to protect. At release time the situation is the opposite: an input that never reached its default branch is an input nobody merged, and shipping it makes the lock attest to a review that did not happen.
     """
-    for name, entry in data["repositories"].items():
+    # The dictionary sits outside repositories but pins a commit exactly like they do, and the
+    # manifest check only proves the release agrees with the lock about it, which a branch commit
+    # does just as happily. So it goes through the same gate under its own name.
+    dictionary = data["dictionary"]
+    entries = {**data["repositories"],
+               "dictionary": {"repository": dictionary["repository"], "commit": dictionary["source_commit"]}}
+    for name, entry in entries.items():
         repository, commit = entry["repository"], entry["commit"]
         try:
             default = api(f"repos/{repository}")["default_branch"]
             status = api(f"repos/{repository}/compare/{default}...{commit}")["status"]
         except subprocess.CalledProcessError as error:
+            # A release that shipped from the retired dictionary repository is an immutable historical
+            # artefact that validate still accepts, and an archived or deleted repository answers
+            # nothing about its default branch. Being unable to re-check that history is not the same
+            # as finding it unmerged, so it is reported rather than turned into a release failure.
+            if name == "dictionary" and repository != DICTIONARY_REPOSITORY:
+                print(f"{name}: {commit[:12]} predates {DICTIONARY_REPOSITORY} and {repository} no longer answers")
+                continue
             raise ValueError(f"{name}: cannot resolve {commit} in {repository}") from error
         # behind and identical both mean the locked commit is an ancestor of the default branch.
         # ahead and diverged mean it sits on something that was never merged into it.
