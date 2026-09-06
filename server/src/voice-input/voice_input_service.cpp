@@ -756,7 +756,9 @@ void AudioCallback(const float *samples, std::size_t frames)
 {
     if (!samples || !g_recording) return;
     double sum = 0.0;
-    for (std::size_t i = 0; i < frames; ++i) sum += samples[i] * samples[i];
+    // Widen before squaring. float * float is evaluated at float precision and only then converted,
+    // which throws away the accuracy the double accumulator exists to keep.
+    for (std::size_t i = 0; i < frames; ++i) sum += static_cast<double>(samples[i]) * static_cast<double>(samples[i]);
     const float rms = frames ? static_cast<float>(std::sqrt(sum / frames)) : 0.0f;
     // Compress the visual dynamic range so quiet speech still produces a clear waveform,
     // while keeping low-level room/microphone noise close to rest.

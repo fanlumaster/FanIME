@@ -34,6 +34,8 @@ Issue 已经逐条核过并按可接手程度打了标签，可以直接筛：
 
 写代码、写文档、整理词库、测试 Bug、制作教程，都是非常有价值的开源贡献。可以纯手写，也可以借助 AI；但请认真检查和测试，并注意不要在 PR、Issue、截图或日志中泄露 API Key 等敏感信息。完整的贡献约定见[贡献指南](https://github.com/metasequoiaime/.github/blob/main/CONTRIBUTING.md)。
 
+**要动代码的话，本仓的环境要求、从源码构建、打包和提交前检查全部写在 [CONTRIBUTING.md](CONTRIBUTING.md) 里。**
+
 ## 项目结构
 
 Windows 端的全部一方源码都在本仓，一次 clone 就能拿到完整产品。DLL 与 Server 仍是两个进程，只是不再是两个仓库。

@@ -87,7 +87,10 @@ const FALLBACK_ENGLISH_FONTS = [
 ];
 
 function quoteFont(name: string): string {
-  return /\s/.test(name) ? `"${name.replace(/"/g, '\\"')}"` : name;
+  // Escape the escape character first. Quoting only `"` leaves a name ending in a backslash able to
+  // consume the closing quote -- `foo\` became `"foo\"` -- and whatever followed in the fontFamily
+  // string was then parsed as CSS rather than as part of the family name.
+  return /\s/.test(name) ? `"${name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : name;
 }
 
 function appearancePreviewRoots(): HTMLElement[] {
