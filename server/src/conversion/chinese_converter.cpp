@@ -30,8 +30,8 @@ opencc::SimpleConverter *Converter()
         {
             const auto resources = ResourceDirectory();
             if (!resources.empty())
-                converter = std::make_unique<opencc::SimpleConverter>(
-                    "s2t.json", std::vector<std::string>{resources.u8string()});
+                converter = std::make_unique<opencc::SimpleConverter>("s2t.json",
+                                                                      std::vector<std::string>{resources.u8string()});
         }
         catch (...)
         {

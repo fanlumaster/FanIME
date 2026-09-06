@@ -75,7 +75,7 @@ bool RemeasureDirtyPath(Visual *source, Visual *root)
 
     return true;
 }
-}
+} // namespace
 
 void Scene::SetRoot(std::shared_ptr<Visual> root)
 {
@@ -108,7 +108,8 @@ void Scene::Attach(Window *window)
 
 void Scene::EnsureLayout(const SizeF &size)
 {
-    const bool sizeChanged = !hasLastLayoutSize_ || lastLayoutSize_.width != size.width || lastLayoutSize_.height != size.height;
+    const bool sizeChanged =
+        !hasLastLayoutSize_ || lastLayoutSize_.width != size.width || lastLayoutSize_.height != size.height;
     if (sizeChanged || measureDirty_ || arrangeDirty_)
     {
         Layout(size);
@@ -117,7 +118,8 @@ void Scene::EnsureLayout(const SizeF &size)
 
 void Scene::Layout(const SizeF &size)
 {
-    const bool sizeChanged = !hasLastLayoutSize_ || lastLayoutSize_.width != size.width || lastLayoutSize_.height != size.height;
+    const bool sizeChanged =
+        !hasLastLayoutSize_ || lastLayoutSize_.width != size.width || lastLayoutSize_.height != size.height;
     const bool needsMeasure = sizeChanged || measureDirty_ || !hasLastLayoutSize_;
     const bool needsArrange = needsMeasure || sizeChanged || arrangeDirty_ || !hasLastLayoutSize_;
 
@@ -201,7 +203,8 @@ void Scene::RemovePopup(Visual *popup, bool notify)
         return;
     }
 
-    auto it = std::find_if(popups_.begin(), popups_.end(), [popup](const PopupEntry &entry) { return entry.visual.get() == popup; });
+    auto it = std::find_if(popups_.begin(), popups_.end(),
+                           [popup](const PopupEntry &entry) { return entry.visual.get() == popup; });
     if (it == popups_.end())
     {
         return;

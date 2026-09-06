@@ -13,7 +13,9 @@ namespace
 class SvgPathParser
 {
   public:
-    SvgPathParser(std::string path, ID2D1GeometrySink *sink) : path_(std::move(path)), sink_(sink) {}
+    SvgPathParser(std::string path, ID2D1GeometrySink *sink) : path_(std::move(path)), sink_(sink)
+    {
+    }
 
     bool Parse()
     {
@@ -187,9 +189,8 @@ class SvgPathParser
             }
             EnsureFigure();
             const D2D1_POINT_2F control =
-                lastControlValid_
-                    ? D2D1_POINT_2F{2.0f * currentX_ - lastControlX_, 2.0f * currentY_ - lastControlY_}
-                    : D2D1_POINT_2F{currentX_, currentY_};
+                lastControlValid_ ? D2D1_POINT_2F{2.0f * currentX_ - lastControlX_, 2.0f * currentY_ - lastControlY_}
+                                  : D2D1_POINT_2F{currentX_, currentY_};
             sink_->AddQuadraticBezier({control, *end});
             lastControlX_ = control.x;
             lastControlY_ = control.y;

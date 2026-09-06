@@ -268,7 +268,12 @@ export function populateDropdownMenu(
     item.textContent = name;
     if (options?.previewFont) {
       const previewName = options.previewFamily?.(name) || name;
-      const quoted = /\s/.test(previewName) ? `"${previewName.replace(/"/g, '\\"')}"` : previewName;
+      // Escape the escape character first, as in appearance.ts quoteFont: quoting only `"` leaves a
+      // name ending in a backslash able to consume the closing quote and turn the rest of the
+      // fontFamily string into CSS.
+      const quoted = /\s/.test(previewName)
+        ? `"${previewName.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+        : previewName;
       const family = `${quoted}, sans-serif`;
       if (index < FONT_PREVIEW_EAGER_ROWS) {
         item.style.fontFamily = family;

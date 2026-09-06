@@ -238,9 +238,8 @@ bool ReceiveMessage(HINTERNET websocket, std::vector<std::uint8_t> &message)
     }
 }
 
-HINTERNET ConnectWebSocket(const std::string &endpoint, const std::string &app_key,
-                           const std::string &access_key, const std::string &resource_id,
-                           WinHttpHandle &session, WinHttpHandle &connection)
+HINTERNET ConnectWebSocket(const std::string &endpoint, const std::string &app_key, const std::string &access_key,
+                           const std::string &resource_id, WinHttpHandle &session, WinHttpHandle &connection)
 {
     std::string crackable_endpoint = endpoint;
     if (crackable_endpoint.rfind("wss://", 0) == 0)
@@ -280,11 +279,11 @@ HINTERNET ConnectWebSocket(const std::string &endpoint, const std::string &app_k
     else
     {
         // Legacy console: App ID/App Key plus Access Token. Secret Key is not used.
-        headers = L"X-Api-App-Key: " + Utf8ToWide(app_key) + L"\r\n" +
-                  L"X-Api-Access-Key: " + Utf8ToWide(access_key) + L"\r\n";
+        headers = L"X-Api-App-Key: " + Utf8ToWide(app_key) + L"\r\n" + L"X-Api-Access-Key: " + Utf8ToWide(access_key) +
+                  L"\r\n";
     }
-    headers += L"X-Api-Resource-Id: " + Utf8ToWide(resource_id) + L"\r\n" +
-               L"X-Api-Request-Id: " + Utf8ToWide(MakeRequestId()) + L"\r\n";
+    headers += L"X-Api-Resource-Id: " + Utf8ToWide(resource_id) + L"\r\n" + L"X-Api-Request-Id: " +
+               Utf8ToWide(MakeRequestId()) + L"\r\n";
     if (!WinHttpAddRequestHeaders(request.value, headers.c_str(), static_cast<DWORD>(-1),
                                   WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE) ||
         !WinHttpSendRequest(request.value, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
@@ -294,16 +293,12 @@ HINTERNET ConnectWebSocket(const std::string &endpoint, const std::string &app_k
 }
 } // namespace
 
-DoubaoAsrClient::DoubaoAsrClient(std::string endpoint, std::string app_key,
-                                 std::string access_key, std::string resource_id,
-                                 bool enable_itn, bool enable_punc, bool enable_ddc,
-                                 std::string boosting_table_id,
-                                 TranscriptCallback transcript_callback)
-    : endpoint_(std::move(endpoint)), app_key_(std::move(app_key)),
-      access_key_(std::move(access_key)), resource_id_(std::move(resource_id)),
-      enable_itn_(enable_itn), enable_punc_(enable_punc), enable_ddc_(enable_ddc),
-      boosting_table_id_(std::move(boosting_table_id)),
-      transcript_callback_(std::move(transcript_callback))
+DoubaoAsrClient::DoubaoAsrClient(std::string endpoint, std::string app_key, std::string access_key,
+                                 std::string resource_id, bool enable_itn, bool enable_punc, bool enable_ddc,
+                                 std::string boosting_table_id, TranscriptCallback transcript_callback)
+    : endpoint_(std::move(endpoint)), app_key_(std::move(app_key)), access_key_(std::move(access_key)),
+      resource_id_(std::move(resource_id)), enable_itn_(enable_itn), enable_punc_(enable_punc), enable_ddc_(enable_ddc),
+      boosting_table_id_(std::move(boosting_table_id)), transcript_callback_(std::move(transcript_callback))
 {
 }
 
@@ -376,21 +371,16 @@ void DoubaoAsrClient::Run()
 {
     WinHttpHandle session;
     WinHttpHandle connection;
-    WinHttpHandle websocket(
-        ConnectWebSocket(endpoint_, app_key_, access_key_, resource_id_, session, connection));
+    WinHttpHandle websocket(ConnectWebSocket(endpoint_, app_key_, access_key_, resource_id_, session, connection));
     if (!websocket.value)
     {
         error_ = "无法连接豆包语音识别。请检查 App ID、Access Token 和接口地址。";
         return;
     }
 
-    nlohmann::json request_options =
-        {{"model_name", "bigmodel"},
-         {"enable_itn", enable_itn_},
-         {"enable_punc", enable_punc_},
-         {"enable_ddc", enable_ddc_},
-         {"show_utterances", false},
-         {"result_type", "full"}};
+    nlohmann::json request_options = {{"model_name", "bigmodel"},    {"enable_itn", enable_itn_},
+                                      {"enable_punc", enable_punc_}, {"enable_ddc", enable_ddc_},
+                                      {"show_utterances", false},    {"result_type", "full"}};
     if (!boosting_table_id_.empty())
         request_options["corpus"] = {{"boosting_table_id", boosting_table_id_}};
 

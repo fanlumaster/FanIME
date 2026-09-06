@@ -1,11 +1,21 @@
 blank_issues_enabled: false
 contact_links:
+  # First on purpose. Blank issues are disabled, so this chooser is the only path someone who found
+  # a vulnerability sees, and without this row the most natural next action is to file a public bug
+  # -- which is exactly what SECURITY.md forbids. Private vulnerability reporting is enabled on this
+  # repository, so the advisory form below is a working channel, not just a document to read.
+  - name: 安全漏洞 / Security vulnerability
+    url: https://github.com/metasequoiaime/MSIME-Windows/security/advisories/new
+    about: 疑似漏洞请私下上报，不要提交公开 issue。Report privately; do not open a public issue.
+  - name: 组词引擎与词库问题 / Engine and dictionary
+    url: https://github.com/metasequoiaime/MSIME-Engine/issues
+    about: 选字顺序、词库缺词等属于共享引擎与词库，请到对应仓库反馈。Candidate order and missing words belong to the shared engine.
   - name: Telegram 群组 / Telegram Group
     url: https://t.me/msimegroup
     about: 使用问题、讨论与日常交流。Questions and discussions.
   - name: QQ 群 / QQ Group
-    url: https://github.com/metasequoiaime/MSIME-Windows
-    about: "QQ 群号 829919142（见仓库简介）。QQ Group: 829919142."
+    url: https://github.com/metasequoiaime/MSIME-Windows#readme
+    about: "QQ 群号 829919142（手动搜索群号加入）。QQ Group: 829919142."
   - name: 项目文档 / Documentation
-    url: https://github.com/metasequoiaime/MSIME-Docs
-    about: 水杉输入法文档仓库。Docs for Metasequoia IME.
+    url: https://msime.app/docs/
+    about: 水杉输入法用户文档。User documentation for Metasequoia IME.

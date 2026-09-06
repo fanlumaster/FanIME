@@ -84,9 +84,8 @@ HRESULT EnsureFactories()
     }
     if (!g_dwrite)
     {
-        const HRESULT hr =
-            DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
-                                reinterpret_cast<IUnknown **>(g_dwrite.GetAddressOf()));
+        const HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                                               reinterpret_cast<IUnknown **>(g_dwrite.GetAddressOf()));
         if (FAILED(hr))
         {
             return hr;
@@ -94,9 +93,9 @@ HRESULT EnsureFactories()
     }
     if (!g_title_format)
     {
-        const HRESULT hr = g_dwrite->CreateTextFormat(
-            L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"zh-cn", &g_title_format);
+        const HRESULT hr =
+            g_dwrite->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
+                                       DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"zh-cn", &g_title_format);
         if (FAILED(hr))
         {
             return hr;
@@ -106,9 +105,9 @@ HRESULT EnsureFactories()
     }
     if (!g_hint_format)
     {
-        const HRESULT hr = g_dwrite->CreateTextFormat(
-            L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 13.0f, L"zh-cn", &g_hint_format);
+        const HRESULT hr =
+            g_dwrite->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
+                                       DWRITE_FONT_STRETCH_NORMAL, 13.0f, L"zh-cn", &g_hint_format);
         if (FAILED(hr))
         {
             return hr;
@@ -203,8 +202,7 @@ void PaintSplash()
         const float x1 = cx + kSpinnerRadiusDip * std::cos(start + sweep);
         const float y1 = cy + kSpinnerRadiusDip * std::sin(start + sweep);
         sink->BeginFigure(D2D1::Point2F(x0, y0), D2D1_FIGURE_BEGIN_HOLLOW);
-        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(x1, y1),
-                                      D2D1::SizeF(kSpinnerRadiusDip, kSpinnerRadiusDip), 0.0f,
+        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(x1, y1), D2D1::SizeF(kSpinnerRadiusDip, kSpinnerRadiusDip), 0.0f,
                                       D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
         sink->EndFigure(D2D1_FIGURE_END_OPEN);
         sink->Close();
@@ -213,8 +211,7 @@ void PaintSplash()
 
     for (int i = 0; i < 3; ++i)
     {
-        const float pulse =
-            0.45f + 0.55f * (0.5f + 0.5f * std::sin(g_phase * 2.2f - static_cast<float>(i) * 0.85f));
+        const float pulse = 0.45f + 0.55f * (0.5f + 0.5f * std::sin(g_phase * 2.2f - static_cast<float>(i) * 0.85f));
         const float r = 2.2f * pulse;
         const float dx = static_cast<float>(i - 1) * 10.0f;
         g_rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(cx + dx, cy + kSpinnerRadiusDip + 22.0f), r, r),
@@ -296,8 +293,7 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l
             return 0;
         }
         break;
-    case WM_PAINT:
-    {
+    case WM_PAINT: {
         PAINTSTRUCT ps{};
         BeginPaint(hwnd, &ps);
         PaintSplash();

@@ -71,8 +71,7 @@ class ToolbarIconButton : public msimeui::Visual
   public:
     using ClickHandler = std::function<void()>;
 
-    ToolbarIconButton(wchar_t glyph, std::wstring text, float size)
-        : glyph_(glyph), text_(std::move(text)), size_(size)
+    ToolbarIconButton(wchar_t glyph, std::wstring text, float size) : glyph_(glyph), text_(std::move(text)), size_(size)
     {
         SetWidth(size_);
         SetHeight(size_);
@@ -417,8 +416,8 @@ void FloatingToolbarPresenter::RebuildScene()
     row->SetPadding({0.0f, 0.0f, padRight, 0.0f});
     row->SetHeight(barHeight);
 
-    auto handle =
-        std::make_shared<ToolbarDragHandle>(padLeft + 10.0f * s, barHeight, 2.5f * s, 14.0f * s, ColorFromRgb(0x8E8CD8));
+    auto handle = std::make_shared<ToolbarDragHandle>(padLeft + 10.0f * s, barHeight, 2.5f * s, 14.0f * s,
+                                                      ColorFromRgb(0x8E8CD8));
     auto divider = std::make_shared<ToolbarDivider>(1.2f * s, barHeight, impl_->divider);
     auto leading = std::make_shared<msimeui::HorizontalStackPanel>(2.0f * s);
     leading->SetVerticalContentAlignment(msimeui::VerticalAlignment::Center);
@@ -483,22 +482,26 @@ void FloatingToolbarPresenter::RebuildScene()
     {
         if (impl_->doubleSingleByte == 1)
         {
-            addGlyph(kGlyphFullWidth, []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth); });
+            addGlyph(kGlyphFullWidth,
+                     []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToHalfwidth); });
         }
         else
         {
-            addGlyph(kGlyphHalfWidth, []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth); });
+            addGlyph(kGlyphHalfWidth,
+                     []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToFullwidth); });
         }
     }
     if (items.punctuation)
     {
         if (impl_->punctuation == 1)
         {
-            addGlyph(kGlyphPuncCn, []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn); });
+            addGlyph(kGlyphPuncCn,
+                     []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncEn); });
         }
         else
         {
-            addGlyph(kGlyphPuncEn, []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn); });
+            addGlyph(kGlyphPuncEn,
+                     []() { SendWorker(Global::DataFromServerMsgTypeToTsfWorkerThread::SwitchToPuncCn); });
         }
     }
     if (items.character_set)
@@ -599,8 +602,7 @@ void FloatingToolbarPresenter::RelayoutHost(FLOAT scaleOverride)
     RECT current{};
     GetWindowRect(hwnd_, &current);
     const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForPoint({current.left, current.top});
-    const float widthDip =
-        static_cast<float>(ClampWidthDipToHalfScreen(static_cast<double>(measured.width), limits));
+    const float widthDip = static_cast<float>(ClampWidthDipToHalfScreen(static_cast<double>(measured.width), limits));
     const float heightDip =
         static_cast<float>(ClampHeightDipToHalfScreen(static_cast<double>(measured.height), limits));
     const int widthPx = (std::max)(1, static_cast<int>(std::ceil(widthDip * scale)));

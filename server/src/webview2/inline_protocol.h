@@ -4,8 +4,7 @@
 
 // Only replace our explicit shared imports; legacy/custom pages are left alone.
 // Keep the original imports if either local file is missing.
-inline bool InlineWebViewProtocolScripts(std::wstring &html, std::wstring_view schema,
-                                        std::wstring_view runtime)
+inline bool InlineWebViewProtocolScripts(std::wstring &html, std::wstring_view schema, std::wstring_view runtime)
 {
     constexpr std::wstring_view schemaTag = L"<script src=\"https://msime-contracts/schema.js\"></script>";
     constexpr std::wstring_view runtimeTag = L"<script src=\"https://msime-contracts/runtime.js\"></script>";

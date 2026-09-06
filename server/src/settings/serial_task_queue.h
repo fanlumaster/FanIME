@@ -10,17 +10,23 @@
 // owner thread. Stop drains accepted work; no detached threads outlive the owner.
 class SerialTaskQueue
 {
-public:
+  public:
     using Completion = std::function<void()>;
     using Task = std::function<Completion()>;
     SerialTaskQueue(Completion notify, Completion error, Completion cleanup = {})
-        : notify_(std::move(notify)), error_(std::move(error)), cleanup_(std::move(cleanup)),
-          thread_([this] { Run(); }) {}
-    ~SerialTaskQueue() { Stop(); thread_.join(); }
+        : notify_(std::move(notify)), error_(std::move(error)), cleanup_(std::move(cleanup)), thread_([this] { Run(); })
+    {
+    }
+    ~SerialTaskQueue()
+    {
+        Stop();
+        thread_.join();
+    }
     bool Submit(Task task)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (stopping_) return false;
+        if (stopping_)
+            return false;
         tasks_.push_back(std::move(task));
         ready_.notify_one();
         return true;
@@ -39,10 +45,16 @@ public:
     void Drain(bool deliver = true)
     {
         std::deque<Completion> completed;
-        { std::lock_guard<std::mutex> lock(mutex_); completed.swap(completed_); }
-        if (deliver) for (auto &completion : completed) completion();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            completed.swap(completed_);
+        }
+        if (deliver)
+            for (auto &completion : completed)
+                completion();
     }
-private:
+
+  private:
     void Run()
     {
         for (;;)
@@ -51,19 +63,35 @@ private:
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 ready_.wait(lock, [this] { return stopping_ || !tasks_.empty(); });
-                if (tasks_.empty()) break;
-                task = std::move(tasks_.front()); tasks_.pop_front();
+                if (tasks_.empty())
+                    break;
+                task = std::move(tasks_.front());
+                tasks_.pop_front();
             }
             Completion result;
-            try { result = task(); } catch (...) { result = error_; }
+            try
+            {
+                result = task();
+            }
+            catch (...)
+            {
+                result = error_;
+            }
             if (result)
             {
-                { std::lock_guard<std::mutex> lock(mutex_); completed_.push_back(std::move(result)); }
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    completed_.push_back(std::move(result));
+                }
                 notify_();
             }
         }
-        if (cleanup_) cleanup_();
-        { std::lock_guard<std::mutex> lock(mutex_); stopped_ = true; }
+        if (cleanup_)
+            cleanup_();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stopped_ = true;
+        }
         notify_();
     }
     Completion notify_, error_, cleanup_;

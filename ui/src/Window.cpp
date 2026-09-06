@@ -14,8 +14,7 @@ namespace msimeui
 {
 namespace
 {
-POINT GetInitialWindowOrigin(int windowWidth, int windowHeight, WindowInitialPlacement placement,
-                             int bottomMargin)
+POINT GetInitialWindowOrigin(int windowWidth, int windowHeight, WindowInitialPlacement placement, int bottomMargin)
 {
     POINT origin = {CW_USEDEFAULT, CW_USEDEFAULT};
 
@@ -38,7 +37,8 @@ POINT GetInitialWindowOrigin(int windowWidth, int windowHeight, WindowInitialPla
     {
         const int margin = std::max(bottomMargin, 0);
         origin.y = workArea.bottom - clampedHeight - margin;
-        if (origin.y < workArea.top) origin.y = workArea.top;
+        if (origin.y < workArea.top)
+            origin.y = workArea.top;
     }
     else
     {
@@ -58,8 +58,8 @@ Window::~Window() = default;
 
 bool Window::Create()
 {
-    HICON largeIcon = static_cast<HICON>(
-        LoadImageW(instance_, MAKEINTRESOURCEW(101), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0));
+    HICON largeIcon = static_cast<HICON>(LoadImageW(instance_, MAKEINTRESOURCEW(101), IMAGE_ICON,
+                                                    GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0));
     HICON smallIcon = static_cast<HICON>(LoadImageW(instance_, MAKEINTRESOURCEW(101), IMAGE_ICON,
                                                     GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
 
@@ -252,7 +252,8 @@ void Window::Relayout()
 
 void Window::SetScene(std::unique_ptr<Scene> scene)
 {
-    // The cached targets point into the outgoing scene's visual tree, which is destroyed by the assignment below, so they have to be dropped first or the next mouse or keyboard message dispatches through a dangling pointer.
+    // The cached targets point into the outgoing scene's visual tree, which is destroyed by the assignment below, so
+    // they have to be dropped first or the next mouse or keyboard message dispatches through a dangling pointer.
     if (capturedVisual_ && hwnd_ && GetCapture() == hwnd_)
     {
         ReleaseCapture();
@@ -296,8 +297,7 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    case WM_LBUTTONDOWN:
-    {
+    case WM_LBUTTONDOWN: {
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         if (scene_)
         {
@@ -332,8 +332,7 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_LBUTTONUP:
-    {
+    case WM_LBUTTONUP: {
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         Visual *target = capturedVisual_ ? capturedVisual_ : focusedVisual_;
         if (target)
@@ -345,8 +344,7 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_RBUTTONUP:
-    {
+    case WM_RBUTTONUP: {
         const POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         if (scene_)
         {
@@ -362,8 +360,7 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    case WM_MOUSEMOVE:
-    {
+    case WM_MOUSEMOVE: {
         if (!mouseLeaveTracking_)
         {
             TRACKMOUSEEVENT tracking = {};
@@ -483,8 +480,7 @@ LRESULT Window::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
 
-    case WM_NCHITTEST:
-    {
+    case WM_NCHITTEST: {
         const LRESULT defaultHit = DefWindowProcW(hwnd_, message, wParam, lParam);
         if (defaultHit == HTCLIENT && dragRegionHeight_ > 0.0f)
         {

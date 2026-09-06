@@ -31,8 +31,7 @@ D2D1_COLOR_F IconFillColor(bool lightTheme)
 }
 } // namespace
 
-bool EmojiPanelIcons::DrawTabIcon(DeviceResources &resources, Tab tab, const RectF &designRect,
-                                  bool lightTheme) const
+bool EmojiPanelIcons::DrawTabIcon(DeviceResources &resources, Tab tab, const RectF &designRect, bool lightTheme) const
 {
     const auto index = static_cast<size_t>(tab);
     if (index >= static_cast<size_t>(Tab::Count))
@@ -42,10 +41,9 @@ bool EmojiPanelIcons::DrawTabIcon(DeviceResources &resources, Tab tab, const Rec
 
     ID2D1RenderTarget *target = resources.GetRenderTarget();
     IDWriteFactory *factory = resources.GetDWriteFactory();
-    IDWriteTextFormat *format =
-        resources.GetTextFormat(kFluentIconsFont, kIconFontSize, DWRITE_FONT_WEIGHT_NORMAL,
-                                DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                DWRITE_WORD_WRAPPING_NO_WRAP);
+    IDWriteTextFormat *format = resources.GetTextFormat(kFluentIconsFont, kIconFontSize, DWRITE_FONT_WEIGHT_NORMAL,
+                                                        DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
+                                                        DWRITE_WORD_WRAPPING_NO_WRAP);
     ID2D1SolidColorBrush *brush = resources.GetSolidColorBrush(IconFillColor(lightTheme));
     if (!target || !factory || !format || !brush)
     {
@@ -59,8 +57,7 @@ bool EmojiPanelIcons::DrawTabIcon(DeviceResources &resources, Tab tab, const Rec
         return false;
     }
 
-    target->DrawTextLayout(D2D1::Point2F(designRect.x, designRect.y), layout.Get(), brush,
-                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    target->DrawTextLayout(D2D1::Point2F(designRect.x, designRect.y), layout.Get(), brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
     return true;
 }
 } // namespace msimeui

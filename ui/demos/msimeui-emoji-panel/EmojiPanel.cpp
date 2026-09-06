@@ -63,8 +63,9 @@ void StrokeRect(DeviceResources &resources, const RectF &rect, const D2D1_COLOR_
     auto *brush = resources.GetSolidColorBrush(color);
     if (target && brush)
     {
-        target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(rect.x, rect.y, rect.x + rect.width,
-                                                                    rect.y + rect.height), radius, radius), brush, width);
+        target->DrawRoundedRectangle(
+            D2D1::RoundedRect(D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), radius, radius),
+            brush, width);
     }
 }
 
@@ -75,7 +76,7 @@ void DrawText(DeviceResources &resources, const std::wstring &text, const RectF 
 {
     auto *target = resources.GetRenderTarget();
     auto *format = resources.GetTextFormat(font, size, weight, alignment, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                            DWRITE_WORD_WRAPPING_NO_WRAP);
+                                           DWRITE_WORD_WRAPPING_NO_WRAP);
     auto *brush = resources.GetSolidColorBrush(color);
     if (target && format && brush)
     {
@@ -229,8 +230,7 @@ RectF EmojiPanel::ToViewportRect(const RectF &designRect) const
 
 PointF EmojiPanel::ToDesignPoint(const PointF &viewportPoint) const
 {
-    return {(viewportPoint.x - viewportBounds_.x) / kPanelScale,
-            (viewportPoint.y - viewportBounds_.y) / kPanelScale};
+    return {(viewportPoint.x - viewportBounds_.x) / kPanelScale, (viewportPoint.y - viewportBounds_.y) / kPanelScale};
 }
 
 RectF EmojiPanel::ScrollbarTrackRect() const
@@ -307,7 +307,8 @@ std::vector<EmojiPanel::DisplayGroup> EmojiPanel::BuildDisplayGroups() const
         DisplayGroup display{group.title, {}};
         for (const auto &item : group.items)
         {
-            if (query.empty() || Lower(item.keywords).find(query) != std::wstring::npos || item.text.find(searchText_) != std::wstring::npos)
+            if (query.empty() || Lower(item.keywords).find(query) != std::wstring::npos ||
+                item.text.find(searchText_) != std::wstring::npos)
             {
                 display.items.push_back(&item);
             }
@@ -445,7 +446,7 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
     DrawCloseIcon(resources, close, D2D1::ColorF(0xF4F4F7));
 
-    const wchar_t *categories[] = {L"\u2665", L"\u263A", L"GIF", L";-)" , L"\u2605", L"\u25A3"};
+    const wchar_t *categories[] = {L"\u2665", L"\u263A", L"GIF", L";-)", L"\u2605", L"\u25A3"};
     for (size_t index = 0; index < 6; ++index)
     {
         const RectF rect = CategoryRect(bounds_, index);
@@ -462,8 +463,9 @@ void EmojiPanel::Render(DeviceResources &resources)
              D2D1::ColorF(0xD88BDE), 2.0f);
 
     const RectF viewport = {bounds_.x, bounds_.y + kContentTop, bounds_.width, bounds_.height - kContentTop};
-    target->PushAxisAlignedClip(D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width,
-                                            viewport.y + viewport.height), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    target->PushAxisAlignedClip(
+        D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height),
+        D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     const auto groups = BuildDisplayGroups();
     float y = bounds_.y + kContentTop - scrollOffset_;
     size_t flatIndex = 0;
@@ -479,7 +481,8 @@ void EmojiPanel::Render(DeviceResources &resources)
                                 kCellSize - 8.0f};
             if (flatIndex == selectedItem_ || flatIndex == hoveredItem_ || flatIndex == pressedItem_)
             {
-                FillRect(resources, cell, flatIndex == pressedItem_ ? D2D1::ColorF(0x555560) : D2D1::ColorF(0x3B3B44), 6.0f);
+                FillRect(resources, cell, flatIndex == pressedItem_ ? D2D1::ColorF(0x555560) : D2D1::ColorF(0x3B3B44),
+                         6.0f);
                 if (flatIndex == selectedItem_)
                 {
                     StrokeRect(resources, cell, D2D1::ColorF(0xF0F0F4), 6.0f, 2.0f);
@@ -501,13 +504,15 @@ void EmojiPanel::Render(DeviceResources &resources)
             emptyText = L"GIF sources can be connected here";
         else if (activeCategory_ == 5)
             emptyText = L"Clipboard history can be connected here";
-        DrawText(resources, emptyText, {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 60.0f},
-                 20.0f, D2D1::ColorF(0xAFAFB7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+        DrawText(resources, emptyText,
+                 {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 60.0f}, 20.0f,
+                 D2D1::ColorF(0xAFAFB7), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     if (!statusText_.empty())
     {
-        DrawText(resources, statusText_, {bounds_.x + 24.0f, bounds_.y + bounds_.height - 38.0f, bounds_.width - 48.0f, 30.0f},
-                 13.0f, D2D1::ColorF(0xD88BDE), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
+        DrawText(resources, statusText_,
+                 {bounds_.x + 24.0f, bounds_.y + bounds_.height - 38.0f, bounds_.width - 48.0f, 30.0f}, 13.0f,
+                 D2D1::ColorF(0xD88BDE), L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     target->PopAxisAlignedClip();
 
@@ -524,13 +529,24 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
 }
 
-bool EmojiPanel::HitTest(const PointF &point) const { return Contains(bounds_, point); }
-bool EmojiPanel::IsFocusable() const { return true; }
-void EmojiPanel::OnFocusChanged(bool focused) { focused_ = focused; InvalidateVisual(); }
+bool EmojiPanel::HitTest(const PointF &point) const
+{
+    return Contains(bounds_, point);
+}
+bool EmojiPanel::IsFocusable() const
+{
+    return true;
+}
+void EmojiPanel::OnFocusChanged(bool focused)
+{
+    focused_ = focused;
+    InvalidateVisual();
+}
 
 bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
 {
-    if (!window_) return false;
+    if (!window_)
+        return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     const RectF scrollbarThumb = ScrollbarThumbRect();
     const RectF scrollbarHitRect = {scrollbarThumb.x - 4.0f, scrollbarThumb.y, scrollbarThumb.width + 8.0f,
@@ -553,7 +569,8 @@ bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
 
 bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
 {
-    if (!window_) return false;
+    if (!window_)
+        return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     if (scrollbarDragging_)
     {
@@ -580,13 +597,15 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
     pressedCategory_ = kInvalidIndex;
     pressedItem_ = kInvalidIndex;
     InvalidateVisual();
-    if (close) PostMessageW(window_->GetHandle(), WM_CLOSE, 0, 0);
+    if (close)
+        PostMessageW(window_->GetHandle(), WM_CLOSE, 0, 0);
     return true;
 }
 
 bool EmojiPanel::OnMouseMove(const POINT &point, WPARAM)
 {
-    if (!window_) return false;
+    if (!window_)
+        return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     if (scrollbarDragging_)
     {
@@ -637,15 +656,24 @@ bool EmojiPanel::OnKeyDown(WPARAM key, LPARAM)
         return false;
     }
     const size_t count = DisplayItemCount();
-    if (count == 0) return false;
-    if (key == VK_LEFT && selectedItem_ > 0) --selectedItem_;
-    else if (key == VK_RIGHT && selectedItem_ + 1 < count) ++selectedItem_;
-    else if (key == VK_UP) selectedItem_ = selectedItem_ >= kColumns ? selectedItem_ - kColumns : 0;
-    else if (key == VK_DOWN) selectedItem_ = std::min(selectedItem_ + kColumns, count - 1);
-    else if (key == VK_HOME) selectedItem_ = 0;
-    else if (key == VK_END) selectedItem_ = count - 1;
-    else if (key == VK_RETURN || key == VK_SPACE) ActivateItem(selectedItem_);
-    else return false;
+    if (count == 0)
+        return false;
+    if (key == VK_LEFT && selectedItem_ > 0)
+        --selectedItem_;
+    else if (key == VK_RIGHT && selectedItem_ + 1 < count)
+        ++selectedItem_;
+    else if (key == VK_UP)
+        selectedItem_ = selectedItem_ >= kColumns ? selectedItem_ - kColumns : 0;
+    else if (key == VK_DOWN)
+        selectedItem_ = std::min(selectedItem_ + kColumns, count - 1);
+    else if (key == VK_HOME)
+        selectedItem_ = 0;
+    else if (key == VK_END)
+        selectedItem_ = count - 1;
+    else if (key == VK_RETURN || key == VK_SPACE)
+        ActivateItem(selectedItem_);
+    else
+        return false;
     InvalidateVisual();
     return true;
 }
@@ -656,5 +684,8 @@ bool EmojiPanel::OnChar(wchar_t ch, LPARAM)
     return false;
 }
 
-HCURSOR EmojiPanel::GetCursor() const { return LoadCursor(nullptr, IDC_ARROW); }
+HCURSOR EmojiPanel::GetCursor() const
+{
+    return LoadCursor(nullptr, IDC_ARROW);
+}
 } // namespace msimeui

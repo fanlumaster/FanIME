@@ -218,10 +218,10 @@ void DrawLayeredMistShadow(ID2D1RenderTarget *target, const RectF &bounds, float
         {
             continue;
         }
-        const auto rounded = D2D1::RoundedRect(
-            D2D1::RectF(bounds.x - spread, bounds.y - spread + offsetY, bounds.x + bounds.width + spread,
-                        bounds.y + bounds.height + spread + offsetY),
-            radius + spread, radius + spread);
+        const auto rounded = D2D1::RoundedRect(D2D1::RectF(bounds.x - spread, bounds.y - spread + offsetY,
+                                                           bounds.x + bounds.width + spread,
+                                                           bounds.y + bounds.height + spread + offsetY),
+                                               radius + spread, radius + spread);
         target->FillRoundedRectangle(rounded, brush.Get());
     }
 }
@@ -257,8 +257,8 @@ bool DrawGaussianMistShadow(ID2D1RenderTarget *target, const RectF &bounds, floa
             compatible->EndDraw();
             return false;
         }
-        const auto shape = D2D1::RoundedRect(
-            D2D1::RectF(pad, pad, pad + bounds.width, pad + bounds.height), radius, radius);
+        const auto shape =
+            D2D1::RoundedRect(D2D1::RectF(pad, pad, pad + bounds.width, pad + bounds.height), radius, radius);
         compatible->FillRoundedRectangle(shape, fill.Get());
         if (FAILED(compatible->EndDraw()))
         {
@@ -1119,9 +1119,11 @@ void ScrollViewer::Render(DeviceResources &deviceResources)
     }
 
     const auto trackRounded = D2D1::RoundedRect(
-        D2D1::RectF(trackRect.x, trackRect.y, trackRect.x + trackRect.width, trackRect.y + trackRect.height), 4.0f, 4.0f);
+        D2D1::RectF(trackRect.x, trackRect.y, trackRect.x + trackRect.width, trackRect.y + trackRect.height), 4.0f,
+        4.0f);
     const auto thumbRounded = D2D1::RoundedRect(
-        D2D1::RectF(thumbRect.x, thumbRect.y, thumbRect.x + thumbRect.width, thumbRect.y + thumbRect.height), 4.0f, 4.0f);
+        D2D1::RectF(thumbRect.x, thumbRect.y, thumbRect.x + thumbRect.width, thumbRect.y + thumbRect.height), 4.0f,
+        4.0f);
     target->FillRoundedRectangle(trackRounded, trackBrush);
     target->FillRoundedRectangle(thumbRounded, thumbBrush);
 }
@@ -1253,8 +1255,7 @@ bool ScrollViewer::OnMouseMove(const POINT &point, WPARAM keyState)
     const RectF trackRect = GetScrollbarTrackRect();
     const RectF thumbRect = GetScrollbarThumbRect();
     const float trackTravel = std::max(trackRect.height - thumbRect.height, 1.0f);
-    const float targetTop =
-        std::clamp(dipPoint.y - scrollbarDragOffsetY_, trackRect.y, trackRect.y + trackTravel);
+    const float targetTop = std::clamp(dipPoint.y - scrollbarDragOffsetY_, trackRect.y, trackRect.y + trackTravel);
     const float ratio = (targetTop - trackRect.y) / trackTravel;
     scrollOffsetY_ = ratio * std::max(measuredContent_.height - bounds_.height, 0.0f);
     ClampScrollOffset();
@@ -1278,8 +1279,8 @@ bool ScrollViewer::OnMouseWheel(const POINT &point, short delta, WPARAM keyState
         return false;
     }
 
-    scrollOffsetY_ = std::clamp(scrollOffsetY_ - (static_cast<float>(delta) / static_cast<float>(WHEEL_DELTA)) * 72.0f, 0.0f,
-                                maxOffset);
+    scrollOffsetY_ = std::clamp(scrollOffsetY_ - (static_cast<float>(delta) / static_cast<float>(WHEEL_DELTA)) * 72.0f,
+                                0.0f, maxOffset);
     UpdateContentLayout();
     RefreshViewport();
     return true;
@@ -1339,8 +1340,8 @@ RectF ScrollViewer::GetScrollbarTrackRect() const
 RectF ScrollViewer::GetScrollbarThumbRect() const
 {
     const RectF trackRect = GetScrollbarTrackRect();
-    const float visibleRatio = bounds_.height > 0.0f ? std::clamp(bounds_.height / std::max(measuredContent_.height, 1.0f), 0.0f, 1.0f)
-                                                      : 1.0f;
+    const float visibleRatio =
+        bounds_.height > 0.0f ? std::clamp(bounds_.height / std::max(measuredContent_.height, 1.0f), 0.0f, 1.0f) : 1.0f;
     const float thumbHeight = std::max(trackRect.height * visibleRatio, 36.0f);
     const float maxOffset = std::max(measuredContent_.height - bounds_.height, 0.0f);
     const float trackTravel = std::max(trackRect.height - thumbHeight, 0.0f);
@@ -1361,8 +1362,8 @@ void ScrollViewer::UpdateContentLayout()
     }
 
     const float scrollbarReserve = HasVerticalScrollbar() ? 20.0f : 0.0f;
-    content_->ArrangeInLayout(
-        {bounds_.x, bounds_.y - scrollOffsetY_, std::max(bounds_.width - scrollbarReserve, 0.0f), measuredContent_.height});
+    content_->ArrangeInLayout({bounds_.x, bounds_.y - scrollOffsetY_, std::max(bounds_.width - scrollbarReserve, 0.0f),
+                               measuredContent_.height});
 
     if (window_)
     {
@@ -1393,7 +1394,8 @@ void Grid::AddChild(std::shared_ptr<Visual> child, size_t row, size_t column, si
     }
 
     AdoptChild(child);
-    children_.push_back({std::move(child), {row, column, std::max<size_t>(rowSpan, 1), std::max<size_t>(columnSpan, 1)}, {}});
+    children_.push_back(
+        {std::move(child), {row, column, std::max<size_t>(rowSpan, 1), std::max<size_t>(columnSpan, 1)}, {}});
     InvalidateMeasure();
 }
 
@@ -1486,12 +1488,13 @@ SizeF Grid::Measure(const SizeF &availableSize)
     auto columns = ResolveTrackSizes(columnDefinitions_, columnSpacing_, availableSize.width, true);
     auto rows = ResolveTrackSizes(rowDefinitions_, rowSpacing_, availableSize.height, false);
 
-    const float totalColumnWidth =
-        std::accumulate(columns.begin(), columns.end(), 0.0f) + columnSpacing_ * std::max<int>(static_cast<int>(columns.size()) - 1, 0);
-    const float totalRowHeight =
-        std::accumulate(rows.begin(), rows.end(), 0.0f) + rowSpacing_ * std::max<int>(static_cast<int>(rows.size()) - 1, 0);
+    const float totalColumnWidth = std::accumulate(columns.begin(), columns.end(), 0.0f) +
+                                   columnSpacing_ * std::max<int>(static_cast<int>(columns.size()) - 1, 0);
+    const float totalRowHeight = std::accumulate(rows.begin(), rows.end(), 0.0f) +
+                                 rowSpacing_ * std::max<int>(static_cast<int>(rows.size()) - 1, 0);
 
-    measuredContent_ = {std::min(totalColumnWidth, availableSize.width), std::min(totalRowHeight, availableSize.height)};
+    measuredContent_ = {std::min(totalColumnWidth, availableSize.width),
+                        std::min(totalRowHeight, availableSize.height)};
     return measuredContent_;
 }
 
@@ -1562,7 +1565,8 @@ std::vector<float> Grid::ResolveTrackSizes(const std::vector<GridLength> &defini
         return sizes;
     }
 
-    const float usable = std::max(available - spacing * std::max<int>(static_cast<int>(definitions.size()) - 1, 0), 0.0f);
+    const float usable =
+        std::max(available - spacing * std::max<int>(static_cast<int>(definitions.size()) - 1, 0), 0.0f);
     float used = 0.0f;
     float totalStar = 0.0f;
 
@@ -1818,7 +1822,8 @@ void Card::Arrange(const RectF &finalRect)
 {
     bounds_ = finalRect;
 
-    const RectF inner = {finalRect.x + padding_, finalRect.y + padding_, std::max(finalRect.width - padding_ * 2.0f, 0.0f),
+    const RectF inner = {finalRect.x + padding_, finalRect.y + padding_,
+                         std::max(finalRect.width - padding_ * 2.0f, 0.0f),
                          std::max(finalRect.height - padding_ * 2.0f, 0.0f)};
 
     for (const auto &child : children_)
@@ -2003,8 +2008,8 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
             layoutText.insert(layoutText.begin() + static_cast<std::ptrdiff_t>(caretPos), kCaretSlotChar);
         }
 
-        if (FAILED(dwriteFactory->CreateTextLayout(layoutText.c_str(), static_cast<UINT32>(layoutText.size()), format.Get(),
-                                                   maxWidth, std::numeric_limits<float>::max(),
+        if (FAILED(dwriteFactory->CreateTextLayout(layoutText.c_str(), static_cast<UINT32>(layoutText.size()),
+                                                   format.Get(), maxWidth, std::numeric_limits<float>::max(),
                                                    cachedTextLayout_.ReleaseAndGetAddressOf())))
         {
             measured_ = {maxWidth, fontSize_ + textLayoutPadding_.top + textLayoutPadding_.bottom};
@@ -2050,8 +2055,8 @@ SizeF TextBlock::Measure(const SizeF &availableSize)
     const float measuredHeight = std::ceil(std::max(paddedHeight, minimumHeight));
     const float caretEndReserve =
         (showCaret_ && caretIndex_ >= text_.size()) ? (kPreeditCaretEndAir + kPreeditCaretBarWidth) : 0.0f;
-    const float contentWidth = metrics.width + extraLeft + extraRight + textLayoutPadding_.left +
-                               textLayoutPadding_.right + caretEndReserve;
+    const float contentWidth =
+        metrics.width + extraLeft + extraRight + textLayoutPadding_.left + textLayoutPadding_.right + caretEndReserve;
     const float measuredWidth = std::min(std::max(contentWidth, 1.0f), maxWidth);
 
     measured_ = {measuredWidth, measuredHeight};
@@ -2110,9 +2115,9 @@ void TextBlock::Render(DeviceResources &deviceResources)
         }
     }
 
-    target->DrawTextLayout(D2D1::Point2F(originX, originY), cachedTextLayout_.Get(), brush,
-                           static_cast<D2D1_DRAW_TEXT_OPTIONS>(D2D1_DRAW_TEXT_OPTIONS_CLIP |
-                                                               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT));
+    target->DrawTextLayout(
+        D2D1::Point2F(originX, originY), cachedTextLayout_.Get(), brush,
+        static_cast<D2D1_DRAW_TEXT_OPTIONS>(D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT));
 }
 
 Spacer::Spacer(float height) : height_(height)

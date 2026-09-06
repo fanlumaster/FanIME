@@ -43,11 +43,11 @@ void UpdateHtmlContentWithJavaScript( //
     ComPtr<ICoreWebView2> webview,    //
     const std::wstring &newContent    //
 );                                    //
-void UpdateHtmlContentWithJavaScript(                       //
-    ComPtr<ICoreWebView2> webview,                          //
-    const std::wstring &newContent,                         //
-    std::function<void()> onComplete                        //
-);                                                          //
+void UpdateHtmlContentWithJavaScript( //
+    ComPtr<ICoreWebView2> webview,    //
+    const std::wstring &newContent,   //
+    std::function<void()> onComplete  //
+);                                    //
 
 //
 // 候选窗口 webview

@@ -45,8 +45,7 @@ class CandidateUiOwnerState
 
     bool matches(const CandidateUiOwner &owner) const
     {
-        return owner && owner_.client_id == owner.client_id &&
-               owner_.activation_epoch == owner.activation_epoch;
+        return owner && owner_.client_id == owner.client_id && owner_.activation_epoch == owner.activation_epoch;
     }
 
   private:

@@ -117,8 +117,8 @@ void EnsureMediumIntegrityWritableDirectory(const std::wstring &path)
         PACL old_dacl = nullptr;
         PSECURITY_DESCRIPTOR descriptor = nullptr;
         PACL new_dacl = nullptr;
-        if (GetNamedSecurityInfoW(path.c_str(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
-                                  &old_dacl, nullptr, &descriptor) == ERROR_SUCCESS)
+        if (GetNamedSecurityInfoW(path.c_str(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &old_dacl,
+                                  nullptr, &descriptor) == ERROR_SUCCESS)
         {
             if (SetEntriesInAclW(1, &access, old_dacl, &new_dacl) == ERROR_SUCCESS)
             {
@@ -136,15 +136,14 @@ void EnsureMediumIntegrityWritableDirectory(const std::wstring &path)
     {
         return;
     }
-    const DWORD sacl_size =
-        sizeof(ACL) + GetLengthSid(medium_sid) + sizeof(SYSTEM_MANDATORY_LABEL_ACE) + 32;
+    const DWORD sacl_size = sizeof(ACL) + GetLengthSid(medium_sid) + sizeof(SYSTEM_MANDATORY_LABEL_ACE) + 32;
     std::vector<BYTE> sacl_buffer(sacl_size);
     auto *sacl = reinterpret_cast<PACL>(sacl_buffer.data());
     if (InitializeAcl(sacl, sacl_size, ACL_REVISION) &&
         AddMandatoryAce(sacl, ACL_REVISION, 0, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, medium_sid))
     {
-        SetNamedSecurityInfoW(const_cast<wchar_t *>(path.c_str()), SE_FILE_OBJECT, LABEL_SECURITY_INFORMATION,
-                              nullptr, nullptr, nullptr, sacl);
+        SetNamedSecurityInfoW(const_cast<wchar_t *>(path.c_str()), SE_FILE_OBJECT, LABEL_SECURITY_INFORMATION, nullptr,
+                              nullptr, nullptr, sacl);
     }
     LocalFree(medium_sid);
 }

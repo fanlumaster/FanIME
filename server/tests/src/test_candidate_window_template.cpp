@@ -3,8 +3,7 @@
 
 TEST_CASE(candidate_window_template_renders_ninth_candidate)
 {
-    const std::wstring templ =
-        L"<!--0Anchor-->{0}<!--1Anchor-->{1}<!--8Anchor-->{8}<!--9Anchor-->{9}";
+    const std::wstring templ = L"<!--0Anchor-->{0}<!--1Anchor-->{1}<!--8Anchor-->{8}<!--9Anchor-->{9}";
     const std::wstring text = L"preedit,one,two,three,four,five,six,seven,eight,nine";
 
     const std::wstring result = InflateCandidateTemplate(templ, text);
@@ -15,8 +14,7 @@ TEST_CASE(candidate_window_template_renders_ninth_candidate)
 
 TEST_CASE(candidate_window_template_trims_after_eighth_candidate)
 {
-    const std::wstring templ =
-        L"<!--0Anchor-->{0}<!--1Anchor-->{1}<!--8Anchor-->{8}<!--9Anchor-->{9}";
+    const std::wstring templ = L"<!--0Anchor-->{0}<!--1Anchor-->{1}<!--8Anchor-->{8}<!--9Anchor-->{9}";
     const std::wstring text = L"preedit,one,two,three,four,five,six,seven,eight";
 
     const std::wstring result = InflateCandidateTemplate(templ, text);

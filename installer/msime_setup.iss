@@ -47,6 +47,8 @@ DisableProgramGroupPage=yes
 OutputDir=Output
 OutputBaseFilename=MetasequoiaIME_Setup_v{#MyAppVersion}{#MyOutputSuffix}
 SetupIconFile={#MySourceRoot}\MetasequoiaIME.ico
+; 安装向导中显示 GPLv3 正文。Prepare-PackageFiles.ps1 会把仓库根的 LICENSE 拷成这个文件。
+LicenseFile={#MySourceRoot}\LICENSE.txt
 Compression=lzma2
 SolidCompression=yes
 ; 安装和卸载界面自动跟随 Windows 的浅色/深色模式。
@@ -81,6 +83,12 @@ Source: "{#MySourceRoot}\MetasequoiaIME.ico"; \
 ; 第三方声明随包安装。词库主体含 rime-ice（GPL-3.0）内容，其许可要求保留署名，
 ; 因此这份文件必须落到用户磁盘上，而不能只存在于源码仓库里。
 Source: "{#MySourceRoot}\THIRD_PARTY_NOTICES.txt"; \
+    DestDir: "{commonpf64}\metasequoiaime"; Flags: ignoreversion
+
+; GPLv3 第 4、6 条要求分发时向接收者提供许可证副本，而 THIRD_PARTY_NOTICES.txt 只是指向
+; "the LICENSE file"、本身不含 GPL 正文。macOS 与 Linux 的 CMake 安装规则早已随包装入许可证，
+; Windows 是唯一大规模分发却漏掉这一步的平台。
+Source: "{#MySourceRoot}\LICENSE.txt"; \
     DestDir: "{commonpf64}\metasequoiaime"; Flags: ignoreversion
 
 ; TSF DLL 使用版本独立目录，避免升级时覆盖仍被进程加载的 DLL。

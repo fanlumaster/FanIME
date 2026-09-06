@@ -309,8 +309,8 @@ SwitchLanguageHotkeys ReadConfiguredSwitchLanguageHotkeys()
         {
             // Legacy array: switch_language = ["Ctrl+Space", "Shift"]
             result.shift = raw.find("Shift") != std::string::npos;
-            result.ctrl_alt_space = raw.find("Ctrl+Alt+Space") != std::string::npos ||
-                                    raw.find("Ctrl+Space") != std::string::npos;
+            result.ctrl_alt_space =
+                raw.find("Ctrl+Alt+Space") != std::string::npos || raw.find("Ctrl+Space") != std::string::npos;
         }
     }
     (void)sawCtrl;

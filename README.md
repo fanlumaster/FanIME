@@ -1,5 +1,16 @@
 # 水杉输入法
 
+[English README](README.en.md)
+
+<!-- badges:start -->
+[![CI](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/ci.yml?branch=main&label=CI)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/codeql.yml?branch=main&label=CodeQL)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/metasequoiaime/MSIME-Windows?include_prereleases&label=release)](https://github.com/metasequoiaime/MSIME-Windows/releases)
+[![Downloads](https://img.shields.io/github/downloads/metasequoiaime/MSIME-Windows/total?label=downloads)](https://github.com/metasequoiaime/MSIME-Windows/releases)
+[![License](https://img.shields.io/github/license/metasequoiaime/MSIME-Windows)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/metasequoiaime/MSIME-Windows?style=flat)](https://github.com/metasequoiaime/MSIME-Windows/stargazers)
+<!-- badges:end -->
+
 一款开源的自由 Windows 输入法，面向 Windows 10 / Windows 11，采用纯 TSF 方案。
 
 ## 下载与安装
@@ -33,6 +44,8 @@ Issue 已经逐条核过并按可接手程度打了标签，可以直接筛：
 - [needs-design](https://github.com/metasequoiaime/MSIME-Windows/issues?q=is%3Aissue+is%3Aopen+label%3Aneeds-design)——方案未定，先在 Issue 里讨论再动手
 
 写代码、写文档、整理词库、测试 Bug、制作教程，都是非常有价值的开源贡献。可以纯手写，也可以借助 AI；但请认真检查和测试，并注意不要在 PR、Issue、截图或日志中泄露 API Key 等敏感信息。完整的贡献约定见[贡献指南](https://github.com/metasequoiaime/.github/blob/main/CONTRIBUTING.md)。
+
+**要动代码的话，本仓的环境要求、从源码构建、打包和提交前检查全部写在 [CONTRIBUTING.md](CONTRIBUTING.md) 里。**
 
 ## 项目结构
 
@@ -301,25 +314,25 @@ Server 启动时会同时启动 Watchdog。服务意外退出后，Watchdog 会�
 
 ## 软件截图
 
-<img src="https://i.imgur.com/1gDQFix.png" width="750">
+<img src="docs/images/candidate-window-1.png" width="750">
 
-<img src="https://i.imgur.com/MxRcKYT.png" width="750">
+<img src="docs/images/candidate-window-2.png" width="750">
 
-<img src="https://i.imgur.com/5MG33lH.png" width="750">
+<img src="docs/images/candidate-window-3.png" width="750">
 
-<img src="https://i.imgur.com/gnJwoVa.png" width="750">
+<img src="docs/images/candidate-window-4.png" width="750">
 
-<img src="https://i.imgur.com/wBwpuUT.png" width="750">
+<img src="docs/images/candidate-window-5.png" width="750">
 
-<img src="https://i.imgur.com/VcjIaeV.png" width="750">
+<img src="docs/images/candidate-window-6.png" width="750">
 
 <!-- 暗色 -->
 
-<img src="https://i.imgur.com/YgxjjEz.png" width="780">
+<img src="docs/images/settings-dark.png" width="780">
 
 <!-- 亮色 -->
 
-<img src="https://i.imgur.com/dkXHbPm.png" width="780">
+<img src="docs/images/settings-light.png" width="780">
 
 ## 开源协议
 
@@ -339,3 +352,11 @@ GPL-3.0。
 ### 一些其他输入法相关的资源
 
 - 微软双拼方案来源：<https://www.bilibili.com/opus/550351671882601523>
+
+<!-- star-history:start -->
+## Star History
+
+<a href="https://star-history.com/#metasequoiaime/MSIME-Windows&Date">
+  <img src="https://api.star-history.com/svg?repos=metasequoiaime/MSIME-Windows&type=Date" alt="Star History Chart" width="600">
+</a>
+<!-- star-history:end -->

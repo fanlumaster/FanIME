@@ -12,16 +12,21 @@ on:
     paths:
       - 'vendor/MetasequoiaImeEngine'
 
+# Read-only by default, matching every other workflow here. The write scopes this job needs to merge
+# the bump are granted on the job instead, so a second job added later starts from the same floor
+# rather than inheriting write.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   triage:
     if: github.actor == 'dependabot[bot]'
     name: Classify the engine range
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       SUBMODULE: vendor/MetasequoiaImeEngine
       ENGINE: metasequoiaime/MSIME-Engine

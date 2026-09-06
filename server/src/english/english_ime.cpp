@@ -117,8 +117,8 @@ void WorkerLoop()
         const size_t min_prefix = dedicated_mode ? 1 : (std::max)(size_t{1}, mixed_min_prefix);
         if (prefix.size() < min_prefix)
         {
-            if (dedicated_mode && !input.empty() && g_running &&
-                g_generation.load() == observed_generation && g_apply_callback)
+            if (dedicated_mode && !input.empty() && g_running && g_generation.load() == observed_generation &&
+                g_apply_callback)
             {
                 g_apply_callback({}, input, observed_generation);
             }

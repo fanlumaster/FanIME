@@ -10,7 +10,7 @@ Global::CandidateUiState MakeCandidateUiState(int item_count, int page_size)
     state.page_size = page_size;
     return state;
 }
-}
+} // namespace
 
 TEST_CASE(candidate_ui_selection_moves_from_page_end_to_next_page_start)
 {
@@ -127,7 +127,8 @@ TEST_CASE(candidate_page_snapshot_survives_a_rebuild_of_the_live_state)
     const Global::CandidatePageSnapshotPtr page = Global::LoadCandidatePageSnapshot();
 
     // The worker rebuilds the live page while the UI thread still holds the snapshot it was handed. Reading the live
-    // vectors here is exactly the use-after-free the snapshot exists to prevent, so the loaded page has to be unaffected.
+    // vectors here is exactly the use-after-free the snapshot exists to prevent, so the loaded page has to be
+    // unaffected.
     Global::candidate_ui.set_items({});
 
     REQUIRE_EQ(page->page_views.size(), static_cast<size_t>(1));

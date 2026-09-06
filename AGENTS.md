@@ -71,7 +71,7 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 **每次可发布的合并都花掉一次签名额度**，这正是之前的手动设计要避免的事。取舍的理由记在 [docs/product-release.md](docs/product-release.md)。
 
-`workflow_dispatch` 保留下来，它同时是修复通道和发布频道的入口：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会二次消耗签名次数。
+`workflow_dispatch` 保留下来，它同时是修复通道和发布频道的入口：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会重复发布同一个版本。
 
 **两个频道由触发方式决定，`publish-release.sh` 据此选状态**（[#167](https://github.com/metasequoiaime/MSIME-Windows/issues/167)）：
 

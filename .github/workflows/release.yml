@@ -4,7 +4,7 @@ name: Release
 #
 # The whole cycle runs inside the one run that the original push started. land-release-pr.sh merges with GITHUB_TOKEN, whose pushes do not start workflow runs, so the merge cannot produce a second Release run queued behind this one on the concurrency group.
 #
-# This costs a code signing signature on every releasable merge to main, which is exactly what the previous manual design existed to avoid. That is a deliberate trade: see docs/product-release.md for what it buys and what it spends.
+# This spends a code signing signature on every releasable merge to main. The certificate allows 3000 signatures a month, so the quota is not what constrains this; what it spends is release hygiene -- see docs/product-release.md.
 #
 # workflow_dispatch stays, and is now a repair path rather than the normal one. It builds an existing draft, which is what a run that failed after creating the draft leaves behind.
 on:
@@ -312,6 +312,11 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      # Build provenance. Unlike Authenticode this costs nothing and needs no certificate, and the
+      # Sigstore transparency log it writes to is outside this organisation's control, so it is the
+      # one integrity signal a repository admin cannot forge by swapping a release asset.
+      id-token: write
+      attestations: write
     env:
       DICTIONARY_TAG: ${{ needs.dependencies.outputs.dictionary_tag }}
       # download-dictionaries.sh stages MetasequoiaImeDict/out under this root, and
@@ -439,6 +444,11 @@ jobs:
             installer/app_data/product-manifest.json
           if-no-files-found: error
 
+      - name: Attest the installer's build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.asset.outputs.asset_path }}
+
       - name: Revalidate the draft release target
         shell: bash
         env:
@@ -461,3 +471,23 @@ jobs:
           PRODUCT_MANIFEST: installer/app_data/product-manifest.json
           RELEASE_TRIGGER: ${{ github.event_name }}
         run: bash scripts/ci/publish-release.sh
+
+      # msime.app/update.json is what the settings page's "检查更新" reads, and MSIME-Web only
+      # regenerated it from a */30 cron. Scheduled events on public repositories are delayed heavily
+      # -- measured runs sat roughly two hours apart -- so the site advertised an old version for
+      # hours after every release. MSIME-Web already declares a repository_dispatch trigger for
+      # exactly this and nothing was ever sending it.
+      #
+      # This runs after publishing on purpose. If the dispatch fails the release is already out and
+      # correct; what the failure means is that the website is now stale and someone has to act, so
+      # it is reported as a failure rather than swallowed.
+      - name: Refresh the download manifest on msime.app
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo '::error::RELEASE_PLEASE_TOKEN is required to notify MSIME-Web; msime.app/update.json will stay on the previous version until its cron catches up.'
+            exit 1
+          fi
+          gh api --method POST repos/metasequoiaime/MSIME-Web/dispatches -f event_type=update-manifest

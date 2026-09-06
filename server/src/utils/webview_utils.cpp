@@ -57,13 +57,9 @@ std::pair<double, double> ParseDivSize(const std::wstring &jsonResult)
 
 namespace
 {
-void GetCandidateCardSize(
-    ComPtr<ICoreWebView2> webview,
-    const wchar_t *boxId,
-    const wchar_t *parentId,
-    double maxWidthDip,
-    double maxHeightDip,
-    std::function<void(std::pair<double, double>)> callback)
+void GetCandidateCardSize(ComPtr<ICoreWebView2> webview, const wchar_t *boxId, const wchar_t *parentId,
+                          double maxWidthDip, double maxHeightDip,
+                          std::function<void(std::pair<double, double>)> callback)
 {
     if (!webview)
     {
@@ -80,8 +76,7 @@ void GetCandidateCardSize(
         // Same order of magnitude as the stable quarter-screen host height.
         maxHeightDip = static_cast<double>(::CANDIDATE_WINDOW_MAX_WIDTH_DIP);
     }
-    std::wstring script = fmt::format(
-        LR"(
+    std::wstring script = fmt::format(LR"(
         (function() {{
             var box = document.getElementById("{0}");
             var el = document.getElementById("{1}");
@@ -120,13 +115,13 @@ void GetCandidateCardSize(
             return JSON.stringify({{width: width, height: height}});
         }})();
     )",
-        boxId, parentId, maxWidthDip, maxHeightDip);
+                                      boxId, parentId, maxWidthDip, maxHeightDip);
     const HRESULT submitHr = webview->ExecuteScript(
         script.c_str(),
         Callback<ICoreWebView2ExecuteScriptCompletedHandler>([callback, boxId = std::wstring(boxId),
-                                                               parentId = std::wstring(parentId), maxWidthDip,
-                                                               maxHeightDip](HRESULT errorCode,
-                                                                             LPCWSTR result) -> HRESULT {
+                                                              parentId = std::wstring(parentId), maxWidthDip,
+                                                              maxHeightDip](HRESULT errorCode,
+                                                                            LPCWSTR result) -> HRESULT {
             std::pair<double, double> size{};
             if (SUCCEEDED(errorCode) && result)
             {
@@ -139,8 +134,8 @@ void GetCandidateCardSize(
             callback(size);
             return S_OK;
         }).Get());
-    DIAG_LOGF(L"ui-measure submit box={} parent={} max_dip=({:.1f},{:.1f}) hr={:#x}", boxId, parentId,
-              maxWidthDip, maxHeightDip, static_cast<unsigned>(submitHr));
+    DIAG_LOGF(L"ui-measure submit box={} parent={} max_dip=({:.1f},{:.1f}) hr={:#x}", boxId, parentId, maxWidthDip,
+              maxHeightDip, static_cast<unsigned>(submitHr));
     if (FAILED(submitHr))
     {
         callback({0.0, 0.0});
@@ -169,8 +164,7 @@ void GetContainerSizeFtb(ComPtr<ICoreWebView2> webview, std::function<void(std::
         callback({0.0, 0.0});
         return;
     }
-    const wchar_t *script =
-        LR"((function() {
+    const wchar_t *script = LR"((function() {
             var el = document.querySelector('.status-bar');
             if (!el) {
                 return JSON.stringify({width: 0, height: 0});
@@ -258,11 +252,10 @@ void MoveContainerBottom(ComPtr<ICoreWebView2> webview, int marginTop, std::func
         return;
     }
     webview->ExecuteScript(
-        script.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
-            onComplete();
-            return S_OK;
-        }).Get());
+        script.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
+                            onComplete();
+                            return S_OK;
+                        }).Get());
 }
 
 void MakeBodyVisible(ComPtr<ICoreWebView2> webview)

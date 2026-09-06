@@ -50,8 +50,8 @@ void WorkerLoop()
         }
 
         auto candidates = metasequoia::local_modes::query_emoji(
-                              input, scheme, metasequoia::path_from_utf8(g_db_path.c_str()),
-                              kMixedCandidateLimit, GetShuangpinProfile(GetConfiguredShuangpinSchema()))
+                              input, scheme, metasequoia::path_from_utf8(g_db_path.c_str()), kMixedCandidateLimit,
+                              GetShuangpinProfile(GetConfiguredShuangpinSchema()))
                               .candidates;
         if (!g_running || g_generation.load() != observed_generation)
         {

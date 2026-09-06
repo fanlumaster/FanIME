@@ -27,8 +27,7 @@ constexpr UINT kMaxDeferredKeyReplayAttempts = 8;
 // one MOVE_LEFT for every character to the right of the caret.  Keep enough
 // additional room for a short burst that arrives while the replacement IPC
 // epoch is becoming ready.
-constexpr size_t MAX_DEFERRED_KEY_DOWN_COUNT =
-    static_cast<size_t>(MAX_PINYIN_LENGTH) * 2 + 32;
+constexpr size_t MAX_DEFERRED_KEY_DOWN_COUNT = static_cast<size_t>(MAX_PINYIN_LENGTH) * 2 + 32;
 
 struct DeferredShadowState
 {
@@ -63,8 +62,7 @@ bool IsBareModifierKey(UINT code)
     }
 }
 
-void ApplyDeferredKeyState(DeferredShadowState &shadow,
-                           const _KEYSTROKE_STATE &keyState, WCHAR wch = 0)
+void ApplyDeferredKeyState(DeferredShadowState &shadow, const _KEYSTROKE_STATE &keyState, WCHAR wch = 0)
 {
     const auto clearComposition = [&shadow]() {
         shadow.inputLength = 0;
@@ -85,9 +83,8 @@ void ApplyDeferredKeyState(DeferredShadowState &shadow,
         if (shadow.rawInput.size() < MAX_PINYIN_LENGTH && wch != L'\0')
         {
             const bool duplicateSeparator =
-                wch == L'\'' &&
-                ((shadow.caret > 0 && shadow.rawInput[shadow.caret - 1] == L'\'') ||
-                 (shadow.caret < shadow.rawInput.size() && shadow.rawInput[shadow.caret] == L'\''));
+                wch == L'\'' && ((shadow.caret > 0 && shadow.rawInput[shadow.caret - 1] == L'\'') ||
+                                 (shadow.caret < shadow.rawInput.size() && shadow.rawInput[shadow.caret] == L'\''));
             if (!duplicateSeparator)
             {
                 shadow.rawInput.insert(shadow.caret, 1, wch);
@@ -216,8 +213,7 @@ bool IsEnglishInputModeToggle(UINT code, UINT modifiers)
     return code == 'E' && (modifiers & 0b00000111u) == 0b00000011u;
 }
 
-void PostOwnerMessageWithSyncFallback(HWND window, UINT message,
-                                      WPARAM wParam = 0, LPARAM lParam = 0)
+void PostOwnerMessageWithSyncFallback(HWND window, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
 {
     if (!window || !IsWindow(window))
     {
@@ -276,23 +272,20 @@ void ClearReleasedShiftModifierState()
     Global::IsShiftKeyDownOnly = FALSE;
     Global::PureShiftKeyDown = FALSE;
     Global::PureShiftKeyUp = FALSE;
-    Global::ModifiersValue &=
-        ~(TF_MOD_SHIFT | TF_MOD_LSHIFT | TF_MOD_RSHIFT);
+    Global::ModifiersValue &= ~(TF_MOD_SHIFT | TF_MOD_LSHIFT | TF_MOD_RSHIFT);
 }
 } // namespace
 
 void CMetasequoiaIME::_InitMinttyKeyboardHook()
 {
     if (_minttyKeyboardHook != nullptr || _minttyKeyboardHookOwner != nullptr ||
-        CompareStringOrdinal(Global::current_process_name.c_str(), -1,
-                             L"mintty.exe", -1, TRUE) != CSTR_EQUAL)
+        CompareStringOrdinal(Global::current_process_name.c_str(), -1, L"mintty.exe", -1, TRUE) != CSTR_EQUAL)
     {
         return;
     }
 
     _minttyKeyboardHookOwner = this;
-    _minttyKeyboardHook = SetWindowsHookExW(
-        WH_KEYBOARD, _MinttyKeyboardHookProc, nullptr, GetCurrentThreadId());
+    _minttyKeyboardHook = SetWindowsHookExW(WH_KEYBOARD, _MinttyKeyboardHookProc, nullptr, GetCurrentThreadId());
     if (_minttyKeyboardHook == nullptr)
     {
         _minttyKeyboardHookOwner = nullptr;
@@ -318,14 +311,11 @@ void CMetasequoiaIME::_UninitMinttyKeyboardHook()
     _minttyShiftExpireTick = 0;
 }
 
-LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code,
-                                                           WPARAM wParam,
-                                                           LPARAM lParam)
+LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code, WPARAM wParam, LPARAM lParam)
 {
     CMetasequoiaIME *owner = _minttyKeyboardHookOwner;
     if (code == HC_ACTION && owner != nullptr &&
-        static_cast<ULONG_PTR>(GetMessageExtraInfo()) !=
-            SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
+        static_cast<ULONG_PTR>(GetMessageExtraInfo()) != SMART_PUNCTUATION_SENDINPUT_EXTRA_INFO)
     {
         const UINT virtualKey = static_cast<UINT>(wParam);
         const bool isShift = IsShiftVk(virtualKey);
@@ -334,8 +324,7 @@ LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code,
 
         if (isShift)
         {
-            const UINT scanCode =
-                (static_cast<UINT>(lParam) >> 16) & 0x00ffu;
+            const UINT scanCode = (static_cast<UINT>(lParam) >> 16) & 0x00ffu;
             const BYTE shiftBit = scanCode == 0x36 ? 0x02 : 0x01;
             if (!isKeyUp)
             {
@@ -349,11 +338,9 @@ LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code,
                         {
                             ++owner->_minttyShiftSequence;
                         }
-                        owner->_minttyShiftFocusGeneration =
-                            owner->_deferredKeyFocusGeneration;
+                        owner->_minttyShiftFocusGeneration = owner->_deferredKeyFocusGeneration;
                         owner->_minttyShiftExpireTick =
-                            GetTickCount64() + static_cast<ULONGLONG>(
-                                                   kModifierHotkeyToggleLimit.count());
+                            GetTickCount64() + static_cast<ULONGLONG>(kModifierHotkeyToggleLimit.count());
                     }
                     owner->_minttyShiftDownMask |= shiftBit;
                 }
@@ -364,13 +351,11 @@ LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code,
                 if (owner->_minttyShiftDownMask == 0)
                 {
                     const bool shouldPost =
-                        owner->_minttyShiftArmed &&
-                        GetTickCount64() < owner->_minttyShiftExpireTick;
+                        owner->_minttyShiftArmed && GetTickCount64() < owner->_minttyShiftExpireTick;
                     owner->_minttyShiftArmed = false;
                     if (shouldPost && owner->_msgWndHandle != nullptr)
                     {
-                        PostMessage(owner->_msgWndHandle, WM_MinttyShiftRelease,
-                                    owner->_minttyShiftSequence, 0);
+                        PostMessage(owner->_msgWndHandle, WM_MinttyShiftRelease, owner->_minttyShiftSequence, 0);
                     }
                 }
             }
@@ -381,8 +366,7 @@ LRESULT CALLBACK CMetasequoiaIME::_MinttyKeyboardHookProc(int code,
         }
     }
 
-    return CallNextHookEx(owner ? owner->_minttyKeyboardHook : nullptr, code,
-                          wParam, lParam);
+    return CallNextHookEx(owner ? owner->_minttyKeyboardHook : nullptr, code, wParam, lParam);
 }
 
 void CMetasequoiaIME::_MarkMinttyShiftHandled()
@@ -395,14 +379,10 @@ void CMetasequoiaIME::_MarkMinttyShiftHandled()
 
 void CMetasequoiaIME::_HandleMinttyShiftRelease(UINT sequence)
 {
-    if (_minttyKeyboardHook == nullptr || sequence == 0 ||
-        sequence != _minttyShiftSequence ||
-        sequence == _minttyShiftHandledSequence ||
-        _minttyShiftFocusGeneration != _deferredKeyFocusGeneration ||
-        !Global::g_connected || _pThreadMgr == nullptr ||
-        _pCompositionProcessorEngine == nullptr ||
-        (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 ||
-        !FanyUtils::ReadConfiguredSwitchLanguageHotkeys().shift)
+    if (_minttyKeyboardHook == nullptr || sequence == 0 || sequence != _minttyShiftSequence ||
+        sequence == _minttyShiftHandledSequence || _minttyShiftFocusGeneration != _deferredKeyFocusGeneration ||
+        !Global::g_connected || _pThreadMgr == nullptr || _pCompositionProcessorEngine == nullptr ||
+        (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 || !FanyUtils::ReadConfiguredSwitchLanguageHotkeys().shift)
     {
         return;
     }
@@ -427,8 +407,7 @@ void CMetasequoiaIME::_HandleMinttyShiftRelease(UINT sequence)
     }
 
     BOOL eaten = FALSE;
-    if (_QueueInputHotkey(context, Global::MetasequoiaIMEGuidImeModePreserveKey,
-                          &eaten))
+    if (_QueueInputHotkey(context, Global::MetasequoiaIMEGuidImeModePreserveKey, &eaten))
     {
         _minttyShiftHandledSequence = sequence;
         _shiftHotkeyArmed = false;
@@ -436,14 +415,12 @@ void CMetasequoiaIME::_HandleMinttyShiftRelease(UINT sequence)
         Global::IsShiftKeyDownOnly = FALSE;
         Global::PureShiftKeyDown = FALSE;
         Global::PureShiftKeyUp = FALSE;
-        Global::ModifiersValue &=
-            ~(TF_MOD_SHIFT | TF_MOD_LSHIFT | TF_MOD_RSHIFT);
+        Global::ModifiersValue &= ~(TF_MOD_SHIFT | TF_MOD_LSHIFT | TF_MOD_RSHIFT);
     }
     context->Release();
 }
 
-void CMetasequoiaIME::_TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam,
-                                                  bool isKeyUp)
+void CMetasequoiaIME::_TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam, bool isKeyUp)
 {
     if (isKeyUp)
     {
@@ -488,8 +465,7 @@ void CMetasequoiaIME::_TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam,
     _ctrlHotkeyArmed = false;
 }
 
-bool CMetasequoiaIME::_MatchChordInputHotkey(WPARAM wParam,
-                                              _Out_ GUID *hotkeyGuid) const
+bool CMetasequoiaIME::_MatchChordInputHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid) const
 {
     if (hotkeyGuid == nullptr)
     {
@@ -520,8 +496,7 @@ bool CMetasequoiaIME::_MatchChordInputHotkey(WPARAM wParam,
     return false;
 }
 
-bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam,
-                                                   _Out_ GUID *hotkeyGuid)
+bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid)
 {
     if (hotkeyGuid == nullptr)
     {
@@ -561,9 +536,7 @@ bool CMetasequoiaIME::_MatchModifierReleaseHotkey(WPARAM wParam,
     return false;
 }
 
-bool CMetasequoiaIME::_QueueInputHotkey(_In_ ITfContext *pContext,
-                                         REFGUID hotkeyGuid,
-                                         _Out_ BOOL *pIsEaten)
+bool CMetasequoiaIME::_QueueInputHotkey(_In_ ITfContext *pContext, REFGUID hotkeyGuid, _Out_ BOOL *pIsEaten)
 {
     if (pIsEaten == nullptr)
     {
@@ -576,11 +549,9 @@ bool CMetasequoiaIME::_QueueInputHotkey(_In_ ITfContext *pContext,
     }
 
     *pIsEaten = _QueueDeferredPreservedKey(pContext, hotkeyGuid) ? TRUE : FALSE;
-    if (*pIsEaten &&
-        _localSessionResetPending.load(std::memory_order_acquire))
+    if (*pIsEaten && _localSessionResetPending.load(std::memory_order_acquire))
     {
-        const UINT resetToken =
-            _localSessionResetToken.load(std::memory_order_acquire);
+        const UINT resetToken = _localSessionResetToken.load(std::memory_order_acquire);
         _RequestLocalSessionReset(pContext, resetToken);
     }
     return *pIsEaten != FALSE;
@@ -627,11 +598,11 @@ __inline UINT VKeyFromVKPacketAndWchar(UINT vk, WCHAR wch)
 //
 //----------------------------------------------------------------------------
 
-BOOL CMetasequoiaIME::_IsKeyEaten(        //
-    _In_ ITfContext *pContext,            //
-    UINT codeIn,                          //
-    _Out_ UINT *pCodeOut,                 //
-    _Out_writes_(1) WCHAR *pwch,          //
+BOOL CMetasequoiaIME::_IsKeyEaten(         //
+    _In_ ITfContext *pContext,             //
+    UINT codeIn,                           //
+    _Out_ UINT *pCodeOut,                  //
+    _Out_writes_(1) WCHAR *pwch,           //
     _Out_opt_ _KEYSTROKE_STATE *pKeyState, //
     _In_opt_ const WCHAR *translatedWch,   //
     bool freshCompositionState             //
@@ -720,16 +691,14 @@ BOOL CMetasequoiaIME::_IsKeyEaten(        //
 
         // Other Ctrl/Alt/Windows combinations belong to the application.
         // IME-owned shortcuts are handled before this normal key classifier.
-        if ((shortcutModifiers & 0b00000110u) != 0 ||
-            (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
+        if ((shortcutModifiers & 0b00000110u) != 0 || (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
             (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0)
         {
             return isTouchKeyboardSpecialKeys;
         }
 
         const bool isComposing = freshCompositionState ? false : _IsComposing() != FALSE;
-        const CANDIDATE_MODE candidateMode =
-            freshCompositionState ? CANDIDATE_NONE : _candidateMode;
+        const CANDIDATE_MODE candidateMode = freshCompositionState ? CANDIDATE_NONE : _candidateMode;
         const bool isCapsLockOn = (GetKeyState(VK_CAPITAL) & 0x0001) != 0;
         const bool isUppercaseAlphabet = (wch >= L'A' && wch <= L'Z') && (*pCodeOut >= L'A' && *pCodeOut <= L'Z');
         const bool isInputInProgress =
@@ -750,12 +719,11 @@ BOOL CMetasequoiaIME::_IsKeyEaten(        //
         //
         // eat only keys that CKeyHandlerEditSession can handles.
         //
-        const BOOL ret = freshCompositionState
-                             ? pCompositionProcessorEngine->IsVirtualKeyNeedForFreshComposition(
-                                   *pCodeOut, pwch, pKeyState)
-                             : pCompositionProcessorEngine->IsVirtualKeyNeed(
-                                   *pCodeOut, pwch, isComposing, candidateMode,
-                                   _isCandidateWithWildcard, pKeyState);
+        const BOOL ret =
+            freshCompositionState
+                ? pCompositionProcessorEngine->IsVirtualKeyNeedForFreshComposition(*pCodeOut, pwch, pKeyState)
+                : pCompositionProcessorEngine->IsVirtualKeyNeed(*pCodeOut, pwch, isComposing, candidateMode,
+                                                                _isCandidateWithWildcard, pKeyState);
         if (ret)
         {
             return TRUE;
@@ -767,8 +735,7 @@ BOOL CMetasequoiaIME::_IsKeyEaten(        //
     //
     if (pCompositionProcessorEngine->IsPunctuation(wch))
     {
-        const CANDIDATE_MODE candidateMode =
-            freshCompositionState ? CANDIDATE_NONE : _candidateMode;
+        const CANDIDATE_MODE candidateMode = freshCompositionState ? CANDIDATE_NONE : _candidateMode;
         if ((candidateMode == CANDIDATE_NONE || candidateMode == CANDIDATE_INCREMENTAL) && isPunctuation)
         {
             if (pKeyState)
@@ -915,20 +882,15 @@ STDAPI CMetasequoiaIME::OnSetFocus(BOOL fForeground)
 
 bool CMetasequoiaIME::_HasDeferredKeyBarrier() const
 {
-    if (_localSessionResetPending.load(std::memory_order_acquire) ||
-        _focusResetPending || _activationRequired ||
-        _deferredKeyProjectionValid || !_deferredKeyDowns.empty() ||
-        _hasDeferredKeyInFlight)
+    if (_localSessionResetPending.load(std::memory_order_acquire) || _focusResetPending || _activationRequired ||
+        _deferredKeyProjectionValid || !_deferredKeyDowns.empty() || _hasDeferredKeyInFlight)
     {
         return true;
     }
     if (Global::g_connected)
     {
-        const uint64_t expectedToken =
-            _expectedWorkerFocusToken.load(std::memory_order_acquire);
-        return expectedToken == 0 ||
-               _acknowledgedWorkerFocusToken.load(std::memory_order_acquire) !=
-                   expectedToken ||
+        const uint64_t expectedToken = _expectedWorkerFocusToken.load(std::memory_order_acquire);
+        return expectedToken == 0 || _acknowledgedWorkerFocusToken.load(std::memory_order_acquire) != expectedToken ||
                !_workerCommitReady.load(std::memory_order_acquire);
     }
     return false;
@@ -936,8 +898,7 @@ bool CMetasequoiaIME::_HasDeferredKeyBarrier() const
 
 bool CMetasequoiaIME::_DeferredKeyQueueHasCapacity() const
 {
-    size_t deferredCount =
-        _deferredKeyDowns.size() + _deferredAppliedPrefix.size();
+    size_t deferredCount = _deferredKeyDowns.size() + _deferredAppliedPrefix.size();
     if (_hasDeferredKeyInFlight)
     {
         ++deferredCount;
@@ -953,26 +914,21 @@ void CMetasequoiaIME::_EnsureDeferredKeyProjection()
     }
     _deferredKeyProjectionValid = true;
     _deferredProjectedImeOpen = _pCompositionProcessorEngine && _pThreadMgr &&
-                               _pCompositionProcessorEngine->GetIMEMode(
-                                   _pThreadMgr, _tfClientId) != FALSE;
+                                _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId) != FALSE;
     _deferredProjectedPunctuationOpen =
         _pCompositionProcessorEngine && _pThreadMgr &&
-        _pCompositionProcessorEngine->GetPunctuationMode(
-            _pThreadMgr, _tfClientId) != FALSE;
+        _pCompositionProcessorEngine->GetPunctuationMode(_pThreadMgr, _tfClientId) != FALSE;
     _deferredProjectedDoubleSingleByteOpen =
         _pCompositionProcessorEngine && _pThreadMgr &&
-        _pCompositionProcessorEngine->GetDoubleSingleByteMode(
-            _pThreadMgr, _tfClientId) != FALSE;
+        _pCompositionProcessorEngine->GetDoubleSingleByteMode(_pThreadMgr, _tfClientId) != FALSE;
     // In the healthy path every IME-owned key enters the FIFO as well, so its
     // first projection starts from the composition that is already visible.
     // A transport-recovery checkpoint arms this projection before the local
     // reset cancels that composition.
-    _deferredProjectedInputLength =
-        _pCompositionProcessorEngine
-            ? min(static_cast<size_t>(MAX_PINYIN_LENGTH),
-                  static_cast<size_t>(
-                      _pCompositionProcessorEngine->GetVirtualKeyLength()))
-            : 0;
+    _deferredProjectedInputLength = _pCompositionProcessorEngine
+                                        ? min(static_cast<size_t>(MAX_PINYIN_LENGTH),
+                                              static_cast<size_t>(_pCompositionProcessorEngine->GetVirtualKeyLength()))
+                                        : 0;
     _deferredProjectedRawInput.clear();
     _deferredProjectedCaret = 0;
     if (_pCompositionProcessorEngine)
@@ -990,12 +946,10 @@ void CMetasequoiaIME::_EnsureDeferredKeyProjection()
     // list makes the next input a finalize-and-start-new boundary.
     _deferredProjectedCandidateActive = _candidateMode == CANDIDATE_ORIGINAL;
     _deferredProjectedUnicodeMode =
-        _pCompositionProcessorEngine &&
-        _pCompositionProcessorEngine->IsUnicodeModeComposition() != FALSE;
+        _pCompositionProcessorEngine && _pCompositionProcessorEngine->IsUnicodeModeComposition() != FALSE;
 }
 
-void CMetasequoiaIME::_ApplyDeferredKeyProjection(
-    const _KEYSTROKE_STATE &keyState, WCHAR wch)
+void CMetasequoiaIME::_ApplyDeferredKeyProjection(const _KEYSTROKE_STATE &keyState, WCHAR wch)
 {
     _EnsureDeferredKeyProjection();
     DeferredShadowState shadow;
@@ -1015,8 +969,7 @@ void CMetasequoiaIME::_ApplyDeferredKeyProjection(
     _deferredProjectedUnicodeMode = shadow.unicodeMode;
 }
 
-void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(
-    REFGUID preservedKey)
+void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(REFGUID preservedKey)
 {
     _EnsureDeferredKeyProjection();
     if (_pCompositionProcessorEngine == nullptr)
@@ -1028,8 +981,7 @@ void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(
     case CCompositionProcessorEngine::PreservedKeyAction::ToggleImeMode:
         FanyUtils::RefreshPunctuationLockFromConfig();
         _deferredProjectedImeOpen = !_deferredProjectedImeOpen;
-        _deferredProjectedPunctuationOpen =
-            Global::ResolvePunctuationOpen(_deferredProjectedImeOpen) != FALSE;
+        _deferredProjectedPunctuationOpen = Global::ResolvePunctuationOpen(_deferredProjectedImeOpen) != FALSE;
         _deferredProjectedInputLength = 0;
         _deferredProjectedRawInput.clear();
         _deferredProjectedCaret = 0;
@@ -1037,21 +989,18 @@ void CMetasequoiaIME::_ApplyDeferredPreservedKeyProjection(
         _deferredProjectedUnicodeMode = false;
         break;
     case CCompositionProcessorEngine::PreservedKeyAction::ToggleDoubleSingleByteMode:
-        _deferredProjectedDoubleSingleByteOpen =
-            !_deferredProjectedDoubleSingleByteOpen;
+        _deferredProjectedDoubleSingleByteOpen = !_deferredProjectedDoubleSingleByteOpen;
         break;
     case CCompositionProcessorEngine::PreservedKeyAction::TogglePunctuationMode:
         FanyUtils::RefreshPunctuationLockFromConfig();
-        _deferredProjectedPunctuationOpen =
-            Global::ResolvePunctuationOpen(!_deferredProjectedPunctuationOpen) != FALSE;
+        _deferredProjectedPunctuationOpen = Global::ResolvePunctuationOpen(!_deferredProjectedPunctuationOpen) != FALSE;
         break;
     default:
         break;
     }
 }
 
-bool CMetasequoiaIME::_RefreshDeferredRecoveryPrefix(
-    _In_ ITfContext *pContext)
+bool CMetasequoiaIME::_RefreshDeferredRecoveryPrefix(_In_ ITfContext *pContext)
 {
     while (!_deferredAppliedPrefix.empty())
     {
@@ -1070,9 +1019,7 @@ bool CMetasequoiaIME::_RefreshDeferredRecoveryPrefix(
 
     CStringRange &raw = _pCompositionProcessorEngine->GetKeystrokeBuffer();
     const size_t rawLength = static_cast<size_t>(raw.GetLength());
-    const size_t caret = min(
-        rawLength,
-        static_cast<size_t>(_pCompositionProcessorEngine->GetCaretPosition()));
+    const size_t caret = min(rawLength, static_cast<size_t>(_pCompositionProcessorEngine->GetCaretPosition()));
     const size_t moveLeftCount = rawLength - caret;
     if (rawLength + moveLeftCount > MAX_DEFERRED_KEY_DOWN_COUNT)
     {
@@ -1086,12 +1033,10 @@ bool CMetasequoiaIME::_RefreshDeferredRecoveryPrefix(
         DeferredKeyDown recoveryKey;
         recoveryKey.kind = DeferredKeyDown::Kind::KeyDown;
         recoveryKey.context = pContext;
-        recoveryKey.wParam = virtualKey == -1
-                                 ? static_cast<WPARAM>(VK_PACKET)
-                                 : static_cast<WPARAM>(LOBYTE(virtualKey));
+        recoveryKey.wParam =
+            virtualKey == -1 ? static_cast<WPARAM>(VK_PACKET) : static_cast<WPARAM>(LOBYTE(virtualKey));
         recoveryKey.translatedWch = wch;
-        recoveryKey.modifiersDown =
-            virtualKey != -1 && (HIBYTE(virtualKey) & 1) != 0 ? 1u : 0u;
+        recoveryKey.modifiersDown = virtualKey != -1 && (HIBYTE(virtualKey) & 1) != 0 ? 1u : 0u;
         recoveryKey.keyState.Category = CATEGORY_COMPOSING;
         recoveryKey.keyState.Function = FUNCTION_INPUT;
         recoveryKey.focusGeneration = _deferredKeyFocusGeneration;
@@ -1113,8 +1058,7 @@ bool CMetasequoiaIME::_RefreshDeferredRecoveryPrefix(
     return true;
 }
 
-void CMetasequoiaIME::_ArmDeferredRecoveryForTransport(
-    _In_opt_ ITfContext *pContext)
+void CMetasequoiaIME::_ArmDeferredRecoveryForTransport(_In_opt_ ITfContext *pContext)
 {
     // An in-flight key owns its exact retry token.  Its failure path moves the
     // checkpoint in front of that key; moving it here as well would duplicate
@@ -1125,8 +1069,7 @@ void CMetasequoiaIME::_ArmDeferredRecoveryForTransport(
     }
 
     ITfContext *recoveryContext = pContext ? pContext : _pContext;
-    const bool activeDeferredState =
-        !_deferredKeyDowns.empty() || _deferredKeyProjectionValid;
+    const bool activeDeferredState = !_deferredKeyDowns.empty() || _deferredKeyProjectionValid;
     if (!activeDeferredState)
     {
         // The dormant checkpoint may have been superseded by a non-eaten
@@ -1163,15 +1106,12 @@ void CMetasequoiaIME::_ArmDeferredRecoveryForTransport(
     _ScheduleDeferredKeyDownDrain();
 }
 
-bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
-    _In_ ITfContext *pContext, WPARAM wParam,
-    _In_opt_ const WCHAR *translatedWch,
-    _In_opt_ const UINT *modifiersDown,
-    _Out_ WCHAR *classifiedWch, _Out_ UINT *classifiedCode,
-    _Out_ _KEYSTROKE_STATE *keyState)
+bool CMetasequoiaIME::_ClassifyDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam,
+                                               _In_opt_ const WCHAR *translatedWch, _In_opt_ const UINT *modifiersDown,
+                                               _Out_ WCHAR *classifiedWch, _Out_ UINT *classifiedCode,
+                                               _Out_ _KEYSTROKE_STATE *keyState)
 {
-    if (pContext == nullptr || classifiedWch == nullptr ||
-        classifiedCode == nullptr || keyState == nullptr ||
+    if (pContext == nullptr || classifiedWch == nullptr || classifiedCode == nullptr || keyState == nullptr ||
         _pCompositionProcessorEngine == nullptr || _pThreadMgr == nullptr)
     {
         return false;
@@ -1195,10 +1135,8 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
 
     // Other Ctrl/Alt/Windows combinations belong to the application. In particular,
     // never turn a recovery FIFO into a shortcut sink.
-    if ((capturedModifiers & 0b00000110) != 0 ||
-        (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
-        (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0 ||
-        IsBareModifierKey(*classifiedCode) || _IsKeyboardDisabled())
+    if ((capturedModifiers & 0b00000110) != 0 || (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
+        (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0 || IsBareModifierKey(*classifiedCode) || _IsKeyboardDisabled())
     {
         return false;
     }
@@ -1208,8 +1146,7 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
     {
         shadow.imeOpen = _deferredProjectedImeOpen;
         shadow.punctuationOpen = _deferredProjectedPunctuationOpen;
-        shadow.doubleSingleByteOpen =
-            _deferredProjectedDoubleSingleByteOpen;
+        shadow.doubleSingleByteOpen = _deferredProjectedDoubleSingleByteOpen;
         shadow.inputLength = _deferredProjectedInputLength;
         shadow.rawInput = _deferredProjectedRawInput;
         shadow.caret = _deferredProjectedCaret;
@@ -1218,31 +1155,24 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
     }
     else
     {
-        shadow.imeOpen =
-            _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId) != FALSE;
-        shadow.punctuationOpen =
-            _pCompositionProcessorEngine->GetPunctuationMode(_pThreadMgr, _tfClientId) != FALSE;
+        shadow.imeOpen = _pCompositionProcessorEngine->GetIMEMode(_pThreadMgr, _tfClientId) != FALSE;
+        shadow.punctuationOpen = _pCompositionProcessorEngine->GetPunctuationMode(_pThreadMgr, _tfClientId) != FALSE;
         shadow.doubleSingleByteOpen =
-            _pCompositionProcessorEngine->GetDoubleSingleByteMode(
-                _pThreadMgr, _tfClientId) != FALSE;
-        shadow.inputLength = min(
-            static_cast<size_t>(MAX_PINYIN_LENGTH),
-            static_cast<size_t>(
-                _pCompositionProcessorEngine->GetVirtualKeyLength()));
+            _pCompositionProcessorEngine->GetDoubleSingleByteMode(_pThreadMgr, _tfClientId) != FALSE;
+        shadow.inputLength = min(static_cast<size_t>(MAX_PINYIN_LENGTH),
+                                 static_cast<size_t>(_pCompositionProcessorEngine->GetVirtualKeyLength()));
         const CStringRange &buffer = _pCompositionProcessorEngine->GetKeystrokeBuffer();
         if (buffer.Get() && buffer.GetLength() > 0)
         {
             shadow.rawInput.assign(buffer.Get(), buffer.GetLength());
         }
-        shadow.caret = min(static_cast<size_t>(_pCompositionProcessorEngine->GetCaretPosition()),
-                           shadow.rawInput.size());
+        shadow.caret =
+            min(static_cast<size_t>(_pCompositionProcessorEngine->GetCaretPosition()), shadow.rawInput.size());
         shadow.candidateActive = _candidateMode == CANDIDATE_ORIGINAL;
-        shadow.unicodeMode =
-            _pCompositionProcessorEngine->IsUnicodeModeComposition() != FALSE;
+        shadow.unicodeMode = _pCompositionProcessorEngine->IsUnicodeModeComposition() != FALSE;
     }
 
-    const auto setKeyState = [keyState](KEYSTROKE_CATEGORY category,
-                                        KEYSTROKE_FUNCTION function) {
+    const auto setKeyState = [keyState](KEYSTROKE_CATEGORY category, KEYSTROKE_FUNCTION function) {
         keyState->Category = category;
         keyState->Function = function;
         return true;
@@ -1253,13 +1183,11 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
     bool isInputKey = false;
     if (shadow.imeOpen)
     {
-        isInputKey =
-            _pCompositionProcessorEngine->IsVirtualKeyNeedForFreshComposition(
-                *classifiedCode, &inputWch, &inputState) != FALSE;
+        isInputKey = _pCompositionProcessorEngine->IsVirtualKeyNeedForFreshComposition(*classifiedCode, &inputWch,
+                                                                                       &inputState) != FALSE;
         if (!isInputKey && shadow.inputLength > 0 &&
-            ((*classifiedWch == L'\'') ||
-             (_pCompositionProcessorEngine->IsWildcard() &&
-              _pCompositionProcessorEngine->IsWildcardChar(*classifiedWch))))
+            ((*classifiedWch == L'\'') || (_pCompositionProcessorEngine->IsWildcard() &&
+                                           _pCompositionProcessorEngine->IsWildcardChar(*classifiedWch))))
         {
             isInputKey = true;
         }
@@ -1271,10 +1199,8 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
             const size_t chunkStart = separator == std::wstring::npos ? 0 : separator + 1;
             isInputKey = (caret - chunkStart) % 2 == 1;
         }
-        if (shadow.inputLength == 0 &&
-            (GetKeyState(VK_CAPITAL) & 0x0001) != 0 &&
-            *classifiedWch >= L'A' && *classifiedWch <= L'Z' &&
-            *classifiedCode >= L'A' && *classifiedCode <= L'Z')
+        if (shadow.inputLength == 0 && (GetKeyState(VK_CAPITAL) & 0x0001) != 0 && *classifiedWch >= L'A' &&
+            *classifiedWch <= L'Z' && *classifiedCode >= L'A' && *classifiedCode <= L'Z')
         {
             // Match the normal fresh-composition path: CapsLock uppercase at
             // the beginning belongs to the application.
@@ -1284,8 +1210,7 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
 
     if (shadow.candidateActive && isInputKey)
     {
-        return setKeyState(CATEGORY_CANDIDATE,
-                           FUNCTION_FINALIZE_CANDIDATELIST_AND_INPUT);
+        return setKeyState(CATEGORY_CANDIDATE, FUNCTION_FINALIZE_CANDIDATELIST_AND_INPUT);
     }
     if (!shadow.candidateActive && isInputKey)
     {
@@ -1298,21 +1223,16 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
         switch (*classifiedCode)
         {
         case VK_BACK:
-            return candidateKey
-                       ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL)
-                       : setKeyState(CATEGORY_COMPOSING, FUNCTION_BACKSPACE);
+            return candidateKey ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL)
+                                : setKeyState(CATEGORY_COMPOSING, FUNCTION_BACKSPACE);
         case VK_DELETE:
-            return candidateKey
-                       ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL)
-                       : setKeyState(CATEGORY_COMPOSING, FUNCTION_DELETE);
+            return candidateKey ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL)
+                                : setKeyState(CATEGORY_COMPOSING, FUNCTION_DELETE);
         case VK_SPACE:
             return setKeyState(CATEGORY_CANDIDATE, FUNCTION_CONVERT);
         case VK_RETURN:
-            return candidateKey
-                       ? setKeyState(CATEGORY_CANDIDATE,
-                                     FUNCTION_FINALIZE_CANDIDATELIST)
-                       : setKeyState(CATEGORY_CANDIDATE,
-                                     FUNCTION_FINALIZE_CANDIDATELISTForVKReturn);
+            return candidateKey ? setKeyState(CATEGORY_CANDIDATE, FUNCTION_FINALIZE_CANDIDATELIST)
+                                : setKeyState(CATEGORY_CANDIDATE, FUNCTION_FINALIZE_CANDIDATELISTForVKReturn);
         case VK_ESCAPE:
             return setKeyState(CATEGORY_CANDIDATE, FUNCTION_CANCEL);
         case VK_LEFT:
@@ -1334,13 +1254,12 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
         case VK_NEXT:
         case VK_UP:
         case VK_DOWN:
-            if (*classifiedCode == VK_OEM_PLUS && shadow.unicodeMode &&
-                shadow.inputLength == 1 && *classifiedWch == L'+')
+            if (*classifiedCode == VK_OEM_PLUS && shadow.unicodeMode && shadow.inputLength == 1 &&
+                *classifiedWch == L'+')
             {
                 return setKeyState(CATEGORY_COMPOSING, FUNCTION_INPUT);
             }
-            return setKeyState(CATEGORY_CANDIDATE,
-                               FUNCTION_SERVER_CANDIDATE_KEY);
+            return setKeyState(CATEGORY_CANDIDATE, FUNCTION_SERVER_CANDIDATE_KEY);
         default:
             break;
         }
@@ -1350,12 +1269,10 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
             // U-mode: bare digits compose hex; Shift+1..9 selects candidates.
             if (shadow.unicodeMode)
             {
-                const bool shift_only =
-                    (capturedModifiers & 0b00000111u) == 0b00000001u;
+                const bool shift_only = (capturedModifiers & 0b00000111u) == 0b00000001u;
                 if (shift_only)
                 {
-                    return setKeyState(CATEGORY_CANDIDATE,
-                                       FUNCTION_SELECT_BY_NUMBER);
+                    return setKeyState(CATEGORY_CANDIDATE, FUNCTION_SELECT_BY_NUMBER);
                 }
                 return setKeyState(CATEGORY_COMPOSING, FUNCTION_INPUT);
             }
@@ -1366,26 +1283,22 @@ bool CMetasequoiaIME::_ClassifyDeferredKeyDown(
             return setKeyState(CATEGORY_COMPOSING, FUNCTION_INPUT);
         }
         if (Global::CommitWithHighlightedCandPunc.count(*classifiedWch) > 0 ||
-            (shadow.punctuationOpen &&
-             _pCompositionProcessorEngine->IsPunctuation(*classifiedWch)))
+            (shadow.punctuationOpen && _pCompositionProcessorEngine->IsPunctuation(*classifiedWch)))
         {
             return setKeyState(CATEGORY_COMPOSING, FUNCTION_PUNCTUATION);
         }
         return false;
     }
 
-    if (shadow.punctuationOpen &&
-        _pCompositionProcessorEngine->IsPunctuation(*classifiedWch))
+    if (shadow.punctuationOpen && _pCompositionProcessorEngine->IsPunctuation(*classifiedWch))
     {
         return setKeyState(CATEGORY_COMPOSING, FUNCTION_PUNCTUATION);
     }
-    if (shadow.doubleSingleByteOpen &&
-        _pCompositionProcessorEngine->IsDoubleSingleByte(*classifiedWch))
+    if (shadow.doubleSingleByteOpen && _pCompositionProcessorEngine->IsDoubleSingleByte(*classifiedWch))
     {
         return setKeyState(CATEGORY_COMPOSING, FUNCTION_DOUBLE_SINGLE_BYTE);
     }
-    if (!shadow.imeOpen && *classifiedWch != L'\0' &&
-        std::iswprint(static_cast<wint_t>(*classifiedWch)) != 0)
+    if (!shadow.imeOpen && *classifiedWch != L'\0' && std::iswprint(static_cast<wint_t>(*classifiedWch)) != 0)
     {
         // A queued Shift may make this future key English. It still belongs
         // behind the FIFO prefix; CATEGORY_NONE/FUNCTION_NONE marks a direct
@@ -1443,15 +1356,13 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
             *pIsEaten = FALSE;
             return S_OK;
         }
-        *pIsEaten = _ClassifyDeferredKeyDown(
-                        pContext, wParam, nullptr, nullptr, &deferredWch,
-                        &deferredCode, &deferredState)
-                        ? TRUE
-                        : FALSE;
+        *pIsEaten =
+            _ClassifyDeferredKeyDown(pContext, wParam, nullptr, nullptr, &deferredWch, &deferredCode, &deferredState)
+                ? TRUE
+                : FALSE;
         // Classify always fills code/wch before failing. Track rejection even
         // when the key is handed back to the app (typical for VK_BACK).
-        _NoteKeyForSmartPunctuation(deferredCode, deferredWch,
-                                    *pIsEaten ? true : false);
+        _NoteKeyForSmartPunctuation(deferredCode, deferredWch, *pIsEaten ? true : false);
         return S_OK;
     }
 
@@ -1465,20 +1376,16 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
     _KEYSTROKE_STATE KeystrokeState;
     WCHAR wch = '\0';
     UINT code = 0;
-    *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch,
-                            &KeystrokeState);
+    *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch, &KeystrokeState);
 
     // Every keydown reaches this sink, including the ones handed back to the
     // application (backspace with no composition), so the smart-punctuation
     // rejection state is tracked here rather than in the eaten-key path.
     _NoteKeyForSmartPunctuation(code, wch, *pIsEaten ? true : false);
 
-    DebugTsfIssue47(L"test-keydown-classified", FANY_IME_NO_REQUEST_ID, code, wch,
-                    KeystrokeState.Category, KeystrokeState.Function, *pIsEaten ? 1 : 0,
-                    _IsComposing(), _pCompositionProcessorEngine
-                                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                        : 0,
-                    S_OK);
+    DebugTsfIssue47(L"test-keydown-classified", FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
+                    KeystrokeState.Function, *pIsEaten ? 1 : 0, _IsComposing(),
+                    _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_OK);
 
     if (KeystrokeState.Category == CATEGORY_INVOKE_COMPOSITION_EDIT_SESSION)
     {
@@ -1487,18 +1394,14 @@ STDAPI CMetasequoiaIME::OnTestKeyDown(ITfContext *pContext, WPARAM wParam, LPARA
         //
         KeystrokeState.Category = CATEGORY_COMPOSING;
 
-        _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState,
-                          FANY_IME_NO_REQUEST_ID);
+        _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState, FANY_IME_NO_REQUEST_ID);
     }
-
 
     return S_OK;
 }
 
-bool CMetasequoiaIME::_QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam,
-                                             LPARAM lParam, WCHAR translatedWch,
-                                             UINT modifiersDown,
-                                             const _KEYSTROKE_STATE &keyState)
+bool CMetasequoiaIME::_QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam, LPARAM lParam,
+                                            WCHAR translatedWch, UINT modifiersDown, const _KEYSTROKE_STATE &keyState)
 {
     if (pContext == nullptr || !_DeferredKeyQueueHasCapacity())
     {
@@ -1507,8 +1410,7 @@ bool CMetasequoiaIME::_QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wP
 
     pContext->AddRef();
     DeferredKeyDown key;
-    key.kind = keyState.Category == CATEGORY_NONE &&
-                       keyState.Function == FUNCTION_NONE
+    key.kind = keyState.Category == CATEGORY_NONE && keyState.Function == FUNCTION_NONE
                    ? DeferredKeyDown::Kind::ApplicationText
                    : DeferredKeyDown::Kind::KeyDown;
     key.context = pContext;
@@ -1532,8 +1434,7 @@ bool CMetasequoiaIME::_QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wP
     return true;
 }
 
-bool CMetasequoiaIME::_QueueDeferredPreservedKey(_In_ ITfContext *pContext,
-                                                  REFGUID preservedKey)
+bool CMetasequoiaIME::_QueueDeferredPreservedKey(_In_ ITfContext *pContext, REFGUID preservedKey)
 {
     if (pContext == nullptr || !_DeferredKeyQueueHasCapacity())
     {
@@ -1564,11 +1465,9 @@ void CMetasequoiaIME::_ClearDeferredKeyDowns()
                         hadInFlight ? static_cast<UINT>(_deferredKeyInFlight.wParam) : 0,
                         hadInFlight ? _deferredKeyInFlight.translatedWch : L'\0',
                         hadInFlight ? _deferredKeyInFlight.keyState.Category : 0,
-                        hadInFlight ? _deferredKeyInFlight.keyState.Function : 0,
-                        -1, _IsComposing(), _pCompositionProcessorEngine
-                                                ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                                : 0,
-                        S_FALSE, inFlightToken);
+                        hadInFlight ? _deferredKeyInFlight.keyState.Function : 0, -1, _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_FALSE,
+                        inFlightToken);
     }
     // A posted drain belongs to the current message window/generation.  It
     // may never run if Deactivate destroys that window, so never carry this
@@ -1622,21 +1521,16 @@ void CMetasequoiaIME::_ClearDeferredKeyDowns()
 
 void CMetasequoiaIME::_CompleteDeferredKeyReplay(uint64_t replayToken)
 {
-    if (replayToken == 0 || !_hasDeferredKeyInFlight ||
-        _deferredKeyReplayToken != replayToken)
+    if (replayToken == 0 || !_hasDeferredKeyInFlight || _deferredKeyReplayToken != replayToken)
     {
         return;
     }
 
-    DebugTsfIssue47(L"deferred-replay-complete", FANY_IME_NO_REQUEST_ID,
-                    static_cast<UINT>(_deferredKeyInFlight.wParam),
-                    _deferredKeyInFlight.translatedWch,
-                    _deferredKeyInFlight.keyState.Category,
+    DebugTsfIssue47(L"deferred-replay-complete", FANY_IME_NO_REQUEST_ID, static_cast<UINT>(_deferredKeyInFlight.wParam),
+                    _deferredKeyInFlight.translatedWch, _deferredKeyInFlight.keyState.Category,
                     _deferredKeyInFlight.keyState.Function, 1, _IsComposing(),
-                    _pCompositionProcessorEngine
-                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                        : 0,
-                    S_OK, replayToken);
+                    _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_OK,
+                    replayToken);
 
     ITfContext *context = _deferredKeyInFlight.context;
     if (_deferredKeyDowns.empty())
@@ -1669,8 +1563,7 @@ void CMetasequoiaIME::_CompleteDeferredKeyReplay(uint64_t replayToken)
     const auto clearAppliedPrefix = [this]() {
         while (!_deferredAppliedPrefix.empty())
         {
-            ITfContext *prefixContext =
-                _deferredAppliedPrefix.front().context;
+            ITfContext *prefixContext = _deferredAppliedPrefix.front().context;
             _deferredAppliedPrefix.pop_front();
             if (prefixContext)
             {
@@ -1703,11 +1596,8 @@ void CMetasequoiaIME::_CompleteDeferredKeyReplay(uint64_t replayToken)
             clearAppliedPrefix();
         }
     }
-    else if (_deferredKeyInFlight.kind ==
-                 DeferredKeyDown::Kind::PreservedKey &&
-             _pCompositionProcessorEngine &&
-             _pCompositionProcessorEngine->GetPreservedKeyAction(
-                 _deferredKeyInFlight.preservedKey) ==
+    else if (_deferredKeyInFlight.kind == DeferredKeyDown::Kind::PreservedKey && _pCompositionProcessorEngine &&
+             _pCompositionProcessorEngine->GetPreservedKeyAction(_deferredKeyInFlight.preservedKey) ==
                  CCompositionProcessorEngine::PreservedKeyAction::ToggleImeMode)
     {
         clearAppliedPrefix();
@@ -1724,52 +1614,40 @@ void CMetasequoiaIME::_CompleteDeferredKeyReplay(uint64_t replayToken)
     _ScheduleDeferredKeyDownDrain();
 }
 
-bool CMetasequoiaIME::_IsDeferredKeyReplayCurrent(
-    uint64_t replayToken, uint64_t focusGeneration,
-    _In_opt_ ITfContext *expectedContext) const
+bool CMetasequoiaIME::_IsDeferredKeyReplayCurrent(uint64_t replayToken, uint64_t focusGeneration,
+                                                  _In_opt_ ITfContext *expectedContext) const
 {
-    return replayToken != 0 && _hasDeferredKeyInFlight &&
-           _deferredKeyReplayToken == replayToken &&
-           focusGeneration == _deferredKeyFocusGeneration &&
-           _deferredKeyInFlight.focusGeneration == focusGeneration &&
-           (expectedContext == nullptr ||
-            _deferredKeyInFlight.context == expectedContext);
+    return replayToken != 0 && _hasDeferredKeyInFlight && _deferredKeyReplayToken == replayToken &&
+           focusGeneration == _deferredKeyFocusGeneration && _deferredKeyInFlight.focusGeneration == focusGeneration &&
+           (expectedContext == nullptr || _deferredKeyInFlight.context == expectedContext);
 }
 
 void CMetasequoiaIME::_RetryDeferredKeyReplay(uint64_t replayToken)
 {
-    if (replayToken == 0 || !_hasDeferredKeyInFlight ||
-        _deferredKeyReplayToken != replayToken)
+    if (replayToken == 0 || !_hasDeferredKeyInFlight || _deferredKeyReplayToken != replayToken)
     {
         return;
     }
     if (_deferredKeyInFlight.focusGeneration != _deferredKeyFocusGeneration)
     {
         DebugTsfIssue47(L"deferred-replay-focus-changed", FANY_IME_NO_REQUEST_ID,
-                        static_cast<UINT>(_deferredKeyInFlight.wParam),
-                        _deferredKeyInFlight.translatedWch,
-                        _deferredKeyInFlight.keyState.Category,
-                        _deferredKeyInFlight.keyState.Function, 1, _IsComposing(),
-                        _pCompositionProcessorEngine
-                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
-                        S_FALSE, replayToken);
+                        static_cast<UINT>(_deferredKeyInFlight.wParam), _deferredKeyInFlight.translatedWch,
+                        _deferredKeyInFlight.keyState.Category, _deferredKeyInFlight.keyState.Function, 1,
+                        _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_FALSE,
+                        replayToken);
         _CompleteDeferredKeyReplay(replayToken);
         return;
     }
 
-    if (_deferredKeyInFlight.replayAttempts >=
-        kMaxDeferredKeyReplayAttempts)
+    if (_deferredKeyInFlight.replayAttempts >= kMaxDeferredKeyReplayAttempts)
     {
         DebugTsfIssue47(L"deferred-replay-abandoned", FANY_IME_NO_REQUEST_ID,
-                        static_cast<UINT>(_deferredKeyInFlight.wParam),
-                        _deferredKeyInFlight.translatedWch,
-                        _deferredKeyInFlight.keyState.Category,
-                        _deferredKeyInFlight.keyState.Function, 1, _IsComposing(),
-                        _pCompositionProcessorEngine
-                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
-                        E_FAIL, replayToken);
+                        static_cast<UINT>(_deferredKeyInFlight.wParam), _deferredKeyInFlight.translatedWch,
+                        _deferredKeyInFlight.keyState.Category, _deferredKeyInFlight.keyState.Function, 1,
+                        _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, E_FAIL,
+                        replayToken);
         // A permanently unanswerable request must not monopolize the ordered
         // replay queue forever. The real composition is still intact because
         // the failing edit session did not commit; discard this poisoned batch
@@ -1780,16 +1658,11 @@ void CMetasequoiaIME::_RetryDeferredKeyReplay(uint64_t replayToken)
     }
 
     const bool needsBackoff = _deferredKeyInFlight.replayAttempts >= 2;
-    DebugTsfIssue47(needsBackoff ? L"deferred-replay-retry-backoff" : L"deferred-replay-retry",
-                    FANY_IME_NO_REQUEST_ID,
-                    static_cast<UINT>(_deferredKeyInFlight.wParam),
-                    _deferredKeyInFlight.translatedWch,
-                    _deferredKeyInFlight.keyState.Category,
-                    _deferredKeyInFlight.keyState.Function, 1, _IsComposing(),
-                    _pCompositionProcessorEngine
-                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                        : 0,
-                    S_FALSE, replayToken);
+    DebugTsfIssue47(needsBackoff ? L"deferred-replay-retry-backoff" : L"deferred-replay-retry", FANY_IME_NO_REQUEST_ID,
+                    static_cast<UINT>(_deferredKeyInFlight.wParam), _deferredKeyInFlight.translatedWch,
+                    _deferredKeyInFlight.keyState.Category, _deferredKeyInFlight.keyState.Function, 1, _IsComposing(),
+                    _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_FALSE,
+                    replayToken);
     _deferredKeyDowns.push_front(_deferredKeyInFlight);
     while (!_deferredAppliedPrefix.empty())
     {
@@ -1814,9 +1687,8 @@ void CMetasequoiaIME::_RetryDeferredKeyReplay(uint64_t replayToken)
 
 void CMetasequoiaIME::_ScheduleDeferredKeyDownDrain()
 {
-    if (!_deferredKeyDowns.empty() && !_hasDeferredKeyInFlight &&
-        !_deferredKeyDrainPosted &&
-        _msgWndHandle && IsWindow(_msgWndHandle))
+    if (!_deferredKeyDowns.empty() && !_hasDeferredKeyInFlight && !_deferredKeyDrainPosted && _msgWndHandle &&
+        IsWindow(_msgWndHandle))
     {
         _deferredKeyDrainPosted = true;
         if (!PostMessage(_msgWndHandle, WM_DrainDeferredKeyDown, 0, 0))
@@ -1835,13 +1707,10 @@ bool CMetasequoiaIME::_IsServerUnavailableFallbackActive() const
 
 void CMetasequoiaIME::_TryLeaveServerUnavailableFallback()
 {
-    const uint64_t expectedToken =
-        _expectedWorkerFocusToken.load(std::memory_order_acquire);
-    if (_serverUnavailableFallbackActive && !_IsComposing() &&
-        expectedToken != 0 &&
+    const uint64_t expectedToken = _expectedWorkerFocusToken.load(std::memory_order_acquire);
+    if (_serverUnavailableFallbackActive && !_IsComposing() && expectedToken != 0 &&
         _workerCommitReady.load(std::memory_order_acquire) &&
-        _acknowledgedWorkerFocusToken.load(std::memory_order_acquire) ==
-            expectedToken)
+        _acknowledgedWorkerFocusToken.load(std::memory_order_acquire) == expectedToken)
     {
         _serverUnavailableFallbackActive = false;
     }
@@ -1850,8 +1719,7 @@ void CMetasequoiaIME::_TryLeaveServerUnavailableFallback()
 void CMetasequoiaIME::_DrainOneDeferredKeyDown()
 {
     _deferredKeyDrainPosted = false;
-    if (_hasDeferredKeyInFlight || _deferredKeyDowns.empty() ||
-        !Global::g_connected)
+    if (_hasDeferredKeyInFlight || _deferredKeyDowns.empty() || !Global::g_connected)
     {
         return;
     }
@@ -1887,8 +1755,7 @@ void CMetasequoiaIME::_DrainOneDeferredKeyDown()
     DeferredKeyDown &key = _deferredKeyInFlight;
     if (key.queuedAtMs != 0)
     {
-        DebugTsfKeyLatency(L"deferred-key-queue", 0,
-                           static_cast<double>(GetTickCount64() - key.queuedAtMs), S_OK);
+        DebugTsfKeyLatency(L"deferred-key-queue", 0, static_cast<double>(GetTickCount64() - key.queuedAtMs), S_OK);
     }
     ++key.replayAttempts;
     const uint64_t replayToken = _deferredKeyReplayToken;
@@ -1900,8 +1767,7 @@ void CMetasequoiaIME::_DrainOneDeferredKeyDown()
         _ClearDeferredKeyDowns();
         return;
     }
-    if (!_serverUnavailableFallbackActive &&
-        !_IsFocusSessionCurrent(focusToken, key.context))
+    if (!_serverUnavailableFallbackActive && !_IsFocusSessionCurrent(focusToken, key.context))
     {
         // A token/Ready fence can close without a document focus change.
         // Preserve the exact item for the replacement Server epoch; an actual
@@ -1913,39 +1779,31 @@ void CMetasequoiaIME::_DrainOneDeferredKeyDown()
     BOOL eaten = FALSE;
     if (key.kind == DeferredKeyDown::Kind::ApplicationText)
     {
-        (void)_RequestDeferredApplicationTextEditSession(
-            key.context, key.translatedWch, focusToken,
-            key.focusGeneration, replayToken);
+        (void)_RequestDeferredApplicationTextEditSession(key.context, key.translatedWch, focusToken,
+                                                         key.focusGeneration, replayToken);
         return;
     }
     if (key.kind == DeferredKeyDown::Kind::PreservedKey)
     {
         const auto preservedAction = _pCompositionProcessorEngine
-                                         ? _pCompositionProcessorEngine
-                                               ->GetPreservedKeyAction(
-                                                   key.preservedKey)
-                                         : CCompositionProcessorEngine::
-                                               PreservedKeyAction::None;
+                                         ? _pCompositionProcessorEngine->GetPreservedKeyAction(key.preservedKey)
+                                         : CCompositionProcessorEngine::PreservedKeyAction::None;
         const bool awaitsEditSession =
-            preservedAction == CCompositionProcessorEngine::
-                                   PreservedKeyAction::ToggleImeMode;
+            preservedAction == CCompositionProcessorEngine::PreservedKeyAction::ToggleImeMode;
         if (!key.preservedApplied)
         {
             // OnPreservedKey changes compartments synchronously. Mark that
             // phase before entering COM so a failed async commit retries only
             // the commit phase and never toggles twice.
             key.preservedApplied = true;
-            _DispatchPreservedKey(key.context, key.preservedKey, &eaten,
-                                  key.focusGeneration, true, replayToken);
+            _DispatchPreservedKey(key.context, key.preservedKey, &eaten, key.focusGeneration, true, replayToken);
         }
         else if (awaitsEditSession)
         {
             _KEYSTROKE_STATE toggleState = {};
             toggleState.Category = CATEGORY_COMPOSING;
             toggleState.Function = FUNCTION_TOGGLE_IME_MODE;
-            _InvokeKeyHandler(key.context, 0, L'\0', 0, toggleState,
-                              FANY_IME_NO_REQUEST_ID, {}, 0, 0, 0,
-                              replayToken);
+            _InvokeKeyHandler(key.context, 0, L'\0', 0, toggleState, FANY_IME_NO_REQUEST_ID, {}, 0, 0, 0, replayToken);
         }
         if (!awaitsEditSession && _deferredKeyReplayToken == replayToken)
         {
@@ -1978,24 +1836,21 @@ void CMetasequoiaIME::_DrainOneDeferredKeyDown()
         default:
             break;
         }
-        _InvokeKeyHandler(key.context, key.wParam, key.translatedWch,
-                          static_cast<DWORD>(key.lParam), offlineState,
+        _InvokeKeyHandler(key.context, key.wParam, key.translatedWch, static_cast<DWORD>(key.lParam), offlineState,
                           FANY_IME_NO_REQUEST_ID, {}, 0, 0, 0, replayToken);
         return;
     }
 
     const KeyDownDispatchResult result =
-        _DispatchKeyDown(key.context, key.wParam, key.lParam, &eaten,
-                         &key.translatedWch, &key.modifiersDown, &key.keyState, false,
-                         key.focusGeneration, replayToken);
+        _DispatchKeyDown(key.context, key.wParam, key.lParam, &eaten, &key.translatedWch, &key.modifiersDown,
+                         &key.keyState, false, key.focusGeneration, replayToken);
     if (result == KeyDownDispatchResult::Retry)
     {
         _RetryDeferredKeyReplay(replayToken);
         return;
     }
 
-    if (result == KeyDownDispatchResult::Complete &&
-        _deferredKeyReplayToken == replayToken)
+    if (result == KeyDownDispatchResult::Complete && _deferredKeyReplayToken == replayToken)
     {
         _CompleteDeferredKeyReplay(replayToken);
     }
@@ -2022,18 +1877,15 @@ STDAPI CMetasequoiaIME::OnKeyDown(ITfContext *pContext, WPARAM wParam, LPARAM lP
     }
     PerfTimer onKeyDownTimer;
     const uint64_t focusGeneration = _deferredKeyFocusGeneration;
-    (void)_DispatchKeyDown(pContext, wParam, lParam, pIsEaten, nullptr, nullptr,
-                           nullptr, true, focusGeneration);
+    (void)_DispatchKeyDown(pContext, wParam, lParam, pIsEaten, nullptr, nullptr, nullptr, true, focusGeneration);
     DebugTsfKeyLatency(L"on-key-down", 0, onKeyDownTimer.ElapsedMs(), S_OK);
     return S_OK;
 }
 
 CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
-    _In_ ITfContext *pContext, WPARAM wParam, LPARAM lParam, _Out_ BOOL *pIsEaten,
-    _In_opt_ const WCHAR *translatedWch, _In_opt_ const UINT *modifiersDown,
-    _In_opt_ const _KEYSTROKE_STATE *prevalidatedKeyState,
-    bool canDefer, uint64_t expectedFocusGeneration,
-    uint64_t deferredReplayToken)
+    _In_ ITfContext *pContext, WPARAM wParam, LPARAM lParam, _Out_ BOOL *pIsEaten, _In_opt_ const WCHAR *translatedWch,
+    _In_opt_ const UINT *modifiersDown, _In_opt_ const _KEYSTROKE_STATE *prevalidatedKeyState, bool canDefer,
+    uint64_t expectedFocusGeneration, uint64_t deferredReplayToken)
 {
     if (pContext == nullptr || pIsEaten == nullptr)
     {
@@ -2057,16 +1909,14 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
     uint64_t requestId = FANY_IME_NO_REQUEST_ID;
     const UINT capturedModifiers = modifiersDown ? *modifiersDown : CaptureIpcModifiers();
 
-    if (canDefer && translatedWch == nullptr &&
-        prevalidatedKeyState == nullptr && !_HasDeferredKeyBarrier())
+    if (canDefer && translatedWch == nullptr && prevalidatedKeyState == nullptr && !_HasDeferredKeyBarrier())
     {
         GUID hotkeyGuid = {};
         if (_MatchChordInputHotkey(wParam, &hotkeyGuid))
         {
             _shiftHotkeyArmed = false;
             _ctrlHotkeyArmed = false;
-            if (expectedFocusGeneration == 0 ||
-                expectedFocusGeneration != _deferredKeyFocusGeneration)
+            if (expectedFocusGeneration == 0 || expectedFocusGeneration != _deferredKeyFocusGeneration)
             {
                 *pIsEaten = TRUE;
                 return KeyDownDispatchResult::Complete;
@@ -2079,30 +1929,25 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
     if (canDefer && _HasDeferredKeyBarrier())
     {
         if (!_DeferredKeyQueueHasCapacity() ||
-            !_ClassifyDeferredKeyDown(pContext, wParam, translatedWch,
-                                      &capturedModifiers, &wch, &code,
+            !_ClassifyDeferredKeyDown(pContext, wParam, translatedWch, &capturedModifiers, &wch, &code,
                                       &KeystrokeState))
         {
             // Mirror OnTestKeyDown: uneaten keys (esp. Backspace) must still
             // update smart-punctuation rejection state.
             if (code == 0 && wch == L'\0')
             {
-                wch = translatedWch ? *translatedWch
-                                    : ConvertVKey(static_cast<UINT>(wParam));
+                wch = translatedWch ? *translatedWch : ConvertVKey(static_cast<UINT>(wParam));
                 code = VKeyFromVKPacketAndWchar(static_cast<UINT>(wParam), wch);
             }
             _NoteKeyForSmartPunctuation(code, wch, false);
             *pIsEaten = FALSE;
-            DebugTsfIssue47(L"keydown-deferred-rejected", FANY_IME_NO_REQUEST_ID, code, wch,
-                            KeystrokeState.Category, KeystrokeState.Function, 0, _IsComposing(),
-                            _pCompositionProcessorEngine
-                                ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                : 0,
+            DebugTsfIssue47(L"keydown-deferred-rejected", FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
+                            KeystrokeState.Function, 0, _IsComposing(),
+                            _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0,
                             HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER));
             return KeyDownDispatchResult::Complete;
         }
-        if (expectedFocusGeneration == 0 ||
-            expectedFocusGeneration != _deferredKeyFocusGeneration)
+        if (expectedFocusGeneration == 0 || expectedFocusGeneration != _deferredKeyFocusGeneration)
         {
             *pIsEaten = TRUE;
             return KeyDownDispatchResult::Complete;
@@ -2110,23 +1955,16 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         // Queued keys note on replay; note now too so a Backspace that is
         // somehow classified+queued still records rejection before drain.
         _NoteKeyForSmartPunctuation(code, wch, true);
-        *pIsEaten = _QueueDeferredKeyDown(
-                        pContext, wParam, lParam, wch, capturedModifiers,
-                        KeystrokeState)
-                        ? TRUE
-                        : FALSE;
+        *pIsEaten =
+            _QueueDeferredKeyDown(pContext, wParam, lParam, wch, capturedModifiers, KeystrokeState) ? TRUE : FALSE;
         DebugTsfIssue47(*pIsEaten ? L"keydown-deferred-queued" : L"keydown-deferred-queue-failed",
-                        FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
-                        KeystrokeState.Function, *pIsEaten ? 1 : 0, _IsComposing(),
-                        _pCompositionProcessorEngine
-                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
+                        FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category, KeystrokeState.Function,
+                        *pIsEaten ? 1 : 0, _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0,
                         *pIsEaten ? S_OK : E_FAIL);
-        if (*pIsEaten &&
-            _localSessionResetPending.load(std::memory_order_acquire))
+        if (*pIsEaten && _localSessionResetPending.load(std::memory_order_acquire))
         {
-            const UINT resetToken =
-                _localSessionResetToken.load(std::memory_order_acquire);
+            const UINT resetToken = _localSessionResetToken.load(std::memory_order_acquire);
             _RequestLocalSessionReset(pContext, resetToken);
         }
         return KeyDownDispatchResult::Complete;
@@ -2154,39 +1992,31 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
     // Idempotent with the OnTestKeyDown call; replayed keys only pass here.
     _NoteKeyForSmartPunctuation(code, wch, *pIsEaten ? true : false);
 
-    DebugTsfIssue47(L"keydown-classified", FANY_IME_NO_REQUEST_ID, code, wch,
-                    KeystrokeState.Category, KeystrokeState.Function, *pIsEaten ? 1 : 0,
-                    _IsComposing(), _pCompositionProcessorEngine
-                                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                        : 0,
-                    S_OK, deferredReplayToken);
+    DebugTsfIssue47(L"keydown-classified", FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
+                    KeystrokeState.Function, *pIsEaten ? 1 : 0, _IsComposing(),
+                    _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_OK,
+                    deferredReplayToken);
 
-    if (expectedFocusGeneration == 0 ||
-        expectedFocusGeneration != _deferredKeyFocusGeneration)
+    if (expectedFocusGeneration == 0 || expectedFocusGeneration != _deferredKeyFocusGeneration)
     {
         // A COM callback inside key classification changed the focused
         // topology. The old key must not enter the replacement Server epoch.
         *pIsEaten = TRUE;
-        DebugTsfIssue47(L"keydown-focus-generation-changed", FANY_IME_NO_REQUEST_ID,
-                        code, wch, KeystrokeState.Category, KeystrokeState.Function, 1,
-                        _IsComposing(), _pCompositionProcessorEngine
-                                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                            : 0,
-                        S_FALSE, deferredReplayToken);
+        DebugTsfIssue47(L"keydown-focus-generation-changed", FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
+                        KeystrokeState.Function, 1, _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_FALSE,
+                        deferredReplayToken);
         return KeyDownDispatchResult::Complete;
     }
 
-    const bool resetPending =
-        _localSessionResetPending.load(std::memory_order_acquire);
+    const bool resetPending = _localSessionResetPending.load(std::memory_order_acquire);
     if (resetPending)
     {
         if (!canDefer)
         {
-            DebugTsfIssue47(L"keydown-reset-retry", FANY_IME_NO_REQUEST_ID, code, wch,
-                            KeystrokeState.Category, KeystrokeState.Function, 1, _IsComposing(),
-                            _pCompositionProcessorEngine
-                                ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                                : 0,
+            DebugTsfIssue47(L"keydown-reset-retry", FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
+                            KeystrokeState.Function, 1, _IsComposing(),
+                            _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0,
                             S_FALSE, deferredReplayToken);
             return KeyDownDispatchResult::Retry;
         }
@@ -2195,46 +2025,34 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         // classification. Reclassify against the FIFO's future state before
         // retaining the key.
         if (!_DeferredKeyQueueHasCapacity() ||
-            !_ClassifyDeferredKeyDown(pContext, wParam, translatedWch,
-                                      &capturedModifiers, &wch, &code,
+            !_ClassifyDeferredKeyDown(pContext, wParam, translatedWch, &capturedModifiers, &wch, &code,
                                       &KeystrokeState) ||
-            !_QueueDeferredKeyDown(pContext, wParam, lParam, wch,
-                                   capturedModifiers, KeystrokeState))
+            !_QueueDeferredKeyDown(pContext, wParam, lParam, wch, capturedModifiers, KeystrokeState))
         {
             *pIsEaten = FALSE;
         }
         const UINT resetToken = _localSessionResetToken.load(std::memory_order_acquire);
-        DebugTsfIssue47(*pIsEaten ? L"keydown-reset-queued" : L"keydown-reset-queue-failed",
-                        FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
-                        KeystrokeState.Function, *pIsEaten ? 1 : 0, _IsComposing(),
-                        _pCompositionProcessorEngine
-                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
+        DebugTsfIssue47(*pIsEaten ? L"keydown-reset-queued" : L"keydown-reset-queue-failed", FANY_IME_NO_REQUEST_ID,
+                        code, wch, KeystrokeState.Category, KeystrokeState.Function, *pIsEaten ? 1 : 0, _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0,
                         *pIsEaten ? S_OK : E_FAIL, resetToken);
         _RequestLocalSessionReset(pContext, resetToken);
         return KeyDownDispatchResult::Complete;
     }
 
-    if (canDefer && *pIsEaten &&
-        (KeystrokeState.Category != CATEGORY_NONE ||
-         KeystrokeState.Function != FUNCTION_NONE))
+    if (canDefer && *pIsEaten && (KeystrokeState.Category != CATEGORY_NONE || KeystrokeState.Function != FUNCTION_NONE))
     {
         // Give every IME-owned key a member-owned replay token before any IPC
         // write or asynchronous TSF edit session is started.  Consequently a
         // write success followed by a reply/edit failure follows the same
         // exact retry path as a key that arrived behind a reconnect barrier.
-        const bool healthyImmediateDispatch =
-            _deferredKeyDowns.empty() && !_hasDeferredKeyInFlight;
-        const bool queued = _QueueDeferredKeyDown(
-                                pContext, wParam, lParam, wch,
-                                capturedModifiers, KeystrokeState) != FALSE;
+        const bool healthyImmediateDispatch = _deferredKeyDowns.empty() && !_hasDeferredKeyInFlight;
+        const bool queued =
+            _QueueDeferredKeyDown(pContext, wParam, lParam, wch, capturedModifiers, KeystrokeState) != FALSE;
         *pIsEaten = queued ? TRUE : FALSE;
-        DebugTsfIssue47(queued ? L"keydown-owned-queued" : L"keydown-owned-queue-failed",
-                        FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
-                        KeystrokeState.Function, queued ? 1 : 0, _IsComposing(),
-                        _pCompositionProcessorEngine
-                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
+        DebugTsfIssue47(queued ? L"keydown-owned-queued" : L"keydown-owned-queue-failed", FANY_IME_NO_REQUEST_ID, code,
+                        wch, KeystrokeState.Category, KeystrokeState.Function, queued ? 1 : 0, _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0,
                         queued ? S_OK : E_FAIL, deferredReplayToken);
         if (queued && healthyImmediateDispatch)
         {
@@ -2254,12 +2072,10 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         return KeyDownDispatchResult::Complete;
     }
 
-    const bool isPunctuationKey = _pCompositionProcessorEngine &&
-                                  _pCompositionProcessorEngine->IsPunctuation(wch);
+    const bool isPunctuationKey = _pCompositionProcessorEngine && _pCompositionProcessorEngine->IsPunctuation(wch);
     const bool isNoOpForwardDelete =
         KeystrokeState.Function == FUNCTION_DELETE && _pCompositionProcessorEngine &&
-        _pCompositionProcessorEngine->GetCaretPosition() >=
-            _pCompositionProcessorEngine->GetVirtualKeyLength();
+        _pCompositionProcessorEngine->GetCaretPosition() >= _pCompositionProcessorEngine->GetVirtualKeyLength();
 
     Global::firefox_like_cnt = 0;
 
@@ -2274,8 +2090,8 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         {
             // 这个键仍然被吃掉（以防止它到达应用程序），
             // 但我们不把它发送到 server 端，也不进一步处理它。
-            DebugTsfIssue47(L"keydown-input-length-limit", FANY_IME_NO_REQUEST_ID, code, wch,
-                            KeystrokeState.Category, KeystrokeState.Function, 1, _IsComposing(),
+            DebugTsfIssue47(L"keydown-input-length-limit", FANY_IME_NO_REQUEST_ID, code, wch, KeystrokeState.Category,
+                            KeystrokeState.Function, 1, _IsComposing(),
                             _pCompositionProcessorEngine->GetVirtualKeyLength(),
                             HRESULT_FROM_WIN32(ERROR_BUFFER_OVERFLOW), deferredReplayToken);
             return KeyDownDispatchResult::Complete;
@@ -2297,21 +2113,17 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         const KeyEventSendResult sendResult = SendKeyEventToUIProcess(&requestId);
         DebugTsfKeyLatency(L"main-pipe-send", requestId, sendKeyEventTimer.ElapsedMs(),
                            sendResult == KeyEventSendResult::Sent ? S_OK : E_FAIL);
-        DebugTsfIssue47(sendResult == KeyEventSendResult::Sent ? L"keydown-sent" : L"keydown-send-failed",
-                        requestId, code, wch, KeystrokeState.Category, KeystrokeState.Function,
-                        *pIsEaten ? 1 : 0, _IsComposing(),
+        DebugTsfIssue47(sendResult == KeyEventSendResult::Sent ? L"keydown-sent" : L"keydown-send-failed", requestId,
+                        code, wch, KeystrokeState.Category, KeystrokeState.Function, *pIsEaten ? 1 : 0, _IsComposing(),
                         _pCompositionProcessorEngine->GetVirtualKeyLength(),
-                        sendResult == KeyEventSendResult::Sent ? S_OK : E_FAIL,
-                        deferredReplayToken);
+                        sendResult == KeyEventSendResult::Sent ? S_OK : E_FAIL, deferredReplayToken);
         if (sendResult != KeyEventSendResult::Sent)
         {
             if (!canDefer)
             {
                 return KeyDownDispatchResult::Retry;
             }
-            const bool queued = _QueueDeferredKeyDown(
-                pContext, wParam, lParam, wch, capturedModifiers,
-                KeystrokeState);
+            const bool queued = _QueueDeferredKeyDown(pContext, wParam, lParam, wch, capturedModifiers, KeystrokeState);
             if (!queued)
             {
                 // This path is defensive now that every normal eaten key is
@@ -2330,22 +2142,18 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
 
         if (KeystrokeState.Function == FUNCTION_SERVER_CANDIDATE_KEY && _msgWndHandle)
         {
-            _PostAsyncKeyRequest(WM_AsyncServerCandidateKey, code, wch, requestId,
-                                 {}, 0, 0, deferredReplayToken);
-            return deferredReplayToken != 0
-                       ? KeyDownDispatchResult::AwaitingCompletion
-                       : KeyDownDispatchResult::Complete;
+            _PostAsyncKeyRequest(WM_AsyncServerCandidateKey, code, wch, requestId, {}, 0, 0, deferredReplayToken);
+            return deferredReplayToken != 0 ? KeyDownDispatchResult::AwaitingCompletion
+                                            : KeyDownDispatchResult::Complete;
         }
 
         if (code == VK_SPACE && KeystrokeState.Function == FUNCTION_CONVERT)
         {
             if (_msgWndHandle)
             {
-                _PostAsyncKeyRequest(WM_AsyncFinalizeCandidate, code, wch, requestId,
-                                     {}, 0, 0, deferredReplayToken);
-                return deferredReplayToken != 0
-                           ? KeyDownDispatchResult::AwaitingCompletion
-                           : KeyDownDispatchResult::Complete;
+                _PostAsyncKeyRequest(WM_AsyncFinalizeCandidate, code, wch, requestId, {}, 0, 0, deferredReplayToken);
+                return deferredReplayToken != 0 ? KeyDownDispatchResult::AwaitingCompletion
+                                                : KeyDownDispatchResult::Complete;
             }
         }
 
@@ -2380,21 +2188,17 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
                 const WCHAR *punctuation = _pCompositionProcessorEngine->GetPunctuation(wch);
                 punctuationCommitText = punctuation ? punctuation : L"";
             }
-            _PostAsyncKeyRequest(WM_AsyncPunctuationCommit, code, wch, requestId,
-                                 std::move(punctuationCommitText), 0, 0,
-                                 deferredReplayToken);
-            return deferredReplayToken != 0
-                       ? KeyDownDispatchResult::AwaitingCompletion
-                       : KeyDownDispatchResult::Complete;
+            _PostAsyncKeyRequest(WM_AsyncPunctuationCommit, code, wch, requestId, std::move(punctuationCommitText), 0,
+                                 0, deferredReplayToken);
+            return deferredReplayToken != 0 ? KeyDownDispatchResult::AwaitingCompletion
+                                            : KeyDownDispatchResult::Complete;
         }
 
         if (KeystrokeState.Function == FUNCTION_SELECT_BY_NUMBER && _msgWndHandle)
         {
-            _PostAsyncKeyRequest(WM_AsyncNumberCandidateCommit, code, wch, requestId,
-                                 {}, 0, 0, deferredReplayToken);
-            return deferredReplayToken != 0
-                       ? KeyDownDispatchResult::AwaitingCompletion
-                       : KeyDownDispatchResult::Complete;
+            _PostAsyncKeyRequest(WM_AsyncNumberCandidateCommit, code, wch, requestId, {}, 0, 0, deferredReplayToken);
+            return deferredReplayToken != 0 ? KeyDownDispatchResult::AwaitingCompletion
+                                            : KeyDownDispatchResult::Complete;
         }
     }
 
@@ -2417,8 +2221,7 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         if (needInvokeKeyHandler)
         {
             PerfTimer invokeTimer;
-            _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState,
-                              requestId, {}, 0, 0, 0,
+            _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState, requestId, {}, 0, 0, 0,
                               deferredReplayToken);
             if (deferredReplayToken != 0)
             {
@@ -2431,10 +2234,8 @@ CMetasequoiaIME::KeyDownDispatchResult CMetasequoiaIME::_DispatchKeyDown(
         // Invoke key handler edit session
         KeystrokeState.Category = CATEGORY_COMPOSING;
         PerfTimer invokeTimer;
-        _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState,
-                          FANY_IME_NO_REQUEST_ID);
+        _InvokeKeyHandler(pContext, code, wch, (DWORD)lParam, KeystrokeState, FANY_IME_NO_REQUEST_ID);
     }
-
 
     if (isPunctuationKey)
     {
@@ -2469,8 +2270,7 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
         // queue the bare-Shift toggle here while leaving its release visible.
         GUID hotkeyGuid = {};
         BOOL queued = FALSE;
-        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid) &&
-            _QueueInputHotkey(pContext, hotkeyGuid, &queued))
+        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid) && _QueueInputHotkey(pContext, hotkeyGuid, &queued))
         {
             _MarkMinttyShiftHandled();
         }
@@ -2508,8 +2308,7 @@ STDAPI CMetasequoiaIME::OnTestKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM 
     WCHAR wch = '\0';
     UINT code = 0;
 
-    *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch,
-                            &KeystrokeState);
+    *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch, &KeystrokeState);
 
     return S_OK;
 }
@@ -2540,8 +2339,7 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
         // Defend against hosts that offer KeyUp without a preceding test.
         GUID hotkeyGuid = {};
         BOOL queued = FALSE;
-        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid) &&
-            _QueueInputHotkey(pContext, hotkeyGuid, &queued))
+        if (_MatchModifierReleaseHotkey(wParam, &hotkeyGuid) && _QueueInputHotkey(pContext, hotkeyGuid, &queued))
         {
             _MarkMinttyShiftHandled();
         }
@@ -2572,8 +2370,7 @@ STDAPI CMetasequoiaIME::OnKeyUp(ITfContext *pContext, WPARAM wParam, LPARAM lPar
     _KEYSTROKE_STATE KeystrokeState = {};
     WCHAR wch = '\0';
     UINT code = 0;
-    *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch,
-                            &KeystrokeState);
+    *pIsEaten = _IsKeyEaten(pContext, (UINT)wParam, &code, &wch, &KeystrokeState);
 
     return S_OK;
 }
@@ -2599,16 +2396,12 @@ STDAPI CMetasequoiaIME::OnPreservedKey(ITfContext *pContext, REFGUID rguid, BOOL
     return S_OK;
 }
 
-void CMetasequoiaIME::_DispatchPreservedKey(_In_ ITfContext *pContext,
-                                             REFGUID preservedKey,
-                                             _Out_ BOOL *pIsEaten,
-                                             uint64_t expectedFocusGeneration,
-                                             bool isPrevalidated,
-                                             uint64_t deferredReplayToken)
+void CMetasequoiaIME::_DispatchPreservedKey(_In_ ITfContext *pContext, REFGUID preservedKey, _Out_ BOOL *pIsEaten,
+                                            uint64_t expectedFocusGeneration, bool isPrevalidated,
+                                            uint64_t deferredReplayToken)
 {
     *pIsEaten = FALSE;
-    if (pContext == nullptr || _pCompositionProcessorEngine == nullptr ||
-        expectedFocusGeneration == 0 ||
+    if (pContext == nullptr || _pCompositionProcessorEngine == nullptr || expectedFocusGeneration == 0 ||
         expectedFocusGeneration != _deferredKeyFocusGeneration)
     {
         return;
@@ -2616,27 +2409,25 @@ void CMetasequoiaIME::_DispatchPreservedKey(_In_ ITfContext *pContext,
 
     BOOL pNeedToggleIMEMode = FALSE;
 
-    _pCompositionProcessorEngine->OnPreservedKey( //
-        pContext,                                //
-        preservedKey,                            //
-        pIsEaten,                                //
-        _GetThreadMgr(),                         //
-        _GetClientId(),                          //
-        &pNeedToggleIMEMode,                     //
-        isPrevalidated ? TRUE : FALSE,           //
+    _pCompositionProcessorEngine->OnPreservedKey(       //
+        pContext,                                       //
+        preservedKey,                                   //
+        pIsEaten,                                       //
+        _GetThreadMgr(),                                //
+        _GetClientId(),                                 //
+        &pNeedToggleIMEMode,                            //
+        isPrevalidated ? TRUE : FALSE,                  //
         _serverUnavailableFallbackActive ? FALSE : TRUE //
     );
 
-    if (pNeedToggleIMEMode &&
-        expectedFocusGeneration == _deferredKeyFocusGeneration)
+    if (pNeedToggleIMEMode && expectedFocusGeneration == _deferredKeyFocusGeneration)
     {
         // The preserved-key implementation also sends the Shift event to the
         // Server.  A failed/ambiguous send marks the local session dirty.  Do
         // not let the subsequent local edit falsely Complete this token; the
         // replacement epoch receives the authoritative status snapshot and
         // then retries only the already-applied local toggle phase.
-        if (deferredReplayToken != 0 &&
-            _localSessionResetPending.load(std::memory_order_acquire))
+        if (deferredReplayToken != 0 && _localSessionResetPending.load(std::memory_order_acquire))
         {
             _RetryDeferredKeyReplay(deferredReplayToken);
             return;
@@ -2646,8 +2437,7 @@ void CMetasequoiaIME::_DispatchPreservedKey(_In_ ITfContext *pContext,
         UINT code = 0;
         KeystrokeState.Category = CATEGORY_COMPOSING;
         KeystrokeState.Function = FUNCTION_TOGGLE_IME_MODE;
-        _InvokeKeyHandler(pContext, code, wch, (DWORD)0, KeystrokeState,
-                          FANY_IME_NO_REQUEST_ID, {}, 0, 0, 0,
+        _InvokeKeyHandler(pContext, code, wch, (DWORD)0, KeystrokeState, FANY_IME_NO_REQUEST_ID, {}, 0, 0, 0,
                           deferredReplayToken);
     }
 }

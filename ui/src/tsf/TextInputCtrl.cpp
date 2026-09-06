@@ -44,8 +44,8 @@ ATOM CTextInputCtrl::RegisterClass(HINSTANCE hInstance)
 
 HWND CTextInputCtrl::Create(HWND hwndParent)
 {
-    _hwnd = CreateWindow(TEXTINPUTCTRL_CLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwndParent, NULL, g_hInst,
-                         this);
+    _hwnd =
+        CreateWindow(TEXTINPUTCTRL_CLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwndParent, NULL, g_hInst, this);
 
     return _hwnd;
 }
@@ -247,9 +247,8 @@ BOOL CTextInputCtrl::CreateDeviceResources()
         return FALSE;
     }
 
-    if (!_pDWriteFactory &&
-        FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
-                                   reinterpret_cast<IUnknown **>(&_pDWriteFactory))))
+    if (!_pDWriteFactory && FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                                                       reinterpret_cast<IUnknown **>(&_pDWriteFactory))))
     {
         return FALSE;
     }
