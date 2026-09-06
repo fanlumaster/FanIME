@@ -1008,19 +1008,29 @@ void PrepareCandidateTranslationRequest()
     EnglishIme::RequestTranslations(std::move(queries), GetConfiguredTencentTmt().target_language == "en");
 }
 
+// Copy the page the worker just finished into an immutable snapshot for the UI thread. This is the single publish point: set_items() and clear_page() are only intermediate steps of a rebuild, so publishing there would hand the UI a half-built page.
+void PublishBuiltCandidatePage(const std::wstring &candidate_string)
+{
+    const auto &ui = Global::candidate_ui;
+    auto snapshot = std::make_shared<Global::CandidatePageSnapshot>();
+    snapshot->page_views = ui.page_views;
+    snapshot->page_words = ui.page_words;
+    snapshot->candidate_string = candidate_string;
+    snapshot->selected_index_in_page = ui.selected_index_in_page;
+    snapshot->page_count = ui.current_page_count();
+    snapshot->page_item_count = ui.cur_page_item_cnt;
+    Global::PublishCandidatePageSnapshot(std::move(snapshot));
+}
+
 void RefreshCandidatePageUi(bool show_window)
 {
     PrepareCandidateTranslationRequest();
     const std::string candidate_string = BuildCurrentCandidatePage();
-    if (IsUiLessMode())
-    {
-        // Host-drawn UI wants plain words (Microsoft IME style), not helpcodes.
-        ::WriteDataToSharedMemory(BuildUiLessCandidatePageW(), true);
-    }
-    else
-    {
-        ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
-    }
+    // Host-drawn UI wants plain words (Microsoft IME style), not helpcodes.
+    const std::wstring published =
+        IsUiLessMode() ? BuildUiLessCandidatePageW() : string_to_wstring(candidate_string);
+    ::WriteDataToSharedMemory(published, true);
+    PublishBuiltCandidatePage(published);
     CAND_DIAG_LOGF(L"candidate UI refreshed show={} uiless={} items={} page_words={} selected={} page={} "
                    L"serialized_units={}",
                    show_window, IsUiLessMode(), Global::candidate_ui.items.size(),
@@ -2886,9 +2896,9 @@ void AuxPipeEventListenerLoopThread()
             DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
             if (SetNamedPipeHandleState(listeningPipe, &pipeMode, nullptr, nullptr))
             {
-                // Polling a NOWAIT server handle keeps shutdown bounded even
-                // if a client connects and never sends its auxiliary message.
-                while (pipe_running)
+                // Polling a NOWAIT server handle keeps shutdown bounded even if a client connects and never sends its auxiliary message. The deadline is what frees the single Aux instance in that case: without it the poll spins forever, the loop never returns to ConnectNamedPipe, and no later client (LangbarRightClick, TerminalDeactivation) is ever accepted.
+                const auto deadline = std::chrono::steady_clock::now() + kPipeHelloTimeout;
+                while (pipe_running && std::chrono::steady_clock::now() < deadline)
                 {
                     readResult = ReadFile(listeningPipe, buffer, sizeof(buffer), &bytesRead, nullptr);
                     if (readResult || GetLastError() != ERROR_NO_DATA)
@@ -3014,7 +3024,9 @@ void TsfDiagnosticPipeEventListenerLoopThread()
             DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
             if (SetNamedPipeHandleState(listeningPipe, &pipeMode, nullptr, nullptr))
             {
-                while (pipe_running)
+                // Same bound as the Aux pipe: a client that connects without ever writing must not hold the single diagnostic instance for the process lifetime.
+                const auto deadline = std::chrono::steady_clock::now() + kPipeHelloTimeout;
+                while (pipe_running && std::chrono::steady_clock::now() < deadline)
                 {
                     readResult = ReadFile(listeningPipe, frame.data(), static_cast<DWORD>(frame.size()),
                                           &bytesRead, nullptr);
@@ -4022,6 +4034,7 @@ void ClearState()
     // Drop published candidates before any in-flight FineTuneWindow callback
     // can re-inflate an empty-preedit + stale-candidate view.
     Global::CandidateString.clear();
+    Global::ClearCandidatePageSnapshot();
     Global::candidate_ui.set_items({});
     // Hide synchronously from the caller's perspective: clear the shown flag
     // first so async FineTuneWindow callbacks refuse to resurrect the window,
