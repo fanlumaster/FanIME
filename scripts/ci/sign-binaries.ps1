@@ -35,15 +35,20 @@ $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\sign
     Sort-Object FullName -Descending | Select-Object -First 1
 if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK.' }
 
-$pfx = Join-Path $env:RUNNER_TEMP 'metasequoia-signing.pfx'
-[IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERTIFICATE_BASE64))
-try {
-    & $signtool.FullName sign /f $pfx /p $env:CERTIFICATE_PASSWORD /fd sha256 `
-        /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
+if ($env:CERTIFICATE_THUMBPRINT) {
+    $thumbprint = $env:CERTIFICATE_THUMBPRINT -replace '\s', ''
+    $cert = Get-ChildItem Cert:\CurrentUser\My\$thumbprint -ErrorAction SilentlyContinue
+    if (-not $cert -or -not $cert.HasPrivateKey) { throw "Certificate with thumbprint $thumbprint is not available with a private key." }
+    & $signtool.FullName sign /sha1 $thumbprint /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
     if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
 }
-finally {
-    Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+else {
+    $pfx = Join-Path $env:RUNNER_TEMP 'metasequoia-signing.pfx'
+    [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERTIFICATE_BASE64))
+    try {
+        & $signtool.FullName sign /f $pfx /p $env:CERTIFICATE_PASSWORD /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
+        if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
+    } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host "Signed $($targets.Count) file(s)."

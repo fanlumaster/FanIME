@@ -162,10 +162,12 @@ jobs:
             architecture: x64
             triplet: x64-windows-static
             build_dir: windows/build64-release
+            vcpkg_root: E:\msime-runner\vcpkg-1
           - name: Win32
             architecture: Win32
             triplet: x86-windows-static
             build_dir: windows/build32-release
+            vcpkg_root: E:\msime-runner\vcpkg-2
     steps:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -183,7 +185,8 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         working-directory: windows
-        run: vcpkg install --triplet ${{ matrix.triplet }}
+        run: >-
+          & '${{ matrix.vcpkg_root }}\\vcpkg.exe' install --triplet ${{ matrix.triplet }}
 
       # CMakePresets.json points at a developer machine's vcpkg, so the presets cannot be used
       # here. This mirrors what .github/workflows/ci.yml already does, into the build directory
@@ -192,7 +195,7 @@ jobs:
         shell: pwsh
         run: >
           cmake -S windows -B ${{ matrix.build_dir }} -A ${{ matrix.architecture }}
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DCMAKE_TOOLCHAIN_FILE="${{ matrix.vcpkg_root }}/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
 
       - name: Build
@@ -218,6 +221,8 @@ jobs:
     needs: [prepare, dependencies]
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: [self-hosted, Windows, X64, msime-windows]
+    env:
+      VCPKG_INSTALLATION_ROOT: E:\\msime-runner\\vcpkg-3
     timeout-minutes: 90
     steps:
       - name: Check out release commit
@@ -381,6 +386,7 @@ jobs:
         env:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
         run: ./scripts/ci/detect-release-signing.ps1
 
       - name: Collect the installer payload
@@ -409,6 +415,7 @@ jobs:
         env:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
           TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
         run: ../scripts/ci/sign-binaries.ps1 -Path 'server_exe/MetasequoiaImeServer.exe'
 
@@ -428,6 +435,7 @@ jobs:
         env:
           CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
           TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
           TARGET_VERSION: ${{ needs.prepare.outputs.version }}
         run: ../scripts/ci/sign-binaries.ps1 -Path "Output/MetasequoiaIME_Setup_v$env:TARGET_VERSION.exe"

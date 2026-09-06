@@ -8,10 +8,18 @@
 # Writes signing_enabled and asset_suffix to GITHUB_OUTPUT.
 $ErrorActionPreference = 'Stop'
 
-if ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD) {
+$storeCert = $null
+if ($env:CERTIFICATE_THUMBPRINT) {
+    $normalized = $env:CERTIFICATE_THUMBPRINT -replace '\s', ''
+    $storeCert = Get-ChildItem Cert:\CurrentUser\My\$normalized -ErrorAction SilentlyContinue
+    if (-not $storeCert -or -not $storeCert.HasPrivateKey) { $storeCert = $null }
+}
+
+if ($storeCert -or ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD)) {
     "signing_enabled=true" >> $env:GITHUB_OUTPUT
     "asset_suffix=" >> $env:GITHUB_OUTPUT
-    Write-Host 'Signing certificate present: the installer and its binaries will be signed.'
+    if ($storeCert) { Write-Host 'Signing certificate present in the runner user certificate store.' }
+    else { Write-Host 'Signing certificate secret present: the installer and its binaries will be signed.' }
 }
 else {
     "signing_enabled=false" >> $env:GITHUB_OUTPUT
