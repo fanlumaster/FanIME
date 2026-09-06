@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.4...v0.2.0) (2026-09-06)
+
+
+### Features
+
+* **release:** mark automatically built releases in the title and notes ([fd9236f](https://github.com/metasequoiaime/MSIME-Windows/commit/fd9236f175a629a33d611b3748781d3623e1c497))
+* **release:** mark automatically built releases in the title and notes ([568fd37](https://github.com/metasequoiaime/MSIME-Windows/commit/568fd3742cdbbb6c466f16fb3c4a9707e3590f52))
+
+
+### Bug Fixes
+
+* **ci:** attach automatic release checks to the pull request ([#175](https://github.com/metasequoiaime/MSIME-Windows/issues/175)) ([ee4334d](https://github.com/metasequoiaime/MSIME-Windows/commit/ee4334dddd29b0ab6bd4ff6c887e41a716000f5f))
+* **ci:** stop the dependency review from skipping the release pull request ([cc5af53](https://github.com/metasequoiaime/MSIME-Windows/commit/cc5af5356d084255170fd67e88d674a8de3a933f))
+* **ci:** stop the engine bump triage from executing engine file names ([#174](https://github.com/metasequoiaime/MSIME-Windows/issues/174)) ([5a4484f](https://github.com/metasequoiaime/MSIME-Windows/commit/5a4484feea2cd735eae061472983905897863892))
+* 修复审计发现的候选页竞态、管道权限、TSF 空指针与皮肤 CSS 逃逸等八项缺陷 ([#169](https://github.com/metasequoiaime/MSIME-Windows/issues/169)) ([2562026](https://github.com/metasequoiaime/MSIME-Windows/commit/2562026a2a1c393e387fcd8ccd2dc30024a44463))
+
 ## [0.1.4](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.3...v0.1.4) (2026-09-06)
 
 
