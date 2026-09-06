@@ -31,9 +31,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
-      # actions: write lets land-release-pr.sh dispatch ci.yml on the release branch, which is the
-      # only trigger GITHUB_TOKEN is allowed to fire.
-      actions: write
+      # Read the PR-triggered run; merging stays scoped to GITHUB_TOKEN.
+      actions: read
       contents: write
       pull-requests: write
     outputs:
@@ -47,13 +46,35 @@ jobs:
         with:
           persist-credentials: false
 
-      # Two invocations, because release-please only creates a release for a release pull request that was already merged when it ran. The first refreshes the pull request against the commits this push brought, so the release about to be cut includes them; the second sees the merge that land-release-pr.sh performed in between and cuts it. Merging before the first invocation instead would release everything except the push that triggered the run.
-      - name: Refresh the release pull request
+      # Separate release metadata from PR updates to preserve release-please ordering.
+      # Recover an already-merged release before calculating the next PR, matching release-please's
+      # normal releases-then-pull-requests ordering.
+      - name: Require the release metadata credential
+        if: ${{ github.event_name == 'push' }}
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_TOKEN" ]]; then
+            echo '::error::RELEASE_PLEASE_TOKEN must allow contents and workflows writes to create release tags.'
+            exit 1
+          fi
+
+      - name: Recover releases from previously merged pull requests
         if: ${{ github.event_name == 'push' }}
         id: release_pr
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          skip-github-pull-request: true
+
+      - name: Refresh the release pull request
+        if: ${{ github.event_name == 'push' }}
+        id: release_update
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
+          # A trusted credential starts normal PR checks without manual workflow approval.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          skip-github-release: true
 
       - name: Test and merge the release pull request
         if: ${{ github.event_name == 'push' }}
@@ -67,7 +88,10 @@ jobs:
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Creating a tag at a historical workflow-changing commit needs workflows:write.
+          # Only GITHUB_TOKEN merges to main, preventing a second Release run.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          skip-github-pull-request: true
 
       - name: Resolve the release this run publishes
         if: ${{ github.event_name == 'push' }}
@@ -435,4 +459,5 @@ jobs:
           ASSET_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
           SIGNING_ENABLED: ${{ steps.signing.outputs.signing_enabled }}
           PRODUCT_MANIFEST: installer/app_data/product-manifest.json
+          RELEASE_TRIGGER: ${{ github.event_name }}
         run: bash scripts/ci/publish-release.sh

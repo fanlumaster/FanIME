@@ -36,9 +36,11 @@ jobs:
 
       - name: Resolve the engine range
         id: range
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          base=$(git rev-parse "origin/${{ github.base_ref }}:$SUBMODULE")
+          base=$(git rev-parse "origin/$BASE_REF:$SUBMODULE")
           head=$(git rev-parse "HEAD:$SUBMODULE")
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "head=$head" >> "$GITHUB_OUTPUT"
@@ -46,17 +48,47 @@ jobs:
 
       - name: Classify the changed files
         id: classify
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD: ${{ steps.range.outputs.head }}
         run: |
           set -euo pipefail
-          base='${{ steps.range.outputs.base }}'
-          head='${{ steps.range.outputs.head }}'
+          base="$BASE"
+          head="$HEAD"
           if [ "$base" = "$head" ]; then
             echo "verdict=inert" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          # Fail closed on anything but a plain fast-forward. The compare API answers with an empty
+          # file list whenever head is already an ancestor of base, which the emptiness test below
+          # would otherwise read as "nothing suspicious changed" and auto-merge — silently accepting
+          # a downgrade that reverts engine source the frontend depends on.
+          status=$(gh api "repos/$ENGINE/compare/$base...$head" --jq '.status')
+          echo "compare status: $status"
+          if [ "$status" != "ahead" ]; then
+            echo "verdict=review" >> "$GITHUB_OUTPUT"
+            delimiter="EOF_$(openssl rand -hex 16)"
+            {
+              echo "reason<<$delimiter"
+              echo "引擎范围不是单纯的快进（compare status: $status），需要人工确认。"
+              echo "$delimiter"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           files=$(gh api --paginate "repos/$ENGINE/compare/$base...$head" --jq '.files[].filename')
           echo "改动文件:"; echo "$files" | sed 's/^/  /'
+          if [ -z "$files" ]; then
+            echo "verdict=review" >> "$GITHUB_OUTPUT"
+            delimiter="EOF_$(openssl rand -hex 16)"
+            {
+              echo "reason<<$delimiter"
+              echo "compare 没有返回任何文件，无法判定这次 bump 是否安全。"
+              echo "$delimiter"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Provably inert: documentation, CI wiring, dependency manifests, licence text. Everything
           # else - sources, build files, and bare paths such as a nested submodule pointer - needs a
@@ -68,10 +100,13 @@ jobs:
             echo "verdict=inert" >> "$GITHUB_OUTPUT"
           else
             echo "verdict=review" >> "$GITHUB_OUTPUT"
+            # A random delimiter: the file names come from another repository, so a path that
+            # happened to be the literal delimiter could otherwise close the block early.
+            delimiter="EOF_$(openssl rand -hex 16)"
             {
-              echo 'reason<<EOF'
+              echo "reason<<$delimiter"
               echo "$suspicious"
-              echo EOF
+              echo "$delimiter"
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -90,18 +125,33 @@ jobs:
           fi
 
       - name: Enable auto-merge
-        if: steps.classify.outputs.verdict == 'inert' && steps.lock.outputs.locked == 'yes'
+        if: steps.classify.outputs.verdict == 'inert'
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD: ${{ steps.range.outputs.head }} && steps.lock.outputs.locked == 'yes'
         run: |
           set -euo pipefail
           gh pr merge --auto --squash "$PR_URL"
-          gh pr comment "$PR_URL" --body "引擎 \`${{ steps.range.outputs.base }}\` → \`${{ steps.range.outputs.head }}\` 的改动全部落在文档、CI 配置和依赖清单里，没有源码、构建文件或嵌套 submodule 指针。已开启自动合并，CI 通过后自行合入。"
+          body="$RUNNER_TEMP/engine-bump-comment.md"
+          printf '引擎 `%s` → `%s` 的改动全部落在文档、CI 配置和依赖清单里，没有源码、构建文件或嵌套 submodule 指针。已开启自动合并，CI 通过后自行合入。\n' "$BASE" "$HEAD" > "$body"
+          gh pr comment "$PR_URL" --body-file "$body"
 
+      # Every value below reaches the shell through the environment, never through ${{ }}
+      # interpolation. REASON is a list of file names from another repository: spliced into the
+      # command text, a path containing a single quote would have closed the quoting and run as a
+      # command, on a runner holding a contents:write token for this repository.
       - name: Hold for review
         if: steps.classify.outputs.verdict == 'review'
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD: ${{ steps.range.outputs.head }}
+          REASON: ${{ steps.classify.outputs.reason }}
         run: |
           set -euo pipefail
           gh pr edit "$PR_URL" --add-label "needs-review" || true
-          gh pr comment "$PR_URL" --body "$(printf '引擎 `%s` → `%s` 的改动里有需要人看一眼的部分，未开启自动合并：\n\n```\n%s\n```\n\n源码、`CMakeLists.txt` 或嵌套 submodule 指针的变化都可能改变行为，而前端 CI 未必覆盖得到——`helpcode_enabled()` 与 `handle_character()` 的语义变更就是这样漏过去的。' '${{ steps.range.outputs.base }}' '${{ steps.range.outputs.head }}' '${{ steps.classify.outputs.reason }}')"
+          body="$RUNNER_TEMP/engine-bump-comment.md"
+          printf '引擎 `%s` → `%s` 的改动里有需要人看一眼的部分，未开启自动合并：\n\n```\n%s\n```\n\n源码、`CMakeLists.txt` 或嵌套 submodule 指针的变化都可能改变行为，而前端 CI 未必覆盖得到——`helpcode_enabled()` 与 `handle_character()` 的语义变更就是这样漏过去的。\n' "$BASE" "$HEAD" "$REASON" > "$body"
+          gh pr comment "$PR_URL" --body-file "$body"
 
       - name: Ask for the lock to follow
         if: steps.lock.outputs.locked == 'no'
