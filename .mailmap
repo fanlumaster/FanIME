@@ -1,0 +1,25 @@
+# Canonical names and addresses for `git shortlog`, `git log --use-mailmap` and GitHub's
+# contributor graph. Nothing here rewrites history: the commits keep the identity they were
+# authored with, this file only tells git which of them are the same person.
+#
+# Two people account for almost all of it, each appearing under several names:
+#   - fanlusky, also committing as fanlumaster and "Lu Fan(SonnyCalcr)"
+#   - houko, also committing as "Evan" and "Evan Hu", from two addresses
+#
+# Add new aliases here rather than rewriting history. Three product repositories pin the engine
+# submodule by SHA, so any rewrite invalidates those pins.
+
+fanlusky <1730976608@qq.com>
+fanlusky <1730976608@qq.com> <1730976608@gmail.com>
+fanlusky <1730976608@qq.com> fanlumaster <1730976608@qq.com>
+fanlusky <1730976608@qq.com> fanlumaster <1730976608@gmail.com>
+fanlusky <1730976608@qq.com> Lu Fan(SonnyCalcr) <1730976608@qq.com>
+fanlusky <1730976608@qq.com> SonnyCalcr <1730976608@qq.com>
+
+Evan Hu <suzukaze.haduki@gmail.com>
+Evan Hu <suzukaze.haduki@gmail.com> Evan <suzukaze.haduki@gmail.com>
+Evan Hu <suzukaze.haduki@gmail.com> Evan <e-hu@unext.jp>
+Evan Hu <suzukaze.haduki@gmail.com> Evan Hu <e-hu@unext.jp>
+
+Neptrue Lin <29837162+Neptrue-Lin@users.noreply.github.com>
+Neptrue Lin <29837162+Neptrue-Lin@users.noreply.github.com> Neptrue_Lin <29837162+Neptrue-Lin@users.noreply.github.com>
