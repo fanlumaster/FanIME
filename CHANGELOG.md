@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.2...v0.4.0) (2026-09-06)
+
+
+### Features
+
+* **installer:** 首次安装时询问云候选，不再默认静默联网 ([e24913e](https://github.com/metasequoiaime/MSIME-Windows/commit/e24913e9e33008f14bb26b77f6bfcdd1f4501dc2))
+
+
+### Bug Fixes
+
+* **ci:** separate automatic and manual release locks ([39c94b0](https://github.com/metasequoiaime/MSIME-Windows/commit/39c94b092d80b46f7d4e594eebd0ed054d04049f))
+* **ci:** separate automatic and manual release locks ([276625f](https://github.com/metasequoiaime/MSIME-Windows/commit/276625fe319eec7a9fb44fe9dd828548c2efcec6))
+* **ci:** 修复引擎 bump 自动合并的守卫，并补回 Issue 模板的脱敏警告 ([88720a8](https://github.com/metasequoiaime/MSIME-Windows/commit/88720a80dff6273fe5ae6347b7ddd7047ea9f2e5))
+* **settings:** 检查更新时消费 update.json 的校验值与签名状态 ([1ec7bdd](https://github.com/metasequoiaime/MSIME-Windows/commit/1ec7bdd690d89a5efeda7e1bf9b7c2a2031c7894))
+* **skin:** 丢弃第三方皮肤 CSS 里的远程引用，不再原样注入候选窗 ([680fdfa](https://github.com/metasequoiaime/MSIME-Windows/commit/680fdfa64891b24ad19b0c9059c38a8ca1428da2))
+* **skin:** 修复 GCC 下的符号比较告警与 clang-format ([e645c9a](https://github.com/metasequoiaime/MSIME-Windows/commit/e645c9abaa45d99afa9b970dcd11adb832c801bf))
+* **ui:** 给候选窗、悬浮工具栏与托盘菜单加 Content-Security-Policy ([5d5b661](https://github.com/metasequoiaime/MSIME-Windows/commit/5d5b661e140ed7192aeedbaea687f545b268815f))
+
 ## [0.3.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.1...v0.3.2) (2026-09-06)
 
 
