@@ -35,6 +35,28 @@ void InputSequence(EngineInputSession &session, const std::string &keys)
 }
 }
 
+TEST_CASE(EngineSessionRejectsOnlineResponsesFromOtherSessionsAndPriorCompositions)
+{
+    EngineInputSession first(SchemeType::Quanpin), second(SchemeType::Quanpin);
+    InputLetters(first, "nihao");
+    InputLetters(second, "nihao");
+    const auto query = first.online_query();
+    REQUIRE(query.has_value());
+    REQUIRE(!second.apply_online_candidate(*query, "跨会话测试候选", CandidateSource::CloudSuggestion));
+    first.reset_state();
+    InputLetters(first, "nihao");
+    REQUIRE(!first.apply_online_candidate(*query, "旧组合测试候选", CandidateSource::CloudSuggestion));
+    const auto current = first.online_query();
+    REQUIRE(current.has_value());
+    REQUIRE(first.apply_online_candidate(*current, "本次测试候选", CandidateSource::CloudSuggestion));
+    const auto &candidates = first.get_candidates();
+    const auto accepted = std::find_if(candidates.begin(), candidates.end(), [](const auto &item) {
+        return item.word == "本次测试候选" && item.source == CandidateSource::CloudSuggestion;
+    });
+    REQUIRE(accepted != candidates.end());
+    REQUIRE(!first.apply_online_candidate(*current, "本次测试候选", CandidateSource::CloudSuggestion));
+}
+
 TEST_CASE(EngineShuangpinSessionContinuesCompositionWithoutHelpcode)
 {
     EngineInputSession session(SchemeType::Shuangpin);

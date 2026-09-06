@@ -44,6 +44,9 @@ class EngineInputSession : public IInputSession
                                                             const std::string &selected_word,
                                                             const std::string &selected_canonical_pinyin) override;
     CloudQueryState get_cloud_query_state() const override;
+    std::optional<metasequoia::OnlineQuery> online_query() const override;
+    bool apply_online_candidate(const metasequoia::OnlineQuery &query, std::string candidate,
+                                CandidateSource source) override;
     CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
                                                        const std::string &current_word,
                                                        const std::string &selected_word,
