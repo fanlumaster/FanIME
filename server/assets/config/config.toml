@@ -52,7 +52,7 @@ cloud_candidates = true
 clean_mode = false
 
 #
-# 腾讯云机器翻译（竖排候选项本地词库未命中时的补全）
+# 腾讯云机器翻译（候选项本地词库未命中时的补全）
 #
 [tencent_tmt]
 enabled = true

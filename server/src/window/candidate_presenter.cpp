@@ -487,7 +487,7 @@ void CandidatePresenter::FillItemsFromUi()
         item.label = std::to_wstring(i + 1);
         item.text = string_to_wstring(view.text + view.badge);
         item.annotation = string_to_wstring(view.annotation);
-        if (GetConfiguredCandidateTranslationsEnabled() && GetConfiguredCandidateWindowLayout() == "vertical")
+        if (GetConfiguredCandidateTranslationsEnabled())
             item.translation = string_to_wstring(view.translation);
         items.push_back(std::move(item));
     }

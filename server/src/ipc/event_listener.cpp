@@ -961,8 +961,7 @@ std::string BuildCurrentCandidatePage()
 void PrepareCandidateTranslationRequest()
 {
     const bool japanese = g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji;
-    const bool enabled = GetConfiguredCandidateTranslationsEnabled() &&
-                         GetConfiguredCandidateWindowLayout() == "vertical" && !IsUiLessMode() && !japanese;
+    const bool enabled = GetConfiguredCandidateTranslationsEnabled() && !IsUiLessMode() && !japanese;
     auto &ui = Global::candidate_ui;
     if (!enabled || ui.items.empty())
     {
@@ -3420,8 +3419,7 @@ void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string 
 void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation, bool merge)
 {
     if (!EnglishIme::IsTranslationCurrent(generation) || !GetConfiguredCandidateTranslationsEnabled() ||
-        GetConfiguredCandidateWindowLayout() != "vertical" || IsUiLessMode() ||
-        g_candidate_translation_signature.empty() ||
+        IsUiLessMode() || g_candidate_translation_signature.empty() ||
         (g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji))
         return;
 

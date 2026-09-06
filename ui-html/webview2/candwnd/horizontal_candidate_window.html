@@ -11,6 +11,11 @@
   <title>(IME)horizontalCandidateWindow</title>
     <!-- Candidate layout and behavior are shared. The native host injects the selected built-in skin CSS here. -->
 
+  <style>
+    .cand .text { display: flex; align-items: baseline; }
+    .cand-content { min-width: 0; }
+    .cand-translation { display: block; font-size: 0.78em; line-height: 1.25; opacity: 0.62; }
+  </style>
   <script>
     let lastPointerScreenPosition = null;
     let pointerProbeCount = 0;
@@ -63,8 +68,10 @@
         if (!cand) return;
         currentRightClickedCand = cand;
         const menu = document.getElementById('contextMenu');
+        const candidateOnly = cand.cloneNode(true);
+        candidateOnly.querySelectorAll('.cand-translation').forEach((node) => node.remove());
         document.getElementById('menuDelete').style.display =
-          Array.from((cand.textContent || '').replace(/^\s*\d+\s*/, '').trim()).length === 1 ? 'none' : 'block';
+          Array.from((candidateOnly.textContent || '').replace(/^\s*\d+\s*/, '').trim()).length === 1 ? 'none' : 'block';
         const menuPosition=positionContextMenu(menu,e.clientX,e.clientY);
         const submenuSize=positionContextSubmenu(menu,menuPosition.y), content=document.getElementById('realContainer');
         window.chrome.webview.postMessage(serializeHostMessage({type:'contextMenuResize',data:{

@@ -2642,6 +2642,7 @@ void CandidateList::SetAppearance(Appearance appearance)
 void CandidateList::SetOrientation(Orientation orientation)
 {
     orientation_ = orientation;
+    InvalidateLayoutCache();
     InvalidateMeasure();
 }
 
@@ -2710,21 +2711,22 @@ RectF CandidateList::ItemRect(size_t index) const
 SizeF CandidateList::Measure(const SizeF &availableSize)
 {
     itemWidths_.resize(items_.size());
+    itemHeight_ = appearance_.itemHeight;
     const float gap = appearance_.itemGap;
     if (orientation_ == Orientation::Horizontal)
     {
         float width = 0.0f;
         for (size_t i = 0; i < items_.size(); ++i)
         {
+            const float textWidth = EstimateTextWidth(items_[i].text, appearance_.fontSize) + 6.0f +
+                                    EstimateTextWidth(items_[i].annotation, appearance_.annotationFontSize);
+            const float translationWidth = EstimateTextWidth(items_[i].translation, appearance_.fontSize * 0.78f);
             const float itemWidth = appearance_.contentPadLeft + appearance_.textPadLeft +
                                     EstimateTextWidth(items_[i].label, appearance_.labelFontSize) +
-                                    appearance_.labelGap + EstimateTextWidth(items_[i].text, appearance_.fontSize) +
-                                    6.0f + EstimateTextWidth(items_[i].annotation, appearance_.annotationFontSize) +
-                                    (items_[i].translation.empty()
-                                         ? 0.0f
-                                         : appearance_.fontSize * 0.65f +
-                                               EstimateTextWidth(items_[i].translation, appearance_.fontSize * 0.78f)) +
+                                    appearance_.labelGap + std::max(textWidth, translationWidth) +
                                     appearance_.contentPadRight;
+            if (!items_[i].translation.empty())
+                itemHeight_ = appearance_.itemHeight + appearance_.fontSize * 0.78f * 1.25f;
             itemWidths_[i] = itemWidth;
             width += itemWidth;
             if (i + 1 < items_.size())
@@ -2813,15 +2815,20 @@ void CandidateList::Render(DeviceResources &deviceResources)
         const float annotationW = items_[index].annotation.empty()
                                       ? 0.0f
                                       : EstimateTextWidth(items_[index].annotation, appearance_.annotationFontSize);
+        const bool horizontal = orientation_ == Orientation::Horizontal;
+        const float textHeight = horizontal ? appearance_.itemHeight : itemRect.height;
         const float translationX =
-            annotationX + annotationW + (items_[index].translation.empty() ? 0.0f : translationGap);
+            horizontal ? textX
+                       : annotationX + annotationW + (items_[index].translation.empty() ? 0.0f : translationGap);
         const float translationW = items_[index].translation.empty()
                                        ? 0.0f
                                        : EstimateTextWidth(items_[index].translation, translationFontSize);
-        const RectF labelRect = {labelX, itemRect.y, labelW, itemRect.height};
-        const RectF textRect = {textX, itemRect.y, textW, itemRect.height};
-        const RectF annotationRect = {annotationX, itemRect.y, std::max(annotationW, 1.0f), itemRect.height};
-        const RectF translationRect = {translationX, itemRect.y, std::max(translationW, 1.0f), itemRect.height};
+        const RectF labelRect = {labelX, itemRect.y, labelW, textHeight};
+        const RectF textRect = {textX, itemRect.y, textW, textHeight};
+        const RectF annotationRect = {annotationX, itemRect.y, std::max(annotationW, 1.0f), textHeight};
+        const RectF translationRect = {translationX, itemRect.y + (horizontal ? textHeight : 0.0f),
+                                       std::max(translationW, 1.0f),
+                                       horizontal ? itemRect.height - textHeight : itemRect.height};
 
         auto &cache = layoutCache_[index];
         if (cache.fontFamily != theme.textInputFontFamily || cache.labelWidth != labelRect.width)
