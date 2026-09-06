@@ -28,6 +28,10 @@ Windows 端的全部一方源码在本仓。**合仓改变的是仓库数量，�
 - **候选与输入状态的权威在 Server 和引擎**，页面只负责展示和发出用户动作，不要在网页侧复制状态机。
 - `ui-html/webview2/shared/` 是 Engine web 契约的副本，由 `ui-html/scripts/sync-contracts.py` 生成，CI 用 `--check` 验证它和 submodule 一致。手改这个目录会被 CI 拦下来，改契约要改 Engine。
 
+Server 当前仍使用 Engine 的兼容 `InputSession`，尚未迁移公共 `Session` facade。
+辅助码筛选与候选提示都按会话配置，禁止用全局默认码表驱动活动会话。
+`RuntimePaths::legacy()` 在适配器创建时捕获现有安装布局；完整资源包和用户数据代际切换仍待接入。
+
 ## 构建
 
 每个组件是独立的 CMake 工程，各自带 `vcpkg.json` 和 preset，从仓库根目录指定 `-S`：
@@ -67,7 +71,16 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 **每次可发布的合并都花掉一次签名额度**，这正是之前的手动设计要避免的事。取舍的理由记在 [docs/product-release.md](docs/product-release.md)。
 
-`workflow_dispatch` 保留下来，现在是修复通道而不是常规路径：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会重复发布同一个版本。
+`workflow_dispatch` 保留下来，它同时是修复通道和发布频道的入口：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会重复发布同一个版本。
+
+**两个频道由触发方式决定，`publish-release.sh` 据此选状态**（[#167](https://github.com/metasequoiaime/MSIME-Windows/issues/167)）：
+
+| 频道 | 触发 | 发布状态 | 标题 |
+|---|---|---|---|
+| 自动构建 | push | `--prerelease` | `v<版本>（自动构建）`，说明里带提示 |
+| 发布 | `workflow_dispatch` | `--prerelease=false --latest` | `v<版本>` |
+
+GitHub 没有自定义频道，只有 Latest / Pre-release / Draft 三种状态，所以这里用 `prerelease` 标志承载「自动、未经挑选」，而不是承载「内测」。产品仍在内测这件事写在 release 说明和 [docs/installation.md](docs/installation.md) 里——那才是该做稳定性声明的地方，而这个标志同时还得用来分隔频道，兼不了两份职责。
 
 `windows/src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
 

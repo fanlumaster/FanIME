@@ -920,7 +920,7 @@ std::string BuildCurrentCandidatePage()
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
             item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Emoji &&
             item.source != CandidateSource::Kaomoji && item.source != CandidateSource::Generated)
-            view.annotation = HelpcodeUtils::compute_helpcodes(item.word, uppercase_all_helpcodes);
+            view.annotation = g_inputSession->get_helpcode_annotation(item.word, uppercase_all_helpcodes);
         if (item.source == CandidateSource::CloudSuggestion)
             view.badge = " ☁️";
         else if (item.source == CandidateSource::AiSuggestion)

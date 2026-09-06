@@ -2,7 +2,8 @@
 #include "config/ime_config.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 
-EngineInputSession::EngineInputSession(SchemeType scheme, const ShuangpinProfile &profile) : session_(scheme, profile)
+EngineInputSession::EngineInputSession(SchemeType scheme, const ShuangpinProfile &profile)
+    : paths_(metasequoia::RuntimePaths::legacy()), session_(scheme, profile, paths_)
 {
     ApplyConfiguration();
 }
@@ -11,8 +12,21 @@ void EngineInputSession::ApplyConfiguration()
 {
     const auto scheme = session_.scheme();
     if (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin)
-        HelpcodeUtils::select_helpcode_schema(scheme == SchemeType::Quanpin ? GetConfiguredQuanpinHelpcodeSchema()
-                                                                            : GetConfiguredShuangpinHelpcodeSchema());
+    {
+        const auto &schema = scheme == SchemeType::Quanpin ? GetConfiguredQuanpinHelpcodeSchema()
+                                                         : GetConfiguredShuangpinHelpcodeSchema();
+        if (schema != helpcode_schema_)
+        {
+            // Keep filtering and annotations on this session's captured resource layout.
+            // Applying unchanged settings on each key must not reload the tables.
+            auto keymap = HelpcodeUtils::load_helpcode_keymap(paths_.resources, schema);
+            if (session_.set_helpcode_schema(schema))
+            {
+                helpcode_schema_ = schema;
+                helpcode_keymap_ = std::move(keymap);
+            }
+        }
+    }
     session_.set_shuangpin_helpcode_enabled(GetConfiguredShuangpinHelpcodeEnabled());
     session_.set_quanpin_helpcode_enabled(GetConfiguredQuanpinHelpcodeEnabled());
     session_.set_quanpin_autocorrect_enabled(GetConfiguredQuanpinAutocorrectEnabled());
@@ -159,4 +173,12 @@ IInputSession::CreatingWordProgress EngineInputSession::update_creating_word_pro
     const SelectionTransition &selection_transition) const
 {
     return session_.update_creating_word_progress(current_pinyin, current_word, selected_word, selection_transition);
+}
+
+std::string EngineInputSession::get_helpcode_annotation(const std::string &word, bool uppercase_all) const
+{
+    const auto scheme = session_.scheme();
+    if (!helpcode_keymap_ || (scheme != SchemeType::Quanpin && scheme != SchemeType::Shuangpin))
+        return {};
+    return HelpcodeUtils::compute_helpcodes(word, uppercase_all, helpcode_keymap_.get());
 }

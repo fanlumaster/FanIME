@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Attach the installer to the draft release, append the artifact details to its notes and publish.
 #
-# GitHub offers three release states and no notion of a channel, so an automatic per-merge build and a release somebody deliberately cut both land in the same Pre-release list that docs/installation.md presents to users as the 内测版 channel. Every releasable merge now produces one of these, so the two are told apart in the title and the notes rather than by where they appear (MSIME-Windows#167).
+# GitHub has no notion of a release channel, so the two kinds of release this pipeline produces are carried by the two states it does have (MSIME-Windows#167). An automatic per-merge build is a prerelease; a build somebody deliberately dispatched is an ordinary release, and the newest one carries the Latest badge. Users therefore see two lists rather than one list with two kinds of title in it, and /releases/latest finally resolves.
+#
+# The prerelease flag means "automatic and uncurated" here, not "beta". The product being 内测 is stated in the notes and in docs/installation.md, which is where a claim about stability belongs; it is not something the flag can express while the flag is also the only thing separating the channels.
 #
 # Requires GH_TOKEN, GH_REPO, TAG_NAME, ASSET_PATH, ASSET_NAME, ASSET_SHA256, SIGNING_ENABLED,
 # DICTIONARY_TAG, PRODUCT_MANIFEST, RELEASE_TRIGGER.
@@ -12,10 +14,12 @@ gh release upload "$TAG_NAME" "$ASSET_PATH" "$PRODUCT_MANIFEST" --repo "$GH_REPO
 if [[ "$RELEASE_TRIGGER" == push ]]; then
     # Braces are required: bash takes the full-width bracket that follows as part of the name otherwise.
     title="${TAG_NAME}（自动构建）"
-    banner='本版本由 CI 在合并到 `main` 后自动构建发布，未经人工挑选。想要经过挑选的内测版本，请选择标题不带「自动构建」的发布。'
+    banner='本版本由 CI 在合并到 `main` 后自动构建发布，未经人工挑选，标记为 Pre-release。想要经过挑选的版本，请下载页面上带 Latest 徽章的那个。'
+    channel=(--prerelease)
 else
     title="$TAG_NAME"
     banner=''
+    channel=(--prerelease=false --latest)
 fi
 
 gh release view "$TAG_NAME" --repo "$GH_REPO" --json body --jq .body > notes.md
@@ -34,5 +38,5 @@ gh release view "$TAG_NAME" --repo "$GH_REPO" --json body --jq .body > notes.md
     fi
 } >> notes.md
 
-gh release edit "$TAG_NAME" --repo "$GH_REPO" --draft=false --prerelease --title "$title" --notes-file notes.md
-echo "Published $TAG_NAME as '$title' with $ASSET_NAME"
+gh release edit "$TAG_NAME" --repo "$GH_REPO" --draft=false "${channel[@]}" --title "$title" --notes-file notes.md
+echo "Published $TAG_NAME as '$title' (${channel[*]}) with $ASSET_NAME"
