@@ -115,8 +115,7 @@ DWORD CCandidateSessionState::GetCandidateString(_In_ int iIndex,
     return (DWORD)pItemList->_ItemString.GetLength();
 }
 
-DWORD CCandidateSessionState::GetSelectedCandidateString(
-    _Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
+DWORD CCandidateSessionState::GetSelectedCandidateString(_Outptr_result_maybenull_ const WCHAR **ppwchCandidateString)
 {
     if (_currentSelection >= _candidateList.Count())
     {

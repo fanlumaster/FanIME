@@ -170,7 +170,6 @@ VOID CTfTextLayoutSink::_EndLayout()
         _pContextDocument->Release();
         _pContextDocument = nullptr;
     }
-
 }
 
 HRESULT CTfTextLayoutSink::_AdviseTextLayoutSink()
@@ -193,7 +192,6 @@ HRESULT CTfTextLayoutSink::_AdviseTextLayoutSink()
     }
 
     pSource->Release();
-
 
     return hr;
 }
@@ -224,7 +222,6 @@ HRESULT CTfTextLayoutSink::_UnadviseTextLayoutSink()
 
     pSource->Release();
     _dwCookieTextLayoutSink = TF_INVALID_COOKIE;
-
 
     return hr;
 }
@@ -272,7 +269,6 @@ HRESULT CTfTextLayoutSink::_GetTextExt(_Out_ RECT *lpRect, _Out_ POINT *lpAnchor
         *lpAnchor = GetPhysicalTextAnchor(pContextView, *lpRect);
     }
     pContextView->Release();
-
 
     return S_OK;
 }

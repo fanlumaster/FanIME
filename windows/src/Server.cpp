@@ -166,7 +166,8 @@ STDAPI CClassFactory::LockServer(BOOL fLock)
 
 void BuildGlobalObjects(void)
 {
-    classFactoryObjects[0] = new (std::nothrow) CClassFactory(Global::MetasequoiaIMECLSID, CMetasequoiaIME::CreateInstance);
+    classFactoryObjects[0] =
+        new (std::nothrow) CClassFactory(Global::MetasequoiaIMECLSID, CMetasequoiaIME::CreateInstance);
 }
 
 //+---------------------------------------------------------------------------

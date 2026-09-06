@@ -8,14 +8,12 @@
 //
 //----------------------------------------------------------------------------
 
-void CMetasequoiaIME::_ClearCompositionDisplayAttributes(
-    TfEditCookie ec, _In_ ITfContext *pContext,
-    _In_opt_ ITfComposition *expectedComposition)
+void CMetasequoiaIME::_ClearCompositionDisplayAttributes(TfEditCookie ec, _In_ ITfContext *pContext,
+                                                         _In_opt_ ITfComposition *expectedComposition)
 {
     ITfRange *pRangeComposition = nullptr;
     ITfProperty *pDisplayAttributeProperty = nullptr;
-    ITfComposition *composition =
-        expectedComposition ? expectedComposition : _pComposition;
+    ITfComposition *composition = expectedComposition ? expectedComposition : _pComposition;
     if (composition == nullptr)
     {
         return;

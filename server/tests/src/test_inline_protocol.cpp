@@ -1,9 +1,8 @@
 #include "tests/includes/test_framework.h"
 #include "webview2/inline_protocol.h"
 
-static const std::wstring imports =
-    L"<script src=\"https://msime-contracts/schema.js\"></script>"
-    L"<script src=\"https://msime-contracts/runtime.js\"></script>";
+static const std::wstring imports = L"<script src=\"https://msime-contracts/schema.js\"></script>"
+                                    L"<script src=\"https://msime-contracts/runtime.js\"></script>";
 
 TEST_CASE(protocol_inline_preserves_order_and_removes_resource_loads)
 {

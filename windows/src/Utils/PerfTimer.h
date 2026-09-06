@@ -14,7 +14,7 @@
  */
 class PerfTimer
 {
-public:
+  public:
     PerfTimer() : _start({}), _freq({})
     {
         QueryPerformanceFrequency(&_freq);
@@ -26,8 +26,7 @@ public:
     {
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
-        return static_cast<double>(now.QuadPart - _start.QuadPart) * 1000.0 /
-               static_cast<double>(_freq.QuadPart);
+        return static_cast<double>(now.QuadPart - _start.QuadPart) * 1000.0 / static_cast<double>(_freq.QuadPart);
     }
 
     /** Reset the start point to now. */
@@ -36,7 +35,7 @@ public:
         QueryPerformanceCounter(&_start);
     }
 
-private:
+  private:
     LARGE_INTEGER _start;
     LARGE_INTEGER _freq;
 };

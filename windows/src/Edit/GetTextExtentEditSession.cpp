@@ -75,6 +75,5 @@ STDAPI CGetTextExtentEditSession::DoEditSession(TfEditCookie ec)
         }
     }
 
-
     return S_OK;
 }

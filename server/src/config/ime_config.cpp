@@ -118,7 +118,9 @@ std::string g_theme_emoji = "follow";
 std::string g_theme_screen_keyboard = "follow";
 std::string g_theme_handwriting = "follow";
 std::string g_theme_voice = "follow";
-// LoadImeConfig rewrites g_voice_input from the IPC worker thread while the voice control thread and the low-level keyboard hook read it, so every access goes through this process-local lock. Unlike ConfigFileLock it is never held across file I/O or IPC: a hook that blocks on a cross-process wait would stall typing system-wide.
+// LoadImeConfig rewrites g_voice_input from the IPC worker thread while the voice control thread and the low-level
+// keyboard hook read it, so every access goes through this process-local lock. Unlike ConfigFileLock it is never held
+// across file I/O or IPC: a hook that blocks on a cross-process wait would stall typing system-wide.
 std::shared_mutex g_voice_input_mutex;
 VoiceInputConfig g_voice_input; // guarded by g_voice_input_mutex
 bool g_persist_asr_token_slot = false;
@@ -811,8 +813,7 @@ bool LoadImeConfig()
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         g_candidate_window_follow_cursor = tbl["appearance"]["candidate_window_follow_cursor"].value_or(true);
-        g_ui_backend = NormalizeSmallWindowUiBackend(
-            tbl["appearance"]["ui_backend"].value_or(std::string("d2d")));
+        g_ui_backend = NormalizeSmallWindowUiBackend(tbl["appearance"]["ui_backend"].value_or(std::string("d2d")));
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
         g_candidate_skin = IsValidCandidateSkinId(skin) ? skin : "fluent";
         {
@@ -875,9 +876,8 @@ bool LoadImeConfig()
             voice.asr_token = stored;
         }
         voice.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
-            voice.asr_provider == "doubao"
-                ? std::string("wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async")
-                : std::string("https://api.siliconflow.cn/v1/audio/transcriptions"));
+            voice.asr_provider == "doubao" ? std::string("wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async")
+                                           : std::string("https://api.siliconflow.cn/v1/audio/transcriptions"));
         if (voice.asr_provider == "doubao" &&
             voice.asr_endpoint == "https://api.siliconflow.cn/v1/audio/transcriptions")
         {
@@ -1033,7 +1033,8 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
         return false;
     }
 
-    // Write a temp file and rename it so a crash can never leave the user with a truncated config. This only makes the directory entry swap atomic: there is no FlushFileBuffers, so a power loss can still lose the contents.
+    // Write a temp file and rename it so a crash can never leave the user with a truncated config. This only makes the
+    // directory entry swap atomic: there is no FlushFileBuffers, so a power loss can still lose the contents.
     if (!WriteFileTextAtomically(g_config_path, text))
     {
         return false;
@@ -1091,8 +1092,7 @@ void MigrateLegacyVoiceInputConfig()
         migrate_string("asr_provider", legacy["asr_api"]["provider"].value_or(std::string("siliconflow")),
                        voice.asr_provider);
         migrate_string("asr_token", asr_token, voice.asr_token);
-        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(voice.asr_endpoint),
-                       voice.asr_endpoint);
+        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(voice.asr_endpoint), voice.asr_endpoint);
         migrate_string("polish_provider", legacy["polish_api"]["provider"].value_or(std::string("siliconflow")),
                        voice.polish_provider);
         migrate_string("polish_token", legacy["polish_api"]["token"].value_or(std::string()), voice.polish_token);
@@ -2603,7 +2603,9 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         value != "casual" && value != "custom_1" && value != "custom_2" && value != "custom_3")
         return false;
 
-    // Fields are addressed by pointer-to-member rather than by a bare reference because the store has to happen under the writer lock, while WriteConfiguredValue does file I/O and a cross-process wait that must never run with that lock held.
+    // Fields are addressed by pointer-to-member rather than by a bare reference because the store has to happen under
+    // the writer lock, while WriteConfiguredValue does file I/O and a cross-process wait that must never run with that
+    // lock held.
     const auto persist = [](const std::string &toml_key, const std::string &toml_value,
                             std::string VoiceInputConfig::*field) {
         if (!WriteConfiguredValue("voice_input", toml_key, EscapeTomlBasicString(toml_value)))

@@ -27,8 +27,7 @@ TEST_CASE(candidate_text_policy_skips_non_han_characters)
 
 TEST_CASE(candidate_text_policy_supports_non_bmp_han_characters)
 {
-    const std::string candidate =
-        "\xF0\xA0\x80\x80\xE6\x96\xB9\xE6\xA1\x88\xF0\xA0\xAE\xB7";
+    const std::string candidate = "\xF0\xA0\x80\x80\xE6\x96\xB9\xE6\xA1\x88\xF0\xA0\xAE\xB7";
     const auto first = FanyImeIpc::ExtractHanCharacter(candidate, FanyImeIpc::HanCharacterEdge::First);
     const auto last = FanyImeIpc::ExtractHanCharacter(candidate, FanyImeIpc::HanCharacterEdge::Last);
     REQUIRE(first.has_value());

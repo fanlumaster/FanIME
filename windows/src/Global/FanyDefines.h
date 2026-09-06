@@ -31,8 +31,7 @@ constexpr std::string_view Cand = "cand";
 
 inline bool isKnownTsfPreeditStyle(std::string_view style)
 {
-    return style == TsfPreeditStyle::Raw || style == TsfPreeditStyle::Pinyin ||
-           style == TsfPreeditStyle::Empty;
+    return style == TsfPreeditStyle::Raw || style == TsfPreeditStyle::Pinyin || style == TsfPreeditStyle::Empty;
 }
 
 inline std::string normalizeTsfPreeditStyle(std::string_view style)
@@ -83,8 +82,7 @@ inline void setTsfPreeditStyleFromWide(const wchar_t *style)
 
 inline bool isKnownTsfPreeditStyleWide(const wchar_t *style)
 {
-    return style && (wcscmp(style, L"raw") == 0 || wcscmp(style, L"pinyin") == 0 ||
-                     wcscmp(style, L"empty") == 0);
+    return style && (wcscmp(style, L"raw") == 0 || wcscmp(style, L"pinyin") == 0 || wcscmp(style, L"empty") == 0);
 }
 } // namespace GlobalSettings
 

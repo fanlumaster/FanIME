@@ -235,8 +235,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _DebugCompositionRecovery(_In_z_ const WCHAR *reason, HRESULT hr) const;
     bool _IsLocalSessionResetCurrent(UINT resetToken) const;
     void _CompleteLocalSessionReset(UINT resetToken);
-    bool _IsDeferredKeyReplayCurrent(uint64_t replayToken,
-                                     uint64_t focusGeneration,
+    bool _IsDeferredKeyReplayCurrent(uint64_t replayToken, uint64_t focusGeneration,
                                      _In_opt_ ITfContext *expectedContext) const;
     void _CompleteDeferredKeyReplay(uint64_t replayToken);
     void _RetryDeferredKeyReplay(uint64_t replayToken);
@@ -276,11 +275,9 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
         uint64_t deferredReplayToken = 0;
         std::wstring prefetchedText;
     };
-    bool _PostAsyncKeyRequest(UINT message, UINT code, WCHAR wch, uint64_t requestId,
-                               std::wstring prefetchedText = {},
-                               uint64_t expectedFocusToken = 0,
-                               uint64_t expectedCompositionEpoch = 0,
-                               uint64_t deferredReplayToken = 0);
+    bool _PostAsyncKeyRequest(UINT message, UINT code, WCHAR wch, uint64_t requestId, std::wstring prefetchedText = {},
+                              uint64_t expectedFocusToken = 0, uint64_t expectedCompositionEpoch = 0,
+                              uint64_t deferredReplayToken = 0);
     bool _TakeAsyncKeyRequest(UINT message, UINT token, _Out_ AsyncKeyRequest &request);
     struct WorkerCandidateCommit
     {
@@ -343,15 +340,11 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _ApplyDeferredPreservedKeyProjection(REFGUID preservedKey);
     bool _RefreshDeferredRecoveryPrefix(_In_ ITfContext *pContext);
     void _ArmDeferredRecoveryForTransport(_In_opt_ ITfContext *pContext);
-    bool _ClassifyDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam,
-                                  _In_opt_ const WCHAR *translatedWch,
-                                  _In_opt_ const UINT *modifiersDown,
-                                  _Out_ WCHAR *classifiedWch,
-                                  _Out_ UINT *classifiedCode,
-                                  _Out_ _KEYSTROKE_STATE *keyState);
-    bool _QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam, LPARAM lParam,
-                               WCHAR translatedWch, UINT modifiersDown,
-                               const _KEYSTROKE_STATE &keyState);
+    bool _ClassifyDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam, _In_opt_ const WCHAR *translatedWch,
+                                  _In_opt_ const UINT *modifiersDown, _Out_ WCHAR *classifiedWch,
+                                  _Out_ UINT *classifiedCode, _Out_ _KEYSTROKE_STATE *keyState);
+    bool _QueueDeferredKeyDown(_In_ ITfContext *pContext, WPARAM wParam, LPARAM lParam, WCHAR translatedWch,
+                               UINT modifiersDown, const _KEYSTROKE_STATE &keyState);
     bool _QueueDeferredPreservedKey(_In_ ITfContext *pContext, REFGUID preservedKey);
     void _ClearDeferredKeyDowns();
     void _ScheduleDeferredKeyDownDrain();
@@ -359,22 +352,16 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _TryLeaveServerUnavailableFallback();
     void _WakeServerIfNeeded();
     void _NoteKeyEventIpcFailure();
-    HRESULT _RequestDeferredApplicationTextEditSession(
-        _In_ ITfContext *pContext, WCHAR wch, uint64_t expectedFocusToken,
-        uint64_t expectedFocusGeneration, uint64_t deferredReplayToken);
-    KeyDownDispatchResult _DispatchKeyDown(_In_ ITfContext *pContext, WPARAM wParam,
-                                           LPARAM lParam, _Out_ BOOL *pIsEaten,
-                                           _In_opt_ const WCHAR *translatedWch,
+    HRESULT _RequestDeferredApplicationTextEditSession(_In_ ITfContext *pContext, WCHAR wch,
+                                                       uint64_t expectedFocusToken, uint64_t expectedFocusGeneration,
+                                                       uint64_t deferredReplayToken);
+    KeyDownDispatchResult _DispatchKeyDown(_In_ ITfContext *pContext, WPARAM wParam, LPARAM lParam,
+                                           _Out_ BOOL *pIsEaten, _In_opt_ const WCHAR *translatedWch,
                                            _In_opt_ const UINT *modifiersDown,
-                                           _In_opt_ const _KEYSTROKE_STATE *prevalidatedKeyState,
-                                           bool canDefer,
-                                           uint64_t expectedFocusGeneration,
-                                           uint64_t deferredReplayToken = 0);
-    void _DispatchPreservedKey(_In_ ITfContext *pContext, REFGUID preservedKey,
-                               _Out_ BOOL *pIsEaten,
-                               uint64_t expectedFocusGeneration,
-                               bool isPrevalidated,
-                               uint64_t deferredReplayToken = 0);
+                                           _In_opt_ const _KEYSTROKE_STATE *prevalidatedKeyState, bool canDefer,
+                                           uint64_t expectedFocusGeneration, uint64_t deferredReplayToken = 0);
+    void _DispatchPreservedKey(_In_ ITfContext *pContext, REFGUID preservedKey, _Out_ BOOL *pIsEaten,
+                               uint64_t expectedFocusGeneration, bool isPrevalidated, uint64_t deferredReplayToken = 0);
 
     // Input-mode hotkeys (Shift/Ctrl toggle, Ctrl+Alt+Space, Ctrl+Shift+Space,
     // Ctrl+., Ctrl+Shift+E) are detected from ITfKeyEventSink like
@@ -383,8 +370,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _TrackModifierHotkeyArming(WPARAM wParam, LPARAM lParam, bool isKeyUp);
     bool _MatchChordInputHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid) const;
     bool _MatchModifierReleaseHotkey(WPARAM wParam, _Out_ GUID *hotkeyGuid);
-    bool _QueueInputHotkey(_In_ ITfContext *pContext, REFGUID hotkeyGuid,
-                           _Out_ BOOL *pIsEaten);
+    bool _QueueInputHotkey(_In_ ITfContext *pContext, REFGUID hotkeyGuid, _Out_ BOOL *pIsEaten);
 
     // mintty exposes IME composition through the legacy IMM bridge, but some
     // versions do not forward bare modifier key-up events to ITfKeyEventSink.
@@ -394,13 +380,11 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _UninitMinttyKeyboardHook();
     void _HandleMinttyShiftRelease(UINT sequence);
     void _MarkMinttyShiftHandled();
-    static LRESULT CALLBACK _MinttyKeyboardHookProc(int code, WPARAM wParam,
-                                                     LPARAM lParam);
+    static LRESULT CALLBACK _MinttyKeyboardHookProc(int code, WPARAM wParam, LPARAM lParam);
     static thread_local CMetasequoiaIME *_minttyKeyboardHookOwner;
 
     void _StartComposition(_In_ ITfContext *pContext);
-    HRESULT _EndComposition(_In_opt_ ITfContext *pContext,
-                            _In_opt_ ITfComposition *expectedComposition = nullptr,
+    HRESULT _EndComposition(_In_opt_ ITfContext *pContext, _In_opt_ ITfComposition *expectedComposition = nullptr,
                             bool bypassFocusValidation = false);
     BOOL _IsComposing();
     BOOL _IsKeyboardDisabled();
@@ -421,29 +405,24 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     HRESULT _RemoveDummyCompositionForComposing(TfEditCookie ec, _In_ ITfComposition *pComposition);
 
     // Invoke key handler edit session
-    HRESULT _InvokeKeyHandler(_In_ ITfContext *pContext, UINT code, WCHAR wch, DWORD flags,
-                              _KEYSTROKE_STATE keyState, uint64_t requestId,
-                               std::wstring prefetchedText = {}, UINT localResetToken = 0,
-                               uint64_t expectedCompositionEpoch = 0,
-                               uint64_t expectedFocusToken = 0,
-                               uint64_t deferredReplayToken = 0);
-    HRESULT _RequestDirectPunctuationEditSession(_In_ ITfContext *pContext, UINT code, WCHAR wch,
-                                                   uint64_t requestId, std::wstring prefetchedText,
-                                                   uint64_t expectedFocusToken = 0,
-                                                   uint64_t expectedCompositionEpoch = 0,
-                                                   uint64_t deferredReplayToken = 0);
+    HRESULT _InvokeKeyHandler(_In_ ITfContext *pContext, UINT code, WCHAR wch, DWORD flags, _KEYSTROKE_STATE keyState,
+                              uint64_t requestId, std::wstring prefetchedText = {}, UINT localResetToken = 0,
+                              uint64_t expectedCompositionEpoch = 0, uint64_t expectedFocusToken = 0,
+                              uint64_t deferredReplayToken = 0);
+    HRESULT _RequestDirectPunctuationEditSession(_In_ ITfContext *pContext, UINT code, WCHAR wch, uint64_t requestId,
+                                                 std::wstring prefetchedText, uint64_t expectedFocusToken = 0,
+                                                 uint64_t expectedCompositionEpoch = 0,
+                                                 uint64_t deferredReplayToken = 0);
 
     // function for the language property
     BOOL _SetCompositionLanguage(TfEditCookie ec, _In_ ITfContext *pContext);
 
     // function for the display attribute
-    void _ClearCompositionDisplayAttributes(
-        TfEditCookie ec, _In_ ITfContext *pContext,
-        _In_opt_ ITfComposition *expectedComposition = nullptr);
+    void _ClearCompositionDisplayAttributes(TfEditCookie ec, _In_ ITfContext *pContext,
+                                            _In_opt_ ITfComposition *expectedComposition = nullptr);
     BOOL _SetCompositionDisplayAttributes(TfEditCookie ec, _In_ ITfContext *pContext, TfGuidAtom gaDisplayAttribute);
     BOOL _SetCompositionDisplayAttributesForRange(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                  _In_ ITfRange *pRangeComposition,
-                                                  TfGuidAtom gaDisplayAttribute);
+                                                  _In_ ITfRange *pRangeComposition, TfGuidAtom gaDisplayAttribute);
     BOOL _InitDisplayAttributeGuidAtom();
 
     BOOL _InitThreadMgrEventSink();
@@ -461,8 +440,7 @@ class CMetasequoiaIME : public ITfTextInputProcessorEx,
     void _UninitActiveLanguageProfileNotifySink();
 
     BOOL _IsKeyEaten(_In_ ITfContext *pContext, UINT codeIn, _Out_ UINT *pCodeOut, _Out_writes_(1) WCHAR *pwch,
-                     _Out_opt_ _KEYSTROKE_STATE *pKeyState,
-                     _In_opt_ const WCHAR *translatedWch = nullptr,
+                     _Out_opt_ _KEYSTROKE_STATE *pKeyState, _In_opt_ const WCHAR *translatedWch = nullptr,
                      bool freshCompositionState = false);
 
     BOOL _IsRangeCovered(TfEditCookie ec, _In_ ITfRange *pRangeTest, _In_ ITfRange *pRangeCover);

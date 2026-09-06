@@ -12,10 +12,13 @@
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int nCmdShow)
 {
     CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeHandwritingPanel.SingleInstance");
-    if (!single_instance.is_valid()) return -1;
-    if (single_instance.already_running()) return 0;
+    if (!single_instance.is_valid())
+        return -1;
+    if (single_instance.already_running())
+        return 0;
 
-    if (!msimeui::Application::Initialize()) return -1;
+    if (!msimeui::Application::Initialize())
+        return -1;
 
     const bool lightTheme = SurfaceThemeConfig::IsLight("theme_handwriting");
     msimeui::Theme theme;

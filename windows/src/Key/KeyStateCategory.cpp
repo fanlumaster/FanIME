@@ -87,7 +87,7 @@ HRESULT CKeyStateCategory::KeyStateHandler(KEYSTROKE_FUNCTION function, KeyHandl
     case FUNCTION_FINALIZE_CANDIDATELIST:
         return HandleKeyFinalizeCandidatelist(dto);
     case FUNCTION_FINALIZE_CANDIDATELISTForVKReturn:
-    return HandleKeyFinalizeCandidatelistForVKReturn(dto);
+        return HandleKeyFinalizeCandidatelistForVKReturn(dto);
 
     case FUNCTION_INSERT_TEXT:
         return _pTextService->_HandleInsertText(dto.ec, dto.pContext, dto.prefetchedText);
@@ -299,8 +299,7 @@ HRESULT CKeyStateComposing::HandleKeyConvert(KeyHandlerEditSessionDTO dto)
 {
     if (dto.code == VK_SPACE)
     {
-        return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId,
-                                                        dto.prefetchedText);
+        return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId, dto.prefetchedText);
     }
     // VK_SPACE
     return _pTextService->_HandleCompositionConvert(dto.ec, dto.pContext, FALSE);
@@ -357,8 +356,7 @@ CKeyStateCandidate::CKeyStateCandidate(_In_ CMetasequoiaIME *pTextService) : CKe
 // _HandleCandidateInput
 HRESULT CKeyStateCandidate::HandleKeyFinalizeCandidatelist(KeyHandlerEditSessionDTO dto)
 {
-    return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId,
-                                                    dto.prefetchedText);
+    return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId, dto.prefetchedText);
 }
 
 // _HandleCandidateInput
@@ -379,12 +377,10 @@ HRESULT CKeyStateCandidate::HandleKeyConvert(KeyHandlerEditSessionDTO dto)
 {
     if (dto.code == VK_SPACE)
     {
-        return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId,
-                                                        dto.prefetchedText);
+        return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId, dto.prefetchedText);
     }
     // Send candidate string to client when pressing VK_SPACE
-    return _pTextService->_HandleCandidateConvert(dto.ec, dto.pContext, dto.requestId,
-                                                  dto.prefetchedText);
+    return _pTextService->_HandleCandidateConvert(dto.ec, dto.pContext, dto.requestId, dto.prefetchedText);
 }
 
 //_HandleCancel
@@ -403,7 +399,5 @@ HRESULT CKeyStateCandidate::HandleKeyArrow(KeyHandlerEditSessionDTO dto)
 HRESULT CKeyStateCandidate::HandleKeySelectByNumber(KeyHandlerEditSessionDTO dto)
 {
     // return _pTextService->_HandleCandidateSelectByNumber(dto.ec, dto.pContext, dto.code);
-    return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId,
-                                                    dto.prefetchedText);
+    return _pTextService->_HandleCandidateFinalize(dto.ec, dto.pContext, dto.requestId, dto.prefetchedText);
 }
-

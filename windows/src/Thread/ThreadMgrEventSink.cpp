@@ -49,8 +49,7 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
         return S_OK;
     }
 
-    if (pDocMgrFocus && _pContext && _IsComposing() &&
-        !_localSessionResetPending.load(std::memory_order_acquire))
+    if (pDocMgrFocus && _pContext && _IsComposing() && !_localSessionResetPending.load(std::memory_order_acquire))
     {
         ITfDocumentMgr *compositionDocumentMgr = nullptr;
         const HRESULT ownerHr = _pContext->GetDocumentMgr(&compositionDocumentMgr);
@@ -72,8 +71,7 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
     // rejection before the user can retype. The reject spot is already keyed by
     // (punct key + preceding char); other keys / caret moves clear it instead.
     const bool windowsTextInputHostTransition =
-        _focusLostToWindowsTextInputHost ||
-        _CaptureWindowsTextInputHostFocusLoss();
+        _focusLostToWindowsTextInputHost || _CaptureWindowsTextInputHostFocusLoss();
 
     if (pDocMgrFocus && _focusLossDeferPending)
     {
@@ -90,8 +88,7 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
     // The modern protocol preserves that behavior with a new activation epoch
     // on the existing healthy transport; EnsureNamedpipeFocusSessionActivated
     // physically reopens a channel as well when its health check fails.
-    if (pDocMgrFocus &&
-        (!Global::g_connected || windowsTextInputHostTransition))
+    if (pDocMgrFocus && (!Global::g_connected || windowsTextInputHostTransition))
     {
         Global::g_connected = true;
         _workerCommitReady.store(false, std::memory_order_release);
@@ -109,8 +106,7 @@ STDAPI CMetasequoiaIME::OnSetFocus(_In_ ITfDocumentMgr *pDocMgrFocus, _In_ ITfDo
             // If focus does not return within FOCUS_LOSS_DEFER_MS, the timer
             // performs the normal MarkNamedpipeFocusLost + disconnect.
             _focusLossDeferPending = true;
-            SetTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS,
-                     FOCUS_LOSS_DEFER_MS, nullptr);
+            SetTimer(_msgWndHandle, TIMER_DEFERRED_FOCUS_LOSS, FOCUS_LOSS_DEFER_MS, nullptr);
         }
     }
 
@@ -204,18 +200,16 @@ STDAPI CMetasequoiaIME::OnPopContext(_In_ ITfContext *pContext)
 
 void CMetasequoiaIME::_HandleFocusedContextStackChange(_In_opt_ ITfContext *changedContext)
 {
-    if (!IsNamedpipeFocusStateOwner(this) || changedContext == nullptr ||
-        _pThreadMgr == nullptr)
+    if (!IsNamedpipeFocusStateOwner(this) || changedContext == nullptr || _pThreadMgr == nullptr)
     {
         return;
     }
 
     ITfDocumentMgr *changedDocument = nullptr;
     ITfDocumentMgr *focusedDocument = nullptr;
-    if (FAILED(changedContext->GetDocumentMgr(&changedDocument)) ||
-        changedDocument == nullptr ||
-        FAILED(_pThreadMgr->GetFocus(&focusedDocument)) ||
-        focusedDocument == nullptr || changedDocument != focusedDocument)
+    if (FAILED(changedContext->GetDocumentMgr(&changedDocument)) || changedDocument == nullptr ||
+        FAILED(_pThreadMgr->GetFocus(&focusedDocument)) || focusedDocument == nullptr ||
+        changedDocument != focusedDocument)
     {
         if (changedDocument)
         {

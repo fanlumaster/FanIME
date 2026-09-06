@@ -361,19 +361,10 @@ TEST_CASE(QuanpinCorrectionPrefersFewerSegments)
 TEST_CASE(QuanpinCorrectionNormalizesTransposedPinyinLetters)
 {
     const std::vector<std::pair<std::string, std::string>> cases = {
-        {"laing", "liang"}, {"haung", "huang"}, {"bain", "bian"},   {"haun", "huan"},
-        {"laio", "liao"},  {"ahng", "hang"},   {"cehng", "cheng"}, {"zehng", "zheng"},
-        {"zhehng", "zheng"},
-        {"mihng", "ming"},
-        {"agn", "ang"},
-        {"bagn", "bang"},
-        {"chagn", "chang"},
-        {"zagn", "zang"},
-        {"egn", "eng"},
-        {"begn", "beng"},
-        {"chegn", "cheng"},
-        {"zhegn", "zheng"},
-        {"jv", "ju"},
+        {"laing", "liang"}, {"haung", "huang"}, {"bain", "bian"},   {"haun", "huan"},    {"laio", "liao"},
+        {"ahng", "hang"},   {"cehng", "cheng"}, {"zehng", "zheng"}, {"zhehng", "zheng"}, {"mihng", "ming"},
+        {"agn", "ang"},     {"bagn", "bang"},   {"chagn", "chang"}, {"zagn", "zang"},    {"egn", "eng"},
+        {"begn", "beng"},   {"chegn", "cheng"}, {"zhegn", "zheng"}, {"jv", "ju"},
     };
 
     for (const auto &[typed, expected] : cases)
@@ -411,9 +402,8 @@ TEST_CASE(QuanpinCorrectionHandlesContinuousAndManuallySegmentedInput)
 TEST_CASE(QuanpinCorrectionAppliesSuffixRulesToEveryValidPinyinPrefix)
 {
     const std::vector<std::pair<std::string, std::string>> cases = {
-        {"daun", "duan"}, {"jaun", "juan"}, {"laun", "luan"}, {"naun", "nuan"},
-        {"qaun", "quan"}, {"raun", "ruan"}, {"saun", "suan"}, {"taun", "tuan"},
-        {"xaun", "xuan"}, {"yaun", "yuan"}, {"zaun", "zuan"},
+        {"daun", "duan"}, {"jaun", "juan"}, {"laun", "luan"}, {"naun", "nuan"}, {"qaun", "quan"}, {"raun", "ruan"},
+        {"saun", "suan"}, {"taun", "tuan"}, {"xaun", "xuan"}, {"yaun", "yuan"}, {"zaun", "zuan"},
     };
 
     for (const auto &[typed, expected] : cases)

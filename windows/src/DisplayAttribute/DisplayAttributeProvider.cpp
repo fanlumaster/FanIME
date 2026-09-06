@@ -39,7 +39,7 @@ STDAPI CMetasequoiaIME::EnumDisplayAttributeInfo(__RPC__deref_out_opt IEnumTfDis
 //----------------------------------------------------------------------------
 
 STDAPI CMetasequoiaIME::GetDisplayAttributeInfo(__RPC__in REFGUID guidInfo,
-                                           __RPC__deref_out_opt ITfDisplayAttributeInfo **ppInfo)
+                                                __RPC__deref_out_opt ITfDisplayAttributeInfo **ppInfo)
 {
     if (ppInfo == nullptr)
     {

@@ -19,8 +19,7 @@ inline constexpr uint32_t kKeyModifierMask = kModifierShift | kModifierControl |
 
 constexpr bool IsEnglishModeToggleKey(uint32_t keycode, uint32_t modifiers_down)
 {
-    return keycode == static_cast<uint32_t>('E') &&
-           (modifiers_down & kKeyModifierMask) == kEnglishModeToggleModifiers;
+    return keycode == static_cast<uint32_t>('E') && (modifiers_down & kKeyModifierMask) == kEnglishModeToggleModifiers;
 }
 
 // The TSF side treats numpad digits exactly like the corresponding candidate
@@ -37,8 +36,7 @@ constexpr uint32_t NormalizeNumpadDigitKey(uint32_t keycode)
 // Server must reset every backend without producing a reply.
 constexpr bool IsBackendIndependentCompositionResetKey(uint32_t keycode)
 {
-    return keycode == kVirtualKeyShift || keycode == kVirtualKeyEscape ||
-           keycode == kVirtualKeyLeftShift ||
+    return keycode == kVirtualKeyShift || keycode == kVirtualKeyEscape || keycode == kVirtualKeyLeftShift ||
            keycode == kVirtualKeyRightShift;
 }
 
@@ -67,7 +65,7 @@ constexpr bool ShouldSendCompositionReply(bool is_alpha_key, bool is_manual_piny
                                           bool is_microsoft_shuangpin_ing_key, bool is_unicode_hex_digit,
                                           bool is_unicode_plus)
 {
-    return is_alpha_key || is_manual_pinyin_separator || is_microsoft_shuangpin_ing_key ||
-           is_unicode_hex_digit || is_unicode_plus;
+    return is_alpha_key || is_manual_pinyin_separator || is_microsoft_shuangpin_ing_key || is_unicode_hex_digit ||
+           is_unicode_plus;
 }
 } // namespace FanyImeIpc

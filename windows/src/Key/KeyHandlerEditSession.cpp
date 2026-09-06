@@ -55,29 +55,23 @@ STDAPI CKeyHandlerEditSession::DoEditSession(TfEditCookie ec)
             // the newer token; returning without bookkeeping would gate every
             // subsequent key forever.
             _pTextService->_CompleteLocalSessionReset(_localResetToken);
-            DebugTsfIssue47(L"edit-session-rejected-reset-token", _requestId, _uCode, _wch,
-                            _KeyState.Category, _KeyState.Function, 1,
-                            _pTextService->_IsComposing(), 0, S_FALSE,
-                            _deferredReplayToken);
+            DebugTsfIssue47(L"edit-session-rejected-reset-token", _requestId, _uCode, _wch, _KeyState.Category,
+                            _KeyState.Function, 1, _pTextService->_IsComposing(), 0, S_FALSE, _deferredReplayToken);
             return S_FALSE;
         }
     }
     else if (!_pTextService->_IsServerUnavailableFallbackActive() &&
              !_pTextService->_IsFocusSessionCurrent(_focusToken, _pContext))
     {
-        DebugTsfIssue47(L"edit-session-rejected-focus", _requestId, _uCode, _wch,
-                        _KeyState.Category, _KeyState.Function, 1,
-                        _pTextService->_IsComposing(), 0, S_FALSE,
-                        _deferredReplayToken);
+        DebugTsfIssue47(L"edit-session-rejected-focus", _requestId, _uCode, _wch, _KeyState.Category,
+                        _KeyState.Function, 1, _pTextService->_IsComposing(), 0, S_FALSE, _deferredReplayToken);
         return S_FALSE;
     }
     if (!isLocalReset && _expectedCompositionEpoch != 0 &&
         !_pTextService->_IsCompositionEpochCurrent(_expectedCompositionEpoch))
     {
-        DebugTsfIssue47(L"edit-session-rejected-epoch", _requestId, _uCode, _wch,
-                        _KeyState.Category, _KeyState.Function, 1,
-                        _pTextService->_IsComposing(), 0, S_FALSE,
-                        _deferredReplayToken);
+        DebugTsfIssue47(L"edit-session-rejected-epoch", _requestId, _uCode, _wch, _KeyState.Category,
+                        _KeyState.Function, 1, _pTextService->_IsComposing(), 0, S_FALSE, _deferredReplayToken);
         return S_FALSE;
     }
 
@@ -86,20 +80,19 @@ STDAPI CKeyHandlerEditSession::DoEditSession(TfEditCookie ec)
     LARGE_INTEGER freq, nowQpc;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&nowQpc);
-    double queueElapsedMs = static_cast<double>(nowQpc.QuadPart - _requestStartQpc.QuadPart) * 1000.0 /
-                            static_cast<double>(freq.QuadPart);
+    double queueElapsedMs =
+        static_cast<double>(nowQpc.QuadPart - _requestStartQpc.QuadPart) * 1000.0 / static_cast<double>(freq.QuadPart);
     DebugTsfKeyLatency(L"edit-session-queue", _requestId, queueElapsedMs, S_OK);
 
     CKeyStateCategoryFactory *pKeyStateCategoryFactory = CKeyStateCategoryFactory::Instance();
-    CKeyStateCategory *pKeyStateCategory = pKeyStateCategoryFactory
-                                              ? pKeyStateCategoryFactory->MakeKeyStateCategory(
-                                                    _KeyState.Category, _pTextService)
-                                              : nullptr;
+    CKeyStateCategory *pKeyStateCategory =
+        pKeyStateCategoryFactory ? pKeyStateCategoryFactory->MakeKeyStateCategory(_KeyState.Category, _pTextService)
+                                 : nullptr;
 
     if (pKeyStateCategory)
     {
-        KeyHandlerEditSessionDTO keyHandlerEditSessioDTO(ec, _pContext, _uCode, _wch, _KeyState.Function,
-                                                         _requestId, _prefetchedText);
+        KeyHandlerEditSessionDTO keyHandlerEditSessioDTO(ec, _pContext, _uCode, _wch, _KeyState.Function, _requestId,
+                                                         _prefetchedText);
         hResult = pKeyStateCategory->KeyStateHandler(_KeyState.Function, keyHandlerEditSessioDTO);
         deferredReplayCompletion.applied = hResult == S_OK;
 
@@ -115,9 +108,7 @@ STDAPI CKeyHandlerEditSession::DoEditSession(TfEditCookie ec)
         _pTextService->_CompleteLocalSessionReset(_localResetToken);
     }
     DebugTsfKeyLatency(L"edit-session-body", _requestId, doEditSessionTimer.ElapsedMs(), hResult);
-    DebugTsfIssue47(L"edit-session-complete", _requestId, _uCode, _wch,
-                    _KeyState.Category, _KeyState.Function, 1,
-                    _pTextService->_IsComposing(), 0, hResult,
-                    _deferredReplayToken);
+    DebugTsfIssue47(L"edit-session-complete", _requestId, _uCode, _wch, _KeyState.Category, _KeyState.Function, 1,
+                    _pTextService->_IsComposing(), 0, hResult, _deferredReplayToken);
     return hResult;
 }

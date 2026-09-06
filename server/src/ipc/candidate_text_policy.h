@@ -17,12 +17,9 @@ enum class HanCharacterEdge
 
 inline bool IsHanCodePoint(char32_t code_point)
 {
-    return code_point == 0x3007 ||
-           (code_point >= 0x3400 && code_point <= 0x4DBF) ||
-           (code_point >= 0x4E00 && code_point <= 0x9FFF) ||
-           (code_point >= 0xF900 && code_point <= 0xFAFF) ||
-           (code_point >= 0x20000 && code_point <= 0x2FA1F) ||
-           (code_point >= 0x30000 && code_point <= 0x323AF);
+    return code_point == 0x3007 || (code_point >= 0x3400 && code_point <= 0x4DBF) ||
+           (code_point >= 0x4E00 && code_point <= 0x9FFF) || (code_point >= 0xF900 && code_point <= 0xFAFF) ||
+           (code_point >= 0x20000 && code_point <= 0x2FA1F) || (code_point >= 0x30000 && code_point <= 0x323AF);
 }
 
 inline std::optional<std::string> ExtractHanCharacter(std::string_view text, HanCharacterEdge edge)
@@ -84,11 +81,9 @@ inline std::optional<std::string> ExtractHanCharacter(std::string_view text, Han
     return result;
 }
 
-inline std::wstring HighlightedCandidateText(const std::vector<std::wstring> &page_words,
-                                             int selected_index_in_page)
+inline std::wstring HighlightedCandidateText(const std::vector<std::wstring> &page_words, int selected_index_in_page)
 {
-    if (selected_index_in_page < 0 ||
-        static_cast<size_t>(selected_index_in_page) >= page_words.size())
+    if (selected_index_in_page < 0 || static_cast<size_t>(selected_index_in_page) >= page_words.size())
     {
         return {};
     }

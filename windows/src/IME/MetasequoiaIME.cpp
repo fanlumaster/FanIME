@@ -1746,14 +1746,14 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                 validFrame = false;
             }
         }
-        if (validFrame && (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
-                           buf.msg_type ==
-                               Global::DataToTsfWorkerThreadMsgType::SmartPunctuationRepeatToChineseChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged ||
-                           buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged))
+        if (validFrame &&
+            (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationChanged ||
+             buf.msg_type == Global::DataToTsfWorkerThreadMsgType::SmartPunctuationRepeatToChineseChanged ||
+             buf.msg_type == Global::DataToTsfWorkerThreadMsgType::PairedPunctuationChanged ||
+             buf.msg_type == Global::DataToTsfWorkerThreadMsgType::MicrosoftShuangpinChanged ||
+             buf.msg_type == Global::DataToTsfWorkerThreadMsgType::InputModeChanged ||
+             buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CapsLockChanged ||
+             buf.msg_type == Global::DataToTsfWorkerThreadMsgType::TsfDiagnosticLogChanged))
         {
             bool hasTerminator = false;
             for (const wchar_t ch : buf.data)
@@ -1777,8 +1777,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
                     break;
                 }
             }
-            validFrame = hasTerminator &&
-                         (buf.data[0] == L'0' || buf.data[0] == L'1' || buf.data[0] == L'2') && buf.data[1] == L'\0';
+            validFrame = hasTerminator && (buf.data[0] == L'0' || buf.data[0] == L'1' || buf.data[0] == L'2') &&
+                         buf.data[1] == L'\0';
         }
         if (validFrame && (buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
                            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CommitVoiceComposition))
@@ -1849,9 +1849,8 @@ void CMetasequoiaIME::IpcWorkerThread(CMetasequoiaIME *pIME)
             continue;
         }
 
-        const bool isVoiceSnapshot =
-            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
-            buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CommitVoiceComposition;
+        const bool isVoiceSnapshot = buf.msg_type == Global::DataToTsfWorkerThreadMsgType::UpdateVoiceComposition ||
+                                     buf.msg_type == Global::DataToTsfWorkerThreadMsgType::CommitVoiceComposition;
         if (!isVoiceSnapshot)
         {
             pIME->_ResetVoiceCompositionAssemble();
@@ -2727,13 +2726,12 @@ LRESULT CALLBACK CMetasequoiaIME_WindowProc(HWND hWnd, UINT message, WPARAM wPar
         const uint64_t focusToken = static_cast<uint64_t>(static_cast<uint32_t>(wParam)) |
                                     (static_cast<uint64_t>(static_cast<uint32_t>(lParam)) << 32);
         const WCHAR replacement = pIME->_pendingSmartPunctuationReplacement;
-        const bool requestCurrent =
-            replacement != 0 && focusToken != 0 &&
-            focusToken == pIME->_pendingSmartPunctuationFocusToken &&
-            Global::SmartPunctuationRepeatToChineseEnabled.load(std::memory_order_relaxed) &&
-            pIME->_IsFocusSessionCurrent(focusToken) &&
-            GetForegroundWindow() == pIME->_pendingSmartPunctuationForegroundWindow &&
-            GetTickCount64() <= pIME->_pendingSmartPunctuationDeadline;
+        const bool requestCurrent = replacement != 0 && focusToken != 0 &&
+                                    focusToken == pIME->_pendingSmartPunctuationFocusToken &&
+                                    Global::SmartPunctuationRepeatToChineseEnabled.load(std::memory_order_relaxed) &&
+                                    pIME->_IsFocusSessionCurrent(focusToken) &&
+                                    GetForegroundWindow() == pIME->_pendingSmartPunctuationForegroundWindow &&
+                                    GetTickCount64() <= pIME->_pendingSmartPunctuationDeadline;
 
         pIME->_pendingSmartPunctuationReplacement = 0;
         pIME->_pendingSmartPunctuationFocusToken = 0;

@@ -22,8 +22,7 @@ bool IsWindowsTextInputHostWindow(HWND window)
         return false;
     }
 
-    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
-                                 processId);
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
     if (!process)
     {
         return false;
@@ -31,9 +30,7 @@ bool IsWindowsTextInputHostWindow(HWND window)
 
     WCHAR imagePath[32768] = {};
     DWORD imagePathLength = ARRAYSIZE(imagePath);
-    const bool queried =
-        QueryFullProcessImageNameW(process, 0, imagePath, &imagePathLength) !=
-        FALSE;
+    const bool queried = QueryFullProcessImageNameW(process, 0, imagePath, &imagePathLength) != FALSE;
     CloseHandle(process);
     if (!queried || imagePathLength == 0)
     {
@@ -49,8 +46,7 @@ bool IsWindowsTextInputHostWindow(HWND window)
 bool CMetasequoiaIME::_CaptureWindowsTextInputHostFocusLoss()
 {
     _focusLostToWindowsTextInputHost =
-        _focusLostToWindowsTextInputHost ||
-        IsWindowsTextInputHostWindow(GetForegroundWindow());
+        _focusLostToWindowsTextInputHost || IsWindowsTextInputHostWindow(GetForegroundWindow());
     return _focusLostToWindowsTextInputHost;
 }
 
@@ -135,7 +131,6 @@ STDAPI CMetasequoiaIME::OnKillThreadFocus()
             // leaks one on every Win+. / thread-focus round trip.
             _pDocMgrLastFocused = pCandidateListDocumentMgr;
             pCandidateListDocumentMgr = nullptr;
-
         }
         _pCandidateListUIPresenter->OnKillThreadFocus();
     }

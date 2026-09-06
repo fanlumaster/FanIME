@@ -73,7 +73,8 @@ BOOL CTextLayout::EnsureTextFormat(const LOGFONT *plf, FLOAT dpiY)
         _pTextFormat = NULL;
     }
 
-    const DWRITE_FONT_WEIGHT fontWeight = plf->lfWeight >= FW_BOLD ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL;
+    const DWRITE_FONT_WEIGHT fontWeight =
+        plf->lfWeight >= FW_BOLD ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL;
     const DWRITE_FONT_STYLE fontStyle = plf->lfItalic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
     const DWRITE_FONT_STRETCH fontStretch = DWRITE_FONT_STRETCH_NORMAL;
     const FLOAT fontSize = DipsFromLogFontHeight(plf, dpiY);
@@ -91,9 +92,8 @@ BOOL CTextLayout::EnsureTextFormat(const LOGFONT *plf, FLOAT dpiY)
 }
 
 BOOL CTextLayout::Layout(const WCHAR *psz, UINT nCnt, const LOGFONT *plf, FLOAT layoutWidthPixels,
-                         FLOAT layoutHeightPixels, FLOAT dpiX, FLOAT dpiY,
-                         FLOAT paddingLeftPixels, FLOAT paddingTopPixels, FLOAT paddingRightPixels,
-                         FLOAT paddingBottomPixels, BOOL singleLine)
+                         FLOAT layoutHeightPixels, FLOAT dpiX, FLOAT dpiY, FLOAT paddingLeftPixels,
+                         FLOAT paddingTopPixels, FLOAT paddingRightPixels, FLOAT paddingBottomPixels, BOOL singleLine)
 {
     Clear();
 
@@ -328,10 +328,9 @@ BOOL CTextLayout::Render(ID2D1RenderTarget *pRenderTarget, const WCHAR *psz, UIN
                         selectionRect.top = FloorToPixelAlignedDips(line.top, _dpiY);
                         selectionRect.bottom = CeilToPixelAlignedDips(line.bottom, _dpiY);
                     }
-                    pRenderTarget->FillRectangle(
-                        D2D1::RectF(selectionRect.left - scrollX, selectionRect.top, selectionRect.right - scrollX,
-                                    selectionRect.bottom),
-                        pSelectionBrush);
+                    pRenderTarget->FillRectangle(D2D1::RectF(selectionRect.left - scrollX, selectionRect.top,
+                                                             selectionRect.right - scrollX, selectionRect.bottom),
+                                                 pSelectionBrush);
                 }
             }
         }
@@ -340,10 +339,9 @@ BOOL CTextLayout::Render(ID2D1RenderTarget *pRenderTarget, const WCHAR *psz, UIN
     if (_pTextLayout && nCnt > 0)
     {
         const FLOAT textTop = (_singleLine && _nLineCnt > 0) ? _prgLines[0].top : _paddingTopDips;
-        pRenderTarget->DrawTextLayout(D2D1::Point2F(_paddingLeftDips - (_singleLine ? _horizontalScrollDips : 0.0f),
-                                                    textTop),
-                                      _pTextLayout, pTextBrush,
-                                      D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+        pRenderTarget->DrawTextLayout(
+            D2D1::Point2F(_paddingLeftDips - (_singleLine ? _horizontalScrollDips : 0.0f), textTop), _pTextLayout,
+            pTextBrush, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
     }
 
     for (UINT i = 0; i < _nLineCnt; i++)
@@ -373,12 +371,13 @@ BOOL CTextLayout::Render(ID2D1RenderTarget *pRenderTarget, const WCHAR *psz, UIN
                     {
                         pCompositionBrush->SetColor(GetAttributeColor(&composition.da.crBk, GetSysColor(COLOR_WINDOW)));
                         const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
-                        pRenderTarget->FillRectangle(D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX, rc.bottom),
-                                                     pCompositionBrush);
+                        pRenderTarget->FillRectangle(
+                            D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX, rc.bottom), pCompositionBrush);
                     }
 
                     WCHAR ch = psz[line.nPos + k];
-                    D2D1_COLOR_F compositionTextColor = GetAttributeColor(&composition.da.crText, GetSysColor(COLOR_WINDOWTEXT));
+                    D2D1_COLOR_F compositionTextColor =
+                        GetAttributeColor(&composition.da.crText, GetSysColor(COLOR_WINDOWTEXT));
                     if (composition.da.crText.type == TF_CT_NONE)
                     {
                         compositionTextColor = textColor;
@@ -386,10 +385,10 @@ BOOL CTextLayout::Render(ID2D1RenderTarget *pRenderTarget, const WCHAR *psz, UIN
 
                     pCompositionBrush->SetColor(compositionTextColor);
                     const FLOAT scrollX = _singleLine ? _horizontalScrollDips : 0.0f;
-                    pRenderTarget->DrawTextW(&ch, 1, _pTextFormat,
-                                             D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX + PixelsToDipsX(2.0f), rc.bottom),
-                                             pCompositionBrush, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
-                                             DWRITE_MEASURING_MODE_NATURAL);
+                    pRenderTarget->DrawTextW(
+                        &ch, 1, _pTextFormat,
+                        D2D1::RectF(rc.left - scrollX, rc.top, rc.right - scrollX + PixelsToDipsX(2.0f), rc.bottom),
+                        pCompositionBrush, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT, DWRITE_MEASURING_MODE_NATURAL);
 
                     if (!hasUnderlineRect)
                     {
@@ -780,8 +779,8 @@ LONG CTextLayout::DipsToPixelsY(FLOAT value) const
     return static_cast<LONG>(std::lround(value * _dpiY / 96.0f));
 }
 
-void CTextLayout::DrawUnderline(ID2D1RenderTarget *pRenderTarget, const TF_DISPLAYATTRIBUTE *pda,
-                                const D2D1_RECT_F &rc, BOOL bClause)
+void CTextLayout::DrawUnderline(ID2D1RenderTarget *pRenderTarget, const TF_DISPLAYATTRIBUTE *pda, const D2D1_RECT_F &rc,
+                                BOOL bClause)
 {
     ID2D1SolidColorBrush *pBrush = NULL;
     // A themed TextBox supplies its foreground explicitly. Use that same foreground for the
@@ -803,16 +802,14 @@ void CTextLayout::DrawUnderline(ID2D1RenderTarget *pRenderTarget, const TF_DISPL
     // composition bounds by insetting both endpoints by half of the computed stroke width.
     const FLOAT endpointInset = strokeWidth * 0.5f;
     const FLOAT left = static_cast<FLOAT>(rc.left) + endpointInset;
-    const FLOAT right = max(static_cast<FLOAT>(rc.right) - endpointInset,
-                            left + (bClause ? 0.0f : endpointInset));
+    const FLOAT right = max(static_cast<FLOAT>(rc.right) - endpointInset, left + (bClause ? 0.0f : endpointInset));
     const FLOAT baseline = static_cast<FLOAT>(rc.bottom) - (strokeWidth / 2.0f);
 
     switch (pda->lsStyle)
     {
     case TF_LS_DOT:
     case TF_LS_DASH:
-    case TF_LS_SQUIGGLE:
-    {
+    case TF_LS_SQUIGGLE: {
         if (pda->lsStyle == TF_LS_SQUIGGLE)
         {
             const FLOAT halfWave = max(PixelsToDipsX(3.0f), strokeWidth * 3.0f);

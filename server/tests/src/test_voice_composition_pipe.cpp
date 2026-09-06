@@ -16,7 +16,8 @@ TEST_CASE(voice_composition_pipe_splits_and_reassembles_long_text)
     const std::wstring text(400, L'测');
     const auto frames = FanyImeVoiceCompositionPipe::EncodeSnapshot(text, 9);
     REQUIRE(frames.size() >= 2);
-    REQUIRE(frames.size() <= FanyImeVoiceCompositionPipe::kMaxSnapshotChars / FanyImeVoiceCompositionPipe::kMaxChunkChars + 1);
+    REQUIRE(frames.size() <=
+            FanyImeVoiceCompositionPipe::kMaxSnapshotChars / FanyImeVoiceCompositionPipe::kMaxChunkChars + 1);
     REQUIRE_EQ(FanyImeVoiceCompositionPipe::AssembleFrames(frames), text);
 
     wchar_t first_data[FanyImeVoiceCompositionPipe::kPacketChars] = {};
