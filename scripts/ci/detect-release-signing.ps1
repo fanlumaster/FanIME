@@ -13,6 +13,9 @@ if ($env:CERTIFICATE_THUMBPRINT) {
     $normalized = $env:CERTIFICATE_THUMBPRINT -replace '\s', ''
     $storeCert = Get-ChildItem Cert:\CurrentUser\My\$normalized -ErrorAction SilentlyContinue
     if (-not $storeCert -or -not $storeCert.HasPrivateKey) { $storeCert = $null }
+    if (-not $storeCert -and -not ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD)) {
+        throw "A signing certificate thumbprint is configured, but the certificate or private key is unavailable in the runner user store."
+    }
 }
 
 if ($storeCert -or ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD)) {
