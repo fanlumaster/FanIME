@@ -233,6 +233,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 target_link_libraries(${PROJECT_NAME} PRIVATE ZLIB::ZLIB)
 target_link_libraries(${PROJECT_NAME} PRIVATE d2d1 dwrite dwmapi shell32 shcore ole32 bcrypt)
 
+# The helper executables below already build at /W4. The server itself -- the process that owns
+# every network call, the WebView2 hosts and the skin loader -- was still at the default /W3.
+if(MSVC)
+    target_compile_options(${MY_EXECUTABLE_NAME} PRIVATE /W4)
+endif()
+
 add_executable(${DICTIONARY_REPLAY_EXECUTABLE_NAME}
     "./src/user-dictionary-replay/main.cpp"
     "./src/resource/resource.h"
@@ -387,6 +393,9 @@ target_link_libraries(${SETTINGS_EXECUTABLE_NAME} PRIVATE
     $<$<CONFIG:Debug>:${WEBVIEW2_LOADER_DEBUG}>
     $<$<CONFIG:Release>:${WEBVIEW2_LOADER_RELEASE}>
 )
+if(MSVC)
+    target_compile_options(${SETTINGS_EXECUTABLE_NAME} PRIVATE /W4)
+endif()
 # The server launches the settings executable from the same output directory.
 # Building the server target alone must therefore also produce Settings.
 add_dependencies(${PROJECT_NAME} ${SETTINGS_EXECUTABLE_NAME})
