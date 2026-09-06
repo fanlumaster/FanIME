@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.0...v0.3.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **server:** revalidate queued online candidate generations on apply ([9785ecd](https://github.com/metasequoiaime/MSIME-Windows/commit/9785ecd4bf1a2c8f1056682d18fd184ff6aad733))
+
 ## [0.3.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.2.1...v0.3.0) (2026-09-06)
 
 
