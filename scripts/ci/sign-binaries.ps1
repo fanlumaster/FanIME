@@ -19,9 +19,17 @@ else {
     Get-Item -Path $Path
 }
 
+# A package can contain the same payload through multiple input paths. Sign each
+# physical file at most once; certificate usage is per signed file, not per
+# signtool invocation.
+$targets = @($targets | Sort-Object FullName -Unique)
+
 if (-not $targets) {
     throw "Nothing to sign under: $($Path -join ', ')"
 }
+
+Write-Host "Signing $($targets.Count) unique file(s):"
+$targets | ForEach-Object { Write-Host " - $($_.FullName)" }
 
 $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' |
     Sort-Object FullName -Descending | Select-Object -First 1
