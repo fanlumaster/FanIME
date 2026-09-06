@@ -182,6 +182,7 @@ set(SRC_FILES
     "./src/utils/window_utils.cpp"
     "./src/utils/window_utils.h"
     "./src/webview2/windows_webview2.cpp"
+    "./src/webview2/skin_css_policy.cpp"
     "./src/webview2/windows_webview2.h"
     "./src/window/candidate_presenter.cpp"
     "./src/window/candidate_presenter.h"
