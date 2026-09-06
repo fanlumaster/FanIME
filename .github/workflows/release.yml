@@ -27,6 +27,7 @@ jobs:
   prepare:
     name: Prepare release metadata
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
       # actions: write lets check-release-pr.sh dispatch ci.yml on the release branch, which is the
       # only trigger GITHUB_TOKEN is allowed to fire.
@@ -74,6 +75,7 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     outputs:
       dictionary_tag: ${{ steps.lock.outputs.dictionary_tag }}
     steps:
