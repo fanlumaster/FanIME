@@ -4,16 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    # A release-please pull request only rewrites these three files, and its pull_request run would
-    # be created in action_required and never execute: GITHUB_TOKEN may not start workflows, so
-    # anything it triggers waits for a human. Skipping it here keeps an unapprovable run out of the
-    # checks list. The release workflow dispatches this workflow on the release branch instead,
-    # which is the one trigger GITHUB_TOKEN is allowed to fire, so the version bump still gets a
-    # full build and the checks land on the same commit.
-    paths-ignore:
-      - version.txt
-      - CHANGELOG.md
-      - .release-please-manifest.json
   workflow_dispatch:
 
   merge_group:
@@ -45,6 +35,8 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
       - name: Test local environment setup in a moved checkout
         run: python3 -m unittest discover -s tests -p 'test_prepare_env.py'
+      - name: Test the automatic release CI gate
+        run: python3 -m unittest discover -s tests -p 'test_release_pr_ci.py'
       - name: Read the reviewed lock
         id: lock
         run: |

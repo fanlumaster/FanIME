@@ -58,8 +58,8 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 这一整条链跑在那次 push 触发的同一个 run 里：
 
-1. release-please 先用 `RELEASE_PLEASE_TOKEN` 补建已有合并版本的元数据，再用 `GITHUB_TOKEN` 把这次 push 的提交刷进 release PR。
-2. `land-release-pr.sh` 给该 PR 派发一次 CI（`GITHUB_TOKEN` 开不出 workflow run，必须用 `workflow_dispatch` 顶上，否则开着 required status check 的 release PR 永远合不了），绿了就合并它。
+1. release-please 先用 `RELEASE_PLEASE_TOKEN` 补建已有合并版本的元数据，再用该凭据把这次 push 的提交刷进 release PR，触发正常的 PR 检查。
+2. `land-release-pr.sh` 等待该 PR 精确 head 的 `pull_request` CI，绿了就用 `GITHUB_TOKEN` 合并它。不能以手动派发检查替代 PR 检查：后者才会进入 PR 的检查汇总并满足门禁。
 3. release-please 再跑一次，用 `RELEASE_PLEASE_TOKEN` 只创建 draft release 和 tag（`skip-github-pull-request: true`）。维护 PR 的调用只写版本分支（`skip-github-release: true`）。
 4. 构建、签名、把 exe 挂上去、draft 转正式。
 
