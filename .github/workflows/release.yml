@@ -22,7 +22,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # A push refreshes release-please metadata while workflow_dispatch builds a
+  # selected draft. They must not block each other on the same branch lock.
+  group: release-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
