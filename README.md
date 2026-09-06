@@ -1,5 +1,7 @@
 # 水杉输入法
 
+[English README](README.en.md)
+
 <!-- badges:start -->
 [![CI](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/ci.yml?branch=main&label=CI)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/ci.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/metasequoiaime/MSIME-Windows/codeql.yml?branch=main&label=CodeQL)](https://github.com/metasequoiaime/MSIME-Windows/actions/workflows/codeql.yml)
