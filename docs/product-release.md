@@ -21,9 +21,21 @@ python scripts/product_lock.py validate
 
 ## 重建与追溯
 
-手动 Release 只接受已有 draft tag，读取该提交内的清单。变更词库需要新的源码提交和产品版本，不允许临时覆盖词库 tag。没有清单的历史版本不能用新流水线宣称可复现重建。
+自动路径构建的是 release-please 刚刚建出的那个 draft，`resolve-auto-release.sh` 要求它钉在完整 commit SHA 上；手动 Release 只接受已有 draft tag，由 `validate-draft-release.sh` 做同样的校验。两条路径都只读该提交内的清单。变更词库需要新的源码提交和产品版本，不允许临时覆盖词库 tag。没有清单的历史版本不能用新流水线宣称可复现重建。
 
-发布前 `product_lock.py verify-published` 要求清单里每个提交都能从各自仓库的默认分支到达。这一条只在发布路径上执行，不进 `ci.yml`：引擎改动和本仓改动同时落地时，PR 里锁住引擎的分支提交是正常且必要的，在 PR CI 上强制会把它本该保护的那次落地直接锁死。到了发布这一刻判断相反——没进默认分支的输入就是没人合过的输入，锁文件为它背书等于宣称了一次并不存在的评审。
+## 发布节奏
+
+发布是全自动的：`main` 上每一次带 `fix:` / `feat:` 的合并都会走完构建、签名、发布。
+
+**签名额度不是约束。** 证书允许每月 3000 次签名，而这个项目一个月的发布次数远低于这个量级。此前把「省签名次数」当作攒版本理由的说法不成立，不要据此调整合并策略。
+
+**真正花掉的是发布节奏本身。** 消耗版本号的决定权交给了「有没有人合了一个 `fix:`」，不再是「有没有人想发版」。把若干修复攒成一个版本、以及「这次不值得发」这类判断，在自动路径上没有落点——用户会看到一串只差一两个提交的版本，release notes 也会碎。要控制这一点，办法是合并时把提交类型写成不触发版本递增的（`chore:` / `docs:` / `refactor:` / `test:`），或者把若干修复合进同一个 PR 让它们落在同一次 push 上。
+
+**换的是什么。** 从合并到安装包可下载之间不再有人工环节，也就不会出现改动躺在 draft 里没人发的情况。
+
+**排队。** Release runs 按 `concurrency: release-${{ github.ref }}` 串行且不取消。一轮完整的自动发布 = 等 release PR 的 CI（十几分钟）+ 构建签名打包（二十分钟上下）。合并频率高于这个节奏时队列只会越排越长，每个排队的 run 到头来都发一个版本。真出现这种情况，该调的是合并节奏或提交类型，不是把 `cancel-in-progress` 打开——那会在发布中途砍掉 run，留下挂着半个产物的 draft。
+
+发布前 `product_lock.py verify-published` 要求清单里每个提交都能从各自仓库的默认分支到达，词库的 `source_commit` 一并检查——它和 Engine 提交一样钉住仓外的输入，而摘要与词库清单只能证明这批数据出自锁文件写着的那个提交，证明不了那个提交有人合过。唯一的例外是已退休的词库仓库：它的历史 Release 是不可变的既有产物，仓库归档或删除后无从追溯默认分支，此时只记录不拦截。这一条只在发布路径上执行，不进 `ci.yml`：引擎改动和本仓改动同时落地时，PR 里锁住引擎的分支提交是正常且必要的，在 PR CI 上强制会把它本该保护的那次落地直接锁死。到了发布这一刻判断相反——没进默认分支的输入就是没人合过的输入，锁文件为它背书等于宣称了一次并不存在的评审。
 
 安装包携带 `%LOCALAPPDATA%/metasequoiaime/product-manifest.json`，Release 同时附加同名文件。其中包含本仓的发布提交、全部锁定输入和清单文件摘要。签名时间、工具链与 runner 更新仍可能改变二进制字节；此机制保证产品源码与数据组合确定，不承诺安装包逐字节一致。
 
@@ -34,3 +46,9 @@ python -m unittest discover -s tests -p 'test_product_lock.py'
 python scripts/product_lock.py verify-contracts .
 python scripts/product_lock.py fetch-dictionaries --staging-root /tmp/msime-product-data
 ```
+
+## 发布元数据令牌
+
+版本 PR 的创建和更新使用 `RELEASE_PLEASE_TOKEN`，使正常 `pull_request` CI 自动运行并进入 PR 检查汇总。`land-release-pr.sh` 等待精确 head 的 PR CI 通过，再用 `GITHUB_TOKEN` 合并。维护 PR 的 release-please 调用设置 `skip-github-release: true`。它前后各有一次 `skip-github-pull-request: true` 的元数据调用，使用组织已有的 `RELEASE_PLEASE_TOKEN`：先补建已经手动合并的版本，再处理本次自动合并的版本，保持 release-please 原有的先发布、后计算下一版本的顺序。
+
+后者需要仓库内容和 workflow 写权限（经典 PAT 的 `repo` + `workflow`，或等价的细粒度权限）。主分支先前包含 workflow 变更时，`GITHUB_TOKEN` 创建历史提交的 tag 可能被 Git refs API 拒绝。该令牌只更新版本分支，不用于合并；主分支仍由 `GITHUB_TOKEN` 写入，因此不会额外触发一次 Release。缺少令牌时提前报出配置错误。

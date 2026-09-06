@@ -4,6 +4,8 @@ import { setupToggleButton } from './shared';
 
 const UPDATE_MANIFEST_URL = 'https://msime.app/update.json';
 const RELEASES_PAGE_URL = 'https://github.com/metasequoiaime/MSIME-Windows/releases';
+const LICENSE_URL = 'https://github.com/metasequoiaime/MSIME-Windows/blob/main/LICENSE';
+const PRIVACY_URL = 'https://github.com/metasequoiaime/MSIME-Windows/blob/main/PRIVACY.md';
 const REQUEST_TIMEOUT_MS = 10000;
 
 type UpdateManifest = {
@@ -73,6 +75,21 @@ export function setupAboutSettings(): void {
   setupToggleButton('tsfDiagnosticLogToggleBtn', (active) => {
     updateConfig('general.tsf_diagnostic_log', active);
   });
+
+  // These two rows shipped as buttons with no handler, so the settings page advertised a privacy
+  // policy that did nothing when pressed. They are wired to the documents that actually govern the
+  // software; the terms a user agrees to for an open-source product are its licence.
+  for (const [id, url] of [
+    ['about-license-link', LICENSE_URL],
+    ['about-privacy-link', PRIVACY_URL],
+  ] as const) {
+    const button = document.getElementById(id);
+    if (button instanceof HTMLButtonElement) {
+      button.addEventListener('click', () => postExternalUrl(url));
+    } else {
+      console.warn(`[about] document link ${id} not found`);
+    }
+  }
 
   const checkButton = document.getElementById('about-check-update');
   const versionLabel = document.querySelector('#about-settings .about-version');

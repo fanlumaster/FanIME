@@ -12,12 +12,16 @@ include(CTest)
 set(MSIME_VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor")
 
 # Boost
-# The author's machine default keeps working untouched; local setups can
-# override via the BOOST_ROOT environment variable.
-if(DEFINED ENV{BOOST_ROOT})
-    set(Boost_ROOT "$ENV{BOOST_ROOT}")
-else()
-    set(Boost_ROOT "C:/Users/sonnycalcr/scoop/apps/boost/current")
+# An explicit -DBoost_ROOT wins, then BOOST_ROOT from the environment, and only then the scoop
+# layout under the current user's profile. The fallback used to name one developer's home directory,
+# which meant anyone else without BOOST_ROOT set got a configure failure pointing at a path that
+# does not exist on their machine.
+if(NOT DEFINED Boost_ROOT)
+    if(DEFINED ENV{BOOST_ROOT})
+        set(Boost_ROOT "$ENV{BOOST_ROOT}")
+    elseif(DEFINED ENV{USERPROFILE} AND EXISTS "$ENV{USERPROFILE}/scoop/apps/boost/current")
+        set(Boost_ROOT "$ENV{USERPROFILE}/scoop/apps/boost/current")
+    endif()
 endif()
 set (Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS locale json)

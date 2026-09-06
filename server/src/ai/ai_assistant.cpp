@@ -50,13 +50,14 @@ std::string Fetch(const AiAssistant::Request &request, uint64_t generation)
     nlohmann::json input = {{"segmented_pinyin", request.pinyin_segments},
                             {"context", request.context},
                             {"candidate_limit", config.candidate_limit}};
-    nlohmann::json body = {{"model", config.model},
-                           {"stream", false},
-                           {"temperature", 0.2},
-                           {"max_tokens", 512},
-                           {"response_format", {{"type", "json_object"}}},
-                           {"messages", {{{"role", "system"}, {"content", config.prompt}},
-                                         {{"role", "user"}, {"content", input.dump()}}}}};
+    nlohmann::json body = {
+        {"model", config.model},
+        {"stream", false},
+        {"temperature", 0.2},
+        {"max_tokens", 512},
+        {"response_format", {{"type", "json_object"}}},
+        {"messages",
+         {{{"role", "system"}, {"content", config.prompt}}, {{"role", "user"}, {"content", input.dump()}}}}};
     if (config.provider == "deepseek")
     {
         // DeepSeek thinking can add hundreds of reasoning tokens and noticeably delay
@@ -68,7 +69,8 @@ std::string Fetch(const AiAssistant::Request &request, uint64_t generation)
     (void)0;
 
     CURL *curl = curl_easy_init();
-    if (!curl) return {};
+    if (!curl)
+        return {};
     std::string response;
     const std::string authorization = "Authorization: Bearer " + config.token;
     curl_slist *headers = nullptr;
@@ -130,7 +132,8 @@ void WorkerLoop()
     {
         std::unique_lock lock(g_mutex);
         g_cv.wait(lock, [&] { return !g_running || g_generation.load() != observed; });
-        if (!g_running) break;
+        if (!g_running)
+            break;
         observed = g_generation.load();
         auto request = g_latest;
         const auto cached = g_candidate_cache.find(BuildCacheKey(request));
@@ -145,15 +148,18 @@ void WorkerLoop()
             continue;
         }
         auto target = g_last_input + kIdleDelay;
-        while (g_running && g_cv.wait_until(lock, target, [&] { return !g_running || g_generation.load() != observed; }))
+        while (g_running &&
+               g_cv.wait_until(lock, target, [&] { return !g_running || g_generation.load() != observed; }))
         {
-            if (!g_running) return;
+            if (!g_running)
+                return;
             observed = g_generation.load();
             request = g_latest;
             target = g_last_input + kIdleDelay;
         }
         lock.unlock();
-        if (request.identity.empty()) continue;
+        if (request.identity.empty())
+            continue;
         const std::string candidate = Fetch(request, observed);
         if (!candidate.empty() && g_generation.load() == observed && g_callback)
         {
@@ -172,7 +178,8 @@ namespace AiAssistant
 {
 void Start(ApplyCallback callback)
 {
-    if (g_running) return;
+    if (g_running)
+        return;
     curl_global_init(CURL_GLOBAL_DEFAULT);
     g_callback = std::move(callback);
     g_running = true;
@@ -180,18 +187,31 @@ void Start(ApplyCallback callback)
 }
 void Stop()
 {
-    if (!g_running) return;
+    if (!g_running)
+        return;
     g_running = false;
     g_cv.notify_all();
-    if (g_worker.joinable()) g_worker.join();
-    { std::lock_guard lock(g_mutex); g_candidate_cache.clear(); }
+    if (g_worker.joinable())
+        g_worker.join();
+    {
+        std::lock_guard lock(g_mutex);
+        g_candidate_cache.clear();
+    }
     curl_global_cleanup();
 }
 void OnInputChanged(Request request)
 {
-    { std::lock_guard lock(g_mutex); g_latest = std::move(request); g_last_input = std::chrono::steady_clock::now(); ++g_generation;
-      (void)0; }
+    {
+        std::lock_guard lock(g_mutex);
+        g_latest = std::move(request);
+        g_last_input = std::chrono::steady_clock::now();
+        ++g_generation;
+        (void)0;
+    }
     g_cv.notify_one();
 }
-void Clear() { OnInputChanged({}); }
+void Clear()
+{
+    OnInputChanged({});
+}
 } // namespace AiAssistant

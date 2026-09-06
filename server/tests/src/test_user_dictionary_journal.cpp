@@ -13,14 +13,15 @@ namespace
 {
 class TestDatabase
 {
-public:
+  public:
     explicit TestDatabase(const std::filesystem::path &path)
     {
         REQUIRE_EQ(sqlite3_open(path.string().c_str(), &db_), SQLITE_OK);
     }
     ~TestDatabase()
     {
-        if (db_ != nullptr) sqlite3_close(db_);
+        if (db_ != nullptr)
+            sqlite3_close(db_);
     }
     void exec(const char *sql)
     {
@@ -41,15 +42,15 @@ public:
         return value;
     }
 
-private:
+  private:
     sqlite3 *db_ = nullptr;
 };
-}
+} // namespace
 
 TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-user-dictionary-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-user-dictionary-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto main_path = directory / "msime.db";
@@ -68,23 +69,22 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
                         "INSERT INTO english_words VALUES('obsolete','obsolete');");
     }
 
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "ni'hao",
+                                           "你好", 12000));
+    REQUIRE(
+        user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "ni'hao", "旧词"));
     REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin,
-                                           "ni'hao", "你好", 12000));
-    REQUIRE(user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::Pinyin,
-                                           "ni'hao", "旧词"));
-    REQUIRE(user_dictionary::record_upsert(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin,
-        "shui'shan'shu'ru'fa'hai'ke'yi", "水杉输入法还可以", 5000));
-    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Wubi,
-                                           "wxyz", "新五笔", 88));
-    REQUIRE(user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::Wubi,
-                                           "abcd", "旧五笔"));
-    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::QuickPhrase,
-                                           "mail", "example@example.com", 20));
-    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::English,
-                                           "codex", "codex", 0, "Codex"));
-    REQUIRE(user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::English,
-                                           "obsolete", "obsolete"));
+                                           "shui'shan'shu'ru'fa'hai'ke'yi", "水杉输入法还可以", 5000));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Wubi, "wxyz", "新五笔",
+                                           88));
+    REQUIRE(
+        user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::Wubi, "abcd", "旧五笔"));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::QuickPhrase, "mail",
+                                           "example@example.com", 20));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::English, "codex",
+                                           "codex", 0, "Codex"));
+    REQUIRE(user_dictionary::record_delete(user_path.string(), user_dictionary::DictionaryKind::English, "obsolete",
+                                           "obsolete"));
 
     for (int pass = 0; pass < 2; ++pass)
     {
@@ -97,16 +97,20 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
     {
         TestDatabase main_db(main_path);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM tbl_2_n WHERE key='ni''hao' AND value='你好' AND "
-                                      "jp='nh' AND weight=12000"), 1);
+                                      "jp='nh' AND weight=12000"),
+                   1);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM tbl_2_n WHERE value='旧词'"), 0);
-        REQUIRE_EQ(main_db.scalar_int(
-            "SELECT COUNT(*) FROM tbl_others_s WHERE key='shui''shan''shu''ru''fa''hai''ke''yi' "
-            "AND value='水杉输入法还可以' AND jp='sssrfhky' AND weight=5000"), 1);
-        REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM wubi86 WHERE key='wxyz' AND value='新五笔' AND weight=88"), 1);
+        REQUIRE_EQ(
+            main_db.scalar_int("SELECT COUNT(*) FROM tbl_others_s WHERE key='shui''shan''shu''ru''fa''hai''ke''yi' "
+                               "AND value='水杉输入法还可以' AND jp='sssrfhky' AND weight=5000"),
+            1);
+        REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM wubi86 WHERE key='wxyz' AND value='新五笔' AND weight=88"),
+                   1);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM wubi86 WHERE value='旧五笔'"), 0);
         REQUIRE_EQ(main_db.scalar_int("SELECT COUNT(*) FROM quick_parases WHERE key='mail' AND weight=20"), 1);
         TestDatabase english_db(english_path);
-        REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='codex' AND display='Codex'"), 1);
+        REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='codex' AND display='Codex'"),
+                   1);
         REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='obsolete'"), 0);
     }
 
@@ -115,49 +119,48 @@ TEST_CASE(UserDictionaryReplayIsIdempotentAcrossAllSettingsDictionaries)
 
 TEST_CASE(UserDictionaryTracksOnlyExplicitUserInsertionsForExport)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-user-insert-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-user-insert-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
 
     {
         TestDatabase legacy_db(user_path);
-        legacy_db.exec(
-            "CREATE TABLE user_dictionary_operations("
-            "dictionary TEXT NOT NULL,key TEXT NOT NULL,value TEXT NOT NULL,"
-            "operation TEXT NOT NULL,weight INTEGER NOT NULL DEFAULT 0,"
-            "display TEXT NOT NULL DEFAULT '',updated_at INTEGER NOT NULL DEFAULT(unixepoch()),"
-            "PRIMARY KEY(dictionary,key,value));"
-            "INSERT INTO user_dictionary_operations VALUES("
-            "'pinyin','yi','一','upsert',999999,'',unixepoch());");
+        legacy_db.exec("CREATE TABLE user_dictionary_operations("
+                       "dictionary TEXT NOT NULL,key TEXT NOT NULL,value TEXT NOT NULL,"
+                       "operation TEXT NOT NULL,weight INTEGER NOT NULL DEFAULT 0,"
+                       "display TEXT NOT NULL DEFAULT '',updated_at INTEGER NOT NULL DEFAULT(unixepoch()),"
+                       "PRIMARY KEY(dictionary,key,value));"
+                       "INSERT INTO user_dictionary_operations VALUES("
+                       "'pinyin','yi','一','upsert',999999,'',unixepoch());");
     }
 
     REQUIRE(user_dictionary::ensure_user_database(user_path.string()));
-    REQUIRE(!user_dictionary::is_user_inserted(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yi", "一"));
+    REQUIRE(
+        !user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yi", "一"));
 
-    REQUIRE(user_dictionary::record_upsert(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xi'tong", "系统", 100));
-    REQUIRE(!user_dictionary::is_user_inserted(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xi'tong", "系统"));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xi'tong",
+                                           "系统", 100));
+    REQUIRE(!user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xi'tong",
+                                               "系统"));
 
-    REQUIRE(user_dictionary::record_user_insert(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户", 10000));
-    REQUIRE(user_dictionary::is_user_inserted(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户"));
+    REQUIRE(user_dictionary::record_user_insert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu",
+                                                "用户", 10000));
+    REQUIRE(user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu",
+                                              "用户"));
 
-    REQUIRE(user_dictionary::record_upsert(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户", 20000));
-    REQUIRE(user_dictionary::is_user_inserted(
-        user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu", "用户"));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu",
+                                           "用户", 20000));
+    REQUIRE(user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "yong'hu",
+                                              "用户"));
 
     std::filesystem::remove_all(directory);
 }
 
 TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-enter-english-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-enter-english-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto english_path = directory / "english.db";
@@ -172,8 +175,8 @@ TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
         REQUIRE(user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), word));
     REQUIRE(!user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), "ni'hao"));
     REQUIRE(!user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), "hello2"));
-    REQUIRE(!user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(),
-                                                         std::string(65, 'a')));
+    REQUIRE(
+        !user_dictionary::learn_entered_english_word(english_path.string(), user_path.string(), std::string(65, 'a')));
 
     {
         TestDatabase english_db(english_path);
@@ -182,8 +185,8 @@ TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
                    1);
         REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words"), 9);
     }
-    REQUIRE(user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::English,
-                                              "codex", "Codex"));
+    REQUIRE(user_dictionary::is_user_inserted(user_path.string(), user_dictionary::DictionaryKind::English, "codex",
+                                              "Codex"));
 
     const auto main_path = directory / "msime.db";
     {
@@ -205,7 +208,7 @@ TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
                        "SELECT COUNT(*) FROM english_words WHERE word='codex' AND display='Codex' AND weight=10"),
                    1);
         REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='metasequoia' AND "
-                                        "display='Metasequoia' AND weight=10"),
+                                         "display='Metasequoia' AND weight=10"),
                    1);
         REQUIRE_EQ(english_db.scalar_int("SELECT COUNT(*) FROM english_words WHERE word='hello' AND display='hello'"),
                    1);
@@ -216,8 +219,8 @@ TEST_CASE(EnterLearnedEnglishWordsAreValidatedPersistedAndIdempotent)
 
 TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-ranking-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-ranking-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto main_path = directory / "msime.db";
@@ -231,10 +234,8 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
                 "INSERT INTO tbl_1_n VALUES('ni','n','戊',60);"
                 "INSERT INTO tbl_1_n VALUES('ni','n','己',50);");
     }
-    std::vector<WordItem> candidates = {
-        {"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80},
-        {"ni","丁",70}, {"ni","戊",60}, {"ni","己",50}
-    };
+    std::vector<WordItem> candidates = {{"ni", "甲", 100}, {"ni", "乙", 90}, {"ni", "丙", 80},
+                                        {"ni", "丁", 70},  {"ni", "戊", 60}, {"ni", "己", 50}};
 
     REQUIRE(user_dictionary::set_fixed_position(user_path.string(), "ni", "ni", "己", 2));
     REQUIRE(!user_dictionary::set_fixed_position(user_path.string(), "ni", "ni", "己", 6));
@@ -250,23 +251,23 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
 
     // With a helpcode active the caller already ordered the suggestions, so they
     // must not be hoisted back to slots 1 and 2.
-    candidates = {{"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80}};
+    candidates = {{"ni", "甲", 100}, {"ni", "乙", 90}, {"ni", "丙", 80}};
     candidates.insert(candidates.begin(), {"ni", "AI", 1, CandidateSource::AiSuggestion});
     candidates.insert(candidates.begin() + 3, {"ni", "云", 1, CandidateSource::CloudSuggestion});
     user_dictionary::apply_fixed_positions(user_path.string(), "ni", candidates, false, {}, true);
     REQUIRE_EQ(candidates[0].word, std::string("AI"));
     REQUIRE_EQ(candidates[3].word, std::string("云"));
 
-    candidates = {{"ni","甲",100}, {"ni","乙",90}, {"ni","丙",80},
-                  {"ni","丁",70}, {"ni","戊",60}, {"ni","己",50}};
-    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",
-        candidates, "ni", "己", "linear", 2, 2, false));
+    candidates = {{"ni", "甲", 100}, {"ni", "乙", 90}, {"ni", "丙", 80},
+                  {"ni", "丁", 70},  {"ni", "戊", 60}, {"ni", "己", 50}};
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni", candidates, "ni",
+                                                      "己", "linear", 2, 2, false));
     {
         TestDatabase db(main_path);
         REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='己'"), 50);
     }
-    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",
-        candidates, "ni", "己", "linear", 2, 2, false));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni", candidates, "ni",
+                                                      "己", "linear", 2, 2, false));
     {
         TestDatabase db(main_path);
         REQUIRE(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='己'") > 70);
@@ -278,9 +279,9 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
                 "UPDATE tbl_1_n SET weight=99 WHERE value='乙';"
                 "UPDATE tbl_1_n SET weight=98 WHERE value='丙';");
     }
-    candidates = {{"ni","甲",100}, {"ni","乙",99}, {"ni","丙",98}};
-    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni",
-        candidates, "ni", "丙", "linear", 1, 1, false));
+    candidates = {{"ni", "甲", 100}, {"ni", "乙", 99}, {"ni", "丙", 98}};
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni", candidates, "ni",
+                                                      "丙", "linear", 1, 1, false));
     {
         TestDatabase db(main_path);
         REQUIRE_EQ(db.scalar_int("SELECT weight FROM tbl_1_n WHERE value='丙'"), 101);
@@ -291,8 +292,8 @@ TEST_CASE(UserDictionarySupportsFixedPositionsAndDeferredSafeRanking)
 
 TEST_CASE(UserDictionaryRebalanceKeepsWeightsBounded)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-bounded-ranking-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-bounded-ranking-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto main_path = directory / "msime.db";
@@ -304,14 +305,13 @@ TEST_CASE(UserDictionaryRebalanceKeepsWeightsBounded)
                 "INSERT INTO tbl_1_y VALUES('yi','y','丙',999998000000);");
     }
     std::vector<WordItem> candidates = {
-        {"yi","甲",1000000000000LL},
-        {"yi","乙",999999000000LL},
-        {"yi","丙",999998000000LL},
+        {"yi", "甲", 1000000000000LL},
+        {"yi", "乙", 999999000000LL},
+        {"yi", "丙", 999998000000LL},
     };
 
-    REQUIRE(user_dictionary::adjust_candidate_ranking(
-        main_path.string(), user_path.string(), "yi", candidates,
-        "yi", "丙", "pin", 1, 1, true));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "yi", candidates, "yi",
+                                                      "丙", "pin", 1, 1, true));
     {
         TestDatabase db(main_path);
         REQUIRE_EQ(db.scalar_int("SELECT COUNT(*) FROM tbl_1_y WHERE weight > 100000000"), 0);
@@ -323,8 +323,8 @@ TEST_CASE(UserDictionaryRebalanceKeepsWeightsBounded)
 
 TEST_CASE(UserDictionaryPromoteDoesNotCrushPrefixSinglesFromSeriesQuery)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-xianwang-ranking-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-xianwang-ranking-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto main_path = directory / "msime.db";
@@ -358,9 +358,8 @@ TEST_CASE(UserDictionaryPromoteDoesNotCrushPrefixSinglesFromSeriesQuery)
     }
 
     const std::vector<std::pair<std::string, std::int64_t>> xianwang_words = {
-        {"先王", 15850}, {"先往", 4590}, {"先汪", 1}, {"贤王", 1}, {"先亡", 1}, {"鲜网", 1},
-        {"献王", 1},     {"宪王", 1},    {"限网", 1}, {"现网", 1}, {"闲望", 1}, {"线网", 1},
-        {"纤网", 1},     {"宪网", 1},    {"弦望", 1}, {"仙王", 1},
+        {"先王", 15850}, {"先往", 4590}, {"先汪", 1}, {"贤王", 1}, {"先亡", 1}, {"鲜网", 1}, {"献王", 1}, {"宪王", 1},
+        {"限网", 1},     {"现网", 1},    {"闲望", 1}, {"线网", 1}, {"纤网", 1}, {"宪网", 1}, {"弦望", 1}, {"仙王", 1},
     };
     std::vector<WordItem> candidates;
     for (const auto &[word, weight] : xianwang_words)
@@ -372,9 +371,8 @@ TEST_CASE(UserDictionaryPromoteDoesNotCrushPrefixSinglesFromSeriesQuery)
     candidates.push_back({"xian", "县", 1, CandidateSource::Database, "xian"});
 
     bool ranking_changed = false;
-    REQUIRE(user_dictionary::adjust_candidate_ranking(
-        main_path.string(), user_path.string(), "xian'wang", candidates, "xian'wang", "现网", "promote",
-        1, 1, false, &ranking_changed));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "xian'wang", candidates,
+                                                      "xian'wang", "现网", "promote", 1, 1, false, &ranking_changed));
     REQUIRE(ranking_changed);
 
     {
@@ -421,12 +419,11 @@ TEST_CASE(UserDictionaryEqualWeightPromoteDoesNotWriteNegatives)
                 "('ni','n','己',1);");
     }
     std::vector<WordItem> candidates = {
-        {"ni", "甲", 1}, {"ni", "乙", 1}, {"ni", "丙", 1},
-        {"ni", "丁", 1}, {"ni", "戊", 1}, {"ni", "己", 1},
+        {"ni", "甲", 1}, {"ni", "乙", 1}, {"ni", "丙", 1}, {"ni", "丁", 1}, {"ni", "戊", 1}, {"ni", "己", 1},
     };
 
-    REQUIRE(user_dictionary::adjust_candidate_ranking(
-        main_path.string(), user_path.string(), "ni", candidates, "ni", "己", "promote", 1, 1, false));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni", candidates, "ni",
+                                                      "己", "promote", 1, 1, false));
     {
         TestDatabase db(main_path);
         REQUIRE(db.scalar_int64("SELECT weight FROM tbl_1_n WHERE value='己'") > 1);
@@ -458,10 +455,10 @@ TEST_CASE(UserDictionaryReplaySkipsNonpositivePinyinUpserts)
         english_db.exec("CREATE TABLE english_words(word TEXT PRIMARY KEY,display TEXT);");
     }
 
-    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xian",
-                                           "先", -12999));
-    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xian",
-                                           "现", 5000));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xian", "先",
+                                           -12999));
+    REQUIRE(user_dictionary::record_upsert(user_path.string(), user_dictionary::DictionaryKind::Pinyin, "xian", "现",
+                                           5000));
 
     const auto replay = user_dictionary::replay(user_path.string(), main_path.string(), english_path.string());
     REQUIRE(replay.error.empty());
@@ -485,8 +482,8 @@ TEST_CASE(UserDictionaryReplaySkipsNonpositivePinyinUpserts)
 
 TEST_CASE(UserDictionaryLocalRebalanceKeepsPositiveSameKeyWeights)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-local-rebalance-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-local-rebalance-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto main_path = directory / "msime.db";
@@ -504,8 +501,8 @@ TEST_CASE(UserDictionaryLocalRebalanceKeepsPositiveSameKeyWeights)
         {"ni", "甲", 20000}, {"ni", "乙", 20000}, {"ni", "丙", 20000},
         {"ni", "丁", 20000}, {"ni", "戊", 20000}, {"ni", "己", 20000},
     };
-    REQUIRE(user_dictionary::adjust_candidate_ranking(
-        main_path.string(), user_path.string(), "ni", candidates, "ni", "己", "promote", 1, 1, false));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "ni", candidates, "ni",
+                                                      "己", "promote", 1, 1, false));
     {
         TestDatabase db(main_path);
         REQUIRE_EQ(db.scalar_int("SELECT COUNT(*) FROM tbl_1_n WHERE weight < 1"), 0);
@@ -536,9 +533,8 @@ TEST_CASE(UserDictionaryRankingIgnoresShorterKeysWithoutCanonicalPinyin)
         {"xianwang", "现网", 1},
         {"xianwang", "先", 1662684},
     };
-    REQUIRE(user_dictionary::adjust_candidate_ranking(
-        main_path.string(), user_path.string(), "xian'wang", candidates, "xian'wang", "现网", "promote",
-        1, 1, false));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "xian'wang", candidates,
+                                                      "xian'wang", "现网", "promote", 1, 1, false));
     {
         TestDatabase db(main_path);
         REQUIRE(db.scalar_int64("SELECT weight FROM tbl_2_x WHERE value='现网'") > 1);
@@ -550,8 +546,8 @@ TEST_CASE(UserDictionaryRankingIgnoresShorterKeysWithoutCanonicalPinyin)
 
 TEST_CASE(UserDictionaryWubiPromoteUpdatesWubiTable)
 {
-    const auto directory = std::filesystem::temp_directory_path() /
-                           ("msime-wubi-ranking-" + std::to_string(GetCurrentProcessId()));
+    const auto directory =
+        std::filesystem::temp_directory_path() / ("msime-wubi-ranking-" + std::to_string(GetCurrentProcessId()));
     std::filesystem::create_directories(directory);
     const auto user_path = directory / "msime_user.db";
     const auto main_path = directory / "msime.db";
@@ -567,9 +563,9 @@ TEST_CASE(UserDictionaryWubiPromoteUpdatesWubiTable)
         {"aaaa", "或", 50},
     };
     bool ranking_changed = false;
-    REQUIRE(user_dictionary::adjust_candidate_ranking(
-        main_path.string(), user_path.string(), "aaaa", candidates, "aaaa", "或", "promote", 1, 1, false,
-        &ranking_changed, user_dictionary::DictionaryKind::Wubi));
+    REQUIRE(user_dictionary::adjust_candidate_ranking(main_path.string(), user_path.string(), "aaaa", candidates,
+                                                      "aaaa", "或", "promote", 1, 1, false, &ranking_changed,
+                                                      user_dictionary::DictionaryKind::Wubi));
     REQUIRE(ranking_changed);
     {
         TestDatabase db(main_path);
@@ -582,8 +578,7 @@ TEST_CASE(UserDictionaryWubiPromoteUpdatesWubiTable)
         REQUIRE_EQ(user_db.scalar_int(
                        "SELECT COUNT(*) FROM user_dictionary_operations WHERE dictionary='wubi' AND value='或'"),
                    1);
-        REQUIRE_EQ(user_db.scalar_int("SELECT COUNT(*) FROM user_dictionary_operations WHERE dictionary='pinyin'"),
-                   0);
+        REQUIRE_EQ(user_db.scalar_int("SELECT COUNT(*) FROM user_dictionary_operations WHERE dictionary='pinyin'"), 0);
     }
     std::filesystem::remove_all(directory);
 }

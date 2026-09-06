@@ -18,7 +18,6 @@
 #include <fmt/xchar.h>
 #include "../Utils/PerfTimer.h"
 
-
 static thread_local HANDLE hMapFile = nullptr;
 static thread_local void *pBuf = nullptr;
 static thread_local FanyImeSharedMemoryData *sharedData = nullptr;
@@ -84,7 +83,8 @@ bool SendDiagnosticBatch(const FanyImeTsfDiagnosticBatchHeader &header, const st
     HANDLE pipe = INVALID_HANDLE_VALUE;
     for (int attempt = 0; attempt < 2; ++attempt)
     {
-        pipe = CreateFileW(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        pipe = CreateFileW(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                           SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
         if (pipe != INVALID_HANDLE_VALUE)
         {
             break;
@@ -135,8 +135,7 @@ void CALLBACK FlushTsfDiagnosticLogs(PTP_CALLBACK_INSTANCE, PVOID)
         else
         {
             const size_t maxPayloadUnits =
-                (FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES - sizeof(FanyImeTsfDiagnosticBatchHeader)) /
-                sizeof(wchar_t);
+                (FANY_IME_TSF_DIAGNOSTIC_MAX_FRAME_BYTES - sizeof(FanyImeTsfDiagnosticBatchHeader)) / sizeof(wchar_t);
             while (!diagnosticLogRecords.empty())
             {
                 const std::wstring &record = diagnosticLogRecords.front();
@@ -214,8 +213,7 @@ UINT NextAtomicNonzeroToken(std::atomic<UINT> &counter)
 
 bool IsLocalSessionResetPending()
 {
-    return boundLocalSessionResetPending &&
-           boundLocalSessionResetPending->load(std::memory_order_acquire);
+    return boundLocalSessionResetPending && boundLocalSessionResetPending->load(std::memory_order_acquire);
 }
 
 bool IsExpectedWorkerFocusAcknowledged()
@@ -235,16 +233,13 @@ bool IsExpectedWorkerFocusAcknowledged()
 
 void PublishWorkerPipeHandleIfChanged(HANDLE workerPipe)
 {
-    if (!boundWorkerPipeHandle ||
-        boundWorkerPipeHandle->load(std::memory_order_acquire) == workerPipe)
+    if (!boundWorkerPipeHandle || boundWorkerPipeHandle->load(std::memory_order_acquire) == workerPipe)
     {
         return;
     }
     if (boundWorkerPipeGeneration)
     {
-        boundWorkerPipeGeneration->store(
-            NextAtomicNonzeroToken(nextWorkerPipeGeneration),
-            std::memory_order_release);
+        boundWorkerPipeGeneration->store(NextAtomicNonzeroToken(nextWorkerPipeGeneration), std::memory_order_release);
     }
     boundWorkerPipeHandle->store(workerPipe, std::memory_order_release);
 }
@@ -420,8 +415,7 @@ bool WaitForReplyPipeReady(HANDLE hPipeHandle)
         const DWORD remainingMs = static_cast<DWORD>(deadline - now);
         const OverlappedReadResult result =
             ReadOverlappedWithTimeout(hPipeHandle, &reply, sizeof(reply), remainingMs, bytesRead);
-        if (result != OverlappedReadResult::Completed || bytesRead != sizeof(reply) ||
-            !IsValidServerReply(reply))
+        if (result != OverlappedReadResult::Completed || bytesRead != sizeof(reply) || !IsValidServerReply(reply))
         {
             return false;
         }
@@ -504,30 +498,36 @@ bool TryOpenClientPipe(HANDLE &hPipeHandle, const wchar_t *pipeName, UINT pipeRo
         }
         else
         {
-        if (pipeRole != FanyImePipeRole::ToTsf)
-        {
-            // Main is synchronous and is validated by its NOWAIT write. The
-            // worker pipe can have a read outstanding on another thread, which
-            // is responsible for reporting disconnection.
-            return true;
-        }
+            if (pipeRole != FanyImePipeRole::ToTsf)
+            {
+                // Main is synchronous and is validated by its NOWAIT write. The
+                // worker pipe can have a read outstanding on another thread, which
+                // is responsible for reporting disconnection.
+                return true;
+            }
 
-        // The reply pipe is overlapped and has no outstanding operation here,
-        // so PeekNamedPipe is a nonblocking liveness probe. A stale non-null
-        // HANDLE after Server restart must not authorize the first new key.
-        DWORD bytesAvailable = 0;
-        if (PeekNamedPipe(hPipeHandle, nullptr, 0, nullptr, &bytesAvailable, nullptr))
-        {
-            return true;
-        }
+            // The reply pipe is overlapped and has no outstanding operation here,
+            // so PeekNamedPipe is a nonblocking liveness probe. A stale non-null
+            // HANDLE after Server restart must not authorize the first new key.
+            DWORD bytesAvailable = 0;
+            if (PeekNamedPipe(hPipeHandle, nullptr, 0, nullptr, &bytesAvailable, nullptr))
+            {
+                return true;
+            }
 
-        MarkNamedpipeSessionDirty();
-        ClosePipeHandleIfValid(hPipeHandle);
-        ResetNamedpipeReplyState();
+            MarkNamedpipeSessionDirty();
+            ClosePipeHandleIfValid(hPipeHandle);
+            ResetNamedpipeReplyState();
         }
     }
 
-    const DWORD flags = pipeRole == FanyImePipeRole::Main ? 0 : FILE_FLAG_OVERLAPPED;
+    // The pipe name lives in the machine-global namespace, so whichever
+    // process answers is not necessarily the Server, nor even the same
+    // account. SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION lets it check
+    // who connected but never act as this thread, which matters most for the
+    // app container and low integrity hosts the TIP is loaded into.
+    const DWORD flags = SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION |
+                        (pipeRole == FanyImePipeRole::Main ? 0 : FILE_FLAG_OVERLAPPED);
     HANDLE openedPipe = CreateFile(   //
         pipeName,                     //
         GENERIC_READ | GENERIC_WRITE, //
@@ -594,12 +594,9 @@ bool TryOpenClientPipe(HANDLE &hPipeHandle, const wchar_t *pipeName, UINT pipeRo
 
 void BindNamedpipeFocusState(const void *owner, bool *focusResetPending, bool *activationRequired,
                              std::atomic<uint64_t> *expectedWorkerFocusToken,
-                             std::atomic<bool> *localSessionResetPending,
-                             std::atomic<UINT> *localSessionResetToken,
-                             std::atomic<bool> *workerCommitReady,
-                             std::atomic<uint64_t> *acknowledgedWorkerFocusToken,
-                             std::atomic<HANDLE> *workerPipeHandle,
-                             std::atomic<UINT> *workerPipeGeneration)
+                             std::atomic<bool> *localSessionResetPending, std::atomic<UINT> *localSessionResetToken,
+                             std::atomic<bool> *workerCommitReady, std::atomic<uint64_t> *acknowledgedWorkerFocusToken,
+                             std::atomic<HANDLE> *workerPipeHandle, std::atomic<UINT> *workerPipeGeneration)
 {
     boundFocusStateOwner = owner;
     boundFocusResetPending = focusResetPending;
@@ -652,9 +649,7 @@ void InvalidateNamedpipeWorkerGeneration()
 {
     if (boundWorkerPipeGeneration)
     {
-        boundWorkerPipeGeneration->store(
-            NextAtomicNonzeroToken(nextWorkerPipeGeneration),
-            std::memory_order_release);
+        boundWorkerPipeGeneration->store(NextAtomicNonzeroToken(nextWorkerPipeGeneration), std::memory_order_release);
     }
 }
 
@@ -718,8 +713,7 @@ void MarkNamedpipeSessionDirty()
 
     bool shouldPostReset = false;
     UINT resetToken = 0;
-    if (boundLocalSessionResetPending &&
-        !boundLocalSessionResetPending->exchange(true, std::memory_order_acq_rel))
+    if (boundLocalSessionResetPending && !boundLocalSessionResetPending->exchange(true, std::memory_order_acq_rel))
     {
         resetToken = BeginNamedpipeLocalSessionReset();
         shouldPostReset = resetToken != 0;
@@ -728,16 +722,14 @@ void MarkNamedpipeSessionDirty()
     const HWND ownerWindow = Global::msgWndHandle;
     if (shouldPostReset && ownerWindow && IsWindow(ownerWindow))
     {
-        resetDelivered = PostMessage(ownerWindow, WM_IpcSessionDirty,
-                                     static_cast<WPARAM>(resetToken), 0) != FALSE;
+        resetDelivered = PostMessage(ownerWindow, WM_IpcSessionDirty, static_cast<WPARAM>(resetToken), 0) != FALSE;
         if (!resetDelivered && GetWindowThreadProcessId(ownerWindow, nullptr) == GetCurrentThreadId())
         {
             SendMessage(ownerWindow, WM_IpcSessionDirty, static_cast<WPARAM>(resetToken), 0);
             resetDelivered = true;
         }
     }
-    if (shouldPostReset && !resetDelivered && boundLocalSessionResetPending &&
-        boundLocalSessionResetToken &&
+    if (shouldPostReset && !resetDelivered && boundLocalSessionResetPending && boundLocalSessionResetToken &&
         boundLocalSessionResetToken->load(std::memory_order_acquire) == resetToken)
     {
         // No message can run the local cancel.  Release only the exact token;
@@ -828,13 +820,11 @@ int InitNamedpipe()
 
 int ConnectToAllNamedpipe()
 {
-    if (!TryOpenClientPipe(hFromServerPipe, FANY_IME_TO_TSF_NAMED_PIPE,
-                           FanyImePipeRole::ToTsf))
+    if (!TryOpenClientPipe(hFromServerPipe, FANY_IME_TO_TSF_NAMED_PIPE, FanyImePipeRole::ToTsf))
     {
         return 0;
     }
-    if (!TryOpenClientPipe(hToTsfWorkerThreadPipe,
-                           FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,
+    if (!TryOpenClientPipe(hToTsfWorkerThreadPipe, FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,
                            FanyImePipeRole::ToTsfWorkerThread))
     {
         return 0;
@@ -851,10 +841,7 @@ int ConnectToAllNamedpipe()
 
     // Open Main last. Once it exists, a key may be sent immediately, so both
     // reverse channels must already have completed their hello handshakes.
-    return TryOpenClientPipe(hPipe, FANY_IME_NAMED_PIPE,
-                             FanyImePipeRole::Main)
-               ? 1
-               : 0;
+    return TryOpenClientPipe(hPipe, FANY_IME_NAMED_PIPE, FanyImePipeRole::Main) ? 1 : 0;
 }
 
 int ConnectToTsfNamedpipe()
@@ -1018,16 +1005,15 @@ void DebugTsfKeyLatency(const wchar_t *stage, uint64_t requestId, double elapsed
         return;
     }
 
-    const std::wstring message = fmt::format(
-        L"[msime][key-latency] side=tsf stage={} request={} elapsed_ms={:.3f} result=0x{:08X} process={}\n",
-        stage, requestId, elapsedMs, static_cast<unsigned long>(result),
-        Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
+    const std::wstring message =
+        fmt::format(L"[msime][key-latency] side=tsf stage={} request={} elapsed_ms={:.3f} result=0x{:08X} process={}\n",
+                    stage, requestId, elapsedMs, static_cast<unsigned long>(result),
+                    Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
     QueueTsfDiagnosticLog(message);
 }
 
-void DebugTsfIssue47(const wchar_t *stage, uint64_t requestId, UINT code, WCHAR wch,
-                     UINT category, UINT function, int eaten, BOOL composing,
-                     size_t virtualKeyLength, HRESULT result, uint64_t correlationToken)
+void DebugTsfIssue47(const wchar_t *stage, uint64_t requestId, UINT code, WCHAR wch, UINT category, UINT function,
+                     int eaten, BOOL composing, size_t virtualKeyLength, HRESULT result, uint64_t correlationToken)
 {
     if (!Global::TsfDiagnosticLogEnabled.load(std::memory_order_relaxed))
     {
@@ -1051,13 +1037,12 @@ void DebugTsfIssue47(const wchar_t *stage, uint64_t requestId, UINT code, WCHAR 
     {
         keyClass = L"delete";
     }
-    else if (code == VK_LEFT || code == VK_RIGHT || code == VK_UP || code == VK_DOWN ||
-             code == VK_HOME || code == VK_END || code == VK_PRIOR || code == VK_NEXT)
+    else if (code == VK_LEFT || code == VK_RIGHT || code == VK_UP || code == VK_DOWN || code == VK_HOME ||
+             code == VK_END || code == VK_PRIOR || code == VK_NEXT)
     {
         keyClass = L"navigation";
     }
-    else if (code == VK_SHIFT || code == VK_CONTROL || code == VK_MENU ||
-             code == VK_LWIN || code == VK_RWIN)
+    else if (code == VK_SHIFT || code == VK_CONTROL || code == VK_MENU || code == VK_LWIN || code == VK_RWIN)
     {
         keyClass = L"modifier";
     }
@@ -1065,19 +1050,16 @@ void DebugTsfIssue47(const wchar_t *stage, uint64_t requestId, UINT code, WCHAR 
     {
         keyClass = L"control";
     }
-    const wchar_t keyText[2] = {
-        wch != L'\0' && std::iswprint(static_cast<wint_t>(wch)) != 0 ? wch : L'-',
-        L'\0'};
+    const wchar_t keyText[2] = {wch != L'\0' && std::iswprint(static_cast<wint_t>(wch)) != 0 ? wch : L'-', L'\0'};
 
     const uint64_t sequence = issue47Sequence.fetch_add(1, std::memory_order_relaxed) + 1;
-    const std::wstring message = fmt::format(
-        L"[msime][issue47] seq={} stage={} request={} vk=0x{:02X} wch=U+{:04X} key={} "
-        L"key_class={} category={} function={} eaten={} composing={} buffer_len={} "
-        L"result=0x{:08X} correlation={} process={}\n",
-        sequence, stage, requestId, code, static_cast<unsigned int>(wch), keyText,
-        keyClass, category, function, eaten, composing ? 1 : 0, virtualKeyLength,
-        static_cast<unsigned long>(result), correlationToken,
-        Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
+    const std::wstring message =
+        fmt::format(L"[msime][issue47] seq={} stage={} request={} vk=0x{:02X} wch=U+{:04X} key={} "
+                    L"key_class={} category={} function={} eaten={} composing={} buffer_len={} "
+                    L"result=0x{:08X} correlation={} process={}\n",
+                    sequence, stage, requestId, code, static_cast<unsigned int>(wch), keyText, keyClass, category,
+                    function, eaten, composing ? 1 : 0, virtualKeyLength, static_cast<unsigned long>(result),
+                    correlationToken, Global::current_process_name.empty() ? L"unknown" : Global::current_process_name);
     QueueTsfDiagnosticLog(message);
 }
 
@@ -1107,16 +1089,14 @@ void QueueTsfDiagnosticLog(const std::wstring &line)
     }
     SYSTEMTIME sourceTime{};
     GetLocalTime(&sourceTime);
-    sanitized = fmt::format(
-        L"[tsf source={:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} p{}:t{} tick={}] {}\n",
-        sourceTime.wYear, sourceTime.wMonth, sourceTime.wDay, sourceTime.wHour, sourceTime.wMinute,
-        sourceTime.wSecond, sourceTime.wMilliseconds, GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(),
-        sanitized);
+    sanitized =
+        fmt::format(L"[tsf source={:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} p{}:t{} tick={}] {}\n", sourceTime.wYear,
+                    sourceTime.wMonth, sourceTime.wDay, sourceTime.wHour, sourceTime.wMinute, sourceTime.wSecond,
+                    sourceTime.wMilliseconds, GetCurrentProcessId(), GetCurrentThreadId(), GetTickCount64(), sanitized);
 
     std::lock_guard lock(diagnosticLogMutex);
-    while (!diagnosticLogRecords.empty() &&
-           (diagnosticLogRecords.size() >= MaxDiagnosticRecordCount ||
-            diagnosticLogQueuedUnits + sanitized.size() > MaxDiagnosticQueuedUnits))
+    while (!diagnosticLogRecords.empty() && (diagnosticLogRecords.size() >= MaxDiagnosticRecordCount ||
+                                             diagnosticLogQueuedUnits + sanitized.size() > MaxDiagnosticQueuedUnits))
     {
         diagnosticLogQueuedUnits -= diagnosticLogRecords.front().size();
         diagnosticLogRecords.pop_front();
@@ -1159,18 +1139,16 @@ bool SendToNamedpipe(bool *deliveryAmbiguous = nullptr)
     }
     FanyImeNamedpipeData packet = namedpipeData;
     packet.client_id = GetPipeClientId();
-    const bool isLifecyclePacket =
-        packet.event_type == FanyImePipeEventType::ClientHello ||
-        packet.event_type == FanyImePipeEventType::ClientActivated ||
-        packet.event_type == FanyImePipeEventType::ClientDeactivated ||
-        packet.event_type == FanyImePipeEventType::ClientSuspended;
+    const bool isLifecyclePacket = packet.event_type == FanyImePipeEventType::ClientHello ||
+                                   packet.event_type == FanyImePipeEventType::ClientActivated ||
+                                   packet.event_type == FanyImePipeEventType::ClientDeactivated ||
+                                   packet.event_type == FanyImePipeEventType::ClientSuspended;
 
     // Tell Server never to raise an IME HWND for UILess hosts (games / fullscreen).
-    if (Global::IsUiLessMode() &&
-        (packet.event_type == FanyImePipeEventType::KeyEvent ||
-         packet.event_type == FanyImePipeEventType::ShowCandidateWnd ||
-         packet.event_type == FanyImePipeEventType::MoveCandidateWnd ||
-         packet.event_type == FanyImePipeEventType::HideCandidateWnd))
+    if (Global::IsUiLessMode() && (packet.event_type == FanyImePipeEventType::KeyEvent ||
+                                   packet.event_type == FanyImePipeEventType::ShowCandidateWnd ||
+                                   packet.event_type == FanyImePipeEventType::MoveCandidateWnd ||
+                                   packet.event_type == FanyImePipeEventType::HideCandidateWnd))
     {
         packet.modifiers_down |= FanyImePipeFlags::UiLess;
     }
@@ -1210,9 +1188,7 @@ bool SendToNamedpipe(bool *deliveryAmbiguous = nullptr)
         RequestNamedpipeReconnect();
         return false;
     }
-    if (!isLifecyclePacket &&
-        (IsLocalSessionResetPending() ||
-         !IsExpectedWorkerFocusAcknowledged()))
+    if (!isLifecyclePacket && (IsLocalSessionResetPending() || !IsExpectedWorkerFocusAcknowledged()))
     {
         // The worker reader can report a disconnect concurrently with the UI
         // thread returning from Ensure. Recheck the exact acknowledgement at
@@ -1223,8 +1199,7 @@ bool SendToNamedpipe(bool *deliveryAmbiguous = nullptr)
     }
 
     DWORD bytesWritten = 0;
-    if (WriteFile(hPipe, &packet, sizeof(packet), &bytesWritten, nullptr) &&
-        bytesWritten == sizeof(packet))
+    if (WriteFile(hPipe, &packet, sizeof(packet), &bytesWritten, nullptr) && bytesWritten == sizeof(packet))
     {
         return true;
     }
@@ -1275,7 +1250,7 @@ struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t 
 }
 
 struct FanyImeNamedpipeDataToTsf *TryReadDataFromServerPipeWithTimeout(uint64_t expectedRequestId,
-                                                                      bool abortTransportOnTimeout)
+                                                                       bool abortTransportOnTimeout)
 {
     constexpr int timeoutMs = 50;
     PerfTimer replyWaitTimer;
@@ -1425,22 +1400,21 @@ struct FanyImeNamedpipeDataToTsf *ReadDataFromServerViaNamedPipe(uint64_t expect
  *
  * @param pipeData
  */
-bool SendToAuxNamedpipe(const std::wstring &pipeData,
-                        bool waitForAcknowledgement)
+bool SendToAuxNamedpipe(const std::wstring &pipeData, bool waitForAcknowledgement)
 {
     HANDLE hAuxPipe = INVALID_HANDLE_VALUE;
 
     // 重试几次，等待 Server 准备好
     for (int retry = 0; retry < 5; ++retry)
     {
-        hAuxPipe = CreateFileW(           //
-            FANY_IME_AUX_NAMED_PIPE,      //
-            GENERIC_READ | GENERIC_WRITE, //
-            0,                            //
-            nullptr,                      //
-            OPEN_EXISTING,                //
-            0,                            //
-            nullptr                       //
+        hAuxPipe = CreateFileW(                              //
+            FANY_IME_AUX_NAMED_PIPE,                         //
+            GENERIC_READ | GENERIC_WRITE,                    //
+            0,                                               //
+            nullptr,                                         //
+            OPEN_EXISTING,                                   //
+            SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, //
+            nullptr                                          //
         );
         if (hAuxPipe && hAuxPipe != INVALID_HANDLE_VALUE)
         {
@@ -1463,8 +1437,7 @@ bool SendToAuxNamedpipe(const std::wstring &pipeData,
         &bytesWritten,                       //
         NULL                                 //
     );
-    const bool sent =
-        ret && bytesWritten == pipeData.length() * sizeof(wchar_t);
+    const bool sent = ret && bytesWritten == pipeData.length() * sizeof(wchar_t);
     if (!sent || !waitForAcknowledgement)
     {
         CloseHandle(hAuxPipe);
@@ -1484,12 +1457,10 @@ bool SendToAuxNamedpipe(const std::wstring &pipeData,
     {
         wchar_t acknowledgement[2] = {};
         DWORD bytesRead = 0;
-        if (ReadFile(hAuxPipe, acknowledgement, sizeof(acknowledgement),
-                     &bytesRead, nullptr))
+        if (ReadFile(hAuxPipe, acknowledgement, sizeof(acknowledgement), &bytesRead, nullptr))
         {
-            acknowledged = bytesRead == sizeof(acknowledgement) &&
-                           acknowledgement[0] == L'O' &&
-                           acknowledgement[1] == L'K';
+            acknowledged =
+                bytesRead == sizeof(acknowledgement) && acknowledgement[0] == L'O' && acknowledgement[1] == L'K';
             break;
         }
         if (GetLastError() != ERROR_NO_DATA)
@@ -1544,8 +1515,7 @@ KeyEventSendResult SendKeyEventToUIProcessViaNamedPipe(uint64_t *requestId)
     bool deliveryAmbiguous = false;
     if (!SendToNamedpipe(&deliveryAmbiguous))
     {
-        return deliveryAmbiguous ? KeyEventSendResult::DeliveryAmbiguous
-                                 : KeyEventSendResult::DefinitelyNotSent;
+        return deliveryAmbiguous ? KeyEventSendResult::DeliveryAmbiguous : KeyEventSendResult::DefinitelyNotSent;
     }
     if (requestId)
     {
@@ -1594,8 +1564,8 @@ int SendLangbarRightClickEventToUIProcessViaNamedPipe(const RECT *prcArea)
     {
         return -1;
     }
-    SendToAuxNamedpipe(fmt::format(L"LangbarRightClick|{}|{}|{}|{}", prcArea->left, prcArea->top, prcArea->right,
-                                   prcArea->bottom));
+    SendToAuxNamedpipe(
+        fmt::format(L"LangbarRightClick|{}|{}|{}|{}", prcArea->left, prcArea->top, prcArea->right, prcArea->bottom));
     return 0;
 }
 
@@ -1652,8 +1622,7 @@ bool FlushNamedpipeImeDeactivation(uint64_t focusToken)
 {
     if (focusToken == 0 && boundExpectedWorkerFocusToken)
     {
-        focusToken =
-            boundExpectedWorkerFocusToken->load(std::memory_order_acquire);
+        focusToken = boundExpectedWorkerFocusToken->load(std::memory_order_acquire);
     }
     if (SendClientDeactivatedEventToServerViaNamedPipe(focusToken) != 0)
     {
@@ -1662,10 +1631,7 @@ bool FlushNamedpipeImeDeactivation(uint64_t focusToken)
         // Use a PID-validated, focus-token-checked Aux request and wait briefly
         // for the Server to confirm that it fenced the exact old session.
         if (focusToken == 0 ||
-            !SendToAuxNamedpipe(
-                fmt::format(L"TerminalDeactivation|{}|{}",
-                            GetPipeClientId(), focusToken),
-                true))
+            !SendToAuxNamedpipe(fmt::format(L"TerminalDeactivation|{}|{}", GetPipeClientId(), focusToken), true))
         {
             return false;
         }
@@ -1719,9 +1685,8 @@ bool EnsureNamedpipeFocusSessionActivated()
             break;
         }
 
-        const uint64_t token = boundExpectedWorkerFocusToken
-                                   ? boundExpectedWorkerFocusToken->load(std::memory_order_acquire)
-                                   : 0;
+        const uint64_t token =
+            boundExpectedWorkerFocusToken ? boundExpectedWorkerFocusToken->load(std::memory_order_acquire) : 0;
         if (SendClientActivatedEventToServerViaNamedPipe(token) != 0)
         {
             return false;
@@ -1731,8 +1696,8 @@ bool EnsureNamedpipeFocusSessionActivated()
             return false;
         }
 
-        const bool tokenStillCurrent = !boundExpectedWorkerFocusToken ||
-                                       boundExpectedWorkerFocusToken->load(std::memory_order_acquire) == token;
+        const bool tokenStillCurrent =
+            !boundExpectedWorkerFocusToken || boundExpectedWorkerFocusToken->load(std::memory_order_acquire) == token;
         if (tokenStillCurrent && boundActivationRequired)
         {
             *boundActivationRequired = false;

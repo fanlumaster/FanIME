@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.3.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.0...v0.3.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **server:** revalidate queued online candidate generations on apply ([9785ecd](https://github.com/metasequoiaime/MSIME-Windows/commit/9785ecd4bf1a2c8f1056682d18fd184ff6aad733))
+
+## [0.3.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.2.1...v0.3.0) (2026-09-06)
+
+
+### Features
+
+* **release:** separate the automatic build channel from the release channel ([2d51c53](https://github.com/metasequoiaime/MSIME-Windows/commit/2d51c5383925ce8174a60f5527cbda5ff03b7d9f))
+* **release:** separate the automatic build channel from the release channel ([d0e7cfd](https://github.com/metasequoiaime/MSIME-Windows/commit/d0e7cfdbdfaae9e5c296c83e58707932128c9b71))
+
+## [0.2.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.2.0...v0.2.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **server:** adopt isolated engine sessions and helpcode annotations ([#178](https://github.com/metasequoiaime/MSIME-Windows/issues/178)) ([2b8bf93](https://github.com/metasequoiaime/MSIME-Windows/commit/2b8bf937d96e5ff80e19f97de5be594802d90b5d))
+
+## [0.2.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.4...v0.2.0) (2026-09-06)
+
+
+### Features
+
+* **release:** mark automatically built releases in the title and notes ([fd9236f](https://github.com/metasequoiaime/MSIME-Windows/commit/fd9236f175a629a33d611b3748781d3623e1c497))
+* **release:** mark automatically built releases in the title and notes ([568fd37](https://github.com/metasequoiaime/MSIME-Windows/commit/568fd3742cdbbb6c466f16fb3c4a9707e3590f52))
+
+
+### Bug Fixes
+
+* **ci:** attach automatic release checks to the pull request ([#175](https://github.com/metasequoiaime/MSIME-Windows/issues/175)) ([ee4334d](https://github.com/metasequoiaime/MSIME-Windows/commit/ee4334dddd29b0ab6bd4ff6c887e41a716000f5f))
+* **ci:** stop the dependency review from skipping the release pull request ([cc5af53](https://github.com/metasequoiaime/MSIME-Windows/commit/cc5af5356d084255170fd67e88d674a8de3a933f))
+* **ci:** stop the engine bump triage from executing engine file names ([#174](https://github.com/metasequoiaime/MSIME-Windows/issues/174)) ([5a4484f](https://github.com/metasequoiaime/MSIME-Windows/commit/5a4484feea2cd735eae061472983905897863892))
+* 修复审计发现的候选页竞态、管道权限、TSF 空指针与皮肤 CSS 逃逸等八项缺陷 ([#169](https://github.com/metasequoiaime/MSIME-Windows/issues/169)) ([2562026](https://github.com/metasequoiaime/MSIME-Windows/commit/2562026a2a1c393e387fcd8ccd2dc30024a44463))
+
+## [0.1.4](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.3...v0.1.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **server:** 将本地测试入口接回合仓后的主工程 ([0baaf9a](https://github.com/metasequoiaime/MSIME-Windows/commit/0baaf9a1d0e572fd9a7fa63db934fc365df65f46))
+* **server:** 补齐合仓后的本地测试和开发入口 ([2297ef4](https://github.com/metasequoiaime/MSIME-Windows/commit/2297ef421a2205148afc2d1ef4a3b3f8b8dcf351))
+
+## [0.1.3](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.2...v0.1.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **build:** finish local tooling migration to the monorepo ([8155380](https://github.com/metasequoiaime/MSIME-Windows/commit/81553802ba3f6e0e0ef1e4768fbb94398d2f3658))
+* **build:** finish local tooling migration to the monorepo ([b2d736c](https://github.com/metasequoiaime/MSIME-Windows/commit/b2d736cd797d5ebce0a8c5e14b4c7c690d77275f))
+
 ## [0.1.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.1...v0.1.2) (2026-09-05)
 
 

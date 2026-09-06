@@ -100,14 +100,13 @@ inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items, size_t lo
     for (auto &candidate : kaomoji_candidates)
         items.push_back(std::move(candidate));
 
-    const auto promoted_english = std::max_element(
-        items.begin(), items.end(),
-        [](const WordItem &left, const WordItem &right) { return left.weight < right.weight; });
+    const auto promoted_english =
+        std::max_element(items.begin(), items.end(),
+                         [](const WordItem &left, const WordItem &right) { return left.weight < right.weight; });
     if (promoted_english != items.end() && promoted_english->source == CandidateSource::EnglishDictionary &&
-        promoted_english->fixed_position == 0 &&
-        std::count_if(items.begin(), items.end(), [&](const WordItem &item) {
-            return item.weight == promoted_english->weight;
-        }) == 1)
+        promoted_english->fixed_position == 0 && std::count_if(items.begin(), items.end(), [&](const WordItem &item) {
+                                                     return item.weight == promoted_english->weight;
+                                                 }) == 1)
     {
         WordItem candidate = std::move(*promoted_english);
         items.erase(promoted_english);
@@ -127,10 +126,9 @@ inline void NormalizeMixedCandidateOrder(std::vector<WordItem> &items, size_t lo
             ++candidate;
         }
     }
-    std::stable_sort(fixed_english_candidates.begin(), fixed_english_candidates.end(),
-                     [](const WordItem &left, const WordItem &right) {
-                         return left.fixed_position < right.fixed_position;
-                     });
+    std::stable_sort(
+        fixed_english_candidates.begin(), fixed_english_candidates.end(),
+        [](const WordItem &left, const WordItem &right) { return left.fixed_position < right.fixed_position; });
     for (auto &candidate : fixed_english_candidates)
         insert_at(static_cast<size_t>(candidate.fixed_position - 1), std::move(candidate));
 }

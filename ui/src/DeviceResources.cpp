@@ -116,9 +116,9 @@ bool DeviceResources::BindCompositionSurface()
     }
 
     const FLOAT dpi = DpiForHwnd();
-    const D2D1_BITMAP_PROPERTIES1 props = D2D1::BitmapProperties1(
-        D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), dpi, dpi);
+    const D2D1_BITMAP_PROPERTIES1 props =
+        D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+                                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), dpi, dpi);
     if (FAILED(deviceContext_->CreateBitmapFromDxgiSurface(surface.Get(), &props, dxgiBitmap_.GetAddressOf())))
     {
         return false;
@@ -349,8 +349,8 @@ ID2D1SolidColorBrush *DeviceResources::GetSolidColorBrush(const D2D1_COLOR_F &co
     return brushCache_.back().brush.Get();
 }
 
-IDWriteTextFormat *DeviceResources::GetTextFormat(const std::wstring &fontFamily, float fontSize, DWRITE_FONT_WEIGHT fontWeight,
-                                                  DWRITE_TEXT_ALIGNMENT textAlignment,
+IDWriteTextFormat *DeviceResources::GetTextFormat(const std::wstring &fontFamily, float fontSize,
+                                                  DWRITE_FONT_WEIGHT fontWeight, DWRITE_TEXT_ALIGNMENT textAlignment,
                                                   DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment,
                                                   DWRITE_WORD_WRAPPING wordWrapping)
 {
@@ -376,12 +376,13 @@ IDWriteTextFormat *DeviceResources::GetTextFormat(const std::wstring &fontFamily
     entry.textAlignment = textAlignment;
     entry.paragraphAlignment = paragraphAlignment;
     entry.wordWrapping = wordWrapping;
-    if (FAILED(dwriteFactory_->CreateTextFormat(entry.fontFamily.c_str(), nullptr, entry.fontWeight, DWRITE_FONT_STYLE_NORMAL,
-                                                DWRITE_FONT_STRETCH_NORMAL, entry.fontSize, L"", entry.format.GetAddressOf())))
+    if (FAILED(dwriteFactory_->CreateTextFormat(entry.fontFamily.c_str(), nullptr, entry.fontWeight,
+                                                DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, entry.fontSize,
+                                                L"", entry.format.GetAddressOf())))
     {
-        if (FAILED(dwriteFactory_->CreateTextFormat(L"Microsoft YaHei", nullptr, entry.fontWeight, DWRITE_FONT_STYLE_NORMAL,
-                                                    DWRITE_FONT_STRETCH_NORMAL, entry.fontSize, L"",
-                                                    entry.format.GetAddressOf())))
+        if (FAILED(dwriteFactory_->CreateTextFormat(L"Microsoft YaHei", nullptr, entry.fontWeight,
+                                                    DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
+                                                    entry.fontSize, L"", entry.format.GetAddressOf())))
         {
             return nullptr;
         }
@@ -417,7 +418,7 @@ ID2D1Bitmap *DeviceResources::GetBitmapFromFile(const std::wstring &filePath, D2
 
     Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
     if (FAILED(wicFactory_->CreateDecoderFromFilename(filePath.c_str(), nullptr, GENERIC_READ,
-                                                       WICDecodeMetadataCacheOnLoad, decoder.GetAddressOf())))
+                                                      WICDecodeMetadataCacheOnLoad, decoder.GetAddressOf())))
     {
         return nullptr;
     }
@@ -451,4 +452,3 @@ ID2D1Bitmap *DeviceResources::GetBitmapFromFile(const std::wstring &filePath, D2
     return bitmapCache_.back().bitmap.Get();
 }
 } // namespace msimeui
-

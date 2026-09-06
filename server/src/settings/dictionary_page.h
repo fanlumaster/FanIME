@@ -10,7 +10,8 @@ namespace SettingsDictionary::Paging
 inline int Integer(const boost::json::object &request, const char *key, int fallback, int maximum)
 {
     const auto *value = request.if_contains(key);
-    if (!value || !value->is_int64()) return fallback;
+    if (!value || !value->is_int64())
+        return fallback;
     return static_cast<int>((std::max)(int64_t{0}, (std::min)(value->as_int64(), int64_t{maximum})));
 }
 inline int Limit(const boost::json::object &request)
@@ -33,15 +34,19 @@ inline boost::json::object Read(sqlite3_stmt *statement, const boost::json::obje
             const auto *value = sqlite3_column_text(statement, column);
             return value ? reinterpret_cast<const char *>(value) : "";
         };
-        rows.push_back({{english ? "word" : "code", text(0)}, {english ? "display" : "word", text(1)},
+        rows.push_back({{english ? "word" : "code", text(0)},
+                        {english ? "display" : "word", text(1)},
                         {"weight", sqlite3_column_int(statement, 2)}});
     }
     if (status != SQLITE_DONE)
         return {{"ok", false}, {"message", "查询失败，请重试"}, {"rows", json::array{}}};
     const bool more = rows.size() > static_cast<size_t>(Limit(request));
-    if (more) rows.pop_back();
-    return {{"ok", true}, {"message", rows.empty() ? "没有找到词条" : "查询成功"},
-            {"rows", std::move(rows)}, {"hasMore", more},
+    if (more)
+        rows.pop_back();
+    return {{"ok", true},
+            {"message", rows.empty() ? "没有找到词条" : "查询成功"},
+            {"rows", std::move(rows)},
+            {"hasMore", more},
             {"offset", Integer(request, "offset", 0, 2147483647)}};
 }
 } // namespace SettingsDictionary::Paging

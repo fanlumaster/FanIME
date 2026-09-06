@@ -30,7 +30,8 @@ bool ContainsWord(const std::vector<WordItem> &items, const std::string &word)
 
 size_t WordIndex(const std::vector<WordItem> &items, const std::string &word)
 {
-    const auto found = std::find_if(items.begin(), items.end(), [&](const WordItem &item) { return item.word == word; });
+    const auto found =
+        std::find_if(items.begin(), items.end(), [&](const WordItem &item) { return item.word == word; });
     return found == items.end() ? items.size() : static_cast<size_t>(found - items.begin());
 }
 
@@ -41,13 +42,12 @@ std::filesystem::path CreateJapaneseDatabase()
     sqlite3 *db = nullptr;
     if (sqlite3_open(path.string().c_str(), &db) != SQLITE_OK)
         throw std::runtime_error("Failed to create Japanese test database.");
-    const char *sql =
-        "CREATE TABLE japanese_lexicon(code TEXT,value TEXT,weight INTEGER,PRIMARY KEY(code,value));"
-        "INSERT INTO japanese_lexicon VALUES('qa','亜',20);"
-        "INSERT INTO japanese_lexicon VALUES('qa','会',10);"
-        "INSERT INTO japanese_lexicon VALUES('qwatashi','私',30);"
-        "INSERT INTO japanese_lexicon VALUES('kawaii','かわいい',40);"
-        "INSERT INTO japanese_lexicon VALUES('qkawaii','可愛い',50);";
+    const char *sql = "CREATE TABLE japanese_lexicon(code TEXT,value TEXT,weight INTEGER,PRIMARY KEY(code,value));"
+                      "INSERT INTO japanese_lexicon VALUES('qa','亜',20);"
+                      "INSERT INTO japanese_lexicon VALUES('qa','会',10);"
+                      "INSERT INTO japanese_lexicon VALUES('qwatashi','私',30);"
+                      "INSERT INTO japanese_lexicon VALUES('kawaii','かわいい',40);"
+                      "INSERT INTO japanese_lexicon VALUES('qkawaii','可愛い',50);";
     const int result = sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
     sqlite3_close(db);
     if (result != SQLITE_OK)
@@ -164,7 +164,8 @@ TEST_CASE(JapaneseProviderCombinesGeneratedKanaAndSqliteCandidates)
         const auto fuzzy_candidates = provider.query(fuzzy);
         REQUIRE(ContainsWord(fuzzy_candidates, "か"));
         REQUIRE(ContainsWord(fuzzy_candidates, "かわいい") || ContainsWord(fuzzy_candidates, "可愛い"));
-        const size_t phrase_index = (std::min)(WordIndex(fuzzy_candidates, "かわいい"), WordIndex(fuzzy_candidates, "可愛い"));
+        const size_t phrase_index =
+            (std::min)(WordIndex(fuzzy_candidates, "かわいい"), WordIndex(fuzzy_candidates, "可愛い"));
         REQUIRE(phrase_index < WordIndex(fuzzy_candidates, "か"));
     }
     std::filesystem::remove(path);
@@ -206,7 +207,8 @@ TEST_CASE(JapaneseMatrixSearchDecodesWholeSentenceWhenModelAvailable)
 {
     const auto workspace = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
     const auto model = workspace / "MetasequoiaImeDict" / "out" / "dict_japanese.dat";
-    if (!std::filesystem::is_regular_file(model)) return;
+    if (!std::filesystem::is_regular_file(model))
+        return;
 
     japanese::JapaneseSentenceDecoder decoder(model.string());
     REQUIRE(decoder.ready());
@@ -227,8 +229,8 @@ TEST_CASE(JapaneseMatrixSearchDecodesWholeSentenceWhenModelAvailable)
     const auto fuzzy = decoder.PrefixLemmas("かわ", 32);
     bool found_kawaii = false;
     for (const auto &lemma : fuzzy)
-        found_kawaii = found_kawaii || lemma.surface == "可愛い" || lemma.reading == "かわいい" ||
-                       lemma.surface == "かわいい";
+        found_kawaii =
+            found_kawaii || lemma.surface == "可愛い" || lemma.reading == "かわいい" || lemma.surface == "かわいい";
     REQUIRE(found_kawaii);
 
     const auto exact = decoder.ExactLemmas("にほん", 64);
@@ -252,7 +254,8 @@ TEST_CASE(JapaneseSentenceDecoderReadsGeneratedMozcModelWhenAvailable)
 {
     const auto workspace = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
     const auto model = workspace / "MetasequoiaImeDict" / "out" / "dict_japanese.dat";
-    if (!std::filesystem::is_regular_file(model)) return;
+    if (!std::filesystem::is_regular_file(model))
+        return;
 
     japanese::JapaneseSentenceDecoder decoder(model.string());
     REQUIRE(decoder.ready());

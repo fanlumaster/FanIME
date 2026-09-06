@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include "Ipc.h"
 #include "ipc/candidate_selection_policy.h"
+#include "ipc/async_request_origin.h"
 #include "ipc/candidate_ui_owner.h"
 #include "ipc/candidate_text_policy.h"
 #include "ipc/focus_session_policy.h"
@@ -157,7 +158,6 @@ bool BuildTranslationQuery(const WordItem &item, EnglishIme::TranslationQuery &q
     }
     return false;
 }
-
 
 bool IsUiLessMode()
 {
@@ -306,17 +306,15 @@ bool IsJianpinCompositionActive(const std::string &raw)
 bool IsJianpinInput(const std::string &raw)
 {
     return IsJianpinCompositionActive(raw) && raw.size() > 1 &&
-           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) {
-               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-           });
+           std::all_of(raw.begin() + 1, raw.end(),
+                       [](unsigned char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'); });
 }
 
 bool IsYModeCompositionActive(const std::string &raw)
 {
     return g_y_mode_triggered && !raw.empty() && raw.front() == 'Y' &&
-           std::all_of(raw.begin() + 1, raw.end(), [](unsigned char ch) {
-               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-           });
+           std::all_of(raw.begin() + 1, raw.end(),
+                       [](unsigned char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'); });
 }
 
 bool IsYModeInput(const std::string &raw)
@@ -327,8 +325,8 @@ bool IsYModeInput(const std::string &raw)
 bool IsShiftLetterSpecialModeTriggered()
 {
     return g_quick_phrase_triggered || g_unicode_mode_triggered || g_date_time_mode_triggered ||
-           g_emoji_mode_triggered || g_kaomoji_mode_triggered || g_jianpin_mode_triggered ||
-           g_y_mode_triggered || g_r_mode_triggered;
+           g_emoji_mode_triggered || g_kaomoji_mode_triggered || g_jianpin_mode_triggered || g_y_mode_triggered ||
+           g_r_mode_triggered;
 }
 
 void ClearSpecialModeTriggers()
@@ -348,9 +346,8 @@ void ClearSpecialModeTriggers()
 // be interpreted as normal pinyin.
 bool IsSpecialModeCompositionActive(const std::string &raw)
 {
-    return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) ||
-           IsDateTimeCompositionActive(raw) || IsEmojiCompositionActive(raw) ||
-           IsKaomojiCompositionActive(raw) || IsJianpinCompositionActive(raw) ||
+    return IsQuickPhraseCompositionActive(raw) || IsUnicodeCompositionActive(raw) || IsDateTimeCompositionActive(raw) ||
+           IsEmojiCompositionActive(raw) || IsKaomojiCompositionActive(raw) || IsJianpinCompositionActive(raw) ||
            IsYModeCompositionActive(raw);
 }
 
@@ -405,13 +402,7 @@ bool ReadExactPipeMessageUntil(HANDLE pipe, void *destination, DWORD destination
     return false;
 }
 
-struct AsyncRequestOrigin
-{
-    uint64_t client_id = 0;
-    uint64_t activation_epoch = 0;
-    uint64_t generation = 0;
-    std::string input;
-};
+using AsyncRequestOrigin = FanyImeIpc::AsyncRequestOrigin;
 
 std::mutex g_async_request_mutex;
 uint64_t g_cloud_generation = 0;
@@ -544,6 +535,8 @@ void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t
     g_cloud_request_origin = effective_input.empty()
                                  ? AsyncRequestOrigin{}
                                  : AsyncRequestOrigin{client_id, activation_epoch, g_cloud_generation, effective_input};
+    if (!effective_input.empty() && g_inputSession)
+        g_cloud_request_origin.engine_query = g_inputSession->online_query();
 }
 
 void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0,
@@ -564,9 +557,8 @@ void UpdateEmojiInput(const std::string &input, uint64_t client_id = 0, uint64_t
     std::lock_guard lock(g_async_request_mutex);
     EmojiIme::OnInputChanged(input, g_inputSession ? g_inputSession->current_scheme_type() : SchemeType::Quanpin);
     ++g_emoji_generation;
-    g_emoji_request_origin = input.empty()
-                                 ? AsyncRequestOrigin{}
-                                 : AsyncRequestOrigin{client_id, activation_epoch, g_emoji_generation, input};
+    g_emoji_request_origin = input.empty() ? AsyncRequestOrigin{}
+                                           : AsyncRequestOrigin{client_id, activation_epoch, g_emoji_generation, input};
 }
 
 void UpdateKaomojiInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0)
@@ -610,12 +602,14 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
     ++g_ai_generation;
     g_ai_request_origin =
         usable ? AsyncRequestOrigin{client_id, activation_epoch, g_ai_generation, identity} : AsyncRequestOrigin{};
+    if (usable)
+        g_ai_request_origin.engine_query = g_inputSession->online_query();
 }
 
 AsyncRequestOrigin FindCloudRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_cloud_request_origin.generation == generation && g_cloud_request_origin.input == input)
+    if (g_cloud_request_origin.matches(input, generation))
     {
         return g_cloud_request_origin;
     }
@@ -655,7 +649,7 @@ AsyncRequestOrigin FindKaomojiRequestOrigin(const std::string &input, uint64_t g
 AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_ai_request_origin.generation == generation && g_ai_request_origin.input == input)
+    if (g_ai_request_origin.matches(input, generation))
         return g_ai_request_origin;
     return {};
 }
@@ -773,8 +767,8 @@ bool IsPagingKey(UINT keycode)
 bool IsCandidateNavigationKey(UINT keycode)
 {
     return keycode == VK_OEM_MINUS || keycode == VK_OEM_PLUS || keycode == VK_OEM_COMMA || keycode == VK_OEM_PERIOD ||
-           keycode == VK_OEM_4 || keycode == VK_OEM_6 || keycode == VK_TAB || keycode == VK_PRIOR || keycode == VK_NEXT ||
-           keycode == VK_UP || keycode == VK_DOWN;
+           keycode == VK_OEM_4 || keycode == VK_OEM_6 || keycode == VK_TAB || keycode == VK_PRIOR ||
+           keycode == VK_NEXT || keycode == VK_UP || keycode == VK_DOWN;
 }
 
 bool ApplyCompositionEditKey(UINT keycode, WCHAR wch)
@@ -925,7 +919,7 @@ std::string BuildCurrentCandidatePage()
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
             item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Emoji &&
             item.source != CandidateSource::Kaomoji && item.source != CandidateSource::Generated)
-            view.annotation = HelpcodeUtils::compute_helpcodes(item.word, uppercase_all_helpcodes);
+            view.annotation = g_inputSession->get_helpcode_annotation(item.word, uppercase_all_helpcodes);
         if (item.source == CandidateSource::CloudSuggestion)
             view.badge = " ☁️";
         else if (item.source == CandidateSource::AiSuggestion)
@@ -966,8 +960,7 @@ std::string BuildCurrentCandidatePage()
 
 void PrepareCandidateTranslationRequest()
 {
-    const bool japanese =
-        g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji;
+    const bool japanese = g_inputSession && g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji;
     const bool enabled = GetConfiguredCandidateTranslationsEnabled() &&
                          GetConfiguredCandidateWindowLayout() == "vertical" && !IsUiLessMode() && !japanese;
     auto &ui = Global::candidate_ui;
@@ -1008,19 +1001,30 @@ void PrepareCandidateTranslationRequest()
     EnglishIme::RequestTranslations(std::move(queries), GetConfiguredTencentTmt().target_language == "en");
 }
 
+// Copy the page the worker just finished into an immutable snapshot for the UI thread. This is the single publish
+// point: set_items() and clear_page() are only intermediate steps of a rebuild, so publishing there would hand the UI a
+// half-built page.
+void PublishBuiltCandidatePage(const std::wstring &candidate_string)
+{
+    const auto &ui = Global::candidate_ui;
+    auto snapshot = std::make_shared<Global::CandidatePageSnapshot>();
+    snapshot->page_views = ui.page_views;
+    snapshot->page_words = ui.page_words;
+    snapshot->candidate_string = candidate_string;
+    snapshot->selected_index_in_page = ui.selected_index_in_page;
+    snapshot->page_count = ui.current_page_count();
+    snapshot->page_item_count = ui.cur_page_item_cnt;
+    Global::PublishCandidatePageSnapshot(std::move(snapshot));
+}
+
 void RefreshCandidatePageUi(bool show_window)
 {
     PrepareCandidateTranslationRequest();
     const std::string candidate_string = BuildCurrentCandidatePage();
-    if (IsUiLessMode())
-    {
-        // Host-drawn UI wants plain words (Microsoft IME style), not helpcodes.
-        ::WriteDataToSharedMemory(BuildUiLessCandidatePageW(), true);
-    }
-    else
-    {
-        ::WriteDataToSharedMemory(string_to_wstring(candidate_string), true);
-    }
+    // Host-drawn UI wants plain words (Microsoft IME style), not helpcodes.
+    const std::wstring published = IsUiLessMode() ? BuildUiLessCandidatePageW() : string_to_wstring(candidate_string);
+    ::WriteDataToSharedMemory(published, true);
+    PublishBuiltCandidatePage(published);
     CAND_DIAG_LOGF(L"candidate UI refreshed show={} uiless={} items={} page_words={} selected={} page={} "
                    L"serialized_units={}",
                    show_window, IsUiLessMode(), Global::candidate_ui.items.size(),
@@ -1049,8 +1053,8 @@ void LogPipeConnectResult(const wchar_t *pipe_name, BOOL connected)
 void LogPipeReadFailure(const wchar_t *pipe_name, DWORD bytes_read)
 {
     const DWORD gle = GetLastError();
-    FANY_IPC_LOGF(L"[msime]: [ipc] {} ReadFile failed or returned empty: gle={}, bytes_read={}", pipe_name,
-                  gle, bytes_read);
+    FANY_IPC_LOGF(L"[msime]: [ipc] {} ReadFile failed or returned empty: gle={}, bytes_read={}", pipe_name, gle,
+                  bytes_read);
     CAND_DIAG_LOGF(L"pipe read failure name={} gle={} bytes={}", pipe_name, gle, bytes_read);
 }
 
@@ -1315,6 +1319,7 @@ struct Task
     std::string ai_candidate;
     std::string ai_identity;
     uint64_t ai_generation = 0;
+    std::optional<metasequoia::OnlineQuery> online_query;
     std::vector<WordItem> english_candidates;
     std::string english_input;
     uint64_t english_generation = 0;
@@ -1346,8 +1351,8 @@ struct ScopedServerKeyLatency
         const ULONGLONG elapsed_ms = GetTickCount64() - started_at_ms;
         if (elapsed_ms >= 8)
         {
-            DIAG_LOGF(L"[key-latency] side=server stage=handle request={} client={} epoch={} elapsed_ms={}",
-                      request_id, client_id, activation_epoch, elapsed_ms);
+            DIAG_LOGF(L"[key-latency] side=server stage=handle request={} client={} epoch={} elapsed_ms={}", request_id,
+                      client_id, activation_epoch, elapsed_ms);
         }
     }
 };
@@ -1406,8 +1411,8 @@ std::pair<std::string, std::string> RankingKeysForCandidate(const WordItem &item
 {
     if (IsWubiRankingScheme())
     {
-        const std::string key = item.pinyin.empty() && g_inputSession ? g_inputSession->get_pinyin_sequence()
-                                                                      : item.pinyin;
+        const std::string key =
+            item.pinyin.empty() && g_inputSession ? g_inputSession->get_pinyin_sequence() : item.pinyin;
         return {key, item.pinyin};
     }
     const std::string context_key = CurrentRankingContextKey();
@@ -1421,11 +1426,12 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch);
 void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
 void ClearState();
 void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch, int forced_index_in_page = -1);
-void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
-void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
+void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation,
+                         const std::optional<metasequoia::OnlineQuery> &query);
+void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation,
+                      const std::optional<metasequoia::OnlineQuery> &query);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
-void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation,
-                                bool merge);
+void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation, bool merge);
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void ApplyKaomojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &word, bool pinyin_is_canonical = false);
@@ -1506,8 +1512,8 @@ void WorkerThread()
 
         case TaskType::HideCandidate: {
             ::ReadDataFromNamedPipe(0b100000);
-            CAND_DIAG_LOGF(L"task HideCandidate client={} epoch={} request={}", task.client_id,
-                           task.activation_epoch, task.pipe_data.request_id);
+            CAND_DIAG_LOGF(L"task HideCandidate client={} epoch={} request={}", task.client_id, task.activation_epoch,
+                           task.pipe_data.request_id);
             PostMessage(::global_hwnd, WM_HIDE_MAIN_WINDOW, 0, 0);
             /* 清理状态 */
             ClearState();
@@ -1533,8 +1539,7 @@ void WorkerThread()
         }
 
         case TaskType::ImeKeyEvent: {
-            const ULONGLONG queue_elapsed_ms =
-                task.enqueued_at_ms == 0 ? 0 : GetTickCount64() - task.enqueued_at_ms;
+            const ULONGLONG queue_elapsed_ms = task.enqueued_at_ms == 0 ? 0 : GetTickCount64() - task.enqueued_at_ms;
             if (queue_elapsed_ms >= 8)
             {
                 DIAG_LOGF(L"[key-latency] side=server stage=queue request={} client={} epoch={} elapsed_ms={}",
@@ -1566,12 +1571,12 @@ void WorkerThread()
         }
 
         case TaskType::ApplyCloudCandidate: {
-            ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation);
+            ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation, task.online_query);
             break;
         }
 
         case TaskType::ApplyAiCandidate: {
-            ApplyAiCandidate(task.ai_candidate, task.ai_identity, task.ai_generation);
+            ApplyAiCandidate(task.ai_candidate, task.ai_identity, task.ai_generation, task.online_query);
             break;
         }
 
@@ -1611,9 +1616,9 @@ void WorkerThread()
         }
 
         case TaskType::LearnEnteredEnglishWord: {
-            (void)user_dictionary::learn_entered_english_word(
-                CommonUtils::get_ime_data_path() + "\\english.db", user_dictionary::default_user_db_path(),
-                task.session_word);
+            (void)user_dictionary::learn_entered_english_word(CommonUtils::get_ime_data_path() + "\\english.db",
+                                                              user_dictionary::default_user_db_path(),
+                                                              task.session_word);
             break;
         }
 
@@ -1985,6 +1990,7 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
         task.cloud_candidate = candidate;
         task.cloud_pinyin = pinyin;
         task.cloud_generation = generation;
+        task.online_query = origin.engine_query;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
@@ -2004,6 +2010,7 @@ void EnqueueAiCandidate(const std::string &candidate, const std::string &identit
         task.ai_candidate = candidate;
         task.ai_identity = identity;
         task.ai_generation = generation;
+        task.online_query = origin.engine_query;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
@@ -2104,7 +2111,8 @@ void EnqueueStoreUserPhraseTask(const std::string &pinyin, const std::string &wo
 
 void EnqueueLearnEnteredEnglishWordTask(const std::string &word)
 {
-    if (word.empty()) return;
+    if (word.empty())
+        return;
     {
         std::lock_guard lock(queueMutex);
         Task task;
@@ -2792,8 +2800,7 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationChanged,
                 GetConfiguredSmartPunctuationEnabled() ? L"1" : L"0");
             SendToTsfWorkerThreadClientViaNamedpipe(
-                hello.client_id,
-                Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationRepeatToChineseChanged,
+                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::SmartPunctuationRepeatToChineseChanged,
                 GetConfiguredSmartPunctuationRepeatToChineseEnabled() ? L"1" : L"0");
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::PairedPunctuationChanged,
@@ -2801,12 +2808,12 @@ void RegisteredPipeMonitorThread(HANDLE clientPipe, UINT pipeRole, uint64_t hand
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::MicrosoftShuangpinChanged,
                 GetConfiguredShuangpinSchema() == "microsoft" ? L"1" : L"0");
-            SendToTsfWorkerThreadClientViaNamedpipe(
-                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged,
-                GetConfiguredInputMode() == "japanese" ? L"1" : L"0");
-            SendToTsfWorkerThreadClientViaNamedpipe(
-                hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged,
-                GetServerCapsLockState() != 0 ? L"1" : L"0");
+            SendToTsfWorkerThreadClientViaNamedpipe(hello.client_id,
+                                                    Global::DataFromServerMsgTypeToTsfWorkerThread::InputModeChanged,
+                                                    GetConfiguredInputMode() == "japanese" ? L"1" : L"0");
+            SendToTsfWorkerThreadClientViaNamedpipe(hello.client_id,
+                                                    Global::DataFromServerMsgTypeToTsfWorkerThread::CapsLockChanged,
+                                                    GetServerCapsLockState() != 0 ? L"1" : L"0");
             SendToTsfWorkerThreadClientViaNamedpipe(
                 hello.client_id, Global::DataFromServerMsgTypeToTsfWorkerThread::TsfDiagnosticLogChanged,
                 GetConfiguredTsfDiagnosticLogEnabled() ? L"1" : L"0");
@@ -2886,9 +2893,12 @@ void AuxPipeEventListenerLoopThread()
             DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
             if (SetNamedPipeHandleState(listeningPipe, &pipeMode, nullptr, nullptr))
             {
-                // Polling a NOWAIT server handle keeps shutdown bounded even
-                // if a client connects and never sends its auxiliary message.
-                while (pipe_running)
+                // Polling a NOWAIT server handle keeps shutdown bounded even if a client connects and never sends its
+                // auxiliary message. The deadline is what frees the single Aux instance in that case: without it the
+                // poll spins forever, the loop never returns to ConnectNamedPipe, and no later client
+                // (LangbarRightClick, TerminalDeactivation) is ever accepted.
+                const auto deadline = std::chrono::steady_clock::now() + kPipeHelloTimeout;
+                while (pipe_running && std::chrono::steady_clock::now() < deadline)
                 {
                     readResult = ReadFile(listeningPipe, buffer, sizeof(buffer), &bytesRead, nullptr);
                     if (readResult || GetLastError() != ERROR_NO_DATA)
@@ -3014,10 +3024,13 @@ void TsfDiagnosticPipeEventListenerLoopThread()
             DWORD pipeMode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
             if (SetNamedPipeHandleState(listeningPipe, &pipeMode, nullptr, nullptr))
             {
-                while (pipe_running)
+                // Same bound as the Aux pipe: a client that connects without ever writing must not hold the single
+                // diagnostic instance for the process lifetime.
+                const auto deadline = std::chrono::steady_clock::now() + kPipeHelloTimeout;
+                while (pipe_running && std::chrono::steady_clock::now() < deadline)
                 {
-                    readResult = ReadFile(listeningPipe, frame.data(), static_cast<DWORD>(frame.size()),
-                                          &bytesRead, nullptr);
+                    readResult =
+                        ReadFile(listeningPipe, frame.data(), static_cast<DWORD>(frame.size()), &bytesRead, nullptr);
                     if (readResult || GetLastError() != ERROR_NO_DATA)
                     {
                         break;
@@ -3031,31 +3044,27 @@ void TsfDiagnosticPipeEventListenerLoopThread()
             {
                 memcpy(&header, frame.data(), sizeof(header));
                 ULONG clientProcessId = 0;
-                const bool clientMatches =
-                    GetNamedPipeClientProcessId(listeningPipe, &clientProcessId) &&
-                    clientProcessId == header.source_process_id;
-                const bool frameValid =
-                    clientMatches && header.magic == FANY_IME_TSF_DIAGNOSTIC_MAGIC &&
-                    header.version == FANY_IME_TSF_DIAGNOSTIC_VERSION &&
-                    header.header_size == sizeof(header) && header.record_count != 0 &&
-                    header.payload_bytes != 0 && (header.payload_bytes % sizeof(wchar_t)) == 0 &&
-                    sizeof(header) + header.payload_bytes == bytesRead;
+                const bool clientMatches = GetNamedPipeClientProcessId(listeningPipe, &clientProcessId) &&
+                                           clientProcessId == header.source_process_id;
+                const bool frameValid = clientMatches && header.magic == FANY_IME_TSF_DIAGNOSTIC_MAGIC &&
+                                        header.version == FANY_IME_TSF_DIAGNOSTIC_VERSION &&
+                                        header.header_size == sizeof(header) && header.record_count != 0 &&
+                                        header.payload_bytes != 0 && (header.payload_bytes % sizeof(wchar_t)) == 0 &&
+                                        sizeof(header) + header.payload_bytes == bytesRead;
                 if (frameValid && GetConfiguredTsfDiagnosticLogEnabled())
                 {
                     std::wstring payload(header.payload_bytes / sizeof(wchar_t), L'\0');
                     memcpy(payload.data(), frame.data() + sizeof(header), header.payload_bytes);
                     if (header.dropped_count != 0)
                     {
-                        DiagnosticLog::Write(fmt::format(
-                            L"[tsf-log] source_pid={} dropped_records={}", header.source_process_id,
-                            header.dropped_count));
+                        DiagnosticLog::Write(fmt::format(L"[tsf-log] source_pid={} dropped_records={}",
+                                                         header.source_process_id, header.dropped_count));
                     }
                     size_t start = 0;
                     while (start < payload.size())
                     {
                         const size_t end = payload.find(L'\n', start);
-                        const size_t length =
-                            end == std::wstring::npos ? payload.size() - start : end - start;
+                        const size_t length = end == std::wstring::npos ? payload.size() - start : end - start;
                         if (length != 0)
                         {
                             DiagnosticLog::Write(payload.substr(start, length));
@@ -3180,8 +3189,7 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
 
     if (!g_english_input_mode && !IsSpecialModeCompositionActive(current_input) &&
-        GetConfiguredEmojiMixedInputEnabled() &&
-        (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
+        GetConfiguredEmojiMixedInputEnabled() && (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
         !GlobalIme::composition.creating_word.active)
     {
         UpdateEmojiInput(current_input, client_id, activation_epoch);
@@ -3192,8 +3200,7 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
 
     if (!g_english_input_mode && !IsSpecialModeCompositionActive(current_input) &&
-        GetConfiguredKaomojiMixedInputEnabled() &&
-        (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
+        GetConfiguredKaomojiMixedInputEnabled() && (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin) &&
         !GlobalIme::composition.creating_word.active)
     {
         UpdateKaomojiInput(current_input, client_id, activation_epoch);
@@ -3204,11 +3211,14 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
 }
 
-void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
+void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation,
+                         const std::optional<metasequoia::OnlineQuery> &query)
 {
     if (!GetConfiguredCloudCandidatesEnabled())
         return;
-    (void)generation;
+    // A callback can become stale after enqueueing, while earlier key tasks run.
+    if (FindCloudRequestOrigin(pinyin, generation).client_id == 0 || !g_inputSession)
+        return;
 
     if (candidate.empty())
         return;
@@ -3223,13 +3233,25 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     if (Global::candidate_ui.items.empty())
         return;
 
+    if (!query)
+        return;
+
     auto &items = Global::candidate_ui.items;
     // Same word already visible (dict / prior cloud): keep page and skip re-cache.
     if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
     {
-        Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
         return;
     }
+
+    // The engine checks the original session and composition before caching the result.
+    if (!g_inputSession->apply_online_candidate(*query, candidate, CandidateSource::CloudSuggestion))
+        return;
+    const auto &engine_candidates = g_inputSession->get_candidates();
+    const auto accepted = std::find_if(engine_candidates.begin(), engine_candidates.end(), [&](const WordItem &item) {
+        return item.word == candidate && item.source == CandidateSource::CloudSuggestion;
+    });
+    if (accepted == engine_candidates.end())
+        return;
 
     // Replace any previous cloud suggestion with the new unique text.
     items.erase(std::remove_if(items.begin(), items.end(),
@@ -3237,12 +3259,11 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
                 items.end());
 
     size_t insert_index = items.size() >= 1 ? 1 : 0;
-    items.insert(items.begin() + insert_index, WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
+    items.insert(items.begin() + insert_index, *accepted);
     const bool preserve_single_kana_pair =
         g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji &&
         japanese::IsSingleKanaConversion(japanese::ConvertRomaji(g_inputSession->get_pinyin_sequence()));
     FanyImeIpc::NormalizeMixedCandidateOrder(items, preserve_single_kana_pair ? 2 : 1);
-    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate, CandidateSource::CloudSuggestion);
     Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
 
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
@@ -3252,8 +3273,11 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     RefreshCandidatePageUi(true);
 }
 
-void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
+void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation,
+                      const std::optional<metasequoia::OnlineQuery> &engine_query)
 {
+    if (!engine_query || FindAiRequestOrigin(identity, generation).client_id == 0)
+        return;
     const bool enabled = GetConfiguredAiAssistant().enabled;
     const bool has_session = static_cast<bool>(g_inputSession);
     const bool non_pinyin = has_session && g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
@@ -3273,21 +3297,25 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     // reset page_index / re-cache. This stops cache-hit reapply from breaking paging.
     if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
     {
-        Global::ai_candidate = {true, candidate, query.committed_pinyin};
-        (void)0;
         return;
     }
+
+    if (!g_inputSession->apply_online_candidate(*engine_query, candidate, CandidateSource::AiSuggestion))
+        return;
+    const auto &engine_candidates = g_inputSession->get_candidates();
+    const auto accepted = std::find_if(engine_candidates.begin(), engine_candidates.end(), [&](const WordItem &item) {
+        return item.word == candidate && item.source == CandidateSource::AiSuggestion;
+    });
+    if (accepted == engine_candidates.end())
+        return;
 
     // Only replace prior AI rows when inserting a genuinely new suggestion text.
     items.erase(std::remove_if(items.begin(), items.end(),
                                [](const WordItem &item) { return item.source == CandidateSource::AiSuggestion; }),
                 items.end());
     const size_t insert_index = std::min<size_t>(2, items.size());
-    const std::string typed_pinyin = query.cache_key.empty() ? query.committed_pinyin : query.cache_key;
-    items.insert(items.begin() + insert_index,
-                 WordItem(typed_pinyin, candidate, 1, CandidateSource::AiSuggestion, identity));
+    items.insert(items.begin() + insert_index, *accepted);
     FanyImeIpc::NormalizeMixedCandidateOrder(items);
-    g_inputSession->cache_dynamic_candidate(typed_pinyin, candidate, CandidateSource::AiSuggestion);
     (void)0;
     Global::ai_candidate = {true, candidate, query.committed_pinyin};
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
@@ -3410,10 +3438,9 @@ void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> resul
             g_candidate_translation_glosses[TranslationIdentity({result.key, result.direction})] = std::move(gloss);
         else if (!merge)
         {
-            const bool cloud_translatable =
-                result.direction == EnglishIme::TranslationDirection::EnglishToChinese
-                    ? CloudTranslation::IsCloudTranslatableEnglish(result.key)
-                    : CloudTranslation::IsCloudTranslatableChinese(result.key);
+            const bool cloud_translatable = result.direction == EnglishIme::TranslationDirection::EnglishToChinese
+                                                ? CloudTranslation::IsCloudTranslatableEnglish(result.key)
+                                                : CloudTranslation::IsCloudTranslatableChinese(result.key);
             if (cloud_translatable)
                 misses.push_back({result.key, result.direction});
         }
@@ -3427,7 +3454,8 @@ void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> resul
 
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation)
 {
-    if (!GetConfiguredEmojiMixedInputEnabled() || !EmojiIme::IsCurrent(input, generation) || g_inputSession == nullptr ||
+    if (!GetConfiguredEmojiMixedInputEnabled() || !EmojiIme::IsCurrent(input, generation) ||
+        g_inputSession == nullptr ||
         (g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
          g_inputSession->current_scheme_type() != SchemeType::Shuangpin) ||
         g_inputSession->get_pinyin_sequence_with_cases() != input || GlobalIme::composition.creating_word.active)
@@ -3549,9 +3577,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const std::string input_before_key =
         g_inputSession ? g_inputSession->get_pinyin_sequence_with_cases() : std::string{};
     const bool shift_only = (Global::ModifiersDown & 0b00000111u) == 0b00000001u;
-    const bool chinese_scheme = g_inputSession &&
-                                (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
-                                 g_inputSession->current_scheme_type() == SchemeType::Shuangpin);
+    const bool chinese_scheme = g_inputSession && (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
+                                                   g_inputSession->current_scheme_type() == SchemeType::Shuangpin);
     if (Global::Keycode == VK_RETURN && !input_before_key.empty())
     {
         std::string english_word;
@@ -3582,9 +3609,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     if (chinese_scheme && !g_english_input_mode && GetConfiguredYModeEnabled() && input_before_key.empty() &&
         Global::Keycode == 'Y' && Global::Wch == L'Y' && shift_only)
         g_y_mode_triggered = true;
-    const bool r_mode_trigger_key =
-        chinese_scheme && !g_english_input_mode && GetConfiguredRModeEnabled() && input_before_key.empty() &&
-        Global::Keycode == 'R' && Global::Wch == L'R' && shift_only;
+    const bool r_mode_trigger_key = chinese_scheme && !g_english_input_mode && GetConfiguredRModeEnabled() &&
+                                    input_before_key.empty() && Global::Keycode == 'R' && Global::Wch == L'R' &&
+                                    shift_only;
     if (r_mode_trigger_key)
     {
         g_r_mode_original_session = g_inputSession;
@@ -3618,9 +3645,8 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     const bool is_unicode_plus = unicode_composition_active && Global::Keycode == VK_OEM_PLUS && Global::Wch == L'+';
     const bool is_composition_edit_key =
         Global::Keycode == VK_LEFT || Global::Keycode == VK_RIGHT || Global::Keycode == VK_BACK ||
-        Global::Keycode == VK_DELETE ||
-        (Global::Keycode >= 'A' && Global::Keycode <= 'Z') || is_manual_pinyin_separator ||
-        is_microsoft_shuangpin_ing_key || is_unicode_hex_digit || is_unicode_plus;
+        Global::Keycode == VK_DELETE || (Global::Keycode >= 'A' && Global::Keycode <= 'Z') ||
+        is_manual_pinyin_separator || is_microsoft_shuangpin_ing_key || is_unicode_hex_digit || is_unicode_plus;
     const bool should_forward_key_to_session = !is_commit_with_highlighted_candidate_punctuation && !is_selection_key &&
                                                !is_paging_key && !is_composition_edit_key;
 
@@ -3637,9 +3663,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
             auto &ui = Global::candidate_ui;
             ui.selected_text = FanyImeIpc::HighlightedCandidateText(ui.page_words, ui.selected_index_in_page);
 
-            const bool is_word_to_character_key =
-                (Global::Wch == L'[' || Global::Wch == L']') && GetConfiguredWordToCharacterEnabled() &&
-                !GetConfiguredPagingBracketsEnabled();
+            const bool is_word_to_character_key = (Global::Wch == L'[' || Global::Wch == L']') &&
+                                                  GetConfiguredWordToCharacterEnabled() &&
+                                                  !GetConfiguredPagingBracketsEnabled();
             WordItem highlighted_item;
             if (is_word_to_character_key && ResolveCandidateItem(ui.selected_index_in_page + 1, highlighted_item))
             {
@@ -3664,8 +3690,7 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
 
     /* 先处理一下通用的按键，包括所有可能的按键，如普通的拼音字符按键、空格、Tab
      * 等等，然后再在下面处理其中的特殊的按键 */
-    const bool r_mode_prefix_backspace =
-        g_r_mode_triggered && Global::Keycode == VK_BACK && input_before_key.empty();
+    const bool r_mode_prefix_backspace = g_r_mode_triggered && Global::Keycode == VK_BACK && input_before_key.empty();
     if (r_mode_prefix_backspace)
     {
         ClearState();
@@ -3751,13 +3776,12 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
         UpdateCloudInput(cloud_query_state.query_text, client_id, activation_epoch);
     }
 
-    const bool ai_eligible =
-        !g_english_input_mode &&
-        !IsSpecialModeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
-        (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
-         g_inputSession->current_scheme_type() == SchemeType::Shuangpin) &&
-        g_inputSession->is_all_complete_pure_pinyin() &&
-        !g_inputSession->has_active_helpcode() && !GlobalIme::composition.creating_word.active;
+    const bool ai_eligible = !g_english_input_mode &&
+                             !IsSpecialModeCompositionActive(g_inputSession->get_pinyin_sequence_with_cases()) &&
+                             (g_inputSession->current_scheme_type() == SchemeType::Quanpin ||
+                              g_inputSession->current_scheme_type() == SchemeType::Shuangpin) &&
+                             g_inputSession->is_all_complete_pure_pinyin() && !g_inputSession->has_active_helpcode() &&
+                             !GlobalIme::composition.creating_word.active;
     if (!suppress_async_lookup)
     {
         UpdateAiInput(ai_eligible ? g_inputSession->get_pinyin_segmentation() : std::string{}, client_id,
@@ -3767,9 +3791,9 @@ void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t reques
     //
     // 普通的拼音字符，发送 preedit 到 TSF 端
     //
-    if (FanyImeIpc::ShouldSendCompositionReply(
-            Global::Keycode >= 'A' && Global::Keycode <= 'Z', is_manual_pinyin_separator,
-            is_microsoft_shuangpin_ing_key, is_unicode_hex_digit, is_unicode_plus))
+    if (FanyImeIpc::ShouldSendCompositionReply(Global::Keycode >= 'A' && Global::Keycode <= 'Z',
+                                               is_manual_pinyin_separator, is_microsoft_shuangpin_ing_key,
+                                               is_unicode_hex_digit, is_unicode_plus))
     {
         if (IsUiLessMode())
         {
@@ -4022,6 +4046,7 @@ void ClearState()
     // Drop published candidates before any in-flight FineTuneWindow callback
     // can re-inflate an empty-preedit + stale-candidate view.
     Global::CandidateString.clear();
+    Global::ClearCandidatePageSnapshot();
     Global::candidate_ui.set_items({});
     // Hide synchronously from the caller's perspective: clear the shown flag
     // first so async FineTuneWindow callbacks refuse to resurrect the window,
@@ -4099,8 +4124,7 @@ void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_e
         std::string curWordPinyin = curWordItem.pinyin;
         if (curWordItem.source == CandidateSource::EnglishDictionary ||
             curWordItem.source == CandidateSource::QuickPhrase || curWordItem.source == CandidateSource::Emoji ||
-            curWordItem.source == CandidateSource::Kaomoji ||
-            curWordItem.source == CandidateSource::Generated)
+            curWordItem.source == CandidateSource::Kaomoji || curWordItem.source == CandidateSource::Generated)
         {
             if (curWordItem.source == CandidateSource::EnglishDictionary && isNeedUpdateWeight)
             {

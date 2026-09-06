@@ -167,6 +167,7 @@ class CTextEditor : public CTextContainer
             _textChangedCallback();
         }
     }
+
   private:
     UINT _nSelStart;
     UINT _nSelEnd;

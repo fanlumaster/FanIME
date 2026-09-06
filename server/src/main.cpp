@@ -31,21 +31,25 @@ void StartWatchdogIfNeeded(const char *command_line)
     // The Watchdog passes this marker when it owns the Server lifecycle.
     // A Server revived directly by TSF has no marker and restores the
     // Watchdog, preserving crash recovery after the six-keystroke fallback.
-    if (command_line && std::strstr(command_line, "--watchdog-managed")) return;
+    if (command_line && std::strstr(command_line, "--watchdog-managed"))
+        return;
 
     wchar_t server_path[MAX_PATH]{};
-    if (!GetModuleFileNameW(nullptr, server_path, MAX_PATH)) return;
+    if (!GetModuleFileNameW(nullptr, server_path, MAX_PATH))
+        return;
     std::wstring watchdog_path(server_path);
     const size_t separator = watchdog_path.find_last_of(L"\\/");
-    if (separator == std::wstring::npos) return;
+    if (separator == std::wstring::npos)
+        return;
     watchdog_path.replace(separator + 1, std::wstring::npos, L"MetasequoiaImeWatchdog.exe");
-    if (GetFileAttributesW(watchdog_path.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+    if (GetFileAttributesW(watchdog_path.c_str()) == INVALID_FILE_ATTRIBUTES)
+        return;
 
     std::wstring command = L"\"" + watchdog_path + L"\"";
     STARTUPINFOW startup_info{sizeof(startup_info)};
     PROCESS_INFORMATION process_info{};
-    if (CreateProcessW(watchdog_path.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr,
-                       nullptr, &startup_info, &process_info))
+    if (CreateProcessW(watchdog_path.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr,
+                       &startup_info, &process_info))
     {
         CloseHandle(process_info.hThread);
         CloseHandle(process_info.hProcess);
@@ -111,10 +115,10 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     g_inputSession = CreateInputSessionFromConfig();
     const std::string configured_backend = DescribeConfiguredInputSessionBackendFromConfig();
     const std::string effective_backend = DescribeEffectiveInputSessionBackendFromConfig();
-    const std::string session_summary = fmt::format(
-        "Input session backend configured={}, effective={}, scheme={}",
-        configured_backend.empty() ? "legacy" : configured_backend, effective_backend,
-        SchemeTypeToString(g_inputSession->current_scheme_type()));
+    const std::string session_summary =
+        fmt::format("Input session backend configured={}, effective={}, scheme={}",
+                    configured_backend.empty() ? "legacy" : configured_backend, effective_backend,
+                    SchemeTypeToString(g_inputSession->current_scheme_type()));
     (void)0;
 #ifdef FANY_DEBUG
     (void)0;
@@ -149,13 +153,14 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     AiAssistant::Start([](const std::string &candidate, const std::string &identity, uint64_t generation) {
         FanyNamedPipe::EnqueueAiCandidate(candidate, identity, generation);
     });
-    EnglishIme::Start(CommonUtils::get_ime_data_path() + "\\english.db",
-                      [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
-                          FanyNamedPipe::EnqueueEnglishCandidates(std::move(candidates), input, generation);
-                      },
-                      [](std::vector<EnglishIme::TranslationResult> results, uint64_t generation) {
-                          FanyNamedPipe::EnqueueCandidateTranslations(std::move(results), generation);
-                      });
+    EnglishIme::Start(
+        CommonUtils::get_ime_data_path() + "\\english.db",
+        [](std::vector<WordItem> candidates, const std::string &input, uint64_t generation) {
+            FanyNamedPipe::EnqueueEnglishCandidates(std::move(candidates), input, generation);
+        },
+        [](std::vector<EnglishIme::TranslationResult> results, uint64_t generation) {
+            FanyNamedPipe::EnqueueCandidateTranslations(std::move(results), generation);
+        });
     CloudTranslation::Start(CommonUtils::get_ime_data_path() + "\\english.db",
                             [](std::vector<EnglishIme::TranslationResult> results, uint64_t generation) {
                                 FanyNamedPipe::EnqueueCandidateTranslations(std::move(results), generation, true);

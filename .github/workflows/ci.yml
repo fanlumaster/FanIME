@@ -4,29 +4,25 @@ on:
   push:
     branches: [main]
   pull_request:
-    # A release-please pull request only rewrites these three files, and its pull_request run would
-    # be created in action_required and never execute: GITHUB_TOKEN may not start workflows, so
-    # anything it triggers waits for a human. Skipping it here keeps an unapprovable run out of the
-    # checks list. The release workflow dispatches this workflow on the release branch instead,
-    # which is the one trigger GITHUB_TOKEN is allowed to fire, so the version bump still gets a
-    # full build and the checks land on the same commit.
-    paths-ignore:
-      - version.txt
-      - CHANGELOG.md
-      - .release-please-manifest.json
   workflow_dispatch:
+
+  merge_group:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+
   lock:
     name: Product inputs
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       # The dictionary validator is compared against the engine's copy of it, so this job needs the
       # submodule's contents and not just its gitlink.
@@ -37,6 +33,10 @@ jobs:
         run: python3 scripts/check-dictionary-contract.py
       - name: Test rejection of changed or mismatched inputs
         run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
+      - name: Test local environment setup in a moved checkout
+        run: python3 -m unittest discover -s tests -p 'test_prepare_env.py'
+      - name: Test the automatic release CI gate
+        run: python3 -m unittest discover -s tests -p 'test_release_pr_ci.py'
       - name: Read the reviewed lock
         id: lock
         run: |
@@ -46,6 +46,7 @@ jobs:
   windows:
     name: Windows ${{ matrix.name }}
     runs-on: windows-2025
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +87,7 @@ jobs:
         shell: pwsh
         run: cmake --build windows/build --config Release --parallel
       - name: Test the wire contract on this architecture
-        run: ctest --test-dir windows/build -C Release --output-on-failure
+        run: ctest --no-tests=error --test-dir windows/build -C Release --output-on-failure
 
       # Architecture-independent, so it runs once rather than on both matrix legs.
       - name: Check the installer language file lands where ISCC looks
@@ -157,7 +158,7 @@ jobs:
         run: cmake --build ui/build --config Release --parallel
       - name: Test
         shell: pwsh
-        run: ctest --test-dir ui/build -C Release --verbose --timeout 60
+        run: ctest --no-tests=error --test-dir ui/build -C Release --verbose --timeout 60
 
   pages:
     name: Settings page
@@ -213,3 +214,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test full and light package contents without registering or installing
         run: ./installer/tests/package-files.ps1
+      - name: Stop local packaging after failed component builds
+        run: ./installer/tests/build-failures.ps1
+      - name: Test local Server test entrypoints in a moved checkout
+        run: ./tests/server-test-entrypoints.ps1

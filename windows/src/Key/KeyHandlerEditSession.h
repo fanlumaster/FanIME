@@ -11,9 +11,8 @@ class CKeyHandlerEditSession : public CEditSessionBase
   public:
     CKeyHandlerEditSession(CMetasequoiaIME *pTextService, ITfContext *pContext, UINT uCode, WCHAR wch,
                            _KEYSTROKE_STATE keyState, uint64_t requestId, LARGE_INTEGER requestStartQpc = {},
-                           std::wstring prefetchedText = {}, uint64_t focusToken = 0,
-                           UINT localResetToken = 0, uint64_t expectedCompositionEpoch = 0,
-                           uint64_t deferredReplayToken = 0)
+                           std::wstring prefetchedText = {}, uint64_t focusToken = 0, UINT localResetToken = 0,
+                           uint64_t expectedCompositionEpoch = 0, uint64_t deferredReplayToken = 0)
         : CEditSessionBase(pTextService, pContext)
     {
         _uCode = uCode;

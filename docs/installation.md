@@ -1,7 +1,6 @@
 # 安装水杉输入法
 
-> 适用版本：v0.0.9.2（2026 年 8 月 25 日发布，内测版）
-> 若你安装的是更新版本，请以 [Releases](https://github.com/metasequoiaime/MSIME-Windows/releases) 中的说明为准。
+> 本文描述当前内测版的安装流程。具体版本号、下载链接与该版本的已知问题一律以 [Releases](https://github.com/metasequoiaime/MSIME-Windows/releases) 页面为准——这里不再写死版本号，避免文档落后于实际发布。
 
 ## 目录
 
@@ -25,9 +24,16 @@
 ## 下载
 
 1. 打开 [Releases 页面](https://github.com/metasequoiaime/MSIME-Windows/releases)。
-2. 下载最新的安装包 `MetasequoiaIME_Setup_v<版本号>.exe`（例如 `MetasequoiaIME_Setup_v0.0.9.2.exe`）。
+2. 下载带 **Latest** 徽章那个版本的 `MetasequoiaIME_Setup_v<版本号>.exe`。
 
-> 注意：当前发布版本均标记为 **Pre-release（内测版）**，功能与稳定性可能变动，重要环境建议先在虚拟机或非主力机试用。
+Releases 页面上有两类发布：
+
+| 频道 | 页面上的样子 | 来源 | 谁该用 |
+|---|---|---|---|
+| 发布 | 正常发布，最新的一个带 **Latest** 徽章 | 人工挑选后发布 | **一般都用这个** |
+| 自动构建 | 标记 **Pre-release**，标题带「（自动构建）」 | 每次合并到 `main` 后由 CI 自动发布，未经人工挑选 | 只在需要某个尚未进入发布频道的修复、且能接受未经验证的改动时用 |
+
+> 注意：**两个频道当前都还是内测阶段**，版本号仍在 `0.x`，功能与稳定性可能变动，重要环境建议先在虚拟机或非主力机试用。「发布」频道的含义是「有人挑过」，不是「已经稳定」。
 > 参与内测与反馈：[Telegram 群](https://t.me/msimegroup)、QQ 群 829919142。
 
 ## 安装与注意事项

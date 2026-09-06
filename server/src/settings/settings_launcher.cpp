@@ -32,8 +32,7 @@ bool OpenSiblingApplication(const wchar_t *executable_name, const wchar_t *windo
     }
     module_path.resize(length);
 
-    const std::filesystem::path application_path =
-        std::filesystem::path(module_path).parent_path() / executable_name;
+    const std::filesystem::path application_path = std::filesystem::path(module_path).parent_path() / executable_name;
     const HINSTANCE result = ShellExecuteW(nullptr, L"open", application_path.c_str(), nullptr,
                                            application_path.parent_path().c_str(), SW_SHOWNORMAL);
     return reinterpret_cast<INT_PTR>(result) > 32;
@@ -44,7 +43,7 @@ bool CloseApplication(const wchar_t *window_class)
     const HWND application_window = FindWindowW(window_class, nullptr);
     return !application_window || PostMessageW(application_window, WM_CLOSE, 0, 0) != FALSE;
 }
-}
+} // namespace
 
 bool OpenSettingsApplication()
 {
@@ -62,7 +61,8 @@ bool OpenSettingsAboutApplication()
 
     std::wstring module_path(32768, L'\0');
     const DWORD length = GetModuleFileNameW(nullptr, module_path.data(), static_cast<DWORD>(module_path.size()));
-    if (length == 0 || length >= module_path.size()) return false;
+    if (length == 0 || length >= module_path.size())
+        return false;
     module_path.resize(length);
 
     const std::filesystem::path application_path =

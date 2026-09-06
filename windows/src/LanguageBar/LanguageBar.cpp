@@ -76,8 +76,7 @@ using SetThreadDpiAwarenessCtxFn = HANDLE(WINAPI *)(HANDLE);
 std::atomic<GetDpiForMonitorFn> s_getDpiForMonitor{nullptr};
 std::atomic<SetThreadDpiAwarenessCtxFn> s_setThreadDpiAwarenessCtx{nullptr};
 
-template <typename T>
-T ResolveOnce(std::atomic<T> &slot, T (*resolver)())
+template <typename T> T ResolveOnce(std::atomic<T> &slot, T (*resolver)())
 {
     T resolved = slot.load(std::memory_order_acquire);
     if (resolved == nullptr)
@@ -299,13 +298,16 @@ void CLangBarItemButton::CleanUp()
         _pTooltipText = nullptr;
     }
 
+    // TSF still holds the advised _pCompartmentEventSink until _Unadvise runs, so unregister before the
+    // deletes below and independently of the thread manager: under COM-less activation (TF_TMAE_COMLESS)
+    // CoCreateInstance fails, and freeing a still-advised sink leaves msctf calling into released memory.
+    _UnregisterCompartment();
+
     ITfThreadMgr *pThreadMgr = nullptr;
     HRESULT hr =
         CoCreateInstance(CLSID_TF_ThreadMgr, NULL, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr, (void **)&pThreadMgr);
     if (SUCCEEDED(hr))
     {
-        _UnregisterCompartment(pThreadMgr);
-
         _RemoveItem(pThreadMgr);
         pThreadMgr->Release();
         pThreadMgr = nullptr;
@@ -644,8 +646,7 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
     {
         lightIconIndex = static_cast<DWORD>(IME_MODE_CAP_ICON_INDEX);
     }
-    else if (isOn && !(status & TF_LBI_STATUS_DISABLED) &&
-             _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
+    else if (isOn && !(status & TF_LBI_STATUS_DISABLED) && _onIconIndex == static_cast<DWORD>(IME_MODE_ON_ICON_INDEX) &&
              Global::JapaneseInputModeEnabled.load(std::memory_order_relaxed))
     {
         lightIconIndex = static_cast<DWORD>(IME_MODE_ON_JP_ICON_INDEX);
@@ -654,8 +655,8 @@ STDAPI CLangBarItemButton::GetIcon(_Out_ HICON *phIcon)
 
     if (Global::dllInstanceHandle)
     {
-        *phIcon = reinterpret_cast<HICON>(LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(iconIndex), IMAGE_ICON,
-                                                    desiredSize, desiredSize, 0));
+        *phIcon = reinterpret_cast<HICON>(
+            LoadImage(Global::dllInstanceHandle, MAKEINTRESOURCE(iconIndex), IMAGE_ICON, desiredSize, desiredSize, 0));
     }
 
     return (*phIcon != NULL) ? S_OK : E_FAIL;
@@ -830,9 +831,8 @@ BOOL CLangBarItemButton::_RegisterCompartment(_In_ ITfThreadMgr *pThreadMgr, TfC
 //
 //----------------------------------------------------------------------------
 
-BOOL CLangBarItemButton::_UnregisterCompartment(_In_ ITfThreadMgr *pThreadMgr)
+BOOL CLangBarItemButton::_UnregisterCompartment()
 {
-    pThreadMgr;
     if (_pCompartment)
     {
         // Unadvice ITfCompartmentEventSink

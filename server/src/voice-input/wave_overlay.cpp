@@ -288,8 +288,7 @@ LRESULT WaveOverlay::handle_message(HWND hwnd, UINT message, WPARAM wParam, LPAR
         GetCursorPos(&point);
         ScreenToClient(hwnd, &point);
         Action action{};
-        if (hit_test_action(static_cast<float>(point.x) / scale_x_,
-                            static_cast<float>(point.y) / scale_y_, action))
+        if (hit_test_action(static_cast<float>(point.x) / scale_x_, static_cast<float>(point.y) / scale_y_, action))
         {
             SetCursor(LoadCursorW(nullptr, IDC_HAND));
             return TRUE;
@@ -492,12 +491,12 @@ void WaveOverlay::update_window_bounds()
     }
     const bool has_compact_status = compact_status_.load() != CompactStatus::None;
     const bool has_actions = actions_visible_.load();
-    const int logical_width = has_actions ? kActionWidth
-                                         : (has_compact_status ? kProcessingWidth
-                                                               : (has_transcript ? kTranscriptWidth : kCompactWidth));
-    const int logical_height = has_actions ? kActionHeight
-                                          : (has_compact_status ? kProcessingHeight
-                                                                : (has_transcript ? kTranscriptHeight : kCompactHeight));
+    const int logical_width =
+        has_actions ? kActionWidth
+                    : (has_compact_status ? kProcessingWidth : (has_transcript ? kTranscriptWidth : kCompactWidth));
+    const int logical_height =
+        has_actions ? kActionHeight
+                    : (has_compact_status ? kProcessingHeight : (has_transcript ? kTranscriptHeight : kCompactHeight));
     const int width = static_cast<int>(std::lround(logical_width * scale_x_));
     const int height = static_cast<int>(std::lround(logical_height * scale_y_));
     const RECT monitor = mvi_utils::GetMonitorCoordinates();
@@ -598,8 +597,8 @@ void WaveOverlay::draw()
     const float content_left = has_actions ? 35.0f : 0.0f;
     const float content_right = has_actions ? w - 35.0f : w;
     const float content_width = content_right - content_left;
-    const float wave_width = has_transcript ? (std::min)(78.0f, w)
-                                            : (has_actions ? (std::min)(78.0f, content_width) : w);
+    const float wave_width =
+        has_transcript ? (std::min)(78.0f, w) : (has_actions ? (std::min)(78.0f, content_width) : w);
     const float wave_left = has_transcript ? (w - wave_width) * 0.5f : 0.0f;
     const float centered_wave_left = has_actions ? content_left + (content_width - wave_width) * 0.5f : wave_left;
     const float center_y = has_transcript ? 18.0f : h * 0.5f;

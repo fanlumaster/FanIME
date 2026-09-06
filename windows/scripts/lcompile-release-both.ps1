@@ -1,2 +1,3 @@
-.\scripts\lcompile-release.ps1 32
-.\scripts\lcompile-release.ps1 64
+$ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'lcompile-release.ps1') 32
+& (Join-Path $PSScriptRoot 'lcompile-release.ps1') 64

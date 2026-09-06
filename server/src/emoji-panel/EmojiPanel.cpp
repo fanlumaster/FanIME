@@ -129,8 +129,9 @@ void StrokeRect(DeviceResources &resources, const RectF &rect, const D2D1_COLOR_
     auto *brush = resources.GetSolidColorBrush(color);
     if (target && brush)
     {
-        target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(rect.x, rect.y, rect.x + rect.width,
-                                                                    rect.y + rect.height), radius, radius), brush, width);
+        target->DrawRoundedRectangle(
+            D2D1::RoundedRect(D2D1::RectF(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height), radius, radius),
+            brush, width);
     }
 }
 
@@ -142,7 +143,7 @@ void DrawText(DeviceResources &resources, const std::wstring &text, const RectF 
     auto *target = resources.GetRenderTarget();
     auto *factory = resources.GetDWriteFactory();
     auto *format = resources.GetTextFormat(font, size, weight, alignment, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                            DWRITE_WORD_WRAPPING_NO_WRAP);
+                                           DWRITE_WORD_WRAPPING_NO_WRAP);
     auto *brush = resources.GetSolidColorBrush(color);
     if (!target || !factory || !format || !brush || text.empty())
     {
@@ -323,15 +324,24 @@ float EstimateFlowGroupHeight(size_t itemCount, float gridWidth)
 
 const wchar_t *IconForCategory(const std::wstring &title)
 {
-    if (title.find(L"Smileys") != std::wstring::npos) return L"\U0001F600";
-    if (title.find(L"People") != std::wstring::npos) return L"\U0001F9D1";
-    if (title.find(L"Animals") != std::wstring::npos) return L"\U0001F43E";
-    if (title.find(L"Food") != std::wstring::npos) return L"\U0001F355";
-    if (title.find(L"Travel") != std::wstring::npos) return L"\U0001F697";
-    if (title.find(L"Activities") != std::wstring::npos) return L"\U0001F389";
-    if (title.find(L"Objects") != std::wstring::npos) return L"\U0001F4A1";
-    if (title.find(L"Symbols") != std::wstring::npos) return L"\u2764";
-    if (title.find(L"Flags") != std::wstring::npos) return L"\U0001F3F3";
+    if (title.find(L"Smileys") != std::wstring::npos)
+        return L"\U0001F600";
+    if (title.find(L"People") != std::wstring::npos)
+        return L"\U0001F9D1";
+    if (title.find(L"Animals") != std::wstring::npos)
+        return L"\U0001F43E";
+    if (title.find(L"Food") != std::wstring::npos)
+        return L"\U0001F355";
+    if (title.find(L"Travel") != std::wstring::npos)
+        return L"\U0001F697";
+    if (title.find(L"Activities") != std::wstring::npos)
+        return L"\U0001F389";
+    if (title.find(L"Objects") != std::wstring::npos)
+        return L"\U0001F4A1";
+    if (title.find(L"Symbols") != std::wstring::npos)
+        return L"\u2764";
+    if (title.find(L"Flags") != std::wstring::npos)
+        return L"\U0001F3F3";
     return L"\u263A";
 }
 
@@ -392,8 +402,8 @@ std::wstring DisplayNameForItem(const std::wstring &keywords, const std::wstring
     return fallback;
 }
 
-float MeasureTextWidth(DeviceResources &resources, const std::wstring &text, float fontSize,
-                       DWRITE_FONT_WEIGHT weight, const wchar_t *fontFamily = L"Segoe UI")
+float MeasureTextWidth(DeviceResources &resources, const std::wstring &text, float fontSize, DWRITE_FONT_WEIGHT weight,
+                       const wchar_t *fontFamily = L"Segoe UI")
 {
     auto *factory = resources.GetDWriteFactory();
     auto *format = resources.GetTextFormat(fontFamily, fontSize, weight, DWRITE_TEXT_ALIGNMENT_LEADING,
@@ -403,8 +413,8 @@ float MeasureTextWidth(DeviceResources &resources, const std::wstring &text, flo
         return 0.0f;
     }
     Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
-    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, 1000.0f, 64.0f,
-                                         &layout)))
+    if (FAILED(
+            factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, 1000.0f, 64.0f, &layout)))
     {
         return 0.0f;
     }
@@ -433,8 +443,8 @@ TextSize MeasureTextSize(DeviceResources &resources, const std::wstring &text, f
         return {};
     }
     Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
-    if (FAILED(factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, 1000.0f, 64.0f,
-                                         &layout)))
+    if (FAILED(
+            factory->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), format, 1000.0f, 64.0f, &layout)))
     {
         return {};
     }
@@ -509,8 +519,8 @@ void DrawLongTextInCell(DeviceResources &resources, const std::wstring &text, co
 {
     constexpr float kMinFontSize = 9.0f;
     float fontSize = kLongTextFontSize;
-    const bool cacheHit = cachedFontSize && cachedCellWidth && *cachedFontSize > 0.0f &&
-                          std::abs(*cachedCellWidth - cell.width) <= 0.5f;
+    const bool cacheHit =
+        cachedFontSize && cachedCellWidth && *cachedFontSize > 0.0f && std::abs(*cachedCellWidth - cell.width) <= 0.5f;
     if (cacheHit)
     {
         fontSize = *cachedFontSize;
@@ -531,9 +541,9 @@ void DrawLongTextInCell(DeviceResources &resources, const std::wstring &text, co
 
     auto *target = resources.GetRenderTarget();
     auto *factory = resources.GetDWriteFactory();
-    auto *format = resources.GetTextFormat(L"Segoe UI", fontSize, DWRITE_FONT_WEIGHT_NORMAL,
-                                           DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                           DWRITE_WORD_WRAPPING_NO_WRAP);
+    auto *format =
+        resources.GetTextFormat(L"Segoe UI", fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER,
+                                DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
     auto *brush = resources.GetSolidColorBrush(color);
     if (!target || !factory || !format || !brush || text.empty())
     {
@@ -665,8 +675,8 @@ void DrawClipboardHoverTooltip(DeviceResources &resources, const std::wstring &r
         return;
 
     const float tipWidth = std::clamp(metrics.width + kPadX * 2.0f, 72.0f, maxBoxWidth);
-    const float tipHeight = std::clamp(metrics.height + kPadY * 2.0f, kFontSize + kPadY * 2.0f,
-                                       maxTextHeight + kPadY * 2.0f);
+    const float tipHeight =
+        std::clamp(metrics.height + kPadY * 2.0f, kFontSize + kPadY * 2.0f, maxTextHeight + kPadY * 2.0f);
 
     float tipX = anchor.x + (anchor.width - tipWidth) * 0.5f;
     tipX = std::clamp(tipX, panel.x + 12.0f, panel.x + panel.width - tipWidth - 12.0f);
@@ -684,9 +694,8 @@ void DrawClipboardHoverTooltip(DeviceResources &resources, const std::wstring &r
     const D2D1_COLOR_F tipBg = lightTheme ? D2D1::ColorF(0x2B2B33, 0.96f) : D2D1::ColorF(0x1C1C22, 0.96f);
     FillRect(resources, tipRect, tipBg, 10.0f);
 
-    const D2D1_RECT_F textRect =
-        D2D1::RectF(tipRect.x + kPadX, tipRect.y + kPadY, tipRect.x + tipRect.width - kPadX,
-                    tipRect.y + tipRect.height - kPadY);
+    const D2D1_RECT_F textRect = D2D1::RectF(tipRect.x + kPadX, tipRect.y + kPadY, tipRect.x + tipRect.width - kPadX,
+                                             tipRect.y + tipRect.height - kPadY);
     target->PushAxisAlignedClip(textRect, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     target->DrawTextLayout(D2D1::Point2F(textRect.left, textRect.top), layout.Get(), brush,
                            D2D1_DRAW_TEXT_OPTIONS_CLIP);
@@ -914,8 +923,7 @@ void EmojiPanel::LoadSymbolCatalog()
     sqlite3_busy_timeout(db, 3000);
 
     sqlite3_stmt *stmt = nullptr;
-    const char *sql =
-        "SELECT symbol, category, parent_category, keywords FROM symbol_catalog ORDER BY sort_order";
+    const char *sql = "SELECT symbol, category, parent_category, keywords FROM symbol_catalog ORDER BY sort_order";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
         sqlite3_close(db);
@@ -993,8 +1001,7 @@ void EmojiPanel::Arrange(const RectF &finalRect)
     {
         // Leave room on the left for the magnifying-glass chrome (Windows-style search).
         const RectF search = SearchRect();
-        const RectF textArea = {search.x + 46.0f, search.y + 4.0f, search.width - 58.0f,
-                                search.height - 8.0f};
+        const RectF textArea = {search.x + 46.0f, search.y + 4.0f, search.width - 58.0f, search.height - 8.0f};
         const RectF searchViewportRect = ToViewportRect(textArea);
         searchBox_->MeasureInLayout({searchViewportRect.width, searchViewportRect.height});
         searchBox_->ArrangeInLayout(searchViewportRect);
@@ -1074,8 +1081,7 @@ RectF EmojiPanel::ToViewportRect(const RectF &designRect) const
 
 PointF EmojiPanel::ToDesignPoint(const PointF &viewportPoint) const
 {
-    return {(viewportPoint.x - viewportBounds_.x) / kPanelScale,
-            (viewportPoint.y - viewportBounds_.y) / kPanelScale};
+    return {(viewportPoint.x - viewportBounds_.x) / kPanelScale, (viewportPoint.y - viewportBounds_.y) / kPanelScale};
 }
 
 RectF EmojiPanel::ContentViewportRect() const
@@ -1164,7 +1170,7 @@ const EmojiPanel::SymbolTab *EmojiPanel::ActiveSymbolTab() const
 }
 
 std::vector<const EmojiPanel::Item *> EmojiPanel::CollectPreviewItems(const std::vector<Group> &groups,
-                                                                       size_t limit) const
+                                                                      size_t limit) const
 {
     std::vector<const Item *> items;
     items.reserve(limit);
@@ -1183,7 +1189,7 @@ std::vector<const EmojiPanel::Item *> EmojiPanel::CollectPreviewItems(const std:
 }
 
 std::vector<const EmojiPanel::Item *> EmojiPanel::CollectDiversePreviewItems(const std::vector<Group> &groups,
-                                                                              size_t limit) const
+                                                                             size_t limit) const
 {
     std::vector<const Item *> items;
     if (limit == 0 || groups.empty())
@@ -1312,10 +1318,9 @@ void EmojiPanel::SyncClipboardState(bool forceReload)
         ClipboardMonitor::Stop();
     }
 
-    const bool changed =
-        forceReload || enabled != clipboardEnabled_ || items.size() != clipboardItems_.size() ||
-        !std::equal(items.begin(), items.end(), clipboardItems_.begin(),
-                    [](const Item &left, const Item &right) { return left.text == right.text; });
+    const bool changed = forceReload || enabled != clipboardEnabled_ || items.size() != clipboardItems_.size() ||
+                         !std::equal(items.begin(), items.end(), clipboardItems_.begin(),
+                                     [](const Item &left, const Item &right) { return left.text == right.text; });
     if (!changed)
         return;
 
@@ -1370,7 +1375,7 @@ void EmojiPanel::EnsureDisplayLayout() const
     const bool searching = !query.empty();
     const float flowGridWidth = std::max(bounds_.width - kGridLeft - kGridRightPad, kCellSize * 2.0f);
     auto appendGroup = [this, flowGridWidth](std::wstring title, std::vector<const Item *> items, Page moreTarget,
-                                            bool showMore) {
+                                             bool showMore) {
         LayoutGroup layout;
         layout.title = std::move(title);
         layout.items = std::move(items);
@@ -1680,8 +1685,8 @@ void EmojiPanel::EnsureFlowLayout(DeviceResources &resources) const
                 {
                     const TextSize measured =
                         MeasureTextSize(resources, item->text, kLongTextFontSize, DWRITE_FONT_WEIGHT_NORMAL);
-                    layoutWidth = MeasureTextLayoutWidth(resources, item->text, kLongTextFontSize,
-                                                         DWRITE_FONT_WEIGHT_NORMAL);
+                    layoutWidth =
+                        MeasureTextLayoutWidth(resources, item->text, kLongTextFontSize, DWRITE_FONT_WEIGHT_NORMAL);
                     layoutWidth = std::max(layoutWidth, measured.width);
                     item->cachedFlowTextWidth = layoutWidth;
                     item->hasCachedFlowTextWidth = true;
@@ -2110,8 +2115,8 @@ void EmojiPanel::ActivateMore(size_t layoutIndex)
     {
         EnterPage(Page::Emoji, recentItems_.empty() ? 1 : 0);
     }
-    else if (target == Page::Kaomoji || target == Page::Symbols || target == Page::Sticker ||
-             target == Page::Gif || target == Page::Clipboard)
+    else if (target == Page::Kaomoji || target == Page::Symbols || target == Page::Sticker || target == Page::Gif ||
+             target == Page::Clipboard)
     {
         EnterPage(target, 0);
     }
@@ -2168,8 +2173,8 @@ void EmojiPanel::Render(DeviceResources &resources)
     target->SetTransform(D2D1::Matrix3x2F::Scale(kPanelScale, kPanelScale) * oldTransform);
 
     FillRect(resources, bounds_, background);
-    DrawText(resources, L"Emoji and more", {bounds_.x + 24.0f, bounds_.y, 240.0f, kHeaderHeight},
-             18.0f, text, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
+    DrawText(resources, L"Emoji and more", {bounds_.x + 24.0f, bounds_.y, 240.0f, kHeaderHeight}, 18.0f, text,
+             L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT_SEMI_BOLD);
 
     const RectF close = CloseRect();
     if (closeHovered_ || closePressed_)
@@ -2185,8 +2190,8 @@ void EmojiPanel::Render(DeviceResources &resources)
         searchFocused ? (lightTheme_ ? D2D1::ColorF(0x9A62AD, 0.75f) : D2D1::ColorF(0xD88BDE, 0.70f))
                       : D2D1::ColorF(lightTheme_ ? 0xD0D0D8 : 0x3A3A44);
     StrokeRect(resources, searchChrome, searchBorder, 10.0f, searchFocused ? 2.0f : 1.0f);
-    DrawText(resources, L"\uE721", {searchChrome.x + 6.0f, searchChrome.y, 40.0f, searchChrome.height},
-             24.0f, mutedText, L"Segoe MDL2 Assets", DWRITE_TEXT_ALIGNMENT_CENTER);
+    DrawText(resources, L"\uE721", {searchChrome.x + 6.0f, searchChrome.y, 40.0f, searchChrome.height}, 24.0f,
+             mutedText, L"Segoe MDL2 Assets", DWRITE_TEXT_ALIGNMENT_CENTER);
 
     if (InDetailPage())
     {
@@ -2223,20 +2228,24 @@ void EmojiPanel::Render(DeviceResources &resources)
                          DWRITE_FONT_WEIGHT_NORMAL, true);
                 if (emojiSubTab_ == index)
                 {
-                    FillRect(resources,
-                             {rect.x + (rect.width - 22.0f) * 0.5f, bounds_.y + 121.0f, 22.0f, 3.0f},
-                             accent, 2.0f);
+                    FillRect(resources, {rect.x + (rect.width - 22.0f) * 0.5f, bounds_.y + 121.0f, 22.0f, 3.0f}, accent,
+                             2.0f);
                 }
             }
         }
         else
         {
             const wchar_t *title = L"";
-            if (page_ == Page::Sticker) title = L"Sticker";
-            else if (page_ == Page::Gif) title = L"GIF";
-            else if (page_ == Page::Kaomoji) title = L"Kaomoji";
-            else if (page_ == Page::Symbols) title = L"Symbols";
-            else if (page_ == Page::Clipboard) title = L"剪贴板";
+            if (page_ == Page::Sticker)
+                title = L"Sticker";
+            else if (page_ == Page::Gif)
+                title = L"GIF";
+            else if (page_ == Page::Kaomoji)
+                title = L"Kaomoji";
+            else if (page_ == Page::Symbols)
+                title = L"Symbols";
+            else if (page_ == Page::Clipboard)
+                title = L"剪贴板";
             DrawText(resources, title, {bounds_.x + 70.0f, bounds_.y + kNavTop, 280.0f, kNavHeight},
                      page_ == Page::Clipboard ? kClipboardTitleFontSize : 18.0f, text,
                      page_ == Page::Clipboard ? CjkUiFont() : L"Segoe UI", DWRITE_TEXT_ALIGNMENT_LEADING,
@@ -2255,9 +2264,8 @@ void EmojiPanel::Render(DeviceResources &resources)
             tabIcons_.DrawTabIcon(resources, static_cast<EmojiPanelIcons::Tab>(index), rect, lightTheme_);
             if (static_cast<size_t>(page_) == index)
             {
-                FillRect(resources,
-                         {rect.x + (rect.width - 24.0f) * 0.5f, bounds_.y + 122.0f, 24.0f, 2.0f},
-                         accent, 1.0f);
+                FillRect(resources, {rect.x + (rect.width - 24.0f) * 0.5f, bounds_.y + 122.0f, 24.0f, 2.0f}, accent,
+                         1.0f);
             }
         }
     }
@@ -2273,15 +2281,16 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
     EnsureFlowLayout(resources);
     const RectF viewport = ContentViewportRect();
-    target->PushAxisAlignedClip(D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width,
-                                            viewport.y + viewport.height), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    target->PushAxisAlignedClip(
+        D2D1::RectF(viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height),
+        D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
     auto *emojiFormat = resources.GetTextFormat(L"Segoe UI Emoji", kEmojiFontSize, DWRITE_FONT_WEIGHT_NORMAL,
                                                 DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
                                                 DWRITE_WORD_WRAPPING_NO_WRAP);
-    auto *titleFormat = resources.GetTextFormat(L"Segoe UI", 18.0f, DWRITE_FONT_WEIGHT_SEMI_BOLD,
-                                                DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER,
-                                                DWRITE_WORD_WRAPPING_NO_WRAP);
+    auto *titleFormat =
+        resources.GetTextFormat(L"Segoe UI", 18.0f, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_TEXT_ALIGNMENT_LEADING,
+                                DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
     auto *textBrush = resources.GetSolidColorBrush(text);
 
     const float contentOriginY = viewport.y - scrollOffset_;
@@ -2299,7 +2308,8 @@ void EmojiPanel::Render(DeviceResources &resources)
         }
 
         const RectF titleRect = {bounds_.x + 24.0f, groupTop, bounds_.width - 88.0f, group.titleHeight};
-        if (!group.title.empty() && VerticallyIntersects(titleRect.y, titleRect.y + titleRect.height, viewTop, viewBottom))
+        if (!group.title.empty() &&
+            VerticallyIntersects(titleRect.y, titleRect.y + titleRect.height, viewTop, viewBottom))
         {
             DrawFormattedText(resources, group.title, titleRect, titleFormat, textBrush, false);
         }
@@ -2328,8 +2338,8 @@ void EmojiPanel::Render(DeviceResources &resources)
                 if (!VerticallyIntersects(cell.y, cell.y + cell.height, viewTop, viewBottom))
                     continue;
                 const size_t flatIndex = group.firstFlatIndex + indexInGroup;
-                const bool active = flatIndex == selectedItem_ || flatIndex == hoveredItem_ ||
-                                    flatIndex == pressedItem_;
+                const bool active =
+                    flatIndex == selectedItem_ || flatIndex == hoveredItem_ || flatIndex == pressedItem_;
                 FillRect(resources, cell,
                          active ? (flatIndex == pressedItem_ ? pressed : selected)
                                 : D2D1::ColorF(lightTheme_ ? 0xFFFFFF : 0x2B2B33),
@@ -2449,9 +2459,10 @@ void EmojiPanel::Render(DeviceResources &resources)
                         {bounds_.x + 40.0f, bounds_.y + kContentTop + 96.0f, bounds_.width - 80.0f, 44.0f},
                         kClipboardHintFontSize, mutedText, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_NORMAL);
         const RectF enable = EnableClipboardButtonRect();
-        const D2D1_COLOR_F purple = enableClipboardPressed_ ? (lightTheme_ ? D2D1::ColorF(0x7A3E91) : D2D1::ColorF(0xB06CBC))
-                                  : enableClipboardHovered_  ? (lightTheme_ ? D2D1::ColorF(0xB07CC4) : D2D1::ColorF(0xE2A8E8))
-                                                             : accent;
+        const D2D1_COLOR_F purple =
+            enableClipboardPressed_   ? (lightTheme_ ? D2D1::ColorF(0x7A3E91) : D2D1::ColorF(0xB06CBC))
+            : enableClipboardHovered_ ? (lightTheme_ ? D2D1::ColorF(0xB07CC4) : D2D1::ColorF(0xE2A8E8))
+                                      : accent;
         FillRect(resources, enable, purple, 12.0f);
         DrawText(resources, L"开启剪贴板", enable, kClipboardButtonFontSize, D2D1::ColorF(0xFFFFFF), CjkUiFont(),
                  DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_FONT_WEIGHT_SEMI_BOLD);
@@ -2478,8 +2489,8 @@ void EmojiPanel::Render(DeviceResources &resources)
         else if (page_ == Page::Symbols && symbolGroups_.empty())
             emptyText = L"Symbol catalog not found";
         DrawText(resources, emptyText,
-                 {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 64.0f},
-                 emptySize, mutedText, emptyFont, DWRITE_TEXT_ALIGNMENT_CENTER);
+                 {bounds_.x + 30.0f, bounds_.y + kContentTop + 50.0f, bounds_.width - 60.0f, 64.0f}, emptySize,
+                 mutedText, emptyFont, DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     target->PopAxisAlignedClip();
 
@@ -2498,13 +2509,12 @@ void EmojiPanel::Render(DeviceResources &resources)
         constexpr float kToastFontSize = 20.0f * kPanelScale;
         const RectF panel = ToViewportRect(bounds_);
         const float textWidth = MeasureTextWidth(resources, toastText_, kToastFontSize, DWRITE_FONT_WEIGHT_SEMI_BOLD);
-        const float width = std::min(std::max(textWidth + kToastPadX * 2.0f, 96.0f * kPanelScale),
-                                     panel.width - 40.0f * kPanelScale);
+        const float width =
+            std::min(std::max(textWidth + kToastPadX * 2.0f, 96.0f * kPanelScale), panel.width - 40.0f * kPanelScale);
         const RectF toast = {panel.x + (panel.width - width) * 0.5f,
-                             panel.y + panel.height - (kToastBottomPad + kToastHeight) * kPanelScale,
-                             width, kToastHeight * kPanelScale};
-        const D2D1_COLOR_F toastBg =
-            lightTheme_ ? D2D1::ColorF(0x2B2B33, 0.94f) : D2D1::ColorF(0x3A3A44, 0.96f);
+                             panel.y + panel.height - (kToastBottomPad + kToastHeight) * kPanelScale, width,
+                             kToastHeight * kPanelScale};
+        const D2D1_COLOR_F toastBg = lightTheme_ ? D2D1::ColorF(0x2B2B33, 0.94f) : D2D1::ColorF(0x3A3A44, 0.96f);
         const D2D1_COLOR_F toastFg = D2D1::ColorF(0xF5F5F7);
         FillRect(resources, toast, toastBg, toast.height * 0.5f);
         DrawText(resources, toastText_, toast, kToastFontSize, toastFg, L"Segoe UI", DWRITE_TEXT_ALIGNMENT_CENTER,
@@ -2524,8 +2534,7 @@ void EmojiPanel::Render(DeviceResources &resources)
             const float tipOriginY = ContentViewportRect().y - scrollOffset_;
             for (const auto &group : layoutGroups_)
             {
-                if (tooltipItem_ < group.firstFlatIndex ||
-                    tooltipItem_ >= group.firstFlatIndex + group.items.size())
+                if (tooltipItem_ < group.firstFlatIndex || tooltipItem_ >= group.firstFlatIndex + group.items.size())
                 {
                     continue;
                 }
@@ -2546,10 +2555,10 @@ void EmojiPanel::Render(DeviceResources &resources)
                 {
                     const std::wstring &tipFont = ThemeManager::GetCurrent().textInputFontFamily;
                     const float tooltipFontSize = kTooltipFontSize * kPanelScale;
-                    const float textWidth = MeasureTextWidth(resources, tip, tooltipFontSize,
-                                                             DWRITE_FONT_WEIGHT_NORMAL, tipFont.c_str());
-                    const float tipWidth = std::min(textWidth + kTooltipPadX * 2.0f * kPanelScale,
-                                                    panel.width - 24.0f * kPanelScale);
+                    const float textWidth =
+                        MeasureTextWidth(resources, tip, tooltipFontSize, DWRITE_FONT_WEIGHT_NORMAL, tipFont.c_str());
+                    const float tipWidth =
+                        std::min(textWidth + kTooltipPadX * 2.0f * kPanelScale, panel.width - 24.0f * kPanelScale);
                     const float tipHeight = (kTooltipFontSize + kTooltipPadY * 2.0f + 6.0f) * kPanelScale;
                     float tipX = anchor.x + (anchor.width - tipWidth) * 0.5f;
                     tipX = std::clamp(tipX, panel.x + 12.0f * kPanelScale,
@@ -2577,13 +2586,24 @@ void EmojiPanel::Render(DeviceResources &resources)
     }
 }
 
-bool EmojiPanel::HitTest(const PointF &point) const { return Contains(bounds_, point); }
-bool EmojiPanel::IsFocusable() const { return true; }
-void EmojiPanel::OnFocusChanged(bool focused) { focused_ = focused; InvalidateVisual(); }
+bool EmojiPanel::HitTest(const PointF &point) const
+{
+    return Contains(bounds_, point);
+}
+bool EmojiPanel::IsFocusable() const
+{
+    return true;
+}
+void EmojiPanel::OnFocusChanged(bool focused)
+{
+    focused_ = focused;
+    InvalidateVisual();
+}
 
 bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
 {
-    if (!window_) return false;
+    if (!window_)
+        return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     const RectF scrollbarThumb = ScrollbarThumbRect();
     const RectF scrollbarHitRect = {scrollbarThumb.x - 4.0f, scrollbarThumb.y, scrollbarThumb.width + 8.0f,
@@ -2604,10 +2624,9 @@ bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
     backPressed_ = !closePressed_ && HitBack(dip);
     enableClipboardPressed_ = !closePressed_ && !backPressed_ && HitEnableClipboardButton(dip);
     pressedMainTab_ = (closePressed_ || backPressed_ || enableClipboardPressed_) ? kInvalidIndex : HitMainTab(dip);
-    pressedSubTab_ =
-        (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex)
-            ? kInvalidIndex
-            : HitEmojiSubTab(dip);
+    pressedSubTab_ = (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex)
+                         ? kInvalidIndex
+                         : HitEmojiSubTab(dip);
     pressedMore_ = (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex ||
                     pressedSubTab_ != kInvalidIndex)
                        ? kInvalidIndex
@@ -2617,18 +2636,19 @@ bool EmojiPanel::OnMouseDown(const POINT &point, WPARAM)
          pressedSubTab_ != kInvalidIndex || pressedMore_ != kInvalidIndex)
             ? kInvalidIndex
             : HitClipboardDelete(dip);
-    pressedItem_ = (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex ||
-                    pressedSubTab_ != kInvalidIndex || pressedMore_ != kInvalidIndex ||
-                    pressedClipboardDelete_ != kInvalidIndex)
-                       ? kInvalidIndex
-                       : HitItem(dip);
+    pressedItem_ =
+        (closePressed_ || backPressed_ || enableClipboardPressed_ || pressedMainTab_ != kInvalidIndex ||
+         pressedSubTab_ != kInvalidIndex || pressedMore_ != kInvalidIndex || pressedClipboardDelete_ != kInvalidIndex)
+            ? kInvalidIndex
+            : HitItem(dip);
     InvalidateVisual();
     return true;
 }
 
 bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
 {
-    if (!window_) return false;
+    if (!window_)
+        return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     if (scrollbarDragging_)
     {
@@ -2693,13 +2713,15 @@ bool EmojiPanel::OnMouseUp(const POINT &point, WPARAM)
     pressedClipboardDelete_ = kInvalidIndex;
     pressedItem_ = kInvalidIndex;
     InvalidateVisual();
-    if (close) PostMessageW(window_->GetHandle(), WM_CLOSE, 0, 0);
+    if (close)
+        PostMessageW(window_->GetHandle(), WM_CLOSE, 0, 0);
     return true;
 }
 
 bool EmojiPanel::OnMouseMove(const POINT &point, WPARAM)
 {
-    if (!window_) return false;
+    if (!window_)
+        return false;
     const PointF dip = ToDesignPoint(window_->ClientPixelsToDips(point));
     if (scrollbarDragging_)
     {
@@ -2723,14 +2745,14 @@ bool EmojiPanel::OnMouseMove(const POINT &point, WPARAM)
     const size_t more = (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex)
                             ? kInvalidIndex
                             : HitMoreButton(dip);
-    const size_t deleted =
-        (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex || more != kInvalidIndex)
-            ? kInvalidIndex
-            : HitClipboardDelete(dip);
-    const size_t item =
-        (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex || more != kInvalidIndex)
-            ? kInvalidIndex
-            : HitItem(dip);
+    const size_t deleted = (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex ||
+                            more != kInvalidIndex)
+                               ? kInvalidIndex
+                               : HitClipboardDelete(dip);
+    const size_t item = (close || back || enableClipboard || mainTab != kInvalidIndex || subTab != kInvalidIndex ||
+                         more != kInvalidIndex)
+                            ? kInvalidIndex
+                            : HitItem(dip);
     if (closeHovered_ != close || backHovered_ != back || enableClipboardHovered_ != enableClipboard ||
         hoveredMainTab_ != mainTab || hoveredSubTab_ != subTab || hoveredMore_ != more || hoveredItem_ != item ||
         hoveredClipboardDelete_ != deleted)
@@ -2788,9 +2810,12 @@ bool EmojiPanel::OnKeyDown(WPARAM key, LPARAM)
         return false;
     }
     const size_t count = DisplayItemCount();
-    if (count == 0) return false;
-    if (key == VK_LEFT && selectedItem_ > 0) --selectedItem_;
-    else if (key == VK_RIGHT && selectedItem_ + 1 < count) ++selectedItem_;
+    if (count == 0)
+        return false;
+    if (key == VK_LEFT && selectedItem_ > 0)
+        --selectedItem_;
+    else if (key == VK_RIGHT && selectedItem_ + 1 < count)
+        ++selectedItem_;
     else if (key == VK_UP)
     {
         if (IsFlowFlatIndex(selectedItem_))
@@ -2815,10 +2840,14 @@ bool EmojiPanel::OnKeyDown(WPARAM key, LPARAM)
             selectedItem_ = std::min(selectedItem_ + columns, count - 1);
         }
     }
-    else if (key == VK_HOME) selectedItem_ = 0;
-    else if (key == VK_END) selectedItem_ = count - 1;
-    else if (key == VK_RETURN || key == VK_SPACE) ActivateItem(selectedItem_);
-    else return false;
+    else if (key == VK_HOME)
+        selectedItem_ = 0;
+    else if (key == VK_END)
+        selectedItem_ = count - 1;
+    else if (key == VK_RETURN || key == VK_SPACE)
+        ActivateItem(selectedItem_);
+    else
+        return false;
     EnsureItemVisible(selectedItem_);
     InvalidateVisual();
     return true;

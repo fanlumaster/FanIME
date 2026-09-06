@@ -137,7 +137,8 @@ STDMETHODIMP CSearchCandidateProvider::GetSearchCandidates(BSTR bstrQuery, BSTR 
         return hr;
     }
 
-    CCompositionProcessorEngine *pCompositionProcessorEngine = ((CMetasequoiaIME *)_pTip)->GetCompositionProcessorEngine();
+    CCompositionProcessorEngine *pCompositionProcessorEngine =
+        ((CMetasequoiaIME *)_pTip)->GetCompositionProcessorEngine();
     if (nullptr == pCompositionProcessorEngine)
     {
         return hr;

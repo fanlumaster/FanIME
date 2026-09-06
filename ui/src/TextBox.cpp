@@ -37,7 +37,8 @@ RectF InsetRectF(const RectF &rect, float inset)
 
 bool PointInRect(const RectF &rect, const PointF &point)
 {
-    return point.x >= rect.x && point.x < (rect.x + rect.width) && point.y >= rect.y && point.y < (rect.y + rect.height);
+    return point.x >= rect.x && point.x < (rect.x + rect.width) && point.y >= rect.y &&
+           point.y < (rect.y + rect.height);
 }
 
 bool PointInRoundedRect(const RectF &rect, float radius, const PointF &point)
@@ -83,10 +84,7 @@ bool CopyTextToClipboard(HWND hwnd, const std::wstring &text)
         return false;
     }
 
-    const auto closeClipboard = []()
-    {
-        CloseClipboard();
-    };
+    const auto closeClipboard = []() { CloseClipboard(); };
 
     EmptyClipboard();
 
@@ -146,9 +144,10 @@ std::wstring ReadClipboardText(HWND hwnd)
     CloseClipboard();
     return text;
 }
-}
+} // namespace
 
-TextBox::TextBox(float height, std::wstring placeholder) : preferredHeight_(height), placeholder_(std::move(placeholder))
+TextBox::TextBox(float height, std::wstring placeholder)
+    : preferredHeight_(height), placeholder_(std::move(placeholder))
 {
     editor_ = new CTextEditor();
     editor_->SetTextChangedCallback([this]() {
@@ -248,20 +247,24 @@ void TextBox::Render(DeviceResources &deviceResources)
     const float dpi = window_ ? window_->GetDpi() : 96.0f;
     const float contentOffsetXDips = PixelsToDips(static_cast<float>(hostRectPixels.left - boundsPixels.left), dpi);
     const float contentOffsetYDips = PixelsToDips(static_cast<float>(hostRectPixels.top - boundsPixels.top), dpi);
-    const float contentWidth = PixelsToDips(static_cast<float>(std::max(hostRectPixels.right - hostRectPixels.left, 0L)), dpi);
-    const float contentHeight = PixelsToDips(static_cast<float>(std::max(hostRectPixels.bottom - hostRectPixels.top, 0L)), dpi);
+    const float contentWidth =
+        PixelsToDips(static_cast<float>(std::max(hostRectPixels.right - hostRectPixels.left, 0L)), dpi);
+    const float contentHeight =
+        PixelsToDips(static_cast<float>(std::max(hostRectPixels.bottom - hostRectPixels.top, 0L)), dpi);
 
     D2D1_MATRIX_3X2_F oldTransform = {};
     target->GetTransform(&oldTransform);
     target->SetTransform(D2D1::Matrix3x2F::Translation(bounds_.x + contentOffsetXDips, bounds_.y + contentOffsetYDips));
-    target->PushAxisAlignedClip(D2D1::RectF(0.0f, 0.0f, contentWidth, contentHeight), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    target->PushAxisAlignedClip(D2D1::RectF(0.0f, 0.0f, contentWidth, contentHeight),
+                                D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     editor_->Render(target);
     if (editor_->GetTextLength() == 0 && !placeholder_.empty())
     {
         IDWriteTextFormat *placeholderFormat = deviceResources.GetTextFormat(
             ThemeManager::GetCurrent().textInputFontFamily, placeholderFontSizeDips_, DWRITE_FONT_WEIGHT_NORMAL,
             DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_WORD_WRAPPING_NO_WRAP);
-        ID2D1SolidColorBrush *placeholderBrush = deviceResources.GetSolidColorBrush(ThemeManager::GetCurrent().textSecondary);
+        ID2D1SolidColorBrush *placeholderBrush =
+            deviceResources.GetSolidColorBrush(ThemeManager::GetCurrent().textSecondary);
         if (placeholderFormat && placeholderBrush)
         {
             target->DrawTextW(placeholder_.c_str(), static_cast<UINT32>(placeholder_.size()), placeholderFormat,
@@ -288,7 +291,8 @@ void TextBox::Attach(Window *window)
         }
 
         std::ostringstream log;
-        log << "TextBox::Attach this=" << this << " hwnd=" << window->GetHandle() << " tsfInitialized=" << tsfInitialized_;
+        log << "TextBox::Attach this=" << this << " hwnd=" << window->GetHandle()
+            << " tsfInitialized=" << tsfInitialized_;
         DebugLog(log.str());
     }
 }
@@ -309,8 +313,8 @@ bool TextBox::HitTest(const PointF &point) const
 
     {
         std::ostringstream log;
-        log << "TextBox::HitTest this=" << this << " preferredHeight=" << preferredHeight_ << " point=(" << point.x << ","
-            << point.y << ") innerRect=(" << innerRect.x << "," << innerRect.y << "," << innerRect.width << ","
+        log << "TextBox::HitTest this=" << this << " preferredHeight=" << preferredHeight_ << " point=(" << point.x
+            << "," << point.y << ") innerRect=(" << innerRect.x << "," << innerRect.y << "," << innerRect.width << ","
             << innerRect.height << ") hit=" << hit;
         DebugLog(log.str());
     }
@@ -327,7 +331,8 @@ void TextBox::OnFocusChanged(bool focused)
 {
     {
         std::ostringstream log;
-        log << "TextBox::OnFocusChanged this=" << this << " focused=" << focused << " tsfInitialized=" << tsfInitialized_;
+        log << "TextBox::OnFocusChanged this=" << this << " focused=" << focused
+            << " tsfInitialized=" << tsfInitialized_;
         DebugLog(log.str());
     }
 
@@ -364,8 +369,8 @@ bool TextBox::OnMouseDown(const POINT &point, WPARAM keyState)
     POINT local = ToLocalPoint(point);
     {
         std::ostringstream log;
-        log << "TextBox::OnMouseDown this=" << this << " global=(" << point.x << "," << point.y << ") local=(" << local.x
-            << "," << local.y << ") bounds=(" << bounds_.x << "," << bounds_.y << "," << bounds_.width << ","
+        log << "TextBox::OnMouseDown this=" << this << " global=(" << point.x << "," << point.y << ") local=("
+            << local.x << "," << local.y << ") bounds=(" << bounds_.x << "," << bounds_.y << "," << bounds_.width << ","
             << bounds_.height << ")";
         DebugLog(log.str());
     }
@@ -484,8 +489,7 @@ bool TextBox::OnKeyDown(WPARAM key, LPARAM lParam)
             }
             return true;
 
-        case 'V':
-        {
+        case 'V': {
             std::wstring clipboardText = ReadClipboardText(window_ ? window_->GetHandle() : nullptr);
             if (!clipboardText.empty())
             {

@@ -75,7 +75,10 @@ class TextBox : public Visual
     bool OnTimer(UINT_PTR timerId) override;
     HCURSOR GetCursor() const override;
     std::wstring GetText() const;
-    bool IsFocused() const { return focused_; }
+    bool IsFocused() const
+    {
+        return focused_;
+    }
     void SetOnTextChanged(TextChangedHandler handler);
     void SetOnFocusChanged(std::function<void(bool focused)> handler);
     void SetFontSize(float fontSizeDips);

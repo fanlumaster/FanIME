@@ -158,9 +158,8 @@ bool CMetasequoiaIME::_QueueRepeatedSmartPunctuationReplacement(WCHAR wch)
     // Backspace rejection means the ASCII form is already gone. Treating the
     // next press as "replace the still-visible ASCII punct" would SendInput a
     // Backspace into the preceding character instead.
-    if (!_smartPunctuationCommittedAscii || _smartPunctuationAsciiRejected ||
-        _smartPunctuationKey != wch || _smartPunctuationCommitTick == 0 ||
-        _msgWndHandle == nullptr || _pCompositionProcessorEngine == nullptr ||
+    if (!_smartPunctuationCommittedAscii || _smartPunctuationAsciiRejected || _smartPunctuationKey != wch ||
+        _smartPunctuationCommitTick == 0 || _msgWndHandle == nullptr || _pCompositionProcessorEngine == nullptr ||
         _IsComposing() || _candidateMode != CANDIDATE_NONE ||
         !Global::SmartPunctuationEnabled.load(std::memory_order_relaxed) ||
         !Global::SmartPunctuationRepeatToChineseEnabled.load(std::memory_order_relaxed))
@@ -185,12 +184,10 @@ bool CMetasequoiaIME::_QueueRepeatedSmartPunctuationReplacement(WCHAR wch)
     _pendingSmartPunctuationReplacement = chinese[0];
     _pendingSmartPunctuationFocusToken = _smartPunctuationFocusToken;
     _pendingSmartPunctuationForegroundWindow = _smartPunctuationForegroundWindow;
-    _pendingSmartPunctuationDeadline =
-        _smartPunctuationCommitTick + SMART_PUNCTUATION_REPEAT_INTERVAL_MS;
+    _pendingSmartPunctuationDeadline = _smartPunctuationCommitTick + SMART_PUNCTUATION_REPEAT_INTERVAL_MS;
 
     const uint64_t focusToken = _pendingSmartPunctuationFocusToken;
-    if (!PostMessage(_msgWndHandle, WM_ReplaceRepeatedSmartPunctuation,
-                     static_cast<WPARAM>(focusToken & 0xFFFFFFFFULL),
+    if (!PostMessage(_msgWndHandle, WM_ReplaceRepeatedSmartPunctuation, static_cast<WPARAM>(focusToken & 0xFFFFFFFFULL),
                      static_cast<LPARAM>((focusToken >> 32) & 0xFFFFFFFFULL)))
     {
         _pendingSmartPunctuationReplacement = 0;
@@ -401,23 +398,18 @@ STDAPI CMetasequoiaIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfCo
     PerfTimer timer;
     if (pComposition == nullptr || !_IsCompositionCurrent(pComposition))
     {
-        DebugTsfIssue47(L"host-terminated-stale-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0',
-                        0, 0, -1, _IsComposing(),
-                        _pCompositionProcessorEngine
-                            ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                            : 0,
-                        S_FALSE, _CaptureCompositionEpoch());
+        DebugTsfIssue47(L"host-terminated-stale-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0', 0, 0, -1,
+                        _IsComposing(),
+                        _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_FALSE,
+                        _CaptureCompositionEpoch());
         // A delayed termination callback for an older composition must never
         // delete the current candidate presenter or release newer ownership.
         return S_OK;
     }
 
-    DebugTsfIssue47(L"host-terminated-current-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0',
-                    0, 0, -1, TRUE,
-                    _pCompositionProcessorEngine
-                        ? _pCompositionProcessorEngine->GetVirtualKeyLength()
-                        : 0,
-                    S_OK, _CaptureCompositionEpoch());
+    DebugTsfIssue47(L"host-terminated-current-composition", FANY_IME_NO_REQUEST_ID, 0, L'\0', 0, 0, -1, TRUE,
+                    _pCompositionProcessorEngine ? _pCompositionProcessorEngine->GetVirtualKeyLength() : 0, S_OK,
+                    _CaptureCompositionEpoch());
 
     // The callback already carries a write cookie and the host has already
     // ended this exact composition. Detach ownership before making COM calls,
@@ -437,8 +429,7 @@ STDAPI CMetasequoiaIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfCo
         _pContext = nullptr;
     }
 
-    uint64_t nextEpoch =
-        _compositionEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
+    uint64_t nextEpoch = _compositionEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
     if (nextEpoch == 0)
     {
         _compositionEpoch.fetch_add(1, std::memory_order_acq_rel);
@@ -461,8 +452,7 @@ STDAPI CMetasequoiaIME::OnCompositionTerminated(TfEditCookie ecWrite, _In_ ITfCo
     // destabilize fragile hosts (notably QQ).
     if (ownerContext)
     {
-        _ClearCompositionDisplayAttributes(ecWrite, ownerContext,
-                                           terminatedComposition);
+        _ClearCompositionDisplayAttributes(ecWrite, ownerContext, terminatedComposition);
     }
     terminatedComposition->Release();
 
@@ -508,7 +498,7 @@ void CMetasequoiaIME::_SetComposition(_In_ ITfComposition *pComposition)
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_AddComposingAndChar(TfEditCookie ec, _In_ ITfContext *pContext,
-                                               _In_ CStringRange *pstrAddString)
+                                              _In_ CStringRange *pstrAddString)
 {
     HRESULT hr = S_OK;
 
@@ -591,7 +581,7 @@ HRESULT CMetasequoiaIME::_AddComposingAndChar(TfEditCookie ec, _In_ ITfContext *
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_AddCharAndFinalize(TfEditCookie ec, _In_ ITfContext *pContext,
-                                              _In_ CStringRange *pstrAddString)
+                                             _In_ CStringRange *pstrAddString)
 {
     HRESULT hr = E_FAIL;
     PerfTimer timer;
@@ -635,7 +625,7 @@ HRESULT CMetasequoiaIME::_AddCharAndFinalize(TfEditCookie ec, _In_ ITfContext *p
 }
 
 HRESULT CMetasequoiaIME::_InsertTextToComposition(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                   _In_ CStringRange *pstrAddString)
+                                                  _In_ CStringRange *pstrAddString)
 {
     PerfTimer timer;
     if (_pComposition == nullptr)
@@ -679,7 +669,7 @@ HRESULT CMetasequoiaIME::_InsertTextToComposition(TfEditCookie ec, _In_ ITfConte
 //----------------------------------------------------------------------------
 
 HRESULT CMetasequoiaIME::_SetCompositionTextAndSelection(TfEditCookie ec, _In_ ITfContext *pContext,
-                                                          _In_ CStringRange *pstrAddString)
+                                                         _In_ CStringRange *pstrAddString)
 {
     PerfTimer timer;
     if (_pComposition == nullptr)

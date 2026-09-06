@@ -2,6 +2,7 @@ name: Bug 反馈 / Bug Report
 description: 报告水杉输入法的错误或异常行为。Report a bug or unexpected behavior.
 title: "[Bug] "
 labels: ["bug"]
+type: Bug
 body:
   - type: markdown
     attributes:
@@ -18,14 +19,13 @@ body:
       description: 问题主要出现在哪个部分？Which part is primarily affected?
       multiple: true
       options:
-        - TSF 前端 / MSIME-Windows
-        - Server / 引擎服务 / MSIME-Server
-        - 设置界面 / Settings
-        - 候选窗 UI / Candidate UI
-        - 词典 / MSIME-Engine/dictionary
-        - 辅助码 / MSIME-Engine
+        - 候选窗 / Candidate window
+        - 词典 / Dictionary and Lexicon
+        - 辅助码 / Help Code
+        - 设置 / Settings
         - 安装器 / Installer
-        - 文档 / 官网
+        - 引擎服务 / Engine
+        - 文档 / Docs
         - 不确定 / Not sure
         - 其他 / Other
     validations:
@@ -33,10 +33,10 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: 问题描述 / Description
-      description: 发生了什么？期望是什么？What happened, and what did you expect?
+      label: 问题与行为 / Problem & Actual behavior
+      description: 发生了什么？What happened?
       placeholder: |
-        简要说明问题现象与预期行为。
+        简要说明问题现象与行为。
     validations:
       required: true
   - type: textarea
@@ -57,13 +57,6 @@ body:
       description: 正常情况下应该怎样？What should happen instead?
     validations:
       required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: 实际行为 / Actual Behavior
-      description: 实际观察到了什么？What actually happened?
-    validations:
-      required: true
   - type: input
     id: version
     attributes:
@@ -77,7 +70,7 @@ body:
     attributes:
       label: 系统环境 / OS
       description: Windows 版本与版本号。Windows edition and version.
-      placeholder: e.g. Windows 11 24H2 / Windows 10 Pro 22H2
+      placeholder: e.g. Windows 11 Pro 24H2 / Windows 10 Pro 22H2
     validations:
       required: true
   - type: dropdown
@@ -85,8 +78,9 @@ body:
     attributes:
       label: 输入方案 / Input Scheme
       options:
-        - 小鹤双拼 / Xiaohe Shuangpin
-        - 全拼 / Quanpin
+        - 全拼 / Full Pinyin
+        - 双拼 / Double Pinyin
+        - 五笔 / Wubi
         - 其他 / Other
         - 不适用 / N/A
     validations:
@@ -106,9 +100,9 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: 日志 / 截图 / 录屏（可选）
+      label: 日志（可选）
       description: |
-        可粘贴相关日志，或附上截图 / 录屏链接。
+        可粘贴相关日志。
         Paste relevant logs, or attach screenshots / recordings.
       render: shell
     validations:

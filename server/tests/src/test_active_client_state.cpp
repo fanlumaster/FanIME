@@ -92,8 +92,7 @@ TEST_CASE(active_client_terminal_deactivation_reuses_only_current_inactive_epoch
     state.activate(1001);
     const uint64_t suspended_epoch = state.deactivate(1001);
     REQUIRE(suspended_epoch != 0);
-    REQUIRE_EQ(state.terminal_deactivation_epoch(1001, suspended_epoch),
-               suspended_epoch);
+    REQUIRE_EQ(state.terminal_deactivation_epoch(1001, suspended_epoch), suspended_epoch);
 
     // A later real deactivation observes an already-suspended route. It must
     // still carry the exact inactive epoch to the UI worker.
@@ -112,8 +111,7 @@ TEST_CASE(active_client_terminal_deactivation_reuses_only_current_inactive_epoch
     const uint64_t second_suspended_epoch = state.deactivate(2002);
     REQUIRE(second_suspended_epoch != 0);
     REQUIRE_EQ(state.terminal_deactivation_epoch(1001), 0u);
-    REQUIRE_EQ(state.terminal_deactivation_epoch(2002),
-               second_suspended_epoch);
+    REQUIRE_EQ(state.terminal_deactivation_epoch(2002), second_suspended_epoch);
 }
 
 TEST_CASE(focus_session_ready_requires_nonzero_client_epoch_and_token)

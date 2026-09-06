@@ -19,29 +19,29 @@ struct Registrar
 {
     Registrar(const char *name, std::function<void()> fn);
 };
-}
+} // namespace test
 
-#define TEST_CASE(name)                                                                                                 \
-    static void name();                                                                                                 \
+#define TEST_CASE(name)                                                                                                \
+    static void name();                                                                                                \
     static test::Registrar name##_registrar(#name, name);                                                              \
     static void name()
 
-#define REQUIRE(expr)                                                                                                   \
-    do                                                                                                                  \
-    {                                                                                                                   \
-        if (!(expr))                                                                                                    \
-        {                                                                                                               \
+#define REQUIRE(expr)                                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (!(expr))                                                                                                   \
+        {                                                                                                              \
             throw std::runtime_error("Requirement failed: " #expr);                                                    \
-        }                                                                                                               \
+        }                                                                                                              \
     } while (false)
 
-#define REQUIRE_EQ(lhs, rhs)                                                                                            \
-    do                                                                                                                  \
-    {                                                                                                                   \
-        const auto &_lhs = (lhs);                                                                                       \
-        const auto &_rhs = (rhs);                                                                                       \
-        if (!(_lhs == _rhs))                                                                                            \
-        {                                                                                                               \
-            throw std::runtime_error("Requirement failed: " #lhs " == " #rhs);                                        \
-        }                                                                                                               \
+#define REQUIRE_EQ(lhs, rhs)                                                                                           \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        const auto &_lhs = (lhs);                                                                                      \
+        const auto &_rhs = (rhs);                                                                                      \
+        if (!(_lhs == _rhs))                                                                                           \
+        {                                                                                                              \
+            throw std::runtime_error("Requirement failed: " #lhs " == " #rhs);                                         \
+        }                                                                                                              \
     } while (false)

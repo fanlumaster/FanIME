@@ -144,9 +144,9 @@ void ApplyTranslatedGroup(const std::vector<EnglishIme::TranslationQuery> &group
 }
 
 void TranslateGroup(const TencentTmt::Credentials &credentials, const CustomTranslation::Config &custom,
-                    bool use_custom, const std::vector<EnglishIme::TranslationQuery> &group,
-                    const std::string &source, const std::string &target, const std::string &target_language,
-                    const std::string &provider_scope, std::vector<EnglishIme::TranslationResult> &out)
+                    bool use_custom, const std::vector<EnglishIme::TranslationQuery> &group, const std::string &source,
+                    const std::string &target, const std::string &target_language, const std::string &provider_scope,
+                    std::vector<EnglishIme::TranslationResult> &out)
 {
     std::vector<std::string> texts;
     texts.reserve(group.size());

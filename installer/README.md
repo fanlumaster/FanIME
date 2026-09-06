@@ -13,7 +13,7 @@
 
 ## CI 契约
 
-根 `.github/workflows/release.yml` **不加修改地调用本目录的 `Prepare-PackageFiles.ps1` 和 `Compile-Installer.ps1`**。源目录名是 `Prepare-PackageFiles.ps1` 的参数，不是写死在脚本里的字面量：TSF、Server 和页面仍支持历史目录默认值；当前 workflow 与 `tests/package-files.ps1` 均显式使用 `windows/`、`server/`、`ui-html/` 和仓根授权文件。辅助码默认读取 `vendor/MetasequoiaImeEngine/helpcode/`，词库缓存位于 `MetasequoiaImeDict/out/`。
+根 `.github/workflows/release.yml` **不加修改地调用本目录的 `Prepare-PackageFiles.ps1` 和 `Compile-Installer.ps1`**。源目录名是 `Prepare-PackageFiles.ps1` 的参数，不是写死在脚本里的字面量：默认值为 `windows/`、`server/`、`ui-html/` 和仓根授权文件；旧目录或自定义布局通过参数覆盖。回归检查同时执行默认路径和显式参数的打包。辅助码默认读取 `vendor/MetasequoiaImeEngine/helpcode/`，词库缓存位于 `MetasequoiaImeDict/out/`。
 
 合仓后 release workflow 传的是本仓的目录名，辅助码随固定 Engine gitlink 检出，词库按产品锁下载到仓根缓存：
 

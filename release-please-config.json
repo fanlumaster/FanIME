@@ -11,7 +11,7 @@
       "prerelease": true,
       "force-tag-creation": true,
       "pull-request-header": "This PR prepares the next Metasequoia IME for Windows release.",
-      "pull-request-footer": "Merging this PR creates a draft release. Nothing is built or signed until somebody runs the Release workflow manually against that draft's tag: the signing certificate allows a limited number of signatures, so a release is a deliberate act rather than a consequence of merging."
+      "pull-request-footer": "The Release workflow merges this PR itself once CI is green on it, then builds, signs and publishes the release. Merging it by hand does the same thing, one run earlier. Every release spends one code signing signature; the certificate allows 3000 a month, so that is not a constraint."
     }
   }
 }

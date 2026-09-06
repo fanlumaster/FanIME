@@ -28,6 +28,7 @@ class IInputSession
 
     virtual const std::vector<WordItem> &get_candidates() const = 0;
     virtual bool expand_initial_candidates() = 0;
+    virtual std::string get_helpcode_annotation(const std::string &word, bool uppercase_all) const = 0;
     virtual std::optional<WordItem> find_candidate(const std::string &, const std::string &)
     {
         return std::nullopt;
@@ -49,15 +50,15 @@ class IInputSession
     virtual int store_user_phrase_from_canonical_pinyin(std::string pinyin, std::string word) = 0;
     virtual int pin_candidate(std::string pinyin, std::string word) = 0;
     virtual int remove_candidate(std::string pinyin, std::string word) = 0;
-    virtual int cache_dynamic_candidate(const std::string &pinyin, const std::string &word,
-                                        CandidateSource source) = 0;
-    virtual SelectionTransition advance_composition_after_selection(
-        const std::string &selected_pinyin,
-        const std::string &selected_word,
-        const std::string &selected_canonical_pinyin) = 0;
+    virtual int cache_dynamic_candidate(const std::string &pinyin, const std::string &word, CandidateSource source) = 0;
+    virtual SelectionTransition advance_composition_after_selection(const std::string &selected_pinyin,
+                                                                    const std::string &selected_word,
+                                                                    const std::string &selected_canonical_pinyin) = 0;
     virtual CloudQueryState get_cloud_query_state() const = 0;
-    virtual CreatingWordProgress update_creating_word_progress(const std::string &current_pinyin,
-                                                               const std::string &current_word,
-                                                               const std::string &selected_word,
-                                                               const SelectionTransition &selection_transition) const = 0;
+    virtual std::optional<metasequoia::OnlineQuery> online_query() const = 0;
+    virtual bool apply_online_candidate(const metasequoia::OnlineQuery &query, std::string candidate,
+                                        CandidateSource source) = 0;
+    virtual CreatingWordProgress update_creating_word_progress(
+        const std::string &current_pinyin, const std::string &current_word, const std::string &selected_word,
+        const SelectionTransition &selection_transition) const = 0;
 };

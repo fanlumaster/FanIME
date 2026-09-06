@@ -99,13 +99,27 @@ std::vector<std::string> SplitKeyForTest(const std::string &key)
 
 TEST_CASE(jianpin_shuangpin_expands_zh_ch_sh_keys_per_scheme)
 {
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")), std::string("n'sh"));
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("ns", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")), std::string("n's"));
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("vi", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")), std::string("zh'ch"));
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("ne", SchemeType::Shuangpin, GetShuangpinProfile("shoudao")), std::string("n'sh"));
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("shoudao")), std::string("n'u"));
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("ziranma")), std::string("n'sh"));
-    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("microsoft")), std::string("n'sh"));
+    REQUIRE_EQ(
+        metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")),
+        std::string("n'sh"));
+    REQUIRE_EQ(
+        metasequoia::local_modes::jianpin_ranking_context("ns", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")),
+        std::string("n's"));
+    REQUIRE_EQ(
+        metasequoia::local_modes::jianpin_ranking_context("vi", SchemeType::Shuangpin, GetShuangpinProfile("xiaohe")),
+        std::string("zh'ch"));
+    REQUIRE_EQ(
+        metasequoia::local_modes::jianpin_ranking_context("ne", SchemeType::Shuangpin, GetShuangpinProfile("shoudao")),
+        std::string("n'sh"));
+    REQUIRE_EQ(
+        metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("shoudao")),
+        std::string("n'u"));
+    REQUIRE_EQ(
+        metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin, GetShuangpinProfile("ziranma")),
+        std::string("n'sh"));
+    REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu", SchemeType::Shuangpin,
+                                                                 GetShuangpinProfile("microsoft")),
+               std::string("n'sh"));
     REQUIRE_EQ(metasequoia::local_modes::jianpin_ranking_context("nu"), std::string("n'u"));
 }
 
@@ -113,8 +127,12 @@ TEST_CASE(jianpin_shuangpin_nu_matches_n_sh_not_n_s)
 {
     if (!DictionaryAvailable())
         return;
-    const auto nu = metasequoia::local_modes::query_jianpin("nu", SchemeType::Shuangpin, 50, GetShuangpinProfile("xiaohe")).candidates;
-    const auto ns = metasequoia::local_modes::query_jianpin("ns", SchemeType::Shuangpin, 50, GetShuangpinProfile("xiaohe")).candidates;
+    const auto nu =
+        metasequoia::local_modes::query_jianpin("nu", SchemeType::Shuangpin, 50, GetShuangpinProfile("xiaohe"))
+            .candidates;
+    const auto ns =
+        metasequoia::local_modes::query_jianpin("ns", SchemeType::Shuangpin, 50, GetShuangpinProfile("xiaohe"))
+            .candidates;
     REQUIRE(!nu.empty());
     REQUIRE(!ns.empty());
     REQUIRE(Contains(nu, "你说"));
@@ -139,8 +157,12 @@ TEST_CASE(jianpin_shoudao_uses_e_for_sh)
 {
     if (!DictionaryAvailable())
         return;
-    const auto ne = metasequoia::local_modes::query_jianpin("ne", SchemeType::Shuangpin, 50, GetShuangpinProfile("shoudao")).candidates;
+    const auto ne =
+        metasequoia::local_modes::query_jianpin("ne", SchemeType::Shuangpin, 50, GetShuangpinProfile("shoudao"))
+            .candidates;
     REQUIRE(Contains(ne, "你说"));
-    const auto nu = metasequoia::local_modes::query_jianpin("nu", SchemeType::Shuangpin, 50, GetShuangpinProfile("shoudao")).candidates;
+    const auto nu =
+        metasequoia::local_modes::query_jianpin("nu", SchemeType::Shuangpin, 50, GetShuangpinProfile("shoudao"))
+            .candidates;
     REQUIRE(!Contains(nu, "你说"));
 }

@@ -85,30 +85,33 @@ HRESULT EnsureFactories()
     if (!g_d2d)
     {
         const HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, g_d2d.GetAddressOf());
-        if (FAILED(hr)) return hr;
+        if (FAILED(hr))
+            return hr;
     }
     if (!g_dwrite)
     {
-        const HRESULT hr =
-            DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
-                                reinterpret_cast<IUnknown **>(g_dwrite.GetAddressOf()));
-        if (FAILED(hr)) return hr;
+        const HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                                               reinterpret_cast<IUnknown **>(g_dwrite.GetAddressOf()));
+        if (FAILED(hr))
+            return hr;
     }
     if (!g_title_format)
     {
-        const HRESULT hr = g_dwrite->CreateTextFormat(
-            L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"zh-cn", &g_title_format);
-        if (FAILED(hr)) return hr;
+        const HRESULT hr =
+            g_dwrite->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
+                                       DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"zh-cn", &g_title_format);
+        if (FAILED(hr))
+            return hr;
         g_title_format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         g_title_format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     if (!g_hint_format)
     {
-        const HRESULT hr = g_dwrite->CreateTextFormat(
-            L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 13.0f, L"zh-cn", &g_hint_format);
-        if (FAILED(hr)) return hr;
+        const HRESULT hr =
+            g_dwrite->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
+                                       DWRITE_FONT_STRETCH_NORMAL, 13.0f, L"zh-cn", &g_hint_format);
+        if (FAILED(hr))
+            return hr;
         g_hint_format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         g_hint_format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
@@ -117,8 +120,10 @@ HRESULT EnsureFactories()
 
 HRESULT EnsureRenderTarget()
 {
-    if (!g_hwnd) return E_FAIL;
-    if (FAILED(EnsureFactories())) return E_FAIL;
+    if (!g_hwnd)
+        return E_FAIL;
+    if (FAILED(EnsureFactories()))
+        return E_FAIL;
 
     RECT rc{};
     GetClientRect(g_hwnd, &rc);
@@ -128,8 +133,10 @@ HRESULT EnsureRenderTarget()
     if (g_rt)
     {
         const D2D1_SIZE_U size = g_rt->GetPixelSize();
-        if (size.width == width && size.height == height) return S_OK;
-        if (SUCCEEDED(g_rt->Resize(D2D1::SizeU(width, height)))) return S_OK;
+        if (size.width == width && size.height == height)
+            return S_OK;
+        if (SUCCEEDED(g_rt->Resize(D2D1::SizeU(width, height))))
+            return S_OK;
         ReleaseDeviceResources();
     }
 
@@ -137,7 +144,8 @@ HRESULT EnsureRenderTarget()
         D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
                                      D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
         D2D1::HwndRenderTargetProperties(g_hwnd, D2D1::SizeU(width, height)), &g_rt);
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+        return hr;
 
     const D2D1_COLOR_F text = g_light ? D2D1::ColorF(0x1A1A1A) : D2D1::ColorF(0xF0F0F0);
     const D2D1_COLOR_F muted = g_light ? D2D1::ColorF(0x6B6B6B) : D2D1::ColorF(0xA8A8A8);
@@ -159,7 +167,8 @@ HRESULT EnsureRenderTarget()
 
 void PaintSplash()
 {
-    if (FAILED(EnsureRenderTarget()) || !g_rt) return;
+    if (FAILED(EnsureRenderTarget()) || !g_rt)
+        return;
 
     const D2D1_SIZE_F size = g_rt->GetSize();
     const float cx = size.width * 0.5f;
@@ -183,8 +192,7 @@ void PaintSplash()
         const float x1 = cx + kSpinnerRadiusDip * std::cos(start + sweep);
         const float y1 = cy + kSpinnerRadiusDip * std::sin(start + sweep);
         sink->BeginFigure(D2D1::Point2F(x0, y0), D2D1_FIGURE_BEGIN_HOLLOW);
-        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(x1, y1),
-                                      D2D1::SizeF(kSpinnerRadiusDip, kSpinnerRadiusDip), 0.0f,
+        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(x1, y1), D2D1::SizeF(kSpinnerRadiusDip, kSpinnerRadiusDip), 0.0f,
                                       D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
         sink->EndFigure(D2D1_FIGURE_END_OPEN);
         sink->Close();
@@ -206,10 +214,10 @@ void PaintSplash()
         D2D1::RectF(24.0f, cy + kSpinnerRadiusDip + 42.0f, size.width - 24.0f, cy + kSpinnerRadiusDip + 72.0f);
     const D2D1_RECT_F hint_rect =
         D2D1::RectF(24.0f, cy + kSpinnerRadiusDip + 72.0f, size.width - 24.0f, cy + kSpinnerRadiusDip + 96.0f);
-    g_rt->DrawText(title, static_cast<UINT32>(wcslen(title)), g_title_format.Get(), title_rect,
-                   g_text_brush.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-    g_rt->DrawText(hint, static_cast<UINT32>(wcslen(hint)), g_hint_format.Get(), hint_rect,
-                   g_muted_brush.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    g_rt->DrawText(title, static_cast<UINT32>(wcslen(title)), g_title_format.Get(), title_rect, g_text_brush.Get(),
+                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    g_rt->DrawText(hint, static_cast<UINT32>(wcslen(hint)), g_hint_format.Get(), hint_rect, g_muted_brush.Get(),
+                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
     const float close_size = 12.0f;
     const float close_pad = kCloseButtonCenterInsetDip;
@@ -219,25 +227,24 @@ void PaintSplash()
     {
         const float hit = kCloseButtonHalfSizeDip;
         g_rt->FillRoundedRectangle(
-            D2D1::RoundedRect(D2D1::RectF(close_cx - hit, close_cy - hit, close_cx + hit, close_cy + hit),
-                              7.0f, 7.0f),
+            D2D1::RoundedRect(D2D1::RectF(close_cx - hit, close_cy - hit, close_cx + hit, close_cy + hit), 7.0f, 7.0f),
             g_close_hover_brush.Get());
     }
-    ID2D1Brush *close_brush = g_close_hover ? static_cast<ID2D1Brush *>(g_text_brush.Get())
-                                             : static_cast<ID2D1Brush *>(g_muted_brush.Get());
+    ID2D1Brush *close_brush =
+        g_close_hover ? static_cast<ID2D1Brush *>(g_text_brush.Get()) : static_cast<ID2D1Brush *>(g_muted_brush.Get());
     g_rt->DrawLine(D2D1::Point2F(close_cx - close_size * 0.5f, close_cy - close_size * 0.5f),
-                   D2D1::Point2F(close_cx + close_size * 0.5f, close_cy + close_size * 0.5f),
-                   close_brush, 1.6f);
+                   D2D1::Point2F(close_cx + close_size * 0.5f, close_cy + close_size * 0.5f), close_brush, 1.6f);
     g_rt->DrawLine(D2D1::Point2F(close_cx + close_size * 0.5f, close_cy - close_size * 0.5f),
-                   D2D1::Point2F(close_cx - close_size * 0.5f, close_cy + close_size * 0.5f),
-                   close_brush, 1.6f);
+                   D2D1::Point2F(close_cx - close_size * 0.5f, close_cy + close_size * 0.5f), close_brush, 1.6f);
 
-    if (g_rt->EndDraw() == D2DERR_RECREATE_TARGET) ReleaseDeviceResources();
+    if (g_rt->EndDraw() == D2DERR_RECREATE_TARGET)
+        ReleaseDeviceResources();
 }
 
 bool HitCloseButton(int x, int y)
 {
-    if (!g_hwnd || !g_rt) return false;
+    if (!g_hwnd || !g_rt)
+        return false;
     const float scale = static_cast<float>(GetDpiForWindow(g_hwnd)) / 96.0f;
     const float x_dip = static_cast<float>(x) / scale;
     const float y_dip = static_cast<float>(y) / scale;
@@ -249,7 +256,8 @@ bool HitCloseButton(int x, int y)
 
 void LayoutOverOwner()
 {
-    if (!g_hwnd || !g_owner || !IsWindow(g_owner)) return;
+    if (!g_hwnd || !g_owner || !IsWindow(g_owner))
+        return;
     // Cover the full outer frame (not just client) so DWM corner clips match the host.
     RECT frame{};
     GetWindowRect(g_owner, &frame);
@@ -270,13 +278,13 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l
             const float dt = g_last_tick ? static_cast<float>(now - g_last_tick) * 0.001f : 0.016f;
             g_last_tick = now;
             g_phase += dt * 4.2f;
-            if (g_phase > 6.2831853f) g_phase -= 6.2831853f;
+            if (g_phase > 6.2831853f)
+                g_phase -= 6.2831853f;
             PaintSplash();
             return 0;
         }
         break;
-    case WM_PAINT:
-    {
+    case WM_PAINT: {
         PAINTSTRUCT ps{};
         BeginPaint(hwnd, &ps);
         PaintSplash();
@@ -285,8 +293,7 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l
     }
     case WM_ERASEBKGND:
         return 1;
-    case WM_MOUSEMOVE:
-    {
+    case WM_MOUSEMOVE: {
         TRACKMOUSEEVENT track{sizeof(track), TME_LEAVE, hwnd, 0};
         TrackMouseEvent(&track);
         const bool hover = HitCloseButton(GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param));
@@ -312,7 +319,8 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM w_param, LPARAM l
         KillTimer(hwnd, kAnimTimer);
         g_close_hover = false;
         ReleaseDeviceResources();
-        if (g_hwnd == hwnd) g_hwnd = nullptr;
+        if (g_hwnd == hwnd)
+            g_hwnd = nullptr;
         return 0;
     }
     return DefWindowProcW(hwnd, message, w_param, l_param);
@@ -328,7 +336,8 @@ ATOM RegisterSplashClass(HINSTANCE instance)
     wc.hbrBackground = nullptr;
     wc.style = CS_HREDRAW | CS_VREDRAW;
     const ATOM atom = RegisterClassExW(&wc);
-    if (atom) return atom;
+    if (atom)
+        return atom;
     return GetLastError() == ERROR_CLASS_ALREADY_EXISTS ? static_cast<ATOM>(1) : 0;
 }
 } // namespace
@@ -337,16 +346,22 @@ namespace SettingsSplash
 {
 void SetTheme(bool light)
 {
-    if (g_light == light) return;
+    if (g_light == light)
+        return;
     g_light = light;
     ReleaseDeviceResources();
-    if (g_hwnd) { ApplyNativeChrome(g_hwnd); InvalidateRect(g_hwnd, nullptr, FALSE); }
+    if (g_hwnd)
+    {
+        ApplyNativeChrome(g_hwnd);
+        InvalidateRect(g_hwnd, nullptr, FALSE);
+    }
 }
 
 bool Show(HWND owner, bool light)
 {
     g_light = light;
-    if (!owner) return false;
+    if (!owner)
+        return false;
     if (g_hwnd && IsWindow(g_hwnd))
     {
         g_owner = owner;
@@ -356,8 +371,10 @@ bool Show(HWND owner, bool light)
     }
 
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(owner, GWLP_HINSTANCE));
-    if (!RegisterSplashClass(instance)) return false;
-    if (FAILED(EnsureFactories())) return false;
+    if (!RegisterSplashClass(instance))
+        return false;
+    if (FAILED(EnsureFactories()))
+        return false;
 
     g_owner = owner;
     g_close_hover = false;
@@ -367,10 +384,11 @@ bool Show(HWND owner, bool light)
     RECT frame{};
     GetWindowRect(owner, &frame);
     InflateRect(&frame, kFrameOutsetPx, kFrameOutsetPx);
-    g_hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kSplashClass, L"", WS_POPUP, frame.left,
-                             frame.top, (std::max)(1L, frame.right - frame.left),
-                             (std::max)(1L, frame.bottom - frame.top), owner, nullptr, instance, nullptr);
-    if (!g_hwnd) return false;
+    g_hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kSplashClass, L"", WS_POPUP, frame.left, frame.top,
+                             (std::max)(1L, frame.right - frame.left), (std::max)(1L, frame.bottom - frame.top), owner,
+                             nullptr, instance, nullptr);
+    if (!g_hwnd)
+        return false;
 
     ApplyNativeChrome(g_hwnd);
     LayoutOverOwner();
@@ -383,7 +401,8 @@ bool Show(HWND owner, bool light)
 
 void Dismiss()
 {
-    if (g_hwnd && IsWindow(g_hwnd)) DestroyWindow(g_hwnd);
+    if (g_hwnd && IsWindow(g_hwnd))
+        DestroyWindow(g_hwnd);
     g_hwnd = nullptr;
     g_owner = nullptr;
     ReleaseAll();

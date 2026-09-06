@@ -1573,8 +1573,7 @@ void CCompositionProcessorEngine::ConversionModeCompartmentUpdated(_In_ ITfThrea
             CompartmentDoubleSingleByte._SetCompartmentBOOL(FALSE);
         }
     }
-    SetPunctuationMode(pThreadMgr, _tfClientId,
-                       (conversionMode & TF_CONVERSIONMODE_SYMBOL) ? TRUE : FALSE);
+    SetPunctuationMode(pThreadMgr, _tfClientId, (conversionMode & TF_CONVERSIONMODE_SYMBOL) ? TRUE : FALSE);
 
     BOOL fOpen = FALSE;
     CCompartment CompartmentKeyboardOpen(pThreadMgr, _tfClientId, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);

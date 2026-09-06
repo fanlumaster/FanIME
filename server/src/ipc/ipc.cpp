@@ -29,56 +29,6 @@
 #define FANY_IPC_LOG_RAW(message) ((void)0)
 #define FANY_IPC_LOGF(...) ((void)0)
 
-#define LOW_INTEGRITY_SDDL_SACL                                                                                        \
-    SDDL_SACL                                                                                                          \
-    SDDL_DELIMINATOR                                                                                                   \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_MANDATORY_LABEL                                                                                               \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_NO_WRITE_UP                                                                                                   \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_ML_LOW                                                                                                        \
-    SDDL_ACE_END
-
-#define LOCAL_SYSTEM_FILE_ACCESS                                                                                       \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_ACCESS_ALLOWED                                                                                                \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_FILE_ALL                                                                                                      \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_LOCAL_SYSTEM                                                                                                  \
-    SDDL_ACE_END
-
-#define EVERYONE_FILE_ACCESS                                                                                           \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_ACCESS_ALLOWED                                                                                                \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_FILE_ALL                                                                                                      \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_EVERYONE                                                                                                      \
-    SDDL_ACE_END
-
-#define ALL_APP_PACKAGES_FILE_ACCESS                                                                                   \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_ACCESS_ALLOWED                                                                                                \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_FILE_ALL                                                                                                      \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_ALL_APP_PACKAGES                                                                                              \
-    SDDL_ACE_END
-
 static HANDLE hMapFile = nullptr;
 static void *pBuf;
 static FanyImeSharedMemoryData *sharedData;
@@ -262,21 +212,65 @@ void LogPipeWriteTarget(const wchar_t *pipe_name, uint64_t client_id, UINT msg_t
                   msg_type, payload);
 }
 
+// The account the server process runs as. It owns every pipe name the server publishes, and besides LocalSystem it is
+// the only account the pipe DACL admits.
+std::wstring GetProcessUserSidString()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+    {
+        return std::wstring();
+    }
+
+    DWORD needed = 0;
+    GetTokenInformation(token, TokenUser, nullptr, 0, &needed);
+    std::wstring sid;
+    std::vector<BYTE> token_user(needed);
+    if (needed != 0 && GetTokenInformation(token, TokenUser, token_user.data(), needed, &needed))
+    {
+        LPWSTR sid_text = nullptr;
+        if (ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER *>(token_user.data())->User.Sid, &sid_text))
+        {
+            sid.assign(sid_text);
+            LocalFree(sid_text);
+        }
+    }
+    CloseHandle(token);
+    return sid;
+}
+
 HANDLE CreateNamedPipeInstance(const wchar_t *pipe_name, DWORD out_buffer_size, DWORD in_buffer_size)
 {
+    // Names this process has already published. Only the very first instance of a name may carry
+    // FILE_FLAG_FIRST_PIPE_INSTANCE, which is what turns a name some other process got to first into a loud
+    // CreateNamedPipe failure instead of a silent second instance answering half of the client connections. A failed
+    // creation is deliberately not recorded, so a squatted name keeps failing instead of eventually joining.
+    static std::mutex owned_names_mutex;
+    static std::vector<std::wstring> owned_names;
+
+    const std::wstring sddl = FanyImeIpc::BuildPipeSecurityDescriptorSddl(GetProcessUserSidString());
+    if (sddl.empty())
+    {
+        SetLastError(ERROR_ACCESS_DENIED);
+        return INVALID_HANDLE_VALUE;
+    }
+
     PSECURITY_DESCRIPTOR pd = nullptr;
     SECURITY_ATTRIBUTES sa = {};
-    ConvertStringSecurityDescriptorToSecurityDescriptor(
-        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
-            ALL_APP_PACKAGES_FILE_ACCESS,
-        SDDL_REVISION_1, &pd, NULL);
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &pd, NULL))
+    {
+        return INVALID_HANDLE_VALUE;
+    }
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
     sa.lpSecurityDescriptor = pd;
     sa.bInheritHandle = FALSE;
 
-    HANDLE pipe = CreateNamedPipe( //
-        pipe_name,                 //
-        PIPE_ACCESS_DUPLEX,        //
+    const std::lock_guard<std::mutex> owned_names_guard(owned_names_mutex);
+    const bool owns_name = std::find(owned_names.begin(), owned_names.end(), pipe_name) != owned_names.end();
+
+    HANDLE pipe = CreateNamedPipe(                                             //
+        pipe_name,                                                             //
+        PIPE_ACCESS_DUPLEX | (owns_name ? 0u : FILE_FLAG_FIRST_PIPE_INSTANCE), //
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
         PIPE_UNLIMITED_INSTANCES, //
         out_buffer_size,          //
@@ -284,6 +278,11 @@ HANDLE CreateNamedPipeInstance(const wchar_t *pipe_name, DWORD out_buffer_size, 
         0,                        //
         &sa                       //
     );
+
+    if (pipe != INVALID_HANDLE_VALUE && !owns_name)
+    {
+        owned_names.emplace_back(pipe_name);
+    }
 
     if (pd)
     {
@@ -319,8 +318,7 @@ bool ConfigureReversePipeForBoundedWrites(HANDLE pipe)
     return SetNamedPipeHandleState(pipe, &mode, nullptr, nullptr) != FALSE;
 }
 
-template <size_t N>
-bool CopyPipeText(wchar_t (&destination)[N], const std::wstring &source)
+template <size_t N> bool CopyPipeText(wchar_t (&destination)[N], const std::wstring &source)
 {
     if (source.size() >= N)
     {
@@ -394,12 +392,12 @@ int InitIpc()
     //
     for (size_t i = 0; i < FANY_IME_EVENT_ARRAY.size(); ++i)
     {
-        hEvents[i] = CreateEventW(         //
-            nullptr,                       //
-            FALSE,                         //
-            FALSE,                         // Auto reset
+        hEvents[i] = CreateEventW(          //
+            nullptr,                        //
+            FALSE,                          //
+            FALSE,                          // Auto reset
             FANY_IME_EVENT_ARRAY[i].c_str() //
-        );                                 //
+        );                                  //
         if (!hEvents[i])
         {
 // Error handling
@@ -438,10 +436,10 @@ HANDLE CreateToTsfNamedPipeInstance()
 
 HANDLE CreateToTsfWorkerThreadNamedPipeInstance()
 {
-    return CreateNamedPipeInstance(FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,
-                                   static_cast<DWORD>(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) *
-                                                      FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY),
-                                   static_cast<DWORD>(sizeof(FanyImePipeHello)));
+    return CreateNamedPipeInstance(
+        FANY_IME_TO_TSF_WORKER_THREAD_NAMED_PIPE,
+        static_cast<DWORD>(sizeof(FanyImeNamedpipeDataToTsfWorkerThread) * FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY),
+        static_cast<DWORD>(sizeof(FanyImePipeHello)));
 }
 
 //
@@ -534,12 +532,12 @@ int InitNamedPipe()
     //
     for (size_t i = 0; i < FANY_IME_EVENT_PIPE_ARRAY.size(); ++i)
     {
-        hPipeEvents[i] = CreateEventW(              //
-            nullptr,                                //
-            FALSE,                                  //
-            FALSE,                                  // Auto reset
-            FANY_IME_EVENT_PIPE_ARRAY[i].c_str()    //
-        );                                          //
+        hPipeEvents[i] = CreateEventW(           //
+            nullptr,                             //
+            FALSE,                               //
+            FALSE,                               // Auto reset
+            FANY_IME_EVENT_PIPE_ARRAY[i].c_str() //
+        );                                       //
         if (!hPipeEvents[i])
         {
 // Error handling
@@ -551,12 +549,12 @@ int InitNamedPipe()
 
     for (size_t i = 0; i < FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY.size(); ++i)
     {
-        hWorkerPipeEvents[i] = CreateEventW(                           //
-            nullptr,                                                   //
-            FALSE,                                                     //
-            FALSE,                                                     // Auto reset
-            FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[i].c_str()  //
-        );                                                             //
+        hWorkerPipeEvents[i] = CreateEventW(                          //
+            nullptr,                                                  //
+            FALSE,                                                    //
+            FALSE,                                                    // Auto reset
+            FANY_IME_EVENT_PIPE_TO_TSF_WORKER_THREAD_ARRAY[i].c_str() //
+        );                                                            //
         if (!hWorkerPipeEvents[i])
         {
 // Error handling
@@ -673,8 +671,7 @@ uint64_t BeginPipeClientHandler(HANDLE pipe)
     }
 
     HANDLE controlPipe = INVALID_HANDLE_VALUE;
-    if (!DuplicateHandle(GetCurrentProcess(), pipe, GetCurrentProcess(), &controlPipe, 0, FALSE,
-                         DUPLICATE_SAME_ACCESS))
+    if (!DuplicateHandle(GetCurrentProcess(), pipe, GetCurrentProcess(), &controlPipe, 0, FALSE, DUPLICATE_SAME_ACCESS))
     {
         return 0;
     }
@@ -806,8 +803,8 @@ uint64_t RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe)
     }
     if (!ConfigureReversePipeForBoundedWrites(pipe))
     {
-        FANY_IPC_LOGF(L"[msime]: [ipc] failed to configure to-tsf PIPE_NOWAIT: client_id={}, gle={}",
-                      client_id, GetLastError());
+        FANY_IPC_LOGF(L"[msime]: [ipc] failed to configure to-tsf PIPE_NOWAIT: client_id={}, gle={}", client_id,
+                      GetLastError());
         return 0;
     }
 
@@ -845,8 +842,7 @@ uint64_t RegisterToTsfPipeClient(uint64_t client_id, HANDLE pipe)
             session.to_tsf_pipe = std::move(replacedEndpoint);
             session.to_tsf_registration_id = replacedRegistrationId;
             session.to_tsf_ready = replacedReady;
-            if (session.main_pipe == INVALID_HANDLE_VALUE && !session.to_tsf_pipe &&
-                !session.to_tsf_worker_thread_pipe)
+            if (session.main_pipe == INVALID_HANDLE_VALUE && !session.to_tsf_pipe && !session.to_tsf_worker_thread_pipe)
             {
                 g_pipe_clients.erase(client_id);
             }
@@ -878,8 +874,8 @@ uint64_t RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe)
     }
     if (!ConfigureReversePipeForBoundedWrites(pipe))
     {
-        FANY_IPC_LOGF(L"[msime]: [ipc] failed to configure to-tsf-worker PIPE_NOWAIT: client_id={}, gle={}",
-                      client_id, GetLastError());
+        FANY_IPC_LOGF(L"[msime]: [ipc] failed to configure to-tsf-worker PIPE_NOWAIT: client_id={}, gle={}", client_id,
+                      GetLastError());
         return 0;
     }
 
@@ -916,8 +912,7 @@ uint64_t RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe)
             session.to_tsf_worker_thread_pipe = std::move(replaced_endpoint);
             session.to_tsf_worker_thread_registration_id = replaced_registration_id;
             session.to_tsf_worker_thread_ready = replaced_ready;
-            if (session.main_pipe == INVALID_HANDLE_VALUE && !session.to_tsf_pipe &&
-                !session.to_tsf_worker_thread_pipe)
+            if (session.main_pipe == INVALID_HANDLE_VALUE && !session.to_tsf_pipe && !session.to_tsf_worker_thread_pipe)
             {
                 g_pipe_clients.erase(client_id);
             }
@@ -925,8 +920,7 @@ uint64_t RegisterToTsfWorkerThreadPipeClient(uint64_t client_id, HANDLE pipe)
     }
     if (failed_endpoint)
     {
-        LogPipeWriteFailure(L"to-tsf-worker-ready",
-                            Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady,
+        LogPipeWriteFailure(L"to-tsf-worker-ready", Global::DataFromServerMsgTypeToTsfWorkerThread::PipeReady,
                             write_error, bytes_written, sizeof(FanyImeNamedpipeDataToTsfWorkerThread));
         // Preserve the registration_id == 0 close contract for the handler.
         (void)failed_endpoint->ReleaseHandle();
@@ -975,8 +969,7 @@ PipeClientUnregisterResult UnregisterPipeClientHandle(uint64_t client_id, UINT p
             it->second.focus_token = 0;
         }
         else if (pipe_role == FanyImePipeRole::ToTsf && it->second.to_tsf_pipe &&
-                 it->second.to_tsf_pipe->handle() == pipe &&
-                 it->second.to_tsf_registration_id == registration_id)
+                 it->second.to_tsf_pipe->handle() == pipe && it->second.to_tsf_registration_id == registration_id)
         {
             result.removed = true;
             endpoints_to_shutdown.push_back(std::move(it->second.to_tsf_pipe));
@@ -1049,9 +1042,8 @@ bool IsPipeClientRegistrationCurrent(uint64_t client_id, UINT pipe_role, uint64_
     return false;
 }
 
-PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_registration_id,
-                                        bool wait_for_reverse_pipe, uint64_t focus_token,
-                                        bool update_focus_token)
+PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_registration_id, bool wait_for_reverse_pipe,
+                                        uint64_t focus_token, bool update_focus_token)
 {
     std::unique_lock lock(g_pipe_clients_mutex);
     const auto routeReady = [&] {
@@ -1060,10 +1052,8 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
                it->second.main_pipe != INVALID_HANDLE_VALUE &&
                it->second.main_registration_id == main_registration_id && it->second.to_tsf_pipe &&
                it->second.to_tsf_registration_id != 0 && it->second.to_tsf_ready &&
-               it->second.to_tsf_worker_thread_pipe &&
-               it->second.to_tsf_worker_thread_registration_id != 0 &&
-               it->second.to_tsf_worker_thread_ready &&
-               !it->second.outbound_state.is_dirty();
+               it->second.to_tsf_worker_thread_pipe && it->second.to_tsf_worker_thread_registration_id != 0 &&
+               it->second.to_tsf_worker_thread_ready && !it->second.outbound_state.is_dirty();
     };
 
     if (wait_for_reverse_pipe && !routeReady())
@@ -1076,8 +1066,7 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
     }
 
     auto &session = g_pipe_clients.find(client_id)->second;
-    if ((update_focus_token && focus_token == 0) ||
-        (!update_focus_token && session.focus_token == 0))
+    if ((update_focus_token && focus_token == 0) || (!update_focus_token && session.focus_token == 0))
     {
         // Explicit activation must introduce a nonzero focus token, and an
         // implicit key fallback may only reuse a token from an already fenced
@@ -1085,8 +1074,7 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
         // on the worker pipe.
         return {};
     }
-    const FanyImeIpc::ActiveClientTransition previous =
-        g_active_client_state.snapshot();
+    const FanyImeIpc::ActiveClientTransition previous = g_active_client_state.snapshot();
     // Do not clear the displaced client's already-acknowledged focus token.
     // TextInputHost.exe temporarily becomes the active TSF client for Win+.,
     // but Windows does not reliably send the original application another
@@ -1095,16 +1083,14 @@ PipeClientActivation ActivatePipeClient(uint64_t client_id, uint64_t main_regist
     // must be allowed to reuse that previously fenced token for implicit
     // activation. Explicit suspension/deactivation and pipe invalidation still
     // clear the owning session's token in their respective paths.
-    const bool new_focus_session =
-        update_focus_token && session.focus_token != focus_token;
+    const bool new_focus_session = update_focus_token && session.focus_token != focus_token;
     if (update_focus_token)
     {
         session.focus_token = focus_token;
     }
-    const FanyImeIpc::ActiveClientTransition transition =
-        new_focus_session && previous.client_id == client_id
-            ? g_active_client_state.renew(client_id)
-            : g_active_client_state.activate(client_id);
+    const FanyImeIpc::ActiveClientTransition transition = new_focus_session && previous.client_id == client_id
+                                                              ? g_active_client_state.renew(client_id)
+                                                              : g_active_client_state.activate(client_id);
     if (transition.client_id != 0)
     {
         session.inactive_focus_token = 0;
@@ -1130,8 +1116,7 @@ uint64_t DeactivatePipeClient(uint64_t client_id, uint64_t main_registration_id)
     return epoch;
 }
 
-uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id,
-                                          uint64_t focus_token)
+uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id, uint64_t focus_token)
 {
     std::lock_guard lock(g_pipe_clients_mutex);
     const auto it = g_pipe_clients.find(client_id);
@@ -1140,13 +1125,11 @@ uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id,
         return 0;
     }
 
-    const FanyImeIpc::ActiveClientTransition active =
-        g_active_client_state.snapshot();
-    const uint64_t inactive_epoch =
-        g_active_client_state.terminal_deactivation_epoch(client_id);
-    if (!FanyImeIpc::CanApplyTerminalDeactivationFallback(
-            client_id, focus_token, active.client_id, it->second.focus_token,
-            inactive_epoch != 0, it->second.inactive_focus_token))
+    const FanyImeIpc::ActiveClientTransition active = g_active_client_state.snapshot();
+    const uint64_t inactive_epoch = g_active_client_state.terminal_deactivation_epoch(client_id);
+    if (!FanyImeIpc::CanApplyTerminalDeactivationFallback(client_id, focus_token, active.client_id,
+                                                          it->second.focus_token, inactive_epoch != 0,
+                                                          it->second.inactive_focus_token))
     {
         return 0;
     }
@@ -1164,12 +1147,10 @@ uint64_t DeactivatePipeClientByFocusToken(uint64_t client_id,
     return inactive_epoch;
 }
 
-uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id,
-                                                    uint64_t transition_epoch)
+uint64_t ResolvePipeClientTerminalDeactivationEpoch(uint64_t client_id, uint64_t transition_epoch)
 {
     std::lock_guard lock(g_pipe_clients_mutex);
-    return g_active_client_state.terminal_deactivation_epoch(client_id,
-                                                              transition_epoch);
+    return g_active_client_state.terminal_deactivation_epoch(client_id, transition_epoch);
 }
 
 PipeClientActivation GetActivePipeClient()
@@ -1253,12 +1234,11 @@ void ShutdownPipeClients()
     }
 
     std::unique_lock handlerLock(g_pipe_handlers_mutex);
-    const bool handlersStopped = g_pipe_handlers_cv.wait_for(
-        handlerLock, std::chrono::seconds(3), [] { return g_active_pipe_handler_count == 0; });
+    const bool handlersStopped = g_pipe_handlers_cv.wait_for(handlerLock, std::chrono::seconds(3),
+                                                             [] { return g_active_pipe_handler_count == 0; });
     if (!handlersStopped)
     {
-        FANY_IPC_LOGF(L"[msime]: [ipc] timed out waiting for {} pipe client handlers",
-                      g_active_pipe_handler_count);
+        FANY_IPC_LOGF(L"[msime]: [ipc] timed out waiting for {} pipe client handlers", g_active_pipe_handler_count);
     }
 }
 
@@ -1362,16 +1342,16 @@ int ReadDataFromNamedPipe(UINT read_flag)
 
     if (read_flag >> 5 & 1u)
     {
-        const int length = std::clamp(namedpipeData.pinyin_length, 0,
-                                      static_cast<int>(std::size(namedpipeData.pinyin_string)) - 1);
+        const int length =
+            std::clamp(namedpipeData.pinyin_length, 0, static_cast<int>(std::size(namedpipeData.pinyin_string)) - 1);
         Global::PinyinString.assign(namedpipeData.pinyin_string, static_cast<size_t>(length));
     }
 
     return 0;
 }
 
-bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
-                                 uint64_t request_id, const std::wstring &pipeData)
+bool SendToTsfClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type, uint64_t request_id,
+                                 const std::wstring &pipeData)
 {
     FanyImeNamedpipeDataToTsf packet = {};
     packet.msg_type = msg_type;
@@ -1466,12 +1446,9 @@ bool SendWorkerPackets(uint64_t client_id, uint64_t activation_epoch, bool requi
     {
         std::lock_guard lock(g_pipe_clients_mutex);
         auto it = g_pipe_clients.find(client_id);
-        const bool route_is_current =
-            !require_active || g_active_client_state.matches(client_id, activation_epoch);
-        if (client_id != 0 && route_is_current && it != g_pipe_clients.end() &&
-            it->second.to_tsf_worker_thread_pipe &&
-            it->second.to_tsf_worker_thread_registration_id != 0 &&
-            it->second.to_tsf_worker_thread_ready)
+        const bool route_is_current = !require_active || g_active_client_state.matches(client_id, activation_epoch);
+        if (client_id != 0 && route_is_current && it != g_pipe_clients.end() && it->second.to_tsf_worker_thread_pipe &&
+            it->second.to_tsf_worker_thread_registration_id != 0 && it->second.to_tsf_worker_thread_ready)
         {
             endpoint = it->second.to_tsf_worker_thread_pipe;
             write_succeeded = true;
@@ -1529,8 +1506,8 @@ bool SendWorkerPacket(uint64_t client_id, uint64_t activation_epoch, bool requir
     packet.msg_type = msg_type;
     if (!CopyPipeText(packet.data, pipe_data))
     {
-        FANY_IPC_LOGF(L"[msime]: [ipc] to-tsf-worker payload too long: client_id={}, msg_type={}, chars={}",
-                      client_id, msg_type, pipe_data.size());
+        FANY_IPC_LOGF(L"[msime]: [ipc] to-tsf-worker payload too long: client_id={}, msg_type={}, chars={}", client_id,
+                      msg_type, pipe_data.size());
         return false;
     }
     LogPipeWriteTarget(L"to-tsf-worker", client_id, msg_type, pipe_data);
@@ -1544,12 +1521,9 @@ bool SendWorkerPacket(uint64_t client_id, uint64_t activation_epoch, bool requir
     {
         std::lock_guard lock(g_pipe_clients_mutex);
         auto it = g_pipe_clients.find(client_id);
-        const bool route_is_current =
-            !require_active || g_active_client_state.matches(client_id, activation_epoch);
-        if (client_id != 0 && route_is_current && it != g_pipe_clients.end() &&
-            it->second.to_tsf_worker_thread_pipe &&
-            it->second.to_tsf_worker_thread_registration_id != 0 &&
-            it->second.to_tsf_worker_thread_ready)
+        const bool route_is_current = !require_active || g_active_client_state.matches(client_id, activation_epoch);
+        if (client_id != 0 && route_is_current && it != g_pipe_clients.end() && it->second.to_tsf_worker_thread_pipe &&
+            it->second.to_tsf_worker_thread_registration_id != 0 && it->second.to_tsf_worker_thread_ready)
         {
             endpoint = it->second.to_tsf_worker_thread_pipe;
             write_succeeded = endpoint->Write(&packet, sizeof(packet), bytes_written, write_error);
@@ -1600,14 +1574,13 @@ bool SendWorkerPacket(uint64_t client_id, uint64_t activation_epoch, bool requir
 }
 } // namespace
 
-bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, UINT msg_type,
-                                              const std::wstring &pipeData)
+bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, UINT msg_type, const std::wstring &pipeData)
 {
     return SendWorkerPacket(client_id, 0, false, msg_type, pipeData);
 }
 
-bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch,
-                                             UINT msg_type, const std::wstring &pipeData)
+bool SendToTsfWorkerThreadClientViaNamedpipe(uint64_t client_id, uint64_t activation_epoch, UINT msg_type,
+                                             const std::wstring &pipeData)
 {
     return SendWorkerPacket(client_id, activation_epoch, true, msg_type, pipeData);
 }

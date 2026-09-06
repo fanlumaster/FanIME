@@ -105,9 +105,7 @@ D2D1_COLOR_F ParseCssColor(const std::string &text, D2D1_COLOR_F fallback)
     {
         value.erase(value.begin());
     }
-    auto hexByte = [](const std::string &hex) {
-        return static_cast<int>(std::stoul(hex, nullptr, 16));
-    };
+    auto hexByte = [](const std::string &hex) { return static_cast<int>(std::stoul(hex, nullptr, 16)); };
     try
     {
         if (value.size() == 3)
@@ -253,8 +251,7 @@ bool CandidatePresenter::Bind(HWND hwnd)
     impl_->window->SetStealFocusOnClick(false);
     bound_ = impl_->resources.EnsureForComposition(hwnd);
     RebuildScene();
-    CAND_DIAG_LOGF(L"candidate-d2d bind hwnd={:#x} composition={}", reinterpret_cast<uintptr_t>(hwnd),
-                   bound_ ? 1 : 0);
+    CAND_DIAG_LOGF(L"candidate-d2d bind hwnd={:#x} composition={}", reinterpret_cast<uintptr_t>(hwnd), bound_ ? 1 : 0);
     return bound_;
 }
 
@@ -273,9 +270,8 @@ void CandidatePresenter::RebuildScene()
     impl_->preedit->SetHorizontalAlignment(msimeui::HorizontalAlignment::Leading);
     impl_->list = std::make_shared<msimeui::CandidateList>(28.0f);
     impl_->list->SetOnItemActivated([this](size_t index) { CommitItem(index); });
-    impl_->list->SetOnContextMenu([this](size_t index, const POINT &clientPoint) {
-        ShowItemContextMenu(index, clientPoint);
-    });
+    impl_->list->SetOnContextMenu(
+        [this](size_t index, const POINT &clientPoint) { ShowItemContextMenu(index, clientPoint); });
     impl_->body = std::make_shared<msimeui::StackPanel>(2.0f);
     impl_->body->SetPadding({0.0f, 0.0f, 0.0f, 0.0f});
     impl_->body->AddChild(impl_->preedit);
@@ -443,8 +439,8 @@ void CandidatePresenter::ApplySkin()
         decorationWidthDip_ = static_cast<float>(package->decorationWidthDip);
         if (!package->preview.empty())
         {
-            decorationPath = skinsRoot + L"\\" + string_to_wstring(package->id) + L"\\" +
-                             string_to_wstring(package->preview);
+            decorationPath =
+                skinsRoot + L"\\" + string_to_wstring(package->id) + L"\\" + string_to_wstring(package->preview);
         }
     }
     if (decorationPath.empty() || decorationTopDip_ <= 0.0f)
@@ -463,8 +459,7 @@ void CandidatePresenter::ApplySkin()
             impl_->decoration->SetWidth(decorationWidthDip_);
         }
         impl_->decoration->SetStretch(msimeui::ImageStretch::Uniform);
-        impl_->decoration->SetMargin(
-            {0.0f, 0.0f, 0.0f, -(kShadowPadTop + kDecorationCardOverlap)});
+        impl_->decoration->SetMargin({0.0f, 0.0f, 0.0f, -(kShadowPadTop + kDecorationCardOverlap)});
     }
 
     msimeui::Brush brush;
@@ -483,11 +478,11 @@ void CandidatePresenter::ApplySkin()
 
 void CandidatePresenter::FillItemsFromUi()
 {
-    auto &ui = Global::candidate_ui;
+    const Global::CandidatePageSnapshotPtr page = Global::LoadCandidatePageSnapshot();
     std::vector<msimeui::CandidateList::Item> items;
-    for (size_t i = 0; i < ui.page_views.size(); ++i)
+    for (size_t i = 0; i < page->page_views.size(); ++i)
     {
-        const auto &view = ui.page_views[i];
+        const auto &view = page->page_views[i];
         msimeui::CandidateList::Item item;
         item.label = std::to_wstring(i + 1);
         item.text = string_to_wstring(view.text + view.badge);
@@ -498,7 +493,7 @@ void CandidatePresenter::FillItemsFromUi()
     }
     ignoreSelectionCallback_ = true;
     impl_->list->SetItems(std::move(items));
-    impl_->list->SetSelectedIndex(static_cast<size_t>((std::max)(0, ui.selected_index_in_page)));
+    impl_->list->SetSelectedIndex(static_cast<size_t>((std::max)(0, page->selected_index_in_page)));
     ignoreSelectionCallback_ = false;
 }
 
@@ -540,11 +535,12 @@ void CandidatePresenter::ShowItemContextMenu(size_t pageIndex, POINT clientPoint
     CloseContextMenu(true);
     impl_->contextMenuPageIndex = pageIndex;
 
-    auto &ui = Global::candidate_ui;
+    // A mouse callback has no posted-message handoff at all, so it must not walk the worker's live page either.
+    const Global::CandidatePageSnapshotPtr page = Global::LoadCandidatePageSnapshot();
     std::wstring word;
-    if (pageIndex < ui.page_words.size())
+    if (pageIndex < page->page_words.size())
     {
-        word = ui.page_words[pageIndex];
+        word = page->page_words[pageIndex];
     }
     size_t codePoints = 0;
     for (size_t i = 0; i < word.size(); ++i)
@@ -721,9 +717,9 @@ void CandidatePresenter::ExpandHostForMenu(POINT clientPoint)
 
     const float dpi = impl_->window->GetDpi();
     const msimeui::PointF anchor = impl_->window->ClientPixelsToDips(clientPoint);
-    const msimeui::SizeF clientDip = impl_->window->ClientPixelsToDips(
-        SIZE{clientRect.right, clientRect.bottom});
-    const float needWidth = (std::max)(clientDip.width, anchor.x + kContextMenuWidthDip + kContextSubmenuWidthDip + 16.0f);
+    const msimeui::SizeF clientDip = impl_->window->ClientPixelsToDips(SIZE{clientRect.right, clientRect.bottom});
+    const float needWidth =
+        (std::max)(clientDip.width, anchor.x + kContextMenuWidthDip + kContextSubmenuWidthDip + 16.0f);
     const float needHeight = (std::max)(clientDip.height, (std::max)(anchor.y + 168.0f, 176.0f));
     const int widthPx = (std::max)(static_cast<int>(windowRect.right - windowRect.left),
                                    static_cast<int>(std::ceil(needWidth * dpi / 96.0f)));
@@ -749,8 +745,7 @@ void CandidatePresenter::RestoreHostAfterMenu()
     impl_->hostExpandedForMenu = false;
 }
 
-void CandidatePresenter::PlaceAndShow(POINT caret, float widthDip, float heightDip, float cardLeftDip,
-                                      float cardTopDip)
+void CandidatePresenter::PlaceAndShow(POINT caret, float widthDip, float heightDip, float cardLeftDip, float cardTopDip)
 {
     const HalfScreenDipLimits limits = QueryHalfScreenDipLimitsForPoint(caret);
     FLOAT scale = limits.scale > 0.0f ? limits.scale : GetScaleForPoint(caret);

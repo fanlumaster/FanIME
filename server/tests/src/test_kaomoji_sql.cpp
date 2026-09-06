@@ -25,10 +25,9 @@ struct StmtCloser
     }
 };
 
-constexpr const char *kSql =
-    "SELECT kaomoji, sort_order FROM kaomoji "
-    "WHERE (pinyin>=?1 AND pinyin<?2) OR (jianpin>=?1 AND jianpin<?2) "
-    "ORDER BY sort_order LIMIT ?3";
+constexpr const char *kSql = "SELECT kaomoji, sort_order FROM kaomoji "
+                             "WHERE (pinyin>=?1 AND pinyin<?2) OR (jianpin>=?1 AND jianpin<?2) "
+                             "ORDER BY sort_order LIMIT ?3";
 
 std::vector<std::string> RunQuery(const std::string &prefix, int limit)
 {

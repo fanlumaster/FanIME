@@ -146,8 +146,7 @@ std::pair<double, double> ComposeCandidateCardSizeDip(double preeditWidthDip, co
                                                       const CandidateSizeEstimateInput &input)
 {
     const double font = input.fontSizePx > 0.0f ? static_cast<double>(input.fontSizePx) : 16.0;
-    const double preeditFont =
-        input.preeditFontSizePx > 0.0f ? static_cast<double>(input.preeditFontSizePx) : font;
+    const double preeditFont = input.preeditFontSizePx > 0.0f ? static_cast<double>(input.preeditFontSizePx) : font;
     const double numberAndBar = font * 0.8 + font * 0.2 + 8.0;
     const double padX = 12.0;
     const double padY = 8.0;

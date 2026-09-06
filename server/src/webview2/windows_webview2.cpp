@@ -235,19 +235,17 @@ void InjectSurfaceViewportLimitsImpl(ICoreWebView2 *webview, HWND hwnd)
         return;
     }
     const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
-    nlohmann::json cfg = {{"maxWidthDip", limits.maxWidthDip},
-                          {"maxHeightDip", limits.maxHeightDip},
-                          {"scale", limits.scale}};
-    const std::wstring script =
-        L"(function(c){"
-        L"const root=document.documentElement;"
-        L"if(!root)return;"
-        L"root.style.setProperty('--msime-max-width-dip',String(c.maxWidthDip||0)+'px');"
-        L"root.style.setProperty('--msime-max-height-dip',String(c.maxHeightDip||0)+'px');"
-        L"root.style.setProperty('--msime-dpi-scale',String(c.scale||1));"
-        L"if(window.CheckContentTruncation)window.CheckContentTruncation();"
-        L"})(" +
-        string_to_wstring(cfg.dump()) + L");";
+    nlohmann::json cfg = {
+        {"maxWidthDip", limits.maxWidthDip}, {"maxHeightDip", limits.maxHeightDip}, {"scale", limits.scale}};
+    const std::wstring script = L"(function(c){"
+                                L"const root=document.documentElement;"
+                                L"if(!root)return;"
+                                L"root.style.setProperty('--msime-max-width-dip',String(c.maxWidthDip||0)+'px');"
+                                L"root.style.setProperty('--msime-max-height-dip',String(c.maxHeightDip||0)+'px');"
+                                L"root.style.setProperty('--msime-dpi-scale',String(c.scale||1));"
+                                L"if(window.CheckContentTruncation)window.CheckContentTruncation();"
+                                L"})(" +
+                                string_to_wstring(cfg.dump()) + L");";
     const HRESULT hr = webview->ExecuteScript(script.c_str(), nullptr);
     DIAG_LOGF(L"ui-viewport-limits hwnd={:#x} monitor=({},{})-({},{}) max_dip=({:.2f},{:.2f}) "
               L"scale={:.3f} submit_hr={:#x}",
@@ -256,15 +254,17 @@ void InjectSurfaceViewportLimitsImpl(ICoreWebView2 *webview, HWND hwnd)
               static_cast<unsigned>(hr));
 }
 
-// Fallback only: grow the host to 1.2x HTML content (DIP), capped at half the
-// monitor. Main layout paths should already apply half-screen limits.
-bool ApplyContentTruncationResize( //
-    HWND hwnd,                     //
-    ICoreWebView2 *webview,        //
+// Fallback only: grow the host to at least 1.2x HTML content (DIP), capped at
+// half the monitor. Never shrink — truncation means the viewport is too small.
+// Candidate hosts are already quarter-screen; shrinking them to the card and
+// clearing CSS margins was parking the window away from the caret.
+bool ApplyContentTruncationResize(       //
+    HWND hwnd,                           //
+    ICoreWebView2 *webview,              //
     ICoreWebView2Controller *controller, //
-    double contentWidthDip,        //
-    double contentHeightDip,       //
-    int extraShadowDip             //
+    double contentWidthDip,              //
+    double contentHeightDip,             //
+    int extraShadowDip                   //
 )
 {
     if (!hwnd || contentWidthDip < 1.0 || contentHeightDip < 1.0)
@@ -274,17 +274,13 @@ bool ApplyContentTruncationResize( //
     const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
     const double cappedContentW = ClampWidthDipToHalfScreen(contentWidthDip, limits);
     const double cappedContentH = ClampHeightDipToHalfScreen(contentHeightDip, limits);
-    double hostWidthDip =
-        ClampWidthDipToHalfScreen(cappedContentW * kTruncationSizeFactor, limits) +
-        static_cast<double>((std::max)(0, extraShadowDip));
-    double hostHeightDip =
-        ClampHeightDipToHalfScreen(cappedContentH * kTruncationSizeFactor, limits) +
-        static_cast<double>((std::max)(0, extraShadowDip));
+    double hostWidthDip = ClampWidthDipToHalfScreen(cappedContentW * kTruncationSizeFactor, limits) +
+                          static_cast<double>((std::max)(0, extraShadowDip));
+    double hostHeightDip = ClampHeightDipToHalfScreen(cappedContentH * kTruncationSizeFactor, limits) +
+                           static_cast<double>((std::max)(0, extraShadowDip));
 
-    int physWidth =
-        static_cast<int>(std::ceil(hostWidthDip * static_cast<double>(limits.scale)));
-    int physHeight =
-        static_cast<int>(std::ceil(hostHeightDip * static_cast<double>(limits.scale)));
+    int physWidth = static_cast<int>(std::ceil(hostWidthDip * static_cast<double>(limits.scale)));
+    int physHeight = static_cast<int>(std::ceil(hostHeightDip * static_cast<double>(limits.scale)));
     const int monitorWidth = (std::max)(1, limits.monitor.right - limits.monitor.left);
     const int monitorHeight = (std::max)(1, limits.monitor.bottom - limits.monitor.top);
     physWidth = (std::min)(physWidth, monitorWidth);
@@ -294,6 +290,9 @@ bool ApplyContentTruncationResize( //
     GetWindowRect(hwnd, &current);
     const int curW = current.right - current.left;
     const int curH = current.bottom - current.top;
+    // Grow-only: a larger current host (e.g. quarter-screen candidate) must stay.
+    physWidth = (std::max)(physWidth, curW);
+    physHeight = (std::max)(physHeight, curH);
     int posX = current.left;
     int posY = current.top;
     if (posX + physWidth > limits.monitor.right)
@@ -328,18 +327,18 @@ bool ApplyContentTruncationResize( //
     InjectSurfaceViewportLimitsImpl(webview, hwnd);
     FTB_DIAG_LOGF(
         L"trunc-fallback dip=({:.1f},{:.1f})→host=({:.1f},{:.1f}) px=({},{}) half=({:.1f},{:.1f}) scale={:.3f}",
-        contentWidthDip, contentHeightDip, hostWidthDip, hostHeightDip, physWidth, physHeight,
-        limits.maxWidthDip, limits.maxHeightDip, static_cast<double>(limits.scale));
+        contentWidthDip, contentHeightDip, hostWidthDip, hostHeightDip, physWidth, physHeight, limits.maxWidthDip,
+        limits.maxHeightDip, static_cast<double>(limits.scale));
     return !sizeUnchanged;
 }
 
-bool HandleContentTruncatedMessage( //
-    HWND hwnd,                      //
-    ICoreWebView2 *webview,         //
+bool HandleContentTruncatedMessage(      //
+    HWND hwnd,                           //
+    ICoreWebView2 *webview,              //
     ICoreWebView2Controller *controller, //
-    const json::value &val,         //
-    ULONGLONG &cooldownSlot,        //
-    int extraShadowDip              //
+    const json::value &val,              //
+    ULONGLONG &cooldownSlot,             //
+    int extraShadowDip                   //
 )
 {
     double widthDip = 0.0;
@@ -681,8 +680,9 @@ bool AreSmallWindowWebviewsReadyUnlocked()
         (candidateNavigationReady && webviewCandWnd != nullptr && webviewControllerCandWnd != nullptr);
     const bool menuReady = TrayMenuPresenter::Instance().IsBound() ||
                            (menuNavigationReady && webviewMenuWnd != nullptr && webviewControllerMenuWnd != nullptr);
-    const bool ftbReady = FloatingToolbarPresenter::Instance().IsBound() ||
-                          (floatingToolbarNavigationReady && webviewFtbWnd != nullptr && webviewControllerFtbWnd != nullptr);
+    const bool ftbReady =
+        FloatingToolbarPresenter::Instance().IsBound() ||
+        (floatingToolbarNavigationReady && webviewFtbWnd != nullptr && webviewControllerFtbWnd != nullptr);
     return candReady && menuReady && ftbReady;
 }
 
@@ -1443,16 +1443,15 @@ std::wstring NormalizeSkinCssUrl(std::wstring url)
 
 std::wstring EncodeBase64(const std::vector<unsigned char> &bytes)
 {
-    static constexpr wchar_t kTable[] =
-        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static constexpr wchar_t kTable[] = L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     std::wstring out;
     out.reserve(((bytes.size() + 2) / 3) * 4);
     size_t i = 0;
     while (i + 2 < bytes.size())
     {
-        const unsigned int triple =
-            (static_cast<unsigned int>(bytes[i]) << 16) | (static_cast<unsigned int>(bytes[i + 1]) << 8) |
-            static_cast<unsigned int>(bytes[i + 2]);
+        const unsigned int triple = (static_cast<unsigned int>(bytes[i]) << 16) |
+                                    (static_cast<unsigned int>(bytes[i + 1]) << 8) |
+                                    static_cast<unsigned int>(bytes[i + 2]);
         out.push_back(kTable[(triple >> 18) & 63]);
         out.push_back(kTable[(triple >> 12) & 63]);
         out.push_back(kTable[(triple >> 6) & 63]);
@@ -1499,8 +1498,7 @@ std::wstring MimeForSkinAsset(const std::wstring &relativePath)
 std::wstring EmbedSkinCssUrl(const std::wstring &skinsRoot, const std::string &skinId, const std::wstring &rawUrl)
 {
     const std::wstring relative = NormalizeSkinCssUrl(rawUrl);
-    const std::filesystem::path filePath = std::filesystem::path(skinsRoot) /
-                                           std::filesystem::u8path(skinId) /
+    const std::filesystem::path filePath = std::filesystem::path(skinsRoot) / std::filesystem::u8path(skinId) /
                                            std::filesystem::u8path(wstring_to_string(relative));
     std::error_code ec;
     constexpr std::uintmax_t kMaxEmbedBytes = 1500 * 1024;
@@ -1625,12 +1623,8 @@ void NeutralizeEmbeddedStyleClosers(std::wstring &css)
     }
 }
 
-bool InjectExternalSkinCssFile(
-    std::wstring &html,
-    const CandidateSkinCatalog::Package &skin,
-    const std::wstring &skinsRoot,
-    const std::string &stylesheet,
-    const wchar_t *styleId)
+bool InjectExternalSkinCssFile(std::wstring &html, const CandidateSkinCatalog::Package &skin,
+                               const std::wstring &skinsRoot, const std::string &stylesheet, const wchar_t *styleId)
 {
     if (html.empty() || skinsRoot.empty() || stylesheet.empty() || !styleId)
     {
@@ -1640,8 +1634,7 @@ bool InjectExternalSkinCssFile(
     // stylesheet (virtual-host CORS). Built-in skins are inlined for the same
     // reason; keep external skins on that path so padding/decoration CSS is
     // present before SetWindowRgn applies candidateWindow.decoration.
-    const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" +
-                                 string_to_wstring(stylesheet);
+    const std::wstring cssPath = skinsRoot + L"\\" + string_to_wstring(skin.id) + L"\\" + string_to_wstring(stylesheet);
     std::wstring css = RewriteCandidateSkinCssUrls(ReadHtmlFile(cssPath), skinsRoot, skin.id);
     if (css.empty())
     {
@@ -1709,19 +1702,17 @@ std::wstring BuildExternalCandidateSkinCss(const CandidateSkinCatalog::Package &
     return css;
 }
 
-bool InjectExternalCandidateSkin(
-    std::wstring &html,
-    const CandidateSkinCatalog::Package &skin,
-    const std::wstring &skinsRoot)
+bool InjectExternalCandidateSkin(std::wstring &html, const CandidateSkinCatalog::Package &skin,
+                                 const std::wstring &skinsRoot)
 {
     if (html.empty() || skinsRoot.empty())
     {
         return false;
     }
-    const std::wstring vars = fmt::format(
-        L"<style id=\"external-candidate-skin-vars\">:root{{--msime-skin-min-width:{}px;"
-        L"--msime-skin-decoration-top:{}px;--msime-skin-decoration-width:{}px;}}</style>",
-        skin.minWidthDip, skin.decorationTopDip, skin.decorationWidthDip);
+    const std::wstring vars =
+        fmt::format(L"<style id=\"external-candidate-skin-vars\">:root{{--msime-skin-min-width:{}px;"
+                    L"--msime-skin-decoration-top:{}px;--msime-skin-decoration-width:{}px;}}</style>",
+                    skin.minWidthDip, skin.decorationTopDip, skin.decorationWidthDip);
     std::wstring css = BuildExternalCandidateSkinCss(skin, skinsRoot);
     NeutralizeEmbeddedStyleClosers(css);
     std::wstring generated;
@@ -1738,23 +1729,18 @@ bool InjectExternalCandidateSkin(
     return true;
 }
 
-void InjectCandidateDocumentSkin(
-    std::wstring &html,
-    const std::wstring &builtInCss,
-    const std::string &skin,
-    const std::string &base,
-    const std::string &layout,
-    const std::string &theme)
+void InjectCandidateDocumentSkin(std::wstring &html, const std::wstring &builtInCss, const std::string &skin,
+                                 const std::string &base, const std::string &layout, const std::string &theme)
 {
-    if (html.empty()) return;
+    if (html.empty())
+        return;
     const size_t htmlTagEnd = html.find(L'>', html.find(L"<html"));
     if (htmlTagEnd != std::wstring::npos)
     {
-        html.insert(htmlTagEnd,
-                    fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
-                                L"data-candidate-layout=\"{}\" data-candidate-theme=\"{}\"",
-                                string_to_wstring(skin), string_to_wstring(base), string_to_wstring(layout),
-                                string_to_wstring(theme)));
+        html.insert(htmlTagEnd, fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                                            L"data-candidate-layout=\"{}\" data-candidate-theme=\"{}\"",
+                                            string_to_wstring(skin), string_to_wstring(base), string_to_wstring(layout),
+                                            string_to_wstring(theme)));
     }
     const size_t headEnd = html.find(L"</head>");
     if (headEnd != std::wstring::npos && !builtInCss.empty())
@@ -1901,17 +1887,16 @@ void MaybeArmCandidatePointerHover()
     }
     g_candidate_hover_armed = true;
     CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm tick={} baseline=({},{}) native_cursor=({},{}) delta=({},{})",
-                            GetTickCount64(), g_candidate_hover_cursor.x, g_candidate_hover_cursor.y, now.x, now.y,
-                            dx, dy);
+                            GetTickCount64(), g_candidate_hover_cursor.x, g_candidate_hover_cursor.y, now.x, now.y, dx,
+                            dy);
     if (::global_hwnd)
     {
         KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
     }
-    webviewCandWnd->ExecuteScript(
-        LR"(document.documentElement.classList.add('msime-hover-armed');
+    webviewCandWnd->ExecuteScript(LR"(document.documentElement.classList.add('msime-hover-armed');
 const c = document.getElementById('realContainer');
 if (c) { c.classList.add('hover-active'); })",
-        nullptr);
+                                  nullptr);
 }
 
 void ResetContainerHoverCandWnd(ComPtr<ICoreWebView2> webview)
@@ -2105,8 +2090,8 @@ std::wstring BuildCandidateSlotPayloadJson(const std::wstring &commaSeparated, b
     }
     if (nonEmptyMask == 0 && !words.empty())
     {
-        CAND_DIAG_LOGF(L"candidate-slot payload all-empty words_sz={} content_only={} preedit_len={}",
-                       words.size(), contentOnly ? 1 : 0, words[0].size());
+        CAND_DIAG_LOGF(L"candidate-slot payload all-empty words_sz={} content_only={} preedit_len={}", words.size(),
+                       contentOnly ? 1 : 0, words[0].size());
     }
     payload["selected"] = Global::candidate_ui.selected_index_in_page;
     payload["preeditVisible"] = GetConfiguredCandidateWindowPreeditStyle() != "empty";
@@ -2239,12 +2224,9 @@ void PrepareCandidateWebViewBoundsForMeasure(HWND hwnd)
     {
         scale = 1.0f;
     }
-    const int extraRightDip =
-        ::CANDIDATE_WINDOW_MAX_WIDTH_DIP + (2 * ::SHADOW_WIDTH) + ::POP_UP_WND_WIDTH;
-    const int extraBottomDip =
-        ::CANDIDATE_WINDOW_HEIGHT + (2 * ::SHADOW_HEIGHT) + ::POP_UP_WND_HEIGHT;
-    const int extraRightPx =
-        (std::max)(candidateBoundExtraFloorPx, static_cast<int>(std::ceil(extraRightDip * scale)));
+    const int extraRightDip = ::CANDIDATE_WINDOW_MAX_WIDTH_DIP + (2 * ::SHADOW_WIDTH) + ::POP_UP_WND_WIDTH;
+    const int extraBottomDip = ::CANDIDATE_WINDOW_HEIGHT + (2 * ::SHADOW_HEIGHT) + ::POP_UP_WND_HEIGHT;
+    const int extraRightPx = (std::max)(candidateBoundExtraFloorPx, static_cast<int>(std::ceil(extraRightDip * scale)));
     const int extraBottomPx =
         (std::max)(candidateBoundExtraFloorPx, static_cast<int>(std::ceil(extraBottomDip * scale)));
     bounds.right += extraRightPx;
@@ -2321,24 +2303,22 @@ int PrepareHtmlForWnds()
 
     std::wstring entireHtmlPathCandWnd = assetPath + htmlCandWnd;
     ::HTMLStringCandWnd = ReadHtmlFile(entireHtmlPathCandWnd);
-    const std::wstring candidateStyleName = fmt::format(
-        L"{}_{}.css", string_to_wstring(candidateLayout), string_to_wstring(candidateTheme));
-    const std::wstring candidateStylePath = fmt::format(
-        L"/html/webview2/candwnd/skins/{}/{}", string_to_wstring(baseCandidateSkin), candidateStyleName);
+    const std::wstring candidateStyleName =
+        fmt::format(L"{}_{}.css", string_to_wstring(candidateLayout), string_to_wstring(candidateTheme));
+    const std::wstring candidateStylePath =
+        fmt::format(L"/html/webview2/candwnd/skins/{}/{}", string_to_wstring(baseCandidateSkin), candidateStyleName);
     std::wstring builtInCandidateCss = ReadHtmlFile(assetPath + candidateStylePath);
     if (builtInCandidateCss.empty())
     {
-        builtInCandidateCss = ReadHtmlFile(
-            assetPath + L"/html/webview2/candwnd/skins/fluent/" + candidateStyleName);
+        builtInCandidateCss = ReadHtmlFile(assetPath + L"/html/webview2/candwnd/skins/fluent/" + candidateStyleName);
     }
     if (builtInCandidateCss.empty() && candLight)
     {
-        builtInCandidateCss = ReadHtmlFile(
-            assetPath + L"/html/webview2/candwnd/skins/fluent/" +
-            string_to_wstring(candidateLayout) + L"_dark.css");
+        builtInCandidateCss = ReadHtmlFile(assetPath + L"/html/webview2/candwnd/skins/fluent/" +
+                                           string_to_wstring(candidateLayout) + L"_dark.css");
     }
-    InjectCandidateDocumentSkin(::HTMLStringCandWnd, builtInCandidateCss, candidateSkin,
-                                baseCandidateSkin, candidateLayout, candidateTheme);
+    InjectCandidateDocumentSkin(::HTMLStringCandWnd, builtInCandidateCss, candidateSkin, baseCandidateSkin,
+                                candidateLayout, candidateTheme);
     if (activeExternalCandidateSkin)
     {
         const std::wstring skinsRoot = assetPath + L"\\skins";
@@ -2389,8 +2369,7 @@ int PrepareHtmlForWnds()
     }
     else if (baseCandidateSkin == "willow_green")
     {
-        htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/willow_green_light.html"
-                              : L"/html/webview2/ftb/willow_green.html";
+        htmlFtbWnd = ftbLight ? L"/html/webview2/ftb/willow_green_light.html" : L"/html/webview2/ftb/willow_green.html";
     }
     else
     {
@@ -2401,23 +2380,21 @@ int PrepareHtmlForWnds()
     if (activeExternalCandidateSkin && !::HTMLStringFtbWnd.empty())
     {
         const size_t htmlTag = ::HTMLStringFtbWnd.find(L"<html");
-        const size_t htmlTagEnd = htmlTag == std::wstring::npos ? std::wstring::npos
-                                                                : ::HTMLStringFtbWnd.find(L'>', htmlTag);
+        const size_t htmlTagEnd =
+            htmlTag == std::wstring::npos ? std::wstring::npos : ::HTMLStringFtbWnd.find(L'>', htmlTag);
         if (htmlTagEnd != std::wstring::npos)
         {
-            ::HTMLStringFtbWnd.insert(
-                htmlTagEnd,
-                fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
-                            L"data-candidate-theme=\"{}\"",
-                            string_to_wstring(candidateSkin), string_to_wstring(baseCandidateSkin),
-                            ftbLight ? L"light" : L"dark"));
+            ::HTMLStringFtbWnd.insert(htmlTagEnd,
+                                      fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                                                  L"data-candidate-theme=\"{}\"",
+                                                  string_to_wstring(candidateSkin),
+                                                  string_to_wstring(baseCandidateSkin), ftbLight ? L"light" : L"dark"));
         }
         if (!activeExternalCandidateSkin->toolbarStylesheet.empty())
         {
             const std::wstring skinsRoot = assetPath + L"\\skins";
             InjectExternalSkinCssFile(::HTMLStringFtbWnd, *activeExternalCandidateSkin, skinsRoot,
-                                      activeExternalCandidateSkin->toolbarStylesheet,
-                                      L"external-toolbar-skin");
+                                      activeExternalCandidateSkin->toolbarStylesheet, L"external-toolbar-skin");
         }
     }
     // The small windows navigate from strings. Inline the pinned local runtime
@@ -2549,7 +2526,8 @@ bool ApplyConfiguredCandidateAppearance()
         L"}"
         L"if(!document.getElementById('msime-fast-layout')){"
         L"const s=document.createElement('style');s.id='msime-fast-layout';"
-        L"s.textContent='.container,.container .text,.row-wrapper,.cand .text{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;}';"
+        L"s.textContent='.container,.container .text,.row-wrapper,.cand "
+        L".text{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;}';"
         L"root.appendChild(s);}"
         L"})(" +
         string_to_wstring(cfg.dump()) + L");";
@@ -2583,26 +2561,24 @@ bool ApplyConfiguredFloatingToolbarAppearance(std::function<void()> onComplete)
 
     nlohmann::json cfg = {{"scale", GetConfiguredFloatingToolbarScale()},
                           {"font_size", GetConfiguredFloatingToolbarFontSize()}};
-    const std::wstring script =
-        L"(function(c){"
-        L"const root=document.documentElement;"
-        L"const scale=(typeof c.scale==='number'&&c.scale>0)?c.scale:1;"
-        L"const icon=(typeof c.font_size==='number'&&c.font_size>0)?c.font_size:24;"
-        L"root.style.setProperty('--ftb-scale', String(scale));"
-        L"root.style.setProperty('--ftb-icon-size', String(icon)+'px');"
-        L"return true;"
-        L"})(" +
-        string_to_wstring(cfg.dump()) + L");";
+    const std::wstring script = L"(function(c){"
+                                L"const root=document.documentElement;"
+                                L"const scale=(typeof c.scale==='number'&&c.scale>0)?c.scale:1;"
+                                L"const icon=(typeof c.font_size==='number'&&c.font_size>0)?c.font_size:24;"
+                                L"root.style.setProperty('--ftb-scale', String(scale));"
+                                L"root.style.setProperty('--ftb-icon-size', String(icon)+'px');"
+                                L"return true;"
+                                L"})(" +
+                                string_to_wstring(cfg.dump()) + L");";
     if (!onComplete)
     {
         return SUCCEEDED(webviewFtbWnd->ExecuteScript(script.c_str(), nullptr));
     }
     return SUCCEEDED(webviewFtbWnd->ExecuteScript(
-        script.c_str(),
-        Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
-            onComplete();
-            return S_OK;
-        }).Get()));
+        script.c_str(), Callback<ICoreWebView2ExecuteScriptCompletedHandler>([onComplete](HRESULT, LPCWSTR) -> HRESULT {
+                            onComplete();
+                            return S_OK;
+                        }).Get()));
 }
 
 //
@@ -2786,26 +2762,25 @@ HRESULT OnControllerCreatedCandWnd(     //
         double rasterizationScale = 0.0;
         const HRESULT scaleHr = webviewController3CandWnd->get_RasterizationScale(&rasterizationScale);
         const HRESULT eventHr = webviewController3CandWnd->add_RasterizationScaleChanged(
-            Callback<ICoreWebView2RasterizationScaleChangedEventHandler>(
-                [hwnd](ICoreWebView2Controller *sender, IUnknown *) -> HRESULT {
-                    if (!IsWindow(hwnd))
-                    {
-                        return S_OK;
-                    }
-                    ComPtr<ICoreWebView2Controller3> controller3;
-                    double scale = 0.0;
-                    const HRESULT hr = sender ? sender->QueryInterface(IID_PPV_ARGS(&controller3)) : E_POINTER;
-                    const HRESULT scaleHr = SUCCEEDED(hr) ? controller3->get_RasterizationScale(&scale) : hr;
-                    DIAG_LOGF(L"candidate rasterization scale changed scale={:.4f} native_scale={:.4f} hr={:#x}",
-                              scale, static_cast<double>(GetWindowScale(hwnd)), static_cast<unsigned>(scaleHr));
-                    InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
-                    if (::is_global_wnd_cand_shown && IsCandidateWebviewReady())
-                    {
-                        FineTuneWindow(hwnd);
-                    }
+            Callback<ICoreWebView2RasterizationScaleChangedEventHandler>([hwnd](ICoreWebView2Controller *sender,
+                                                                                IUnknown *) -> HRESULT {
+                if (!IsWindow(hwnd))
+                {
                     return S_OK;
-                })
-                .Get(),
+                }
+                ComPtr<ICoreWebView2Controller3> controller3;
+                double scale = 0.0;
+                const HRESULT hr = sender ? sender->QueryInterface(IID_PPV_ARGS(&controller3)) : E_POINTER;
+                const HRESULT scaleHr = SUCCEEDED(hr) ? controller3->get_RasterizationScale(&scale) : hr;
+                DIAG_LOGF(L"candidate rasterization scale changed scale={:.4f} native_scale={:.4f} hr={:#x}", scale,
+                          static_cast<double>(GetWindowScale(hwnd)), static_cast<unsigned>(scaleHr));
+                InjectSurfaceViewportLimits(webviewCandWnd.Get(), hwnd);
+                if (::is_global_wnd_cand_shown && IsCandidateWebviewReady())
+                {
+                    FineTuneWindow(hwnd);
+                }
+                return S_OK;
+            }).Get(),
             &candidateRasterizationScaleChangedToken);
         candidateRasterizationScaleChangedRegistered = SUCCEEDED(eventHr);
         DIAG_LOGF(L"candidate rasterization scale initialized scale={:.4f} native_scale={:.4f} "
@@ -2834,10 +2809,10 @@ HRESULT OnControllerCreatedCandWnd(     //
             assetPath.c_str(),                                                        //
             COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS                          //
         );                                                                            //
-        const std::wstring skinsPath = fmt::format(                    //
-            L"{}\\{}\\skins",                                        //
-            string_to_wstring(CommonUtils::get_local_appdata_path()), //
-            GlobalIme::AppName                                        //
+        const std::wstring skinsPath = fmt::format(                                   //
+            L"{}\\{}\\skins",                                                         //
+            string_to_wstring(CommonUtils::get_local_appdata_path()),                 //
+            GlobalIme::AppName                                                        //
         );
         const HRESULT skinsMappingHr = webview3CandWnd->SetVirtualHostNameToFolderMapping(
             L"candidate-skins", skinsPath.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
@@ -2917,8 +2892,7 @@ HRESULT OnControllerCreatedCandWnd(     //
                             {
                                 KillTimer(::global_hwnd, kCandidateHoverArmTimerId);
                             }
-                            CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm source=dom-motion tick={}",
-                                                    GetTickCount64());
+                            CAND_WEBVIEW_TRACE_LOGF(L"candidate-hover arm source=dom-motion tick={}", GetTickCount64());
                         }
                         else if (type == "candidatePointerMotion")
                         {
@@ -3038,16 +3012,31 @@ HRESULT OnControllerCreatedCandWnd(     //
                         }
                         else if (type == "contentTruncated")
                         {
-                            // Fallback only: FineTune already sizes to content with a
-                            // half-screen cap. Clear a stale region if we still had to grow.
-                            if (::is_global_wnd_cand_shown &&
-                                HandleContentTruncatedMessage(hwnd, webviewCandWnd.Get(),
-                                                              webviewControllerCandWnd.Get(), val,
-                                                              g_last_content_truncation_cand_ms, 0))
+                            // Candidate host is intentionally quarter-screen; the card is
+                            // placed with CSS margins + SetWindowRgn. HTML truncation checks
+                            // use clientWidth/Height, so margin+content past the right/bottom
+                            // of the host looks "truncated" even when FineTune is correct.
+                            // Never shrink the HWND or zero margins here — that parked the
+                            // card at the host origin away from the caret.
+                            if (::is_global_wnd_cand_shown)
                             {
-                                SetWindowRgn(hwnd, nullptr, TRUE);
-                                Global::MarginLeft = 0;
-                                Global::MarginTop = 0;
+                                const bool grew = HandleContentTruncatedMessage(hwnd, webviewCandWnd.Get(),
+                                                                                webviewControllerCandWnd.Get(), val,
+                                                                                g_last_content_truncation_cand_ms, 0);
+                                if (grew)
+                                {
+                                    // Host grew beyond the previous region; drop the clip so
+                                    // the next FineTune/clip-measure can reapply margins.
+                                    SetWindowRgn(hwnd, nullptr, TRUE);
+                                    CAND_DIAG_LOGF(L"candidate contentTruncated grew host; region cleared "
+                                                   L"(margins kept) {}",
+                                                   DescribeCandidateHostState());
+                                }
+                                else
+                                {
+                                    CAND_DIAG_LOGF(L"candidate contentTruncated ignored (no shrink) {}",
+                                                   DescribeCandidateHostState());
+                                }
                             }
                         }
                     }
@@ -3354,19 +3343,16 @@ HRESULT OnControllerCreatedMenuWnd(     //
                     }
                     else if (type == "contentTruncated")
                     {
-                        if (HandleContentTruncatedMessage(hwnd, webviewMenuWnd.Get(),
-                                                          webviewControllerMenuWnd.Get(), val,
-                                                          g_last_content_truncation_menu_ms, 0))
+                        if (HandleContentTruncatedMessage(hwnd, webviewMenuWnd.Get(), webviewControllerMenuWnd.Get(),
+                                                          val, g_last_content_truncation_menu_ms, 0))
                         {
                             ::MENU_CONTENT_WIDTH_DIP =
                                 (std::max)(::MENU_CONTENT_WIDTH_DIP, JsonNumberAsDouble(val.at("data").at("width")));
                             ::MENU_CONTENT_HEIGHT_DIP =
                                 (std::max)(::MENU_CONTENT_HEIGHT_DIP, JsonNumberAsDouble(val.at("data").at("height")));
                             const HalfScreenDipLimits limits = QueryWebViewHalfScreenDipLimitsForHwnd(hwnd);
-                            ::MENU_CONTENT_WIDTH_DIP =
-                                ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP, limits);
-                            ::MENU_CONTENT_HEIGHT_DIP =
-                                ClampHeightDipToHalfScreen(::MENU_CONTENT_HEIGHT_DIP, limits);
+                            ::MENU_CONTENT_WIDTH_DIP = ClampWidthDipToHalfScreen(::MENU_CONTENT_WIDTH_DIP, limits);
+                            ::MENU_CONTENT_HEIGHT_DIP = ClampHeightDipToHalfScreen(::MENU_CONTENT_HEIGHT_DIP, limits);
                         }
                     }
                 }
@@ -3993,8 +3979,7 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                             }
                             else if (path == "general.floating_toolbar_font_size")
                             {
-                                if (SetConfiguredFloatingToolbarFontSize(
-                                        static_cast<int>(data.at("value").as_int64())))
+                                if (SetConfiguredFloatingToolbarFontSize(static_cast<int>(data.at("value").as_int64())))
                                 {
                                     ApplyConfiguredFloatingToolbarSize();
                                     PostSettingsConfig();
@@ -4120,8 +4105,8 @@ HRESULT OnControllerCreatedSettingsWnd(            //
                             else if (path.rfind("tencent_tmt.", 0) == 0)
                             {
                                 const std::string value = json::value_to<std::string>(data.at("value"));
-                                if (SetConfiguredTencentTmtString(
-                                        path.substr(std::string("tencent_tmt.").size()), value))
+                                if (SetConfiguredTencentTmtString(path.substr(std::string("tencent_tmt.").size()),
+                                                                  value))
                                 {
                                     if (path == "tencent_tmt.target_language")
                                         FanyNamedPipe::EnqueueRefreshCandidatePageTask();
@@ -4539,8 +4524,10 @@ void PostSettingsConfig()
             {"switch_language_ctrl", GetConfiguredSwitchLanguageCtrlEnabled()},
             {"switch_language_ctrl_alt_space", GetConfiguredSwitchLanguageCtrlAltSpaceEnabled()}}},
           {"tencent_tmt",
-           {{"secret_id", tencent_tmt.secret_id}, {"secret_key", tencent_tmt.secret_key},
-            {"region", tencent_tmt.region}, {"target_language", tencent_tmt.target_language}}},
+           {{"secret_id", tencent_tmt.secret_id},
+            {"secret_key", tencent_tmt.secret_key},
+            {"region", tencent_tmt.region},
+            {"target_language", tencent_tmt.target_language}}},
           {"custom_translation",
            {{"enabled", custom_translation.enabled},
             {"endpoint", custom_translation.endpoint},
@@ -4911,10 +4898,8 @@ HRESULT OnControllerCreatedFtbWnd(      //
                     }
                     else if (type == "contentTruncated")
                     {
-                        if (HandleContentTruncatedMessage(hwnd, webviewFtbWnd.Get(),
-                                                          webviewControllerFtbWnd.Get(), val,
-                                                          g_last_content_truncation_ftb_ms,
-                                                          ::FTB_WND_SHADOW_WIDTH))
+                        if (HandleContentTruncatedMessage(hwnd, webviewFtbWnd.Get(), webviewControllerFtbWnd.Get(), val,
+                                                          g_last_content_truncation_ftb_ms, ::FTB_WND_SHADOW_WIDTH))
                         {
                             const double widthDip = JsonNumberAsDouble(val.at("data").at("width"));
                             const double heightDip = JsonNumberAsDouble(val.at("data").at("height"));

@@ -19,6 +19,7 @@ try {
         'windows/build32-release/Release/MetasequoiaImeTsf.dll',
         'windows/build64-release/Release/MetasequoiaImeTsf.dll',
         'THIRD_PARTY_NOTICES.txt',
+        'LICENSE',
         'server/assets/config/config.toml',
         'server/src/resource/MetasequoiaIME.ico',
         'vendor/MetasequoiaImeEngine/helpcode/helpcodes/helpcode.txt',
@@ -37,10 +38,10 @@ try {
     $english = Join-Path $fixture 'MetasequoiaImeDict/out/english.db'
     python -c "import sqlite3,sys; sqlite3.connect(sys.argv[1]).execute('CREATE TABLE english_words(word TEXT,display TEXT,weight INTEGER,PRIMARY KEY(word,display))')" $english
     if ($LASTEXITCODE -ne 0) { throw 'Failed to create packaging fixture' }
-    & (Join-Path $installer 'Prepare-PackageFiles.ps1') -RepoRoot $fixture -TsfDirectory windows -ServerDirectory server -UiHtmlDirectory ui-html -NoticesDirectory . -TargetVersion '2026.9.1'
+    & (Join-Path $installer 'Prepare-PackageFiles.ps1') -RepoRoot $fixture -TargetVersion '2026.9.1'
     foreach ($file in @('app_data/html/webview2/shared/runtime.js', 'app_data/dictionary-manifest.json',
                          'tsf_dll/32/MetasequoiaImeTsf.dll', 'tsf_dll/64/MetasequoiaImeTsf.dll',
-                         'app_data/helpcodes/helpcode.txt', 'THIRD_PARTY_NOTICES.txt')) {
+                         'app_data/helpcodes/helpcode.txt', 'THIRD_PARTY_NOTICES.txt', 'LICENSE.txt')) {
         if (-not (Test-Path (Join-Path $installer $file))) { throw "Missing packaged file: $file" }
     }
     if (Test-Path (Join-Path $installer 'server_exe/MetasequoiaImeServerTests.exe')) { throw 'Packaged a test executable' }

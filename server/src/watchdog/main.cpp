@@ -21,31 +21,29 @@ constexpr DWORD kProfileReadyTimeoutMilliseconds = 30'000;
 constexpr DWORD kProfileReadyRetryIntervalMilliseconds = 1'000;
 
 // Keep these identifiers in sync with MetasequoiaImeTsf/src/Global/Globals.cpp.
-constexpr CLSID kMetasequoiaImeClsid = {
-    0xe3062e9a, 0xd834, 0x4637, {0x89, 0x58, 0xed, 0x8c, 0xfa, 0x42, 0x7d, 0x01}};
+constexpr CLSID kMetasequoiaImeClsid = {0xe3062e9a, 0xd834, 0x4637, {0x89, 0x58, 0xed, 0x8c, 0xfa, 0x42, 0x7d, 0x01}};
 constexpr GUID kMetasequoiaImeProfileGuid = {
     0x4d59b1b4, 0xd503, 0x44ae, {0x92, 0x59, 0xba, 0xd9, 0xbb, 0x27, 0x78, 0xab}};
-constexpr LANGID kMetasequoiaImeLanguage =
-    MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
+constexpr LANGID kMetasequoiaImeLanguage = MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
 
 bool IsMetasequoiaImeEnabledForCurrentUser()
 {
     const HRESULT initialize_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (FAILED(initialize_result)) return false;
+    if (FAILED(initialize_result))
+        return false;
 
     ITfInputProcessorProfiles *profiles = nullptr;
-    const HRESULT create_result =
-        CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
-                         IID_ITfInputProcessorProfiles, reinterpret_cast<void **>(&profiles));
+    const HRESULT create_result = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
+                                                   IID_ITfInputProcessorProfiles, reinterpret_cast<void **>(&profiles));
 
     BOOL enabled = FALSE;
-    const HRESULT query_result =
-        SUCCEEDED(create_result)
-            ? profiles->IsEnabledLanguageProfile(kMetasequoiaImeClsid, kMetasequoiaImeLanguage,
-                                                 kMetasequoiaImeProfileGuid, &enabled)
-            : create_result;
+    const HRESULT query_result = SUCCEEDED(create_result)
+                                     ? profiles->IsEnabledLanguageProfile(kMetasequoiaImeClsid, kMetasequoiaImeLanguage,
+                                                                          kMetasequoiaImeProfileGuid, &enabled)
+                                     : create_result;
 
-    if (profiles) profiles->Release();
+    if (profiles)
+        profiles->Release();
     CoUninitialize();
 
     // Fail closed: if TSF cannot confirm that the profile is in this user's
@@ -62,12 +60,14 @@ bool WaitForMetasequoiaImeEnabledForCurrentUser()
     const ULONGLONG deadline = GetTickCount64() + kProfileReadyTimeoutMilliseconds;
     for (;;)
     {
-        if (IsMetasequoiaImeEnabledForCurrentUser()) return true;
+        if (IsMetasequoiaImeEnabledForCurrentUser())
+            return true;
 
         const ULONGLONG now = GetTickCount64();
-        if (now >= deadline) return false;
-        Sleep(static_cast<DWORD>((std::min)(
-            static_cast<ULONGLONG>(kProfileReadyRetryIntervalMilliseconds), deadline - now)));
+        if (now >= deadline)
+            return false;
+        Sleep(static_cast<DWORD>(
+            (std::min)(static_cast<ULONGLONG>(kProfileReadyRetryIntervalMilliseconds), deadline - now)));
     }
 }
 
@@ -77,7 +77,8 @@ std::wstring GetExecutableDirectory()
     for (;;)
     {
         const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
-        if (length == 0) return {};
+        if (length == 0)
+            return {};
         if (length < path.size() - 1)
         {
             std::wstring result(path.data(), length);
@@ -91,7 +92,8 @@ std::wstring GetExecutableDirectory()
 HANDLE FindRunningServer(const std::wstring &expected_path)
 {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snapshot == INVALID_HANDLE_VALUE) return nullptr;
+    if (snapshot == INVALID_HANDLE_VALUE)
+        return nullptr;
 
     PROCESSENTRY32W entry{sizeof(entry)};
     HANDLE result = nullptr;
@@ -99,10 +101,12 @@ HANDLE FindRunningServer(const std::wstring &expected_path)
     {
         do
         {
-            if (_wcsicmp(entry.szExeFile, kServerFileName) != 0) continue;
+            if (_wcsicmp(entry.szExeFile, kServerFileName) != 0)
+                continue;
 
             HANDLE process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
-            if (!process) continue;
+            if (!process)
+                continue;
 
             std::vector<wchar_t> path(32768);
             DWORD path_length = static_cast<DWORD>(path.size());
@@ -131,7 +135,8 @@ HANDLE StartServer(const std::wstring &server_path, const std::wstring &working_
     execute_info.lpParameters = WatchdogProtocol::kManagedArgument;
     execute_info.lpDirectory = working_directory.c_str();
     execute_info.nShow = SW_SHOWNOACTIVATE;
-    if (!ShellExecuteExW(&execute_info) || !execute_info.hProcess) return nullptr;
+    if (!ShellExecuteExW(&execute_info) || !execute_info.hProcess)
+        return nullptr;
     return execute_info.hProcess;
 }
 } // namespace
@@ -139,19 +144,24 @@ HANDLE StartServer(const std::wstring &server_path, const std::wstring &working_
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 {
     CommonUtils::SingleInstanceGuard single_instance(kWatchdogMutex);
-    if (!single_instance.is_valid()) return 1;
-    if (single_instance.already_running()) return 0;
-    if (!WaitForMetasequoiaImeEnabledForCurrentUser()) return 0;
+    if (!single_instance.is_valid())
+        return 1;
+    if (single_instance.already_running())
+        return 0;
+    if (!WaitForMetasequoiaImeEnabledForCurrentUser())
+        return 0;
 
     const std::wstring executable_directory = GetExecutableDirectory();
-    if (executable_directory.empty()) return 1;
+    if (executable_directory.empty())
+        return 1;
     const std::wstring server_path = executable_directory + L"\\" + kServerFileName;
 
     DWORD restart_delay = 1'000;
     for (;;)
     {
         HANDLE server = FindRunningServer(server_path);
-        if (!server) server = StartServer(server_path, executable_directory);
+        if (!server)
+            server = StartServer(server_path, executable_directory);
         if (!server)
         {
             Sleep(restart_delay);
@@ -165,7 +175,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         GetExitCodeProcess(server, &exit_code);
         CloseHandle(server);
 
-        if (exit_code == WatchdogProtocol::kStopExitCode) return 0;
+        if (exit_code == WatchdogProtocol::kStopExitCode)
+            return 0;
         if (exit_code == WatchdogProtocol::kRestartExitCode)
         {
             restart_delay = 250;

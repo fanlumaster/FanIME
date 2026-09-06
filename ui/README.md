@@ -172,7 +172,7 @@ cmake -S . -B build
 cmake --build build --config Debug
 ```
 
-如果本机的 `vcpkg` 不在 `C:/Users/SonnyCalcr/scoop/apps/vcpkg/current`，先按自己的环境修改 [CMakeUserPresets.json](C:/Users/SonnyCalcr/EDisk/CppCodes/IMECodes/RelatedProjects/msimeui/CMakeUserPresets.json:1) 里的 `VCPKG_ROOT` 和 `CMAKE_TOOLCHAIN_FILE`。
+preset 里的 vcpkg 路径取自环境变量 `VCPKG_ROOT`，配置前设好它即可，不需要改文件：`$env:VCPKG_ROOT = 'C:\path\to\vcpkg'`。要写死本机路径的话，改 [CMakeUserPresets.json](CMakeUserPresets.json) 里的 `VCPKG_ROOT` 和 `CMAKE_TOOLCHAIN_FILE`。
 
 也可以直接使用 `scripts/` 里的 PowerShell 脚本：
 

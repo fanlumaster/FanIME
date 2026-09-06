@@ -41,7 +41,7 @@ class CCompositionProcessorEngine
     BOOL IsVirtualKeyNeed(UINT uCode, _In_reads_(1) WCHAR *pwch, BOOL fComposing, CANDIDATE_MODE candidateMode,
                           BOOL hasCandidateWithWildcard, _Out_opt_ _KEYSTROKE_STATE *pKeyState);
     BOOL IsVirtualKeyNeedForFreshComposition(UINT uCode, _In_reads_(1) WCHAR *pwch,
-                                              _Out_opt_ _KEYSTROKE_STATE *pKeyState);
+                                             _Out_opt_ _KEYSTROKE_STATE *pKeyState);
 
     BOOL AddVirtualKey(WCHAR wch);
     void RemoveVirtualKey(DWORD_PTR dwIndex);
@@ -81,8 +81,8 @@ class CCompositionProcessorEngine
     BOOL IsPreservedKeyEligible(REFGUID rguid);
     PreservedKeyAction GetPreservedKeyAction(REFGUID rguid) const;
     void OnPreservedKey(ITfContext *pContext, REFGUID rguid, _Out_ BOOL *pIsEaten, _In_ ITfThreadMgr *pThreadMgr,
-                        TfClientId tfClientId, BOOL *pNeedToggleIMEMode,
-                        BOOL isPrevalidated = FALSE, BOOL notifyServer = TRUE);
+                        TfClientId tfClientId, BOOL *pNeedToggleIMEMode, BOOL isPrevalidated = FALSE,
+                        BOOL notifyServer = TRUE);
 
     // Toggle IME Mode
     void ToggleIMEMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
@@ -91,8 +91,7 @@ class CCompositionProcessorEngine
     // Apply CN/EN compartment change deferred until after composition commit.
     // Closing KEYBOARD_OPENCLOSE before EndComposition makes CUAS/Win32 EDIT
     // finalize the same preedit twice (Chrome/TSF-only hosts are unaffected).
-    void ApplyPendingImeModeAfterCompositionCommit(_In_ ITfThreadMgr *pThreadMgr,
-                                                    TfClientId tfClientId);
+    void ApplyPendingImeModeAfterCompositionCommit(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
     void SetPunctuationMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL bOpen);
     BOOL GetPunctuationMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId);
     void SetDoubleSingleByteMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL bOpen);
@@ -188,10 +187,8 @@ class CCompositionProcessorEngine
     static HRESULT CompartmentCallback(_In_ void *pv, REFGUID guidCompartment);
     void PrivateCompartmentsUpdated(_In_ ITfThreadMgr *pThreadMgr);
     void KeyboardOpenCompartmentUpdated(_In_ ITfThreadMgr *pThreadMgr);
-    HRESULT SetKeyboardOpenCompartment(_In_ ITfThreadMgr *pThreadMgr,
-                                       TfClientId tfClientId, BOOL isOpen);
-    void SyncPunctuationWithImeMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId,
-                                    BOOL isOpen);
+    HRESULT SetKeyboardOpenCompartment(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isOpen);
+    void SyncPunctuationWithImeMode(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, BOOL isOpen);
     void CommitCompositionOnExternalKeyboardClose();
     void ReleaseConfiguredImeModeDefense();
 

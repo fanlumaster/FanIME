@@ -41,10 +41,10 @@ bool Sha256(std::string_view data, unsigned char out[32])
     if (BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA256_ALGORITHM, nullptr, 0) != 0)
         return false;
     const NTSTATUS created = BCryptCreateHash(alg, &hash, nullptr, 0, nullptr, 0, 0);
-    const NTSTATUS hashed =
-        created == 0 ? BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char *>(data.data())),
-                                      static_cast<ULONG>(data.size()), 0)
-                     : created;
+    const NTSTATUS hashed = created == 0
+                                ? BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char *>(data.data())),
+                                                 static_cast<ULONG>(data.size()), 0)
+                                : created;
     const NTSTATUS finished = hashed == 0 ? BCryptFinishHash(hash, out, 32, 0) : hashed;
     if (hash)
         BCryptDestroyHash(hash);
@@ -62,10 +62,10 @@ bool HmacSha256(std::string_view key, std::string_view data, unsigned char out[3
     const NTSTATUS created =
         BCryptCreateHash(alg, &hash, nullptr, 0, reinterpret_cast<PUCHAR>(const_cast<char *>(key.data())),
                          static_cast<ULONG>(key.size()), 0);
-    const NTSTATUS hashed =
-        created == 0 ? BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char *>(data.data())),
-                                      static_cast<ULONG>(data.size()), 0)
-                     : created;
+    const NTSTATUS hashed = created == 0
+                                ? BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char *>(data.data())),
+                                                 static_cast<ULONG>(data.size()), 0)
+                                : created;
     const NTSTATUS finished = hashed == 0 ? BCryptFinishHash(hash, out, 32, 0) : hashed;
     if (hash)
         BCryptDestroyHash(hash);
@@ -134,10 +134,7 @@ std::vector<std::string> TextTranslateBatch(const Credentials &credentials, cons
         !CloudTranslation::IsUsableSecret(credentials.secret_key) || source.empty() || target.empty())
         return results;
 
-    nlohmann::json body = {{"Source", source},
-                           {"Target", target},
-                           {"ProjectId", 0},
-                           {"SourceTextList", texts}};
+    nlohmann::json body = {{"Source", source}, {"Target", target}, {"ProjectId", 0}, {"SourceTextList", texts}};
     const std::string payload = body.dump();
     const time_t timestamp = std::time(nullptr);
     const std::string authorization = Tc3Authorization(credentials, payload, timestamp);
@@ -155,8 +152,8 @@ std::vector<std::string> TextTranslateBatch(const Credentials &credentials, cons
     const std::string action = std::string("X-TC-Action: ") + kAction;
     const std::string ts = std::string("X-TC-Timestamp: ") + std::to_string(timestamp);
     const std::string version = std::string("X-TC-Version: ") + kVersion;
-    const std::string region = std::string("X-TC-Region: ") +
-                               (credentials.region.empty() ? "ap-guangzhou" : credentials.region);
+    const std::string region =
+        std::string("X-TC-Region: ") + (credentials.region.empty() ? "ap-guangzhou" : credentials.region);
     const std::string auth = "Authorization: " + authorization;
     headers = curl_slist_append(headers, content_type.c_str());
     headers = curl_slist_append(headers, host.c_str());
