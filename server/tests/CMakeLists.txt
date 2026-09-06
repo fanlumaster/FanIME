@@ -24,6 +24,7 @@ set(TEST_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_pipe_write_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_input_key_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_owner.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/test_async_request_origin.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_action_policy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_ui_state.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/test_candidate_view_model.cpp"

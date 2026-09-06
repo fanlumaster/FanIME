@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include "Ipc.h"
 #include "ipc/candidate_selection_policy.h"
+#include "ipc/async_request_origin.h"
 #include "ipc/candidate_ui_owner.h"
 #include "ipc/candidate_text_policy.h"
 #include "ipc/focus_session_policy.h"
@@ -405,13 +406,7 @@ bool ReadExactPipeMessageUntil(HANDLE pipe, void *destination, DWORD destination
     return false;
 }
 
-struct AsyncRequestOrigin
-{
-    uint64_t client_id = 0;
-    uint64_t activation_epoch = 0;
-    uint64_t generation = 0;
-    std::string input;
-};
+using AsyncRequestOrigin = FanyImeIpc::AsyncRequestOrigin;
 
 std::mutex g_async_request_mutex;
 uint64_t g_cloud_generation = 0;
@@ -615,7 +610,7 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
 AsyncRequestOrigin FindCloudRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_cloud_request_origin.generation == generation && g_cloud_request_origin.input == input)
+    if (g_cloud_request_origin.matches(input, generation))
     {
         return g_cloud_request_origin;
     }
@@ -655,7 +650,7 @@ AsyncRequestOrigin FindKaomojiRequestOrigin(const std::string &input, uint64_t g
 AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_ai_request_origin.generation == generation && g_ai_request_origin.input == input)
+    if (g_ai_request_origin.matches(input, generation))
         return g_ai_request_origin;
     return {};
 }
@@ -3220,7 +3215,9 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 {
     if (!GetConfiguredCloudCandidatesEnabled())
         return;
-    (void)generation;
+    // A callback can become stale after enqueueing, while earlier key tasks run.
+    if (FindCloudRequestOrigin(pinyin, generation).client_id == 0 || !g_inputSession)
+        return;
 
     if (candidate.empty())
         return;
@@ -3266,6 +3263,8 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
 
 void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
 {
+    if (FindAiRequestOrigin(identity, generation).client_id == 0)
+        return;
     const bool enabled = GetConfiguredAiAssistant().enabled;
     const bool has_session = static_cast<bool>(g_inputSession);
     const bool non_pinyin = has_session && g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
