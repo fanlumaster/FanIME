@@ -97,4 +97,6 @@ bash scripts/ci/check-developer-paths.sh                # 构建输入里不许�
 
 `git status --short` 确认只暂存本次任务涉及的路径，不要 `git add -A`。提交信息用 `type(scope): 摘要`，不要加 `Co-Authored-By` 或任何 AI 生成标记。
 
+分支从 `develop` 切，PR 也合回 `develop`——它是本仓默认分支，开 PR 时不用改 base。`main` 是发布分支，只在发版时由维护者从 `develop` 合入；特性分支直接提到 `main` 会被 `Branch guard` 检查拦下，把 base 改回 `develop` 即可。发布链条见 [docs/product-release.md](docs/product-release.md)。
+
 不要在 PR、Issue、截图或日志里泄露 API Key。仓库开了 secret scanning 和 push protection，但那是最后一道防线不是第一道。
