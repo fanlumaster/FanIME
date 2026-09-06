@@ -2,7 +2,7 @@
 
 本目录的脚本从 Windows 合仓目录收集产物、签名、用 Inno Setup 打成安装包。它服务两条流程：
 
-- **正式发布**：由 `MSIME-Windows` 的 release workflow 驱动，用真实证书，产物是挂在 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。见下面「CI 契约」
+- **正式发布**：由 `MSIME-Windows` 的 release workflow 驱动，用真实证书签名 `MetasequoiaImeServer.exe`（保证 `uiAccess` 生效）和最终安装包；产物是挂在 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。见下面「CI 契约」
 - **本地测试**：手工跑，用本机自签名证书，用来在自己机器上验证安装流程。本文其余部分讲的是这条
 
 版本号不是固定的，由 `Prepare-PackageFiles.ps1` 的 `-TargetVersion` 决定，默认 `0.0.1`；正式发布时 CI 传入真实版本。
