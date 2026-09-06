@@ -1,50 +1,14 @@
 import { serializeHostMessage } from '../../../../shared/messages';
 import { updateConfig } from './config-sync';
 import { setupToggleButton } from './shared';
+import type { UpdateManifest, ValidatedUpdate } from './update-manifest';
+import { compareVersions, describeInstallerTrust, parseVersion, validateManifest } from './update-manifest';
 
 const UPDATE_MANIFEST_URL = 'https://msime.app/update.json';
 const RELEASES_PAGE_URL = 'https://github.com/metasequoiaime/MSIME-Windows/releases';
 const LICENSE_URL = 'https://github.com/metasequoiaime/MSIME-Windows/blob/main/LICENSE';
 const PRIVACY_URL = 'https://github.com/metasequoiaime/MSIME-Windows/blob/main/PRIVACY.md';
 const REQUEST_TIMEOUT_MS = 10000;
-
-type UpdateManifest = {
-  version?: unknown;
-  releaseUrl?: unknown;
-};
-
-type Version = {
-  display: string;
-  parts: number[];
-};
-
-function parseVersion(value: string): Version | null {
-  const match = value.trim().match(/^v?(\d+(?:\.\d+)*)(?:[-+].*)?$/i);
-  if (!match) {
-    return null;
-  }
-
-  const display = match[1];
-  if (!display) {
-    return null;
-  }
-
-  return {
-    display,
-    parts: display.split('.').map(Number)
-  };
-}
-
-function compareVersions(left: Version, right: Version): number {
-  const length = Math.max(left.parts.length, right.parts.length);
-  for (let index = 0; index < length; index += 1) {
-    const difference = (left.parts[index] ?? 0) - (right.parts[index] ?? 0);
-    if (difference !== 0) {
-      return difference;
-    }
-  }
-  return 0;
-}
 
 function postExternalUrl(url: string): void {
   if (window.chrome?.webview) {
@@ -53,6 +17,37 @@ function postExternalUrl(url: string): void {
   }
 
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// The release pipeline publishes the installer's digest and whether it was signed. Showing both at
+// the moment the user is deciding to download is the point: while the build is unsigned, that digest
+// is the only integrity signal they have, and it was being thrown away.
+function renderInstallerTrust(container: HTMLElement, update: ValidatedUpdate): void {
+  const trust = describeInstallerTrust(update);
+  container.replaceChildren();
+
+  if (trust.warning) {
+    const warning = document.createElement('p');
+    warning.className = 'about-update-warning';
+    warning.textContent = trust.warning;
+    container.append(warning);
+  }
+
+  if (trust.verify) {
+    const label = document.createElement('p');
+    label.className = 'about-update-verify-label';
+    label.textContent = '下载后请核对 SHA256：';
+
+    const command = document.createElement('code');
+    command.className = 'about-update-verify-command';
+    command.textContent = trust.verify.command;
+
+    const digest = document.createElement('code');
+    digest.className = 'about-update-verify-digest';
+    digest.textContent = trust.verify.sha256;
+
+    container.append(label, command, digest);
+  }
 }
 
 function setDialogOpen(dialog: HTMLDialogElement, open: boolean): void {
@@ -96,6 +91,7 @@ export function setupAboutSettings(): void {
   const statusLabel = document.getElementById('about-update-status');
   const dialog = document.getElementById('about-update-dialog');
   const dialogVersion = document.getElementById('about-update-dialog-version');
+  const dialogTrust = document.getElementById('about-update-dialog-trust');
   const cancelButton = document.getElementById('about-update-cancel');
   const downloadButton = document.getElementById('about-update-download');
 
@@ -104,6 +100,7 @@ export function setupAboutSettings(): void {
       !(statusLabel instanceof HTMLElement) ||
       !(dialog instanceof HTMLDialogElement) ||
       !(dialogVersion instanceof HTMLElement) ||
+      !(dialogTrust instanceof HTMLElement) ||
       !(cancelButton instanceof HTMLButtonElement) ||
       !(downloadButton instanceof HTMLButtonElement)) {
     console.warn('[about] update controls not found');
@@ -152,21 +149,16 @@ export function setupAboutSettings(): void {
       }
 
       const manifest = await response.json() as UpdateManifest;
-      if (typeof manifest.version !== 'string' ||
-          typeof manifest.releaseUrl !== 'string' ||
-          (manifest.releaseUrl !== RELEASES_PAGE_URL &&
-           !manifest.releaseUrl.startsWith(`${RELEASES_PAGE_URL}/`))) {
+      const update = validateManifest(manifest, RELEASES_PAGE_URL);
+      if (!update) {
         throw new Error('Invalid update manifest');
       }
 
-      const latest = parseVersion(manifest.version);
-      if (!latest) {
-        throw new Error('Invalid release version');
-      }
-
+      const latest = update.version;
       if (compareVersions(latest, currentVersion) > 0) {
-        releaseUrl = manifest.releaseUrl;
+        releaseUrl = update.releaseUrl;
         dialogVersion.textContent = `v${latest.display}`;
+        renderInstallerTrust(dialogTrust, update);
         setStatus(`发现新版本 v${latest.display}`, 'success');
         setDialogOpen(dialog, true);
       } else {

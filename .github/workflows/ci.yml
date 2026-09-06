@@ -193,6 +193,10 @@ jobs:
         working-directory: ui-html/webview2/settings/ime-settings
         run: pnpm install --frozen-lockfile
 
+      - name: Test
+        working-directory: ui-html/webview2/settings/ime-settings
+        run: pnpm test
+
       # Same command the release workflow runs. Until it was added here it was only ever exercised
       # during a release, so a break surfaced while cutting a version.
       - name: Build
