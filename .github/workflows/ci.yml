@@ -16,17 +16,20 @@ on:
       - .release-please-manifest.json
   workflow_dispatch:
 
+  merge_group:
+
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   lock:
     name: Product inputs
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       # The dictionary validator is compared against the engine's copy of it, so this job needs the
       # submodule's contents and not just its gitlink.
@@ -48,6 +51,7 @@ jobs:
   windows:
     name: Windows ${{ matrix.name }}
     runs-on: windows-2025
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -88,7 +92,7 @@ jobs:
         shell: pwsh
         run: cmake --build windows/build --config Release --parallel
       - name: Test the wire contract on this architecture
-        run: ctest --test-dir windows/build -C Release --output-on-failure
+        run: ctest --no-tests=error --test-dir windows/build -C Release --output-on-failure
 
       # Architecture-independent, so it runs once rather than on both matrix legs.
       - name: Check the installer language file lands where ISCC looks
@@ -159,7 +163,7 @@ jobs:
         run: cmake --build ui/build --config Release --parallel
       - name: Test
         shell: pwsh
-        run: ctest --test-dir ui/build -C Release --verbose --timeout 60
+        run: ctest --no-tests=error --test-dir ui/build -C Release --verbose --timeout 60
 
   pages:
     name: Settings page
