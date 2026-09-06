@@ -52,7 +52,7 @@ Boost 是静态链接但没有写进 `vcpkg.json`，所以只能用 classic 模�
 
 ## 生成文件
 
-`scripts/prepare_env.py` 只生成两个文件：根目录的 `.clangd`（从 `scripts/config_files/.clangd` 模板展开），以及 `tests/CMakePresets.json`（从 `scripts/config_files/tests/CMakePresets.json` 展开，那个文件不入版本库，模板是唯一的一份）。`CMakePresets.json` 是**原地**改写 `VCPKG_ROOT` 与 `CMAKE_TOOLCHAIN_FILE`，不再从模板覆盖。
+`scripts/prepare_env.py` 只生成本目录的 `.clangd`（从 `scripts/config_files/.clangd` 模板展开）。测试使用 Server 主工程及同一套 preset，不再生成独立的 `tests/CMakePresets.json`。`CMakePresets.json` 是**原地**改写 `VCPKG_ROOT` 与 `CMAKE_TOOLCHAIN_FILE`，不再从模板覆盖。
 
 `CMakeLists.txt` 和 `tests/CMakeLists.txt` 不再由脚本生成，直接改就行。这两个文件曾经也是从 `scripts/config_files/` 覆盖过来的，但模板早已落后到 147 行对 400 行、以及一个无关的通用 `WinCppTemplate`，跑一次脚本就会毁掉构建，因此模板已删除。
 

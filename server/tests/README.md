@@ -16,50 +16,52 @@ Current tests focus on high-value IME behaviors that are easy to accidentally br
 The goal is not to fully simulate the whole IME UI pipeline yet. The goal is to protect the core input rules and
 session behavior.
 
-## Build The Tests
+## Build and run
 
-From the repository root:
-
-```powershell
-cmake --build build --config Debug --target MetasequoiaImeServerTests
-```
-
-## Run The Tests
-
-Recommended:
+Run these commands from the **MSIME-Windows repository root** after preparing
+vcpkg and Boost with `python server/scripts/prepare_env.py`:
 
 ```powershell
-ctest --test-dir build -C Debug --output-on-failure
+python scripts/product_lock.py fetch-dictionaries --staging-root .
+if ($LASTEXITCODE -ne 0) { throw 'Dictionary verification failed' }
+$env:LOCALAPPDATA = Join-Path $PWD 'build/test-data/user-local'
+$env:METASEQUOIA_IME_DATA_DIR = Join-Path $env:LOCALAPPDATA 'metasequoiaime'
+New-Item -ItemType Directory -Force $env:METASEQUOIA_IME_DATA_DIR | Out-Null
+Copy-Item MetasequoiaImeDict/out/* $env:METASEQUOIA_IME_DATA_DIR -Force
+Copy-Item vendor/MetasequoiaImeEngine/helpcode/helpcodes $env:METASEQUOIA_IME_DATA_DIR -Recurse -Force
+Copy-Item server/assets/tables/* $env:METASEQUOIA_IME_DATA_DIR -Force
+Copy-Item server/assets/config/config.toml $env:METASEQUOIA_IME_DATA_DIR -Force
+.\server\tests\scripts\llaunch.ps1 -Configuration Release
 ```
 
-You can also run from inside the build directory:
+Use a dedicated PowerShell terminal: these environment variables isolate both
+Windows helpers and the shared Engine from the installed user's data for the
+rest of that session. The scripts run CTest; they do not launch the interactive
+Server, install or register the input method. CI additionally runs the native
+Win32/x64 pipe probe after building the full Server.
+
+Tests belong to the **Server CMake project**, which provides the Engine, GUI and
+third-party targets. `server/tests/CMakeLists.txt` is an `add_subdirectory` input,
+not an independent project. The obsolete test presets have been removed; an old
+locally generated `server/tests/CMakePresets.json` is no longer used.
+
+Once test data is prepared, the convenience scripts work from any directory:
 
 ```powershell
-cd build
-ctest -C Debug --output-on-failure
+.\server\tests\scripts\llaunch.ps1 -Configuration Release  # build, then CTest
+.\server\tests\scripts\lrun.ps1 -Configuration Release     # CTest only
 ```
 
-## Common Pitfall
+Omitting `-Configuration` selects Debug in `server/build`; Release uses
+`server/build-release`. Both compile `MetasequoiaImeServerTests` and
+`test_webview_contract` in the parent build tree. Configuration, compilation,
+test failures and an empty CTest registry return failure rather than launching a
+stale executable or reporting success.
 
-If you run `ctest` from the source root directly, you may see:
-
-```text
-No tests were found!!!
-```
-
-That usually means `ctest` is looking at the source directory instead of the build directory.
-
-Use one of these instead:
+The equivalent direct CTest command from the repository root is:
 
 ```powershell
-ctest --test-dir build -C Debug --output-on-failure
-```
-
-or
-
-```powershell
-cd build
-ctest -C Debug --output-on-failure
+ctest --test-dir server/build-release -C Release --output-on-failure --no-tests=error
 ```
 
 ## Test Layout

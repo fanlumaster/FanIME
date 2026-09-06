@@ -1,20 +1,9 @@
-#
-# run exe file that has already been compiled before
-#
-function getExePathFromCMakeLists() {
-    $content = Get-Content -Raw -Path "./CMakeLists.txt"
-    $exePath = ""
-    foreach ($line in $content -split "`n") {
-        if ($line -match 'set\(MY_EXECUTABLE_NAME[^\"]*\"([^\"]+)\"') {
-            $exeName = $matches[1]
-            $exePath = "./build/bin/Debug/$exeName" + ".exe"
-            break
-        }
-    }
-    return $exePath
-}
-
-$exePath = getExePathFromCMakeLists
-#Write-Host "start running as follows..."
-#Write-Host "=================================================="
-Invoke-Expression $exePath
+param(
+    [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug'
+)
+$ErrorActionPreference = 'Stop'
+$serverRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$buildDirectory = Join-Path $serverRoot $(if ($Configuration -eq 'Release') { 'build-release' } else { 'build' })
+# Uses the caller's prepared product data; never launch the interactive Server host.
+ctest --test-dir $buildDirectory -C $Configuration --output-on-failure --no-tests=error --timeout 120
+if ($LASTEXITCODE -ne 0) { throw "Server tests failed ($LASTEXITCODE)" }
