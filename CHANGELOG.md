@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.4.0...v0.5.0) (2026-09-06)
+
+
+### Features
+
+* **server:** show translations in horizontal candidate windows ([8f19010](https://github.com/metasequoiaime/MSIME-Windows/commit/8f190102d0dc8ceafc36f95ac2a1f3acd2dec931))
+* **server:** show translations in horizontal candidate windows ([3fc7ba2](https://github.com/metasequoiaime/MSIME-Windows/commit/3fc7ba295fc721425be8babe4e98c39c403bcb20))
+
+
+### Bug Fixes
+
+* **skin:** [@import](https://github.com/import) 剥离只匹配真正的 at-rule；补转义绕过的不变量说明与用例 ([205cafa](https://github.com/metasequoiaime/MSIME-Windows/commit/205cafa4f5e4a446f0fdb2fc80b915d17c18bca4))
+* **windows:** include Chinese in IME display names ([40862b1](https://github.com/metasequoiaime/MSIME-Windows/commit/40862b13ee5b89022b963a0f0a3d80bed6dc71c7))
+* **windows:** include Chinese in IME display names ([f90c5c3](https://github.com/metasequoiaime/MSIME-Windows/commit/f90c5c39b7e4fbbcd98354c94f0454cbd6589247))
+
 ## [0.4.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.2...v0.4.0) (2026-09-06)
 
 
