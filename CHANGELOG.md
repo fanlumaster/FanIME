@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.2.1...v0.3.0) (2026-09-06)
+
+
+### Features
+
+* **release:** separate the automatic build channel from the release channel ([2d51c53](https://github.com/metasequoiaime/MSIME-Windows/commit/2d51c5383925ce8174a60f5527cbda5ff03b7d9f))
+* **release:** separate the automatic build channel from the release channel ([d0e7cfd](https://github.com/metasequoiaime/MSIME-Windows/commit/d0e7cfdbdfaae9e5c296c83e58707932128c9b71))
+
 ## [0.2.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.2.0...v0.2.1) (2026-09-06)
 
 
