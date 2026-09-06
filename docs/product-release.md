@@ -44,3 +44,9 @@ python -m unittest discover -s tests -p 'test_product_lock.py'
 python scripts/product_lock.py verify-contracts .
 python scripts/product_lock.py fetch-dictionaries --staging-root /tmp/msime-product-data
 ```
+
+## 发布元数据令牌
+
+版本 PR 的创建、更新和合并仍用 `GITHUB_TOKEN`。维护 PR 的 release-please 调用设置 `skip-github-release: true`。它前后各有一次 `skip-github-pull-request: true` 的元数据调用，使用组织已有的 `RELEASE_PLEASE_TOKEN`：先补建已经手动合并的版本，再处理本次自动合并的版本，保持 release-please 原有的先发布、后计算下一版本的顺序。
+
+后者需要仓库内容和 workflow 写权限（经典 PAT 的 `repo` + `workflow`，或等价的细粒度权限）。主分支先前包含 workflow 变更时，`GITHUB_TOKEN` 创建历史提交的 tag 可能被 Git refs API 拒绝。该令牌不用于合并或更新版本分支，因此不会因 PAT 写入主分支额外触发一次 Release。缺少令牌时提前报出配置错误。
