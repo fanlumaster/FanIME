@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.2...v0.1.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **build:** finish local tooling migration to the monorepo ([8155380](https://github.com/metasequoiaime/MSIME-Windows/commit/81553802ba3f6e0e0ef1e4768fbb94398d2f3658))
+* **build:** finish local tooling migration to the monorepo ([b2d736c](https://github.com/metasequoiaime/MSIME-Windows/commit/b2d736cd797d5ebce0a8c5e14b4c7c690d77275f))
+
 ## [0.1.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.1...v0.1.2) (2026-09-05)
 
 
