@@ -104,3 +104,33 @@ TEST_CASE(ipc_uiless_flag_is_outside_key_modifier_mask)
     REQUIRE((FanyImePipeFlags::UiLess & FanyImeIpc::kKeyModifierMask) == 0u);
     REQUIRE((FanyImeIpc::kModifierUiLess & FanyImeIpc::kKeyModifierMask) == 0u);
 }
+
+TEST_CASE(ipc_pipe_dacl_admits_only_the_owning_account)
+{
+    const std::wstring sddl = FanyImeIpc::BuildPipeSecurityDescriptorSddl(L"S-1-5-21-1-2-3-1001");
+
+    // Everyone must never appear: the pipe namespace is machine-global, so a WD ACE lets any local account connect to
+    // the server, and FILE_ALL_ACCESS additionally lets it add instances to a name the server already owns.
+    REQUIRE(sddl.find(L";;;WD)") == std::wstring::npos);
+    REQUIRE(sddl.find(L"(A;;FA;;;S-1-5-21-1-2-3-1001)") != std::wstring::npos);
+    REQUIRE(sddl.find(L"(A;;FA;;;SY)") != std::wstring::npos);
+    REQUIRE(sddl.find(L"S:(ML;;NW;;;LW)") != std::wstring::npos);
+}
+
+TEST_CASE(ipc_pipe_dacl_gives_app_containers_connect_only_rights)
+{
+    const std::wstring sddl = FanyImeIpc::BuildPipeSecurityDescriptorSddl(L"S-1-5-21-1-2-3-1001");
+
+    REQUIRE(sddl.find(L"(A;;FA;;;AC)") == std::wstring::npos);
+    REQUIRE(sddl.find(L"(A;;0x12019b;;;AC)") != std::wstring::npos);
+    REQUIRE((FanyImeIpc::kPipeClientAccessMask & FILE_CREATE_PIPE_INSTANCE) == 0u);
+    REQUIRE((FanyImeIpc::kPipeClientAccessMask & FILE_READ_DATA) != 0u);
+    REQUIRE((FanyImeIpc::kPipeClientAccessMask & FILE_WRITE_DATA) != 0u);
+    REQUIRE((FanyImeIpc::kPipeClientAccessMask & FILE_WRITE_ATTRIBUTES) != 0u);
+    REQUIRE((FanyImeIpc::kPipeClientAccessMask & SYNCHRONIZE) != 0u);
+}
+
+TEST_CASE(ipc_pipe_security_descriptor_fails_closed_without_an_owner_sid)
+{
+    REQUIRE(FanyImeIpc::BuildPipeSecurityDescriptorSddl(L"").empty());
+}

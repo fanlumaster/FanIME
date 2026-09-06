@@ -299,13 +299,16 @@ void CLangBarItemButton::CleanUp()
         _pTooltipText = nullptr;
     }
 
+    // TSF still holds the advised _pCompartmentEventSink until _Unadvise runs, so unregister before the
+    // deletes below and independently of the thread manager: under COM-less activation (TF_TMAE_COMLESS)
+    // CoCreateInstance fails, and freeing a still-advised sink leaves msctf calling into released memory.
+    _UnregisterCompartment();
+
     ITfThreadMgr *pThreadMgr = nullptr;
     HRESULT hr =
         CoCreateInstance(CLSID_TF_ThreadMgr, NULL, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr, (void **)&pThreadMgr);
     if (SUCCEEDED(hr))
     {
-        _UnregisterCompartment(pThreadMgr);
-
         _RemoveItem(pThreadMgr);
         pThreadMgr->Release();
         pThreadMgr = nullptr;
@@ -830,9 +833,8 @@ BOOL CLangBarItemButton::_RegisterCompartment(_In_ ITfThreadMgr *pThreadMgr, TfC
 //
 //----------------------------------------------------------------------------
 
-BOOL CLangBarItemButton::_UnregisterCompartment(_In_ ITfThreadMgr *pThreadMgr)
+BOOL CLangBarItemButton::_UnregisterCompartment()
 {
-    pThreadMgr;
     if (_pCompartment)
     {
         // Unadvice ITfCompartmentEventSink

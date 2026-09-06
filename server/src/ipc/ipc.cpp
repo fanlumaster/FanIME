@@ -29,56 +29,6 @@
 #define FANY_IPC_LOG_RAW(message) ((void)0)
 #define FANY_IPC_LOGF(...) ((void)0)
 
-#define LOW_INTEGRITY_SDDL_SACL                                                                                        \
-    SDDL_SACL                                                                                                          \
-    SDDL_DELIMINATOR                                                                                                   \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_MANDATORY_LABEL                                                                                               \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_NO_WRITE_UP                                                                                                   \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_ML_LOW                                                                                                        \
-    SDDL_ACE_END
-
-#define LOCAL_SYSTEM_FILE_ACCESS                                                                                       \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_ACCESS_ALLOWED                                                                                                \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_FILE_ALL                                                                                                      \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_LOCAL_SYSTEM                                                                                                  \
-    SDDL_ACE_END
-
-#define EVERYONE_FILE_ACCESS                                                                                           \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_ACCESS_ALLOWED                                                                                                \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_FILE_ALL                                                                                                      \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_EVERYONE                                                                                                      \
-    SDDL_ACE_END
-
-#define ALL_APP_PACKAGES_FILE_ACCESS                                                                                   \
-    SDDL_ACE_BEGIN                                                                                                     \
-    SDDL_ACCESS_ALLOWED                                                                                                \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_FILE_ALL                                                                                                      \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_SEPERATOR                                                                                                     \
-    SDDL_ALL_APP_PACKAGES                                                                                              \
-    SDDL_ACE_END
-
 static HANDLE hMapFile = nullptr;
 static void *pBuf;
 static FanyImeSharedMemoryData *sharedData;
@@ -262,21 +212,65 @@ void LogPipeWriteTarget(const wchar_t *pipe_name, uint64_t client_id, UINT msg_t
                   msg_type, payload);
 }
 
+// The account the server process runs as. It owns every pipe name the server publishes, and besides LocalSystem it is
+// the only account the pipe DACL admits.
+std::wstring GetProcessUserSidString()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+    {
+        return std::wstring();
+    }
+
+    DWORD needed = 0;
+    GetTokenInformation(token, TokenUser, nullptr, 0, &needed);
+    std::wstring sid;
+    std::vector<BYTE> token_user(needed);
+    if (needed != 0 && GetTokenInformation(token, TokenUser, token_user.data(), needed, &needed))
+    {
+        LPWSTR sid_text = nullptr;
+        if (ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER *>(token_user.data())->User.Sid, &sid_text))
+        {
+            sid.assign(sid_text);
+            LocalFree(sid_text);
+        }
+    }
+    CloseHandle(token);
+    return sid;
+}
+
 HANDLE CreateNamedPipeInstance(const wchar_t *pipe_name, DWORD out_buffer_size, DWORD in_buffer_size)
 {
+    // Names this process has already published. Only the very first instance of a name may carry
+    // FILE_FLAG_FIRST_PIPE_INSTANCE, which is what turns a name some other process got to first into a loud
+    // CreateNamedPipe failure instead of a silent second instance answering half of the client connections. A failed
+    // creation is deliberately not recorded, so a squatted name keeps failing instead of eventually joining.
+    static std::mutex owned_names_mutex;
+    static std::vector<std::wstring> owned_names;
+
+    const std::wstring sddl = FanyImeIpc::BuildPipeSecurityDescriptorSddl(GetProcessUserSidString());
+    if (sddl.empty())
+    {
+        SetLastError(ERROR_ACCESS_DENIED);
+        return INVALID_HANDLE_VALUE;
+    }
+
     PSECURITY_DESCRIPTOR pd = nullptr;
     SECURITY_ATTRIBUTES sa = {};
-    ConvertStringSecurityDescriptorToSecurityDescriptor(
-        LOW_INTEGRITY_SDDL_SACL SDDL_DACL SDDL_DELIMINATOR LOCAL_SYSTEM_FILE_ACCESS EVERYONE_FILE_ACCESS
-            ALL_APP_PACKAGES_FILE_ACCESS,
-        SDDL_REVISION_1, &pd, NULL);
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &pd, NULL))
+    {
+        return INVALID_HANDLE_VALUE;
+    }
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
     sa.lpSecurityDescriptor = pd;
     sa.bInheritHandle = FALSE;
 
-    HANDLE pipe = CreateNamedPipe( //
-        pipe_name,                 //
-        PIPE_ACCESS_DUPLEX,        //
+    const std::lock_guard<std::mutex> owned_names_guard(owned_names_mutex);
+    const bool owns_name = std::find(owned_names.begin(), owned_names.end(), pipe_name) != owned_names.end();
+
+    HANDLE pipe = CreateNamedPipe(                                             //
+        pipe_name,                                                             //
+        PIPE_ACCESS_DUPLEX | (owns_name ? 0u : FILE_FLAG_FIRST_PIPE_INSTANCE), //
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
         PIPE_UNLIMITED_INSTANCES, //
         out_buffer_size,          //
@@ -284,6 +278,11 @@ HANDLE CreateNamedPipeInstance(const wchar_t *pipe_name, DWORD out_buffer_size, 
         0,                        //
         &sa                       //
     );
+
+    if (pipe != INVALID_HANDLE_VALUE && !owns_name)
+    {
+        owned_names.emplace_back(pipe_name);
+    }
 
     if (pd)
     {

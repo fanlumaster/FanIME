@@ -1171,6 +1171,11 @@ VOID CCandidateListUIPresenter::_LayoutDestroyNotification()
 
 HRESULT CCandidateListUIPresenter::_CandidateChangeNotification(_In_ enum CANDWND_ACTION action)
 {
+    if (_pTextService == nullptr)
+    {
+        return E_FAIL;
+    }
+
     HRESULT hr = E_FAIL;
 
     TfClientId tfClientId = _pTextService->_GetClientId();
@@ -1198,11 +1203,24 @@ HRESULT CCandidateListUIPresenter::_CandidateChangeNotification(_In_ enum CANDWN
     {
         goto Exit;
     }
+    if (nullptr == pDocumentMgr)
+    {
+        // GetFocus reports S_OK with a null document manager when no document has focus.
+        hr = E_FAIL;
+        goto Exit;
+    }
 
     hr = pDocumentMgr->GetTop(&pContext);
     if (FAILED(hr))
     {
         pDocumentMgr->Release();
+        goto Exit;
+    }
+    if (nullptr == pContext)
+    {
+        // GetTop reports S_OK with a null context when the document stack is empty.
+        pDocumentMgr->Release();
+        hr = E_FAIL;
         goto Exit;
     }
 

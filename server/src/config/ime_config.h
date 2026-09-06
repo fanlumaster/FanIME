@@ -313,7 +313,9 @@ bool SetConfiguredThemeVoice(const std::string &theme);
 // Resolve effective "dark" / "light" for a surface override ("follow" | "dark" | "light").
 std::string ResolveConfiguredTheme(const std::string &surface_theme);
 bool IsSystemAppsLightTheme();
-const VoiceInputConfig &GetConfiguredVoiceInput();
+// Returns a snapshot by value: the backing config is rewritten by the IPC worker thread while the voice control thread
+// and the low-level keyboard hook read it, so callers must never hold a reference into it.
+VoiceInputConfig GetConfiguredVoiceInput();
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value);
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value);
 const AiAssistantConfig &GetConfiguredAiAssistant();

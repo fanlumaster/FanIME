@@ -44,7 +44,7 @@ class CLangBarItemButton : public ITfLangBarItemButton, public ITfSource
 
     // Register compartment for button On/Off switch
     BOOL _RegisterCompartment(_In_ ITfThreadMgr *pThreadMgr, TfClientId tfClientId, REFGUID guidCompartment);
-    BOOL _UnregisterCompartment(_In_ ITfThreadMgr *pThreadMgr);
+    BOOL _UnregisterCompartment();
 
     void CleanUp();
 

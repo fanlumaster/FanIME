@@ -1,6 +1,7 @@
 #define NOMINMAX
 #include "config/ime_config.h"
 #include "tests/includes/test_framework.h"
+#include <type_traits>
 
 TEST_CASE(config_merge_keeps_customized_values_and_adds_new_keys)
 {
@@ -113,4 +114,14 @@ TEST_CASE(config_merge_ignores_commented_out_keys)
 
     REQUIRE_EQ(MergeConfigIntoTemplate(template_text, user_text, std::string()),
                "[input]\n# schema = \"wubi\"\nschema = \"wubi\"\n");
+}
+
+TEST_CASE(configured_voice_input_is_handed_out_as_a_snapshot)
+{
+    // LoadImeConfig rewrites the whole voice config on the IPC worker thread (asr_tokens / polish_tokens are cleared and refilled) while the voice control thread and the low-level keyboard hook read it on every keystroke. Handing out a reference lets those readers walk strings and maps that are being rewritten, so this accessor must return a snapshot by value.
+    REQUIRE(!std::is_reference_v<decltype(GetConfiguredVoiceInput())>);
+    REQUIRE((std::is_same_v<decltype(GetConfiguredVoiceInput()), VoiceInputConfig>));
+
+    const VoiceInputConfig snapshot = GetConfiguredVoiceInput();
+    REQUIRE_EQ(snapshot.commit_mode, VoiceInputConfig().commit_mode);
 }

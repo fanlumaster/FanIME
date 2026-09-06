@@ -229,10 +229,11 @@ bool CandidateCardFitsClipEnvelope(const std::pair<double, double> &decoratedSiz
 double EstimateVerticalPageHeightDip(double currentHeightDip)
 {
     const int pageSize = (std::max)(1, GetConfiguredCandidatePageSize());
-    int visible = Global::candidate_ui.current_page_count();
+    const Global::CandidatePageSnapshotPtr candidatePage = Global::LoadCandidatePageSnapshot();
+    int visible = candidatePage->page_count;
     if (visible < 1)
     {
-        visible = Global::candidate_ui.cur_page_item_cnt;
+        visible = candidatePage->page_item_count;
     }
     if (visible < 1)
     {
@@ -1923,12 +1924,14 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
         const uint64_t contentGeneration = ++g_candidate_content_generation;
         const ULONGLONG updateStartedTick = GetTickCount64();
         ::ReadDataFromSharedMemory(0b1000000);
+        // The worker does not wait for this posted message before rebuilding its candidate state, so render the page it published rather than the live one.
+        const Global::CandidatePageSnapshotPtr candidatePage = Global::LoadCandidatePageSnapshot();
         LogSmallWindowReadyGate(L"show-candidate");
         CAND_DIAG_LOGF(L"candidate-frame show content_gen={} tick={} preedit_units={} payload_units={} "
                        L"caret=({},{}) follow_cursor={} anchor_valid={} {}",
                        contentGeneration, updateStartedTick,
                        GetConfiguredCandidateWindowPreeditStyle() == "empty" ? 0 : GetPreeditWithCaretMarker().size(),
-                       Global::CandidateString.size(), Global::Point[0], Global::Point[1],
+                       candidatePage->candidate_string.size(), Global::Point[0], Global::Point[1],
                        GetConfiguredCandidateWindowFollowCursor(), g_candidate_session_anchor_valid,
                        DescribeCandidateHostState());
         if (!EnsureSmallWindowsTopmost(L"show-candidate"))
@@ -1961,7 +1964,7 @@ LRESULT CALLBACK WndProcCandWindow(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
         std::wstring preedit =
             GetConfiguredCandidateWindowPreeditStyle() == "empty" ? std::wstring{} : GetPreeditWithCaretMarker();
-        std::wstring str = preedit + L"," + Global::CandidateString;
+        std::wstring str = preedit + L"," + candidatePage->candidate_string;
         const bool sameCaret =
             g_last_placed_caret_x == layoutCaret.x && g_last_placed_caret_y == layoutCaret.y;
         const bool alreadyVisible = IsCandidateHostPaintedVisible(hwnd);
@@ -3519,9 +3522,11 @@ int FineTuneWindow(HWND hwnd)
 
             std::wstring preedit =
                 GetConfiguredCandidateWindowPreeditStyle() == "empty" ? std::wstring{} : GetPreeditWithCaretMarker();
-            std::wstring str = preedit + L"," + Global::CandidateString;
+            // This callback runs long after the worker posted the show request, so take the published page instead of the vectors it may already be rebuilding.
+            const Global::CandidatePageSnapshotPtr candidatePage = Global::LoadCandidatePageSnapshot();
+            std::wstring str = preedit + L"," + candidatePage->candidate_string;
             // Empty composition with no candidates means the session already ended.
-            if (GlobalIme::composition.raw_input_with_cases.empty() && Global::CandidateString.empty())
+            if (GlobalIme::composition.raw_input_with_cases.empty() && candidatePage->candidate_string.empty())
             {
                 (void)0;
                 EndCandidateLayoutIfCurrent(generation);

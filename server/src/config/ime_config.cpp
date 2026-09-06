@@ -17,6 +17,7 @@
 #include <mutex>
 #include <optional>
 #include <set>
+#include <shared_mutex>
 #include <sstream>
 #include <vector>
 #include "utils/common_utils.h"
@@ -117,7 +118,9 @@ std::string g_theme_emoji = "follow";
 std::string g_theme_screen_keyboard = "follow";
 std::string g_theme_handwriting = "follow";
 std::string g_theme_voice = "follow";
-VoiceInputConfig g_voice_input;
+// LoadImeConfig rewrites g_voice_input from the IPC worker thread while the voice control thread and the low-level keyboard hook read it, so every access goes through this process-local lock. Unlike ConfigFileLock it is never held across file I/O or IPC: a hook that blocks on a cross-process wait would stall typing system-wide.
+std::shared_mutex g_voice_input_mutex;
+VoiceInputConfig g_voice_input; // guarded by g_voice_input_mutex
 bool g_persist_asr_token_slot = false;
 bool g_persist_polish_token_slot = false;
 AiAssistantConfig g_ai_assistant;
@@ -126,6 +129,18 @@ CustomTranslationConfig g_custom_translation;
 FrequencyAdjustmentConfig g_frequency_adjustment;
 std::filesystem::path g_config_path;
 std::optional<std::filesystem::file_time_type> g_config_last_write_time;
+
+VoiceInputConfig SnapshotVoiceInput()
+{
+    std::shared_lock<std::shared_mutex> lock(g_voice_input_mutex);
+    return g_voice_input;
+}
+
+void PublishVoiceInput(VoiceInputConfig voice)
+{
+    std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+    g_voice_input = std::move(voice);
+}
 
 std::string NormalizeSmallWindowUiBackend(const std::string &value)
 {
@@ -832,100 +847,100 @@ bool LoadImeConfig()
             g_tsf_preedit_style = GlobalSettings::normalizeTsfPreeditStyle(tsf_preedit_style);
             GlobalSettings::setTsfPreeditStyle(g_tsf_preedit_style);
         }
-        g_voice_input.enabled = tbl["voice_input"]["voice_input"].value_or(true);
-        g_voice_input.hotkey_ralt = tbl["voice_input"]["hotkey_ralt"].value_or(true);
-        g_voice_input.hotkey_ctrl_f9 = tbl["voice_input"]["hotkey_ctrl_f9"].value_or(true);
-        g_voice_input.hotkey_ctrl_win = tbl["voice_input"]["hotkey_ctrl_win"].value_or(false);
-        g_voice_input.hotkey_rctrl_ralt = tbl["voice_input"]["hotkey_rctrl_ralt"].value_or(false);
-        g_voice_input.hotkey_hold_space_lock = tbl["voice_input"]["hotkey_hold_space_lock"].value_or(true);
-        g_voice_input.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("doubao"));
-        g_voice_input.asr_app_key = tbl["voice_input"]["asr_app_key"].value_or(std::string());
-        g_voice_input.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
-        g_voice_input.asr_tokens.clear();
+        // Parse into a local and publish it in one step, so readers never observe half-rewritten strings or maps.
+        VoiceInputConfig voice;
+        voice.enabled = tbl["voice_input"]["voice_input"].value_or(true);
+        voice.hotkey_ralt = tbl["voice_input"]["hotkey_ralt"].value_or(true);
+        voice.hotkey_ctrl_f9 = tbl["voice_input"]["hotkey_ctrl_f9"].value_or(true);
+        voice.hotkey_ctrl_win = tbl["voice_input"]["hotkey_ctrl_win"].value_or(false);
+        voice.hotkey_rctrl_ralt = tbl["voice_input"]["hotkey_rctrl_ralt"].value_or(false);
+        voice.hotkey_hold_space_lock = tbl["voice_input"]["hotkey_hold_space_lock"].value_or(true);
+        voice.asr_provider = tbl["voice_input"]["asr_provider"].value_or(std::string("doubao"));
+        voice.asr_app_key = tbl["voice_input"]["asr_app_key"].value_or(std::string());
+        voice.asr_token = tbl["voice_input"]["asr_token"].value_or(std::string());
         for (const auto provider : VoiceInput::AsrProviders())
         {
             const std::string id(provider);
-            g_voice_input.asr_tokens[id] =
+            voice.asr_tokens[id] =
                 VoiceInput::UsableToken(tbl["voice_input"][VoiceInput::AsrTokenSlotKey(id)].value_or(std::string()));
         }
         {
-            const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
-            std::string &stored = g_voice_input.asr_tokens[provider];
-            if (VoiceInput::IsPlaceholderToken(stored) && !VoiceInput::IsPlaceholderToken(g_voice_input.asr_token))
+            const std::string provider = VoiceInput::NormalizeProviderId(voice.asr_provider);
+            std::string &stored = voice.asr_tokens[provider];
+            if (VoiceInput::IsPlaceholderToken(stored) && !VoiceInput::IsPlaceholderToken(voice.asr_token))
             {
-                stored = g_voice_input.asr_token;
+                stored = voice.asr_token;
                 g_persist_asr_token_slot = true;
             }
-            g_voice_input.asr_token = stored;
+            voice.asr_token = stored;
         }
-        g_voice_input.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
-            g_voice_input.asr_provider == "doubao"
+        voice.asr_endpoint = tbl["voice_input"]["asr_endpoint"].value_or(
+            voice.asr_provider == "doubao"
                 ? std::string("wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async")
                 : std::string("https://api.siliconflow.cn/v1/audio/transcriptions"));
-        if (g_voice_input.asr_provider == "doubao" &&
-            g_voice_input.asr_endpoint == "https://api.siliconflow.cn/v1/audio/transcriptions")
+        if (voice.asr_provider == "doubao" &&
+            voice.asr_endpoint == "https://api.siliconflow.cn/v1/audio/transcriptions")
         {
-            g_voice_input.asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async";
+            voice.asr_endpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async";
         }
-        g_voice_input.asr_resource_id =
+        voice.asr_resource_id =
             tbl["voice_input"]["asr_resource_id"].value_or(std::string("volc.seedasr.sauc.duration"));
-        g_voice_input.doubao_enable_itn = tbl["voice_input"]["doubao_enable_itn"].value_or(true);
-        g_voice_input.doubao_enable_punc = tbl["voice_input"]["doubao_enable_punc"].value_or(true);
-        g_voice_input.doubao_enable_ddc = tbl["voice_input"]["doubao_enable_ddc"].value_or(false);
-        g_voice_input.doubao_boosting_table_id = tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
-        g_voice_input.asr_model = tbl["voice_input"]["asr_model"].value_or(std::string());
-        g_voice_input.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
-        g_voice_input.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
-        g_voice_input.polish_tokens.clear();
+        voice.doubao_enable_itn = tbl["voice_input"]["doubao_enable_itn"].value_or(true);
+        voice.doubao_enable_punc = tbl["voice_input"]["doubao_enable_punc"].value_or(true);
+        voice.doubao_enable_ddc = tbl["voice_input"]["doubao_enable_ddc"].value_or(false);
+        voice.doubao_boosting_table_id = tbl["voice_input"]["doubao_boosting_table_id"].value_or(std::string());
+        voice.asr_model = tbl["voice_input"]["asr_model"].value_or(std::string());
+        voice.polish_provider = tbl["voice_input"]["polish_provider"].value_or(std::string("siliconflow"));
+        voice.polish_token = tbl["voice_input"]["polish_token"].value_or(std::string());
         for (const auto provider : VoiceInput::PolishProviders())
         {
             const std::string id(provider);
-            g_voice_input.polish_tokens[id] =
+            voice.polish_tokens[id] =
                 VoiceInput::UsableToken(tbl["voice_input"][VoiceInput::PolishTokenSlotKey(id)].value_or(std::string()));
         }
         {
-            const std::string provider = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
-            std::string &stored = g_voice_input.polish_tokens[provider];
-            if (VoiceInput::IsPlaceholderToken(stored) && !VoiceInput::IsPlaceholderToken(g_voice_input.polish_token))
+            const std::string provider = VoiceInput::NormalizeProviderId(voice.polish_provider);
+            std::string &stored = voice.polish_tokens[provider];
+            if (VoiceInput::IsPlaceholderToken(stored) && !VoiceInput::IsPlaceholderToken(voice.polish_token))
             {
-                stored = g_voice_input.polish_token;
+                stored = voice.polish_token;
                 g_persist_polish_token_slot = true;
             }
-            g_voice_input.polish_token = stored;
+            voice.polish_token = stored;
         }
-        g_voice_input.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
+        voice.polish_endpoint = tbl["voice_input"]["polish_endpoint"].value_or(
             std::string("https://api.siliconflow.cn/v1/chat/completions"));
-        g_voice_input.polish_model = tbl["voice_input"]["polish_model"].value_or(std::string());
-        g_voice_input.polish_prompt = tbl["voice_input"]["polish_prompt"].value_or(std::string());
-        g_voice_input.polish_prompt_id = tbl["voice_input"]["polish_prompt_id"].value_or(std::string("cleanup"));
-        if (g_voice_input.polish_prompt_id == "custom")
-            g_voice_input.polish_prompt_id = "custom_1";
-        if (g_voice_input.polish_prompt_id != "cleanup" && g_voice_input.polish_prompt_id != "faithful" &&
-            g_voice_input.polish_prompt_id != "zh2en" && g_voice_input.polish_prompt_id != "casual" &&
-            g_voice_input.polish_prompt_id != "custom_1" && g_voice_input.polish_prompt_id != "custom_2" &&
-            g_voice_input.polish_prompt_id != "custom_3")
+        voice.polish_model = tbl["voice_input"]["polish_model"].value_or(std::string());
+        voice.polish_prompt = tbl["voice_input"]["polish_prompt"].value_or(std::string());
+        voice.polish_prompt_id = tbl["voice_input"]["polish_prompt_id"].value_or(std::string("cleanup"));
+        if (voice.polish_prompt_id == "custom")
+            voice.polish_prompt_id = "custom_1";
+        if (voice.polish_prompt_id != "cleanup" && voice.polish_prompt_id != "faithful" &&
+            voice.polish_prompt_id != "zh2en" && voice.polish_prompt_id != "casual" &&
+            voice.polish_prompt_id != "custom_1" && voice.polish_prompt_id != "custom_2" &&
+            voice.polish_prompt_id != "custom_3")
         {
-            g_voice_input.polish_prompt_id = "cleanup";
+            voice.polish_prompt_id = "cleanup";
         }
-        g_voice_input.polish_prompt_custom_1 = tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
-        if (g_voice_input.polish_prompt_custom_1.empty())
-            g_voice_input.polish_prompt_custom_1 = g_voice_input.polish_prompt;
-        g_voice_input.polish_prompt_custom_2 = tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
-        g_voice_input.polish_prompt_custom_3 = tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
-        g_voice_input.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
+        voice.polish_prompt_custom_1 = tbl["voice_input"]["polish_prompt_custom_1"].value_or(std::string());
+        if (voice.polish_prompt_custom_1.empty())
+            voice.polish_prompt_custom_1 = voice.polish_prompt;
+        voice.polish_prompt_custom_2 = tbl["voice_input"]["polish_prompt_custom_2"].value_or(std::string());
+        voice.polish_prompt_custom_3 = tbl["voice_input"]["polish_prompt_custom_3"].value_or(std::string());
+        voice.language = tbl["voice_input"]["language"].value_or(std::string("zh-cn"));
         // notification_sound is retained as a fallback for configs written by older versions.
         const bool legacy_notification_sound = tbl["voice_input"]["notification_sound"].value_or(true);
-        g_voice_input.start_sound = tbl["voice_input"]["start_sound"].value_or(legacy_notification_sound);
-        g_voice_input.end_sound = tbl["voice_input"]["end_sound"].value_or(legacy_notification_sound);
-        g_voice_input.mute_system_audio = tbl["voice_input"]["mute_system_audio"].value_or(false);
-        g_voice_input.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
-        g_voice_input.stream_inline_preedit = tbl["voice_input"]["stream_inline_preedit"].value_or(false);
-        g_voice_input.commit_mode = tbl["voice_input"]["commit_mode"].value_or(std::string("tsf"));
-        if (g_voice_input.commit_mode != "tsf" && g_voice_input.commit_mode != "sendinput" &&
-            g_voice_input.commit_mode != "ctrl_v")
+        voice.start_sound = tbl["voice_input"]["start_sound"].value_or(legacy_notification_sound);
+        voice.end_sound = tbl["voice_input"]["end_sound"].value_or(legacy_notification_sound);
+        voice.mute_system_audio = tbl["voice_input"]["mute_system_audio"].value_or(false);
+        voice.polish_text = tbl["voice_input"]["polish_text"].value_or(false);
+        voice.stream_inline_preedit = tbl["voice_input"]["stream_inline_preedit"].value_or(false);
+        voice.commit_mode = tbl["voice_input"]["commit_mode"].value_or(std::string("tsf"));
+        if (voice.commit_mode != "tsf" && voice.commit_mode != "sendinput" && voice.commit_mode != "ctrl_v")
         {
-            g_voice_input.commit_mode = "tsf";
+            voice.commit_mode = "tsf";
         }
+        PublishVoiceInput(std::move(voice));
         g_ai_assistant.enabled = tbl["ai_assistant"]["enabled"].value_or(false);
         g_ai_assistant.provider =
             VoiceInput::NormalizeProviderId(tbl["ai_assistant"]["provider"].value_or(std::string("deepseek")));
@@ -1018,14 +1033,8 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
         return false;
     }
 
-    std::ofstream output(g_config_path, std::ios::binary | std::ios::trunc);
-    if (!output)
-    {
-        return false;
-    }
-    output.write(text.data(), static_cast<std::streamsize>(text.size()));
-    output.close();
-    if (!output)
+    // Write a temp file and rename it so a crash can never leave the user with a truncated config. This only makes the directory entry swap atomic: there is no FlushFileBuffers, so a power loss can still lose the contents.
+    if (!WriteFileTextAtomically(g_config_path, text))
     {
         return false;
     }
@@ -1037,27 +1046,29 @@ bool WriteConfiguredValue(const std::string &section, const std::string &key, co
 
 void PersistSeededVoiceInputTokenSlots()
 {
+    VoiceInputConfig voice = SnapshotVoiceInput();
     if (g_persist_asr_token_slot)
     {
-        const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
+        const std::string id = VoiceInput::NormalizeProviderId(voice.asr_provider);
         const std::string key = VoiceInput::AsrTokenSlotKey(id);
         if (!key.empty())
-            WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(g_voice_input.asr_tokens[id]));
+            WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(voice.asr_tokens[id]));
         g_persist_asr_token_slot = false;
     }
     if (g_persist_polish_token_slot)
     {
-        const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
+        const std::string id = VoiceInput::NormalizeProviderId(voice.polish_provider);
         const std::string key = VoiceInput::PolishTokenSlotKey(id);
         if (!key.empty())
-            WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(g_voice_input.polish_tokens[id]));
+            WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(voice.polish_tokens[id]));
         g_persist_polish_token_slot = false;
     }
 }
 
 void MigrateLegacyVoiceInputConfig()
 {
-    if (!g_voice_input.asr_token.empty())
+    VoiceInputConfig voice = SnapshotVoiceInput();
+    if (!voice.asr_token.empty())
         return;
     const std::filesystem::path legacy_path =
         std::filesystem::path(CommonUtils::get_local_appdata_path()) / "MetasequoiaVoiceInput" / "config.toml";
@@ -1078,22 +1089,21 @@ void MigrateLegacyVoiceInputConfig()
                 target = value;
         };
         migrate_string("asr_provider", legacy["asr_api"]["provider"].value_or(std::string("siliconflow")),
-                       g_voice_input.asr_provider);
-        migrate_string("asr_token", asr_token, g_voice_input.asr_token);
-        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(g_voice_input.asr_endpoint),
-                       g_voice_input.asr_endpoint);
+                       voice.asr_provider);
+        migrate_string("asr_token", asr_token, voice.asr_token);
+        migrate_string("asr_endpoint", legacy["asr_api"]["endpoint"].value_or(voice.asr_endpoint),
+                       voice.asr_endpoint);
         migrate_string("polish_provider", legacy["polish_api"]["provider"].value_or(std::string("siliconflow")),
-                       g_voice_input.polish_provider);
-        migrate_string("polish_token", legacy["polish_api"]["token"].value_or(std::string()),
-                       g_voice_input.polish_token);
-        migrate_string("polish_endpoint", legacy["polish_api"]["endpoint"].value_or(g_voice_input.polish_endpoint),
-                       g_voice_input.polish_endpoint);
-        migrate_string("language", legacy["settings"]["language"].value_or(std::string("zh-cn")),
-                       g_voice_input.language);
+                       voice.polish_provider);
+        migrate_string("polish_token", legacy["polish_api"]["token"].value_or(std::string()), voice.polish_token);
+        migrate_string("polish_endpoint", legacy["polish_api"]["endpoint"].value_or(voice.polish_endpoint),
+                       voice.polish_endpoint);
+        migrate_string("language", legacy["settings"]["language"].value_or(std::string("zh-cn")), voice.language);
         const bool notification_sound = legacy["settings"]["notification_sound"].value_or(true);
-        migrate_bool("start_sound", notification_sound, g_voice_input.start_sound);
-        migrate_bool("end_sound", notification_sound, g_voice_input.end_sound);
-        migrate_bool("polish_text", legacy["settings"]["polish_text"].value_or(false), g_voice_input.polish_text);
+        migrate_bool("start_sound", notification_sound, voice.start_sound);
+        migrate_bool("end_sound", notification_sound, voice.end_sound);
+        migrate_bool("polish_text", legacy["settings"]["polish_text"].value_or(false), voice.polish_text);
+        PublishVoiceInput(std::move(voice));
     }
     catch (const toml::parse_error &)
     {
@@ -1214,29 +1224,31 @@ void InitImeConfig()
     if (LoadImeConfig())
     {
         MigrateLegacyVoiceInputConfig();
-        if (VoiceInput::NormalizeProviderId(g_voice_input.asr_provider) == "siliconflow" &&
-            g_voice_input.asr_model == "TeleAI/TeleSpeechASR")
+        VoiceInputConfig voice = SnapshotVoiceInput();
+        if (VoiceInput::NormalizeProviderId(voice.asr_provider) == "siliconflow" &&
+            voice.asr_model == "TeleAI/TeleSpeechASR")
         {
             const std::string model = VoiceInput::DefaultAsrModel("siliconflow");
             if (WriteConfiguredValue("voice_input", "asr_model", EscapeTomlBasicString(model)))
-                g_voice_input.asr_model = model;
+                voice.asr_model = model;
         }
         {
-            const std::string asr_id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
-            if (VoiceInput::IsPlaceholderToken(g_voice_input.asr_tokens[asr_id]) &&
-                !VoiceInput::IsPlaceholderToken(g_voice_input.asr_token))
+            const std::string asr_id = VoiceInput::NormalizeProviderId(voice.asr_provider);
+            if (VoiceInput::IsPlaceholderToken(voice.asr_tokens[asr_id]) &&
+                !VoiceInput::IsPlaceholderToken(voice.asr_token))
             {
-                g_voice_input.asr_tokens[asr_id] = g_voice_input.asr_token;
+                voice.asr_tokens[asr_id] = voice.asr_token;
                 g_persist_asr_token_slot = true;
             }
-            const std::string polish_id = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
-            if (VoiceInput::IsPlaceholderToken(g_voice_input.polish_tokens[polish_id]) &&
-                !VoiceInput::IsPlaceholderToken(g_voice_input.polish_token))
+            const std::string polish_id = VoiceInput::NormalizeProviderId(voice.polish_provider);
+            if (VoiceInput::IsPlaceholderToken(voice.polish_tokens[polish_id]) &&
+                !VoiceInput::IsPlaceholderToken(voice.polish_token))
             {
-                g_voice_input.polish_tokens[polish_id] = g_voice_input.polish_token;
+                voice.polish_tokens[polish_id] = voice.polish_token;
                 g_persist_polish_token_slot = true;
             }
         }
+        PublishVoiceInput(std::move(voice));
         PersistSeededVoiceInputTokenSlots();
 #ifdef FANY_DEBUG
         (void)0;
@@ -2576,9 +2588,9 @@ bool SetConfiguredThemeVoice(const std::string &theme)
     return SetSurfaceThemeValue("theme_voice", theme, g_theme_voice);
 }
 
-const VoiceInputConfig &GetConfiguredVoiceInput()
+VoiceInputConfig GetConfiguredVoiceInput()
 {
-    return g_voice_input;
+    return SnapshotVoiceInput();
 }
 
 bool SetConfiguredVoiceInputString(const std::string &key, const std::string &value)
@@ -2591,10 +2603,13 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         value != "casual" && value != "custom_1" && value != "custom_2" && value != "custom_3")
         return false;
 
-    const auto persist = [](const std::string &toml_key, const std::string &toml_value, std::string &target) {
+    // Fields are addressed by pointer-to-member rather than by a bare reference because the store has to happen under the writer lock, while WriteConfiguredValue does file I/O and a cross-process wait that must never run with that lock held.
+    const auto persist = [](const std::string &toml_key, const std::string &toml_value,
+                            std::string VoiceInputConfig::*field) {
         if (!WriteConfiguredValue("voice_input", toml_key, EscapeTomlBasicString(toml_value)))
             return false;
-        target = toml_value;
+        std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+        g_voice_input.*field = toml_value;
         return true;
     };
 
@@ -2606,9 +2621,14 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         const std::string id = VoiceInput::NormalizeProviderId(provider);
         if (!WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
             return false;
-        g_voice_input.asr_tokens[id] = value;
-        if (VoiceInput::NormalizeProviderId(g_voice_input.asr_provider) == id)
-            persist("asr_token", value, g_voice_input.asr_token);
+        std::string asr_provider;
+        {
+            std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+            g_voice_input.asr_tokens[id] = value;
+            asr_provider = g_voice_input.asr_provider;
+        }
+        if (VoiceInput::NormalizeProviderId(asr_provider) == id)
+            persist("asr_token", value, &VoiceInputConfig::asr_token);
         return true;
     }
     if (key.rfind("polish_token_", 0) == 0)
@@ -2619,84 +2639,101 @@ bool SetConfiguredVoiceInputString(const std::string &key, const std::string &va
         const std::string id = VoiceInput::NormalizeProviderId(provider);
         if (!WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
             return false;
-        g_voice_input.polish_tokens[id] = value;
-        if (VoiceInput::NormalizeProviderId(g_voice_input.polish_provider) == id)
-            persist("polish_token", value, g_voice_input.polish_token);
+        std::string polish_provider;
+        {
+            std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+            g_voice_input.polish_tokens[id] = value;
+            polish_provider = g_voice_input.polish_provider;
+        }
+        if (VoiceInput::NormalizeProviderId(polish_provider) == id)
+            persist("polish_token", value, &VoiceInputConfig::polish_token);
         return true;
     }
 
-    std::string *target = nullptr;
+    std::string VoiceInputConfig::*target = nullptr;
     if (key == "asr_provider")
-        target = &g_voice_input.asr_provider;
+        target = &VoiceInputConfig::asr_provider;
     else if (key == "asr_app_key")
-        target = &g_voice_input.asr_app_key;
+        target = &VoiceInputConfig::asr_app_key;
     else if (key == "asr_token")
-        target = &g_voice_input.asr_token;
+        target = &VoiceInputConfig::asr_token;
     else if (key == "asr_endpoint")
-        target = &g_voice_input.asr_endpoint;
+        target = &VoiceInputConfig::asr_endpoint;
     else if (key == "asr_resource_id")
-        target = &g_voice_input.asr_resource_id;
+        target = &VoiceInputConfig::asr_resource_id;
     else if (key == "doubao_boosting_table_id")
-        target = &g_voice_input.doubao_boosting_table_id;
+        target = &VoiceInputConfig::doubao_boosting_table_id;
     else if (key == "asr_model")
-        target = &g_voice_input.asr_model;
+        target = &VoiceInputConfig::asr_model;
     else if (key == "polish_provider")
-        target = &g_voice_input.polish_provider;
+        target = &VoiceInputConfig::polish_provider;
     else if (key == "polish_token")
-        target = &g_voice_input.polish_token;
+        target = &VoiceInputConfig::polish_token;
     else if (key == "polish_endpoint")
-        target = &g_voice_input.polish_endpoint;
+        target = &VoiceInputConfig::polish_endpoint;
     else if (key == "polish_model")
-        target = &g_voice_input.polish_model;
+        target = &VoiceInputConfig::polish_model;
     else if (key == "polish_prompt_id")
-        target = &g_voice_input.polish_prompt_id;
+        target = &VoiceInputConfig::polish_prompt_id;
     else if (key == "polish_prompt")
-        target = &g_voice_input.polish_prompt;
+        target = &VoiceInputConfig::polish_prompt;
     else if (key == "polish_prompt_custom_1")
-        target = &g_voice_input.polish_prompt_custom_1;
+        target = &VoiceInputConfig::polish_prompt_custom_1;
     else if (key == "polish_prompt_custom_2")
-        target = &g_voice_input.polish_prompt_custom_2;
+        target = &VoiceInputConfig::polish_prompt_custom_2;
     else if (key == "polish_prompt_custom_3")
-        target = &g_voice_input.polish_prompt_custom_3;
+        target = &VoiceInputConfig::polish_prompt_custom_3;
     else if (key == "language")
-        target = &g_voice_input.language;
+        target = &VoiceInputConfig::language;
     else if (key == "commit_mode")
-        target = &g_voice_input.commit_mode;
+        target = &VoiceInputConfig::commit_mode;
     if (!target || !WriteConfiguredValue("voice_input", key, EscapeTomlBasicString(value)))
         return false;
-    *target = value;
+    {
+        std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+        g_voice_input.*target = value;
+    }
     if (key == "polish_prompt_custom_1")
     {
         WriteConfiguredValue("voice_input", "polish_prompt", EscapeTomlBasicString(""));
+        std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
         g_voice_input.polish_prompt.clear();
     }
     if (key == "asr_token")
     {
-        const std::string slot = VoiceInput::AsrTokenSlotKey(g_voice_input.asr_provider);
+        const std::string asr_provider = SnapshotVoiceInput().asr_provider;
+        const std::string slot = VoiceInput::AsrTokenSlotKey(asr_provider);
         if (!slot.empty())
         {
-            const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.asr_provider);
-            g_voice_input.asr_tokens[id] = value;
+            const std::string id = VoiceInput::NormalizeProviderId(asr_provider);
+            {
+                std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+                g_voice_input.asr_tokens[id] = value;
+            }
             WriteConfiguredValue("voice_input", slot, EscapeTomlBasicString(value));
         }
     }
     else if (key == "polish_token")
     {
-        const std::string slot = VoiceInput::PolishTokenSlotKey(g_voice_input.polish_provider);
+        const std::string polish_provider = SnapshotVoiceInput().polish_provider;
+        const std::string slot = VoiceInput::PolishTokenSlotKey(polish_provider);
         if (!slot.empty())
         {
-            const std::string id = VoiceInput::NormalizeProviderId(g_voice_input.polish_provider);
-            g_voice_input.polish_tokens[id] = value;
+            const std::string id = VoiceInput::NormalizeProviderId(polish_provider);
+            {
+                std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+                g_voice_input.polish_tokens[id] = value;
+            }
             WriteConfiguredValue("voice_input", slot, EscapeTomlBasicString(value));
         }
     }
     else if (key == "asr_provider")
     {
-        persist("asr_token", VoiceInput::ResolveAsrToken(g_voice_input), g_voice_input.asr_token);
+        persist("asr_token", VoiceInput::ResolveAsrToken(SnapshotVoiceInput()), &VoiceInputConfig::asr_token);
     }
     else if (key == "polish_provider")
     {
-        persist("polish_token", VoiceInput::ResolvePolishToken(g_voice_input), g_voice_input.polish_token);
+        persist("polish_token", VoiceInput::ResolvePolishToken(SnapshotVoiceInput()), &VoiceInputConfig::polish_token);
     }
     return true;
 }
@@ -2857,47 +2894,49 @@ bool SetConfiguredClipboardHistoryEnabled(bool enabled)
 
 bool SetConfiguredVoiceInputBool(const std::string &key, bool value)
 {
-    bool *target = nullptr;
+    bool VoiceInputConfig::*target = nullptr;
     if (key == "voice_input")
-        target = &g_voice_input.enabled;
+        target = &VoiceInputConfig::enabled;
     else if (key == "hotkey_ralt")
-        target = &g_voice_input.hotkey_ralt;
+        target = &VoiceInputConfig::hotkey_ralt;
     else if (key == "hotkey_ctrl_f9")
-        target = &g_voice_input.hotkey_ctrl_f9;
+        target = &VoiceInputConfig::hotkey_ctrl_f9;
     else if (key == "hotkey_ctrl_win")
-        target = &g_voice_input.hotkey_ctrl_win;
+        target = &VoiceInputConfig::hotkey_ctrl_win;
     else if (key == "hotkey_rctrl_ralt")
-        target = &g_voice_input.hotkey_rctrl_ralt;
+        target = &VoiceInputConfig::hotkey_rctrl_ralt;
     else if (key == "hotkey_hold_space_lock")
-        target = &g_voice_input.hotkey_hold_space_lock;
+        target = &VoiceInputConfig::hotkey_hold_space_lock;
     else if (key == "start_sound")
-        target = &g_voice_input.start_sound;
+        target = &VoiceInputConfig::start_sound;
     else if (key == "end_sound")
-        target = &g_voice_input.end_sound;
+        target = &VoiceInputConfig::end_sound;
     else if (key == "mute_system_audio")
-        target = &g_voice_input.mute_system_audio;
+        target = &VoiceInputConfig::mute_system_audio;
     else if (key == "doubao_enable_itn")
-        target = &g_voice_input.doubao_enable_itn;
+        target = &VoiceInputConfig::doubao_enable_itn;
     else if (key == "doubao_enable_punc")
-        target = &g_voice_input.doubao_enable_punc;
+        target = &VoiceInputConfig::doubao_enable_punc;
     else if (key == "doubao_enable_ddc")
-        target = &g_voice_input.doubao_enable_ddc;
+        target = &VoiceInputConfig::doubao_enable_ddc;
     else if (key == "notification_sound")
     {
         // Accept settings pages from older installations during a rolling update.
         if (!WriteConfiguredValue("voice_input", key, value ? "true" : "false"))
             return false;
+        std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
         g_voice_input.start_sound = value;
         g_voice_input.end_sound = value;
         return true;
     }
     else if (key == "polish_text")
-        target = &g_voice_input.polish_text;
+        target = &VoiceInputConfig::polish_text;
     else if (key == "stream_inline_preedit")
-        target = &g_voice_input.stream_inline_preedit;
+        target = &VoiceInputConfig::stream_inline_preedit;
     if (!target || !WriteConfiguredValue("voice_input", key, value ? "true" : "false"))
         return false;
-    *target = value;
+    std::unique_lock<std::shared_mutex> lock(g_voice_input_mutex);
+    g_voice_input.*target = value;
     return true;
 }
 

@@ -103,3 +103,41 @@ TEST_CASE(candidate_ui_detects_entry_into_a_partial_last_page)
     REQUIRE(!full.is_next_page_partial_last_page());
     REQUIRE(full.is_selection_at_current_page_end());
 }
+
+TEST_CASE(candidate_page_snapshot_survives_a_rebuild_of_the_live_state)
+{
+    Global::ClearCandidatePageSnapshot();
+    Global::candidate_ui.clear_page();
+    Global::candidate_ui.page_views.push_back(CandidateViewItem{"ni", "", "", "", false});
+    Global::candidate_ui.page_words.push_back(L"ni");
+    Global::candidate_ui.cur_page_item_cnt = 1;
+    Global::candidate_ui.item_total_count = 1;
+    Global::candidate_ui.page_size = 8;
+    Global::candidate_ui.selected_index_in_page = 0;
+
+    auto published = std::make_shared<Global::CandidatePageSnapshot>();
+    published->page_views = Global::candidate_ui.page_views;
+    published->page_words = Global::candidate_ui.page_words;
+    published->candidate_string = L"1.ni";
+    published->selected_index_in_page = Global::candidate_ui.selected_index_in_page;
+    published->page_count = Global::candidate_ui.current_page_count();
+    published->page_item_count = Global::candidate_ui.cur_page_item_cnt;
+    Global::PublishCandidatePageSnapshot(std::move(published));
+
+    const Global::CandidatePageSnapshotPtr page = Global::LoadCandidatePageSnapshot();
+
+    // The worker rebuilds the live page while the UI thread still holds the snapshot it was handed. Reading the live
+    // vectors here is exactly the use-after-free the snapshot exists to prevent, so the loaded page has to be unaffected.
+    Global::candidate_ui.set_items({});
+
+    REQUIRE_EQ(page->page_views.size(), static_cast<size_t>(1));
+    REQUIRE_EQ(page->page_views[0].text, std::string("ni"));
+    REQUIRE_EQ(page->page_words.size(), static_cast<size_t>(1));
+    REQUIRE_EQ(page->candidate_string, std::wstring(L"1.ni"));
+    REQUIRE_EQ(page->page_count, 1);
+    REQUIRE_EQ(page->page_item_count, 1);
+    REQUIRE(Global::candidate_ui.page_views.empty());
+
+    Global::ClearCandidatePageSnapshot();
+    REQUIRE(Global::LoadCandidatePageSnapshot()->page_views.empty());
+}
