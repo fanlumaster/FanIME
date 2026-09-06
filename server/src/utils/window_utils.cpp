@@ -278,9 +278,6 @@ int AdjustCandidateWindowPosition(                  //
 
     properPos->first = point->x;
     properPos->second = point->y + caretGapPx;
-    // Clamp to the card itself so a right-edge push leaves the opaque card flush
-    // with the monitor (shadow may clip). Reserving SHADOW here opened a large
-    // visible gap at high DPI.
     // minWidthDip: first-pass DOM measure can be far too narrow near a screen
     // edge. Flip using at least that floor so the card is not parked at the
     // caret with its real right half hanging off the monitor.
@@ -294,15 +291,15 @@ int AdjustCandidateWindowPosition(                  //
     const double decisionHeightDip = isVertical ? g_max_vertical_container_height_dip : containerSize.second;
     const int decisionHeightPx = static_cast<int>(std::ceil(decisionHeightDip * scale));
     const int currentHeightPx = static_cast<int>(std::ceil(containerSize.second * scale));
-    if (properPos->first + width > coordinates.right)
+    if (properPos->first + width > coordinates.right - edgePadPx)
     {
         properPos->first = coordinates.right - width - edgePadPx;
     }
-    if (properPos->first < coordinates.left)
+    if (properPos->first < coordinates.left + edgePadPx)
     {
         properPos->first = coordinates.left + edgePadPx;
     }
-    if (properPos->second < coordinates.top)
+    if (properPos->second < coordinates.top + edgePadPx)
     {
         properPos->second = coordinates.top + edgePadPx;
     }
@@ -310,10 +307,11 @@ int AdjustCandidateWindowPosition(                  //
     if (properPos->second + decisionHeightPx > coordinates.bottom)
     {
         // Point[1] is GetTextExt.bottom (the line's bottom). Sit the opaque card
-        // so its bottom meets the line's top; drop-shadow is not part of this.
+        // so its bottom meets the line's top — same for short and fully expanded
+        // lists. A fixed flipGap left a large hole under short above-caret cards.
         const int lineHeightPx = static_cast<int>(std::lround(24.0 * scale));
         properPos->second = point->y - currentHeightPx - lineHeightPx;
-        if (properPos->second < coordinates.top)
+        if (properPos->second < coordinates.top + edgePadPx)
         {
             properPos->second = coordinates.top + edgePadPx;
         }

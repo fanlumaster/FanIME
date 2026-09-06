@@ -256,15 +256,17 @@ void InjectSurfaceViewportLimitsImpl(ICoreWebView2 *webview, HWND hwnd)
               static_cast<unsigned>(hr));
 }
 
-// Fallback only: grow the host to 1.2x HTML content (DIP), capped at half the
-// monitor. Main layout paths should already apply half-screen limits.
-bool ApplyContentTruncationResize( //
-    HWND hwnd,                     //
-    ICoreWebView2 *webview,        //
+// Fallback only: grow the host to at least 1.2x HTML content (DIP), capped at
+// half the monitor. Never shrink — truncation means the viewport is too small.
+// Candidate hosts are already quarter-screen; shrinking them to the card and
+// clearing CSS margins was parking the window away from the caret.
+bool ApplyContentTruncationResize(       //
+    HWND hwnd,                           //
+    ICoreWebView2 *webview,              //
     ICoreWebView2Controller *controller, //
-    double contentWidthDip,        //
-    double contentHeightDip,       //
-    int extraShadowDip             //
+    double contentWidthDip,              //
+    double contentHeightDip,             //
+    int extraShadowDip                   //
 )
 {
     if (!hwnd || contentWidthDip < 1.0 || contentHeightDip < 1.0)
@@ -294,6 +296,9 @@ bool ApplyContentTruncationResize( //
     GetWindowRect(hwnd, &current);
     const int curW = current.right - current.left;
     const int curH = current.bottom - current.top;
+    // Grow-only: a larger current host (e.g. quarter-screen candidate) must stay.
+    physWidth = (std::max)(physWidth, curW);
+    physHeight = (std::max)(physHeight, curH);
     int posX = current.left;
     int posY = current.top;
     if (posX + physWidth > limits.monitor.right)
@@ -3038,16 +3043,31 @@ HRESULT OnControllerCreatedCandWnd(     //
                         }
                         else if (type == "contentTruncated")
                         {
-                            // Fallback only: FineTune already sizes to content with a
-                            // half-screen cap. Clear a stale region if we still had to grow.
-                            if (::is_global_wnd_cand_shown &&
-                                HandleContentTruncatedMessage(hwnd, webviewCandWnd.Get(),
-                                                              webviewControllerCandWnd.Get(), val,
-                                                              g_last_content_truncation_cand_ms, 0))
+                            // Candidate host is intentionally quarter-screen; the card is
+                            // placed with CSS margins + SetWindowRgn. HTML truncation checks
+                            // use clientWidth/Height, so margin+content past the right/bottom
+                            // of the host looks "truncated" even when FineTune is correct.
+                            // Never shrink the HWND or zero margins here — that parked the
+                            // card at the host origin away from the caret.
+                            if (::is_global_wnd_cand_shown)
                             {
-                                SetWindowRgn(hwnd, nullptr, TRUE);
-                                Global::MarginLeft = 0;
-                                Global::MarginTop = 0;
+                                const bool grew = HandleContentTruncatedMessage(hwnd, webviewCandWnd.Get(),
+                                                                                webviewControllerCandWnd.Get(), val,
+                                                                                g_last_content_truncation_cand_ms, 0);
+                                if (grew)
+                                {
+                                    // Host grew beyond the previous region; drop the clip so
+                                    // the next FineTune/clip-measure can reapply margins.
+                                    SetWindowRgn(hwnd, nullptr, TRUE);
+                                    CAND_DIAG_LOGF(L"candidate contentTruncated grew host; region cleared "
+                                                   L"(margins kept) {}",
+                                                   DescribeCandidateHostState());
+                                }
+                                else
+                                {
+                                    CAND_DIAG_LOGF(L"candidate contentTruncated ignored (no shrink) {}",
+                                                   DescribeCandidateHostState());
+                                }
                             }
                         }
                     }
