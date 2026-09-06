@@ -14,8 +14,8 @@ gh release upload "$TAG_NAME" "$ASSET_PATH" "$PRODUCT_MANIFEST" --repo "$GH_REPO
 if [[ "$RELEASE_TRIGGER" == push ]]; then
     # Braces are required: bash takes the full-width bracket that follows as part of the name otherwise.
     title="${TAG_NAME}（自动构建）"
-    banner='本版本由 CI 在合并到 `main` 后自动构建发布，未经人工挑选，标记为 Pre-release。想要经过挑选的版本，请下载页面上带 Latest 徽章的那个。'
-    channel=(--prerelease)
+    banner='本版本由 CI 在合并到 `main` 后自动构建发布。'
+    channel=(--prerelease=false --latest)
 else
     title="$TAG_NAME"
     banner=''
