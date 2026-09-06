@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.1...v0.5.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **ci:** defer next release PR after publish ([3784d7f](https://github.com/metasequoiaime/MSIME-Windows/commit/3784d7f00684abf4b9f022aaf41388fe78895d3a))
+* **ci:** defer next release PR after publish ([0973d3d](https://github.com/metasequoiaime/MSIME-Windows/commit/0973d3d4ef190d35bbc417aa39fcc32386c1e603))
+
 ## [0.5.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.0...v0.5.1) (2026-09-06)
 
 
