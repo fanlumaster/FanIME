@@ -26,13 +26,17 @@ jobs:
         run: actionlint -color
   dependencies:
     name: Dependency review
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # This job must not skip. It is one of main's required status checks, and a required check that reports "skipped" blocks a merge instead of passing it. Guarding it on the pull_request event left the release pull request unmergeable by its own automation: ci.yml ignores that pull request by path and the release workflow dispatches ci.yml on the release branch instead, so this job saw workflow_dispatch and skipped, and land-release-pr.sh got "the base branch policy prohibits the merge" after everything else came back green.
+      #
+      # A pull_request event supplies both refs on its own. Every other trigger has to be told what to compare, and comparing the default branch against the checked-out commit is the same question the pull request asks.
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
         with:
           fail-on-severity: high
+          base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
