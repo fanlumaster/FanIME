@@ -914,8 +914,16 @@ std::string BuildCurrentCandidatePage()
 
         CandidateViewItem view;
         view.text = word;
-        if (item.source == CandidateSource::Generated && !item.pinyin.empty())
-            view.annotation = " " + item.pinyin;
+        if (item.source == CandidateSource::Generated && show_helpcodes)
+        {
+            // Generated whole-sentence candidates carry the raw spelling in
+            // item.pinyin.  When helpcodes are enabled, do not expose that
+            // full preedit; sentence annotations must use the normal
+            // first/last-character helpcode rule instead.  If the helpcode
+            // cannot be computed, leave the annotation empty rather than
+            // falling back to the raw preedit.
+            view.annotation = g_inputSession->get_helpcode_annotation(item.word, uppercase_all_helpcodes);
+        }
         if (show_helpcodes && item.source != CandidateSource::EnglishDictionary &&
             item.source != CandidateSource::QuickPhrase && item.source != CandidateSource::Emoji &&
             item.source != CandidateSource::Kaomoji && item.source != CandidateSource::Generated)
