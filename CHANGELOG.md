@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.1...v0.5.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **ci:** defer next release PR after publish ([3784d7f](https://github.com/metasequoiaime/MSIME-Windows/commit/3784d7f00684abf4b9f022aaf41388fe78895d3a))
+* **ci:** defer next release PR after publish ([0973d3d](https://github.com/metasequoiaime/MSIME-Windows/commit/0973d3d4ef190d35bbc417aa39fcc32386c1e603))
+
+## [0.5.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.0...v0.5.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **ci:** correct isolated vcpkg command syntax ([5b5960e](https://github.com/metasequoiaime/MSIME-Windows/commit/5b5960e5a048679e95d42ad677d04fd82d3930ae))
+* **ci:** isolate release vcpkg installations ([5c85d29](https://github.com/metasequoiaime/MSIME-Windows/commit/5c85d297cde9cdaca865b7881492e9aabf474bee))
+* **ci:** serialize release builds sharing vcpkg ([82452f7](https://github.com/metasequoiaime/MSIME-Windows/commit/82452f7f02095c4654caf9dd22bd1a288aa1e04b))
+* **ci:** serialize release builds sharing vcpkg ([b827bbe](https://github.com/metasequoiaime/MSIME-Windows/commit/b827bbee3c7c73a43075aeab4ac3c6935140b2b4))
+* **installer:** sign releases from runner certificate store ([e895d14](https://github.com/metasequoiaime/MSIME-Windows/commit/e895d14b6074cdefb4f05679ce71925e945e6799))
+* **installer:** sign releases from runner certificate store ([7dc68ff](https://github.com/metasequoiaime/MSIME-Windows/commit/7dc68ff498f9ab30c9ee5c1c557ff05464fdf5bd))
+
 ## [0.5.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.4.0...v0.5.0) (2026-09-06)
 
 
