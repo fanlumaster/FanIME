@@ -28,6 +28,10 @@ Windows 端的全部一方源码在本仓。**合仓改变的是仓库数量，�
 - **候选与输入状态的权威在 Server 和引擎**，页面只负责展示和发出用户动作，不要在网页侧复制状态机。
 - `ui-html/webview2/shared/` 是 Engine web 契约的副本，由 `ui-html/scripts/sync-contracts.py` 生成，CI 用 `--check` 验证它和 submodule 一致。手改这个目录会被 CI 拦下来，改契约要改 Engine。
 
+Server 当前仍使用 Engine 的兼容 `InputSession`，尚未迁移公共 `Session` facade。
+辅助码筛选与候选提示都按会话配置，禁止用全局默认码表驱动活动会话。
+`RuntimePaths::legacy()` 在适配器创建时捕获现有安装布局；完整资源包和用户数据代际切换仍待接入。
+
 ## 构建
 
 每个组件是独立的 CMake 工程，各自带 `vcpkg.json` 和 preset，从仓库根目录指定 `-S`：

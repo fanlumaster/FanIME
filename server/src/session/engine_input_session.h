@@ -1,6 +1,7 @@
 #pragma once
 
 #include "input_session.h"
+#include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/core/input_session.h"
 
 class EngineInputSession : public IInputSession
@@ -19,6 +20,7 @@ class EngineInputSession : public IInputSession
 
     const std::vector<WordItem> &get_candidates() const override;
     bool expand_initial_candidates() override;
+    std::string get_helpcode_annotation(const std::string &word, bool uppercase_all) const override;
     std::optional<WordItem> find_candidate(const std::string &key, const std::string &value) override;
 
     const std::string &get_pinyin_sequence() const override;
@@ -49,5 +51,8 @@ class EngineInputSession : public IInputSession
 
   private:
     void ApplyConfiguration();
+    const metasequoia::RuntimePaths paths_;
     metasequoia::InputSession session_;
+    std::string helpcode_schema_;
+    HelpcodeUtils::SharedKeymap helpcode_keymap_;
 };
