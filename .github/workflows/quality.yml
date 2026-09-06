@@ -24,6 +24,10 @@ jobs:
           # Ignore style suggestions, but fail on shell correctness warnings and errors.
           SHELLCHECK_OPTS: --severity=warning
         run: actionlint -color
+      # Part of "Workflow validation" rather than a job of its own: it is a two-second grep, and this
+      # job is already a required check, so the guard starts protecting main immediately.
+      - name: Reject developer-specific paths in build inputs
+        run: bash scripts/ci/check-developer-paths.sh
   dependencies:
     name: Dependency review
     runs-on: ubuntu-24.04

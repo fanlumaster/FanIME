@@ -52,6 +52,7 @@ $pinyinTable = Join-Path $RepoRoot (Join-Path $ServerDirectory 'assets\tables\pi
 $helpcodeSource = Join-Path $RepoRoot (Join-Path $HelpCodeDirectory 'helpcodes')
 $appIcon = Join-Path $RepoRoot (Join-Path $ServerDirectory 'src\resource\MetasequoiaIME.ico')
 $thirdPartyNotices = Join-Path $RepoRoot (Join-Path $NoticesDirectory 'THIRD_PARTY_NOTICES.txt')
+$license = Join-Path $RepoRoot 'LICENSE'
 $dictionaryDb = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\msime.db')
 $dictionaryManifest = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dictionary-manifest.json')
 $japaneseModel = Join-Path $RepoRoot (Join-Path $DictionaryDirectory 'out\dict_japanese.dat')
@@ -67,6 +68,7 @@ Assert-PathExists -LiteralPath $tsf64Release -Description '64 位 TSF Release DL
 Assert-PathExists -LiteralPath $serverConfig -Description 'Server config.toml'
 Assert-PathExists -LiteralPath $appIcon -Description '应用图标'
 Assert-PathExists -LiteralPath $thirdPartyNotices -Description '第三方声明 THIRD_PARTY_NOTICES.txt'
+Assert-PathExists -LiteralPath $license -Description '许可证 LICENSE'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'shared') -Description '共享 WebView 消息契约'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'candwnd') -Description '候选窗 HTML 目录'
 Assert-PathExists -LiteralPath (Join-Path $webviewRoot 'ftb') -Description '悬浮工具栏 HTML 目录'
@@ -174,6 +176,12 @@ Copy-Item -LiteralPath $appIcon -Destination (Join-Path $PSScriptRoot 'Metasequo
 # rime-ice is GPL-3.0 and requires attribution, and its content forms the bulk of msime.db, so the
 # notice has to reach the user's disk rather than only exist in the source repository.
 Copy-Item -LiteralPath $thirdPartyNotices -Destination (Join-Path $PSScriptRoot 'THIRD_PARTY_NOTICES.txt') -Force
+# GPLv3 sections 4 and 6 require a copy of the licence to reach whoever receives the program, and the
+# packaged product includes third-party GPL-3.0 dictionary data. macOS and Linux already install the
+# licence text (CMakeLists.txt in MSIME-Apple and MSIME-Linux); Windows is the platform that actually
+# ships at volume and was the only one omitting it. THIRD_PARTY_NOTICES.txt does not cover this: it
+# points at "the LICENSE file" without carrying the GPL text itself.
+Copy-Item -LiteralPath $license -Destination (Join-Path $PSScriptRoot 'LICENSE.txt') -Force
 
 $targetIss = Join-Path $PSScriptRoot 'msime_setup.iss'
 Assert-PathExists -LiteralPath $targetIss -Description '安装脚本'
