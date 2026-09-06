@@ -28,6 +28,10 @@ jobs:
       # job is already a required check, so the guard starts protecting main immediately.
       - name: Reject developer-specific paths in build inputs
         run: bash scripts/ci/check-developer-paths.sh
+      # Formatting is platform independent, so it runs here on Ubuntu rather than costing a Windows
+      # runner. Cheap and early: a formatting slip fails in seconds instead of after the full compile.
+      - name: Check formatting
+        run: scripts/format.sh --check
   dependencies:
     name: Dependency review
     runs-on: ubuntu-24.04
