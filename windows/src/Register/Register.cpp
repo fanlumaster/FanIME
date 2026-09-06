@@ -15,7 +15,7 @@ static const WCHAR RegInfo_Key_InProSvr32[] = L"InProcServer32";
 static const WCHAR RegInfo_Key_ThreadModel[] = L"ThreadingModel";
 
 // IME text service description, will be displayed in the language menu when switching IME
-static const WCHAR TEXTSERVICE_DESC[] = L"Metasequoia";
+static const WCHAR TEXTSERVICE_DESC[] = L"Metasequoia \u6c34\u6749\u8f93\u5165\u6cd5";
 
 static const GUID SupportCategories[] = {
     GUID_TFCAT_TIP_KEYBOARD,
