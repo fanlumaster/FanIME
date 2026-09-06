@@ -19,14 +19,13 @@ body:
       description: 该功能主要涉及哪个部分？Which part does this mainly involve?
       multiple: true
       options:
-        - TSF 前端 / MSIME-Windows
-        - Server / 引擎服务 / server
-        - 设置界面 / Settings
-        - 候选窗 UI / Candidate UI
-        - 词典 / MSIME-Engine/dictionary
-        - 辅助码 / MSIME-Engine
+        - 候选窗 / Candidate window
+        - 词典 / Dictionary and Lexicon
+        - 辅助码 / Help Code
+        - 设置 / Settings
         - 安装器 / Installer
-        - 文档 / 官网
+        - 引擎服务 / Engine
+        - 文档 / Docs
         - 不确定 / Not sure
         - 其他 / Other
     validations:
