@@ -84,7 +84,8 @@ bool SendDiagnosticBatch(const FanyImeTsfDiagnosticBatchHeader &header, const st
     HANDLE pipe = INVALID_HANDLE_VALUE;
     for (int attempt = 0; attempt < 2; ++attempt)
     {
-        pipe = CreateFileW(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        pipe = CreateFileW(FANY_IME_TSF_DIAGNOSTIC_NAMED_PIPE, GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                           SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
         if (pipe != INVALID_HANDLE_VALUE)
         {
             break;
@@ -527,7 +528,13 @@ bool TryOpenClientPipe(HANDLE &hPipeHandle, const wchar_t *pipeName, UINT pipeRo
         }
     }
 
-    const DWORD flags = pipeRole == FanyImePipeRole::Main ? 0 : FILE_FLAG_OVERLAPPED;
+    // The pipe name lives in the machine-global namespace, so whichever
+    // process answers is not necessarily the Server, nor even the same
+    // account. SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION lets it check
+    // who connected but never act as this thread, which matters most for the
+    // app container and low integrity hosts the TIP is loaded into.
+    const DWORD flags = SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION |
+                        (pipeRole == FanyImePipeRole::Main ? 0 : FILE_FLAG_OVERLAPPED);
     HANDLE openedPipe = CreateFile(   //
         pipeName,                     //
         GENERIC_READ | GENERIC_WRITE, //
@@ -1433,14 +1440,14 @@ bool SendToAuxNamedpipe(const std::wstring &pipeData,
     // 重试几次，等待 Server 准备好
     for (int retry = 0; retry < 5; ++retry)
     {
-        hAuxPipe = CreateFileW(           //
-            FANY_IME_AUX_NAMED_PIPE,      //
-            GENERIC_READ | GENERIC_WRITE, //
-            0,                            //
-            nullptr,                      //
-            OPEN_EXISTING,                //
-            0,                            //
-            nullptr                       //
+        hAuxPipe = CreateFileW(                              //
+            FANY_IME_AUX_NAMED_PIPE,                         //
+            GENERIC_READ | GENERIC_WRITE,                    //
+            0,                                               //
+            nullptr,                                         //
+            OPEN_EXISTING,                                   //
+            SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, //
+            nullptr                                          //
         );
         if (hAuxPipe && hAuxPipe != INVALID_HANDLE_VALUE)
         {

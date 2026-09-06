@@ -11,6 +11,33 @@
 
 #include "MetasequoiaImeEngine/contracts/windows_ipc.h"
 
+namespace FanyImeIpc
+{
+// A pipe client only connects and exchanges frames. FILE_CREATE_PIPE_INSTANCE shares its bit with FILE_APPEND_DATA,
+// so plain FILE_GENERIC_WRITE would also let the holder add an instance to a pipe name this server already owns and
+// answer connections in the server's place.
+inline constexpr DWORD kPipeClientAccessMask =
+    (FILE_GENERIC_READ | FILE_GENERIC_WRITE) & ~static_cast<DWORD>(FILE_CREATE_PIPE_INSTANCE);
+static_assert(kPipeClientAccessMask == 0x0012019Bu,
+              "The connect-only pipe mask must stay equal to the hexadecimal form spelled in the SDDL below");
+
+// The pipe namespace is machine-global and shared across sessions, so a DACL that grants Everyone lets any local
+// account both connect to the server and add instances to its pipe names. The DACL is therefore limited to
+// LocalSystem, the account this server runs as, and app containers, the last of which get connect-only rights so UWP
+// text input still reaches the server. The low mandatory label keeps low integrity and app container hosts able to
+// write to the pipe. Returns an empty string when the owner SID is unknown; the caller must fail pipe creation instead
+// of falling back to a permissive descriptor.
+inline std::wstring BuildPipeSecurityDescriptorSddl(const std::wstring &owner_sid)
+{
+    if (owner_sid.empty())
+    {
+        return std::wstring();
+    }
+
+    return L"S:(ML;;NW;;;LW)D:(A;;FA;;;SY)(A;;FA;;;" + owner_sid + L")(A;;0x12019b;;;AC)";
+}
+} // namespace FanyImeIpc
+
 inline constexpr DWORD FANY_IME_TO_TSF_PIPE_FRAME_CAPACITY = 64;
 inline constexpr DWORD FANY_IME_TO_TSF_WORKER_PIPE_FRAME_CAPACITY = 32;
 inline HANDLE hPipe = INVALID_HANDLE_VALUE;
