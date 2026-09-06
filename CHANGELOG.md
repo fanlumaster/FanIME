@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.1...v0.3.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **installer:** document uiAccess signing requirements ([23c62e4](https://github.com/metasequoiaime/MSIME-Windows/commit/23c62e4e96e2ff29d4d2736f51503d1b12eb5278))
+* **installer:** document uiAccess signing requirements ([0a9b912](https://github.com/metasequoiaime/MSIME-Windows/commit/0a9b912a97eb0805f5b060daa22fa7175d01bd71))
+
 ## [0.3.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.3.0...v0.3.1) (2026-09-06)
 
 
