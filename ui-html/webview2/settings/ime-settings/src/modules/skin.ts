@@ -111,19 +111,33 @@ function clearDecorationVars(host: HTMLElement): void {
   host.style.removeProperty('--msime-skin-decoration-width');
 }
 
+// Skin manifests come from an arbitrary folder in the skins directory and only their file names are validated host-side, so a colour string is rejected unless it is one of the plain notations we actually render. Anything else could carry a declaration or brace and rewrite the rule it is pasted into.
+const SKIN_COLOR_PATTERN = /^(#[0-9a-f]{3,4}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgb\(\s*\d{1,3}\s*(,|\s)\s*\d{1,3}\s*(,|\s)\s*\d{1,3}\s*\)|rgba\(\s*\d{1,3}\s*(,|\s)\s*\d{1,3}\s*(,|\s)\s*\d{1,3}\s*(,|\/)\s*(0|1|0?\.\d+|\d{1,3}%)\s*\))$/i;
+
+function skinColor(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && SKIN_COLOR_PATTERN.test(trimmed) ? trimmed : undefined;
+}
+
 function candidatePreviewCss(skin: ExternalSkin): string {
   const dark = skin.candidate?.dark || {};
   const light = skin.candidate?.light || {};
   const preview = skin.preview ? `url("${resourceUrl(skin.id, skin.preview)}")` : 'none';
   const themeRules = (scope: string, colors: CandidateColors) => {
     const prefix = scope ? `${scope} ` : '';
+    const accent = skinColor(colors.accent);
+    const selected = skinColor(colors.selected);
+    const hover = skinColor(colors.hover);
+    const surface = skinColor(colors.surface);
+    const border = skinColor(colors.border);
+    const text = skinColor(colors.text);
     let css = '';
-    if (colors.accent) css += `${prefix}.cursor, ${prefix}.first::before { background: ${colors.accent}; }\n`;
-    if (colors.selected) css += `${prefix}.first, ${prefix}.cand.first { background-color: ${colors.selected}; }\n`;
-    if (colors.hover) css += `${prefix}.cand:not(.first):hover { background-color: ${colors.hover} !important; }\n`;
-    if (colors.surface) css += `${prefix}.container { background: ${colors.surface}; }\n`;
-    if (colors.border) css += `${prefix}.container { border-color: ${colors.border}; }\n`;
-    if (colors.text) css += `${prefix}.container { color: ${colors.text}; }\n`;
+    if (accent) css += `${prefix}.cursor, ${prefix}.first::before { background: ${accent}; }\n`;
+    if (selected) css += `${prefix}.first, ${prefix}.cand.first { background-color: ${selected}; }\n`;
+    if (hover) css += `${prefix}.cand:not(.first):hover { background-color: ${hover} !important; }\n`;
+    if (surface) css += `${prefix}.container { background: ${surface}; }\n`;
+    if (border) css += `${prefix}.container { border-color: ${border}; }\n`;
+    if (text) css += `${prefix}.container { color: ${text}; }\n`;
     if (colors.showSelectedBar === false) css += `${prefix}.first::before { display: none; }\n`;
     return css;
   };
@@ -142,6 +156,24 @@ function candidatePreviewCss(skin: ExternalSkin): string {
   return css;
 }
 
+// Nesting skin CSS by concatenating it into an "@scope (...) { ... }" string is purely textual, so a stray "}" in the skin closes the block early and everything after it styles the whole settings window instead of just the preview. The scope rule is therefore created empty and every rule parsed out of the skin is re-inserted as a child of it, which nothing can escape from however the braces are balanced.
+function writeScopedSkinRules(style: HTMLStyleElement, skinId: string, css: string): void {
+  const sheet = style.sheet;
+  if (!sheet) return;
+  while (sheet.cssRules.length) sheet.deleteRule(0);
+  sheet.insertRule(`@scope ([data-external-skin-preview="${skinId}"]) {}`, 0);
+  const scope = sheet.cssRules[0] as CSSGroupingRule;
+  const parsed = new CSSStyleSheet();
+  parsed.replaceSync(css);
+  Array.from(parsed.cssRules).forEach((rule) => {
+    try {
+      scope.insertRule(rule.cssText, scope.cssRules.length);
+    } catch {
+      // Drop a rule that is not valid inside a grouping rule instead of losing the rest of the skin.
+    }
+  });
+}
+
 function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined, styleId: string, force = false): Promise<void> {
   if (!stylesheet || (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId))) return Promise.resolve();
   const pending = styleLoads.get(styleId);
@@ -158,7 +190,7 @@ function injectScopedSkinCss(skin: ExternalSkin, stylesheet: string | undefined,
         style = document.createElement('style'); style.id = styleId;
         style.dataset.externalSkinStyle = skin.id; document.head.appendChild(style);
       }
-      style.textContent = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
+      writeScopedSkinRules(style, skin.id, css);
       loadedExternalStyleIds.add(styleId);
     } catch {
       // Keep the inherited built-in preview if a stylesheet is unavailable.
@@ -173,7 +205,6 @@ function injectGeneratedCandidateCss(skin: ExternalSkin, force = false): void {
   if (!force && loadedExternalStyleIds.has(styleId) && document.getElementById(styleId)) return;
   const css = candidatePreviewCss(skin);
   if (!css.trim()) return;
-  const scoped = `@scope ([data-external-skin-preview="${skin.id}"]) {\n${css}\n}`;
   let style = document.getElementById(styleId) as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement('style');
@@ -181,7 +212,7 @@ function injectGeneratedCandidateCss(skin: ExternalSkin, force = false): void {
     style.dataset.externalSkinStyle = skin.id;
     document.head.appendChild(style);
   }
-  style.textContent = scoped;
+  writeScopedSkinRules(style, skin.id, css);
   loadedExternalStyleIds.add(styleId);
 }
 
