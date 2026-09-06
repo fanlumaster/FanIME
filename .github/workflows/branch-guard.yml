@@ -1,0 +1,37 @@
+name: Branch guard
+
+# main is the release branch: it only moves when develop is promoted for a release, or when
+# release-please lands the version commit it generates on top of that promotion. Everything else
+# targets develop.
+#
+# This is a check rather than a ruleset rule because GitHub rulesets can protect a base branch but
+# cannot say which head branches may target it. Add it to main's required status checks so a pull
+# request opened against the wrong base cannot be merged.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  base:
+    name: Base branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check the head branch may target main
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            develop | release/* | release-please--*)
+              echo "$HEAD_REF may target main."
+              ;;
+            *)
+              echo "::error::'$HEAD_REF' cannot target main. Day-to-day changes are merged into develop; main only receives develop promotions and release-please version branches. Retarget this pull request at develop."
+              exit 1
+              ;;
+          esac
