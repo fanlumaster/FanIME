@@ -23,17 +23,23 @@
 
 ## 下载
 
-1. 打开 [Releases 页面](https://github.com/metasequoiaime/MSIME-Windows/releases)。
-2. 下载带 **Latest** 徽章那个版本的 `MetasequoiaIME_Setup_v<版本号>.exe`。
+最省事的方式是用[官网下载页](https://msime.app/download/)：它读取的 `update.json` 始终指向当前推荐的版本，并附带该安装包的 SHA256 校验值。
 
-Releases 页面上有两类发布：
+也可以直接从 GitHub 取：
+
+1. 打开 [Releases 页面](https://github.com/metasequoiaime/MSIME-Windows/releases)。
+2. 下载最上面那个版本的 `MetasequoiaIME_Setup_v<版本号>.exe`。
+
+Releases 页面计划分两个频道：
 
 | 频道 | 页面上的样子 | 来源 | 谁该用 |
 |---|---|---|---|
 | 发布 | 正常发布，最新的一个带 **Latest** 徽章 | 人工挑选后发布 | **一般都用这个** |
 | 自动构建 | 标记 **Pre-release**，标题带「（自动构建）」 | 每次合并到 `main` 后由 CI 自动发布，未经人工挑选 | 只在需要某个尚未进入发布频道的修复、且能接受未经验证的改动时用 |
 
-> 注意：**两个频道当前都还是内测阶段**，版本号仍在 `0.x`，功能与稳定性可能变动，重要环境建议先在虚拟机或非主力机试用。「发布」频道的含义是「有人挑过」，不是「已经稳定」。
+> **目前发布频道还是空的。** 迄今为止的每一个 release 都标着 **Pre-release**，所以页面上不会出现 **Latest** 徽章，`releases/latest` 这个地址也是 404——上表描述的是计划中的做法，不是页面当下的样子。在第一个人工挑选的发布出现之前，直接取列表最上面那一个即可。
+>
+> 无论哪个频道，当前都还是内测阶段，版本号仍在 `0.x`，功能与稳定性可能变动，重要环境建议先在虚拟机或非主力机试用。「发布」频道的含义是「有人挑过」，不是「已经稳定」。
 > 参与内测与反馈：[Telegram 群](https://t.me/msimegroup)、QQ 群 829919142。
 
 ## 安装与注意事项
