@@ -31,6 +31,8 @@ jobs:
           submodules: true
       - name: Check the shared dictionary validator
         run: python3 scripts/check-dictionary-contract.py
+      - name: Check product-lock contract
+        run: python3 scripts/check-product-lock-contract.py
       - name: Test rejection of changed or mismatched inputs
         run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
       - name: Test local environment setup in a moved checkout
