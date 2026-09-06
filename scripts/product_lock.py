@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import hashlib
 import json
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import tempfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import product_lock_shared as shared
 
 ROOT = Path(__file__).resolve().parents[1]
 _product_spec = importlib.util.spec_from_file_location("dictionary_product", Path(__file__).with_name("dictionary_product.py"))
@@ -86,28 +89,16 @@ def write_json(path: Path, data: dict) -> None:
 
 
 def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return shared.sha256(path)
 
 
 def verify_assets(directory: Path, data: dict) -> None:
-    for name, expected in data["dictionary"]["assets"].items():
-        path = directory / name
-        if not path.is_file() or sha256(path) != expected:
-            raise ValueError(f"Locked dictionary asset missing or changed: {name}")
+    shared.verify_digests(directory, data["dictionary"]["assets"])
 
     if PRODUCT_MANIFEST in data["dictionary"]["assets"]:
-        manifest = _product.verify_product(directory, "desktop", set(data["dictionary"]["assets"]) - {"SHA256SUMS.txt", PRODUCT_MANIFEST})
-        # Matching digests only prove the bytes are the reviewed bytes. The manifest additionally
-        # states which commit built them and whether that tree was clean, and a release whose data
-        # came from an uncommitted working tree cannot be rebuilt from anything.
-        source = manifest.get("source", {})
-        if (source.get("repository") != data["dictionary"]["repository"] or
-                source.get("commit") != data["dictionary"]["source_commit"] or source.get("dirty") is not False):
-            raise ValueError("Dictionary manifest provenance does not match the reviewed source commit")
+        required_files = set(data["dictionary"]["assets"]) - {"SHA256SUMS.txt", PRODUCT_MANIFEST}
+        shared.verify_manifest_provenance(directory, PRODUCT_MANIFEST, _product.verify_product, required_files,
+                                          data["dictionary"]["repository"], data["dictionary"]["source_commit"])
 
 
 def git(directory: Path, *args: str) -> str:
