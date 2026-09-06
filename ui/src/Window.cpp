@@ -252,6 +252,15 @@ void Window::Relayout()
 
 void Window::SetScene(std::unique_ptr<Scene> scene)
 {
+    // The cached targets point into the outgoing scene's visual tree, which is destroyed by the assignment below, so they have to be dropped first or the next mouse or keyboard message dispatches through a dangling pointer.
+    if (capturedVisual_ && hwnd_ && GetCapture() == hwnd_)
+    {
+        ReleaseCapture();
+    }
+    focusedVisual_ = nullptr;
+    hoveredVisual_ = nullptr;
+    capturedVisual_ = nullptr;
+
     scene_ = std::move(scene);
     if (scene_)
     {
