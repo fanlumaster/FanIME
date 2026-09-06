@@ -1,5 +1,6 @@
 #include "tests/includes/test_framework.h"
 #include "src/session/engine_input_session.h"
+#include "src/config/ime_config.h"
 #include "MetasequoiaImeEngine/common/helpcode_utils.h"
 #include "MetasequoiaImeEngine/quanpin/quanpin_query.h"
 #include "MetasequoiaImeEngine/shuangpin/shuangpin_dictionary.h"
@@ -783,4 +784,56 @@ TEST_CASE(EngineShuangpinSegmentedInitialCandidatesExpandInPlace)
     const auto &expanded_candidates = session.get_candidates();
     REQUIRE(count_initials(expanded_candidates) > 24);
     REQUIRE_EQ(count_other_candidates(expanded_candidates), other_count);
+}
+
+TEST_CASE(EngineSessionsKeepHelpcodeFilteringAndAnnotationsTogether)
+{
+    // The integration runner supplies an isolated config and the locked release dictionaries.
+    InitImeConfig();
+    struct RestoreConfiguration
+    {
+        std::string quanpin = GetConfiguredQuanpinHelpcodeSchema();
+        std::string shuangpin = GetConfiguredShuangpinHelpcodeSchema();
+        bool quanpin_enabled = GetConfiguredQuanpinHelpcodeEnabled();
+        bool shuangpin_enabled = GetConfiguredShuangpinHelpcodeEnabled();
+        ~RestoreConfiguration()
+        {
+            SetConfiguredQuanpinHelpcodeSchema(quanpin);
+            SetConfiguredShuangpinHelpcodeSchema(shuangpin);
+            SetConfiguredQuanpinHelpcodeEnabled(quanpin_enabled);
+            SetConfiguredShuangpinHelpcodeEnabled(shuangpin_enabled);
+        }
+    } restore;
+    REQUIRE(SetConfiguredQuanpinHelpcodeEnabled(true));
+    REQUIRE(SetConfiguredShuangpinHelpcodeEnabled(true));
+    REQUIRE(SetConfiguredQuanpinHelpcodeSchema("lantian"));
+    REQUIRE(SetConfiguredShuangpinHelpcodeSchema("ziranma"));
+
+    EngineInputSession quanpin(SchemeType::Quanpin);
+    EngineInputSession shuangpin(SchemeType::Shuangpin);
+    REQUIRE_EQ(quanpin.get_helpcode_annotation("你", true), std::string("(RX)"));
+    REQUIRE_EQ(shuangpin.get_helpcode_annotation("你", false), std::string("(rE)"));
+
+    InputLetters(quanpin, "niRX");
+    REQUIRE(!quanpin.get_candidates().empty());
+    REQUIRE(std::any_of(quanpin.get_candidates().begin(), quanpin.get_candidates().end(),
+                        [](const auto &item) { return item.word == "你"; }));
+    InputLetters(shuangpin, "ni");
+    shuangpin.recompute_candidates();
+    quanpin.recompute_candidates();
+    REQUIRE_EQ(quanpin.get_helpcode_annotation("你", true), std::string("(RX)"));
+    REQUIRE_EQ(shuangpin.get_helpcode_annotation("你", false), std::string("(rE)"));
+    REQUIRE(std::any_of(quanpin.get_candidates().begin(), quanpin.get_candidates().end(),
+                        [](const auto &item) { return item.word == "你"; }));
+
+    // A settings change is adopted by the next refresh, including candidate annotations.
+    REQUIRE(SetConfiguredQuanpinHelpcodeSchema("ziranma"));
+    quanpin.reset_state();
+    InputLetters(quanpin, "niRE");
+    REQUIRE_EQ(quanpin.get_helpcode_annotation("你", true), std::string("(RE)"));
+    REQUIRE(std::any_of(quanpin.get_candidates().begin(), quanpin.get_candidates().end(),
+                        [](const auto &item) { return item.word == "你"; }));
+    REQUIRE_EQ(shuangpin.get_helpcode_annotation("你", false), std::string("(rE)"));
+    quanpin.switch_scheme(SchemeType::Shuangpin);
+    REQUIRE_EQ(quanpin.get_helpcode_annotation("你", false), std::string("(rE)"));
 }
