@@ -74,6 +74,31 @@ UrlAction ClassifyUrl(std::wstring url)
     return UrlAction::Embed;
 }
 
+namespace
+{
+
+// `@import` only begins an at-rule at the top level of a stylesheet, which means at the very start
+// or after a `;` or `}`. Matching it anywhere would let `content: "@import //x";` be treated as one
+// and cut away everything up to that declaration's semicolon, leaving an unterminated string and a
+// broken stylesheet -- a legitimate skin damaged in the name of protecting it.
+bool BeginsAtRule(const std::wstring &css, size_t at)
+{
+    size_t before = at;
+    while (before > 0 && iswspace(css[before - 1]))
+    {
+        --before;
+    }
+    if (before != 0 && css[before - 1] != L';' && css[before - 1] != L'}')
+    {
+        return false;
+    }
+    // `@importsomething` is a different at-rule, or nothing at all. The keyword has to end here.
+    const size_t after = at + 7;
+    return after >= css.size() || !iswalnum(css[after]);
+}
+
+} // namespace
+
 std::wstring StripRemoteImports(const std::wstring &css)
 {
     std::wstring result;
@@ -84,7 +109,7 @@ std::wstring StripRemoteImports(const std::wstring &css)
         size_t importPos = std::wstring::npos;
         for (size_t i = pos; i + 7 <= css.size(); ++i)
         {
-            if (css[i] == L'@' && MatchesFoldedAt(css, i + 1, L"import"))
+            if (css[i] == L'@' && MatchesFoldedAt(css, i + 1, L"import") && BeginsAtRule(css, i))
             {
                 importPos = i;
                 break;

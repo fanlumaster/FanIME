@@ -45,6 +45,23 @@ TEST_CASE(skin_css_paths_leaving_the_package_are_dropped)
     REQUIRE(ClassifyUrl(L"#../../x") == UrlAction::Drop);
 }
 
+TEST_CASE(skin_css_escaped_spellings_never_reach_the_keep_branch)
+{
+    // Keep is the only action that writes the author's text back into the document, so it is the
+    // only one an escaped remote URL could exploit. Escapes hide `://` from the classifier, which
+    // sends them to Embed -- safe, because Embed emits either a data: payload or a candidate-skins
+    // URL. Pinning that here so a future change to Embed's fallback cannot quietly reopen it.
+    for (const wchar_t *escaped : {L"https:\\/\\/attacker.example/x.png", L"https\\3a //attacker.example/x.png",
+                                   L"\\2e \\2e /secrets.png", L"x\\../../secrets.png"})
+    {
+        REQUIRE(ClassifyUrl(escaped) != UrlAction::Keep);
+    }
+    // A leading backslash is still an absolute reference and is dropped outright.
+    REQUIRE(ClassifyUrl(L"\\..\\../secrets.png") == UrlAction::Drop);
+    // An unescaped traversal anywhere is dropped, escaped or not.
+    REQUIRE(ClassifyUrl(L"x\\../../secrets.png") == UrlAction::Drop);
+}
+
 TEST_CASE(skin_css_remote_imports_are_stripped)
 {
     REQUIRE_EQ(StripRemoteImports(L"@import url(https://attacker.example/x.css);\n.a{color:red}"),
@@ -53,6 +70,21 @@ TEST_CASE(skin_css_remote_imports_are_stripped)
     REQUIRE_EQ(StripRemoteImports(L"@import \"https://attacker.example/x.css\";.a{color:red}"),
                std::wstring(L".a{color:red}"));
     REQUIRE_EQ(StripRemoteImports(L"@IMPORT '//attacker.example/x.css';.a{}"), std::wstring(L".a{}"));
+}
+
+TEST_CASE(skin_css_import_stripping_only_matches_a_real_at_rule)
+{
+    // The text of a declaration is not an at-rule. Cutting to the next semicolon here would leave
+    // an unterminated string and break a stylesheet that was doing nothing wrong.
+    const std::wstring inString = L".a{content:\"@import //attacker.example/x\";color:red}";
+    REQUIRE_EQ(StripRemoteImports(inString), inString);
+    // A different at-rule that merely starts with the same letters.
+    const std::wstring other = L"@importantthing \"//x\";.a{}";
+    REQUIRE_EQ(StripRemoteImports(other), other);
+    // After a closing brace and after a semicolon are both valid places for one, and both strip.
+    REQUIRE_EQ(StripRemoteImports(L".a{}@import \"https://attacker.example/x\";.b{}"), std::wstring(L".a{}.b{}"));
+    REQUIRE_EQ(StripRemoteImports(L"@charset \"utf-8\";@import \"//attacker.example/x\";.b{}"),
+               std::wstring(L"@charset \"utf-8\";.b{}"));
 }
 
 TEST_CASE(skin_css_local_imports_and_plain_stylesheets_are_untouched)
