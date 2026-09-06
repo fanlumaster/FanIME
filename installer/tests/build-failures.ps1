@@ -25,6 +25,22 @@ try {
             if ($global:MsimeBuildCalls -ne $failure) { throw 'Continued after a failed native command' }
         }
     }
+    function global:Invoke-MsimeManifestProbe {
+        $global:MsimeManifestArguments = @($args)
+        $global:LASTEXITCODE = $global:MsimeManifestExit
+    }
+    $global:MsimeFailAt = 0
+    $global:MsimeManifestExit = 0
+    & (Join-Path $fixture 'server/scripts/lcompile-release.ps1') -ManifestTool Invoke-MsimeManifestProbe
+    $binary = Join-Path $fixture 'server/build-release/bin/Release/MetasequoiaImeServer.exe'
+    if ($global:MsimeManifestArguments.Count -ne 3 -or $global:MsimeManifestArguments[2] -ne "-outputresource:$binary;1") {
+        throw 'Manifest resource id or path with spaces was split into separate commands'
+    }
+    $global:MsimeManifestExit = 31
+    $rejected = $false
+    try { & (Join-Path $fixture 'server/scripts/lcompile-release.ps1') -ManifestTool Invoke-MsimeManifestProbe }
+    catch { $rejected = $_.Exception.Message -eq 'Server manifest embedding failed (31)' }
+    if (-not $rejected) { throw 'Failed manifest embedding was accepted' }
     Remove-Item Function:/cmake
     # Each installer entry must stop before staging/signing when the settings build fails.
     foreach ($relative in @('windows/scripts/lcompile-release-both.ps1', 'server/scripts/lcompile-release.ps1')) {
@@ -48,7 +64,7 @@ try {
     Write-Host 'Configure/build failures stop local packaging before staging, signing or installation'
 } finally {
     Set-Location $originalLocation
-    Remove-Item Function:/cmake, Function:/pnpm -ErrorAction SilentlyContinue
-    Remove-Variable MsimeBuildCalls, MsimeFailAt -Scope Global -ErrorAction SilentlyContinue
+    Remove-Item Function:/cmake, Function:/pnpm, Function:/Invoke-MsimeManifestProbe -ErrorAction SilentlyContinue
+    Remove-Variable MsimeBuildCalls, MsimeFailAt, MsimeManifestExit, MsimeManifestArguments -Scope Global -ErrorAction SilentlyContinue
     if (Test-Path $fixture) { Remove-Item $fixture -Recurse -Force }
 }

@@ -99,3 +99,5 @@ The server process includes a few built-in global shortcuts that are useful duri
 ## Shared voice providers
 
 The server links Engine VoiceCapture and Voice. WAV encoding and batch transcription/polish codecs come from the public library; Windows keeps provider configuration, SiliconFlow padding/retry behavior and Doubao streaming. Batch uploads are bounded to 20 MiB and responses to 1 MiB. Failed or empty polish responses retain the original transcript.
+
+本地 Release 构建脚本可通过 `-ManifestTool <mt.exe 路径>` 使用其他 Windows SDK；未指定时沿用现有 SDK 路径。配置、编译或 manifest 嵌入失败都会中止，避免安装器收集旧产物。
