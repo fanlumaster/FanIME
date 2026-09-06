@@ -2,6 +2,8 @@
 
 组织级边界与跨平台规则见 [组织 AGENTS.md](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md)。本文件规定本仓的目录职责、组件之间的边界，以及产品级的构建与发布约定。
 
+本仓默认分支是 `develop`，日常改动从 `develop` 切分支并合回 `develop`；`main` 是发布分支，只在发版时由维护者从 `develop` 合入，`release.yml` 也只监听 `main`。特性分支直接提到 `main` 会被 `Branch guard` 拦下。规则见[组织 AGENTS.md 的分支模型](https://github.com/metasequoiaime/.github/blob/main/AGENTS.md#分支模型)。
+
 Windows 端的全部一方源码在本仓。**合仓改变的是仓库数量，不是运行时结构**：DLL 与 Server 仍是两个进程、隔着版本化的命名管道；`ui/` 仍是不依赖输入法业务的通用 GUI 库。不要因为它们现在在同一棵树里，就在组件之间直接互相 include 或共享全局状态。
 
 ## 仓库地图
@@ -58,7 +60,7 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 本地测试打包见 [windows/AGENTS.md](windows/AGENTS.md) 的构建与验证。对外发布走 `.github/workflows/release.yml`，产出的就是历来挂在本仓 Release 上的 `MetasequoiaIME_Setup_v<版本>.exe`。
 
-版本号由 release-please 管理，真源是根目录的 `version.txt`。**发布是全自动的**：往 `main` 合一个带 `fix:` 或 `feat:` 的 PR，最后就会有一个签好名的安装包挂在 Release 上，中间没有任何一步等人。
+版本号由 release-please 管理，真源是根目录的 `version.txt`。**从 `main` 往后是全自动的**：把 `develop` 合进 `main`，只要这批提交里有 `fix:` 或 `feat:`，最后就会有一个签好名的安装包挂在 Release 上，中间没有任何一步等人。发版的决定点因此是那次提升本身——合进 `develop` 不产生版本号，也不消耗签名额度。
 
 这一整条链跑在那次 push 触发的同一个 run 里：
 

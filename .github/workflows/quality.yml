@@ -25,7 +25,7 @@ jobs:
           SHELLCHECK_OPTS: --severity=warning
         run: actionlint -color
       # Part of "Workflow validation" rather than a job of its own: it is a two-second grep, and this
-      # job is already a required check, so the guard starts protecting main immediately.
+      # job is already a required check, so the guard starts protecting both branches immediately.
       - name: Reject developer-specific paths in build inputs
         run: bash scripts/ci/check-developer-paths.sh
       # Formatting is platform independent, so it runs here on Ubuntu rather than costing a Windows
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # This job must not skip. It is one of main's required status checks, and a required check that reports "skipped" blocks a merge instead of passing it. Guarding it on the pull_request event left the release pull request unmergeable by its own automation: ci.yml ignores that pull request by path and the release workflow dispatches ci.yml on the release branch instead, so this job saw workflow_dispatch and skipped, and land-release-pr.sh got "the base branch policy prohibits the merge" after everything else came back green.
+      # This job must not skip. It is one of the required status checks on main and develop, and a required check that reports "skipped" blocks a merge instead of passing it. Guarding it on the pull_request event left the release pull request unmergeable by its own automation: ci.yml ignores that pull request by path and the release workflow dispatches ci.yml on the release branch instead, so this job saw workflow_dispatch and skipped, and land-release-pr.sh got "the base branch policy prohibits the merge" after everything else came back green.
       #
       # A pull_request event supplies both refs on its own. Every other trigger has to be told what to compare, and comparing the default branch against the checked-out commit is the same question the pull request asks.
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
