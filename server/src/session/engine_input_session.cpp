@@ -14,7 +14,7 @@ void EngineInputSession::ApplyConfiguration()
     if (scheme == SchemeType::Quanpin || scheme == SchemeType::Shuangpin)
     {
         const auto &schema = scheme == SchemeType::Quanpin ? GetConfiguredQuanpinHelpcodeSchema()
-                                                         : GetConfiguredShuangpinHelpcodeSchema();
+                                                           : GetConfiguredShuangpinHelpcodeSchema();
         if (schema != helpcode_schema_)
         {
             // Keep filtering and annotations on this session's captured resource layout.
