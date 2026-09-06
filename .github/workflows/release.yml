@@ -250,6 +250,10 @@ jobs:
         shell: pwsh
         run: cmake --build server/build-release --config Release --parallel
 
+      - name: Embed the Server uiAccess manifest
+        shell: pwsh
+        run: ./scripts/ci/embed-server-manifest.ps1 -BuildDir server/build-release/bin/Release
+
       - name: Check the binaries the installer requires
         shell: pwsh
         run: ./scripts/ci/check-server-binaries.ps1 -BuildDir server/build-release/bin/Release
