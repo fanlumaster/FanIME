@@ -71,7 +71,16 @@ cmake -S ui      -B ui/build -A x64                # GUI 框架
 
 **每次可发布的合并都花掉一次签名额度**，这正是之前的手动设计要避免的事。取舍的理由记在 [docs/product-release.md](docs/product-release.md)。
 
-`workflow_dispatch` 保留下来，现在是修复通道而不是常规路径：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会二次消耗签名次数。
+`workflow_dispatch` 保留下来，它同时是修复通道和发布频道的入口：run 在建出 draft 之后失败时，拿那个 tag 重跑即可。同一个 tag 重复触发会被 `validate-draft-release.sh` 挡下——发布之后它就不是 draft 了，不会二次消耗签名次数。
+
+**两个频道由触发方式决定，`publish-release.sh` 据此选状态**（[#167](https://github.com/metasequoiaime/MSIME-Windows/issues/167)）：
+
+| 频道 | 触发 | 发布状态 | 标题 |
+|---|---|---|---|
+| 自动构建 | push | `--prerelease` | `v<版本>（自动构建）`，说明里带提示 |
+| 发布 | `workflow_dispatch` | `--prerelease=false --latest` | `v<版本>` |
+
+GitHub 没有自定义频道，只有 Latest / Pre-release / Draft 三种状态，所以这里用 `prerelease` 标志承载「自动、未经挑选」，而不是承载「内测」。产品仍在内测这件事写在 release 说明和 [docs/installation.md](docs/installation.md) 里——那才是该做稳定性声明的地方，而这个标志同时还得用来分隔频道，兼不了两份职责。
 
 `windows/src/IME/MetasequoiaIME.rc` 的 `FILEVERSION` / `PRODUCTVERSION` 不由 release-please 直接改（它是逗号和点号两种写法），而是由 `scripts/apply_version.py` 从 `version.txt` 注入，release 构建在 configure 之前执行：
 
