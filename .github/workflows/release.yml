@@ -460,4 +460,5 @@ jobs:
           ASSET_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
           SIGNING_ENABLED: ${{ steps.signing.outputs.signing_enabled }}
           PRODUCT_MANIFEST: installer/app_data/product-manifest.json
+          RELEASE_TRIGGER: ${{ github.event_name }}
         run: bash scripts/ci/publish-release.sh
