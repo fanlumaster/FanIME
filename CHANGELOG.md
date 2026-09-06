@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.4](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.3...v0.5.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **release:** publish automatic builds as stable releases ([7ad9de8](https://github.com/metasequoiaime/MSIME-Windows/commit/7ad9de84dd175eb26c670f94c1dc8560fab4cbf8))
+* **release:** publish automatic builds as stable releases ([d55a0b1](https://github.com/metasequoiaime/MSIME-Windows/commit/d55a0b17a98bbc2c3cc2a4c65dd931a83cec24a3))
+
 ## [0.5.3](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.2...v0.5.3) (2026-09-06)
 
 
