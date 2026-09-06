@@ -162,12 +162,12 @@ jobs:
             architecture: x64
             triplet: x64-windows-static
             build_dir: windows/build64-release
-            vcpkg_root: E:\\msime-runner\\vcpkg-1
+            vcpkg_root: E:\msime-runner\vcpkg-1
           - name: Win32
             architecture: Win32
             triplet: x86-windows-static
             build_dir: windows/build32-release
-            vcpkg_root: E:\\msime-runner\\vcpkg-2
+            vcpkg_root: E:\msime-runner\vcpkg-2
     steps:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -185,7 +185,8 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         working-directory: windows
-        run: & '${{ matrix.vcpkg_root }}\\vcpkg.exe' install --triplet ${{ matrix.triplet }}
+        run: >-
+          & '${{ matrix.vcpkg_root }}\\vcpkg.exe' install --triplet ${{ matrix.triplet }}
 
       # CMakePresets.json points at a developer machine's vcpkg, so the presets cannot be used
       # here. This mirrors what .github/workflows/ci.yml already does, into the build directory
