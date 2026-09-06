@@ -1,6 +1,8 @@
 #include "tests/includes/test_framework.h"
 
+#include "msimeui/Controls.h"
 #include "msimeui/Layout.h"
+#include "msimeui/Window.h"
 
 #include <cmath>
 #include <memory>
@@ -221,4 +223,53 @@ TEST_CASE(horizontal_stack_panel_advances_along_x)
     REQUIRE_NEAR(outer.width, 106.0f);
     REQUIRE_NEAR(first->GetBounds().x, 0.0f);
     REQUIRE_NEAR(second->GetBounds().x, 66.0f);
+}
+
+TEST_CASE(horizontal_candidate_translation_uses_a_second_line)
+{
+    CandidateList list(28.0f);
+    list.SetOrientation(CandidateList::Orientation::Horizontal);
+    list.SetItems({{L"1", L"candidate", L"", L""}});
+    const SizeF plain = list.MeasureInLayout({1000.0f, 1000.0f});
+
+    list.SetItems({{L"1", L"candidate", L"", L"word"}});
+    const SizeF translated = list.MeasureInLayout({1000.0f, 1000.0f});
+    REQUIRE_NEAR(translated.width, plain.width);
+    REQUIRE_NEAR(translated.height, plain.height + 16.0f * 0.78f * 1.25f);
+
+    list.SetItems({{L"1", L"candidate", L"", L"a translation wider than the candidate"}});
+    REQUIRE(list.MeasureInLayout({1000.0f, 1000.0f}).width > translated.width);
+
+    list.SetItems({{L"1", L"candidate", L"", L""}});
+    REQUIRE_NEAR(list.MeasureInLayout({1000.0f, 1000.0f}).height, plain.height);
+}
+
+TEST_CASE(horizontal_candidate_translation_area_activates_the_candidate)
+{
+    Window window(L"candidate-test", L"", 1000, 1000);
+    CandidateList list(28.0f);
+    list.Attach(&window);
+    list.SetOrientation(CandidateList::Orientation::Horizontal);
+    list.SetItems({{L"1", L"candidate", L"", L"word"}, {L"2", L"candidate", L"", L"word"}});
+    const SizeF size = list.MeasureInLayout({1000.0f, 1000.0f});
+    list.ArrangeInLayout({0.0f, 0.0f, size.width, size.height});
+    size_t activated = 0;
+    list.SetOnItemActivated([&](size_t index) { activated = index; });
+    const POINT point{static_cast<LONG>(size.width - 2.0f), static_cast<LONG>(size.height - 2.0f)};
+    REQUIRE(list.OnMouseDown(point, MK_LBUTTON));
+    REQUIRE(list.OnMouseUp(point, 0));
+    REQUIRE(activated == 1);
+}
+
+TEST_CASE(vertical_candidate_translation_stays_on_the_same_line)
+{
+    CandidateList list(28.0f);
+    list.SetOrientation(CandidateList::Orientation::Horizontal);
+    list.SetItems({{L"1", L"candidate", L"", L"word"}});
+    const SizeF horizontal = list.MeasureInLayout({1000.0f, 1000.0f});
+
+    list.SetOrientation(CandidateList::Orientation::Vertical);
+    const SizeF vertical = list.MeasureInLayout({1000.0f, 1000.0f});
+    REQUIRE_NEAR(vertical.height, 28.0f);
+    REQUIRE(vertical.width > horizontal.width);
 }
