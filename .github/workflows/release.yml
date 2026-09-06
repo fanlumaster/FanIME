@@ -396,16 +396,6 @@ jobs:
           --windows-commit "$env:WINDOWS_COMMIT"
           --output installer/app_data/product-manifest.json
 
-      - name: Sign the packaged binaries
-        if: ${{ steps.signing.outputs.signing_enabled == 'true' }}
-        shell: pwsh
-        working-directory: installer
-        env:
-          CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
-          TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
-        run: ../scripts/ci/sign-binaries.ps1 -Path 'server_exe', 'tsf_dll' -Recurse
-
       - name: Install the Chinese language file for Inno Setup
         shell: pwsh
         run: ./scripts/ci/install-inno-language.ps1
