@@ -303,25 +303,25 @@ Server 启动时会同时启动 Watchdog。服务意外退出后，Watchdog 会�
 
 ## 软件截图
 
-<img src="https://i.imgur.com/1gDQFix.png" width="750">
+<img src="docs/images/candidate-window-1.png" width="750">
 
-<img src="https://i.imgur.com/MxRcKYT.png" width="750">
+<img src="docs/images/candidate-window-2.png" width="750">
 
-<img src="https://i.imgur.com/5MG33lH.png" width="750">
+<img src="docs/images/candidate-window-3.png" width="750">
 
-<img src="https://i.imgur.com/gnJwoVa.png" width="750">
+<img src="docs/images/candidate-window-4.png" width="750">
 
-<img src="https://i.imgur.com/wBwpuUT.png" width="750">
+<img src="docs/images/candidate-window-5.png" width="750">
 
-<img src="https://i.imgur.com/VcjIaeV.png" width="750">
+<img src="docs/images/candidate-window-6.png" width="750">
 
 <!-- 暗色 -->
 
-<img src="https://i.imgur.com/YgxjjEz.png" width="780">
+<img src="docs/images/settings-dark.png" width="780">
 
 <!-- 亮色 -->
 
-<img src="https://i.imgur.com/dkXHbPm.png" width="780">
+<img src="docs/images/settings-light.png" width="780">
 
 ## 开源协议
 
