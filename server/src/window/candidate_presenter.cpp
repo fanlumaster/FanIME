@@ -483,11 +483,11 @@ void CandidatePresenter::ApplySkin()
 
 void CandidatePresenter::FillItemsFromUi()
 {
-    auto &ui = Global::candidate_ui;
+    const Global::CandidatePageSnapshotPtr page = Global::LoadCandidatePageSnapshot();
     std::vector<msimeui::CandidateList::Item> items;
-    for (size_t i = 0; i < ui.page_views.size(); ++i)
+    for (size_t i = 0; i < page->page_views.size(); ++i)
     {
-        const auto &view = ui.page_views[i];
+        const auto &view = page->page_views[i];
         msimeui::CandidateList::Item item;
         item.label = std::to_wstring(i + 1);
         item.text = string_to_wstring(view.text + view.badge);
@@ -498,7 +498,7 @@ void CandidatePresenter::FillItemsFromUi()
     }
     ignoreSelectionCallback_ = true;
     impl_->list->SetItems(std::move(items));
-    impl_->list->SetSelectedIndex(static_cast<size_t>((std::max)(0, ui.selected_index_in_page)));
+    impl_->list->SetSelectedIndex(static_cast<size_t>((std::max)(0, page->selected_index_in_page)));
     ignoreSelectionCallback_ = false;
 }
 
@@ -540,11 +540,12 @@ void CandidatePresenter::ShowItemContextMenu(size_t pageIndex, POINT clientPoint
     CloseContextMenu(true);
     impl_->contextMenuPageIndex = pageIndex;
 
-    auto &ui = Global::candidate_ui;
+    // A mouse callback has no posted-message handoff at all, so it must not walk the worker's live page either.
+    const Global::CandidatePageSnapshotPtr page = Global::LoadCandidatePageSnapshot();
     std::wstring word;
-    if (pageIndex < ui.page_words.size())
+    if (pageIndex < page->page_words.size())
     {
-        word = ui.page_words[pageIndex];
+        word = page->page_words[pageIndex];
     }
     size_t codePoints = 0;
     for (size_t i = 0; i < word.size(); ++i)
