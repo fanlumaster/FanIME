@@ -72,7 +72,9 @@ jobs:
           skip-github-pull-request: true
 
       - name: Refresh the release pull request
-        if: ${{ github.event_name == 'push' }}
+        # When recovery found a release to publish, do not create the next
+        # release PR in the same run. That PR belongs to the next main push.
+        if: ${{ github.event_name == 'push' && steps.release_pr.outputs.release_created != 'true' }}
         id: release_update
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
