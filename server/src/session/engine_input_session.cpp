@@ -168,6 +168,17 @@ IInputSession::CloudQueryState EngineInputSession::get_cloud_query_state() const
     return session_.get_cloud_query_state();
 }
 
+std::optional<metasequoia::OnlineQuery> EngineInputSession::online_query() const
+{
+    return session_.online_query();
+}
+
+bool EngineInputSession::apply_online_candidate(const metasequoia::OnlineQuery &query, std::string candidate,
+                                                CandidateSource source)
+{
+    return session_.apply_online_candidate(query, std::move(candidate), source);
+}
+
 IInputSession::CreatingWordProgress EngineInputSession::update_creating_word_progress(
     const std::string &current_pinyin, const std::string &current_word, const std::string &selected_word,
     const SelectionTransition &selection_transition) const

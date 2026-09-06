@@ -55,6 +55,9 @@ class IInputSession
                                                                     const std::string &selected_word,
                                                                     const std::string &selected_canonical_pinyin) = 0;
     virtual CloudQueryState get_cloud_query_state() const = 0;
+    virtual std::optional<metasequoia::OnlineQuery> online_query() const = 0;
+    virtual bool apply_online_candidate(const metasequoia::OnlineQuery &query, std::string candidate,
+                                        CandidateSource source) = 0;
     virtual CreatingWordProgress update_creating_word_progress(
         const std::string &current_pinyin, const std::string &current_word, const std::string &selected_word,
         const SelectionTransition &selection_transition) const = 0;

@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include "Ipc.h"
 #include "ipc/candidate_selection_policy.h"
+#include "ipc/async_request_origin.h"
 #include "ipc/candidate_ui_owner.h"
 #include "ipc/candidate_text_policy.h"
 #include "ipc/focus_session_policy.h"
@@ -401,13 +402,7 @@ bool ReadExactPipeMessageUntil(HANDLE pipe, void *destination, DWORD destination
     return false;
 }
 
-struct AsyncRequestOrigin
-{
-    uint64_t client_id = 0;
-    uint64_t activation_epoch = 0;
-    uint64_t generation = 0;
-    std::string input;
-};
+using AsyncRequestOrigin = FanyImeIpc::AsyncRequestOrigin;
 
 std::mutex g_async_request_mutex;
 uint64_t g_cloud_generation = 0;
@@ -540,6 +535,8 @@ void UpdateCloudInput(const std::string &input, uint64_t client_id = 0, uint64_t
     g_cloud_request_origin = effective_input.empty()
                                  ? AsyncRequestOrigin{}
                                  : AsyncRequestOrigin{client_id, activation_epoch, g_cloud_generation, effective_input};
+    if (!effective_input.empty() && g_inputSession)
+        g_cloud_request_origin.engine_query = g_inputSession->online_query();
 }
 
 void UpdateEnglishInput(const std::string &input, uint64_t client_id = 0, uint64_t activation_epoch = 0,
@@ -605,12 +602,14 @@ void UpdateAiInput(const std::string &identity, uint64_t client_id = 0, uint64_t
     ++g_ai_generation;
     g_ai_request_origin =
         usable ? AsyncRequestOrigin{client_id, activation_epoch, g_ai_generation, identity} : AsyncRequestOrigin{};
+    if (usable)
+        g_ai_request_origin.engine_query = g_inputSession->online_query();
 }
 
 AsyncRequestOrigin FindCloudRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_cloud_request_origin.generation == generation && g_cloud_request_origin.input == input)
+    if (g_cloud_request_origin.matches(input, generation))
     {
         return g_cloud_request_origin;
     }
@@ -650,7 +649,7 @@ AsyncRequestOrigin FindKaomojiRequestOrigin(const std::string &input, uint64_t g
 AsyncRequestOrigin FindAiRequestOrigin(const std::string &input, uint64_t generation)
 {
     std::lock_guard lock(g_async_request_mutex);
-    if (g_ai_request_origin.generation == generation && g_ai_request_origin.input == input)
+    if (g_ai_request_origin.matches(input, generation))
         return g_ai_request_origin;
     return {};
 }
@@ -1320,6 +1319,7 @@ struct Task
     std::string ai_candidate;
     std::string ai_identity;
     uint64_t ai_generation = 0;
+    std::optional<metasequoia::OnlineQuery> online_query;
     std::vector<WordItem> english_candidates;
     std::string english_input;
     uint64_t english_generation = 0;
@@ -1426,8 +1426,10 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch);
 void HandleImeKey(uint64_t client_id, uint64_t activation_epoch, uint64_t request_id);
 void ClearState();
 void ProcessSelectionKey(UINT keycode, uint64_t client_id, uint64_t activation_epoch, int forced_index_in_page = -1);
-void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation);
-void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation);
+void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation,
+                         const std::optional<metasequoia::OnlineQuery> &query);
+void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation,
+                      const std::optional<metasequoia::OnlineQuery> &query);
 void ApplyEnglishCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
 void ApplyCandidateTranslations(std::vector<EnglishIme::TranslationResult> results, uint64_t generation, bool merge);
 void ApplyEmojiCandidates(std::vector<WordItem> candidates, const std::string &input, uint64_t generation);
@@ -1569,12 +1571,12 @@ void WorkerThread()
         }
 
         case TaskType::ApplyCloudCandidate: {
-            ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation);
+            ApplyCloudCandidate(task.cloud_candidate, task.cloud_pinyin, task.cloud_generation, task.online_query);
             break;
         }
 
         case TaskType::ApplyAiCandidate: {
-            ApplyAiCandidate(task.ai_candidate, task.ai_identity, task.ai_generation);
+            ApplyAiCandidate(task.ai_candidate, task.ai_identity, task.ai_generation, task.online_query);
             break;
         }
 
@@ -1988,6 +1990,7 @@ void EnqueueCloudCandidate(const std::string &candidate, const std::string &piny
         task.cloud_candidate = candidate;
         task.cloud_pinyin = pinyin;
         task.cloud_generation = generation;
+        task.online_query = origin.engine_query;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
@@ -2007,6 +2010,7 @@ void EnqueueAiCandidate(const std::string &candidate, const std::string &identit
         task.ai_candidate = candidate;
         task.ai_identity = identity;
         task.ai_generation = generation;
+        task.online_query = origin.engine_query;
         task.client_id = origin.client_id;
         task.activation_epoch = origin.activation_epoch;
         taskQueue.push(std::move(task));
@@ -3207,11 +3211,14 @@ void PrepareCandidateList(uint64_t client_id, uint64_t activation_epoch)
     }
 }
 
-void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation)
+void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin, uint64_t generation,
+                         const std::optional<metasequoia::OnlineQuery> &query)
 {
     if (!GetConfiguredCloudCandidatesEnabled())
         return;
-    (void)generation;
+    // A callback can become stale after enqueueing, while earlier key tasks run.
+    if (FindCloudRequestOrigin(pinyin, generation).client_id == 0 || !g_inputSession)
+        return;
 
     if (candidate.empty())
         return;
@@ -3226,13 +3233,25 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     if (Global::candidate_ui.items.empty())
         return;
 
+    if (!query)
+        return;
+
     auto &items = Global::candidate_ui.items;
     // Same word already visible (dict / prior cloud): keep page and skip re-cache.
     if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
     {
-        Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
         return;
     }
+
+    // The engine checks the original session and composition before caching the result.
+    if (!g_inputSession->apply_online_candidate(*query, candidate, CandidateSource::CloudSuggestion))
+        return;
+    const auto &engine_candidates = g_inputSession->get_candidates();
+    const auto accepted = std::find_if(engine_candidates.begin(), engine_candidates.end(), [&](const WordItem &item) {
+        return item.word == candidate && item.source == CandidateSource::CloudSuggestion;
+    });
+    if (accepted == engine_candidates.end())
+        return;
 
     // Replace any previous cloud suggestion with the new unique text.
     items.erase(std::remove_if(items.begin(), items.end(),
@@ -3240,12 +3259,11 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
                 items.end());
 
     size_t insert_index = items.size() >= 1 ? 1 : 0;
-    items.insert(items.begin() + insert_index, WordItem(pinyin, candidate, 1, CandidateSource::CloudSuggestion));
+    items.insert(items.begin() + insert_index, *accepted);
     const bool preserve_single_kana_pair =
         g_inputSession->current_scheme_type() == SchemeType::JapaneseRomaji &&
         japanese::IsSingleKanaConversion(japanese::ConvertRomaji(g_inputSession->get_pinyin_sequence()));
     FanyImeIpc::NormalizeMixedCandidateOrder(items, preserve_single_kana_pair ? 2 : 1);
-    g_inputSession->cache_dynamic_candidate(cloud_query_state.cache_key, candidate, CandidateSource::CloudSuggestion);
     Global::cloud_candidate = {true, candidate, cloud_query_state.committed_pinyin};
 
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
@@ -3255,8 +3273,11 @@ void ApplyCloudCandidate(const std::string &candidate, const std::string &pinyin
     RefreshCandidatePageUi(true);
 }
 
-void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation)
+void ApplyAiCandidate(const std::string &candidate, const std::string &identity, uint64_t generation,
+                      const std::optional<metasequoia::OnlineQuery> &engine_query)
 {
+    if (!engine_query || FindAiRequestOrigin(identity, generation).client_id == 0)
+        return;
     const bool enabled = GetConfiguredAiAssistant().enabled;
     const bool has_session = static_cast<bool>(g_inputSession);
     const bool non_pinyin = has_session && g_inputSession->current_scheme_type() != SchemeType::Quanpin &&
@@ -3276,21 +3297,25 @@ void ApplyAiCandidate(const std::string &candidate, const std::string &identity,
     // reset page_index / re-cache. This stops cache-hit reapply from breaking paging.
     if (std::any_of(items.begin(), items.end(), [&](const WordItem &item) { return item.word == candidate; }))
     {
-        Global::ai_candidate = {true, candidate, query.committed_pinyin};
-        (void)0;
         return;
     }
+
+    if (!g_inputSession->apply_online_candidate(*engine_query, candidate, CandidateSource::AiSuggestion))
+        return;
+    const auto &engine_candidates = g_inputSession->get_candidates();
+    const auto accepted = std::find_if(engine_candidates.begin(), engine_candidates.end(), [&](const WordItem &item) {
+        return item.word == candidate && item.source == CandidateSource::AiSuggestion;
+    });
+    if (accepted == engine_candidates.end())
+        return;
 
     // Only replace prior AI rows when inserting a genuinely new suggestion text.
     items.erase(std::remove_if(items.begin(), items.end(),
                                [](const WordItem &item) { return item.source == CandidateSource::AiSuggestion; }),
                 items.end());
     const size_t insert_index = std::min<size_t>(2, items.size());
-    const std::string typed_pinyin = query.cache_key.empty() ? query.committed_pinyin : query.cache_key;
-    items.insert(items.begin() + insert_index,
-                 WordItem(typed_pinyin, candidate, 1, CandidateSource::AiSuggestion, identity));
+    items.insert(items.begin() + insert_index, *accepted);
     FanyImeIpc::NormalizeMixedCandidateOrder(items);
-    g_inputSession->cache_dynamic_candidate(typed_pinyin, candidate, CandidateSource::AiSuggestion);
     (void)0;
     Global::ai_candidate = {true, candidate, query.committed_pinyin};
     Global::candidate_ui.item_total_count = static_cast<int>(items.size());
