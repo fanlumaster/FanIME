@@ -26,6 +26,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+
   lock:
     name: Product inputs
     runs-on: ubuntu-24.04

@@ -1,15 +1,9 @@
 name: Repository quality
+# Called by CI so release-please's workflow_dispatch receives these checks too.
 on:
-  push:
-    branches: [main]
-  pull_request:
-  merge_group:
-  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
-concurrency:
-  group: quality-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
   workflows:
     name: Workflow validation
