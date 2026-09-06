@@ -33,17 +33,10 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: 问题描述 / Description
-      description: 发生了什么？期望是什么？What happened, and what did you expect?
+      label: 问题与行为 / Problem & Actual behavior
+      description: 发生了什么？What happened?
       placeholder: |
-        简要说明问题现象与预期行为。
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: 实际行为 / Actual Behavior
-      description: 实际观察到了什么？What actually happened?
+        简要说明问题现象与行为。
     validations:
       required: true
   - type: textarea
