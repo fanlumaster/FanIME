@@ -37,6 +37,8 @@ jobs:
         run: python3 scripts/check-dictionary-contract.py
       - name: Test rejection of changed or mismatched inputs
         run: python3 -m unittest discover -s tests -p 'test_product_lock.py'
+      - name: Test local environment setup in a moved checkout
+        run: python3 -m unittest discover -s tests -p 'test_prepare_env.py'
       - name: Read the reviewed lock
         id: lock
         run: |
@@ -213,3 +215,5 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test full and light package contents without registering or installing
         run: ./installer/tests/package-files.ps1
+      - name: Stop local packaging after failed component builds
+        run: ./installer/tests/build-failures.ps1

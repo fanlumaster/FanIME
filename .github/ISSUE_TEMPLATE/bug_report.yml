@@ -19,7 +19,7 @@ body:
       multiple: true
       options:
         - TSF 前端 / MSIME-Windows
-        - Server / 引擎服务 / MSIME-Server
+        - Server / 引擎服务 / server
         - 设置界面 / Settings
         - 候选窗 UI / Candidate UI
         - 词典 / MSIME-Engine/dictionary

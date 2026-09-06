@@ -2,17 +2,17 @@
 param(
     [string]$TargetVersion = '0.0.1',
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
-    # Component paths are relative to RepoRoot. CI and local product scripts pass windows/,
-    # server/ and ui-html/ explicitly; the standalone historical names remain valid overrides.
-    [string]$TsfDirectory = 'MetasequoiaImeTsf',
-    [string]$ServerDirectory = 'MetasequoiaImeServer',
-    [string]$UiHtmlDirectory = 'MetasequoiaImeUiHtml',
+    # Component paths are relative to RepoRoot and default to the consolidated layout.
+    # Historical or custom layouts remain available through explicit overrides.
+    [string]$TsfDirectory = 'windows',
+    [string]$ServerDirectory = 'server',
+    [string]$UiHtmlDirectory = 'ui-html',
     [string]$HelpCodeDirectory = 'vendor/MetasequoiaImeEngine/helpcode',
     [string]$DictionaryDirectory = 'MetasequoiaImeDict',
     # THIRD_PARTY_NOTICES.txt used to sit next to the tip's sources. In the consolidated repository
     # the notice covers the whole product and lives at the root, one level above windows/, so where
     # to read it is no longer answered by where the tip is.
-    [string]$NoticesDirectory = $TsfDirectory,
+    [string]$NoticesDirectory = '.',
     [switch]$Light
 )
 
