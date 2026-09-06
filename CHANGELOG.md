@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.2.0...v0.2.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **server:** adopt isolated engine sessions and helpcode annotations ([#178](https://github.com/metasequoiaime/MSIME-Windows/issues/178)) ([2b8bf93](https://github.com/metasequoiaime/MSIME-Windows/commit/2b8bf937d96e5ff80e19f97de5be594802d90b5d))
+
 ## [0.2.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.1.4...v0.2.0) (2026-09-06)
 
 
