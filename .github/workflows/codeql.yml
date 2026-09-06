@@ -3,6 +3,13 @@ on:
   push:
     branches: [main]
   pull_request:
+    # These are the same metadata-only changes excluded by native PR CI. The release
+    # script dispatches CI explicitly; a GITHUB_TOKEN-created PR otherwise leaves a
+    # CodeQL workflow parked in action_required despite containing no source changes.
+    paths-ignore:
+      - version.txt
+      - CHANGELOG.md
+      - .release-please-manifest.json
   schedule:
     - cron: '11 3 * * 1'
   workflow_dispatch:
