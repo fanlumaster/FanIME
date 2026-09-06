@@ -9,6 +9,17 @@
 namespace msime::skin_css
 {
 
+// A note on CSS escapes, because it is not obvious that they are not a hole here. A stylesheet may
+// write `url("https:\/\/host/x.png")`, and the browser unescapes that to a working remote URL. The
+// literal text carries no `://`, so ClassifyUrl says Embed rather than Drop. That is safe, but only
+// because of what Embed can emit: it either inlines the file as a data: payload or falls back to a
+// URL under the candidate-skins virtual host. Neither can name an origin the skin author chose. The
+// same reasoning covers an escaped `..`: it reaches the filesystem lookup as literal escape text,
+// which does not traverse, and is never written back into the document.
+//
+// So the invariant that actually protects the candidate window is "Embed never emits an
+// attacker-named origin", not "Drop catches every spelling of a remote URL". A change that made
+// Embed fall back to writing the original URL through would reopen this.
 enum class UrlAction
 {
     // A path relative to the skin package: read the file and inline it.
