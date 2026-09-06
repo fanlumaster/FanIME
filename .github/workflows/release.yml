@@ -98,7 +98,7 @@ jobs:
     name: Build TSF ${{ matrix.name }}
     needs: [prepare, dependencies]
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
-    runs-on: windows-2025
+    runs-on: [self-hosted, Windows, X64, msime-windows]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -163,7 +163,7 @@ jobs:
     name: Build Server
     needs: [prepare, dependencies]
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
-    runs-on: windows-2025
+    runs-on: [self-hosted, Windows, X64, msime-windows]
     timeout-minutes: 90
     steps:
       - name: Check out release commit
@@ -260,7 +260,7 @@ jobs:
     # that spends a signature, so the condition that stops it belongs here rather than being a
     # consequence of four other jobs' conditions that a later edit could quietly undo.
     if: ${{ needs.prepare.outputs.should_publish == 'true' }}
-    runs-on: windows-2025
+    runs-on: [self-hosted, Windows, X64, msime-windows]
     timeout-minutes: 60
     permissions:
       contents: write
