@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.6.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.4...v0.6.0) (2026-09-07)
+
+
+### Features
+
+* **contracts:** sync engine product lock contract ([9bd309e](https://github.com/metasequoiaime/MSIME-Windows/commit/9bd309e7735147d2816beae6d89cec847d43d2a6))
+* **contracts:** verify shared product lock primitives ([2ff0509](https://github.com/metasequoiaime/MSIME-Windows/commit/2ff0509e679fe17dae7aafe0b66562a457200ae3))
+* **installer:** include release PDB symbols ([4b95c90](https://github.com/metasequoiaime/MSIME-Windows/commit/4b95c90fde0ce35247fd75e676d63c8f5ad118f0))
+* **installer:** include release PDB symbols ([e9a2c91](https://github.com/metasequoiaime/MSIME-Windows/commit/e9a2c91214e699e9d026a390364ddc13dab9db6f))
+
+
+### Bug Fixes
+
+* **product-lock:** update engine commit ([f1aefec](https://github.com/metasequoiaime/MSIME-Windows/commit/f1aefec3190f4ebd9b7cb7dc1433d2ff2eca891a))
+* **server:** embed uiAccess manifest before signing ([ad48153](https://github.com/metasequoiaime/MSIME-Windows/commit/ad48153c8e4e1697f1eca45dcbed3a1a472df0a9))
+* **server:** embed uiAccess manifest before signing ([84de68f](https://github.com/metasequoiaime/MSIME-Windows/commit/84de68fd1b0467e726226e7b52703489d0963455))
+* **server:** save custom translation settings ([5a0b4dc](https://github.com/metasequoiaime/MSIME-Windows/commit/5a0b4dc4c27c0af24723703dd41dd8fa68b067e7))
+
+## [0.5.4](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.3...v0.5.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **release:** publish automatic builds as stable releases ([7ad9de8](https://github.com/metasequoiaime/MSIME-Windows/commit/7ad9de84dd175eb26c670f94c1dc8560fab4cbf8))
+* **release:** publish automatic builds as stable releases ([d55a0b1](https://github.com/metasequoiaime/MSIME-Windows/commit/d55a0b17a98bbc2c3cc2a4c65dd931a83cec24a3))
+
+## [0.5.3](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.2...v0.5.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **installer:** fail when configured signing key is unavailable ([f3a34cf](https://github.com/metasequoiaime/MSIME-Windows/commit/f3a34cfb5684e2c5118ec57d997325b2a09af8ed))
+* **installer:** fail when configured signing key is unavailable ([a45a8cb](https://github.com/metasequoiaime/MSIME-Windows/commit/a45a8cbd3442e2703a83d092b23eb70878039be4))
+* **server:** avoid showing raw preedit for sentence candidates ([2098206](https://github.com/metasequoiaime/MSIME-Windows/commit/2098206019c067b9ffa9fb30c1a16290b525aa39))
+* 改进长句候选展示与候选排序，本地联想的长句后面不应跟着 raw preedit ([ec29a5b](https://github.com/metasequoiaime/MSIME-Windows/commit/ec29a5bc6043c3ef44b7191657e0303a245a4381))
+
 ## [0.5.2](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.1...v0.5.2) (2026-09-06)
 
 
