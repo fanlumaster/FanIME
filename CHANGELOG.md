@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.1](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.6.0...v0.6.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **server:** make release probes non-interactive ([ba62a6a](https://github.com/metasequoiaime/MSIME-Windows/commit/ba62a6a720b88250f7703f208116119735ec3939))
+* **server:** make release probes non-interactive ([818069f](https://github.com/metasequoiaime/MSIME-Windows/commit/818069f9c3ffd44a1993295d5c923c6b35eabd85))
+* **server:** test valid escaped CSS URLs ([84ef90c](https://github.com/metasequoiaime/MSIME-Windows/commit/84ef90cc8d09a600c35e799897ea9d104987b6eb))
+
 ## [0.6.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.4...v0.6.0) (2026-09-07)
 
 
