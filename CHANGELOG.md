@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.4...v0.6.0) (2026-09-07)
+
+
+### Features
+
+* **contracts:** sync engine product lock contract ([9bd309e](https://github.com/metasequoiaime/MSIME-Windows/commit/9bd309e7735147d2816beae6d89cec847d43d2a6))
+* **contracts:** verify shared product lock primitives ([2ff0509](https://github.com/metasequoiaime/MSIME-Windows/commit/2ff0509e679fe17dae7aafe0b66562a457200ae3))
+* **installer:** include release PDB symbols ([4b95c90](https://github.com/metasequoiaime/MSIME-Windows/commit/4b95c90fde0ce35247fd75e676d63c8f5ad118f0))
+* **installer:** include release PDB symbols ([e9a2c91](https://github.com/metasequoiaime/MSIME-Windows/commit/e9a2c91214e699e9d026a390364ddc13dab9db6f))
+
+
+### Bug Fixes
+
+* **product-lock:** update engine commit ([f1aefec](https://github.com/metasequoiaime/MSIME-Windows/commit/f1aefec3190f4ebd9b7cb7dc1433d2ff2eca891a))
+* **server:** embed uiAccess manifest before signing ([ad48153](https://github.com/metasequoiaime/MSIME-Windows/commit/ad48153c8e4e1697f1eca45dcbed3a1a472df0a9))
+* **server:** embed uiAccess manifest before signing ([84de68f](https://github.com/metasequoiaime/MSIME-Windows/commit/84de68fd1b0467e726226e7b52703489d0963455))
+* **server:** save custom translation settings ([5a0b4dc](https://github.com/metasequoiaime/MSIME-Windows/commit/5a0b4dc4c27c0af24723703dd41dd8fa68b067e7))
+
 ## [0.5.4](https://github.com/metasequoiaime/MSIME-Windows/compare/v0.5.3...v0.5.4) (2026-09-06)
 
 
