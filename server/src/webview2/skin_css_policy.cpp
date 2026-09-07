@@ -214,9 +214,8 @@ bool IsRemoteImport(const std::wstring &rule)
         if (cursor >= rule.size() || rule[cursor] != L'(')
             return true;
         cursor = SkipCssTrivia(rule, cursor + 1);
-        const wchar_t quote = cursor < rule.size() && (rule[cursor] == L'\'' || rule[cursor] == L'"')
-                                  ? rule[cursor++]
-                                  : 0;
+        const wchar_t quote =
+            cursor < rule.size() && (rule[cursor] == L'\'' || rule[cursor] == L'"') ? rule[cursor++] : 0;
         const size_t start = cursor;
         while (cursor < rule.size())
         {
