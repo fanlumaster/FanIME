@@ -25,7 +25,8 @@ foreach ($architecture in @('Win32', 'x64')) {
 }
 # CI owns the process lifetime. The existing marker prevents the watchdog from
 # restarting it after the probe; no DLL is registered and no IME is installed.
-$process = Start-Process -FilePath $binary -ArgumentList '--watchdog-managed' -WorkingDirectory (Split-Path $binary) -PassThru
+$process = Start-Process -FilePath $binary -ArgumentList '--watchdog-managed --pipe-probe' `
+    -WorkingDirectory (Split-Path $binary) -PassThru
 try {
     foreach ($probe in $probes) {
         & $probe

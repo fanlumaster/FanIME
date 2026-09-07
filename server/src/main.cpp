@@ -56,6 +56,11 @@ void StartWatchdogIfNeeded(const char *command_line)
     }
 }
 
+bool IsPipeProbe(const char *command_line)
+{
+    return command_line && std::strstr(command_line, "--pipe-probe");
+}
+
 const char *SchemeTypeToString(SchemeType scheme_type)
 {
     switch (scheme_type)
@@ -77,6 +82,7 @@ const char *SchemeTypeToString(SchemeType scheme_type)
 
 int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
+    const bool pipe_probe = IsPipeProbe(lpCmdLine);
     CommonUtils::SingleInstanceGuard single_instance(L"Local\\MetasequoiaImeServer_SingleInstance");
     if (!single_instance.is_valid())
     {
@@ -89,7 +95,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
         return 0;
     }
 
-    StartWatchdogIfNeeded(lpCmdLine);
+    if (!pipe_probe)
+        StartWatchdogIfNeeded(lpCmdLine);
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -124,10 +131,13 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     (void)0;
 #endif
 
-    RegisterCandidateWindowMessage();
+    if (!pipe_probe)
+    {
+        RegisterCandidateWindowMessage();
 
-    WNDCLASSEX wcex;
-    RegisterIMEWindowsClass(wcex, hInstance);
+        WNDCLASSEX wcex;
+        RegisterIMEWindowsClass(wcex, hInstance);
+    }
 
     //
     // Pipe
@@ -146,6 +156,15 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance, _In
     std::thread aux_pipe_listener(FanyNamedPipe::AuxPipeEventListenerLoopThread);
     /* Short-lived TSF diagnostic batches; isolated from all control pipes. */
     std::thread tsf_diagnostic_pipe_listener(FanyNamedPipe::TsfDiagnosticPipeEventListenerLoopThread);
+
+    if (pipe_probe)
+    {
+        // The release runner is a Windows service without an interactive
+        // window station. The pipe probe still exercises the real Server and
+        // all IPC worker threads, but must not create candidate/WebView2
+        // windows or start UI-bound background services.
+        Sleep(INFINITE);
+    }
 
     CloudIme::Start([](const std::string &candidate, const std::string &pinyin, uint64_t generation) {
         FanyNamedPipe::EnqueueCloudCandidate(candidate, pinyin, generation);

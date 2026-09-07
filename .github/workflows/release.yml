@@ -187,8 +187,11 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         working-directory: windows
-        run: >-
-          & '${{ matrix.vcpkg_root }}\\vcpkg.exe' install --triplet ${{ matrix.triplet }}
+        run: |
+          # The self-hosted runner has a machine-level VCPKG_ROOT. Keep the
+          # matrix-selected registry and executable aligned for both targets.
+          $env:VCPKG_ROOT = '${{ matrix.vcpkg_root }}'
+          & "$env:VCPKG_ROOT\\vcpkg.exe" install --triplet ${{ matrix.triplet }}
 
       # CMakePresets.json points at a developer machine's vcpkg, so the presets cannot be used
       # here. This mirrors what .github/workflows/ci.yml already does, into the build directory

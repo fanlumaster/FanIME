@@ -2,7 +2,7 @@
 #
 # msime-installer's Sign-PackageBinaries-Local.ps1 mints a self-signed certificate for local
 # testing and must never run in CI, so this is a separate path using the real certificate. Used
-# for both the packaged binaries and the finished installer.
+# for the uiAccess Server binary and the finished installer.
 #
 # Requires CERTIFICATE_BASE64, CERTIFICATE_PASSWORD, TIMESTAMP_URL.
 param(
@@ -38,17 +38,28 @@ if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK.' }
 if ($env:CERTIFICATE_THUMBPRINT) {
     $thumbprint = $env:CERTIFICATE_THUMBPRINT -replace '\s', ''
     $cert = Get-ChildItem Cert:\CurrentUser\My\$thumbprint -ErrorAction SilentlyContinue
-    if (-not $cert -or -not $cert.HasPrivateKey) { throw "Certificate with thumbprint $thumbprint is not available with a private key." }
-    & $signtool.FullName sign /sha1 $thumbprint /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
-    if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
+    if ($cert -and $cert.HasPrivateKey) {
+        & $signtool.FullName sign /sha1 $thumbprint /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
+        if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
+        Write-Host "Signed using certificate store thumbprint $thumbprint."
+        return
+    }
+    if (-not ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD)) {
+        throw "Certificate with thumbprint $thumbprint is not available with a private key, and no PFX fallback is configured."
+    }
+    Write-Warning "Certificate thumbprint $thumbprint is unavailable; falling back to the PFX secret."
 }
-else {
+
+if ($env:CERTIFICATE_BASE64 -and $env:CERTIFICATE_PASSWORD) {
     $pfx = Join-Path $env:RUNNER_TEMP 'metasequoia-signing.pfx'
     [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERTIFICATE_BASE64))
     try {
         & $signtool.FullName sign /f $pfx /p $env:CERTIFICATE_PASSWORD /fd sha256 /tr $env:TIMESTAMP_URL /td sha256 /v @($targets.FullName)
         if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
     } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
+}
+else {
+    throw 'No usable signing certificate is configured.'
 }
 
 Write-Host "Signed $($targets.Count) file(s)."
