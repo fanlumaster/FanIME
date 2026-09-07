@@ -254,6 +254,7 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
     const VoiceInputConfig &voice = GetConfiguredVoiceInput();
     const AiAssistantConfig &ai = GetConfiguredAiAssistant();
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
+    const CustomTranslationConfig &custom_translation = GetConfiguredCustomTranslation();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
     const std::filesystem::path skins_root =
@@ -448,6 +449,10 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
             {"secret_key", tencent_tmt.secret_key},
             {"region", tencent_tmt.region},
             {"target_language", tencent_tmt.target_language}}},
+          {"custom_translation",
+           {{"enabled", custom_translation.enabled},
+            {"endpoint", custom_translation.endpoint},
+            {"api_key", custom_translation.api_key}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
             {"shuangpin_helpcode_schema", GetConfiguredShuangpinHelpcodeSchema()},
@@ -688,6 +693,15 @@ bool ApplyConfigUpdate(const json::object &data)
         const json::value &value = data.at("value");
         return value.is_string() && SetConfiguredTencentTmtString(path.substr(std::string("tencent_tmt.").size()),
                                                                   json::value_to<std::string>(value));
+    }
+    if (path == "custom_translation.enabled")
+        return SetConfiguredCustomTranslationBool("enabled", json::value_to<bool>(data.at("value")));
+    if (path.rfind("custom_translation.", 0) == 0)
+    {
+        const json::value &value = data.at("value");
+        return value.is_string() &&
+               SetConfiguredCustomTranslationString(path.substr(std::string("custom_translation.").size()),
+                                                    json::value_to<std::string>(value));
     }
     if (path == "helpcode.show_sp_helpcode_in_candidate_window")
         return SetConfiguredShowShuangpinHelpcodeInCandidateWindow(json::value_to<bool>(data.at("value")));
