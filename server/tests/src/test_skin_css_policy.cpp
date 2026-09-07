@@ -85,6 +85,12 @@ TEST_CASE(skin_css_import_stripping_only_matches_a_real_at_rule)
     REQUIRE_EQ(StripRemoteImports(L".a{}@import \"https://attacker.example/x\";.b{}"), std::wstring(L".a{}.b{}"));
     REQUIRE_EQ(StripRemoteImports(L"@charset \"utf-8\";@import \"//attacker.example/x\";.b{}"),
                std::wstring(L"@charset \"utf-8\";.b{}"));
+    REQUIRE_EQ(StripRemoteImports(L"/* skin comment */ @import \"https://attacker.example/x\";.b{}"),
+               std::wstring(L"/* skin comment */ .b{}"));
+    REQUIRE_EQ(StripRemoteImports(L"@import \"https:\\/\\/attacker.example/x\";.b{}"),
+               std::wstring(L".b{}"));
+    REQUIRE_EQ(StripRemoteImports(L"@import \"https\\3a \\2f\\2fattacker.example/x\";.b{}"),
+               std::wstring(L".b{}"));
 }
 
 TEST_CASE(skin_css_local_imports_and_plain_stylesheets_are_untouched)

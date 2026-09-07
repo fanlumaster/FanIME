@@ -77,24 +77,162 @@ UrlAction ClassifyUrl(std::wstring url)
 namespace
 {
 
-// `@import` only begins an at-rule at the top level of a stylesheet, which means at the very start
-// or after a `;` or `}`. Matching it anywhere would let `content: "@import //x";` be treated as one
-// and cut away everything up to that declaration's semicolon, leaving an unterminated string and a
-// broken stylesheet -- a legitimate skin damaged in the name of protecting it.
-bool BeginsAtRule(const std::wstring &css, size_t at)
+size_t SkipCssTrivia(const std::wstring &css, size_t position)
 {
-    size_t before = at;
-    while (before > 0 && iswspace(css[before - 1]))
+    while (position < css.size())
     {
-        --before;
+        if (iswspace(css[position]))
+        {
+            ++position;
+            continue;
+        }
+        if (position + 1 < css.size() && css[position] == L'/' && css[position + 1] == L'*')
+        {
+            const size_t end = css.find(L"*/", position + 2);
+            return end == std::wstring::npos ? css.size() : SkipCssTrivia(css, end + 2);
+        }
+        break;
     }
-    if (before != 0 && css[before - 1] != L';' && css[before - 1] != L'}')
+    return position;
+}
+
+std::wstring DecodeCssEscapes(std::wstring value)
+{
+    std::wstring decoded;
+    decoded.reserve(value.size());
+    for (size_t index = 0; index < value.size(); ++index)
     {
-        return false;
+        if (value[index] != L'\\' || index + 1 >= value.size())
+        {
+            decoded.push_back(value[index]);
+            continue;
+        }
+
+        size_t cursor = index + 1;
+        unsigned int codepoint = 0;
+        size_t digits = 0;
+        while (cursor < value.size() && digits < 6)
+        {
+            const wchar_t ch = value[cursor];
+            unsigned int digit = 0;
+            if (ch >= L'0' && ch <= L'9')
+                digit = static_cast<unsigned int>(ch - L'0');
+            else if (ch >= L'a' && ch <= L'f')
+                digit = static_cast<unsigned int>(ch - L'a' + 10);
+            else if (ch >= L'A' && ch <= L'F')
+                digit = static_cast<unsigned int>(ch - L'A' + 10);
+            else
+                break;
+            codepoint = codepoint * 16 + digit;
+            ++cursor;
+            ++digits;
+        }
+        if (digits != 0)
+        {
+            decoded.push_back(static_cast<wchar_t>(codepoint));
+            index = cursor - 1;
+            if (index + 1 < value.size() && iswspace(value[index + 1]))
+                ++index;
+        }
+        else
+        {
+            decoded.push_back(value[++index]);
+        }
     }
-    // `@importsomething` is a different at-rule, or nothing at all. The keyword has to end here.
-    const size_t after = at + 7;
-    return after >= css.size() || !iswalnum(css[after]);
+    return decoded;
+}
+
+size_t FindCssStatementEnd(const std::wstring &css, size_t start)
+{
+    wchar_t quote = 0;
+    size_t parentheses = 0;
+    for (size_t index = start; index < css.size(); ++index)
+    {
+        const wchar_t ch = css[index];
+        if (quote != 0)
+        {
+            if (ch == L'\\')
+                ++index;
+            else if (ch == quote)
+                quote = 0;
+            continue;
+        }
+        if (ch == L'\'' || ch == L'"')
+        {
+            quote = ch;
+        }
+        else if (index + 1 < css.size() && ch == L'/' && css[index + 1] == L'*')
+        {
+            const size_t end = css.find(L"*/", index + 2);
+            if (end == std::wstring::npos)
+                return css.size();
+            index = end + 1;
+        }
+        else if (ch == L'(')
+        {
+            ++parentheses;
+        }
+        else if (ch == L')' && parentheses != 0)
+        {
+            --parentheses;
+        }
+        else if (ch == L';' && parentheses == 0)
+        {
+            return index + 1;
+        }
+    }
+    return css.size();
+}
+
+bool IsRemoteImport(const std::wstring &rule)
+{
+    size_t cursor = SkipCssTrivia(rule, 7); // length of "@import"
+    if (cursor >= rule.size())
+        return true;
+
+    std::wstring target;
+    if (rule[cursor] == L'\'' || rule[cursor] == L'"')
+    {
+        const wchar_t quote = rule[cursor++];
+        const size_t start = cursor;
+        while (cursor < rule.size() && rule[cursor] != quote)
+        {
+            if (rule[cursor] == L'\\')
+                ++cursor;
+            ++cursor;
+        }
+        if (cursor >= rule.size())
+            return true;
+        target = rule.substr(start, cursor - start);
+    }
+    else
+    {
+        cursor = SkipCssTrivia(rule, cursor);
+        if (cursor + 4 > rule.size() || !MatchesFoldedAt(rule, cursor, L"url"))
+            return true;
+        cursor = SkipCssTrivia(rule, cursor + 3);
+        if (cursor >= rule.size() || rule[cursor] != L'(')
+            return true;
+        cursor = SkipCssTrivia(rule, cursor + 1);
+        const wchar_t quote = cursor < rule.size() && (rule[cursor] == L'\'' || rule[cursor] == L'"')
+                                  ? rule[cursor++]
+                                  : 0;
+        const size_t start = cursor;
+        while (cursor < rule.size())
+        {
+            if (quote != 0 && rule[cursor] == quote)
+                break;
+            if (quote == 0 && (rule[cursor] == L')' || iswspace(rule[cursor])))
+                break;
+            if (rule[cursor] == L'\\')
+                ++cursor;
+            ++cursor;
+        }
+        target = rule.substr(start, cursor - start);
+    }
+
+    const UrlAction action = ClassifyUrl(DecodeCssEscapes(target));
+    return action == UrlAction::Drop;
 }
 
 } // namespace
@@ -104,34 +242,59 @@ std::wstring StripRemoteImports(const std::wstring &css)
     std::wstring result;
     result.reserve(css.size());
     size_t pos = 0;
-    while (pos < css.size())
+    size_t braceDepth = 0;
+    for (size_t index = 0; index < css.size(); ++index)
     {
-        size_t importPos = std::wstring::npos;
-        for (size_t i = pos; i + 7 <= css.size(); ++i)
+        if (index + 1 < css.size() && css[index] == L'/' && css[index + 1] == L'*')
         {
-            if (css[i] == L'@' && MatchesFoldedAt(css, i + 1, L"import") && BeginsAtRule(css, i))
-            {
-                importPos = i;
+            const size_t end = css.find(L"*/", index + 2);
+            if (end == std::wstring::npos)
                 break;
+            index = end + 1;
+            continue;
+        }
+
+        if (css[index] == L'\'' || css[index] == L'"')
+        {
+            const wchar_t quote = css[index++];
+            while (index < css.size())
+            {
+                if (css[index] == L'\\')
+                    ++index;
+                else if (css[index] == quote)
+                    break;
+                ++index;
+            }
+            continue;
+        }
+
+        if (css[index] == L'{')
+        {
+            ++braceDepth;
+            continue;
+        }
+        if (css[index] == L'}' && braceDepth != 0)
+        {
+            --braceDepth;
+            continue;
+        }
+
+        if (braceDepth == 0 && css[index] == L'@' && MatchesFoldedAt(css, index + 1, L"import"))
+        {
+            const size_t after = index + 7;
+            if (after >= css.size() || (!iswalnum(css[after]) && css[after] != L'_' && css[after] != L'-'))
+            {
+                const size_t end = FindCssStatementEnd(css, index);
+                const std::wstring rule = css.substr(index, end - index);
+                result.append(css, pos, index - pos);
+                if (!IsRemoteImport(rule))
+                    result.append(rule);
+                pos = end;
+                index = end == 0 ? 0 : end - 1;
             }
         }
-        if (importPos == std::wstring::npos)
-        {
-            result.append(css, pos, std::wstring::npos);
-            break;
-        }
-        // An @import rule ends at the first semicolon. An unterminated one runs to the end of the
-        // stylesheet, and in that case there is nothing after it to preserve.
-        const size_t end = css.find(L';', importPos);
-        const size_t stop = end == std::wstring::npos ? css.size() : end + 1;
-        const std::wstring rule = css.substr(importPos, stop - importPos);
-        result.append(css, pos, importPos - pos);
-        if (rule.find(L"://") == std::wstring::npos && rule.find(L"//") == std::wstring::npos)
-        {
-            result.append(rule);
-        }
-        pos = stop;
     }
+    result.append(css, pos, std::wstring::npos);
     return result;
 }
 
